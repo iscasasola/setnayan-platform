@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { siteOrigin } from '@/lib/site-origin';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -41,7 +41,8 @@ import {
   type EventMemberType,
 } from './_components/group-home';
 import { formatCount } from '@/lib/format-number';
-import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
+import { pageBackLink } from '@/lib/page-home';
+import { GroupBack } from './_components/group-back';
 
 export const metadata = {
   title: 'Group',
@@ -69,8 +70,8 @@ const VIEW_TITLE: Record<Exclude<View, 'home'>, string> = {
   events: 'Events',
 };
 
-const BACK =
-  'mb-3 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md px-1 text-sm font-medium text-ink/70 hover:text-ink';
+/** Where a group's ‹ goes when there is no screen of ours to go back to — the one map (People › Groups). */
+const GROUP_HOME = pageBackLink('/dashboard/samahan/[communityId]')!;
 
 const ERROR_COPY: Record<string, string> = {
   last_organizer:
@@ -225,17 +226,12 @@ export default async function SamahanSpacePage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-      {/* Back — from the group page to every group; from a one-tap view to its group. */}
+      {/* ‹ — RETURNS IN PLACE (owner 2026-10-29): came from a list in the app → the browser's back, that screen and its
+          scroll; a deep link → from the group, the map's home (People › Groups); from a one-tap view, its group. */}
       {home ? (
-        <Link href={PEOPLE_GROUPS_HREF} className={BACK}>
-          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          <span className="truncate">Back to Groups</span>
-        </Link>
+        <GroupBack href={GROUP_HOME.href} label={`Back to ${GROUP_HOME.label}`} />
       ) : (
-        <Link href={base} className={BACK}>
-          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          <span className="truncate">{community.name}</span>
-        </Link>
+        <GroupBack href={base} label={community.name} />
       )}
 
       {!home ? (

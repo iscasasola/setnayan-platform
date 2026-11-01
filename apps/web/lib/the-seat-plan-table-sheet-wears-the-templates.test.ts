@@ -100,7 +100,9 @@ test('2 · the handlers are the editor’s own — each press called the one it 
     'onRotate={() => rotateTable(st, 90)}',
     'onEditChairs={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }}',
     'onUnlink={() => doUnlink(st.table_id)}',
-    'onDone={() => { setLinkFrom(null); clearSelection(); }}',
+    // ⇄ Swap with another table… (moved here from the view-only 3D room, 2026-10-30) — Done also ends a waiting swap.
+    'onSwap={() => armSwap(st)}',
+    'onDone={() => { setLinkFrom(null); setSwapFrom(null); clearSelection(); }}',
     'onDelete={() => requestRemoveTable(st)}',
   ]) assert.ok(use.includes(want), `the editor hands another handler: ${want}`);
   const phone = read(`${S}/seat-plan-phone.tsx`);

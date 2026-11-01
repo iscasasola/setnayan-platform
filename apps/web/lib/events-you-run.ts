@@ -19,16 +19,54 @@
  *     provides them the initial information they received", so an Off coordinator has no event to run and no door.
  *
  * Any of those false → the row, the Events tab and "Open their event" all go, at the next render. Never a dead tab.
+ *
+ * 👥 …AND A LIVE CO-HOST SEAT (owner 2026-10-29: *"This is similar to adding them as a cohost which is already in
+ * effect. They only need a way to access it and have that menu for them on their account."*). A supplier the hosts
+ * made a CO-HOST from the guest list (`event_moderators.role_subtype` a full co-host kind — `seatIsFullCohost`, the
+ * mirror of SQL `seat_is_full_cohost`) is a `couple` member of the event, admitted by the dashboard's membership
+ * check, with every area. The door is drawn for that seat too, while it is joined (`user_id` theirs, `accepted_at`
+ * stamped by `activate_guest_seats`), not removed, and its event readable — and, so the list never grows forever,
+ * only until the same seven days after the event a coordinator's window gives (a co-host's ACCESS does not end there;
+ * only the list row goes, so this still draws for fewer people than the dashboard admits). A limited helper
+ * (`viewer`) views; it does not run the event — no door.
+ *
+ * 🛑 …BUT ONLY ON AN EVENT THIS SHOP SERVES, AND ONLY THROUGH A SEAT A SUPPLIER GETS (fixed 2026-10-29). The widening
+ * above, as first shipped, counted ANY full co-host seat — and a host's own account holds one on his own event (the
+ * partner/family co-host kind). The owner opened his shop's Today and found his OWN wedding under "Events you run",
+ * as "Co-host · 29 tasks overdue", while the event's booked coordinator was a different shop. So a row now needs BOTH:
+ *   (a) THIS SHOP is on the event — a live `event_vendors` row (`archived_at` null) whose `marketplace_vendor_id` is
+ *       the signed-in person's ACTIVE shop (the claimed-invite bond / marketplace pick / booking — the one column that
+ *       says "this supplier is on this event"); the server read hands it in as `shopEventIds`;
+ *   (b) the seat is one a SUPPLIER gets — the coordinator's seat, or the co-host seat the hosts granted through the
+ *       supplier access choice (Home's Limited · Full access → `permissions_json.access_level = 'full'`,
+ *       `levelWrite`). A co-host seat with no recorded answer is a genuine co-host (partner, family) — their own
+ *       event, not one a shop runs — and never draws a row, whatever (a) says.
  * 🔒 `events-you-run.test.ts` · `app/vendor-dashboard/coordinator-door.test.ts`.
  */
-import { delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
-import type { ModeratorPermissions } from './delegate-areas';
+import { delegateAccessHasExpired, delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
+import { resolveAreaLevel, type ModeratorPermissions } from './delegate-areas';
 import { areaCells, coordinatorHasHostAccess } from './people-with-access';
 import type { EventDecisionSummary } from './event-decisions';
 import { formatCount } from './format-number';
+import { FULL_COHOST_SEAT_KINDS, seatIsFullCohost } from './guest-access';
+import { levelOf, type LevelledPermissions } from './coordinator-access-level';
 
 /** The coordinator's seat — the one role this door is for (owner 2026-10-07: "Same as User Host of the event"). */
 export const COORDINATOR_SEAT_ROLE = 'wedding_planner_external';
+
+/**
+ * Every seat kind that can run an event: the coordinator's, and each full co-host kind. The server read asks for
+ * exactly these (`.in('role_subtype', RUN_SEAT_ROLES)`); `seatRunsTheEvent` decides which of them is live.
+ */
+export const RUN_SEAT_ROLES: readonly string[] = [COORDINATOR_SEAT_ROLE, ...FULL_COHOST_SEAT_KINDS];
+
+/** The word for the seat on the Today row and the customer card's pill. */
+export type RunSeatWord = 'Coordinator' | 'Co-host';
+export const runSeatWord = (roleSubtype: string | null, permissions?: ModeratorPermissions | null): RunSeatWord =>
+  // A coordinator the hosts gave FULL access sits on a co-host seat — still their coordinator (owner 2026-10-29).
+  roleSubtype === COORDINATOR_SEAT_ROLE || levelOf({ permissions_json: (permissions ?? null) as LevelledPermissions | null }) !== null
+    ? 'Coordinator'
+    : 'Co-host';
 
 export { EVENTS_YOU_RUN_HREF, EVENTS_YOU_RUN_TIP, EVENTS_YOU_RUN_LEDE } from './events-you-run-words';
 
@@ -60,8 +98,16 @@ export type EventYouRun = {
   eventId: string;
   /** The couple's names ("Claire & Indalecio") — never blank. */
   name: string;
-  /** "Wedding · Sat, Dec 12 · Coordinator" (the Today row) */
+  /** "Wedding · Sat, Dec 12 · Coordinator" — or "· Co-host" (the Today row) */
   line: string;
+  /** Which seat runs it — the customer card's pill. */
+  seatWord: RunSeatWord;
+  /**
+   * 📣 May they "Message everyone" (S9, owner 2026-10-29)? The broadcast's own rule (`resolveBroadcastAuthority` · the
+   * `coordinator_broadcasts` INSERT policies): a full co-host, or a delegate holding `schedule: 'edit'`. The door is
+   * drawn only where the composer would open.
+   */
+  canAnnounce: boolean;
   /** "Wedding · Sat, Dec 12 · Seda Vertis North" (the Events page row) */
   placeLine: string;
   /** What the day is to them: "Today" · "Tomorrow" · "In 45 days" · "Wrapping up · access until Dec 19" · "Date not set yet". */
@@ -84,14 +130,29 @@ export type EventYouRun = {
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 
 /**
- * Is THIS seat a live coordinator's? The whole rule, pure — the tab, the Today rows, the Events page and the
- * customer card's "Open their event" all ask it, so they cannot disagree.
+ * (b) Is THIS seat one a supplier runs the event through, live — the coordinator's, or the hosts' "Full access"
+ * co-host seat? Pure. Half the rule: `eventsYouRun` also asks (a) `shopServesTheEvent`, and the tab, the Today rows,
+ * the Events page and the customer card's "Open their event" all read `eventsYouRun`, so they cannot disagree.
  */
 export function seatRunsTheEvent(row: CoordinatorSeatRow, now: Date): boolean {
-  if (row.role_subtype !== COORDINATOR_SEAT_ROLE) return false;
   if (!row.accepted_at || row.removed_at) return false;
   const ev = one(row.events);
   if (!ev) return false; // the event row is not readable to them — no door to draw
+  if (row.role_subtype !== COORDINATOR_SEAT_ROLE) {
+    // 👥 A full co-host: every area is theirs (a `couple` member). Live while joined and not removed; listed until
+    // the same seven days after the event (the list's limit, not their access's).
+    if (!row.role_subtype || !seatIsFullCohost(row.role_subtype)) return false;
+    // 🛑 (b) Only the co-host seat the hosts gave a SUPPLIER (Home's "Full access" — `levelWrite('full')` records
+    // `access_level: 'full'` on it). A co-host seat with no recorded answer is a partner's / family's own seat.
+    if (levelOf({ permissions_json: row.permissions_json as LevelledPermissions | null }) !== 'full') return false;
+    return !delegateAccessHasExpired({
+      isCouple: false,
+      eventDate: ev.event_date,
+      eventEndDate: ev.event_end_date,
+      precision: ev.event_date_precision,
+      now,
+    });
+  }
   const perms = permissionsWithinWindow(row.permissions_json, {
     isCouple: false,
     eventDate: ev.event_date,
@@ -100,7 +161,19 @@ export function seatRunsTheEvent(row: CoordinatorSeatRow, now: Date): boolean {
     now,
   });
   if (!perms) return false; // window closed (or no grant at all)
+  // 🔑 The hosts answered LIMITED (owner 2026-10-29, Home's Limited · Full access): she views every part — still her
+  // event to open, inside the same window.
+  if (levelOf({ permissions_json: row.permissions_json as LevelledPermissions | null }) === 'limited') return true;
   return coordinatorHasHostAccess(areaCells(perms));
+}
+
+/**
+ * (a) Is THIS SHOP on the seat's event? Read off the seat's own `event_id` AND its embedded event, so a row whose
+ * event did not come back can never borrow another event's bond.
+ */
+export function shopServesTheEvent(row: CoordinatorSeatRow, shopEventIds: ReadonlySet<string>): boolean {
+  const ev = one(row.events);
+  return !!ev && ev.event_id === row.event_id && shopEventIds.has(row.event_id);
 }
 
 const TYPE_WORD = (t: string | null): string => {
@@ -137,6 +210,7 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
   const ev = one(row.events);
   if (!ev) return null;
   const name = ev.display_name?.trim() || `${TYPE_WORD(ev.event_type)} you run`;
+  const seatWord = runSeatWord(row.role_subtype, row.permissions_json);
   const day = runDayWord(ev.event_date, ev.event_date_precision);
   const typeWord = TYPE_WORD(ev.event_type);
   const dayPrecise = !ev.event_date_precision || ev.event_date_precision === 'day';
@@ -163,13 +237,17 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
       precision: ev.event_date_precision,
     });
     const lastWord = last ? runDayWord(last, 'day')?.replace(/^\w+, /, '') : null;
-    status = lastWord ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
+    // A co-host's access does not end after the event — only the coordinator's does, so only it names a day.
+    status = lastWord && row.role_subtype === COORDINATOR_SEAT_ROLE ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
     rank = 2;
   }
   return {
     eventId: ev.event_id,
     name,
-    line: [typeWord, day, 'Coordinator'].filter(Boolean).join(' · '),
+    line: [typeWord, day, seatWord].filter(Boolean).join(' · '),
+    seatWord,
+    canAnnounce:
+      (!!row.role_subtype && seatIsFullCohost(row.role_subtype)) || resolveAreaLevel(row.permissions_json, 'schedule') === 'edit',
     placeLine: [typeWord, day, ev.venue_name?.trim() || null].filter(Boolean).join(' · '),
     status,
     needs: NEEDS_UNREAD,
@@ -186,11 +264,21 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
   };
 }
 
-/** Every LIVE seat → its row, upcoming first (soonest first), then undated, then the ones wrapping up. */
-export function eventsYouRun(rows: readonly CoordinatorSeatRow[], now: Date, todayIso: string): EventYouRun[] {
+/**
+ * Every LIVE seat on an event THIS SHOP serves → its row, upcoming first (soonest first), then undated, then the ones
+ * wrapping up. `shopEventIds` is (a): the events whose live `event_vendors` row points at the signed-in person's
+ * active shop (`readEventsYouRun`). Required, never defaulted — a missing set would list every seat, which is the bug.
+ */
+export function eventsYouRun(
+  rows: readonly CoordinatorSeatRow[],
+  now: Date,
+  todayIso: string,
+  shopEventIds: ReadonlySet<string>,
+): EventYouRun[] {
   const seen = new Set<string>();
   const out: EventYouRun[] = [];
   for (const r of rows) {
+    if (!shopServesTheEvent(r, shopEventIds)) continue;
     if (!seatRunsTheEvent(r, now)) continue;
     const e = eventYouRunOf(r, todayIso);
     if (!e || seen.has(e.eventId)) continue;

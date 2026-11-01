@@ -44,7 +44,7 @@ const tiles: StudioTileModel[] = STUDIO_TILE_KEYS.map((key) => ({
   short: STUDIO_TILES[key].short,
   item: STUDIO_TILES[key].item,
   immersive: STUDIO_TILES[key].immersive === true,
-  done: key === 'seats' ? false : true,
+  done: key === 'logo' ? false : true,
   status: STUDIO_TILES[key].sub,
 }));
 
@@ -62,22 +62,23 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   const parts = await import(`../${L}/stages-studio-parts`);
   assert.equal((parts as Record<string, unknown>).StudioToolRow, undefined, 'the Tool row is still exported');
   assert.equal((parts as Record<string, unknown>).StudioDoneBar, undefined, 'the Done band is still exported');
-  const march = tiles.find((t) => t.key === 'march')!;
+  const page = tiles.find((t) => t.key === 'story')!;
   assert.equal((parts as Record<string, unknown>).StudioPageHead, undefined, 'the head that named only the page is still exported');
   assert.equal((parts as Record<string, unknown>).StudioBack, undefined, 'a ‹ is exported again — the list is one tap away from anywhere');
-  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: march, tiles, onOpen: () => {} }));
-  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Wedding March — choose a page"/);
+  const head = await html(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page, tiles, onOpen: () => {} }));
+  assert.match(head, /aria-pressed="true"[^>]*aria-label="Studio page: Love Story — choose a page"/);
   assert.match(head, /aria-pressed="false"[^>]*aria-label="Stages — choose a stage"/, 'inside a page the way to the stages is gone');
   assert.doesNotMatch(head, /data-maker-studio-tool|data-maker-studio-done|uppercase|Saved/, 'the head still carries the old Tool ▾, ✓ Done or a Saved chip');
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
-test('1b · the Studio home: ten tiles (RSVP left in R1) on the warm page, ✓ / Missing as read', async () => {
+test('1b · the Studio home: seven tiles (RSVP left in R1; Wedding March and Seat plan in R4; Prints in R8) on the warm page, ✓ / Missing as read', async () => {
   const { StudioHome } = await import(`../${L}/studio-home`);
   const out = await html(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, 10);
+  /* Counted from the keys (R8 took Prints out): every tile drawn, one Missing. */
+  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, STUDIO_TILE_KEYS.length);
   assert.ok(out.includes(STUDIO_PAGE_BG), 'the home is not on the prototype’s warm page');
-  assert.match(out, /9 of 10 ready/);
+  assert.ok(out.includes(`${STUDIO_TILE_KEYS.length - 1} of ${STUDIO_TILE_KEYS.length} ready`), 'the head’s count is not the tiles’');
   assert.equal((out.match(/>Missing</g) ?? []).length, 1);
 });
 
@@ -156,7 +157,7 @@ test('4 · Studio › Look opens on its one bar: no tall tiles; Background is th
 test('5 · the full-screen surface: green switches, edge to edge, Look full width', () => {
   const css = studioFullScreenCss();
   assert.match(css, /input\[role=switch\]:checked\+span\{background-color:#4f6b4a\}/, 'switches are not the prototype’s green');
-  assert.match(css, /\[data-details-editor-panel\]\[data-phone-chrome="panel"\]\{left:0;right:0;bottom:0;border-radius:0;box-shadow:none/, 'the editor still floats as a sheet');
+  assert.match(css, /\[data-details-editor-panel\]\[data-phone-chrome="panel"\]\{left:0;right:0;bottom:var\(--maker-nav,0px\);border-radius:0;box-shadow:none/, 'the editor still floats as a sheet, or covers the app’s bottom nav');
   assert.match(css, /:has\(\[data-details-editor\]:not\(\[hidden\]\) \[data-studio-look-bar\]\)\{left:0;right:0/, 'Look’s panel is not full width');
 });
 

@@ -1,5 +1,5 @@
 /**
- * lib/studio-tiles.ts — THE STUDIO HOME'S ELEVEN TILES (owner 2026-10-06,
+ * lib/studio-tiles.ts — THE STUDIO HOME'S TILES (owner 2026-10-06,
  * DECISION_LOG "STUDIO OPENS ON A HOME OF TEN TILES…" + "PRINTS IS THE ELEVENTH
  * STUDIO TILE"; prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`
  * `SHOME` / `studioHome()`; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1).
@@ -9,10 +9,16 @@
  * *"yes add prints as the eleventh tile"*. In the order an event gets made:
  *
  *   Info · Look · Logo · Mood Board & Dress Code · Schedule · Love Story ·
- *   Wedding March · Seat plan · E-Gifts · Prints
+ *   Wedding March · Seat plan · E-Gifts
  *
  * 🗂 RSVP LEFT (R1, owner 2026-10-28): its settings are Guests ⚙'s now; Studio's "n of N ready" counts the tiles that
  * are here, so a finished RSVP never reads as a Studio "Missing" and an unfinished one is Guests ⚙'s to say.
+ * 🗂 WEDDING MARCH AND SEAT PLAN LEFT (R4, owner 2026-10-27/28): they are Guests › March and Guests › Seats — the same
+ * makers, drawn whole there. Their ✓ is still counted where the guided flow counts it (a link step to the Guests view,
+ * `lib/details-guided-flow.ts`), never as a Studio "Missing".
+ *
+ * 🖨 PRINTS LEFT (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page and a Prints line on Home
+ * (`lib/prints-page.ts`). It was always ✓ (nothing to fill), so "n of N ready" loses one ready and one total.
  *
  * 🔑 NEVER A SECOND TRUTH. A tile is chrome over an editor the Maker already
  * has (each opens its shipped Event Details item, `item`), and its ✓ / Missing
@@ -20,9 +26,9 @@
  * `guidedItemDone` over the launch page's one `guidedFactsFrom` (which is what
  * every `DetailsItemModel.done` the plan counts is), `wordsAndPlansItem` for the
  * Schedule's and the Love Story's lines, and the counts the page already
- * read (the seat plan's tables and seated, the E-Gifts manager's own methods).
+ * read (the E-Gifts manager's own methods).
  * A fact that could not be read makes NO claim (`done: undefined`) — never a
- * "Missing" nobody measured. Prints is always ✓ (nothing to fill).
+ * "Missing" nobody measured.
  *
  * Pure: no I/O, no React. The launch page builds the models on the server
  * (only while the new Maker is on) and hands them to `MakerShell`; the shell
@@ -31,8 +37,8 @@
 import { wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';
 
-export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
-import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
+export { STUDIO_MENU_KEYS, STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, isStudioMenuKey, studioTileItem, type StudioTileKey } from './studio-tile-defs';
+import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, isStudioMenuKey, type StudioTileKey } from './studio-tile-defs';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { STUDIO_TILE_UNREAD } from './studio-page-cards';
 import { formatPhp } from '@/lib/php';
@@ -52,10 +58,7 @@ export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartI
   mood: [],
   schedule: [],
   story: ['photos'],
-  march: [],
-  seats: [],
   gifts: [],
-  prints: ['prints'],
 };
 
 /** The card's quiet Pro line — every figure a catalogue read; null where the page holds no part (or no price was read). */
@@ -83,7 +86,8 @@ type StudioTileDef = {
   item: DetailsItemKey;
   /** The items whose `done` this tile reads (all must be read, and all true). */
   reads: readonly DetailsItemKey[];
-  /** Wedding March and Seat plan: the top nav hides, ✓ Done returns (owner: "yes for those 2"). */
+  /** A tile whose page takes the whole screen — the top nav hides, ✓ Done returns (owner: "yes for those 2" — the
+   *  Wedding March and Seat plan, both Guests' views since R4; none is left). */
   immersive?: true;
   /** What it holds, in the prototype's words — the status line where no count says more. */
   sub: string;
@@ -94,13 +98,12 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   /* Its line IS Look's sections (`LOOK_SECTIONS` — Background · Elements · Music since 2026-10-08), never a second list of them. */
   look: { label: 'Look', short: 'Look', item: STUDIO_TILE_ITEM.look, reads: ['theme'], sub: LOOK_SECTIONS.map((k) => LOOK_SECTION_LABEL[k]).join(' · ') },
   logo: { label: 'Logo', short: 'Logo', item: STUDIO_TILE_ITEM.logo, reads: ['logo'], sub: 'Mark · fonts · animation' },
-  mood: { label: 'Mood Board & Dress Code', short: 'Mood Board', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
+  /* 🎨 "PALETTE + DRESS CODE" (owner 2026-10-27, "STUDIO IS LOOK AND WORDS ONLY"): the Mood Board's inspiration part goes to
+     Suppliers › Find; what stays is the five colours and attire by role — named for what it is (the 30 Oct prototype). */
+  mood: { label: 'Palette + Dress Code', short: 'Palette', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
   schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },
   story: { label: 'Love Story', short: 'Love Story', item: STUDIO_TILE_ITEM.story, reads: ['love-story'], sub: 'Chapters with a photo' },
-  march: { label: 'Wedding March', short: 'March', item: STUDIO_TILE_ITEM.march, reads: ['march'], immersive: true, sub: 'Drag the names, two columns' },
-  seats: { label: 'Seat plan', short: 'Seat plan', item: STUDIO_TILE_ITEM.seats, reads: ['seating'], immersive: true, sub: 'Tables and who sits where' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
-  prints: { label: 'Prints', short: 'Prints', item: STUDIO_TILE_ITEM.prints, reads: [], sub: 'Invitation set · for the day' },
 };
 
 /** One tile, as the Studio home draws it and the Tool ▾ lists it. */
@@ -122,12 +125,8 @@ export type StudioTilesInput = {
   facts: GuidedDoneFacts;
   /** E-Gifts switched on, from the E-Gifts manager's own read; null = could not be read. */
   giftMethods: number | null;
-  /** The Seat plan row's counts; null = this type has no seat plan. */
-  seat: { tables: number | null; seated: number | null } | null;
   /** Does this event draw the item (the type's own rule, `detailsItemApplies`, and what was read)? */
   offered: (item: DetailsItemKey) => boolean;
-  /** The march's name in the event type's own words (`yourEventLabel('march', kind)`). */
-  marchLabel?: string;
   /** 💎 What the event holds of Event Hub Pro and each part's price — null in the store shell (no web price). */
   pro?: { owned: readonly HubPartId[]; full: boolean; pricePhp: Partial<Record<HubPartId, number>> } | null;
 };
@@ -145,8 +144,6 @@ function tileDone(key: StudioTileKey, input: StudioTilesInput): boolean | undefi
   switch (key) {
     case 'gifts':
       return input.giftMethods === null ? undefined : input.giftMethods > 0;
-    case 'prints':
-      return true;
     default:
       return readsDone(STUDIO_TILES[key].reads, input.facts);
   }
@@ -159,13 +156,6 @@ function tileStatus(key: StudioTileKey, input: StudioTilesInput): string {
       return wordsAndPlansItem('schedule', input.facts.words).sub ?? def.sub;
     case 'story':
       return wordsAndPlansItem('love-story', input.facts.words).sub ?? def.sub;
-    case 'seats': {
-      const t = input.seat?.tables ?? null;
-      const n = input.seat?.seated ?? null;
-      if (!input.seat) return def.sub;
-      if (t === null || n === null) return UNREAD;
-      return t === 0 ? 'No tables yet' : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated`;
-    }
     case 'gifts': {
       const n = input.giftMethods;
       if (n === null) return UNREAD;
@@ -182,8 +172,8 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
     const def = STUDIO_TILES[key];
     return {
       key,
-      label: key === 'march' && input.marchLabel ? input.marchLabel : def.label,
-      short: key === 'march' && input.marchLabel ? input.marchLabel.split(' ').slice(-1)[0]! : def.short,
+      label: def.label,
+      short: def.short,
       item: def.item,
       immersive: def.immersive === true,
       done: tileDone(key, input),
@@ -191,6 +181,15 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
       pro: studioTilePro(key, input.pro),
     };
   });
+}
+
+/**
+ * 🎛 The pages Studio ▾ lists (`STUDIO_MENU_KEYS`, owner 2026-10-27/30) — the rest are opened from their new homes.
+ * Studio ▾, the Studio home's cards and "n of N ready" all read THIS, so the count never says "Missing" about a page
+ * the menu does not show.
+ */
+export function studioMenuTiles<T extends Pick<StudioTileModel, 'key'>>(tiles: readonly T[]): T[] {
+  return tiles.filter((t) => isStudioMenuKey(t.key));
 }
 
 /** "n of N ready" — a tile counts only when it is really done (no claim is not ready). */

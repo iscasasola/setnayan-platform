@@ -27,6 +27,7 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
 import { checklistTaskAnchor } from '@/lib/checklist-anchor';
+import { dateFinderHref } from '@/lib/home-date-finder';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -34,8 +35,9 @@ export type HomeControlKey = (typeof HOME_CONTROL_KEYS)[number];
 
 /** The ONE page each widget opens (notes: "One widget → the ONE page it opens"). */
 export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
-  // The page titled Event Details — its one name (owner 2026-10-23: "only keep the Event Details button").
-  count: 'Event Details',
+  // 📅 The Date Finder (owner 2026-10-30: *"date finder. because we want them to find the date for their event"*;
+  // DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (3)) — Event Details itself is combined into Home's ⚙ Event Settings.
+  count: 'Date Finder',
   guests: 'Guests',
   hub: 'Event Hub',
   sup: 'Suppliers',
@@ -177,7 +179,16 @@ export type HomeBudgetFacts = {
 export type HomeControlInput = {
   eventId: string;
   next: HomeNext;
-  countdown: { value: string; label: string; days: number | null; hasDate: boolean; placeLine: string | null; long: string | null };
+  countdown: {
+    value: string;
+    label: string;
+    days: number | null;
+    hasDate: boolean;
+    placeLine: string | null;
+    long: string | null;
+    /** The card's ONE page — absent = the Date Finder on Home (`countdownDoor`). */
+    door?: string;
+  };
   /** null = this event keeps no guest list (the need is off) — the widget is ABSENT; 'unread' = the read failed. */
   guests: HomeGuestsCounts | 'unread' | null;
   /** null = this event has no Event Hub for this viewer; 'unread' = the read failed. */
@@ -293,15 +304,29 @@ function failedTile(key: HomeControlKey, label: string, big: string, sm: string,
   };
 }
 
+/**
+ * 📅 THE COUNTDOWN'S DOOR — THE DATE FINDER, opened in place on Home (owner 2026-10-30, asked "open the Date row, or
+ * jump straight to the Date Finder?": *"date finder. because we want them to find the date for their event"* — the
+ * 2026-10-26 "FINAL STRUCTURE" (3) ruling). Until today the card opened the Event Details PAGE — on desktop a card NAMED
+ * for it ("Open Event Details"), on the phone an unnamed tile — while the ☰'s mark was dead (owner: *"event details
+ * showed on desktop view but not on mobile view"*). Now, for the couple, the phone tile and the desktop card both open
+ * Suppliers' own date sheet on Help me choose (`home-date-finder.tsx`), a set date shown by its own UI. A helper (who
+ * cannot change the date) is still sent to Event Details (`countdown.door`, set by Home).
+ */
+export function countdownDoor(eventId: string): string {
+  return dateFinderHref(eventId);
+}
+
 /** ① THE COUNTDOWN — the presentation piece: one face, never moves, no label (owner: "presentation is key"). */
 export function countdownTile(input: HomeControlInput, today: HomeToday): HomeTileModel {
   const e = input.eventId;
   const c = input.countdown;
+  const door = c.door ?? countdownDoor(e);
   if (!c.hasDate) {
     return {
       key: 'count',
       label: null,
-      door: `/dashboard/${e}/details`,
+      door,
       failed: false,
       span: true,
       today: today.target === 'count',
@@ -310,8 +335,9 @@ export function countdownTile(input: HomeControlInput, today: HomeToday): HomeTi
           id: 'count-none',
           big: 'No date yet',
           sm: c.placeLine ?? '',
-          href: `/dashboard/${e}/date-selection`,
-          action: { icon: 'cal', label: 'Set your date', href: `/dashboard/${e}/date-selection`, main: today.target === 'count' },
+          // The couple's "Set your date" IS the Date Finder; a helper keeps the date-selection page it had.
+          href: c.door ? `/dashboard/${e}/date-selection` : door,
+          action: { icon: 'cal', label: 'Set your date', href: c.door ? `/dashboard/${e}/date-selection` : door, main: today.target === 'count' },
         },
       ],
     };
@@ -319,11 +345,11 @@ export function countdownTile(input: HomeControlInput, today: HomeToday): HomeTi
   return {
     key: 'count',
     label: null,
-    door: `/dashboard/${e}/details`,
+    door,
     failed: false,
     span: true,
     today: today.target === 'count',
-    faces: [{ id: 'count', big: c.value, count: c.days !== null ? { value: c.days, format: 'int' } : null, unit: c.label, sm: [c.long, c.placeLine].filter(Boolean).join(' · '), href: `/dashboard/${e}/details` }],
+    faces: [{ id: 'count', big: c.value, count: c.days !== null ? { value: c.days, format: 'int' } : null, unit: c.label, sm: [c.long, c.placeLine].filter(Boolean).join(' · '), href: door }],
   };
 }
 
@@ -652,12 +678,14 @@ export function composeHomeControl(i: {
   hub: HomeControlInput['hub'];
   suppliers: HomeControlInput['suppliers'];
   checklist: HomeControlInput['checklist'];
+  /** The Countdown's page when it is not Home's ⚙ (a helper has no ⚙) — absent = the ⚙ sheet. */
+  countdownDoor?: string;
 }): HomeControlInput {
   const hasDate = i.days.value !== '—';
   return {
     eventId: i.eventId,
     next: i.next,
-    countdown: { value: i.days.value, label: i.days.label, days: i.daysN, hasDate, long: longDay(i.eventDate, hasDate), placeLine: i.venueName?.trim() || null },
+    countdown: { value: i.days.value, label: i.days.label, days: i.daysN, hasDate, long: longDay(i.eventDate, hasDate), placeLine: i.venueName?.trim() || null, ...(i.countdownDoor ? { door: i.countdownDoor } : {}) },
     guests:
       i.needs.guestList === false
         ? null

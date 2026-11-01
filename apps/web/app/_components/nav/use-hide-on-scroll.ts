@@ -39,6 +39,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { pageIsLanding } from '@/lib/pin-landing';
 
 const TOP_ZONE_PX = 64; // always-visible band at the very top of the page
 const DEADZONE_PX = 4; // ignore sub-pixel / jitter scrolls below this delta
@@ -61,6 +62,14 @@ export function useHideOnScroll(enabled = true): boolean {
       ticking = true;
       requestAnimationFrame(() => {
         const y = window.scrollY;
+        // 📌 THE PAGE'S OWN LANDING IS NOT THE PERSON SCROLLING (2026-10-29, Suppliers › Find: a category's landing
+        // scrolled up, the bar came back over the line it had aimed at, and the pinned head covered its first card).
+        // While a landing holds (`lib/pin-landing.ts`) the bar stays where the person last put it.
+        if (pageIsLanding()) {
+          lastY = y;
+          ticking = false;
+          return;
+        }
         if (y < TOP_ZONE_PX) setHidden(false); // always visible near the very top
         else if (y > lastY + DEADZONE_PX) setHidden(true); // scrolling down → hide
         else if (y < lastY - DEADZONE_PX) setHidden(false); // scrolling up → reveal

@@ -36,7 +36,7 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { GROUP_CATEGORY_LABELS, SIDE_LABELS, fetchGuestsByEventMeasured, guestDisplayName, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, SIDE_LABELS, fetchGuestsByEventMeasured, guestPrintName, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { seatedGuestsOf, seatingUnits } from '@/lib/print-entrance-chart';
@@ -985,7 +985,7 @@ export async function loadQrGuestNames(
 /**
  * 🪑 WHO HAS A PLACE CARD, BY NAME (owner 2026-10-26) — the seating pack's OWN read and grouping (`seating/print`: `fetchTables` ·
  * `fetchAssignments` · `fetchGuestsByEvent` on the signed-in member's client, `seatingUnits`, then `seatedGuestsOf`), each by the
- * name the card prints (`guestDisplayName`). So the place cards' count line, View as ▾ and Pick guests list exactly the cards the
+ * name the card prints (`guestPrintName` — the full name, the nickname beside it). So the place cards' count line, View as ▾ and Pick guests list exactly the cards the
  * file draws — an unseated guest is never offered (their card would be refused). `null` when a read failed.
  */
 export async function loadSeatedGuestNames(
@@ -997,7 +997,7 @@ export async function loadSeatedGuestNames(
   const byId = new Map(guests.rows.map((g) => [g.guest_id, g]));
   return seatedGuestsOf(seatingUnits(tables, assignments, guests.rows)).map((g) => ({
     id: g.guest_id,
-    name: guestDisplayName(g),
+    name: guestPrintName(g),
     reply: printGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
     side: g.side ? (SIDE_LABELS[g.side as GuestSide] ?? null) : null,
     group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category as GuestGroupCategory] ?? null) : null,

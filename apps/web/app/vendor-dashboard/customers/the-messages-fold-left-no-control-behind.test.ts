@@ -47,12 +47,13 @@ const MORE = code('customers', '_components', 'people-more.tsx');
 const THREAD = code('messages', '[threadId]', 'page.tsx');
 const MENU = stripComments(readFileSync(join(VD, '..', '_components', 'chat-thread-menu.tsx'), 'utf8'));
 
-test('1 · Messages is not a fold any more, on any view — and its landing is People’s own list', () => {
+test('1 · Messages is not a fold any more, on any view — and its landing is the Events list', () => {
   for (const seg of CUSTOMER_SEGMENTS) assert.ok(!foldsOf(seg).includes('messages'), `Messages is a fold on ${seg} again`);
   assert.doesNotMatch(PAGE, /MessagesSurface|key: 'messages'/, 'the Messages fold is back on the Customers page');
   assert.equal(existsSync(join(VD, 'messages', 'surface.tsx')), false, 'the retired Messages surface came back');
-  assert.deepEqual(CUSTOMER_LANDINGS.messages, { seg: 'people', fold: null, anchor: '#customers' }, 'a Messages link does not land on the list');
-  assert.match(PAGE, /<div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">/, 'People has no #customers list to land on');
+  // 2026-10-30: the list's view is Events (owner 2026-10-29, "Customers are events, not people").
+  assert.deepEqual(CUSTOMER_LANDINGS.messages, { seg: 'events', fold: null, anchor: '#customers' }, 'a Messages link does not land on the list');
+  assert.match(PAGE, /<div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">/, 'Events has no #customers list to land on');
 });
 
 test('2 · archive moved INTO the chat — ⋮ › Archive this chat / Move back to your list, the shipped actions', () => {
@@ -84,7 +85,7 @@ test('3 · every chat not on the list is reachable — archived and closed, each
     React.createElement(OtherChatsFold, {
       paged: { items, page: 1, pageCount: 1, total: 2, start: 1, end: 2 },
       keepParams: '',
-      returnTo: '/vendor-dashboard/customers?door=talking',
+      returnTo: '/vendor-dashboard/customers?door=asking',
     } as never),
   );
   assert.match(html, /href="\/vendor-dashboard\/messages\/ta"/);
@@ -144,8 +145,12 @@ test('6 · the code names its booking end to end — offered right after Add, ca
   const CAL = code('calendar', 'actions.ts');
   assert.match(CAL, /const newBlock = \(data as \{ block_id\?: string \} \| null\)\?\.block_id \?\? null;/, 'Add does not hand back the new booking');
   assert.match(CAL, /if \(block\) params\.set\('block', block\);/, 'People is not told which booking was just added');
-  assert.match(PAGE, /openBlock=\{search\.block \?\? null\}/, 'the new booking’s row does not open with its code');
-  assert.match(PAGE, /: search\.block\s*\? 'booked'/, 'a new outside booking does not open the Booked door');
+  // 2026-10-30: the outside rows are drawn under Booked AND on the every-event list; the new booking opens under Booked
+  // (where `?block=` lands), never twice.
+  assert.match(PAGE, /openBlock=\{k === 'booked' \? \(search\.block \?\? null\) : null\}/, 'the new booking’s row does not open with its code');
+  // The door an address names is decided once, in `segments.ts` (`customersDoorOf`): a new booking's `?block=` → Booked.
+  assert.match(PAGE, /const urlDoor = customersDoorOf\(search\);/, 'the page decides the opening door itself again');
+  assert.match(code('customers', 'segments.ts'), /return sp\.block \? 'booked' : null;/, 'a new outside booking does not open the Booked door');
   const GEN = code('invite', '_components', 'locked-qr-generator.tsx');
   assert.match(GEN, /\{blockId \? <input type="hidden" name="block_id" value=\{blockId\} \/> : null\}/, 'the maker drops the booking');
   const ISSUE = code('invite', 'actions.ts');

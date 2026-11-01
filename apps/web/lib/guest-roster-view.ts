@@ -149,17 +149,30 @@ export function mayBeInvited(g: InviteFacts): boolean {
 }
 
 /**
+ * 💬 HAS THIS GUEST ANSWERED — Attending, Can't come or Maybe, by the guest or marked by the host. Every reply but
+ * 'pending' is an answer (the same line `hasNotAnswered` draws for "No reply"). A read that does not carry
+ * `rsvp_status` says nothing, so it is never read as an answer.
+ */
+export function hasReplied(g: Pick<InviteFacts, 'rsvp_status'>): boolean {
+  return g.rsvp_status != null && g.rsvp_status !== 'pending';
+}
+
+/**
  * 🔑 "TO INVITE" — ONE DEFINITION, EVERYWHERE (owner 2026-09-30 for the counts
- * line; made the only rule 2026-10-08): a guest who `mayBeInvited` and has no
- * invitation sent. The List's "N to invite" and its door, the "to invite" word
+ * line; made the only rule 2026-10-08): a guest who `mayBeInvited`, has no
+ * invitation sent AND HAS NOT ANSWERED. The List's "N to invite" and its door, the "to invite" word
  * search ("Pick who"), Setup's "Send to N" (`toInviteCount`), the send run's
- * queue and its "Not sent yet (N)" (`sendRunGuests`), and Home's "Send N
- * invitations" (`homeGuestsRead`) all ask THIS — so the three numbers are one
+ * queue and its "N more to invite", and Home's "Send N
+ * invitations" (`homeGuestsRead`) all ask THIS — so the numbers are one
  * number and a declined guest is never queued. A blank stamp is not a send.
- * Held by `lib/to-invite-is-one-rule.test.ts`.
+ * 💬 A guest who already REPLIED is not "to invite" (owner 2026-10-29, live, on his own event: the run showed
+ * "105 more to invite" and walked him to *Kat Arroyo · Attending* — "a guest who already replied must not be counted"):
+ * an answer means the invitation reached them, stamped or not. They may still be SENT one (`mayBeInvited` — their row's
+ * Share, or the run opened on them deliberately), they are just never counted or queued as "to invite".
+ * Held by `lib/to-invite-is-one-rule.test.ts` and `lib/the-run-counts-only-who-is-left.test.ts`.
  */
 export function isToInvite(g: InviteFacts): boolean {
-  return mayBeInvited(g) && (!g.invitation_sent_at || String(g.invitation_sent_at).trim() === '');
+  return mayBeInvited(g) && !hasReplied(g) && (!g.invitation_sent_at || String(g.invitation_sent_at).trim() === '');
 }
 
 /** "N to invite" off a guest read — `null` when the read was REFUSED (unknown, never 0). */
@@ -169,7 +182,7 @@ export function toInviteCount(rows: readonly InviteFacts[], measured: boolean): 
 
 /**
  * THE SEND RUN'S PEOPLE — everyone who `mayBeInvited` (its "Everyone"); of
- * them, the ones `isToInvite` are its "Not sent yet" and its opening queue.
+ * them, the ones `isToInvite` (no stamp, no answer) are its opening queue and its "more to invite".
  * `picked` (the List's "Invite N", `?ids=`) narrows to the ticked guests, in
  * the order they were ticked — a ticked guest who has declined is still left out.
  */
@@ -181,8 +194,16 @@ export function sendRunGuests<G extends InviteFacts & { guest_id: string }>(rows
     .sort((a, b) => (order.get(a.guest_id) ?? 0) - (order.get(b.guest_id) ?? 0));
 }
 
-/** A guest as the run holds them (`SendInviteGuest` has these). */
-type RunGuest = { guestId: string; sentAt: string | null };
+/**
+ * A guest as the run holds them (`SendInviteGuest` has these). `replied` — they have answered (`hasReplied`), so they
+ * are not "to invite": never queued, never counted, never a newcomer. Absent = not known to have answered.
+ */
+type RunGuest = { guestId: string; sentAt: string | null; replied?: boolean };
+
+/** 📨 Is this run guest still TO INVITE — no stamp and no answer (`isToInvite`, as the run holds them). */
+export function runToInvite(g: RunGuest): boolean {
+  return !g.sentAt && !g.replied;
+}
 
 /**
  * WHERE THE RUN STANDS AGAINST THE LATEST READ. The queue is a snapshot (a send
@@ -214,10 +235,10 @@ export function runStanding<G extends RunGuest>(
 /**
  * WHO JOINED SINCE THE RUN LAST LOOKED — a guest the run has never been handed
  * (their "can't come" was changed back, or they were just added). They go on
- * the END of the queue: under "Not sent yet" only while nothing is sent to them.
+ * the END of the queue: under 'unsent' only while they are still to invite (nothing sent, no answer — `runToInvite`).
  */
 export function runArrivals<G extends RunGuest>(known: ReadonlySet<string>, latest: readonly G[], who: 'unsent' | 'everyone'): G[] {
-  return latest.filter((g) => !known.has(g.guestId) && (who === 'everyone' || !g.sentAt));
+  return latest.filter((g) => !known.has(g.guestId) && (who === 'everyone' || runToInvite(g)));
 }
 
 /**

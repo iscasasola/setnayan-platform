@@ -1,20 +1,22 @@
 'use client';
 import { ProQuietLine } from './pro-quiet-line';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Palette } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { onMakerSave } from '@/lib/maker-save-status';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { PRINT_SETTINGS_LABEL, PRINT_SETTINGS_SAVED, type PrintGuest } from '@/lib/studio-prints-settings';
+import { PRINT_SETTINGS_LABEL, PRINT_SETTINGS_SAVED, printSettingsOpenAt, type PrintGuest } from '@/lib/studio-prints-settings';
 import type { PickNoun } from '@/lib/print-picked-guests';
 import { StudioProDoor } from './studio-prints-six';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import type { StudioPaper } from './print-paper';
-import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
+import { printOnScreenNow, setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 export type { AllInOneF } from './prints-view-store';
 
 /**
@@ -24,7 +26,7 @@ export type { AllInOneF } from './prints-view-store';
  * larger then under is the toolbar to pick style? and download options?"*; DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL";
  * prototype `prints_carousel_2026-10-26`).
  *
- *   · `StudioPrintSettings` — the ONE sheet ⚙ opens, from every slide (`setPrintSettingsOpen`). Its first row is "Your Event Hub
+ *   · `StudioPrintSettings` — the ONE sheet ⚙ opens (`setPrintSettingsOpen`). Its first row is "Your Event Hub
  *     look ◆" (`lead`) — a setting of every print, not a print. NO Save since 2026-10-21: every press posts.
  *     🔒 THE FIELDS NEVER UNMOUNT: the sheet is hidden while shut, never removed — every switch joins the print words form by `form=`,
  *     and a field that is not in the page is a field a post does not send (`studio-prints-posts-the-same.test.ts`).
@@ -57,7 +59,7 @@ function SettingsHead({ title, line }: { title: string; line?: string }) {
  * honest line ("waits for Apply" — it is drafted, owner 2026-10-02 Q7); the special message and the thank-you keep their drafted saves.
  */
 export function StudioPrintSettings({ sections, form, lead = null }: { sections: readonly PrintSettingsSection[]; form: string; lead?: ReactNode }) {
-  /* ⚙ Opened from every slide's toolbar (`setPrintSettingsOpen`) — the row that opened it is gone with the list. */
+  /* ⚙ Opened from the Prints page's ONE ⚙, its top bar's right end (`StudioPrintSettingsDoor`, `setPrintSettingsOpen`). */
   const open = usePrintSettingsOpen();
   const setOpen = setPrintSettingsOpen;
   const [said, setSaid] = useState<{ n: number; tone: 'ok' | 'bad'; text: string } | null>(null);
@@ -74,9 +76,26 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
   const headId = useId();
   useEffect(() => setBody(document.body), []);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheet });
+  /* ⚙ OPENS AT THE PRINT ON SCREEN (owner 2026-10-31, *"Yes follow your recommendation"*): as the sheet opens — after the commit that
+     shows it, before the frame paints, and instantly (no smooth scroll, so no jump and nothing to reduce) — its body is scrolled so
+     that print's own section sits at the top; "On every print" and the lead stay above it, a scroll up. A print with no section of
+     its own (`printSettingsOpenAt`) opens at the top. Every section stays drawn: this scrolls, it never hides or filters. */
+  const scroller = useRef<HTMLDivElement>(null);
+  const room = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const b = scroller.current;
+    if (!open || !b) return;
+    /* Measured with no room below, then given just the room a section near the end needs to reach the top. */
+    if (room.current) room.current.style.height = '0px';
+    const { key, top, room: below } = printSettingsOpenAt(b, printOnScreenNow());
+    if (room.current) room.current.style.height = `${below}px`;
+    b.scrollTo({ top, behavior: 'instant' });
+    /* Where it opened, said on the body — the lab walk reads it beside the measured place. */
+    b.dataset.printSettingsAt = key ?? '';
+  }, [open]);
   const panel = (
     <div data-print-settings-layer="" hidden={!open} className={open ? 'fixed inset-0 z-[86]' : 'hidden'}>
-      <button type="button" aria-label="Close print settings" tabIndex={-1} onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/35" />
+      <OverlayBackdrop onClose={() => setOpen(false)} label="Close print settings" tabIndex={-1} />
       <div
         ref={sheet}
         role="dialog"
@@ -96,7 +115,7 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
             Done
           </button>
         </div>
-        <div data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div ref={scroller} data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           {/* 🎨 Your Event Hub look ◆ — the sheet's first row (prototype `prints_carousel_2026-10-26`): it is a setting of every print. */}
           {lead ? <div data-print-settings-lead="" className="border-b border-ink/10 bg-cream px-4 [&_[data-print-hub-look]]:border-t-0">{lead}</div> : null}
           {sections.map((s) => (
@@ -105,6 +124,10 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
               <div className="bg-cream px-4 [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-t [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-ink/10">{s.body}</div>
             </section>
           ))}
+          {/* ⚠ `transition-none` (transition-property: none) — under reduced motion globals.css gives EVERY element a 0.001 ms
+              transition (and the default property is `all`), so the room's new height was a transition: it still measured 0 when the
+              scroll ran, and the open stopped at the old end (WebKit 390×844: Passes 306 px down). With none it counts at once. */}
+          <div ref={room} aria-hidden data-print-settings-room="" className="h-0 transition-none" />
         </div>
       </div>
       {said && open ? (
@@ -125,6 +148,18 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
       {body ? createPortal(panel, body) : panel}
     </>
   );
+}
+
+/**
+ * ⚙ THE PRINTS PAGE'S ONE ⚙ (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings, if there is a real Prints
+ * setting"*) — the right end of the page's top bar (`maker-shell.tsx`, `printsPage`), where the Hub's ⚙ stood: that one opened
+ * Event Hub settings (Look · Your Event Hub · What guests see), which change nothing on a print. The house door
+ * (`MenuSettingsButton menu="prints"`, the same 44 px every menu's ⚙ is), the door alone: its sheet is `StudioPrintSettings` above,
+ * through the same store. The slides draw no ⚙ of their own any more — one ⚙ per page (`the-prints-gear-opens-print-settings.test.ts`).
+ */
+export function StudioPrintSettingsDoor() {
+  const open = usePrintSettingsOpen();
+  return <MenuSettingsButton menu="prints" open={open} onOpenChange={setPrintSettingsOpen} />;
 }
 
 /* ── 🎨 YOUR EVENT HUB LOOK — ◆ owned, ◆ PRO the door ──────────────────────────────────────────────────────────────────────── */

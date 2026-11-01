@@ -39,10 +39,19 @@ import { requestProfileCorrection } from '../../actions';
 export function RequestCorrectionCard({
   currentSlug,
   isVerified,
+  requestOnly,
+  setUpBySetnayan = false,
   openRequests,
 }: {
   currentSlug: string | null;
   isVerified: boolean;
+  /**
+   * 🏷 The fields this shop changes ONLY by request today (`identityLockOf`, owner 2026-10-29) — offered here. Absent
+   * → today's rule (the address always; the rest once verified).
+   */
+  requestOnly?: readonly LockedIdentityFieldKey[];
+  /** Setnayan set this shop up — the name and address it typed change by request. */
+  setUpBySetnayan?: boolean;
   openRequests: VendorCorrectionRequestRow[];
 }) {
   const toast = useToast();
@@ -77,9 +86,13 @@ export function RequestCorrectionCard({
   // ⚠ `services` is deliberately NOT here — the Coverage page owns that writer,
   // so a verified vendor already has a real place to change it.
 
+  // 🏷 With the shared rule's list (`requestOnly`, owner 2026-10-29) the card offers exactly that, in its own order —
+  // the web address first, then (for a shop Setnayan set up) its name and address.
   const fields: LockedIdentityFieldKey[] = isVerified
     ? ['business_slug', ...OTHER_LOCKED]
-    : ['business_slug'];
+    : requestOnly
+      ? ['business_slug', ...OTHER_LOCKED.filter((f) => requestOnly.includes(f))]
+      : ['business_slug'];
 
   // A field with a request already waiting is shown as pending rather than
   // offered again — a vendor who files the same correction three times because
@@ -130,7 +143,9 @@ export function RequestCorrectionCard({
             &rsquo;s wrong, ask us and we&rsquo;ll look at it.
             {isVerified
               ? ' Your verified business details work the same way.'
-              : ''}
+              : setUpBySetnayan
+                ? ' Setnayan set up your shop, so the name and address we typed work the same way.'
+                : ''}
           </p>
           {currentSlug ? (
             <p className="font-mono text-xs text-ink/50">
@@ -157,7 +172,8 @@ export function RequestCorrectionCard({
         <button
           type="button"
           onClick={() => {
-            setField(available[0]!);
+            // A shop Setnayan set up most often asks about its NAME (owner 2026-10-29) — start there when offered.
+            setField(setUpBySetnayan && available.includes('business_name') ? 'business_name' : available[0]!);
             setOpen(true);
           }}
           className="button-secondary inline-flex h-9 items-center px-3 text-xs"

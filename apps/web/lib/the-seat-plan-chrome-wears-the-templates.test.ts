@@ -118,7 +118,19 @@ test('4 · NO LAB draws the seat plan — a lab press cannot reach it — and FI
     const lab = readFileSync(join(WEB, SHEET_LAB), 'utf8');
     assert.doesNotMatch(lab, /seating-editor|seating\/actions|from '\.\.?\/.*actions'|'use server'/, 'the sheet lab reaches the seat plan’s editor or an action');
   }
-  const others = found.filter((f) => f !== SHEET_LAB);
+  /* ONE more (2026-10-28, R4 — the seat plan moved to Guests › Seats and must be walked there at 375/390): the guests lab's
+     Seats view draws the shipped editor on a FIXTURE event whose id can never be a real event's — `S89E-` + a body with
+     L and U, which Crockford base-32 (the ONE id alphabet, `generate_public_id`) never writes — signed in as nobody,
+     so every press reaches a server action that refuses (no session, no such event). Its own two policy actions are
+     inline no-ops. 🔒 held here: the id, and no import of a seat-plan action. */
+  const SEATS_LAB = 'app/dev/guests-lab/lab-seats-march.tsx';
+  if (found.includes(SEATS_LAB)) {
+    const lab = readFileSync(join(WEB, SEATS_LAB), 'utf8');
+    const ids = [...lab.matchAll(/eventId="([^"]+)"/g)].map((m) => m[1]!);
+    assert.ok(ids.length > 0 && ids.every((id) => /^S89E-[0-9A-Z]*[ILOU][0-9A-Z]*$/.test(id)), `the seats lab's event id could be a real event's: ${ids.join(', ')}`);
+    assert.doesNotMatch(lab, /seating\/actions|indoor-blueprint\/actions/, 'the seats lab imports a seat-plan action');
+  }
+  const others = found.filter((f) => f !== SHEET_LAB && f !== SEATS_LAB);
   assert.deepEqual(others, [], `a lab draws the seat plan: ${others.join(', ')}`);
   for (const f of ['maker-details.tsx', 'maker-shell.tsx', 'details-workspace.tsx', 'details-lazy.tsx']) {
     const src = read(`app/dashboard/[eventId]/launch/_components/${f}`).replace(/^import type [^;]*;$/gm, '').replace(/import\(\/\*[^*]*\*\/ '[^']*'\)/g, '');

@@ -84,7 +84,13 @@ test('(3) nothing but the lab provides the context — and both lab entries are 
     }
   };
   walk2(APP);
-  assert.deepEqual(fetchProviders.sort(), ['dashboard/[eventId]/launch/_components/print-fetch-context.tsx', 'dev/details-lab/lab-studio-actions.tsx'], 'the app provides a stand-in for the Prints file fetch');
+  // The Budget lab is the second lab with a file button (Share, 2026-10-29): its stand-in answers from `/dev/budget-lab/file`,
+  // a dev-only route over the lab fixture. Still no provider anywhere in the APP.
+  assert.deepEqual(
+    fetchProviders.sort(),
+    ['dashboard/[eventId]/launch/_components/print-fetch-context.tsx', 'dev/budget-lab/lab-budget-files.tsx', 'dev/details-lab/lab-studio-actions.tsx'],
+    'the app provides a stand-in for the Prints file fetch',
+  );
   assert.match(read(join(HERE, 'page.tsx')), /<LabStudioActions>\s*<LookLab>[\s\S]*<\/LookLab>\s*<\/LabStudioActions>/, 'the details lab is drawn outside the stand-ins');
   assert.match(read(join(APP, 'dev', 'maker-lab', 'maker-lab-shell.tsx')), /<LabStudioActions draft=\{labDraft as never\}>\s*<MakerShell[\s\S]*<\/MakerShell>\s*<\/LabStudioActions>/, 'the Maker lab is drawn outside the stand-ins');
   /* The real default: the shipped actions, and NO storage stand-in. */

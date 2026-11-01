@@ -84,8 +84,10 @@ test('(1) the ChatBox root keeps its automatic minimum, so an open tray cannot t
 
 test('the page column that holds the frame scrolls, so a frame taller than the column is reachable', () => {
   for (const p of PAGES) {
-    const s = read(p);
-    const at = s.indexOf('<ChatBox');
+    // Since 2026-10-29 the column is the ONE thread frame both pages return (`ChatThreadFrame`): read it there.
+    assert.match(read(p), /<ChatThreadFrame\b/, `${p}: the page does not return the one thread frame`);
+    const s = read('app/_components/chat/chat-thread-frame.tsx');
+    const at = s.indexOf('{children}');
     const open = s.lastIndexOf('<section className="', at);
     assert.ok(open !== -1, `${p}: no <section> wraps the ChatBox`);
     const cls = classes(s.slice(open + '<section className="'.length, s.indexOf('"', open + '<section className="'.length)));

@@ -8,7 +8,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
-import { runArrivals, runStanding } from '@/lib/guest-roster-view';
+import { runArrivals, runStanding, runToInvite } from '@/lib/guest-roster-view';
 import {
   INVITE_APP_NAMES,
   inviteAppHint,
@@ -38,8 +38,11 @@ import { SentOrNotYet } from '../../_components/sent-or-not-yet';
 import { hearAction } from '../../_components/hear-action';
 import { useGuestActions } from '../../_components/guest-actions-context';
 
-/** A guest as the run walks them: the shipped send fields + the page's details (`runGuestPage`). */
-export type RunGuest = SendInviteGuest & { page?: RunGuestPage };
+/**
+ * A guest as the run walks them: the shipped send fields + the page's details (`runGuestPage`) + whether they have
+ * already answered (`hasReplied` — Attending, Can't come or Maybe), which takes them out of "to invite".
+ */
+export type RunGuest = SendInviteGuest & { page?: RunGuestPage; replied?: boolean };
 
 /** The event's ONE link and QR, when guests get in with one link for everyone (`readGuestsGetIn` = 'one_qr'). */
 export type RunOneLink = { url: string; qrSvg: string | null };
@@ -66,6 +69,13 @@ export type RunOneLink = { url: string; qrSvg: string | null };
  * 🔑 THE QUEUE IS SNAPSHOT ONCE (kept from the shipped run): a stamp revalidates the page and hands a fresh `guests`; a
  * queue derived from props would shift under the thumb. A later read can still take someone OUT (`runStanding` — they
  * declined) or bring someone IN at the end (`runArrivals`).
+ *
+ * 💬 ONLY WHO IS LEFT (owner 2026-10-29, live: "105 more to invite · Invite 104 of 200" walked him to *Kat Arroyo ·
+ * Attending*). The queue, "more to invite" and "Invite k of N" count only who is still TO INVITE — nothing sent AND no
+ * answer (`runToInvite`, the List's `isToInvite`). A guest who replied is never queued and never counted; one who
+ * replies while the run is open is stepped over like one who declined. "Invite k of N" is k of the N left when the run
+ * opened (+ any who joined), never of everyone. `picked` (`?ids=`, opened on chosen guests) walks exactly those, sent
+ * or replied too — shown, but still never counted as "to invite". 🔒 lib/the-run-counts-only-who-is-left.test.ts
  */
 export function SendRun({
   eventId,
@@ -75,6 +85,7 @@ export function SendRun({
   template: initialTemplate,
   oneLink = null,
   guestsHref,
+  picked = false,
 }: {
   eventId: string;
   guests: RunGuest[];
@@ -85,6 +96,8 @@ export function SendRun({
   oneLink?: RunOneLink | null;
   /** Where ✕ and Done for now land — the Guest list (the lab hands its own). */
   guestsHref?: string;
+  /** The run was opened on chosen guests (`?ids=`): walk every one of them, but count only who is still to invite. */
+  picked?: boolean;
 }) {
   const home = guestsHref ?? `/dashboard/${eventId}/guests`;
   const { setGuestInvitationSent } = useGuestActions();
@@ -94,7 +107,10 @@ export function SendRun({
     [guests, oneLink],
   );
   const noLink = guests.length - sendable.length;
-  const [queue, setQueue] = useState<RunGuest[]>(() => sendable.filter((g) => !g.sentAt));
+  // Who the run walks: the chosen, every one of them; otherwise only who is still to invite — and a guest who answers
+  // after the run opened leaves it, as one who declined does (`runStanding` reads this, not `sendable`).
+  const inRun = useMemo(() => (picked ? sendable : sendable.filter((g) => !g.replied)), [picked, sendable]);
+  const [queue, setQueue] = useState<RunGuest[]>(() => (picked ? sendable : sendable.filter((g) => runToInvite(g))));
   const [at, setAt] = useState(0);
   const [sentHere, setSentHere] = useState<Record<string, string | null>>({});
   const [later, setLater] = useState<string[]>([]);
@@ -118,10 +134,11 @@ export function SendRun({
     [sentHere],
   );
   const sentCount = sendable.filter((g) => sentNow(g)).length;
-  const leftCount = sendable.length - sentCount;
-  const { index, current, position, total } = runStanding(queue, sendable, at);
+  // "more to invite" = nothing sent AND no answer — never everyone not stamped (a guest who replied is not left to invite).
+  const leftCount = sendable.filter((g) => runToInvite({ ...g, sentAt: sentNow(g) })).length;
+  const { index, current, position, total } = runStanding(queue, inRun, at);
   const currentSentAt = current ? sentNow(current) : null;
-  const laterIn = later.filter((id) => sendable.some((g) => g.guestId === id && !sentNow(g)));
+  const laterIn = later.filter((id) => inRun.some((g) => g.guestId === id && !sentNow(g)));
   const first = current ? current.firstName?.trim() || current.fullName.split(/\s+/)[0] || 'them' : 'them';
 
   // ── FULL SCREEN: drawn on the page itself (an event page's `<main>` is a containing block for `fixed` while its view
@@ -179,11 +196,11 @@ export function SendRun({
     [current, index, sentNow],
   );
   const goPrev = useCallback(() => {
-    const live = new Set(sendable.map((g) => g.guestId));
+    const live = new Set(inRun.map((g) => g.guestId));
     let i = index - 1;
     while (i >= 0 && !live.has(queue[i]!.guestId)) i -= 1;
     if (i >= 0) setAt(i);
-  }, [index, queue, sendable]);
+  }, [index, queue, inRun]);
 
   function mark(sent: boolean, advance: boolean) {
     if (!current) return;
@@ -281,7 +298,6 @@ export function SendRun({
 
   const status = sendRunStatus(sentCount, leftCount);
   const hintWords = sendRunHint(Boolean(oneLink));
-  const before = Math.max(0, sendable.length - total); // sent before this run's queue — the eyebrow counts on from them
 
   const step =
     'flex min-h-[48px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[14px] font-medium text-ink transition-colors hover:bg-ink/5';
@@ -311,7 +327,7 @@ export function SendRun({
         )}
       </div>
       <p className="mt-5 text-[12px] uppercase tracking-[0.2em] text-ink/50" data-send-run-position="">
-        Invite {formatCount(before + position)} of {formatCount(sendable.length)}
+        Invite {formatCount(position)} of {formatCount(total)}
       </p>
       <h2 className="mt-1 break-words font-display text-[30px] leading-tight text-ink" data-send-run-name="">
         {current.fullName}

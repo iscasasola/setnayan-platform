@@ -53,7 +53,12 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // its own `FolderTab` type (structurally identical, per the comment above),
 // so the type import now points there instead.
 import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
-import { countLiveShops } from '@/lib/live-shops';
+import { countLiveShops, LIVE_SHOP_GATE } from '@/lib/live-shops';
+import {
+  shopsStillSettingUp,
+  unfilteredEmptyGridCopy,
+  type ShopStillSettingUp,
+} from '@/lib/explore-empty-grid';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
@@ -2345,6 +2350,32 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       };
   let availability: AvailabilityState = { kind: 'none' };
   let visible = rows;
+
+  /*
+    🏪 LIVE SHOPS THE GRID LEAVES OUT (live walk 2026-11-01). B2 above keeps a
+    shop with no active service off the grid — correctly, a card there is a dead
+    end — but the landing then said "No suppliers have published" under its own
+    "The first shops" heading, while the front door showed the very shop. Read
+    only when the unfiltered landing's grid came back EMPTY and the live count
+    says a shop exists: one read of at most 8 rows, under the one live gate, so
+    the empty grid names the same shops (and links) the front door does. A
+    failed read names none — the line above it still says only what was
+    measured. See lib/explore-empty-grid.ts.
+  */
+  let stillSettingUp: ShopStillSettingUp[] = [];
+  if (isLandingView && rows.length === 0 && (liveShopCount ?? 0) > 0) {
+    const { data: liveRows, error: liveRowsError } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name, business_slug')
+      .match(LIVE_SHOP_GATE)
+      .order('business_name')
+      .limit(8);
+    if (liveRowsError) {
+      console.error('[supabase-error] app/(shell)/explore/page.tsx · live shops still setting up', liveRowsError);
+    } else {
+      stillSettingUp = shopsStillSettingUp(liveRows ?? [], inquirableVendorIds);
+    }
+  }
   if (coupleEventId && coupleEventDate && coupleEventDatePrecision) {
     const window = computeCandidateWindow(coupleEventDate, coupleEventDatePrecision);
     if (window) {
@@ -3701,6 +3732,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           <EmptyState
             filters={filters}
             broadenedCount={broadenedCount}
+            stillSettingUp={stillSettingUp}
             eventTypeLabel={
               filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
             }
@@ -4083,6 +4115,7 @@ function ReadsResults({ hits, query }: { hits: ReadHit[]; query: string }) {
 function EmptyState({
   filters,
   broadenedCount,
+  stillSettingUp,
   eventTypeLabel,
 }: {
   filters: {
@@ -4100,6 +4133,8 @@ function EmptyState({
     focusedMode: boolean;
   };
   broadenedCount: number | null;
+  /** Live shops with no active service yet — named on the unfiltered empty grid (lib/explore-empty-grid.ts). */
+  stillSettingUp: ShopStillSettingUp[];
   /** Couple-facing label for filters.eventType (DB vocab; null when unset). */
   eventTypeLabel: string | null;
 }) {
@@ -4224,18 +4259,31 @@ function EmptyState({
 
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+      {/* 🔴 THE UNFILTERED LINES COME FROM `unfilteredEmptyGridCopy`. They said "No suppliers have published
+          their Setnayan profile yet." — never measured: the grid lists shops WITH an active service (B2), so an
+          empty grid proves only that no service is listed, and on 2026-11-01 a live shop (SetnaProd, on the front
+          door and at /setnaprod) sat right behind that sentence. lib/explore-empty-grid.ts. */}
       <p className="text-base font-medium text-ink/75">
-        {hasFilter
-          ? 'No suppliers match exactly.'
-          : 'No suppliers have published their Setnayan profile yet.'}
+        {hasFilter ? 'No suppliers match exactly.' : unfilteredEmptyGridCopy(stillSettingUp.length).line}
       </p>
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
           ? showAllAvailable
             ? `We have ${formatCount(broadenedCount)} supplier${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
             : 'Try widening your search or clearing one filter at a time.'
-          : 'Check back soon — suppliers are landing every week.'}
+          : unfilteredEmptyGridCopy(stillSettingUp.length).sub}
       </p>
+      {!hasFilter && stillSettingUp.length > 0 ? (
+        <ul className="mt-4 flex flex-wrap justify-center gap-2" data-still-setting-up="">
+          {stillSettingUp.map((shop) => (
+            <li key={shop.href}>
+              <Link href={shop.href} className="button-secondary inline-flex h-10 px-4">
+                {shop.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {hasFilter ? (
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {showAllAvailable ? (

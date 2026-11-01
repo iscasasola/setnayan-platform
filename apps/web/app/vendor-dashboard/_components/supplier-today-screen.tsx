@@ -7,6 +7,7 @@ import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import type { EventYouRun } from '@/lib/events-you-run';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { LockRequestBody, WhatsNewFeed } from './overview-sections';
 import { SupplierTodayFirstScreen, TodayNoteRow, type TodayOutcome } from './supplier-today-first-screen';
@@ -58,7 +59,10 @@ export function SupplierTodayScreen({
   library = false,
   eventsYouRun = [],
   setup = null,
+  eventLines = {},
 }: {
+  /** 📋 Each inquiry's event lines, keyed by event id (`readSupplierEventLines`) — the opened row shows them. */
+  eventLines?: Readonly<Record<string, EventLines>>;
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
   /** What agreeing to each booking ask will cost, keyed by `eventVendorId` — named BEFORE Agree. */
@@ -143,6 +147,7 @@ export function SupplierTodayScreen({
             {...actions}
             payoutReadiness="unreadable"
             feeForecasts={feeForecasts}
+            eventLines={eventLines}
           />
         }
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own

@@ -57,6 +57,13 @@ const BITUIN_METHODS: CoupleFacingMethod[] = [
 const TODAY = '2026-10-01';
 const NO_DEPOSIT = { recordedAt: null, acknowledgedAt: null, declinedAt: null };
 
+/** A stand-in QR picture for the lab (no session, no bucket) — a drawn grid, never a real account. */
+const LAB_QR =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" shape-rendering="crispEdges"><rect width="21" height="21" fill="#fff"/><path d="M1 1h7v7H1zM13 1h7v7h-7zM1 13h7v7H1z" fill="none" stroke="#000"/><path d="M3 3h3v3H3zM15 3h3v3h-3zM3 15h3v3H3zM10 2h1v1h-1zM10 5h2v2h-2zM12 10h2v1h-2zM9 9h1v3H9zM15 11h3v1h-3zM11 14h2v2h-2zM14 15h1v4h-1zM17 14h2v2h-2zM16 18h3v1h-3z"/></svg>',
+  );
+
 export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPaySheetResult {
   const name = vendorId === 'v-seda' ? 'Seda Vertis North' : vendorId === 'v-bituin' ? 'Bituin Catering' : 'Lumina Studio';
   if (vendorId === 'v-seda' || vendorId === 'v-bituin') {
@@ -81,6 +88,14 @@ export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPa
         depositDeclineReason: null,
         payMethods: own ? [] : BITUIN_METHODS,
         payMethodsState: own ? 'off_platform' : 'listed',
+        // Seda is a supplier the couple added — How to pay them comes from their own record (2026-10-29).
+        ownWays: own
+          ? [
+              { method: 'gcash', details: 'Seda Vertis North Corp · 0917 555 1234', qr: 'r2://setnayan-thread-files/lab/qr.png', qrUrl: LAB_QR },
+              { method: 'bank', details: 'BPI · Seda Vertis North Corp · 1234-5678-90', qr: null, qrUrl: null },
+            ]
+          : [],
+        planChange: own ? { fromPhp: 1_000_000, toPhp: 1_056_000 } : null,
         requestedFirstPaymentCentavos: null,
         requestedFirstPaymentSentence: null,
         requestedTermsUnreadable: false,
@@ -126,6 +141,8 @@ export function labPaySheet(vendorId: string, stage: MoneyStage = 'due'): LoadPa
         depositDeclineReason: null,
         payMethods: [],
         payMethodsState: 'listed',
+        ownWays: [],
+        planChange: null,
         requestedFirstPaymentCentavos: null,
         requestedFirstPaymentSentence: null,
         requestedTermsUnreadable: false,

@@ -22,8 +22,8 @@ import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import {
-  VERIFIED_LOCK_ERROR,
-  fetchVerifiedLock,
+  fetchIdentityLock,
+  identityLockRefusal,
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
@@ -393,11 +393,13 @@ export async function updateVendorProfileField(
   // (portfolio / featured videos) are NOT locked identity, so they stay
   // editable post-verification (matches the retired /profile full-form, whose
   // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
-  if (
-    !GALLERY_MEDIA_FIELDS.has(field) &&
-    (await fetchVerifiedLock(supabase, shopId))
-  ) {
-    return { ok: false, error: VERIFIED_LOCK_ERROR };
+  //
+  // 🏷 …and a shop SETNAYAN SET UP (owner 2026-10-29) may fill a blank name or
+  // address but not overwrite one — that goes through the same request door.
+  // ONE read, ONE rule (`identityLockOf`): the verified refusal is unchanged.
+  if (!GALLERY_MEDIA_FIELDS.has(field)) {
+    const refusal = identityLockRefusal(await fetchIdentityLock(supabase, shopId), field);
+    if (refusal) return { ok: false, error: refusal };
   }
 
   // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the

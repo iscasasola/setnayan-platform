@@ -95,7 +95,7 @@ test('/pay hands down the SERVER-drawn code, and nothing for a browser to draw',
  */
 const SECOND_SURFACES = [
   'app/vendor-dashboard/booking-fees/[orderId]/page.tsx',
-  'app/vendor-dashboard/subscription/page.tsx',
+  'app/vendor-dashboard/subscription/_components/plan-screen.tsx', // the Plan screen (2026-10-31: the page mounts it)
 ] as const;
 
 test('no page hands out a payment code of its own — they point at /pay', () => {

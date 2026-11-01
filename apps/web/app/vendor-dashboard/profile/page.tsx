@@ -5,6 +5,7 @@ import PaymentOptionsSurface from '../payment-options/surface';
 import { BranchPanel } from '../shop/_components/branch-panel';
 import { loadDetailsData } from './details-data';
 import { DetailsScreen } from './_components/details-screen';
+import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'Your details' };
 
@@ -21,7 +22,7 @@ export const metadata = { title: 'Your details' };
 export default async function YourDetailsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ msg?: string; error?: string }>;
+  searchParams: Promise<{ msg?: string; error?: string; gear?: string; gsec?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -40,6 +41,7 @@ export default async function YourDetailsPage({
       d={d}
       payBody={<PaymentOptionsSurface searchParams={searchParams} embedded preloaded={d.pay} />}
       branchBody={<BranchPanel {...d.branch} />}
+      gearBody={shopGearBody(await searchParams)}
     />
   );
 }

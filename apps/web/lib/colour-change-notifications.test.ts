@@ -39,6 +39,7 @@ import {
 // string and blanks real code to the next close — so the set it parses could be
 // missing members nobody can see. See lib/strip-comments.ts.
 import { stripComments } from './strip-comments';
+import { PUSH_LEVEL } from './push-levels';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -85,7 +86,7 @@ test('and it is NOT in the set that would silently suppress it for every user', 
 });
 
 test('it does not buzz a phone — a colour is not a 2am push', () => {
-  assert.ok(!setMembers('PUSH_ENABLED_TYPES').includes(TYPE));
+  assert.equal(PUSH_LEVEL[TYPE as keyof typeof PUSH_LEVEL], 'low', 'a colour buzzes a phone');
 });
 
 test('it has tray copy and a badge — a type with no label renders as its raw key', () => {

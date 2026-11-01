@@ -11,11 +11,13 @@
  *   (default)   an organizer · 12 members · 3 events · 6 clips · a newest message
  *   ?member=1   a member (no "Bring people in", no "Plan an event")
  *   ?empty=1    a new group — no events, no clips, no messages
+ *   ?g=<id>     opened from /dev/people-lab (owner 2026-10-29): the ‹ is the REAL GroupBack — back to that list in place
  */
 import { notFound } from 'next/navigation';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { GroupHome, type EventMemberType } from '@/app/dashboard/(account)/samahan/[communityId]/_components/group-home';
 import { SamahanIdentityHeader } from '@/app/dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header';
+import { GroupBack } from '@/app/dashboard/(account)/samahan/[communityId]/_components/group-back';
 import type { CommunityEventRow, CommunityRosterEntry, SamahanMessage } from '@/lib/communities';
 import type { SamahanStory } from '@/lib/samahan-stories';
 
@@ -91,7 +93,8 @@ export default async function GroupLabPage({
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
         <div className="sn-page-enter">
           <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-            <p className="mb-3 inline-flex min-h-11 items-center gap-1.5 px-1 text-sm font-medium text-ink/70">← Back to Groups</p>
+            {/* The REAL ‹ (GroupBack — returns in place); with nothing behind it, the lab's People › Groups. */}
+            <GroupBack href="/dev/people-lab?view=samahan" label="Back to Groups" />
             <GroupHome
               header={
                 <SamahanIdentityHeader

@@ -15,9 +15,13 @@
  *
  *   List     `rosterStats().toInvite`            (the counts line and its door)
  *   Pick who `rosterSearchMatches('to invite')`  (`/guests?select=to-invite`)
- *   Setup    `toInviteCount()` → "Send to N"     (drawn: the real Setup rows)
+ *   (Setup's "Send to N" — gone with the ⚙'s Invitations row, R4 slice 11)
  *   Run      `sendRunGuests()` → "Not sent yet (N)" and "1 of N" (drawn: the real run)
  *   Home     `homeGuestsRead().unsent` → "Send N invitations"
+ *
+ * 💬 2026-10-29 (owner, live, on his own event — the run walked him to *Kat Arroyo · Attending* under "105 more to
+ * invite"): a guest who has ANSWERED (attending, maybe, can't come) is not "to invite" either, stamped or not — `ben`
+ * (maybe) and `cora` (said yes in person) used to be counted and queued; now every surface leaves them out.
  *
  * …and that a refused read is `null` / said so — never 0; and that the run
  * steps over a guest who declined after it opened, and takes back one whose
@@ -36,6 +40,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { REQUEST_ENTRY_SOURCE, guestDisplayName, guestNameAsGiven, type GuestRow } from '@/lib/guests';
 import {
+  hasReplied,
   isToInvite,
   rosterSearchMatches,
   rosterStats,
@@ -74,8 +79,10 @@ const ROSTER: GuestRow[] = [
   g('groom', { role: 'groom' }),
   g('celebrant', { role: 'celebrant' as GuestRow['role'] }),
   g('ana'), // nothing sent, no answer → to invite
-  g('ben', { rsvp_status: 'maybe' }), // nothing sent, "maybe" → to invite
-  g('cora', { rsvp_status: 'attending' }), // said yes in person, nothing sent → to invite
+  g('hal'), // nothing sent, no answer → to invite
+  g('ivy'), // nothing sent, no answer → to invite
+  g('ben', { rsvp_status: 'maybe' }), // 💬 nothing sent, answered "maybe" → NOT to invite (owner 2026-10-29)
+  g('cora', { rsvp_status: 'attending' }), // 💬 said yes in person, nothing sent → NOT to invite (owner 2026-10-29)
   g('dan', { rsvp_status: 'declined' }), // 🔑 said no, nothing sent → NEVER to invite
   g('ella', { invitation_sent_at: SENT }), // sent, silent
   g('fe', { invitation_sent_at: SENT, rsvp_status: 'declined' }), // sent, then declined
@@ -86,9 +93,9 @@ const ROSTER: GuestRow[] = [
   g('seat', { first_name: 'TBA', last_name: '+1', plus_one_of_guest_id: 'ana', plus_one_name_confirmed_at: null } as Partial<GuestRow>),
 ];
 /** The owner's rule, spelled out by hand — the oracle every surface is held to. */
-const TO_INVITE = ['ana', 'ben', 'cora'];
-/** Who may hold an invitation at all (sent or not): the run's "Everyone". */
-const MAY_BE_INVITED = ['ana', 'ben', 'cora', 'ella', 'gil'];
+const TO_INVITE = ['ana', 'hal', 'ivy'];
+/** Who may hold an invitation at all (sent or not, answered or not): the run's "Everyone". */
+const MAY_BE_INVITED = ['ana', 'hal', 'ivy', 'ben', 'cora', 'ella', 'gil'];
 const FACTS: RosterFacts = { hasSides: true, groupsOf: () => [], tableOf: () => null };
 const ids = (rows: readonly { guest_id: string }[]) => rows.map((r) => r.guest_id);
 
@@ -101,6 +108,7 @@ const asRunGuests = (rows: readonly GuestRow[]) =>
     fullName: guestDisplayName(r),
     inviteUrl: `https://setnayan.com/a-and-b/i/${r.guest_id}`,
     sentAt: r.invitation_sent_at,
+    replied: hasReplied(r),
   }));
 
 /* The run imports the shipped server actions, whose modules import `server-only`
@@ -131,9 +139,11 @@ async function renderRun(rows: readonly GuestRow[], opts: { measured?: boolean; 
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-test('the oracle is the owner\'s rule: nothing sent · has not declined · never the couple, the celebrant, a request or the late', () => {
+test('the oracle is the owner\'s rule: nothing sent · has not answered · never the couple, the celebrant, a request or the late', () => {
   assert.deepEqual(ids(ROSTER.filter((r) => isToInvite(r))), TO_INVITE);
   assert.equal(isToInvite(ROSTER.find((r) => r.guest_id === 'dan')!), false, 'a guest who declined is still "to invite"');
+  assert.equal(isToInvite(ROSTER.find((r) => r.guest_id === 'cora')!), false, 'a guest who said yes is still "to invite"');
+  assert.equal(isToInvite(ROSTER.find((r) => r.guest_id === 'ben')!), false, 'a guest who answered maybe is still "to invite"');
 });
 
 test('List · Pick who · Setup · the run · Home — one number, and the declined guest in none of them (executed)', () => {
@@ -147,7 +157,7 @@ test('List · Pick who · Setup · the run · Home — one number, and the decli
   // The run — who it holds, and who it opens with.
   const run = sendRunGuests(ROSTER);
   assert.deepEqual(ids(run), MAY_BE_INVITED, 'the run holds someone who may not be invited (or lost someone who may)');
-  assert.deepEqual(ids(run.filter((r) => !r.invitation_sent_at)), TO_INVITE, 'the run opens with a different queue than the List\'s "to invite"');
+  assert.deepEqual(ids(run.filter((r) => !r.invitation_sent_at && !hasReplied(r))), TO_INVITE, 'the run opens with a different queue than the List\'s "to invite"');
   assert.ok(!ids(run).includes('dan') && !ids(run).includes('fe'), 'a declined guest is queued for an invitation');
   // "Invite N" from the List (`?ids=`): the ticked only, in tick order — and a ticked guest who declined is still left out.
   assert.deepEqual(ids(sendRunGuests(ROSTER, ['cora', 'dan', 'ana'])), ['cora', 'ana']);
@@ -160,20 +170,20 @@ test('List · Pick who · Setup · the run · Home — one number, and the decli
   );
 });
 
-test('the two screens that PRINT the number print that number (rendered: the real Setup rows, the real run)', async () => {
+test('the run prints that number (rendered: the real run) — and the Guests ⚙ prints none (R4 slice 11)', async () => {
   const n = TO_INVITE.length;
-  const setup = await renderSetup({ getIn: 'list', toInvite: toInviteCount(ROSTER, true) });
-  assert.match(text(setup.match(/<a\b[^>]*data-testid="setup-send"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? ''), new RegExp(`Send to ${n}\\b`), 'Setup\'s button names another N');
-  assert.match(text(setup), new RegExp(`\\b${n} to invite\\.`));
+  // 🗂 R4 slice 11: the ⚙ lost its Invitations row — the List's To invite door and Select › Invite N carry the count.
+  assert.doesNotMatch(text(await renderSetup({ getIn: 'list' })), /Send to \d|to invite\./, 'the Guests ⚙ counts who is left to invite again');
 
   const run = await renderRun(ROSTER);
-  // 📨 The run redrawn simple (owner 2026-10-27): "N sent · M more to invite" — M is the List's N — and "Invite k of all",
-  // counting on from those already sent, so the guests left from the first one are exactly N.
+  // 📨 The run redrawn simple (owner 2026-10-27): "N sent · M more to invite" — M is the List's N — and "Invite k of N"
+  // (owner 2026-10-29: the total is who is LEFT, never everyone), so the guests left from the first one are exactly N.
   assert.match(text(run), new RegExp(`\\b${n} more to invite`), 'the run\'s "more to invite" is not the List\'s N');
   const eyebrow = /^ ?Invite (\d+) of (\d+) ?$/.exec(text(run.match(/<p[^>]*data-send-run-position=""[^>]*>[\s\S]*?<\/p>/)?.[0] ?? ''));
   assert.ok(eyebrow, 'the run has no "Invite k of all"');
   assert.equal(Number(eyebrow![2]) - Number(eyebrow![1]) + 1, n, 'the run\'s guests left are not the List\'s N');
   assert.doesNotMatch(text(run), /\bdan\b|\bfe\b/, 'the run names a guest who declined');
+  assert.equal(Number(eyebrow![2]), n, '"Invite k of N" counts more than who is left to invite');
   // Everyone invited → the run says so; it never opens on a declined guest instead.
   const done = await renderRun(ROSTER.map((r) => (TO_INVITE.includes(r.guest_id) ? { ...r, invitation_sent_at: SENT } : r)));
   assert.match(text(done), /\b0 more to invite/);
@@ -184,9 +194,6 @@ test('a refused read is unknown — never "0 to invite", never "everyone has the
   assert.equal(toInviteCount([], false), null, 'Setup reads a refused guest list as a number');
   assert.equal(toInviteCount(ROSTER, false), null);
   assert.equal(homeGuestsRead([], false), null, 'Home reads a refused guest list as a count');
-  const setup = await renderSetup({ getIn: 'list', toInvite: toInviteCount([], false) });
-  assert.match(text(setup), /We couldn’t count who is left to invite just now\./);
-  assert.doesNotMatch(text(setup), /Everyone invited|Send to 0|\b0 to invite/, 'Setup draws a refused read as nobody to invite');
   const run = await renderRun([], { measured: false });
   assert.match(text(run), /We couldn’t load your guest list just now/);
   assert.doesNotMatch(text(run), /Everyone has their invite|\b0 more to invite|Not sent yet \(0\)/, 'the run draws a refused read as all done');
@@ -206,22 +213,22 @@ test('a +1 with no name rides on their guest’s invitation; named, they are inv
 });
 
 test('declining after the run opened takes a guest out on the next read; changing back brings them in', () => {
-  const opened = asRunGuests(sendRunGuests(ROSTER).filter((r) => !r.invitation_sent_at)); // ana, ben, cora
+  const opened = asRunGuests(sendRunGuests(ROSTER).filter((r) => isToInvite(r))); // ana, hal, ivy
   assert.deepEqual(opened.map((x) => x.guestId), TO_INVITE);
 
-  // ben declines while the couple is on ana. The next read no longer holds ben.
-  const afterDecline = ROSTER.map((r) => (r.guest_id === 'ben' ? { ...r, rsvp_status: 'declined' as const } : r));
+  // hal declines while the couple is on ana. The next read no longer holds hal.
+  const afterDecline = ROSTER.map((r) => (r.guest_id === 'hal' ? { ...r, rsvp_status: 'declined' as const } : r));
   assert.equal(toInviteCount(afterDecline, true), 2);
   assert.equal(rosterStats(afterDecline).toInvite, 2);
   const latest = asRunGuests(sendRunGuests(afterDecline));
-  assert.ok(!latest.some((x) => x.guestId === 'ben'));
+  assert.ok(!latest.some((x) => x.guestId === 'hal'));
   const onAna = runStanding(opened, latest, 0);
   assert.equal(onAna.current?.guestId, 'ana');
-  assert.equal(onAna.upNext?.guestId, 'cora', 'the run offers a guest who declined as "Next"');
+  assert.equal(onAna.upNext?.guestId, 'ivy', 'the run offers a guest who declined as "Next"');
   assert.deepEqual([onAna.position, onAna.total], [1, 2], 'the run still counts a guest who declined');
-  // Next from ana lands on cora — never on ben — and says "2 of 2".
+  // Next from ana lands on ivy — never on hal — and says "2 of 2".
   const next = runStanding(opened, latest, onAna.index + 1);
-  assert.equal(next.current?.guestId, 'cora');
+  assert.equal(next.current?.guestId, 'ivy');
   assert.deepEqual([next.position, next.total], [2, 2]);
   assert.equal(runStanding(opened, latest, next.index + 1).current, null, 'the run does not end');
 
@@ -234,21 +241,21 @@ test('declining after the run opened takes a guest out on the next read; changin
   assert.deepEqual(runArrivals(known, latest2, 'unsent').map((x) => x.guestId), ['dan']);
   // …but someone the run already holds, or already sent to, is not "new".
   assert.deepEqual(runArrivals(new Set([...known, 'dan']), latest2, 'unsent'), []);
-  assert.deepEqual(runArrivals(new Set<string>(), latest2, 'unsent').map((x) => x.guestId), ['ana', 'cora', 'dan']);
+  // A newcomer is someone still to invite — never one who answered (ben's maybe, cora's yes).
+  assert.deepEqual(runArrivals(new Set<string>(), latest2, 'unsent').map((x) => x.guestId), ['ana', 'ivy', 'dan']);
   const grown = runStanding([...opened, ...runArrivals(known, latest2, 'unsent')], latest2, 0);
   assert.deepEqual([grown.position, grown.total], [1, 3]);
 });
 
 test('every surface is WIRED to the one rule, and none keeps a count of its own', () => {
   const setup = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
-  assert.match(setup, /const toInvite = toInviteCount\(guests\.rows, guests\.measured\);/, 'Setup\'s panel does not ask the one rule');
+  assert.doesNotMatch(setup, /toInvite/, 'the Guests ⚙ counts who is left to invite again (R4 slice 11)');
   const page = read('app/dashboard/[eventId]/guests/send/page.tsx');
   assert.match(page, /sendRunGuests\(rows, picked\)/, 'the run page does not ask the one rule who it holds');
   const run = read('app/dashboard/[eventId]/guests/send/_components/send-run.tsx');
-  assert.match(run, /runStanding\(queue, sendable, at\)/, 'the run counts off its snapshot, not the latest read');
+  assert.match(run, /runStanding\(queue, inRun, at\)/, 'the run counts off its snapshot, not the latest read');
   assert.match(run, /runArrivals\(known\.current, sendable, 'unsent'\)/, 'the run never takes in a guest who came back');
-  assert.match(run, /Invite \{formatCount\(before \+ position\)\} of \{formatCount\(sendable\.length\)\}/);
-  assert.match(run, /const before = Math\.max\(0, sendable\.length - total\);/);
+  assert.match(run, /Invite \{formatCount\(position\)\} of \{formatCount\(total\)\}/);
   const home = read('lib/home-first-screen.ts');
   assert.match(home, /unsent: rows\.filter\(\(g\) => isToInvite\(g\)\)\.length/, 'Home does not ask the one rule');
   assert.match(read('app/dashboard/[eventId]/page.tsx'), /guests: homeGuestsRead\(guests, guestsMeasured\)/);

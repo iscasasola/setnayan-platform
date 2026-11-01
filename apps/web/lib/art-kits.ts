@@ -99,6 +99,13 @@ export type ArtKitPlacement<P extends string = string> = {
   delay?: number;
   /** A motion's period, seconds. */
   period?: number;
+  /**
+   * 📏 The words start BELOW this piece (cover only). The proof hangs the araña "into the cover from the top edge,
+   * between the drapes and above the first line"; drawn as a layer under the words it still sat ON them at 390 (walk
+   * 2026-11-01: over the top line and "Maria"). A piece in the words' column says so here, and the cover's header grows
+   * its top padding to clear it (`coverWordsClearance`, `artKitCss`) — the reply card's garland rule, on the cover.
+   */
+  clearsWords?: boolean;
 };
 
 export type ArtKit<P extends string = string> = {
@@ -161,7 +168,7 @@ const VINTAGE_KIT: ArtKit<VintagePiece> = {
     // beneath the cover's text) and further out than the proof (60px of each drape shows, not 79).
     { piece: 'drape', slot: 'cover', scene: 'hero', box: { left: '-40px', top: '-6px', width: '100px' }, motion: 'sway', period: 7 },
     { piece: 'drape', slot: 'cover', scene: 'hero', box: { right: '-40px', top: '-6px', width: '100px' }, motion: 'sway', period: 7, mirror: true, delay: -3.2 },
-    { piece: 'chandelier', slot: 'cover', scene: 'hero', box: { left: 'calc(50% - 70px)', top: '-8px', width: '140px' }, motion: 'sway', period: 9, delay: -1.5 },
+    { piece: 'chandelier', slot: 'cover', scene: 'hero', box: { left: 'calc(50% - 70px)', top: '-8px', width: '140px' }, motion: 'sway', period: 9, delay: -1.5, clearsWords: true },
     // The countdown card: a narra post at each edge, overlapping the card's top; the card's sides grow so "62" stands clear.
     { piece: 'countdown-frame', slot: 'countdown', scene: 'countdown', box: { left: '-38px', top: '-18px', width: '72px' }, motion: 'still' },
     { piece: 'countdown-frame', slot: 'countdown', scene: 'countdown', box: { right: '-38px', top: '-18px', width: '72px' }, motion: 'still', mirror: true },
@@ -312,9 +319,31 @@ export const ART_KIT_BYTE_CEILING = 600 * 1024;
  * THE PAGE: a piece may hang past the page's edge (the proof's posts and spray do), so the page clips sideways where
  * a kit is drawn — `clip`, not `hidden`, which would make a scroll container and break every sticky bar.
  */
+/**
+ * 📏 How far below the cover slot's top edge the words must start (px), or null when no piece there asks for it: the
+ * lowest bottom edge of the cover's `clearsWords` pieces (`top` + the drawn width × the piece's own ratio), plus a
+ * breath. The slot's top is the Cover Scene's top edge (`top: -var(--cover-scene-pad)`), so the header's padding is
+ * this less that pad.
+ */
+export const COVER_WORDS_BREATH_PX = 12;
+export function coverWordsClearance(view: ArtKitView): number | null {
+  let lowest: number | null = null;
+  for (const p of viewPlacements(view, 'cover')) {
+    if (!p.clearsWords) continue;
+    const piece = view.kit.pieces[p.piece];
+    const top = Number.parseFloat(p.box.top ?? '');
+    const width = Number.parseFloat(p.box.width);
+    if (!piece || !Number.isFinite(top) || !Number.isFinite(width) || !/px$/.test(p.box.width)) continue;
+    const bottom = top + (width * piece.h) / piece.w;
+    lowest = lowest === null ? bottom : Math.max(lowest, bottom);
+  }
+  return lowest === null ? null : Math.ceil(lowest + COVER_WORDS_BREATH_PX);
+}
+
 export function artKitCss(view: ArtKitView): string {
   const kit = view.kit;
   const flourish = view.pieces.heading?.includes('heading-flourish') ? (kit.pieces['heading-flourish' as keyof typeof kit.pieces] as ArtKitPiece | undefined) : undefined;
+  const clearance = coverWordsClearance(view);
   const flourishRule = flourish
     ? /* 🌹 The section eyebrows' plain rule becomes the flourish. Only inside the guest page's editorial scope, the
          same scope that draws the rule. */
@@ -339,6 +368,10 @@ export function artKitCss(view: ArtKitView): string {
        goes beneath its in-flow words and above its ground (the ground is −10). */
     'header:has(>[data-kit-slot="cover"]){position:relative;isolation:isolate}' +
     '[data-kit-slot="cover"]{position:absolute;z-index:-1;top:calc(-1 * var(--cover-scene-pad,0px));left:50%;translate:-50% 0;width:min(100vw,40rem);height:280px;overflow:visible}' +
+    /* …and when a piece hangs in the words' column (the araña), the words start below it. */
+    (clearance !== null
+      ? `header:has(>[data-kit-slot="cover"] [data-kit-clear]){padding-top:calc(${clearance}px - var(--cover-scene-pad,0px))}`
+      : '') +
     /* The countdown card holds its posts and grows at the sides so the numbers stand clear of them. */
     '[data-scene-card]:has(>[data-kit-slot="countdown"]){position:relative;padding-inline:2.5rem}' +
     '[data-kit-slot="countdown"],[data-kit-slot="gifts-card"],[data-kit-slot="reply"]{position:absolute;inset:0}' +

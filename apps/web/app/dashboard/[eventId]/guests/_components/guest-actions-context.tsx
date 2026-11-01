@@ -110,6 +110,18 @@ export function useGuestActions(): GuestActions {
  */
 export const PickWhoContext = createContext<(() => void) | null>(null);
 
+/**
+ * 📥 ⚙ › REQUESTS TO JOIN, IN PLACE (R4 slice 11; house rule "a save never resets the screen"). The Guests screen
+ * provides this for the couple: the row's press closes the sheet and opens Asking to join on the List — the requests
+ * drawn in place, each Accept · Decline answered there with Undo. Absent (the ⚙ rows drawn outside the Guests screen,
+ * or a helper) → the row keeps its link to the Requests page. 🔒 lib/requests-are-inside-guests.test.ts
+ */
+export const OpenRequestsContext = createContext<(() => void) | null>(null);
+
+export function useOpenRequests(): (() => void) | null {
+  return useContext(OpenRequestsContext);
+}
+
 export function usePickWho(): (() => void) | null {
   return useContext(PickWhoContext);
 }

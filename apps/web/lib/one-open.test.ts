@@ -161,7 +161,11 @@ test('the shared openers call the one hook (and the containers mark their childr
 
 test('PickMenu joins with its own open state — tap AND keyboard, because it is the state that announces', () => {
   const src = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
-  assert.match(src, /const \[open, setOpen\] = useState\(false\);\s*useOneOpen\(open, setOpen\);/);
+  assert.match(src, /const \[open, setOpen\] = useState\(false\);\s*const oo = useOneOpen\(open, setOpen\);/);
+  // A greyed row's ⓘ (owner 2026-10-31, "Yes, tidy it") opens INSIDE the open list: it is scoped as the list's child,
+  // so reading a reason never closes the menu it sits in (`pick-menu-off-row.tsx` wraps it in `OneOpenScope`).
+  assert.match(src, /<PickOffRow key=\{o\.key\} o=\{o\} oo=\{oo\} \/>/);
+  assert.match(read('app/dashboard/[eventId]/website/editor/_components/pick-menu-off-row.tsx'), /<OneOpenScope id=\{oo\}>/);
 });
 
 test('the hook announces from the state change, in a layout effect keyed on open', () => {

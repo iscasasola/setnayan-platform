@@ -20,7 +20,8 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // app/vendor-dashboard/te
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
 const ACTIONS = read('actions.ts');
-const PAGE = read('page.tsx');
+// 🏪 The Helpers screen moved into `_components/team-screen.tsx` (2026-10-31) — the page and the Shop ⚙ both mount it.
+const PAGE = read('_components/team-screen.tsx');
 const SHOP = read('../shop/page.tsx');
 
 function body(src: string, fn: string): string {

@@ -147,7 +147,8 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
       {/* FREE run finished → the dossier, inline. */}
       {state.status === 'ran' ? (
         <div className="mt-5">
-          <DossierView dossier={state.dossier} />
+          {/* 📄 Running a search also makes its PDF (owner 2026-10-29) — Share it straight from the fresh result. */}
+          <DossierView dossier={state.dossier} pdf={{ dossierId: state.dossierId, searchedAt: state.searchedAt }} />
         </div>
       ) : null}
 

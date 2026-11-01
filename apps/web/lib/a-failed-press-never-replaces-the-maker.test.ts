@@ -141,7 +141,9 @@ test('the walk reads the Maker: its folders, the shared rows it mounts, and the 
     assert.ok(REACH.has(f), `${f} is no longer reached from the Maker's page — the walk lost it`);
   }
   const total = FOUND.reduce((n, f) => n + f.awaits.length, 0);
-  assert.ok(FOUND.length >= 45 && total >= 100, `only ${total} transition awaits in ${FOUND.length} files — the scan is not seeing the transitions`);
+  /* 🗂 R4 (2026-10-28): the seat plan (its presses — 93 counted after it left, from 100+) is Guests › Seats now, so the
+     Maker no longer reaches it; the floor follows what the Maker really holds. */
+  assert.ok(FOUND.length >= 45 && total >= 85, `only ${total} transition awaits in ${FOUND.length} files — the scan is not seeing the transitions`);
   /* The five presses of 2026-10-11 are each SEEN (a fix the scan cannot see is not held by it). */
   const seen = (file: string, awaited: RegExp) => FOUND.find((f) => f.file === file)?.awaits.some((a) => awaited.test(a.awaited) && a.guard !== null);
   assert.ok(seen(`${EVENT}/website/editor/_components/use-scene-canvas.ts`, /^hubDraftAnswer\(/), 'useSceneCanvas.save');

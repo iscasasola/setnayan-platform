@@ -21,6 +21,8 @@
  *   ?groupsfail=1   the group list refused · ?activityfail=1 the one activity read refused (rows keep their line)
  *   ?unreadfail=1   the unread counts refused — the Groups door says "Couldn't load", no badge anywhere
  *   ?long=1         30 extra people, so the page scrolls under the pinned row
+ *   a group row opens /dev/group-lab?g=<id> — its ‹ comes back here in place (owner 2026-10-29); the group's deep-link ‹
+ *                   lands on this lab's ?view=samahan, the lab's People › Groups
  */
 import { notFound } from 'next/navigation';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
@@ -33,6 +35,7 @@ import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, pinnedViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
 import { LabTour } from './lab-tour';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 
 const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): RosterPerson => ({
   kind: 'connection',
@@ -65,9 +68,9 @@ const PEOPLE: RosterPerson[] = [
 /** The Groups rows — chat rows (owner 2026-10-28): a ring while stories are live · the last line · its time · the next
  *  event · an unread badge (owner 2026-10-28, GROUP UNREAD). The prototype's three groups (user_dash_2026-10-28 B–D). */
 const GROUPS: GroupsFoldRow[] = [
-  { communityId: 'lab-sam-1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino may sasakyan sa Sabado?', when: '2m' }, nextEvent: { label: '15 Nov · Liga ng Barangay' }, unread: 3 },
-  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8, stories: 6, last: { who: 'Tita Ces', body: 'Salamat po!', when: '1h' }, nextEvent: { label: '27 Dec · Reunion' }, unread: 1 },
-  { communityId: 'lab-sam-3', name: 'Batch ’14', role: 'member', memberCount: 41, stories: 0, last: { who: 'Paolo', body: 'See you sa Liga!', when: 'Mon' }, nextEvent: null, unread: 0 },
+  { communityId: 'lab-sam-1', labHref: '/dev/group-lab?g=lab-sam-1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino may sasakyan sa Sabado?', when: '2m' }, nextEvent: { label: '15 Nov · Liga ng Barangay' }, unread: 3 },
+  { communityId: 'lab-sam-2', labHref: '/dev/group-lab?g=lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8, stories: 6, last: { who: 'Tita Ces', body: 'Salamat po!', when: '1h' }, nextEvent: { label: '27 Dec · Reunion' }, unread: 1 },
+  { communityId: 'lab-sam-3', labHref: '/dev/group-lab?g=lab-sam-3', name: 'Batch ’14', role: 'member', memberCount: 41, stories: 0, last: { who: 'Paolo', body: 'See you sa Liga!', when: 'Mon' }, nextEvent: null, unread: 0 },
 ];
 
 /** The second degree under the Groups view's rows — a stand-in for the server section (it reads the database). */
@@ -185,6 +188,8 @@ export default async function PeopleLabPage({
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
         <div className="sn-page-enter">
           <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
+            {/* The real page's mark (people/page.tsx): ‹ from a group opened here comes back in place. */}
+            <ChatOriginMark />
             {view === 'samahan' ? (
               <div className="mx-auto w-full max-w-3xl pb-24">
                 <PeopleGroupsView rows={groupRows} unreadable={groupsRefused} unreadUnreadable={unreadRefused} activityUnreadable={sp.activityfail === '1'} picker={picker} pin={pin}>

@@ -6,7 +6,6 @@
  * `eventSkuActive` and so reaches the service-role client. This half is the
  * money vocabulary, and money vocabulary is exactly what the SURFACES need:
  *
- *   • `papic-gallery-grid.tsx` ('use client') prices a clip;
  *   • `lib/papic-tier-copy.ts` writes every points phrase from these constants,
  *     and IT is what `extra-cameras-picker.tsx` / `guest-camera-tier-picker.tsx`
  *     / the onboarding services step read;

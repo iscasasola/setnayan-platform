@@ -24,9 +24,12 @@
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
- *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
+ *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
+ *                   — with &seat=3d the SHIPPED 3D room on synthetic data; &big=1 its 25-table / 230-guest plan, the phone
+ *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &gshow=requests (screen) open on Asking to join — the Requests page drawn in place (a labelled stand-in here)
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
@@ -47,6 +50,10 @@
  *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
  *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
+ *   &nicks=1        (screen) a few nicknames and a title — the full name with the nickname beside it (NAMES, v24)
+ *   &answered=1     (screen · run) the owner's 2026-10-29 shape: half the guests nothing was sent to have ANSWERED
+ *                   anyway (said yes in person — "Kat Arroyo · Attending", never stamped). They are not "to invite":
+ *                   the List's To invite, the run's "more to invite" and its queue all leave them out
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
@@ -74,7 +81,7 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
-import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { hasReplied, sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { runGuestPage } from '@/lib/send-run-page';
 import { plusOneOfWords } from '@/lib/plus-one-of';
 import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
@@ -85,9 +92,16 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { parseGuestsFilter } from '@/lib/guests-filter';
+import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
+import { LabMarch, LabSeats } from './lab-seats-march';
+import { LabTopBar } from './lab-top-bar';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { DecideForm, DecideRow } from '@/app/dashboard/[eventId]/guests/claims/decide-in-place';
+import type { RequestInPlace } from '@/app/dashboard/[eventId]/guests/claims/actions';
 import { LabGuestActions } from './lab-guest-actions';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
@@ -152,6 +166,49 @@ const LAB_TITLES_WAITING: TitleWaitingPerson[] = [
   { guestId: 'g-t3', name: 'Regional Prosecutor Rex Diaz', roleWord: 'Grandparents of the Groom', title: 'Regional Prosecutor', key: titleKey('Regional Prosecutor', null), text: titleButtonText('Regional Prosecutor', null, true) },
   { guestId: 'g-t4', name: 'Carmen Diaz', roleWord: 'Grandparents of the Groom', title: null, key: titleKey(null, null), text: titleButtonText(null, null, true) },
 ];
+
+/**
+ * 📥 The lab's stand-in for the Requests page drawn inside Guests (the real one reads the database). Its rows post
+ * through the SAME in-place forms the real rows do (`DecideForm` · `DecideRow`, `guests/claims/decide-in-place.tsx`),
+ * to the lab's inline `act` — which writes nothing, answers `{ ok: true }`, or refuses in words with `&refuse=1` — so
+ * Accept · Decline → the row kept as "just decided", the toast with Undo, and a refusal said in place can be walked.
+ */
+function LabRequestsStandIn({ act }: { act: (fd: FormData) => Promise<RequestInPlace> }) {
+  const people = [
+    ['g-req-1', 'Rowena Dizon', 'Says she is a classmate of Maria · via the event link'],
+    ['g-req-2', 'Mark Ignacio', 'Officemate of Jose · via the event link'],
+    ['g-req-3', 'Shiela Panganiban', 'Cousin of Bianca Lim · via the event link'],
+  ];
+  return (
+    <div data-requests-page="" data-lab-stand-in="" className="flex flex-col px-1">
+      <p className="py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Lab stand-in · the Requests page draws here</p>
+      <ul className="divide-y divide-ink/10 border-t border-ink/10">
+        {people.map(([id, name, line]) => (
+          <DecideRow key={id} guestId={id!}>
+            <li className="py-4" data-request={id}>
+              <span className="block text-base font-semibold text-ink">{name}</span>
+              <span className="block text-xs text-ink/55">{line}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <DecideForm act={act} verb="keep" guestId={id!} name={name!}>
+                  <input type="hidden" name="guest_id" value={id} />
+                  <SubmitButton overlay={false} pendingLabel="Adding…" className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream">
+                    Accept
+                  </SubmitButton>
+                </DecideForm>
+                <DecideForm act={act} verb="decline" guestId={id!} name={name!}>
+                  <input type="hidden" name="guest_id" value={id} />
+                  <SubmitButton overlay={false} pendingLabel="Declining…" className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink">
+                    Decline
+                  </SubmitButton>
+                </DecideForm>
+              </div>
+            </li>
+          </DecideRow>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function guest(p: Partial<GuestRow>): GuestRow {
   return {
@@ -326,6 +383,19 @@ function planningRoster(): GuestRow[] {
 }
 
 /**
+ * 💬 `&answered=1` — the owner's 2026-10-29 shape: every other guest nothing was sent to has answered anyway (marked
+ * Attending by the host). Stand-in data; nothing is read.
+ */
+function withAnsweredUnsent(roster: GuestRow[]): GuestRow[] {
+  let k = 0;
+  return roster.map((g) =>
+    g.invitation_sent_at === null && g.rsvp_status === 'pending' && g.role !== 'bride' && g.role !== 'groom' && k++ % 2 === 0
+      ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const }
+      : g,
+  );
+}
+
+/**
  * 🤝 `?plusones=1` — the owner's 2026-10-19 shape (cale-ice's List, read-only count): unnamed "+1 · TBA" seats on
  * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
  * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
@@ -448,6 +518,12 @@ export default async function GuestsLabPage({
   async function labPartnerLink() {
     'use server';
     if (labRefuses) redirect(labRefusal);
+  }
+  /* 📥 Requests inside Guests: the in-place door's stand-in — answers, never redirects (as `decideRequestInPlace`). */
+  async function labDecide(formData: FormData): Promise<RequestInPlace> {
+    'use server';
+    void formData;
+    return labRefuses ? { ok: false, error: 'They could not be added just now — nothing was changed.' } : { ok: true };
   }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
@@ -701,7 +777,6 @@ export default async function GuestsLabPage({
                       config={config}
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
-                      toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
@@ -737,7 +812,8 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    const roster000 = sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(roster000, sp.backfilled === '1', sp.paired === '1') : roster000;
     /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
        above the screen), so a search can be walked on a list a phone has to scroll. */
     const roster0 = roster00
@@ -751,12 +827,22 @@ export default async function GuestsLabPage({
     /* 🪪 `&typed=1` — two names typed all lower case (guest_page_fixes_2_4 fix 3, owner 2026-10-21): the list SHOWS them
        cased ("Pamela Labriaga", "Jose de los Santos"), the rows keep what was typed. */
     const TYPED: Record<string, [string, string]> = { Daniel: ['jose', 'dela cruz'], Gabriel: ['gabriel', 'de los santos'] };
-    const roster = sp.typed === '1'
+    const rosterTyped = sp.typed === '1'
       ? roster1.map((g) => {
           const t = g.first_name ? TYPED[g.first_name] : undefined;
           return t ? { ...g, first_name: t[0], last_name: t[1], display_name: null } : g;
         })
       : roster1;
+    /* 💬 `&nicks=1` — nicknames (`display_name`) and a title, as a real list carries them (NAMES, prototype v24): every
+       Guests surface draws the FULL name with the nickname beside it, muted, in quotes. */
+    const NICKS: Record<string, Partial<GuestRow>> = {
+      'g-mj-6': { name_prefix: 'Atty.', display_name: 'Tony' },
+      'g-mj-11': { display_name: 'Monching' },
+      'g-mj-14': { display_name: 'Tita Rose' },
+      'g-mj-24': { display_name: 'Jo' },
+      'g-mj-3': { display_name: 'Dan' },
+    };
+    const roster = sp.nicks === '1' ? rosterTyped.map((g) => (NICKS[g.guest_id] ? { ...g, ...NICKS[g.guest_id] } : g)) : rosterTyped;
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],
@@ -766,17 +852,33 @@ export default async function GuestsLabPage({
     };
     const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
     const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
-    const gview = sp.gview === 'map' ? 'map' : 'list';
+    /* 🗂 R4 · `&gview=seats` (with `&seat=3d|list|map`) and `&gview=march` (`&march=owner` for the owner-shaped one) —
+       the shipped makers drawn the way the page draws them (`lab-seats-march.tsx`). */
+    const gview = parseGuestsView(typeof sp.gview === 'string' ? sp.gview : null);
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
     /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
     const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  {/* The page's title group (`guests/page.tsx` `data-guests-title-group`): on a phone only an sr-only h1,
+                      but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
+                      Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
+                      (2026-10-30, Seats › List). */}
+                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                    <h1 className="sr-only">Guests</h1>
+                  </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
+                    seat={gview === 'seats' ? parseSeatView(typeof sp.seat === 'string' ? sp.seat : null) : null}
+                    views={GUESTS_VIEWS}
+                    filter={parseGuestsFilter(sp)}
+                    bodies={{
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} />,
+                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
+                    }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}
                     hasSides
@@ -794,6 +896,11 @@ export default async function GuestsLabPage({
                     songsByGuest={{}}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}
+                    /* 📥 Requests inside Guests (slice 11): the real body is the Requests page, which reads the database —
+                       the lab draws a labelled stand-in in its place, so the in-place frame can be walked. */
+                    requestsInPlace
+                    requestsBody={sp.req === '0' ? null : <LabRequestsStandIn act={labDecide} />}
+                    initialAsking={sp.gshow === 'requests'}
                     oneQr={sp.oneqr === '1'}
                     // 📤 Each row's Share, as the page hands it: the address, the event's words, and a token per guest the
                     // run would hold (`sendRunGuests` = the page's `mayBeInvited`); the lab's token is the guest's id.
@@ -836,11 +943,11 @@ export default async function GuestsLabPage({
     }
     return (
       <RoleNamesProvider names={{}}>
-        <div className="sn-ambient min-h-screen">
-          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
-          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
-            SETNAYAN
-          </div>
+        {/* `data-chrome="app"` + `data-boundary="tab"`: the app's own two attributes, so `shellBarShows` knows when the
+            stand-in bar has really slid away (as the Suppliers lab's stage does). */}
+        <div className="sn-ambient min-h-screen" data-chrome="app" data-boundary="tab">
+          {/* A stand-in for the shell's sticky top bar (same class, same height) — it slides away on scroll like the real one. */}
+          <LabTopBar />
           <main className="sn-vt-page">
             <div data-shell-main>
               <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
@@ -876,7 +983,7 @@ export default async function GuestsLabPage({
     // SIMPLE"): each guest as a page (`runGuestPage`). `&ids=a,b` — Select's "Invite N"; `&oneqr=1` — a one-link event
     // (the event's ONE link and a stand-in QR); ✕ and Done for now land on the lab's Guest list.
     const failed = sp.fail === '1';
-    const roster = failed ? [] : planningRoster();
+    const roster = failed ? [] : sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
     const ids = typeof sp.ids === 'string' ? sp.ids.split(',').filter(Boolean) : [];
     const runGuests = sendRunGuests(roster, ids).map((g) => ({
       guestId: g.guest_id,
@@ -885,6 +992,7 @@ export default async function GuestsLabPage({
       fullName: guestDisplayName(g),
       inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),
       sentAt: g.invitation_sent_at,
+      replied: hasReplied(g),
       page: runGuestPage(g, roster, null, true),
     }));
     const oneLink =
@@ -907,6 +1015,7 @@ export default async function GuestsLabPage({
                 facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
                 template={null}
                 oneLink={oneLink}
+                picked={ids.length > 0}
                 guestsHref="/dev/guests-lab?part=screen"
               />
             </LabGuestActions>

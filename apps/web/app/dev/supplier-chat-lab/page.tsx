@@ -4,8 +4,9 @@
  *
  * Draws the REAL pieces the thread page mounts — the frame (`ChatBox`), the answer line, the quick replies, the ＋
  * Tools sheet on the real composer, the tray of tool panels with the customer card's booking-ask panel and the
- * one-screen quote (`ProposalMaker`, fed a `labSeed` so it opens filled without a server call). The message bubbles
- * and the "New inquiry" bar are stand-ins: the stream needs a live session (Realtime), and the bar is the page's own.
+ * one-screen quote (`ProposalMaker`, fed a `labSeed` so it opens filled without a server call) — inside the supplier's
+ * REAL shell and the ONE thread frame (`ChatThreadFrame`), with the shared head and the shared stream (fixture
+ * messages; Realtime cannot connect here). The "New inquiry" bar is a stand-in: the bar is the page's own.
  *
  *   ?m=inquiry   a new inquiry — the answer line, "Talk to them"
  *   ?m=tools     an accepted conversation, the couple spoke last — quick replies, ＋ beside the field (tap it)
@@ -19,10 +20,18 @@
  * Names are samples: nobody real.
  */
 import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
+import { BackButton } from '@/app/_components/back-button';
+import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
+import { ChatInfoRailTrigger } from '@/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail';
+import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
+import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF } from '@/app/dev/chat-lab/fixtures';
+import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
@@ -40,17 +49,11 @@ import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
-const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 const TODAY = '2026-10-14';
 const DAY = '2026-12-12';
 const NOW = new Date('2026-10-14T04:00:00Z');
 
-const BUBBLES: Array<['couple' | 'me', string, string]> = [
-  ['couple', 'Hi po! Are you free on Dec 12? We are about 150 guests, garden reception in Tagaytay.', '9:12'],
-  ['me', 'Hello po! Let me check our schedule.', '9:20'],
-  ['couple', 'Thank you! Could you send your price for the buffet?', '9:31'],
-];
 
 const CARDS = [
   { id: 'card-buffet', label: 'Garden buffet', fromPhp: 650, addons: [{ id: 1, label: 'Lechon station', fromPhp: 12000 }, { id: 2, label: 'Coffee bar', fromPhp: 6500 }], comesWith: [], giftOn: true },
@@ -115,33 +118,62 @@ export default async function SupplierChatLabPage({
   };
 
   return (
-    <main className="mx-auto flex h-[calc(100dvh-2rem)] min-h-[27rem] w-full max-w-3xl px-2 py-2 sm:px-4" data-lab-supplier-chat={m}>
-      <ThreadToolHashReveal />
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {notice ? (
-          <p role="status" className="mb-2 rounded-xl border border-mulberry/25 bg-mulberry/[0.06] px-4 py-2.5 text-sm text-ink"> {/* no-card-ok: a copy of the thread page's own answer line, for the lab picture */}
-            {notice.text}{' '}
-            {notice.door ? (
-              <a href={notice.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
-                {notice.door.label}
-              </a>
-            ) : null}
-          </p>
-        ) : null}
+    // The supplier's thread as its page draws it: the supplier's REAL shell (rail · bar · tabs), the page's column, the
+    // ONE thread frame (`ChatThreadFrame`) holding one `ChatBox` — so a walk at 390 proves the takeover covers the
+    // supplier's bar and tabs, and a walk from 1024 proves the chat has the same column as the couple's.
+    <SupplierLabShell measure="own">
+      <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-supplier-chat={m}>
+      <ChatThreadFrame>
         <ChatBox
           header={
-            <>
-              <span className="grid h-11 w-9 shrink-0 place-items-center text-ink/60">
-                <ChevronLeft aria-hidden className="h-5 w-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">Ana &amp; Miguel</p>
-                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55">Catering · December 12, 2026 · Planning for ~150 guests</p>
-              </div>
-            </>
+            <ChatThreadHead
+              back={<BackButton href="/dev/supplier-lab" label="Customers" variant="chat" />}
+              nameHref="#customer"
+              name="Ana's Wedding (Dec 12)"
+              initials="AM"
+              line={
+                <>
+                  <span>Catering</span>
+                  <span>December 12, 2026</span>
+                  <span className="text-terracotta-700">Planning for ~150 guests</span>
+                </>
+              }
+              actions={
+                <>
+                  <ChatInfoRailTrigger
+                    displayName="Ana & Miguel"
+                    initials="AM"
+                    stage={{ label: THREAD_STAGE_LABEL[booked ? 'booked' : 'quoted'], tone: THREAD_STAGE_TONE[booked ? 'booked' : 'quoted'] }}
+                    summary={{
+                      sentence: 'Ana Reyes created a wedding called “Ana & Miguel” on September 2, 2026.',
+                      facts: [
+                        { label: 'Date', value: 'December 12, 2026' },
+                        { label: 'Guests', value: '~150' },
+                      ],
+                      lockedCategories: ['Venue'],
+                    }}
+                    service="Catering"
+                    threadId={LAB_THREAD}
+                    eventId={LAB_EVENT}
+                    source={{ label: 'Website Inquiry', returning: null }}
+                  />
+                  <ChatThreadMenu threadId={LAB_THREAD} returnTo="/dev/supplier-chat-lab" blockedByMe={false} links={[{ href: '#quote', label: 'Quote & payments', icon: 'quote' }, { href: '#files', label: 'Files & contracts', icon: 'files' }, { href: '#schedule', label: 'Schedule', icon: 'schedule' }, { href: '#details', label: 'Full customer profile', icon: 'customer' }]} />
+                </>
+              }
+            />
           }
           notice={
             <>
+              {notice ? (
+                <p role="status" className="border-b border-ink/10 bg-mulberry/[0.06] px-3.5 py-2 text-[13px] text-ink" data-lock-answer="">
+                  {notice.text}{' '}
+                  {notice.door ? (
+                    <a href={notice.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                      {notice.door.label}
+                    </a>
+                  ) : null}
+                </p>
+              ) : null}
               <ThreadAnswerLine initials="AM" eventDay={DAY} todayIso={TODAY} answer={answer} askOpen={askOpen} />
               <ChatPrivacyNotice inBox viewer="vendor" />
             </>
@@ -199,23 +231,20 @@ export default async function SupplierChatLabPage({
             )
           }
         >
-          {/* Stand-in bubbles (the real stream needs a live session). */}
-          <ul className="min-h-[14rem] space-y-2 py-2">
-            {BUBBLES.map(([who, text, at]) => (
-              <li key={at} className={`flex ${who === 'me' ? 'justify-end' : 'justify-start'}`}>
-                <span
-                  className={`max-w-[84%] rounded-2xl px-3.5 py-2 text-[15px] ${
-                    who === 'me' ? 'bg-sn-accent/10 text-ink' : 'border border-ink/10 bg-white text-ink'
-                  }`}
-                >
-                  {text}
-                  <span className="mt-1 block text-[11px] text-ink/45">{at}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <ChatMessageStream
+            flush
+            dealEntry={dealEntryFor({ side: 'vendor', hasQuote: false })}
+            threadId={LAB_THREAD}
+            initialMessages={LAB_MESSAGES.map((x) => ({ ...x, thread_id: LAB_THREAD }))}
+            currentUserId={LAB_STAFF}
+            viewerRole="vendor"
+            counterpartyLabel="Ana & Miguel"
+            lockHandshake={null}
+            fileExpiry={{ eventDate: DAY, precision: 'day' }}
+          />
         </ChatBox>
-      </section>
-    </main>
+      </ChatThreadFrame>
+      </div>
+    </SupplierLabShell>
   );
 }

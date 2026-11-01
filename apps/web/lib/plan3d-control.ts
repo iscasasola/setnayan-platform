@@ -1,5 +1,11 @@
 /**
- * plan3d-control — the 3D Plan control centre's decisions, PURE.
+ * plan3d-control — the 3D Plan's FACTS, PURE.
+ *
+ * ♻ RESTORED 2026-10-29 (owner, on the Guests audit's 3D Plan facts panel: *"put it behind (i)"*). R4 (a01284796b)
+ * folded the 3D Plan control centre (`/plan3d`) into Guests › Seats and deleted this file with the page; its four
+ * facts — Status · Seated · Made an avatar · Days to go — went with it. They come back here VERBATIM (only the facts and
+ * what they need; the page's next-step and built-from rows stayed retired with the page) and are drawn behind an ⓘ in
+ * the Seats menu (`seat-plan-facts.tsx`). Showing guests their seats early stays the switch it already is.
  *
  * The couple's control room FOR the 3D Plan (owner 2026-09-05, Fable spec of
  * the same day; `SERVICE_CONTROL_CENTERS_DESIGN_2026-08-28.md` § 2 — the seven
@@ -34,16 +40,12 @@
  */
 
 import { NOT_SHARED, type HubFact } from './event-hub-control';
-import { guestListIsClosed } from './guest-list-closed';
-import { formatCount } from '@/lib/format-number';
 
 export type Plan3dEventRead = {
   measured: boolean;
   slug: string | null;
   eventDate: string | null;
   timezone: string | null;
-  guestListEditDeadline: string | null;
-  guestListLockedAt: string | null;
 };
 
 export type Plan3dPlanRead = {
@@ -53,15 +55,6 @@ export type Plan3dPlanRead = {
   publishedAt: string | null;
   tables: number;
   seated: number;
-  boothCount: number;
-  brandedBooths: number;
-  photoVisibility: 'table' | 'all' | 'none';
-  /** `events.seating_autoplace_enabled` — the guest-reactive seat plan (Smart
-   *  Seat-Plan Phase 5, 2026-07-08). ON (the default): a new guest gets a
-   *  provisional seat, role/group changes re-seat them, a decline frees the
-   *  seat. So a guest with no seat means NOT ENOUGH TABLES, and the act is
-   *  "add a table" — never "seat them by hand". OFF: the couple seats manually. */
-  autoplace: boolean;
 };
 
 export type Plan3dGuestRead = {
@@ -71,7 +64,9 @@ export type Plan3dGuestRead = {
   shared: boolean;
   measured: boolean;
   total: number;
-  withAvatar: number;
+  /** Guests who made an avatar — `null` when that one count was not read (restored 2026-10-29: in Seats the list is
+   *  already in hand, so only this count can be unread on its own; it says "—" while "Seated" still counts). */
+  withAvatar: number | null;
 };
 
 export type Plan3dState = 'draft' | 'live' | 'after';
@@ -117,23 +112,6 @@ export function resolvePlan3dStanding(
   return { state: 'live', measured: true };
 }
 
-/**
- * The guest list's finalization, as one sentence fragment for a row.
- *
- * ⚖ Owner 2026-09-30: *"i must click a finalize to finalize it."* No date closes
- * the list, so there is no "finalizes <date>" to print. It is finalized when the
- * host pressed Finalize, and open until then (lib/guest-list-closed.ts).
- * `nowMs` is kept in the signature only because the sibling resolvers share it.
- */
-export function resolveGuestListFinalize(
-  event: Plan3dEventRead,
-  _nowMs?: number,
-): { closed: boolean; label: string } {
-  if (!event.measured) return { closed: false, label: 'Couldn’t read it just now' };
-  const closed = guestListIsClosed({ lockedAt: event.guestListLockedAt });
-  return { closed, label: closed ? 'finalized' : 'open' };
-}
-
 export function resolvePlan3dFacts(
   event: Plan3dEventRead,
   plan: Plan3dPlanRead,
@@ -164,8 +142,8 @@ export function resolvePlan3dFacts(
     ? { label: 'Made an avatar', known: true, value: NOT_SHARED }
     : {
         label: 'Made an avatar',
-        known: guests.measured,
-        value: guests.measured
+        known: guests.measured && guests.withAvatar !== null,
+        value: guests.measured && guests.withAvatar !== null
           ? `${guests.withAvatar} guest${guests.withAvatar === 1 ? '' : 's'}${event.slug ? ` · at setnayan.com/${event.slug}/avatar` : ''}`
           : null,
       };
@@ -182,141 +160,3 @@ export function resolvePlan3dFacts(
   }
   return [status, seated, avatars, days];
 }
-
-export type Plan3dNextStep = {
-  headline: string;
-  blurb: string;
-  /** A door, or null when the act is the switch on this page. */
-  href: string | null;
-  cta: string | null;
-  tone: 'act' | 'quiet' | 'failed';
-};
-
-export function resolvePlan3dNextStep(
-  event: Plan3dEventRead,
-  plan: Plan3dPlanRead,
-  guests: Plan3dGuestRead,
-  base: string,
-  nowMs?: number,
-): Plan3dNextStep {
-  if (!plan.measured) {
-    return {
-      headline: 'We couldn’t read your room just now',
-      blurb: 'So we are not going to guess what your guests would see. Nothing has been lost.',
-      href: `${base}/plan3d`,
-      cta: 'Try again',
-      tone: 'failed',
-    };
-  }
-  const standing = resolvePlan3dStanding(event, plan, nowMs);
-  if (plan.tables === 0) {
-    return {
-      headline: 'Place your first table',
-      blurb: 'The room draws itself from your seat plan. One table and it has a shape.',
-      href: `${base}/seating/lab`,
-      cta: 'Open the seat plan',
-      tone: 'act',
-    };
-  }
-  const unseated = guests.shared && guests.measured ? Math.max(0, guests.total - plan.seated) : 0;
-  if (standing.state === 'after') {
-    return {
-      headline: 'Nothing to do',
-      blurb: 'Your guests can still walk it.',
-      href: null,
-      cta: null,
-      tone: 'quiet',
-    };
-  }
-  if (unseated > 0) {
-    return plan.autoplace
-      ? {
-          headline: `${formatCount(unseated)} guest${unseated === 1 ? ' has' : 's have'} no seat yet`,
-          blurb: 'Auto-seating is on — seats fill themselves as you add tables. Add one and the room follows.',
-          href: `${base}/seating`,
-          cta: 'Add a table',
-          tone: 'act',
-        }
-      : {
-          headline: `${formatCount(unseated)} guest${unseated === 1 ? ' has' : 's have'} no seat`,
-          blurb: 'Auto-seating is off, so these are yours to place. They will be told to ask at the door until then.',
-          href: `${base}/seating`,
-          cta: 'Seat them',
-          tone: 'act',
-        };
-  }
-  if (standing.state === 'draft') {
-    return {
-      headline: 'Your guests walk the room on the day',
-      blurb: plan.autoplace
-        ? 'Want them in sooner? Turn on Show early. Seats can change right up to and during the day — a guest added late still gets one, and your guests always open the latest version.'
-        : 'Want them in sooner? Turn on Show early. Seats can change right up to and during the day; your guests always open the latest version.',
-      href: null,
-      cta: null,
-      tone: 'act',
-    };
-  }
-  return {
-    headline: 'Print your table signs',
-    blurb: 'Each sign carries its table’s QR — a guest scans it and lands on their seat.',
-    href: `${base}/seating/print`,
-    cta: 'Open the print pack',
-    tone: 'act',
-  };
-}
-
-export type Plan3dSourceRow = {
-  key: 'guests' | 'seatplan' | 'moodboard';
-  label: string;
-  value: string | null;
-  known: boolean;
-  href: string;
-};
-
-export function resolvePlan3dSources(
-  event: Plan3dEventRead,
-  plan: Plan3dPlanRead,
-  guests: Plan3dGuestRead,
-  base: string,
-  nowMs?: number,
-): Plan3dSourceRow[] {
-  const fin = resolveGuestListFinalize(event, nowMs);
-  const unseated = guests.shared && guests.measured && plan.measured ? Math.max(0, guests.total - plan.seated) : null;
-  return [
-    {
-      key: 'guests',
-      label: 'Guest list',
-      known: !guests.shared || guests.measured,
-      value: !guests.shared
-        ? NOT_SHARED
-        : guests.measured
-          ? `${guests.total} guest${guests.total === 1 ? '' : 's'} · ${fin.label}`
-          : null,
-      href: `${base}/guests`,
-    },
-    {
-      key: 'seatplan',
-      label: 'Seat plan',
-      known: plan.measured,
-      value: plan.measured
-        ? `${plan.tables} table${plan.tables === 1 ? '' : 's'} · ${
-            unseated == null ? `${plan.seated} seated` : unseated === 0 ? 'everyone seated' : `${unseated} with no seat`
-          }${plan.boothCount > 0 ? ` · ${plan.boothCount} supplier booth${plan.boothCount === 1 ? '' : 's'}${plan.brandedBooths > 0 ? ` (${plan.brandedBooths} branded)` : ''}` : ''} · auto-seating ${plan.autoplace ? 'on' : 'off'}`
-        : null,
-      href: `${base}/seating`,
-    },
-    {
-      key: 'moodboard',
-      label: 'Mood board',
-      known: true,
-      value: 'Palette and reception design — the room re-tints when you change it',
-      href: `${base}/studio/mood-board`,
-    },
-  ];
-}
-
-export const PHOTO_VISIBILITY_LABEL: Record<Plan3dPlanRead['photoVisibility'], string> = {
-  table: 'Own table only',
-  all: 'All guests',
-  none: 'No photos',
-};

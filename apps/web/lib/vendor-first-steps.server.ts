@@ -8,6 +8,10 @@ import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 import { businessProfileChecklist, profileGaps, type VendorProfileRow } from '@/lib/vendor-profile';
 import { offerProgress, type SetupCard } from '@/lib/supplier-setup';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
+
+/** The coarse profile categories (`syncProfileFromCoverages` preserves the same set beside the leaves). */
+const COARSE_SERVICE_KEYS: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
 import {
   fetchLatestApplication,
   countCompleteRequiredSlots,
@@ -97,7 +101,10 @@ export async function fetchVendorFirstStepsState(
     profileTotal: details.length,
     hasLogo: !gaps.logoMissing,
     serviceCount: serviceRead.count,
-    offer: serviceRead.cards ? offerProgress((profile as { services?: string[] | null }).services ?? [], serviceRead.cards) : null,
+    // 🔢 Each real service once — never the coarse profile category beside its own leaf (owner 2026-10-29).
+    offer: serviceRead.cards
+      ? offerProgress((profile as { services?: string[] | null }).services ?? [], serviceRead.cards, COARSE_SERVICE_KEYS)
+      : null,
     docsStatus: (application?.status as VerificationAppStatus | undefined) ?? 'none',
     // 🔢 One count: the four required papers (owner 2026-10-22) — never every upload.
     docsIn: countCompleteRequiredSlots(uploads),

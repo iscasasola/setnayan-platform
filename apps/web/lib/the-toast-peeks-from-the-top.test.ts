@@ -82,6 +82,17 @@ test('(9) a sentence is read in full: one line or two, never a third — and nev
   assert.equal(peekToastUnder(doc([bar(0, 600)])), 0, 'a sheet that starts at the top was taken for a bar');
   assert.equal(peekToastUnder(doc([bar(0, 52), bar(0, 96)])), 96, 'two bars: the toast must clear the lower one');
   assert.match(PEEK_TOAST_UNDER, /\[data-maker-toolbar\]/);
+  /* The SHELL's own top bar too (2026-10-29, Guests › March: the Apply toast sat on top of it). A bar slid away on a
+     phone ends at 0 (translateY(-100%)) and moves nothing — the `bar(0, 0)` / `bar(-61, 0)` cases. */
+  assert.ok(PEEK_TOAST_UNDER.split(/\s*,\s*/).includes('.shell-topbar'), 'the toast is drawn over the shell’s top bar again');
+  assert.equal(peekToastUnder(doc([bar(-61, 0)])), 0, 'a top bar slid away (translateY(-100%)) still pushed the toast down');
+  assert.match(read('app/_components/frontdoor/front-door-shell.tsx'), /className="shell-topbar fd-topwrap"/, 'anti-vacuity: the shell’s top bar lost its hook');
+  /* BARS STACK: the shell's bar, then a screen's pinned row right under it — the toast clears both (Guests' View row). A
+     bar that starts well below the head (a card in the page) is not part of it. */
+  assert.equal(peekToastUnder(doc([bar(61, 117), bar(0, 61)])), 117, 'a pinned row under the shell’s bar is covered by the toast');
+  assert.equal(peekToastUnder(doc([bar(-61, 0), bar(0, 56)])), 56, 'with the bar slid away, the pinned row at the top is covered');
+  assert.equal(peekToastUnder(doc([bar(0, 61), bar(200, 250)])), 61, 'a marked box far below the head was taken for part of it');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /data-guests-stick=""[^>]*data-peek-toast-under=""/, 'the Guests View row lost its toast mark');
   assert.match(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), /data-maker-toolbar=""/, 'anti-vacuity: the Maker’s top bar lost its mark');
   assert.equal(PEEK_TOAST_UNDER_GAP, 8);
   assert.match(SRC, /useLayoutEffect\(\(\) => setUnder\(peekToastUnder\(document\)\), \[\]\);/);

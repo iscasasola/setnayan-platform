@@ -182,6 +182,8 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { canvasDpr } from '@/lib/phone-gpu-budget';
+import { usePhoneGpu, useWebglContextLost, ContextLostNotice } from '@/app/_components/plan3d/phone-gpu-budget';
 import {
   coldSparkFrame,
   coldSparkObstacles,
@@ -846,6 +848,10 @@ export function Plan3DScene({
    *  vignette stay lab-Play concerns, this surface adds neither. */
   cinematic?: boolean;
 }) {
+  // 📱 The phone's 3D budget (`phone-gpu-budget.tsx`, owner 2026-10-29): a capped pixel ratio on a phone, and an honest
+  // line instead of a dead canvas when the browser takes WebGL away.
+  const phoneGpu = usePhoneGpu();
+  const webgl = useWebglContextLost();
   const reducedMotion = usePrefersReducedMotion();
   const room = useMemo(() => roomSize(floor), [floor]);
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
@@ -1446,9 +1452,13 @@ export function Plan3DScene({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    {webgl.lost ? <ContextLostNotice onRetry={webgl.retry} /> : null}
+    {!webgl.lost ? (
     <Canvas
+      key={webgl.attempt}
       shadows
-      dpr={[1, 2]}
+      dpr={canvasDpr(phoneGpu, 2)}
+      onCreated={webgl.onCreated}
       camera={{ position: initialCamPos, fov: 48, near: 0.1, far: 200 }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ ...RECOMMENDED_TONEMAP }}
@@ -1707,6 +1717,7 @@ export function Plan3DScene({
         />
       ) : null}
     </Canvas>
+    ) : null}
 
     {/* Booth vendor card (bottom sheet / side drawer). Outside the Canvas — it's
         2D chrome. Backdrop-tap / X / ESC close it via the shared Sheet. */}

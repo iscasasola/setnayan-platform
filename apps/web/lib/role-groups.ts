@@ -159,6 +159,21 @@ function headingFromSections(parts: readonly HeadingPart[], names: RoleNames | n
   return out.join('');
 }
 
+/**
+ * 🏷 WHICH ONE WORD A GROUP'S HEADING IS RENAMED BY (owner 2026-10-29, R4 slice 4: *"the renaming of that group will be
+ * removed since it will be set on when the highlighted group/role is pressed"*) — read off the two vocabularies above,
+ * never a second list: a group NAMED after a role is renamed by that role's word; a heading made of exactly ONE section
+ * is renamed by that section's word. A heading of two sections (Bearers & Flower Girl) has no one word — null, and no
+ * Rename is offered for it. The doors are the shipped ones (`renameRole` / `renameSection`, role-name-actions.ts).
+ */
+export type RoleGroupRenameDoor = { kind: 'role'; role: GuestRole } | { kind: 'section'; section: string };
+export function roleGroupRenameDoor(group: RoleGroup): RoleGroupRenameDoor | null {
+  const role = GROUP_NAMED_AFTER[group];
+  if (role) return { kind: 'role', role };
+  const sections = (ROLE_GROUP_SECTION_PARTS[group] ?? []).filter((p): p is readonly [string, string] => typeof p !== 'string');
+  return sections.length === 1 ? { kind: 'section', section: sections[0]![0] } : null;
+}
+
 /** A group's heading in this couple's words — `ROLE_GROUP_LABELS` when they renamed nothing. */
 export function roleGroupLabel(group: RoleGroup, names?: RoleNames | null): string {
   const role = GROUP_NAMED_AFTER[group];

@@ -1,8 +1,12 @@
-import Link from 'next/link';
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { eventRowTitle } from '@/lib/event-chat-title';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { FileText, MessageSquare } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { SupplierOpenRow } from '../../_components/supplier-open-row';
+import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import {
   CUSTOMER_LANES,
   waitingDays,
@@ -17,7 +21,8 @@ import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 
 /**
- * CUSTOMERS › PEOPLE — the roster, opening on who is waiting (S-PR2, corpus
+ * CUSTOMERS › EVENTS (People until 2026-10-30 — owner: *"Customers still show people and not events"*) — one row per
+ * EVENT, opening on who is waiting (S-PR2, corpus
  * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 3 "People: one row per
  * customer (avatar · name · event line · stage pill · one-line next step),
  * Filter ▾, thumb row = search (≥60 %) + Add"; prototype frame 03).
@@ -44,7 +49,8 @@ import { formatCount } from '@/lib/format-number';
 
 /** The stage, as the badge says it — one word or two. */
 const LANE_BADGE: Record<CustomerLane, { word: string; tone: BadgeTone }> = {
-  waiting: { word: 'Asked', tone: 'wait' },
+  // "Asking" — the prototype's word and its count's (v13; controller call 2026-10-30). It was "Asked".
+  waiting: { word: 'Asking', tone: 'wait' },
   holding: { word: 'Holding', tone: 'wait' },
   talking: { word: 'Talking', tone: 'quiet' },
   booked: { word: 'Booked', tone: 'ok' },
@@ -158,6 +164,38 @@ export function rowLine(r: RosterRow, nowMs: number): { text: string; tone: 'qui
   return r.note;
 }
 
+/**
+ * "EVENTS ⓘ" — the list's one heading (supplier dashboard v13, approved 2026-10-29: the Events view is headed EVENTS with
+ * its ⓘ). What a row IS lives in the ⓘ: one row per event, never per person.
+ */
+export function EventsHeading() {
+  return (
+    <p className="home-k2 flex items-center gap-1.5 pb-1" data-customers-heading="events">
+      <InfoTip label="Events" align="start">
+        One row per event — the same hosts with two events are two rows. Open an event to see everyone hosting it.
+      </InfoTip>
+    </p>
+  );
+}
+
+/**
+ * THE ROW'S ONE LINE — what the event wants from this shop, then where it stands (supplier dashboard v13, approved
+ * 2026-10-29): an inquiry says "Asks for <service> · ~N guests · waiting 2 days"; every other row "<service> · <its
+ * money or its next step>". Never a person's name: the title already names the event, both hosts in it.
+ *
+ * The service comes from the event's fixed lines (one batched read for the rows on screen). Not read → the line says only
+ * what IS known, never a guessed service.
+ */
+export function eventRowLine(r: RosterRow, nowMs: number, lines: EventLines | null): string {
+  const asked = lines?.requested && lines.requested.length > 0 ? lines.requested.map((s) => s.name).join(' + ') : null;
+  const step = rowLine(r, nowMs)?.text ?? null;
+  if (r.waitingKind === 'inquiry') {
+    const pax = lines?.pax ? `~${formatCount(lines.pax)} guests` : null;
+    return [asked ? `Asks for ${asked}` : null, pax, step].filter(Boolean).join(' · ');
+  }
+  return [asked, step, r.returning ? 'returning' : null].filter(Boolean).join(' · ');
+}
+
 /** The name, with the searched letters terracotta (kind 30: "matching letters terracotta"). */
 function Marked({ text, query }: { text: string; query: string }): ReactNode {
   const q = normalizeSearchText(query);
@@ -179,83 +217,105 @@ function Marked({ text, query }: { text: string; query: string }): ReactNode {
   );
 }
 
-const LINE_TONE: Record<'quiet' | 'ok' | 'warn', string | undefined> = {
-  quiet: undefined,
-  ok: 'rgb(var(--color-ok))',
-  warn: 'rgb(var(--color-warn))',
+/** The inquiry answers a Customers row can give in place — the shipped `acceptInquiry` / `declineInquiry`, handed in. */
+export type RosterAnswers = {
+  acceptInquiry: (formData: FormData) => void | Promise<void>;
+  declineInquiry: (formData: FormData) => void | Promise<void>;
 };
 
-/** One customer — avatar · name · event line · badge + one line · the arrow. No box. */
-export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number; query: string }) {
+/**
+ * One EVENT — avatar · its chat title · who + its one line · the stage · ▾ (supplier dashboard v13, APPROVED 2026-10-29:
+ * "Customers ▾ — Events · Dates · Money · QR. One row per event; opened = the fixed lines + For your service"). No box.
+ *
+ * 🔁 IT OPENS NOW, it no longer jumps (the 2026-10-28 "jump to chat full screen" row, superseded by the approved v13):
+ * the row is the shared `SupplierOpenRow` — in place on a phone, in the right column from 701 — and opened it shows the
+ * event's fixed lines (`EventLinesBody`) and its door: Open the chat (where a booking ask is answered, the fee read
+ * before Agree), or, for an inquiry, Decline · Ask a question · Accept in place.
+ */
+export function RosterRowView({
+  r,
+  nowMs,
+  query,
+  lines = null,
+  answers = null,
+  list = null,
+}: {
+  /**
+   * Which of the page's lists draws this row (`asking` · `booked` · `done`) — null on the every-event list. The same
+   * event is drawn in two lists (All and its count), so the row's handle carries the list: one opened row, one copy
+   * beside the list, never the hidden list's twin as well.
+   */
+  list?: string | null;
+  r: RosterRow;
+  nowMs: number;
+  query: string;
+  /** The event's fixed lines, from the page's one batched read. Null → said, never blank. */
+  lines?: EventLines | null;
+  answers?: RosterAnswers | null;
+}) {
   const href = hrefFor(r);
   const badge = rosterBadge(r);
-  const line = rowLine(r, nowMs);
-  // The row is the EVENT (owner 2026-10-28, "User's event (date)"): its title is the event's chat name, the customer
-  // under it — the same couple with two events is two rows, each its own chat.
-  const title = eventChatTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
-  const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
-    .filter(Boolean)
-    .join(' · ');
-  // 📱 A phone's second line is just WHO (the couple's names) — the title already says the kind and the date, and the
-  // place waits for the wider screen (controller review 2026-10-29: "drop the duplicate second line").
-  const whoLine = (r.identityRevealed ? r.title : null) ?? eventLine;
-  const inner = (
-    <>
-      <span
-        aria-hidden
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[13px] font-semibold text-ink/70"
-      >
-        {/*
-          Only a genuinely NAMELESS event wears the neutral mark — initials of
-          the fallback word would read like a name. Nothing is masked any more
-          (owner 2026-09-08, 2026-09-19).
-        */}
-        {r.identityRevealed ? initialsOf(r.title) : '·'}
-      </span>
-      <span className="min-w-0">
-        {/* A phone gives the title two lines before it ever cuts; from md (768) it is one line beside the stage. */}
-        <span className="line-clamp-2 block text-[15px] font-medium leading-tight text-ink md:truncate" data-row-title="">
-          <Marked text={title} query={query} />
-        </span>
-        <span className="mt-0.5 block truncate text-[13px] text-ink/60 md:hidden" data-row-who="">{whoLine}</span>
-        <span className="mt-0.5 hidden truncate text-[13px] text-ink/60 md:block">{eventLine}</span>
-        {/* 📱 BELOW 768 THE STAGE STACKS UNDER THE NAME (owner 2026-10-29, "maximize the screen use … no text crushed
-            beside buttons (stack instead)"): the event's chat title keeps the whole width; from md up it sits right. */}
-        <span className="mt-1 flex min-w-0 items-center gap-2 md:hidden" data-row-stage-stacked="">
-          <Badge tone={badge.tone}>{badge.word}</Badge>
-          {line ? (
-            <span className="min-w-0 truncate text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }}>
-              {line.text}
-            </span>
-          ) : null}
-        </span>
-      </span>
-      <span className="hidden min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right md:flex">
-        <Badge tone={badge.tone} data="customer-stage">
-          {badge.word}
-        </Badge>
-        {line ? (
-          <span className="line-clamp-2 max-w-full text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }} data-row-line="">
-            {line.text}
-          </span>
-        ) : null}
-      </span>
-      {href ? (
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-      ) : (
-        <span aria-hidden className="w-4" />
-      )}
-    </>
+  // 🗂 THE ROW IS THE EVENT (owner 2026-10-29, "Customers are events, not people"): its title is the event's whole name ·
+  // kind · day ("Indalecio & Claire · Wedding · Dec 18") — a couple with two events is two rows — and its line is what
+  // the event wants from this shop and where it stands. The people are INSIDE: the opened row's "Hosted by".
+  const title = eventRowTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
+  const rowWords = eventRowLine(r, nowMs, lines);
+  const inquiry = r.waitingKind === 'inquiry' && r.threadId && answers ? { threadId: r.threadId, ...answers } : null;
+  const avatar = (
+    <span
+      aria-hidden
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[13px] font-semibold text-ink/70"
+    >
+      {/* Only a genuinely NAMELESS event wears the neutral mark — initials of the fallback word would read like a name. */}
+      {r.identityRevealed ? initialsOf(r.title) : '·'}
+    </span>
   );
-  const rowClass =
-    'grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-ink/10 py-2.5';
-  return href ? (
-    <Link href={href} className={`sn-press ${rowClass}`} aria-label={`${title} — ${nextStepLabel(r)}`} data-customer-row={r.lane}>
-      {inner}
-    </Link>
-  ) : (
-    <div className={rowClass} data-customer-row={r.lane}>
-      {inner}
+  return (
+    <div className="border-t border-ink/10" data-customer-row={r.lane}>
+      <SupplierOpenRow
+        id={list ? `customer-${list}-${r.eventId}` : `customer-${r.eventId}`}
+        data="customer-row"
+        title={title}
+        titleNode={<Marked text={title} query={query} />}
+        line={rowWords}
+        lineWrap
+        lead={avatar}
+        aside={
+          <Badge tone={badge.tone} data="customer-stage">
+            {badge.word}
+          </Badge>
+        }
+      >
+        <div className="pb-3" data-customer-opened={r.lane}>
+          {lines ? (
+            <EventLinesBody lines={lines} />
+          ) : (
+            <p role="status" className="py-2 text-[13.5px]" style={{ color: 'rgb(var(--color-warn))' }}>
+              This event&rsquo;s details couldn&rsquo;t load. Refresh to try again — the chat still opens.
+            </p>
+          )}
+          {inquiry ? (
+            <InquiryAnswers
+              threadId={inquiry.threadId}
+              returnTo="/vendor-dashboard/customers"
+              acceptInquiry={inquiry.acceptInquiry}
+              declineInquiry={inquiry.declineInquiry}
+            />
+          ) : href ? (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
+              <ActionButton
+                tone="brand"
+                main
+                icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
+                label={r.threadId ? 'Open the chat' : 'Open their card'}
+                name={`${title} — ${nextStepLabel(r)}`}
+                href={href}
+                className="min-h-11"
+              />
+            </div>
+          ) : null}
+        </div>
+      </SupplierOpenRow>
     </div>
   );
 }
@@ -283,7 +343,16 @@ export function CustomersRoster({
   otherTotal = 0,
   anchor = 'customers',
   emptyLine,
+  lines = {},
+  answers = null,
+  list = null,
 }: {
+  /** Which list this is (a count's key), null for every event — the rows' handles carry it (`RosterRowView`). */
+  list?: string | null;
+  /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
+  lines?: Readonly<Record<string, EventLines>>;
+  /** The inquiry answers an Asking row gives in place. */
+  answers?: RosterAnswers | null;
   /**
    * The list's own `id` (and its chat-origin mark). Null when the page draws the list once PER DOOR (Customers'
    * pinned counts, 2026-10-28) — the page then owns the one `#customers` and the one mark around all four.
@@ -366,7 +435,7 @@ export function CustomersRoster({
       {/* Kind 30's one line under a search: how many it found, of how many. */}
       {q && !hidden ? (
         <p className="py-1.5 text-[12.5px] text-ink/60" data-customers-found="">
-          {formatCount(paged.total + otherMatches)} of {formatCount(total + otherTotal)} customers
+          {formatCount(paged.total + otherMatches)} of {formatCount(total + otherTotal)} events
         </p>
       ) : null}
 
@@ -374,7 +443,7 @@ export function CustomersRoster({
         q ? (
           otherMatches > 0 ? null : (
             <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
-              No one named &ldquo;{q}&rdquo;. Check the spelling, or add them with <b>Add</b>.
+              No event named &ldquo;{q}&rdquo;. Check the spelling, or add an outside booking with <b>Add</b>.
             </p>
           )
         ) : (
@@ -382,7 +451,7 @@ export function CustomersRoster({
             <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
               {emptyLine ??
                 (total === 0
-                  ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
+                  ? 'No events yet. When somebody asks about a date, or books you, their event shows up here — the ones waiting on an answer first.'
                   : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.')}
             </p>
           )
@@ -391,7 +460,7 @@ export function CustomersRoster({
         <ul data-customers-list="" data-tour="customers-list">
           {rows.map((r) => (
             <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
-              <RosterRowView r={r} nowMs={nowMs} query={q} />
+              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
             </li>
           ))}
         </ul>
@@ -400,7 +469,7 @@ export function CustomersRoster({
       {/* The pager: "1–20 of 1,000 · ‹ Prev · 1 2 … 50 · Next ›" — the shared
           one, so this list pages exactly like every other supplier list. */}
       {hidden ? null : (
-        <ListPager paged={paged} param="page" keepParams={pagerKeepParams} hash="customers" noun="customers" incomplete={incomplete} />
+        <ListPager paged={paged} param="page" keepParams={pagerKeepParams} hash="customers" noun="events" incomplete={incomplete} />
       )}
     </div>
   );

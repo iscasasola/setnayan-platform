@@ -34,6 +34,7 @@ import {
 } from './details-lazy';
 import { PrintPieceBody, type PrintsInput } from './maker-prints';
 import { DEFAULT_NAME_STYLE, type NameStyle } from '@/lib/name-style';
+import { GuestsViewDoor } from './guests-view-door';
 
 /**
  * DETAILS › YOUR EVENT — the items' pictures and editors, composed for
@@ -203,17 +204,20 @@ export function yourEventParts({
         finer={<PrintPieceBody input={prints} piece="details" />}
       />
     ),
-    /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. */
-    march: (
+    /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. 🗂 R4: in the event's own
+       Maker it is Guests › March (the door); the dev lab still draws the maker itself on its fixture. */
+    march: input.march.lab ? (
       <MarchMaker
         eventId={eventId}
         sections={input.march.sections}
         printed={input.march.printed ?? []}
         out={input.march.out === undefined ? [] : input.march.out}
-        lab={input.march.lab === true}
+        lab
         draftUnread={input.march.draftUnread === true}
         openCard={input.march.openCard}
       />
+    ) : (
+      <GuestsViewDoor eventId={eventId} view="march" />
     ),
   };
 

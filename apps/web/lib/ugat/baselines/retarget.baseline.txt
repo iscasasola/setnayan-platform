@@ -29,8 +29,6 @@ app/dashboard/[eventId]/website/widgets/page.tsx → /dashboard/[eventId]/websit
 app/dashboard/[eventId]/website/widgets/page.tsx → /dashboard/[eventId]/website/what-to-bring	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/onboarding/wedding/_components/onboarding-shell.tsx → /dashboard/[eventId]/more	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/onboarding/wedding/_components/onboarding-shell.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/_components/overview-sections.tsx → /vendor-dashboard/proposals	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/activities/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/bookings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/branches	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
@@ -49,9 +47,6 @@ app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/verify	# first ru
 app/vendor-dashboard/clients/[eventId]/actions.ts → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/clients/[eventId]/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/clients/[eventId]/page.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/clients/[eventId]/page.tsx → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/clients/[eventId]/page.tsx → /vendor-dashboard/proposals	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/contracts/[contractId]/page.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/contracts/new/page.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/contracts/new/page.tsx → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
@@ -59,11 +54,9 @@ app/vendor-dashboard/lines/actions.ts → /vendor-dashboard/verify	# first run 2
 app/vendor-dashboard/lines/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/lines/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/manpower/surface.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx → /vendor-dashboard/proposals	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/messages/[threadId]/outcome-actions.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/messages/[threadId]/proposal-actions.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/on-the-day/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 lib/event-people-roster.ts → /dashboard/[eventId]/event-page	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 lib/event-people-roster.ts → /dashboard/[eventId]/more	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 lib/event-people-roster.ts → /dashboard/[eventId]/progress	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one

@@ -40,6 +40,7 @@ import {
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { userHostsEvent } from '@/lib/events';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
@@ -68,6 +69,27 @@ async function isEventCoordinator(
     .is('removed_at', null)
     .maybeSingle();
   return !!data;
+}
+
+/**
+ * 👁 ONLY THE HOSTS AND THE COORDINATOR SHOW A MOMENT TO GUESTS (owner 2026-10-29, answering "Who can show schedule
+ * items to guests?": *"coordinator and host/s of the event"*; DECISION_LOG "SUPPLIERS › BOOKED = TEAM · BUDGET ·
+ * SCHEDULE"). "Host" is the ONE definition every host check reads — `userHostsEvent`: the couple, and an accepted
+ * primary host role, the external coordinator among them. A helper who may edit the day still edits it; a moment
+ * they add starts hidden from guests, and turning one ON for guests is refused in words. A refused check is a no.
+ */
+const ONLY_HOSTS_SHOW_GUESTS = 'Only the hosts and the coordinator can show a moment to guests.';
+
+async function mayShowToGuests(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  eventId: string,
+): Promise<boolean> {
+  try {
+    return await userHostsEvent(supabase, userId, eventId);
+  } catch {
+    return false;
+  }
 }
 
 /** events.event_type for an RLS-visible event; null when unreadable. */
@@ -193,7 +215,8 @@ export async function createScheduleBlock(formData: FormData) {
     end_at: endIso,
     location: nullIfBlank(formData.get('location')),
     notes: nullIfBlank(formData.get('notes')),
-    is_public: formData.get('is_public') === 'on',
+    // 👁 Shown to guests only by a host or the coordinator — anyone else's new moment starts hidden.
+    is_public: formData.get('is_public') === 'on' && (await mayShowToGuests(supabase, user.id, eventId)),
     parent_block_id: parentBlockId,
   };
   // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
@@ -265,6 +288,8 @@ export async function toggleBlockVisibility(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // 👁 Hiding a moment is anyone's who may edit the day; SHOWING one to guests is the hosts' and the coordinator's.
+  if (desired && !(await mayShowToGuests(supabase, user.id, eventId))) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
 
   const { error } = await supabase
     .from('event_schedule_blocks')
@@ -419,6 +444,17 @@ export async function updateScheduleBlock(formData: FormData) {
   const visibilityRaw = formData.get('is_public');
   if (visibilityRaw !== null) {
     patch.is_public = visibilityRaw === 'true' || visibilityRaw === 'on';
+    // 👁 A save that would SHOW a hidden moment to guests is the hosts' and the coordinator's. A save that only keeps
+    // a moment as it is (the inspector sends its switch with every save) is anyone's who may edit the day.
+    if (patch.is_public === true && !(await mayShowToGuests(supabase, user.id, eventId))) {
+      const { data: was } = await supabase
+        .from('event_schedule_blocks')
+        .select('is_public')
+        .eq('block_id', blockId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if ((was as { is_public?: boolean } | null)?.is_public !== true) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
+    }
   }
 
   const locationRaw = formData.get('location');

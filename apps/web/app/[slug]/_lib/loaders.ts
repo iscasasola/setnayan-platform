@@ -43,6 +43,7 @@ import {
   ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
+  MARCH_GUEST_FIELDS,
   MARCH_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -2346,16 +2347,24 @@ export const loadMarch = cache(
     eventId: string,
   ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null; unread?: true }> => {
     const roles = MARCH_ROLES;
-    const [guestRes, trayRes] = await Promise.all([
+    const [guestRes, trayRes, ownRes] = await Promise.all([
       admin
         .from('guests')
         // + the parent fields (gender, attire): a parent told by them reads "Mother of the Groom" on the march too, as on every print.
-        .select(`${ENTOURAGE_COLUMNS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
+        // + 🏷 the walk row's own group (`MARCH_GUEST_FIELDS`) — the march only; a print never asks it.
+        .select(`${MARCH_GUEST_FIELDS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
         .eq('event_id', eventId)
         .is('deleted_at', null)
         .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),
       admin.from('march_not_walking').select('guest_id').eq('event_id', eventId),
+      /* 🏷 The couple's own march groups (owner 2026-10-29). Unread is never "none": a march drawn without them would put
+         their walkers back in their role sections — a different march — so it is said like an unread march. */
+      admin.from('march_groups').select('group_key, label').eq('event_id', eventId),
     ]);
+    if (ownRes.error) {
+      logQueryError('loadMarch own groups', ownRes.error, { event_id: eventId }, 'graceful_degrade');
+      return { walking: [], out: null, unread: true };
+    }
     if (guestRes.error) {
       logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
       // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
@@ -2369,7 +2378,8 @@ export const loadMarch = cache(
       loadEventRoleNames(admin, eventId),
       loadEventNameStyle(admin, eventId),
     ]);
-    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true });
+    const own = ((ownRes.data ?? []) as Array<{ group_key: string; label: string }>).map((g) => ({ key: g.group_key, label: g.label }));
+    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true, own });
     if (!outIds) return { walking: build(rows), out: null };
     return {
       walking: build(rows.filter((r) => !r.guest_id || !outIds.has(r.guest_id))),

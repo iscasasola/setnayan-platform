@@ -81,12 +81,13 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
   }
   // The ONE exception: the chat lab (`/dev/chat-lab`), which draws the real stream on fixtures so a walk can see it —
   // allowed only because it 404s in production as its FIRST statement (checked here, not assumed).
-  const LAB = 'app/dev/chat-lab/t/[threadId]/page.tsx';
-  const product = mounts.filter((m) => m !== LAB);
-  if (mounts.includes(LAB)) {
+  // The supplier's chat lab (`/dev/supplier-chat-lab`) draws it too since 2026-10-29, on the same terms.
+  const LABS = ['app/dev/chat-lab/t/[threadId]/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const product = mounts.filter((m) => !LABS.includes(m));
+  for (const LAB of LABS.filter((l) => mounts.includes(l))) {
     const lab = stripComments(readFileSync(join(WEB, LAB), 'utf8'));
     const body = lab.slice(lab.indexOf('{', lab.indexOf(')', lab.indexOf('export default async function'))) + 1).trimStart();
-    assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, 'the chat lab can render on the live site');
+    assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, `${LAB} can render on the live site`);
   }
   assert.deepEqual(
     product.sort(),

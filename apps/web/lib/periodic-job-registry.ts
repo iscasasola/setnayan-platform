@@ -447,6 +447,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     what: 'Asking Resend whether each email we sent was delivered or bounced',
     reportsCount: true,
   },
+  {
+    key: 'push-morning-release',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Sending the phone notices that waited through quiet hours (10 pm to 7 am), collapsed per kind',
+    reportsCount: true,
+  },
+  {
+    key: 'push-evening-summary',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'The one evening phone summary of the day\'s small updates ("Today on your event: 3 updates")',
+    reportsCount: true,
+  },
 ] as const;
 
 export const PERIODIC_JOB_KEYS: readonly string[] = PERIODIC_JOBS.map((j) => j.key);

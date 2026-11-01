@@ -16,6 +16,7 @@ import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { Spotlight } from '@/app/_components/spotlight';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { PeopleRosterView } from './_components/people-roster-view';
 import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
@@ -223,6 +224,8 @@ export default async function PeoplePage({
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
       <PageMasthead title="People" />
+      {/* 👥 ‹ from a group comes back HERE, in place — this view, this scroll (owner 2026-10-29; chat/chat-back.tsx). */}
+      <ChatOriginMark />
       {/* First visit only — the SPOTLIGHT (owner rule 2026-09-25: every feature gets a first-visit tour; 2026-10-10:
           "our tour is a spotlight tour"). It replaces the carousel `customer_people_v1`, switched off since 2026-10-03,
           whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}

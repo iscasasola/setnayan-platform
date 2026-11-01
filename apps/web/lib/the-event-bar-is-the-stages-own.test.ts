@@ -112,8 +112,10 @@ test('2 · the tab bar follows the stage’s one config — On the Day is Live �
   // …and the Invitation reads Welcome · Details · Our Love Story · Me (owner
   // 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love Story
   // - Me"*; *"RSVP does not have 4 tabs under"* — no RSVP tab, ever).
+  // 📷 …plus the Camera while Papic is on (owner 2026-10-30, "PAPIC ON = A CAMERA TAB ON EVERY STAGE"; the
+  // canvas bar is drawn with the switch open). With it off the four stand — pinned in `site-nav.test.ts`.
   const invite = canvasBar('rsvp', { hasDetails: true, hasStory: true }).map((b) => b.label);
-  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'Me']);
+  assert.deepEqual(invite, ['Home', 'Details', 'Story', 'Camera', 'Me']);
   // the allow-list removes: a stage that does not list a slot never draws it
   const narrowed = resolveSiteNav({
     viewer: { kind: 'public' }, phase: 'after', hostAllowsCamera: true, anyChapterPublic: true, liveBroadcast: false,

@@ -199,8 +199,9 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
         }
       : { label: YOUR_SCHEDULE_WORDS.callEstimated, time: TIME_TBA, note: null };
   } else if (i.guestsArriveBy) {
-    const firstTimed = shown.find((c) => !c.time_tba);
-    call = { label: YOUR_SCHEDULE_WORDS.arriveBy, time: i.guestsArriveBy, note: firstTimed ? chapterWhere(firstTimed) : null };
+    // The invitation's own arrival time — with no place: which chapter it belongs to is not recorded, and a guessed
+    // venue beside it would send someone to the wrong door.
+    call = { label: YOUR_SCHEDULE_WORDS.arriveBy, time: i.guestsArriveBy, note: null };
   }
 
   /* ── the chapters, and (after Release) their lines ─────────────────────────────────────────────────────────── */

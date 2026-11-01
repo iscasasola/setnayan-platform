@@ -74,7 +74,7 @@ export function labYourSchedule(sp: Record<string, string | string[] | undefined
       viewer: who === 'bridesmaid' ? { guestId: LAB_GUEST_ID, roles: ['bridesmaid'], groupIds: [] } : { guestId: 'g-guest', roles: [], groupIds: [] },
       released: pro && sp.released === '1',
       pro,
-      guestsArriveBy: '4:45 PM',
+      guestsArriveBy: '1:15 PM',
     }),
   };
 }

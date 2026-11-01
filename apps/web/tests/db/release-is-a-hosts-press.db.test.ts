@@ -131,6 +131,7 @@ test('a coordinator with Edit releases: stamped once, every guest account told o
   const r = await release(F.coord);
   assert.equal(r.already, false);
   assert.equal(r.told, 2);
+  assert.equal((r as { notice?: string }).notice, 'schedule_released');
   assert.ok(await releasedAt());
   assert.equal(await noticesFor(F.pam), 1);
   assert.equal(await noticesFor(F.ben), 1);

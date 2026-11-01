@@ -12,7 +12,7 @@
  *       itself refuses before anything is written.
  *
  * Sabotage (recorded in the PR): make `isMine` answer true for any task → 1 red; draw lines when `stage` is 'before'
- * → 2 red; drop `pro &&` from `released:` in the read, or the `releasePro` check in `releaseFullSchedule` → 3 red.
+ * → 2 red; drop `pro &&` from `released:` in the read, or the `releasePro` check in `releaseFullSchedule` (asked through `sendCoordinatorBroadcast`, intent=release) → 3 red.
  */
 import test, { before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,7 +49,7 @@ function memoryClient(): unknown {
     },
     rpc: (fn: string) => {
       rpcCalls.push(fn);
-      return Promise.resolve({ data: { released_at: '2026-12-11T09:00:00Z', told: 3, already: false }, error: null });
+      return Promise.resolve({ data: { released_at: '2026-12-11T09:00:00Z', told: 3, already: false, notice: 'schedule_released' }, error: null });
     },
     auth: { getUser: () => Promise.resolve({ data: { user: { id: 'u-host' } } }) },
   };
@@ -240,11 +240,12 @@ test('3b · Free never shows Release as working — the press refuses and writes
   RELEASE_PRO = false;
   const fd = new FormData();
   fd.set('event_id', EVENT);
-  const refused = await action.releaseFullSchedule(fd);
+  fd.set('intent', 'release');
+  const refused = await action.sendCoordinatorBroadcast(fd);
   assert.equal(refused.ok, false);
   assert.deepEqual(rpcCalls, [], 'a Free event reached release_full_schedule');
   RELEASE_PRO = true;
-  const ok = await action.releaseFullSchedule(fd);
+  const ok = await action.sendCoordinatorBroadcast(fd);
   assert.equal(ok.ok, true, 'a Pro event could not release (the test is not seeing the action)');
   assert.deepEqual(rpcCalls, ['release_full_schedule']);
 });

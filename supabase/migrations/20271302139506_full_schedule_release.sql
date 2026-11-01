@@ -106,7 +106,7 @@ BEGIN
   )
   SELECT count(*) INTO v_told FROM ins;
 
-  RETURN jsonb_build_object('released_at', v_at, 'told', v_told, 'already', false);
+  RETURN jsonb_build_object('released_at', v_at, 'told', v_told, 'already', false, 'notice', 'schedule_released');
 END;
 $$;
 

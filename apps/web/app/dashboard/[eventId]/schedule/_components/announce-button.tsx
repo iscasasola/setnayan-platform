@@ -30,7 +30,7 @@ import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Megaphone, Send, Volume2 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
-import { releaseFullSchedule, sendCoordinatorBroadcast } from '../../_actions/day-of-broadcast';
+import { sendCoordinatorBroadcast, type ReleaseScheduleResult } from '../../_actions/day-of-broadcast';
 import { PaidMark } from '@/app/_components/paid-mark';
 import Link from 'next/link';
 import {
@@ -249,9 +249,11 @@ function ReleaseRow({ eventId, release }: { eventId: string; release: ReleaseSta
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
-      let result: Awaited<ReturnType<typeof releaseFullSchedule>>;
+      // Release rides the sheet's one action (`intent=release`) — the same press, one route.
+      fd.set('intent', 'release');
+      let result: ReleaseScheduleResult;
       try {
-        result = await releaseFullSchedule(fd);
+        result = (await sendCoordinatorBroadcast(fd)) as ReleaseScheduleResult;
       } catch {
         setError('We couldn’t confirm the release. Open this again to see whether it went through.');
         return;

@@ -19,7 +19,7 @@ import {
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
-import { releasePro } from '@/lib/schedule-release.server';
+import { RELEASE_NOTICE_TYPE, releasePro } from '@/lib/schedule-release.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
@@ -46,7 +46,10 @@ export type SendBroadcastResult =
 
 export async function sendCoordinatorBroadcast(
   formData: FormData,
-): Promise<SendBroadcastResult> {
+): Promise<SendBroadcastResult | ReleaseScheduleResult> {
+  // 📣 The 🔊 sheet's other press — Release (plan §4 "Release + announce") — rides this one action, so the sheet costs
+  // no second server-action route (`lint-server-action-budget`: every export is a Vercel route).
+  if (formData.get('intent') === RELEASE_INTENT) return releaseFullSchedule(formData);
   const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await isCoordinatorP3Enabled())) {
@@ -189,6 +192,9 @@ export async function emailVendorCallTimes(
   }
 }
 
+/** The `intent` a FormData carries to ask `sendCoordinatorBroadcast` for Release instead of an announcement. */
+const RELEASE_INTENT = 'release';
+
 export type ReleaseScheduleResult =
   | { ok: true; releasedAt: string; told: number; already: boolean }
   | { ok: false; error: string };
@@ -205,7 +211,7 @@ export type ReleaseScheduleResult =
  *   · The event's stamp moves with the write, and the live-day tag is cleared, so every cached Event Hub copy is drawn
  *     afresh on its next open — guests hold no live connection, nothing is pushed to them.
  */
-export async function releaseFullSchedule(formData: FormData): Promise<ReleaseScheduleResult> {
+async function releaseFullSchedule(formData: FormData): Promise<ReleaseScheduleResult> {
   const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
@@ -227,7 +233,11 @@ export async function releaseFullSchedule(formData: FormData): Promise<ReleaseSc
     logQueryError('releaseFullSchedule', error, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, error: 'Could not release the schedule. Try again.' };
   }
-  const out = (data ?? {}) as { released_at?: string; told?: number; already?: boolean };
+  const out = (data ?? {}) as { released_at?: string; told?: number; already?: boolean; notice?: string };
+  if (!out.already && out.notice !== RELEASE_NOTICE_TYPE) {
+    // Released, but the database wrote a notice the app's union does not name — said in the log, never hidden.
+    logQueryError('releaseFullSchedule.notice', { message: `unexpected notice type ${String(out.notice)}` }, { event_id: eventId }, 'graceful_degrade');
+  }
   revalidateTag(liveDayTag(eventId));
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);

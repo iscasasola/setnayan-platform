@@ -5,6 +5,14 @@ import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
 import { getIapGate } from './request-platform';
 import { logQueryError } from './supabase/error-detect';
+import type { NotificationType } from './notifications';
+
+/**
+ * 🔔 The one notice Release writes — by the DATABASE (`release_full_schedule`), in one statement, never emitNotification.
+ * The function returns the type it wrote; the press checks it against this, so the database and the app's union can
+ * never drift apart in silence (a renamed enum value would otherwise reach every guest as a type the tray cannot draw).
+ */
+export const RELEASE_NOTICE_TYPE: NotificationType = 'schedule_released';
 
 /**
  * 📣 RELEASE — the hosts' side (owner 2026-11-01; DECISION_LOG "FULL SCHEDULE: A HOST OR COORDINATOR PRESSES RELEASE,

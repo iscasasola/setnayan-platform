@@ -131,7 +131,10 @@ export function ScheduleDay({
   inspectorSlot = null,
   frame = 'page',
   toolsSlot = null,
+  openRequests = false,
 }: {
+  /** 📅 Open the supplier requests sheet with the page (Home's "N to approve", owner 2026-11-01) — only when there are any. */
+  openRequests?: boolean;
   /**
    * 📅 Drawn as Suppliers › Booked › Schedule (owner 2026-10-31, live iPhone: *"so many upper space not used"* ·
    * *"the pop up. design template."*): the day's tools ride the page's one line (`toolsSlot`, beside Event Day ▾ and
@@ -209,7 +212,7 @@ export function ScheduleDay({
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const suppressClick = useRef(false);
-  const [sheet, setSheet] = useState<SheetState>(null);
+  const [sheet, setSheet] = useState<SheetState>(openRequests && requests.length > 0 ? { kind: 'requests' } : null);
   const [lens, setLens] = useState<Lens>({ kind: 'all' });
   /* 👁 VIEW AS on the Schedule page (Step 3c, `schedule-view-as.tsx`): a guest · a role · a supplier or crew · Suppliers
      by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */

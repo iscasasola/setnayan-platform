@@ -108,6 +108,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',
+  'lib/home-schedule.server.ts': 'host — Home › the Schedule widget (owner 2026-11-01), read on the caller’s own session for the couple and their coordinator (`homePlansRead`); no guest door reaches it',
   'lib/schedule-chapters.server.ts': 'host — Home › Event Settings › Chapters, read on the caller’s own session (the couple, a helper with Edit on the Schedule); no guest door reaches it',
   'lib/schedule-view-as.server.ts': 'host — the Schedule page’s View as ▾ (moments’ rooms and travel), read on the caller’s own session (the couple, a helper on the Schedule); its guest VIEW is drawn for the host from the guests’ own fence (`isOnTheGuestsSchedule`), no guest door reaches it',
   'lib/booked-call-times.server.ts': 'host — Suppliers › Booked › Team: each booked supplier’s call time (the couple’s session)',
@@ -432,7 +433,7 @@ test('B3 · the Story’s arranged pages are grouped under the same moments', as
 
 /** The columns the public fetch has always asked for, in its one private list. */
 const PUBLIC_COLUMNS =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,time_tba,audience';
 
 test('B4 · the guests’ schedule is unchanged — the same request, condition for condition', async () => {
   // The chain below is what `fetchPublicScheduleBlocks` sent BEFORE the fence

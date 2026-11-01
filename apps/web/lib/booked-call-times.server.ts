@@ -28,7 +28,7 @@ export async function readBookedCallTimes(
   if (vendorIds.length === 0) return out;
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select('block_id, label, start_at, responsible_vendor_ids')
+    .select('block_id, label, start_at, responsible_vendor_ids, time_tba')
     .eq('event_id', eventId);
   if (error) {
     logQueryError('readBookedCallTimes', error, { event_id: eventId }, 'graceful_degrade');
@@ -39,8 +39,12 @@ export async function readBookedCallTimes(
     label: string;
     start_at: string | null;
     responsible_vendor_ids: string[] | null;
+    time_tba: boolean | null;
   }>;
-  const blocks = rows.flatMap((r) => (r.start_at ? [{ block_id: r.block_id, label: r.label, start_at: r.start_at }] : []));
+  // `time_tba` travels: a supplier tagged on a Time-TBA chapter has NO call time from it (plan §3), never 12:00 AM.
+  const blocks = rows.flatMap((r) =>
+    r.start_at ? [{ block_id: r.block_id, label: r.label, start_at: r.start_at, time_tba: r.time_tba === true }] : [],
+  );
   const meta: RosMetaMap = new Map(
     rows.map((r) => [r.block_id, { responsible_party: null, responsible_vendor_ids: r.responsible_vendor_ids ?? [] }]),
   );

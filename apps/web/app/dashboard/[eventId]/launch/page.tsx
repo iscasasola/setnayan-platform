@@ -104,6 +104,7 @@ import { makerItemMovedHref } from '@/lib/event-settings-record';
 import { makerItemMovedToViewHref } from '@/lib/guests-views';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
+import { isTimeTba, TIME_TBA } from '@/lib/schedule-chapters';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
@@ -1246,7 +1247,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
       supabase
         .from('event_schedule_blocks')
-        .select('block_id, label, start_at, parent_block_id, block_type, is_public')
+        .select('block_id, label, start_at, parent_block_id, block_type, is_public, time_tba')
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
@@ -1264,6 +1265,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           parent_block_id: string | null;
           block_type: string | null;
           is_public: boolean | null;
+          time_tba: boolean | null;
         }>).filter(
           (b) => b.parent_block_id === null,
         );
@@ -1925,7 +1927,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               page: schedulePage,
               moments: scheduleMoments ? scheduleMoments.length : null,
               pieces: schedulePieces(
-                (scheduleMoments ?? []).map((b) => ({ id: b.block_id, label: b.label ?? '', time: formatBlockTime(b.start_at) })),
+                (scheduleMoments ?? []).map((b) => ({ id: b.block_id, label: b.label ?? '', time: isTimeTba(b) ? TIME_TBA : formatBlockTime(b.start_at) })),
                 announceOn,
               ),
             }}

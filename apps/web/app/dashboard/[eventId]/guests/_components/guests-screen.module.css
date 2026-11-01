@@ -949,6 +949,82 @@ button.ico {
   border-top: 0;
   padding-top: 0;
 }
+/* 👥 GUESTS OF [ROLE] (owner 2026-11-01, prototype `guests_of_each_role_2026-11-01`) — ↗ goes to a guest's row: a soft
+   accent disc in a 44 px target whose negative margins keep the name's line its own height. */
+.jump {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -12px -8px -12px -6px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  color: rgb(var(--sn-accent));
+  cursor: pointer;
+}
+.jump i {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgb(var(--sn-accent) / 0.12);
+  transition: transform 160ms var(--gs-ease);
+}
+.jump:active i {
+  transform: scale(0.92);
+}
+.jump svg {
+  width: 14px;
+  height: 14px;
+}
+/* The host's "+2 ↓" — their guests are elsewhere in the list; the pill is the way there. */
+.plusn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 7px;
+  background: rgb(var(--sn-accent) / 0.12);
+  color: rgb(var(--sn-accent));
+  font-weight: 600;
+  cursor: pointer;
+}
+.plusn svg {
+  width: 12px;
+  height: 12px;
+  margin-left: 1px;
+}
+/* A jump row: listed so the group reads whole, counted elsewhere — quieter than a counted row. */
+.g.jumprow .nm,
+.g.jumprow .ava {
+  opacity: 0.72;
+}
+/* The row a jump landed on, lit for a moment. */
+.g[data-lit] {
+  border-radius: 10px;
+  animation: gs-lit 1800ms var(--gs-ease) both;
+}
+@keyframes gs-lit {
+  0% {
+    background: transparent;
+    box-shadow: none;
+  }
+  12%,
+  70% {
+    background: rgb(var(--sn-accent) / 0.14);
+    box-shadow: 0 0 0 8px rgb(var(--sn-accent) / 0.14);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g[data-lit] {
+    animation: none;
+    background: rgb(var(--sn-accent) / 0.14);
+  }
+}
 /* "· +1 of Juanita Sacdalan" — after a named +1's own name, quieter than the name. */
 .of {
   font-weight: 400;

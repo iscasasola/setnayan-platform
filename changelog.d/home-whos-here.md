@@ -43,6 +43,8 @@ viewing the event hub?"*
 - **The channel's code is loaded after the page draws** (`event-team-presence-join.ts`, by `import()`): the layout's
   provider is only the context, so it no longer pushes the Maker's first load over its budget
   (`check-maker-js-budget.mjs`, CI was +2.0 KB gz). Guard: `lib/whos-here.test.ts` 5.
+- **Maker first-load budget 507 → 507.5 KB** (owner, verbatim, 2026-11-01: "1. Yes"): CI measured 507.2 KB against main's
+  506.7; the remainder is the presence provider the event layout must carry (`scripts/check-maker-js-budget.mjs`).
   ⚠ **Not in this PR: "tap a face to message them"** (DECISION_LOG "WHO'S HERE → TAP A PERSON TO MESSAGE THEM") — there
   is no team-member or host↔guest thread to open (`chat_threads` is event↔supplier only), so it needs its own schema and
   an owner call on guests without an account.

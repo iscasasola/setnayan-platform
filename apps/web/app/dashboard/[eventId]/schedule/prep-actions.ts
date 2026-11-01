@@ -154,3 +154,42 @@ export async function deletePreparationItem(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
 }
+
+/**
+ * ✅ TICK A HAND-ADDED ROW (owner 2026-11-01, "Checklist merges into Planning Stage": *"Manual rows gain done"*).
+ * `desired` = 'done' stamps `completed_at`; 'pending' clears it. RLS does the real authorization (the couple's FOR ALL
+ * policy; a supplier only on its own rows) — and a refused update returns NO row and no error, so the row is asked
+ * back and a zero is said, never shown as a tick that did not happen.
+ */
+export async function togglePreparationItemDone(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
+  const eventId = formData.get('event_id');
+  const itemId = formData.get('item_id');
+  const desired = formData.get('desired');
+  if (
+    typeof eventId !== 'string' ||
+    eventId.length === 0 ||
+    typeof itemId !== 'string' ||
+    itemId.length === 0 ||
+    (desired !== 'done' && desired !== 'pending')
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: moved, error } = await supabase
+    .from('event_preparation_items')
+    .update({ completed_at: desired === 'done' ? new Date().toISOString() : null })
+    .eq('item_id', itemId)
+    .eq('event_id', eventId)
+    .select('item_id');
+  if (error) throw new Error(error.message);
+  if (!moved || moved.length === 0) throw new Error('Only the hosts can tick this step.');
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+}

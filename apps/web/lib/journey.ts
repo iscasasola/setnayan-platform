@@ -216,6 +216,8 @@ export function buildJourneyTimeline(input: BuildJourneyInput): JourneyTimeline 
 
   // ── The road there — reuse the Preparation agenda rows ───────────────────
   for (const item of agenda.items) {
+    // A task with no date yet (no event date to count back from) has no place on a dated road.
+    if (item.date === null || item.daysFromNow === null) continue;
     // Anything dated before the event day belongs on the road; an item that
     // happens to fall on the event day itself sits in the "day" phase; a rare
     // post-event agenda item lands in "story".

@@ -23,7 +23,7 @@ import {
   type ChecklistSignals,
 } from '@/lib/checklist-autocomplete';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Idempotent TOP-UP seed for the couple planning checklist. Fires when the home
@@ -332,12 +332,78 @@ export async function toggleChecklistItem(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
+  // 🛑 A ZERO-ROW UPDATE IS SUCCESS-SHAPED: RLS (couple_writes_checklist) answers a non-couple with no error and no
+  // row. Ask for the row back and say so when none moved.
+  const { data: moved, error } = await supabase
     .from('event_checklist_items')
     .update({ status: desiredRaw })
     .eq('item_id', itemId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('item_id');
   if (error) throw new Error(error.message);
+  if (!moved || moved.length === 0) throw new Error('Only the hosts can tick this task.');
 
-  revalidatePath(`/dashboard/${eventId}`);
+  // The one list is drawn under Schedule, Suppliers › Booked and Home — the whole event's tree.
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+}
+
+/** The answer a task-date save gives its sheet: saved (maybe with a note), or why not. */
+export type TaskDateResult = { ok: true; dateIso: string | null; note: string | null } | { ok: false; error: string };
+
+/**
+ * 📅 MOVE A TASK (owner 2026-11-01, "Checklist merges into Planning Stage": *"Each task gets a real date that starts
+ * at its offset and can be edited"*). `date` = yyyy-mm-dd sets `due_date_set`; an empty `date` puts the task back on
+ * the plan's own date (NULL).
+ *
+ * DATES STOP AT THE EVENT DAY (plan §3, *"date must be until event day only"*): a task for before the day that is
+ * given a later date is set back to the event day, and the answer says so. A task for after the day (a negative
+ * offset — thank-you notes, the marriage certificate) is not capped.
+ */
+export async function setChecklistTaskDate(formData: FormData): Promise<TaskDateResult> {
+  const refusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (refusal) return { ok: false, error: refusal };
+  const eventId = formData.get('event_id');
+  const itemId = formData.get('item_id');
+  const rawDate = formData.get('date');
+  if (typeof eventId !== 'string' || typeof itemId !== 'string' || typeof rawDate !== 'string') {
+    return { ok: false, error: 'Something was missing — try again.' };
+  }
+  const wanted = rawDate.trim();
+  if (wanted !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(wanted) || Number.isNaN(new Date(`${wanted}T12:00:00`).getTime()))) {
+    return { ok: false, error: 'Pick a real date.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  let dateIso: string | null = wanted === '' ? null : wanted;
+  let note: string | null = null;
+  if (dateIso) {
+    const [taskRes, eventRes] = await Promise.all([
+      supabase.from('event_checklist_items').select('due_offset_days').eq('item_id', itemId).eq('event_id', eventId).maybeSingle(),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    if (taskRes.error || eventRes.error) return { ok: false, error: 'We could not check this task’s dates. Try again.' };
+    const offset = (taskRes.data as { due_offset_days: number | null } | null)?.due_offset_days ?? null;
+    const eventDay = (eventRes.data as { event_date: string | null } | null)?.event_date ?? null;
+    if (eventDay && (offset ?? 0) >= 0 && dateIso > eventDay) {
+      dateIso = eventDay;
+      note = 'Set back to the event day — a task for before the day can’t go past it.';
+    }
+  }
+
+  const { data: moved, error } = await supabase
+    .from('event_checklist_items')
+    .update({ due_date_set: dateIso })
+    .eq('item_id', itemId)
+    .eq('event_id', eventId)
+    .select('item_id');
+  if (error) return { ok: false, error: 'This date did not save. Try again.' };
+  if (!moved || moved.length === 0) return { ok: false, error: 'Only the hosts can move this task.' };
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  return { ok: true, dateIso, note };
 }

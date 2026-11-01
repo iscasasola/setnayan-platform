@@ -26,7 +26,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
-import { checklistTaskAnchor } from '@/lib/checklist-anchor';
+import { planningTodoHref } from '@/lib/checklist-anchor';
 import { dateFinderHref } from '@/lib/home-date-finder';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
@@ -42,7 +42,7 @@ export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
   hub: 'Event Hub',
   sup: 'Suppliers',
   budget: 'Budget',
-  plan: 'Checklist',
+  plan: 'Planning Stage',
 };
 
 /** A face's one tiny action — an icon (the compact tile) or icon + word (the detail card). */
@@ -521,32 +521,34 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
   return { key: 'sup', label: 'Suppliers', door: `/dashboard/${e}/vendors`, failed: false, span: false, today: isToday, faces };
 }
 
-/** ⑥ CHECKLIST — only the plan: % done · open · due this week. */
+/**
+ * ⑥ TO DO — only the plan: % done · open · due this week. One list since the owner merged the Checklist into Planning
+ * Stage (2026-11-01): the tile is named To do (approved Home prototype `home_frames_where_you_act_2026-11-01`) and
+ * every door opens Planning Stage's To do filter — the exact row where there is one.
+ */
 export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
   const c = input.checklist;
   const isToday = today.target === 'plan';
+  const door = planningTodoHref(e);
   if (c === null) return null;
-  if (c === 'unread') return failedTile('plan', 'Checklist', 'Couldn’t load', 'not zero · unread', `/dashboard/${e}/checklist`, isToday);
+  if (c === 'unread') return failedTile('plan', 'To do', 'Couldn’t load', 'not zero · unread', door, isToday);
   const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
   const faces: HomeFace[] = [];
-  if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, count: { value: pct, format: 'pct' }, unit: 'done', sm: 'of the plan', href: `/dashboard/${e}/checklist`, meter: pct });
+  if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, count: { value: pct, format: 'pct' }, unit: 'done', sm: 'of the plan', href: door, meter: pct });
   const first = c.next[0];
   if (c.open > 0) {
-    // The exact task: the one the plan ranks first (`/checklist#task-<id>`, `lib/checklist-anchor.ts`).
-    const firstTask = first ? { href: `/dashboard/${e}/checklist#${checklistTaskAnchor(first.id)}` } : { href: `/dashboard/${e}/checklist` };
-    faces.push({ id: 'plan-open', big: n(c.open), count: { value: c.open, format: 'int' }, unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: firstTask.href });
+    // The exact row: the one the plan ranks first (`#task-<id>`, `lib/checklist-anchor.ts`).
+    faces.push({ id: 'plan-open', big: n(c.open), count: { value: c.open, format: 'int' }, unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: planningTodoHref(e, first?.id) });
   }
   const soon = c.next.find((t) => t.daysUntilDue !== null && t.daysUntilDue <= 7);
   if (c.dueThisWeek > 0 && soon) {
-    const soonTask = { href: `/dashboard/${e}/checklist#${checklistTaskAnchor(soon.id)}` };
-    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: soonTask.href });
+    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: planningTodoHref(e, soon.id) });
   }
   if (faces.length === 0) return null;
-  return { key: 'plan', label: 'Checklist', door: `/dashboard/${e}/checklist`, failed: false, span: false, today: isToday, faces };
+  return { key: 'plan', label: 'To do', door, failed: false, span: false, today: isToday, faces };
 }
 
-/** ⑤ BUDGET — every payment still to settle (soonest first, overdue in red, each with Pay), then the summary. */
 export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
   const b = input.budget;

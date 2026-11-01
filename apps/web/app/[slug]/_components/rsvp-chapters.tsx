@@ -6,6 +6,7 @@ import {
   type ChapterAnswer,
   type InvitationChapter,
 } from '@/lib/invitation-chapters';
+import { YouWillBeAt } from './you-will-be-at';
 
 /**
  * ✉ THE REPLY, BY CHAPTER (owner 2026-11-01, plan §3 "RSVP depends on chapters", §12 Step 5; the approved prototype's
@@ -17,17 +18,17 @@ import {
  *     has none) and its place ("Venue TBA" when it has none — the reply still sends, owner: *"Sometime it can be tba"*),
  *     and, once they have replied, their own answer per chapter.
  *   · `RsvpCantPick` — on the decline arm only (revealed by the card's `:has()` rule), one tick per chapter; nothing
- *     ticked = can't make any. "You'll be at: …" follows the ticks (a few lines of inline script; without script the
- *     line is simply not drawn and the ticks still post).
+ *     ticked = can't make any. "You'll be at: …" follows the ticks (`YouWillBeAt`, a small client part; without script
+ *     the line is simply empty and the ticks still post).
  *
  * The form fields are `cant_chapter` = a chapter's id; `submitRsvp` keeps only the invitation's own chapters
  * (`resolveChapterReply`). A guest is never asked about a chapter that is not on their invitation.
  */
 
 const ANSWER_WORDS: Partial<Record<ChapterAnswer, string>> = {
-  yes: 'You’ll be there',
+  yes: 'Going',
   no: 'Can’t make it',
-  new: 'New — not answered yet',
+  new: 'New',
 };
 
 export function RsvpChapterList({
@@ -39,18 +40,20 @@ export function RsvpChapterList({
 }) {
   if (chapters.length === 0) return null;
   return (
-    <div data-rsvp-chapters="" className="space-y-2">
+    // `data-rsvp-context`: one question at a time folds it away after the first screen, with the invitation's facts.
+    <div data-rsvp-chapters="" data-rsvp-context="" className="space-y-1">
       <p className="text-sm text-ink/75">You’re invited to the {joinChapterNames(chapters.map((c) => c.label))}</p>
+      {/* One short line per chapter, so the answers stay above the one-question screen's foot on a phone. */}
       <ul className="divide-y divide-ink/10 border-y border-ink/10">
         {chapters.map((c) => {
           const answer = ANSWER_WORDS[answers.get(c.block_id) ?? 'unanswered'];
           return (
-            <li key={c.block_id} data-rsvp-chapter={c.block_id} className="py-2.5">
-              <p className="font-pahina text-lg font-light leading-snug text-ink">{c.label}</p>
-              <p className="text-sm text-ink/70">
-                <span data-chapter-when="">{chapterWhen(c)}</span> · <span data-chapter-where="">{chapterWhere(c)}</span>
-              </p>
-              {answer ? <p className="mt-0.5 text-xs font-medium text-mulberry">{answer}</p> : null}
+            <li key={c.block_id} data-rsvp-chapter={c.block_id} className="flex min-w-0 items-baseline gap-1.5 py-1.5 text-sm">
+              <span className="shrink-0 font-medium text-ink">{c.label}</span>
+              <span className="min-w-0 truncate text-ink/70">
+                · <span data-chapter-when="">{chapterWhen(c)}</span> · <span data-chapter-where="">{chapterWhere(c)}</span>
+              </span>
+              {answer ? <span className="ml-auto shrink-0 text-xs font-medium text-mulberry">{answer}</span> : null}
             </li>
           );
         })}
@@ -58,12 +61,6 @@ export function RsvpChapterList({
     </div>
   );
 }
-
-/** Keeps "You'll be at: …" true to the ticks. Reads only this block's own inputs; writes only its own line. */
-const YOU_WILL_BE_AT_JS =
-  "(function(){var s=document.currentScript,b=s&&s.parentElement;if(!b)return;var o=b.querySelector('[data-you-will-be-at]');if(!o)return;function y(){var l=[];b.querySelectorAll('input[name=\"" +
-  CANT_CHAPTER_FIELD +
-  "\"]').forEach(function(i){if(!i.checked)l.push(i.getAttribute('data-label'))});var t=l.length===0?'none of these':l.length===1?l[0]:l.slice(0,-1).join(', ')+' and '+l[l.length-1];o.textContent='You’ll be at: '+t;o.hidden=false}b.addEventListener('change',y);y()})()";
 
 export function RsvpCantPick({
   chapters,
@@ -104,8 +101,7 @@ export function RsvpCantPick({
           </label>
         ))}
       </div>
-      <p data-you-will-be-at="" hidden className="text-sm text-ink/80" />
-      <script dangerouslySetInnerHTML={{ __html: YOU_WILL_BE_AT_JS }} />
+      <YouWillBeAt />
     </div>
   );
 }

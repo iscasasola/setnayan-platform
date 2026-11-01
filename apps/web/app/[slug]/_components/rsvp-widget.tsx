@@ -758,7 +758,25 @@ export function RsvpWidget({
           their nickname and mobile, then (below) the +1 names, then the tagging question (decision 2) and the rest.
           🔒 THE NAME STAYS HOST-ONLY (2026-08-01, `seedBindAllowed`): the link may be printed on a poster, and a
           stranger who can rename a seat-holder is the harm that rule closed. Shown, never posted. */}
-      {yesSteps ? (
+      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's FIRST step, right after the answer (two or
+          more chapters only), riding the Seats slot so a card without chapters keeps every byte and id it had. */}
+      {cantPick ? (
+        <>
+          {cantPick}
+          {yesSteps ? (
+        <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
+          <RsvpSeats
+            seats={seatsHeld}
+            youLabel={(guest.display_name ?? '').trim() || guest.first_name}
+            extraNames={seatSlots ? seatSlots.map((slot) => slot.name) : []}
+            namesNext={bringsPlusOnes}
+            organizer={words.theOrganizer}
+            question={oneAtATime}
+          />
+        </div>
+          ) : null}
+        </>
+      ) : yesSteps ? (
         <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
           <RsvpSeats
             seats={seatsHeld}
@@ -976,15 +994,7 @@ export function RsvpWidget({
           Only for a guest who HOLDS A ROLE and is not already represented, on the decline arm: a name, typed — a guest
           cannot pick from the hosts' list, so the hosts confirm it on their card. `submitRsvp` stores it
           (`proxy_named_by_guest`) only with a decline, and the database refuses it for a guest with no role. */}
-      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's first step, two or more chapters only,
-          in this slot so a card without chapters is unchanged. */}
-      {cantPick ? (
-        <>
-          {cantPick}
-          {standInAsk}
-          {declineDetails}
-        </>
-      ) : standInAsk ? (
+      {standInAsk ? (
         <>
           {standInAsk}
           {declineDetails}

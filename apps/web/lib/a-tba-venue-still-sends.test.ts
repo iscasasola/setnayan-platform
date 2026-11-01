@@ -34,7 +34,7 @@ test('2 · the server read returns the no-venue chapter', async () => {
 
 test('3 · the card names it "Venue TBA" and offers it; a Time-TBA chapter is never 12:00 AM', async () => {
   const html = await renderReplyCard({ chapters: chapters() });
-  assert.match(html, /Reception<\/p><p[^>]*><span data-chapter-when="">[^<]*<\/span> · <span data-chapter-where="">Venue TBA<\/span>/);
+  assert.match(html, /Reception<\/span><span[^>]*>· <span data-chapter-when="">[^<]*<\/span> · <span data-chapter-where="">Venue TBA<\/span>/);
   assert.ok(cantTicks(html).includes(RECEPTION));
   const after = chapters().find((c) => c.block_id === AFTER_PARTY)!;
   assert.equal(chapterWhen(after), 'Time TBA');

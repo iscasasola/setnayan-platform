@@ -195,7 +195,10 @@ export function TaskDateButton({
         }
       >
         <div className="space-y-3.5">
-          <SheetField label="When?" aside={dateSet ? 'You moved this task' : 'The plan’s date'}>
+          <SheetField
+            label="When?"
+            aside={<span className="font-normal text-ink/45">&nbsp;· {dateSet ? 'you moved this task' : 'the plan’s date'}</span>}
+          >
             <input
               type="date"
               value={value}

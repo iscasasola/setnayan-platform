@@ -23,7 +23,7 @@ import {
   type ScheduleBlockRow,
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
-import { buildJourneyTimeline } from '@/lib/journey';
+import { forwardScheduleView, type ScheduleView } from '@/lib/schedule-view';
 import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
 import { BOOKED_SCHEDULE_PART } from '@/lib/pillar-parts';
 import { BookedPartRow } from '../vendors/_components/booked-part-row';
@@ -51,7 +51,7 @@ import { BlockTimeEditor } from './_components/schedule-lazy';
 // The toggle is a URL-driven segmented control; the agenda is a read-only
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
-import { EmceeScriptButton, ScheduleModeToggle } from './_components/schedule-lazy';
+import { EmceeScriptButton, ScheduleModeToggle, SharePdfButton } from './_components/schedule-lazy';
 import { EmceePicks } from './_components/emcee-picks';
 import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
@@ -62,10 +62,6 @@ import { HostQuestions } from './_components/host-questions';
 import { TellTheHost } from './_components/tell-the-host';
 import { parseNoteFlash } from './_components/note-flash';
 import { PreparationAgendaView, preparationLegendWords } from './_components/preparation-agenda';
-// Journey mode — the full event-lifecycle arc (creation → the day →
-// editorial), a phase-grouped read-only view over the same agenda data plus
-// three lifecycle bookends. See lib/journey.ts.
-import { JourneyView } from './_components/journey-view';
 import { RunOfShowHeader } from './_components/schedule-lazy';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderators';
@@ -139,8 +135,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Schedule' };
 
-type ScheduleView = 'journey' | 'preparation' | 'event-day';
-
 /** What the Event Day view's ⓘ says — the moments' two audiences. */
 const EVENT_DAY_NOTE =
   'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
@@ -166,13 +160,17 @@ type Props = {
 export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const {
-    view: viewParam,
+    view: askedView,
     ros: rosParam,
     note: noteParam,
     host_answers: hostAnswersFlash,
     maker: makerParam,
     booked: bookedParam,
   } = await searchParams;
+  /* 🧭 JOURNEY IS GONE (owner 2026-11-01: "i don't think we need journey anymore? since everything from event created
+     can be a chapter"). Every door that still says `?view=journey` lands on Planning Stage — here, BEFORE the doors
+     below carry the view on to Suppliers › Booked or the Maker (owner 2026-10-28: all mapping is kept). */
+  const viewParam = forwardScheduleView(askedView);
   const inMaker = makerParam === '1';
   const inBooked = bookedParam === '1';
   // Result of a "Tell the host" send. Anything we did not write ourselves is
@@ -221,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, recapRes, chapterReadFirst] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
@@ -250,14 +248,6 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       // SET NULL since 20271263061583) has nothing left to approve.
       .or('kind.eq.new,block_id.not.is.null')
       .order('created_at', { ascending: true }),
-    // Recap publish row — the Journey mode's editorial bookend. RLS lets the
-    // couple/coordinator read their own row; a missing table (pre-migration)
-    // or absent row both fall through to null (no editorial anchor yet).
-    supabase
-      .from('event_recaps')
-      .select('status, published_at')
-      .eq('event_id', eventId)
-      .maybeSingle(),
     /* 📖 The event's chapters (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE") — in the same round, with their
        own fields (spot, ingress, call time…). Not in the Maker: Details › Schedule keeps its moments as they are. A
        refused read is kept as a failure and said on the page, never drawn as "no chapters". */
@@ -331,27 +321,6 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     statutory,
   });
 
-  // Journey mode — the full event-lifecycle arc. Reuses the agenda for the
-  // middle and adds three lifecycle bookends: creation (events.created_at),
-  // the day (events.event_date), and the editorial (event_recaps.published_at).
-  // The editorial anchor only counts when the recap is actually PUBLISHED —
-  // a draft/unpublished row leaves the arc's end as a forward placeholder.
-  const recapRow = recapRes.data as { status: string; published_at: string | null } | null;
-  const recapPublishedAt =
-    recapRow?.status === 'published' ? (recapRow.published_at ?? null) : null;
-  const journey = buildJourneyTimeline({
-    eventId,
-    agenda,
-    createdAt: eventRow?.created_at ?? null,
-    eventDate,
-    recapPublishedAt,
-    now,
-    copy: {
-      dayLabel: term(profile, { wedding: 'your wedding day', generic: 'your event day' }),
-      eventNoun: term(profile, { wedding: 'wedding', generic: 'event' }),
-    },
-  });
-
   // Coordinator P2 (flag-gated) — the responsible-party meta + the event's
   // vendor registry that feed the filtered run-of-show chrome. Both fetches
   // are SKIPPED entirely while the flag is dark; fetchBlockRosMeta is
@@ -410,10 +379,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
   // param, default to Preparation when there's something to prepare; else
   // open straight on the day-of timeline so empty-prep couples aren't met
-  // with a blank agenda. (Journey is opt-in via its segment — it never
-  // becomes the silent default, to keep the existing landing behavior.)
+  // with a blank agenda.
   const active: ScheduleView =
-    viewParam === 'journey' || viewParam === 'preparation' || viewParam === 'event-day'
+    viewParam === 'preparation' || viewParam === 'event-day'
       ? viewParam
       : /* In the Event Hub Maker (Details › Schedule) the page opens on the day
            itself — the moments guests see, the ones a tap on a stage selects. */
@@ -658,6 +626,24 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     note: s.note,
   }));
 
+  /* 📤 PRINT IS THE BUDGET PDF (owner 2026-11-01: "just like our budget design pdf. do the same for  schedule") — the
+     shared Share button on the Schedule's own file route (`api/schedule/[eventId]/export`, `lib/schedule-pdf.ts`), for
+     the hosts and an approved coordinator. Never inside the Maker (that is the guests' Event Hub). */
+  const scheduleFileSlug =
+    (eventRow?.display_name?.trim() || 'event')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'event';
+  const shareSchedule =
+    !inMaker && dayRole !== 'view' ? (
+      <SharePdfButton
+        href={`/api/schedule/${eventId}/export`}
+        fileName={`setnayan-${scheduleFileSlug}-schedule.pdf`}
+        name="Share your schedule (PDF)"
+        papers="document"
+      />
+    ) : null;
+
   const roleLabel =
     dayRole === 'host'
       ? 'You can edit'
@@ -665,21 +651,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         ? 'You can edit · coordinator'
         : 'View only';
   const viewNote =
-    active === 'journey'
-      ? term(profile, {
-          wedding:
-            'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward.',
-          generic:
-            'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward.',
-        })
-      : active === 'preparation'
-        ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
-        : EVENT_DAY_NOTE;
+    active === 'preparation'
+      ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
+      : EVENT_DAY_NOTE;
 
   /* 📅 THE DAY ITSELF — the rail (or a trip's own view), drawn once and placed by either frame below: the standalone
      page's, or Suppliers › Booked's one line (`booked-schedule-frame.tsx`), where its tools ride that line and its
      add is the pill in the thumb zone. */
-  const journeyView = <JourneyView timeline={journey} hasEventDate={eventDate !== null} eventId={eventId} />;
   const prepView = (
     <>
     {/* 📖 Chapters dated before the day live here (plan §3) — chapter rows only, above the agenda, which is untouched. */}
@@ -968,7 +946,6 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           views={[
             { key: 'event-day', label: 'Event Day', count: topLevelCount },
             { key: 'preparation', label: 'Planning Stage', count: agenda.items.length },
-            { key: 'journey', label: 'Journey', count: journey.totalEntries },
           ]}
           dateLine={bookedDateLine}
           info={
@@ -984,23 +961,17 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           notes={{
             'event-day': EVENT_DAY_NOTE,
             preparation: preparationLegendWords(agenda.sourceCounts),
-            journey: term(profile, {
-              wedding:
-                'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward.',
-              generic:
-                'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward.',
-            }),
           }}
           announce={
             canAnnounce ? (
               <AnnounceButton eventId={eventId} isEventDay={isEventDay} recent={recentAnnouncements} round />
             ) : null
           }
+          share={shareSchedule}
           meetings={<VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />}
           panels={{
             'event-day': eventDayView,
             preparation: prepView,
-            journey: journeyView,
           }}
         />
       ) : (
@@ -1039,10 +1010,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             <ScheduleModeToggle
               active={active}
               prepCount={agenda.items.length}
-              journeyCount={journey.totalEntries}
             />
             <span className="ml-auto flex items-center gap-2">
               <Tip align="end">{viewNote}</Tip>
+              {shareSchedule}
               {canAnnounce ? (
                 /* In the Maker's Details, Announce is a piece of the Schedule: its
                    button (and its sheet) sit in the right column (`InSlot`). */
@@ -1062,13 +1033,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
         ) : null}
 
-        {active === 'journey' ? (
-          journeyView
-        ) : active === 'preparation' ? (
-          prepView
-        ) : (
-          eventDayView
-        )}
+        {active === 'preparation' ? prepView : eventDayView}
         </>
       )}
       </ChaptersFrame>

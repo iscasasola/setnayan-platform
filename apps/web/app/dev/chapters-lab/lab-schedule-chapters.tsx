@@ -39,7 +39,6 @@ export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean;
         views={[
           { key: 'event-day', label: 'Event Day', count: empty ? 0 : 7 },
           { key: 'preparation', label: 'Planning Stage', count: empty ? 0 : 1 },
-          { key: 'journey', label: 'Journey', count: 0 },
         ]}
         dateLine="Friday 18 December 2026 · 47 days to go"
         info={<span className="block">A sample wedding — fake chapters, nothing is saved.</span>}
@@ -48,7 +47,6 @@ export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean;
         panels={{
           'event-day': <ScheduleLabClient bare frame="booked" toolsSlot={BOOKED_SCHEDULE_TOOLS_SLOT} />,
           preparation: <PlanningChapters />,
-          journey: null,
         }}
       />
     </ChaptersHost>

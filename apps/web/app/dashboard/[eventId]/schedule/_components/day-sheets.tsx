@@ -11,7 +11,9 @@ import { Plus, X } from 'lucide-react';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
-import { computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
+import { approvableTogether, computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { formatCount } from '@/lib/format-number';
 import {
   formatClock,
   formatClockRange,
@@ -521,6 +523,10 @@ export function RequestsSheet({
 }) {
   const { resolveScheduleSuggestion } = useDayActions();
   const byId = new Map(moments.map((m) => [m.block_id, m]));
+  /* ✅ APPROVE ALL (owner 2026-11-01) — every CHANGE on this sheet, never a suggestion in words; only from 2. */
+  const together = approvableTogether(requests);
+  const removals = together.filter((r) => r.kind === 'remove').length;
+  const suppliersTold = new Set(together.map((r) => r.by)).size;
   return (
     <Sheet open={open} onClose={onClose} labelledById="requests-title" wide rise>
       <div className="px-5 pb-6 pt-5">
@@ -581,6 +587,8 @@ export function RequestsSheet({
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
                   <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
                   <div className="mt-3.5 flex justify-end gap-2">
+                    {/* A suggestion in WORDS changes nothing to approve or decline — the host says they read it. */}
+                    {isNoteOnlySuggestion(r) ? null : (
                     <form action={resolveScheduleSuggestion}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
@@ -592,15 +600,16 @@ export function RequestsSheet({
                         Decline
                       </SubmitButton>
                     </form>
+                    )}
                     <form action={resolveScheduleSuggestion}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
                       <input type="hidden" name="decision" value="accept" />
                       <SubmitButton
-                        pendingLabel="Approving…"
+                        pendingLabel={isNoteOnlySuggestion(r) ? 'Saving…' : 'Approving…'}
                         className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
                       >
-                        Approve
+                        {isNoteOnlySuggestion(r) ? 'Noted' : 'Approve'}
                       </SubmitButton>
                     </form>
                   </div>
@@ -610,7 +619,7 @@ export function RequestsSheet({
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'
                         : isNoteOnlySuggestion(r)
-                          ? 'Nothing on the schedule moves — approving says you read it.'
+                          ? 'Nothing on the schedule moves — Noted tells them you read it.'
                           : 'Approving changes the moment on the schedule.'}{' '}
                     {r.by} is told either way.
                   </p>
@@ -620,6 +629,39 @@ export function RequestsSheet({
           </ul>
         )}
       </div>
+      {together.length > 0 ? (
+        /* Pinned at the sheet's foot, in the thumb zone — the house confirm (`ConfirmForm`) first: one press moves
+           several moments, so it says what will happen before it does. The ids are the ones ON THIS SHEET: a change
+           that lands after you looked is never approved unseen. */
+        <div
+          className="sticky bottom-0 flex justify-end bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]"
+          data-approve-all={together.length}
+        >
+          <ConfirmForm
+            action={resolveScheduleSuggestion}
+            title={`Approve all ${formatCount(together.length)}?`}
+            confirmLabel={`Approve all ${formatCount(together.length)}`}
+            destructive={removals > 0}
+            message={
+              <>
+                {formatCount(together.length)} change{together.length === 1 ? '' : 's'} go on your schedule
+                {removals > 0 ? ` — ${removals === 1 ? 'one takes its moment' : `${formatCount(removals)} take their moments`} off it` : ''}.{' '}
+                {suppliersTold === 1 ? 'The supplier is' : `All ${formatCount(suppliersTold)} suppliers are`} told in the app.
+                {requests.length > together.length ? ' Suggestions in words stay here for you to mark Noted.' : ''}
+              </>
+            }
+          >
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="decision" value="accept_all" />
+            {together.map((r) => (
+              <input key={r.suggestion_id} type="hidden" name="suggestion_id" value={r.suggestion_id} />
+            ))}
+            <SubmitButton pendingLabel="Approving…" className="h-11 rounded-full bg-ink px-5 text-[13.5px] font-semibold text-cream">
+              Approve all {formatCount(together.length)}
+            </SubmitButton>
+          </ConfirmForm>
+        </div>
+      ) : null}
     </Sheet>
   );
 }

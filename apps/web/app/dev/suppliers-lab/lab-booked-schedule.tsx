@@ -3,11 +3,12 @@
 /**
  * Booked › Schedule in the Suppliers lab — the REAL frame (`BookedScheduleFrame`: one line, the date line, the views)
  * over the REAL Event Day rail (`ScheduleDay`) on the Schedule lab's own day, re-tagged with this lab's booked
- * suppliers (`LAB_SCHEDULE_TAGS`), so the Team rows' call times and this rail read the same moments; Preparation and
- * Journey are the REAL views on `schedule-fixtures.ts`, drawn by the server page and handed in. Drawn after mount: the
+ * suppliers (`LAB_SCHEDULE_TAGS`), so the Team rows' call times and this rail read the same moments; Planning Stage
+ * is the REAL view on `schedule-fixtures.ts`, drawn by the server page and handed in. Drawn after mount: the
  * rail reads the clock (the Schedule lab's own reason).
  *
- *   &view=preparation|journey   open on that view (Event Day by default, as the page does under Booked)
+ *   &view=preparation           open on that view (an old &view=journey lands there too)
+ *                               (Event Day by default, as the page does under Booked)
  *   &announce=0                 a viewer who cannot announce (no 🔊)
  */
 import { useEffect, useState, type ReactNode } from 'react';
@@ -37,21 +38,17 @@ export function LabBookedSchedule({
   moments,
   initial = 'event-day',
   prepCount,
-  journeyCount,
   prepNote,
   canAnnounce = true,
   preparation,
-  journey,
 }: {
   tags: Readonly<Record<string, readonly string[]>>;
   moments: number;
   initial?: BookedScheduleView;
   prepCount: number;
-  journeyCount: number;
   prepNote: string;
   canAnnounce?: boolean;
   preparation: ReactNode;
-  journey: ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -60,8 +57,7 @@ export function LabBookedSchedule({
       initial={initial}
       views={[
         { key: 'event-day', label: 'Event Day', count: moments },
-        { key: 'preparation', label: 'Preparation', count: prepCount },
-        { key: 'journey', label: 'Journey', count: journeyCount },
+        { key: 'preparation', label: 'Planning Stage', count: prepCount },
       ]}
       dateLine="Friday 18 December 2026 · 48 days to go"
       info={
@@ -84,7 +80,6 @@ export function LabBookedSchedule({
           <ScheduleLabClient bare suppliers={SUPPLIERS} tags={tags} frame="booked" toolsSlot={BOOKED_SCHEDULE_TOOLS_SLOT} />
         ) : null,
         preparation,
-        journey,
       }}
     />
   );

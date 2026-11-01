@@ -154,7 +154,7 @@ export function scheduleDoc(input: SchedulePdfInput): SharePdfDoc {
       ],
     },
     sections,
-    notes: ['Includes moments hidden from guests — this copy is for you and your team.'],
+    notes: ['Includes moments hidden from guests — this copy is for you, your coordinator and your suppliers.'],
     generatedAt: input.generatedAt,
     paper: input.paper,
   };

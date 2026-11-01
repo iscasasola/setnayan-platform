@@ -77,7 +77,8 @@ test('3 · each reader answers "unread" on a refusal, and the page hands it on �
   const reads = read('lib/home-control.server.ts');
   assert.match(reads, /if \(vendorsRes\.error \|\| threadsRes\.error\) \{[\s\S]{0,200}?return 'unread';/, 'Suppliers: a refused read is not "unread"');
   assert.match(reads, /if \(!standings\) return 'unread';/, 'Suppliers: a refused standing read is not "unread"');
-  assert.match(reads, /const raw = await readChecklistItems\(supabase, eventId\)[^;]*;\s*if \(raw === null\) return 'unread';/, 'Checklist: a refused read is not "unread"');
+  // To do (owner 2026-11-01): the one list's reader reports a refused task read in `unread` — Home says so.
+  assert.match(reads, /if \(agenda === null \|\| agenda\.unread\.length > 0\) return 'unread';/, 'To do: a refused read is not "unread"');
   const page = read('app/dashboard/[eventId]/page.tsx');
   assert.match(page, /roster: guestsMeasured \? homeRoster : null,/, 'Guests: an unmeasured read reaches the widget as a count');
   assert.match(page, /money: moneyNow,/);

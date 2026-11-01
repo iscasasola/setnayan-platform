@@ -19,6 +19,7 @@ export function DisplayNameField({ initial }: { initial: string }) {
         required
         maxLength={128}
         autoCapitalize="words"
+        autoComplete="nickname"
         empty="How you want to appear"
         fieldName="display_name"
         onKeep={(t) => setValue(t)}

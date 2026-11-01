@@ -2656,16 +2656,22 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'block_id', references: 'event_schedule_blocks' },
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'vendor_block_scripts', column: 'block_id', references: 'event_schedule_blocks' },
+      // 📖 A moment's parallel tasks (20271300072429) — one per person, supplier or crew; a supplier's task names the
+      // booking (event_vendors), the same id responsible_vendor_ids carries.
+      { kind: 'table', table: 'event_schedule_tasks' },
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'vendor_id', references: 'event_vendors' },
+      { kind: 'column', table: 'event_schedule_blocks', column: 'call_lead_minutes' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
-    title: 'Block → suggestions · scripts',
+    title: 'Block → suggestions · scripts · tasks',
     joint: 'event_schedule_blocks',
-    cardinality: 'A tree of blocks; vendors attach suggestions and scripts to a block',
-    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts hang off a block',
+    cardinality: 'A tree of blocks (top-level = a chapter, child = a moment); vendors attach suggestions and scripts to a block; a moment holds parallel tasks',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block',
     writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
-    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
   {
     /**

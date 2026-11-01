@@ -1942,7 +1942,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {/* 📌 With no result this box is what a search shows: pinned just above the band (lib/search-pin.ts) — the Add,
               then the other ways in (owner 2026-10-25), so both stay in sight over the keyboard. */}
           <div data-search-none="">
-          {writesOff ? null : <AddPreviewLine text={typedPreview} />}
           <span className={styles.acts} data-fit-acts="">
             {writesOff ? null : (
               <ActionButton
@@ -1964,6 +1963,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }}
             />
           </span>
+          {/* 👁 What the Add will make of the words (owner 2026-11-01) — right under it, before Enter. */}
+          {writesOff ? null : <AddPreviewLine text={typedPreview} className="mt-1.5" />}
           {writesOff ? null : <TypedWays eventId={eventId} />}
           </div>
         </div>

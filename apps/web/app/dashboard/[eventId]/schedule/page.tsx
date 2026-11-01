@@ -157,6 +157,11 @@ type Props = {
      */
     booked?: string;
     /**
+     * `requests` = open the supplier requests sheet with the page (Approve one · Approve all) — Home's Schedule widget
+     * door "N to approve" (owner 2026-11-01, plan §5). Anything else is ignored.
+     */
+    sheet?: string;
+    /**
      * `todo` = Planning Stage opens on its To do filter — where the old Checklist's address forwards (owner
      * 2026-11-01, "CHECKLIST MERGES INTO PLANNING STAGE").
      */
@@ -173,8 +178,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     host_answers: hostAnswersFlash,
     maker: makerParam,
     booked: bookedParam,
+    sheet: sheetParam,
     filter: filterParam,
   } = await searchParams;
+  const openRequests = sheetParam === 'requests';
   const planFilter: 'all' | 'todo' = filterParam === 'todo' ? 'todo' : 'all';
   /* 🧭 JOURNEY IS GONE (owner 2026-11-01: "i don't think we need journey anymore? since everything from event created
      can be a chapter"). Every door that still says `?view=journey` lands on Planning Stage — here, BEFORE the doors
@@ -206,7 +213,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       (await resolveProfileByEvent(eventId)).marketplaceEnabled === true && !isDelegateWithoutArea(viewer, 'vendors');
     if (suppliersOpen) {
       const q = new URLSearchParams({ part: BOOKED_SCHEDULE_PART });
-      for (const [k, v] of Object.entries({ view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash, filter: filterParam })) {
+      for (const [k, v] of Object.entries({ view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash, filter: filterParam, sheet: openRequests ? 'requests' : undefined })) {
         if (v) q.set(k, v);
       }
       redirect(`/dashboard/${eventId}/vendors?${q.toString()}`);
@@ -889,6 +896,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               loadScheduleTemplate,
               resolveScheduleSuggestion,
             }}
+            // 📅 `?sheet=requests` — Home's "N to approve" opens the supplier requests sheet with the page (placement, no write).
+            openRequests={openRequests}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}
             eventDateKey={eventDateKey}

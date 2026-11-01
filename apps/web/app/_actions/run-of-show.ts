@@ -78,7 +78,10 @@ export async function fetchRunOfShowBlocks(
     .select(
       'block_id, label, start_at, end_at, location, run_state, actual_start_at, block_type, is_public',
     )
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    // ⏰ A Time-TBA chapter cannot be run (no clock): left out, never a 12:00 AM line on the desk — the same fence as
+    // `onlyTimedBlocks` (lib/schedule.ts), chained here because `read` is pinned by the guests' fence test.
+    .eq('time_tba', false);
   const { data, error } = await (forGuests ? onlyWhatGuestsMaySee(read) : read)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });

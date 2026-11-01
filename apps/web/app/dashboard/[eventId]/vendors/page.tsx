@@ -218,6 +218,8 @@ type Props = {
     ros?: string;
     note?: string;
     host_answers?: string;
+    /** `requests` — Booked › Schedule opens its supplier requests sheet (Home's "N to approve", owner 2026-11-01). */
+    sheet?: string;
   }>;
 };
 
@@ -335,6 +337,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             ros: sp.ros,
             note: sp.note,
             host_answers: sp.host_answers,
+            // 📅 Home's "N to approve" opens the supplier requests sheet with the page (owner 2026-11-01).
+            sheet: sp.sheet,
           })}
         />
       </BookedPartPage>

@@ -735,22 +735,27 @@ function AddRow({
   const near = useMemo(() => (name.trim().length >= 2 ? nearMatches(name, pool) : []), [name, pool]);
   const top = near[0];
 
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    const label = name.trim();
-    if (label.length < 2) return;
+  /** Add these words — from the Add button (the form) or from Enter in the box (`onEnter`), which hands them over itself. */
+  function add(typed: string) {
+    const label = typed.trim();
+    if (label.length < 2 || pending) return;
     start(async () => {
       const problem = await onAdd(label);
       setErr(problem);
       if (!problem) setName('');
     });
   }
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    add(name);
+  }
 
   return (
     <div className={card ? 'col-span-2' : ''}>
       {/* ✍ THE "＋ ADD" ROW IS A ROW OF THE ONE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it).
-          It follows what is typed (`onType`), so the close-match warning below reads it live; keeping it (Enter, tap
-          away) only keeps it — adding is the Add button under it, so a tap away never adds a row by accident. */}
+          It follows what is typed (`onType`), so the close-match warning below reads it live. ⏎ ENTER ADDS (owner 1 Nov
+          2026, "ENTER STILL ADDS IN ONE-LINE ADD BOXES": `onEnter`), as the raw box did; a tap away only keeps it, so
+          it never adds a row by accident — the Add button under it adds too. 🔒 enter-still-adds.test.ts */}
       <form onSubmit={submit} data-add={kind} className={card ? '' : 'mb-0.5 mt-1'}>
         <FormRows width="auto">
           <TypedRow
@@ -761,6 +766,7 @@ function AddRow({
             autoCapitalize="words"
             onType={setName}
             onKeep={(t) => setName(t)}
+            onEnter={add}
             data={`add-${kind}`}
             pillAttrs={{ 'data-add-name': kind }}
             below={

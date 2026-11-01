@@ -39,6 +39,9 @@ import {
  *
  * `standIn` is the dev lab's only (`/dev/home-lab?card=1&chapter=…`): picks answer with no server.
  */
+/** 📏 The open list's least width — "Meeting with caterer · 2 PM" on one line (options never wrap, owner 2026-10-30). */
+const PAPIC_CHAPTER_MENU_MIN_WIDTH = 288;
+
 function chapterForm(eventId: string, chapter: string): FormData {
   const fd = new FormData();
   fd.set('event_id', eventId);
@@ -137,6 +140,7 @@ export function PapicChapterRow({
             buttonText={current ? current.label : PAPIC_WHOLE_EVENT_WORDS}
             onPick={pick}
             compact
+            menuMinWidth={PAPIC_CHAPTER_MENU_MIN_WIDTH}
             dataAttr="data-papic-chapter-button"
           />
         </span>

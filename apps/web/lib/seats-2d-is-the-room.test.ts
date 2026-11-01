@@ -8,7 +8,8 @@
  *      Seats − N + · ⋯ (Name… · Swap with another table… · Link… / Unlink · Delete).
  *   2. No guest list: the guests column is not drawn (and an empty column takes no room); the filter's "People" door is
  *      gone; a table pick does not raise the people sheet.
- *   3. No guest editing: a name or an empty seat does nothing for the guest — the press is the table's.
+ *   3. No guest editing: a name or an empty seat does nothing (the press goes on to the room, which pans).
+ *   5. The PICKED table drags — on a phone too (the owner could not move a table); everything else keeps planPress.
  *   4. A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`), mapped by the one
  *      `boothCardFromRow` (public business identity only).
  *
@@ -51,8 +52,15 @@ test('3 · a name or an empty seat does nothing for the guest in 2D', () => {
   assert.equal(chairs.length, 2, 'a 2D seat (taken or empty) acts on a guest again');
 });
 
+test('5 · the picked table drags, on a phone too', () => {
+  assert.match(ED, /const tablePress = \(t: EventTableRow\): 'tap' \| 'drag' => \(roomOnly && highlightId === t\.table_id \? 'drag' : press\);/);
+  const hubs = [...ED.matchAll(/onPointerDown=\{tablePress\(t\) === 'drag' \? onHubPointerDown\(t\) : onTapDown\('table', t\.table_id\)\}/g)];
+  assert.equal(hubs.length, 2, 'a table hub ignores the picked-table drag');
+});
+
 test('4 · a supplier’s booth opens THE supplier card, with public identity only', () => {
-  assert.match(ED, /roomOnly && d\.kind === 'booth' && booths\.some\(\(b\) => b\.booth_id === d\.id && boothHasSupplier\(b\)\)/);
+  assert.match(ED, /roomOnly && d\.kind === 'booth' && booths\.some\(\(b\) => b\.booth_id === d\.id && boothHasSupplier\(b\)\)/, 'a dragged-mode booth tap does not open the card');
+  assert.match(ED, /if \(roomOnly && tap\.kind === 'booth' && booths\.some\(\(b\) => b\.booth_id === tap\.id && boothHasSupplier\(b\)\)\) \{/, 'a phone booth tap does not open the card');
   assert.match(ED, /<BoothVendorCard booth=\{boothCardRow \? boothCardFromRow\(boothCardRow\) : null\}/);
   const card = boothCardFromRow({
     booth_id: 'b1', event_id: 'e', booth_type: 'live_cooking', label: 'Lechon', x_pos: 10, y_pos: 20, sort_order: 0, zone: 'reception',

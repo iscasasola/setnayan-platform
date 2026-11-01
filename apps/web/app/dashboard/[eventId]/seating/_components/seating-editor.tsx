@@ -2766,11 +2766,21 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
+     tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
+     everything else: an unpicked table, the elements, the booths). Any other press still pans. */
+  const tablePress = (t: EventTableRow): 'tap' | 'drag' => (roomOnly && highlightId === t.table_id ? 'drag' : press);
   const onTapDown =
     (kind: NonNullable<typeof tapRef.current>['kind'], id: string) => (e: React.PointerEvent) => {
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
+      clearSelection();
+      setBoothCardId(tap.id);
+      return;
+    }
     if (!canEdit) return;
     if (tap.kind === 'table') {
       const t = tables.find((x) => x.table_id === tap.id);
@@ -3988,8 +3998,8 @@ export function SeatingEditor({
   /* 🗺 SEATS 2D IS THE ROOM, LIST IS THE PEOPLE (owner 2026-11-01, DECISION_LOG — supersedes the same-day "2D does the
      same"): in Guests › Seats the 2D plan edits the ROOM only. A tap on a table only SELECTS it (drag to move) and its
      verbs are one slim bar in the thumb row (Rotate · Shape ▾ · Seats − N + · ⋯) — never the full table sheet over the
-     map. No guest list and no guest editing here: names show at their seats and a tap on them does nothing for the
-     guest (the press goes to the table, so it can be moved from anywhere on it). Seats › List holds the people.
+     map. No guest list and no guest editing here: names show at their seats and a tap on them does nothing (the press
+     goes on to the room, which pans). The picked table drags, on a phone too (`tablePress`). Seats › List holds the people.
      A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
      🔒 lib/seats-2d-is-the-room.test.ts */
   const roomOnly = inGuests && !in3d && view === 'plan';
@@ -8443,7 +8453,7 @@ export function SeatingEditor({
                   <svg
                     className="absolute inset-0 h-full w-full overflow-visible"
                     viewBox={`${-geo.box.w / 2} ${-geo.box.h / 2} ${geo.box.w} ${geo.box.h}`}
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     style={{ cursor: pickedId || pickedGroupId ? 'pointer' : dragging ? 'grabbing' : 'grab' }}
                   >
                     <path
@@ -8501,7 +8511,7 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
-                            /* 🗺 2D is the room: a name does nothing for the guest — the press is the table's (select · drag). */
+                            /* 🗺 2D is the room: a name does nothing — the press goes on to the room (pan). */
                             if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
@@ -8609,7 +8619,7 @@ export function SeatingEditor({
                 ) : (
                   <button
                     type="button"
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     aria-label={`${t.table_label} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${

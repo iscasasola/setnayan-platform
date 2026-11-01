@@ -430,7 +430,7 @@ export function useGuestRoleDrag({
           <div
             {...{ [attr]: '' }}
             role="status"
-            className="sn-glass-bare fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+84px)] z-[90] mx-auto flex w-[min(100%-32px,480px)] flex-wrap items-center gap-2 rounded-2xl px-3 py-2 text-[14px] text-ink"
+            className="sn-glass-bare fixed left-[max(0px,var(--sn-safe-l))] right-[max(0px,var(--sn-safe-r))] bottom-[calc(env(safe-area-inset-bottom)+84px)] z-[90] mx-auto flex w-[min(100%-32px,480px)] flex-wrap items-center gap-2 rounded-2xl px-3 py-2 text-[14px] text-ink"
           >
             {body}
           </div>,

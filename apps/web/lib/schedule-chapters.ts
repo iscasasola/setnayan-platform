@@ -54,10 +54,12 @@ export function isPhotoWhen(v: unknown): v is PhotoWhen {
 
 /** A chapter with no venue yet (owner: *"Sometime it can be tba"*). */
 export const VENUE_TBA = 'Venue TBA';
+/** A chapter whose time is not known yet (owner 2026-11-01, ruled yes): no clock, no call time (plan §3). */
+export const TIME_TBA = 'Time TBA';
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba';
 
 export type Chapter = {
   block_id: string;
@@ -79,6 +81,11 @@ export type Chapter = {
   is_public: boolean;
   /** How many moments it holds (its children). */
   moments: number;
+  /**
+   * The time is not known yet (migration 20271300482585): `start_at` keeps the DAY at 00:00 and the clock is never
+   * drawn — "Time TBA", no call time. Never shown to guests while set (the database refuses it).
+   */
+  time_tba?: boolean;
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -110,6 +117,7 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       photo_when: isPhotoWhen(r.photo_when) ? r.photo_when : 'right_away',
       is_public: r.is_public === true,
       moments: moments.get(r.block_id) ?? 0,
+      time_tba: r.time_tba === true,
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }
@@ -249,11 +257,62 @@ export function clockWords(iso: string | null | undefined): string {
   return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
-/** The chapter's one line: "2:00 PM · San Vicente Parish" · "6:00 AM · Seda, bridal suite" · "… · Venue TBA". */
-export function chapterLine(c: Pick<Chapter, 'start_at' | 'location' | 'spot'>): string {
-  const where = c.location ? (c.spot ? `${c.location}, ${c.spot}` : c.location) : VENUE_TBA;
-  const when = clockWords(c.start_at);
+/** Where a chapter is: "Seda, bridal suite" · "San Vicente Parish" · "Venue TBA". */
+export function chapterWhere(c: Pick<Chapter, 'location' | 'spot'>): string {
+  return c.location ? (c.spot ? `${c.location}, ${c.spot}` : c.location) : VENUE_TBA;
+}
+
+/**
+ * When a chapter is, in words: "1:30 PM – 3:30 PM" · "1:30 PM onward" (no end) · "Time TBA". A TBA chapter's stored
+ * 00:00 is a placeholder for its DAY and is never drawn as a clock.
+ */
+export function chapterWhen(c: Pick<Chapter, 'start_at' | 'end_at' | 'time_tba'>): string {
+  if (c.time_tba) return TIME_TBA;
+  const start = clockWords(c.start_at);
+  if (!start) return TIME_TBA;
+  const end = clockWords(c.end_at);
+  return end ? `${start} – ${end}` : `${start} onward`;
+}
+
+/** The chapter's one line: "2:00 PM · San Vicente Parish" · "6:00 AM · Seda, bridal suite" · "Time TBA · Venue TBA". */
+export function chapterLine(c: Pick<Chapter, 'start_at' | 'location' | 'spot' | 'time_tba'>): string {
+  const where = chapterWhere(c);
+  const when = c.time_tba ? TIME_TBA : clockWords(c.start_at);
   return when ? `${when} · ${where}` : where;
+}
+
+/**
+ * 📅 WHERE A CHAPTER LIVES ON THE SCHEDULE (plan §3 "A chapter dated before the day lives in Planning Stage"): on Event
+ * Day when it is on (or, never, after) the event's first day; in Planning Stage when its day is before it. An event
+ * with no exact day yet keeps every chapter on Event Day — nothing is hidden.
+ */
+export function chapterStage(c: Pick<Chapter, 'start_at'>, eventDay: string | null): 'day' | 'planning' {
+  const day = wallDay(c.start_at);
+  if (!eventDay || !DAY.test(eventDay) || !day) return 'day';
+  return day < eventDay ? 'planning' : 'day';
+}
+
+/** "1h 30m" · "45m" · "2h" — the time between two chapters on the rail. */
+export function gapWords(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`;
+}
+
+/**
+ * Which part of its chapter a moment is in — Ingress · Event · Egress (plan §3 "Opening a chapter shows Ingress · Event
+ * · Egress"). Read from the times, never stored: before the chapter starts is Ingress, at or after it ends is Egress,
+ * the rest is the Event. A chapter with no end has no Egress by time.
+ */
+export type ChapterSection = 'Ingress' | 'Event' | 'Egress';
+export function momentSection(momentStart: string, c: Pick<Chapter, 'start_at' | 'end_at' | 'time_tba'>): ChapterSection {
+  if (c.time_tba) return 'Event';
+  const t = Date.parse(momentStart);
+  if (!Number.isFinite(t)) return 'Event';
+  if (t < Date.parse(c.start_at)) return 'Ingress';
+  if (c.end_at && t >= Date.parse(c.end_at)) return 'Egress';
+  return 'Event';
 }
 
 /* ── tasks: who, where, and the clash ─────────────────────────────────────────────────────────────────────────── */

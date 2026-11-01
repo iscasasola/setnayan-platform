@@ -23,6 +23,8 @@ export type DayMoment = {
   responsible_vendor_ids: string[];
   /** 👥 For ▾ — who this moment is for; NULL/absent = Everyone (`lib/schedule-audience.ts`). */
   audience?: string | null;
+  /** 📖 A chapter whose time is not known yet (migration 20271300482585) — listed under the rail, never drawn on it. */
+  time_tba?: boolean;
 };
 
 export type DayRequest = {

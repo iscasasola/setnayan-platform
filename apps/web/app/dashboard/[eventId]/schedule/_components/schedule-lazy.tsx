@@ -30,3 +30,7 @@ export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-
 export const BookedScheduleFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './booked-schedule-frame').then((m) => m.BookedScheduleFrame), { loading: SlotFill });
 // 📤 The Schedule's Share (the shared budget-PDF button) — lazy, so the Maker's first load does not carry it.
 export const SharePdfButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/share-pdf-button').then((m) => m.SharePdfButton), { loading: SlotButton });
+/* 📖 Chapters on the Schedule page (owner 2026-11-01): the page that lays a chapter over the views, and Planning Stage's
+   chapter rows — loaded with the rest of the Schedule, never with the Maker. */
+export const ChaptersHost = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './chapters-host').then((m) => m.ChaptersHost), { loading: SlotFill });
+export const PlanningChapters = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './chapters-host').then((m) => m.PlanningChapters), { loading: SlotNone });

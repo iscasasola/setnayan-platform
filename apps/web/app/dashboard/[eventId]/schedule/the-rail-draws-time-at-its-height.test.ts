@@ -51,7 +51,7 @@ const REQUEST: DayRequest = {
   proposed_start_at: '2026-12-18T15:30:00.000Z',
   proposed_end_at: '2026-12-18T16:00:00.000Z',
   proposed_location: null,
-  note: null,
+  note: 'Ten minutes on the church steps.',
 };
 
 const noop = async () => undefined;

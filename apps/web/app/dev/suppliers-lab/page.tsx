@@ -49,6 +49,9 @@
  *   &paidbyhand=1       + "The Wedding Planner", added by hand, filed Shortlisted, with
  *                       a recorded payment — booked by the payment (owner 2026-10-20)
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
+ *   &chapters=none|fail 📍 Where: no chapter yet · the Schedule read refused (`LAB_CHAPTERS` otherwise)
+ *   &covers=1           📍 …and Seda's in-house Cake (Reception only) and Catering (follows Seda) under its Where
+ *   &wherefail=1        📍 a tick in a Where dropdown is refused (said in place, the ticks go back)
  *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
  *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
@@ -222,6 +225,8 @@ export default async function SuppliersLabPage({
     money: moneyStageOf(one('money')),
     today: one('today') ?? null,
     callTimesFail: one('calltimes') === 'fail',
+    chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
+    covers: one('covers') === '1',
   };
   const bookedMoney = labBookedMoney(bookedOpts);
   /* Booked = Team · Budget · Schedule (owner 2026-10-29): `&part=budget|schedule` draws that part on fixtures — the
@@ -370,7 +375,7 @@ export default async function SuppliersLabPage({
           bookedParts={labBookedParts}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
-            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
+            <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} whereFail={one('wherefail') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
               {bookedPartParam === 'budget' ? (
                 <div className="space-y-6" data-lab-booked-part="budget">
                   <BookedPartRow

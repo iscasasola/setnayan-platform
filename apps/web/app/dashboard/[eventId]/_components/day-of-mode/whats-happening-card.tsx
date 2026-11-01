@@ -7,6 +7,7 @@ import { Activity, MapPin, Clock } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { pickTriggerNowNext, type RunState } from '@/lib/run-of-show';
 import { venueNowMs } from '@/lib/schedule';
+import { isTimeTba } from '@/lib/schedule-chapters';
 
 type Block = {
   block_id: string;
@@ -18,6 +19,8 @@ type Block = {
    *  couple-dashboard grid doesn't pass it and keeps pure wall-clock math. */
   run_state?: RunState | null;
   actual_start_at?: string | null;
+  /** ⏰ A Time-TBA chapter (migration 20271300482585) — never "now", never "next": its 00:00 is only its day. */
+  time_tba?: boolean | null;
 };
 
 type Props = {
@@ -45,9 +48,9 @@ type State =
  * with the next visible upcoming block, or 'wrapped' — never a crash or a
  * teaser of the hidden label.
  */
-function deriveTriggerState(blocks: Block[], trigger: boolean): State | null {
+export function deriveTriggerState(blocks: Block[], trigger: boolean): State | null {
   if (!trigger) return null;
-  const picked = pickTriggerNowNext(blocks);
+  const picked = pickTriggerNowNext(blocks.filter((b) => !isTimeTba(b)));
   if (!picked) return null;
   const { current, next } = picked;
   if (current) {
@@ -62,8 +65,9 @@ function deriveTriggerState(blocks: Block[], trigger: boolean): State | null {
   return { kind: 'wrapped' };
 }
 
-function deriveState(blocks: Block[], now: number): State {
-  const sorted = [...blocks].sort(
+export function deriveState(blocks: Block[], now: number): State {
+  // ⏰ A Time-TBA chapter is never ranked by time, so never "now" and never "next" (its 00:00 is a placeholder day).
+  const sorted = blocks.filter((b) => !isTimeTba(b)).sort(
     (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
   );
   for (let i = 0; i < sorted.length; i++) {

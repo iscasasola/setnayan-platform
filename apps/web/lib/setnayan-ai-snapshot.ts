@@ -72,7 +72,7 @@ import {
   type PaperworkDocumentType,
   type PaperworkStatus,
 } from './paperwork';
-import { formatBlockTime } from './schedule';
+import { formatBlockTime, onlyTimedBlocks } from './schedule';
 import { bucketLabel, resolveEventMoney, type EventMoney } from './budget-truth';
 import { logQueryError } from './supabase/error-detect';
 
@@ -600,10 +600,10 @@ export async function buildPlanningSnapshot(
     // The phantom-COLUMN guard could not see this — it skips sites whose table is
     // unknown (select-column-scan.ts `if (!table) continue`); the companion
     // unresolved-TABLE ratchet in select-column-scan.test.ts now covers that gap.
-    admin
-      .from('event_schedule_blocks')
-      .select('label, start_at, end_at, parent_block_id')
-      .eq('event_id', eventId),
+    // ⏰ No Time-TBA chapter in the assistant's timeline — it would be told 12:00 AM (onlyTimedBlocks).
+    onlyTimedBlocks(
+      admin.from('event_schedule_blocks').select('label, start_at, end_at, parent_block_id').eq('event_id', eventId),
+    ),
   ]);
 
   // --- GRD-01 payments (line items + per-line settlement) --------------------

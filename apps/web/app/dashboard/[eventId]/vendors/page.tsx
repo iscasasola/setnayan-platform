@@ -42,6 +42,7 @@ import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import type { BookedFacts } from '@/lib/booked-rows';
+import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
@@ -217,6 +218,8 @@ type Props = {
     ros?: string;
     note?: string;
     host_answers?: string;
+    /** `requests` — Booked › Schedule opens its supplier requests sheet (Home's "N to approve", owner 2026-11-01). */
+    sheet?: string;
   }>;
 };
 
@@ -334,6 +337,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             ros: sp.ros,
             note: sp.note,
             host_answers: sp.host_answers,
+            // 📅 Home's "N to approve" opens the supplier requests sheet with the page (owner 2026-11-01).
+            sheet: sp.sheet,
           })}
         />
       </BookedPartPage>
@@ -2271,6 +2276,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             depositStep === 'sent' || depositStep === 'confirmed' || depositStep === 'refused' ? 'recorded' : null,
         }),
         lockRequestExpiresAt: row.lock_request_expires_at ?? null,
+        // 📍 What this booking also brings ("Catering" with Seda) — the SAME list the Find card's "comes with"
+        // chips draw (`linked_services`: the couple's own covers and the shop's linked services) — and the in-house
+        // groups whose chapters the host changed (owner 2026-11-01, `lib/supplier-where.ts`).
+        covered: (ext?.linked_services ?? []).map((c) => ({ key: coveredKeyOf(c), label: c.label })),
+        coveredWhere: row.covered_where ?? null,
       });
       return {
         vendorId: row.vendor_id,

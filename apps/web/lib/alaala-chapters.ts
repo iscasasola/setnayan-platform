@@ -46,6 +46,12 @@ export type ChapterBlock = {
   /** Stamped when the block really ran. Already a real instant. */
   actualStartAt?: string | null;
   actualEndAt?: string | null;
+  /**
+   * ⏰ Time TBA (migration 20271300482585): `startAt` is the day at a placeholder 00:00. Such a block makes no planned
+   * window — it would claim every photo from midnight on (follow-up to #7158). If it really ran, its actual times
+   * (real instants) still make one.
+   */
+  timeTba?: boolean;
 };
 
 /** A photo or clip. `capturedAt` is a real instant. */
@@ -117,6 +123,7 @@ function blockWindow(
     const actualEnd = b.actualEndAt ? Date.parse(b.actualEndAt) : NaN;
     return { start: actualStart, end: Number.isFinite(actualEnd) ? actualEnd : null };
   }
+  if (b.timeTba) return null;
   const start = plannedInstant(b.startAt, tz);
   if (start === null) return null;
   const end = b.endAt ? plannedInstant(b.endAt, tz) : null;

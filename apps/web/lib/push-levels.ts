@@ -43,6 +43,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
 
   // ── NORMAL ── RSVPs · chat · inquiries and quotes · bookings · what somebody is waiting on
   rsvp_received: 'normal',
+  supplier_where_changed: 'normal', // the host changed which chapters a booked supplier works
   chat_message: 'normal',
   vendor_inquiry_received: 'normal',
   inquiry_accepted: 'normal',

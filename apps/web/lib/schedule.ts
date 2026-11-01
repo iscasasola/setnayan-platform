@@ -5,6 +5,7 @@ import {
   isChineseOverlay,
   type CeremonyOverlayInput,
 } from '@/lib/chinese-wedding';
+import { isTimeTba } from '@/lib/schedule-chapters';
 
 export type ScheduleBlockType =
   | 'pre_ceremony'
@@ -102,6 +103,9 @@ export type ScheduleBlockRow = {
   /** 👥 Who this moment is for (Studio › Schedule › For ▾, migration
    *  20271265788160). NULL = Everyone; see `lib/schedule-audience.ts`. */
   audience?: string | null;
+  /** ⏰ A chapter whose time is not known yet (migration 20271300482585): `start_at` holds only its DAY at 00:00. Ask
+   *  `isTimeTba` (lib/schedule-chapters.ts) before drawing, ranking or picking "now" by `start_at`. */
+  time_tba?: boolean | null;
 };
 
 /*
@@ -118,7 +122,7 @@ export type ScheduleBlockRow = {
   see `insertScheduleBlocks` — so there is still exactly one copy of the list.
 */
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,time_tba,audience';
 
 /**
  * The SAME ordering `fetchScheduleBlocks` asks PostgREST for — `start_at`
@@ -241,6 +245,18 @@ export function onlyWhatGuestsMaySee<Q extends { eq: unknown; is: unknown; neq: 
   const fenced = (query as unknown as GuestScheduleFilters).eq('is_public', true).is('audience', null);
   if (opts.excludeStaged === false) return fenced as unknown as Q;
   return fenced.neq('visibility', 'coordinator_only') as unknown as Q;
+}
+
+/**
+ * ⏰ ONLY ROWS WITH A REAL CLOCK — for a reader that draws a time, ranks by it, picks "now" or derives a call time from
+ * `start_at`, and does not list a Time-TBA chapter itself (migration 20271300482585, plan §3 "Chapter time TBA = no
+ * call time"). A TBA chapter's `start_at` is its DAY at 00:00, a placeholder: unfenced, it reads as a 12:00 AM chapter,
+ * a 12:00 AM call time, or "started at midnight". Readers that CAN say "Time TBA" read `time_tba` and ask `isTimeTba`
+ * instead (the supplier .ics, Home's now/next). Held by `a-tba-chapter-is-never-midnight.test.ts`, which fails any
+ * schedule read of `start_at` that neither fences nor reads the flag.
+ */
+export function onlyTimedBlocks<Q extends { eq: unknown }>(query: Q): Q {
+  return (query as unknown as { eq(column: 'time_tba', value: false): Q }).eq('time_tba', false);
 }
 
 /**
@@ -946,15 +962,19 @@ export function selectSchedulePreviewBlocks(
   now: Date,
 ): SchedulePreviewSelection {
   const topLevel = blocks.filter((b) => b.parent_block_id === null);
+  // ⏰ A Time-TBA chapter is NEVER RANKED BY TIME: its stored 00:00 is a placeholder for its day, so comparing it with
+  // "now" would drop it on the day itself and sort it first before. It is listed after the timed chapters, as "Time TBA".
+  const timed = topLevel.filter((b) => !isTimeTba(b));
+  const tba = topLevel.filter((b) => isTimeTba(b));
   // The VENUE's clock. `start_at` is the venue's wall clock stored in a UTC
   // column, so `now.getTime()` — a real instant — is not comparable with it and
   // was out by the venue's UTC offset. On a Manila wedding day that is eight
   // hours: the preview kept offering moments that had already happened.
   const nowMs = venueNowMs(DEFAULT_EVENT_TZ, now);
-  const upcoming = topLevel.filter(
+  const upcoming = timed.filter(
     (b) => new Date(b.start_at).getTime() >= nowMs,
   );
-  const source = upcoming.length > 0 ? upcoming : topLevel;
+  const source = [...(upcoming.length > 0 ? upcoming : timed), ...tba];
   const display = source.slice(0, SCHEDULE_PREVIEW_LIMIT);
   return {
     display,

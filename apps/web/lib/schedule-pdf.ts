@@ -26,6 +26,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatClock, formatClockRange, formatDateHeading, spanOf, wallDateKey } from '@/lib/schedule-rail';
+import { isTimeTba, TIME_TBA } from '@/lib/schedule-chapters';
 import { sharePdf, type SharePdfColumn, type SharePdfDoc, type SharePdfPaper, type SharePdfSection } from '@/lib/share-pdf';
 
 export type SchedulePdfBlock = {
@@ -36,6 +37,8 @@ export type SchedulePdfBlock = {
   start_at: string;
   end_at: string | null;
   location: string | null;
+  /** ⏰ A Time-TBA chapter (migration 20271300482585): printed "Time TBA", its stored 00:00 never printed as a time. */
+  time_tba?: boolean | null;
 };
 
 export type SchedulePdfInput = {
@@ -100,6 +103,7 @@ export function scheduleFigures(
 }
 
 function when(b: SchedulePdfBlock): string {
+  if (isTimeTba(b)) return TIME_TBA;
   const s = spanOf(b.start_at, b.end_at);
   return b.end_at ? formatClockRange(s.startMin, s.endMin) : formatClock(s.startMin);
 }

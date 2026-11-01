@@ -6,7 +6,7 @@ import { resolveActiveShop } from '@/lib/active-shop';
 import { manilaToday } from '@/lib/std-views';
 import { RUN_SEAT_ROLES, eventsYouRun, withNeeds, type CoordinatorSeatRow, type EventYouRun } from './events-you-run';
 import { readEventDecisionCounts, readEventUnreadCounts, summarizeEventDecisions, type EventDecisionSummary } from './event-decisions';
-import { checklistOverdueCount, readChecklistItems } from './checklist';
+import { readPlanningProgress } from './planning-progress.server';
 
 /**
  * events-you-run.server.ts — the ONE read behind the coordinator's door (owner "approved", 2026-10-28).
@@ -104,8 +104,8 @@ export const readEventsYouRunWithNeeds = cache(
 /**
  * 🔔 WHAT NEEDS THEM, per row (owner 2026-10-28) — the events board's OWN attention read, reused as it ships: the
  * batched pay + approve counts (`readEventDecisionCounts`, two queries for every row), the person's unread chats by
- * event (`readEventUnreadCounts`, one RPC), and each event's overdue tasks (`readChecklistItems` →
- * `checklistOverdueCount`, the same anchor and runway the board and the checklist page use; none after the event, as
+ * event (`readEventUnreadCounts`, one RPC), and each event's overdue To do rows (`readPlanningProgress` — THE ONE LIST,
+ * the same reader, anchor and runway the board, Home and Planning Stage use; none after the event, as
  * on the board). Folded by the board's own `summarizeEventDecisions`.
  *
  * ⛔ A REFUSED READ IS SAID. Any of the three refused → that row's summary is `null` → "Couldn’t load what needs you",
@@ -117,7 +117,13 @@ async function attachNeeds(supabase: SupabaseClient, events: EventYouRun[], toda
   const [counts, unread, lists] = await Promise.all([
     readEventDecisionCounts(supabase, ids).catch(() => null),
     readEventUnreadCounts(supabase).catch(() => null),
-    Promise.all(events.map((e) => (e.rank === 2 ? Promise.resolve([]) : readChecklistItems(supabase, e.eventId).catch(() => null)))),
+    Promise.all(
+      events.map((e) =>
+        e.rank === 2
+          ? Promise.resolve({ overdue: 0 })
+          : readPlanningProgress(supabase, e.eventId, e.anchor, new Date(`${todayIso}T12:00:00`)),
+      ),
+    ),
   ]);
   const summaries = new Map<string, EventDecisionSummary | null>();
   events.forEach((e, i) => {
@@ -133,7 +139,7 @@ async function attachNeeds(supabase: SupabaseClient, events: EventYouRun[], toda
         pay: c.pay,
         approve: c.approve,
         message: unread.get(e.eventId) ?? 0,
-        overdue: e.rank === 2 ? 0 : checklistOverdueCount(items, e.anchor, todayIso),
+        overdue: e.rank === 2 ? 0 : items.overdue,
       }),
     );
   });

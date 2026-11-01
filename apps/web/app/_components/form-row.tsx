@@ -10,6 +10,7 @@ import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_compo
 import {
   amountDigits,
   amountWords,
+  enterAdds,
   enterKeeps,
   exitMoves,
   keepOutcome,
@@ -431,8 +432,10 @@ export function TypedRow({
   clean = null,
   onKeep,
   onType,
+  onEnter,
   inputMode,
   autoCapitalize,
+  autoComplete,
   data,
   attrs,
   pillAttrs,
@@ -482,8 +485,16 @@ export function TypedRow({
    * live preview of the page). NEVER a save: keeping is `onKeep`, once.
    */
   onType?: (text: string) => void;
+  /**
+   * ⏎ OPT-IN — ENTER ALSO ADDS (a one-line ADD box: owner 1 Nov 2026, "ENTER STILL ADDS IN ONE-LINE ADD BOXES"). Enter keeps
+   * the words as always, then hands them here, once (`enterAdds`); its keyboard key says "go" and never moves on to the next
+   * row. Absent = Enter only keeps, as every other field.
+   */
+  onEnter?: (text: string) => void;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'url';
   autoCapitalize?: 'off' | 'sentences' | 'words';
+  /** The open field's autofill hint (`autoComplete`, e.g. "nickname" for a display name). Absent = none. */
+  autoComplete?: string;
   data?: string;
   attrs?: Readonly<Record<`data-${string}`, string>>;
   /** The screen's own hooks on the pill (a door other code looks for). */
@@ -611,6 +622,9 @@ export function TypedRow({
     } else {
       after.current = null;
     }
+    /* ⏎ An add box (`onEnter`): Enter, having kept, adds — once, with the words the row is left holding. */
+    const adds = onEnter ? enterAdds(exit, out, shown) : null;
+    if (adds !== null) onEnter?.(adds);
     /* Enter, Esc and Tab came from the keyboard: the focus goes back to the pill (Tab then moves it on). A tap went where the finger did. */
     refocus.current = exit === 'enter' || exit === 'escape' || step !== 0;
     if (rows?.open === id) rows.setOpen(null);
@@ -690,6 +704,8 @@ export function TypedRow({
           mark={amount ? '₱' : null}
           inputMode={amount ? 'numeric' : inputMode}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
+          entersAdd={Boolean(onEnter)}
           leaving={mode === 'leaving'}
           onwards={onwards}
           onType={onType}
@@ -776,6 +792,8 @@ export function FormRowField({
   mark,
   inputMode,
   autoCapitalize,
+  autoComplete,
+  entersAdd = false,
   leaving,
   onwards = false,
   onType,
@@ -797,6 +815,9 @@ export function FormRowField({
   mark: string | null;
   inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'url';
   autoCapitalize?: 'off' | 'sentences' | 'words';
+  autoComplete?: string;
+  /** ⏎ An add box (the row's `onEnter`): Enter is "go" — it keeps and adds, and never moves on to the next row. */
+  entersAdd?: boolean;
   leaving: boolean;
   onEnd: (exit: FieldExit, typed: string) => void;
   onGone: () => void;
@@ -864,6 +885,7 @@ export function FormRowField({
     'aria-labelledby': nameId,
     'data-form-row-input': '',
     autoCapitalize,
+    autoComplete,
     onBlur: () => end('tap-out'),
     className: 'min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] text-ink outline-none placeholder:text-ink/40',
   } as const;
@@ -890,8 +912,9 @@ export function FormRowField({
       end(e.shiftKey ? 'tab-back' : 'tab');
     } else if (e.key === 'Enter' && enterKeeps(long)) {
       e.preventDefault();
-      /* 📱 A phone's "next" key IS its Enter: it goes on, as Tab does. A computer's Enter keeps and stays. */
-      end(onwards && window.matchMedia('(pointer: coarse)').matches ? 'tab' : 'enter');
+      /* 📱 A phone's "next" key IS its Enter: it goes on, as Tab does. A computer's Enter keeps and stays. An add box's Enter
+         is always Enter — it adds (`entersAdd`). */
+      end(!entersAdd && onwards && window.matchMedia('(pointer: coarse)').matches ? 'tab' : 'enter');
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -952,7 +975,7 @@ export function FormRowField({
         <input
           {...shared}
           inputMode={inputMode}
-          enterKeyHint={onwards ? 'next' : 'done'}
+          enterKeyHint={entersAdd ? 'go' : onwards ? 'next' : 'done'}
           /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
              number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
              already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */

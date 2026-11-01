@@ -32,10 +32,12 @@ export function DomainManager({
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
-  function handleAdd() {
+  /** Add a domain — from the button (what the box holds) or from Enter in the box (`onEnter`, which hands its words over). */
+  function handleAdd(typed: string = input) {
+    if (pending || !typed.trim()) return;
     setError(null);
     startTransition(async () => {
-      const res = await save.run(() => addVendorDomain(input), {
+      const res = await save.run(() => addVendorDomain(typed), {
         steps: ['Adding your domain'],
         hint: 'Saving',
       });
@@ -172,7 +174,8 @@ export function DomainManager({
 
       <div className="flex flex-col gap-2 sm:flex-row">
         {/* ✍ A row of the ONE Field template (`TypedRow`, owner 1 Nov 2026). It follows what is typed (`onType`), so
-            "Add domain" lights up as before; keeping it (Enter, tap away) only keeps it — adding is the button. */}
+            "Add domain" lights up as before. ⏎ ENTER ADDS (owner 1 Nov 2026, "ENTER STILL ADDS IN ONE-LINE ADD BOXES":
+            `onEnter`), as the raw box did; a tap away only keeps it. 🔒 enter-still-adds.test.ts */}
         <div className="min-w-0 flex-1">
           <FormRows width="wide">
             <TypedRow
@@ -185,6 +188,7 @@ export function DomainManager({
               maxLength={253}
               onType={setInput}
               onKeep={(t) => setInput(t)}
+              onEnter={handleAdd}
               data="custom-domain"
               pillAttrs={{ 'data-custom-domain': '' }}
             />
@@ -192,7 +196,7 @@ export function DomainManager({
         </div>
         <button
           type="button"
-          onClick={handleAdd}
+          onClick={() => handleAdd()}
           disabled={pending || !input.trim()}
           className="button-primary inline-flex items-center justify-center gap-2"
         >

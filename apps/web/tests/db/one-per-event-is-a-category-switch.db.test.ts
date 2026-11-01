@@ -59,15 +59,20 @@ async function refused(run: () => Promise<unknown>): Promise<string | null> {
 const switchOf = async (id: string) =>
   (await db.query<{ one_per_event: boolean }>(`SELECT one_per_event FROM public.service_categories WHERE id = $1`, [id])).rows[0]?.one_per_event;
 
-test('the backfill is the owner’s: five categories on, LED off', async () => {
+test('the backfill is the owner’s: officiant, coordinator, host on; LED off; the venues off since 1 Nov', async () => {
   // MUTATION: drop a name from the backfill list ⇒ its row reads false ⇒ red.
-  for (const id of ['ceremony_venue', 'reception', 'officiants', 'coordinator', 'host_mc']) {
+  for (const id of ['officiants', 'coordinator', 'host_mc']) {
     assert.equal(await switchOf(id), true, `${id} must start as One per event`);
+  }
+  // 🏛 MANY VENUES PER EVENT (owner 2026-11-01, migration 20271300598766): the two venue categories were switched OFF.
+  // MUTATION: drop that UPDATE ⇒ they read true ⇒ red. (The booking half is many-venues-and-where.db.test.ts.)
+  for (const id of ['ceremony_venue', 'reception']) {
+    assert.equal(await switchOf(id), false, `${id}: an event may book more than one venue`);
   }
   // MUTATION: put led_wall in the backfill ⇒ red ("we can book multiple for that as well").
   assert.equal(await switchOf('led_wall'), false, 'LED is multi (owner 2026-10-29)');
   const on = await db.query<{ c: string }>(`SELECT count(*) AS c FROM public.service_categories WHERE one_per_event`);
-  assert.equal(Number(on.rows[0]!.c), 5, 'exactly the five — nothing else switched on by the backfill');
+  assert.equal(Number(on.rows[0]!.c), 3, 'exactly the three — nothing else switched on');
 });
 
 test('the column is no longer generated — the literal list is gone', async () => {
@@ -79,12 +84,12 @@ test('the column is no longer generated — the literal list is gone', async () 
   assert.equal(col.rows[0]?.is_generated, 'NEVER');
 });
 
-test('a second confirmed venue on one event is still refused (switch on)', async () => {
+test('a second confirmed coordinator on one event is still refused (switch on)', async () => {
   const ev = await newEvent();
-  await book(ev, 'venue');
+  await book(ev, 'planner_coordinator');
   // MUTATION: make the key trigger write NULL ⇒ the second insert succeeds ⇒ red.
-  const err = await refused(() => book(ev, 'venue'));
-  assert.match(String(err), /hard_single_lock_uniq/, 'two confirmed receptions on one event must be refused');
+  const err = await refused(() => book(ev, 'planner_coordinator'));
+  assert.match(String(err), /hard_single_lock_uniq/, 'two confirmed coordinators on one event must be refused');
 });
 
 test('two LED walls may both be booked (LED is multi now)', async () => {
@@ -96,11 +101,11 @@ test('two LED walls may both be booked (LED is multi now)', async () => {
 
 test('a client cannot write the key itself — the trigger always recomputes it', async () => {
   const ev = await newEvent();
-  const id = await book(ev, 'venue', 'considering');
+  const id = await book(ev, 'planner_coordinator', 'considering');
   await db.query(`UPDATE public.event_vendors SET hard_single_group = NULL WHERE vendor_id = $1`, [id]);
   const r = await db.query<{ hard_single_group: string | null }>(`SELECT hard_single_group FROM public.event_vendors WHERE vendor_id = $1`, [id]);
   // MUTATION: make the trigger INSERT-only ⇒ the NULL sticks ⇒ red.
-  assert.equal(r.rows[0]!.hard_single_group, 'reception');
+  assert.equal(r.rows[0]!.hard_single_group, 'coordinator');
 });
 
 test('turning the switch OFF lets a second one in; turning it back ON re-keys the bookings', async () => {

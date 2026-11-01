@@ -9,8 +9,6 @@ import { ACCESS_LAB_ROWS } from '@/app/dev/details-lab/access-grant-lab';
 import { ownAccessOf } from '@/lib/people-with-access';
 import { COORDINATOR_AREAS } from '@/lib/delegate-areas';
 import { LIMITED_AREAS } from '@/lib/coordinator-access-level';
-import { LAB_CHAPTERS, LAB_EVENT_DAY, LAB_VENUES } from '../chapters-lab/lab-chapters';
-import type { ChaptersInput } from '@/app/dashboard/[eventId]/_components/event-settings-chapters';
 
 /**
  * 🧪 THE HOME LAB'S EVENT SETTINGS (`/dev/home-lab`) — the SAME rows the ⚙ draws (`EventSettingsRows`), on a fixture
@@ -105,9 +103,6 @@ export function labEventSettingsRows(eventId: string, asked = false) {
       /* The moved Event Details parts that need no database to draw: Plan it myself and Put this away (the kind · area ·
          guests editor and the one code read the event, so the lab leaves them out). */
       more={{ settings: null, planMyself: false, oneCode: false, putAway: { archived: false, eventName: 'Claire & Indalecio' } }}
-      /* 📖 Chapters — fake chapters (`../chapters-lab/lab-chapters.ts`), doors that write nothing. */
-      chapters={{ measured: true, chapters: LAB_CHAPTERS, venues: LAB_VENUES, lastDay: LAB_EVENT_DAY, mayInvite: true }}
-      chaptersLab
     />
   );
 }
@@ -133,12 +128,7 @@ export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator',
   // `&asked=1` — the button after a Send: a fixed moment today, 3:04 PM Philippine time (the Send itself goes to the real
   // door, which refuses the lab's made-up event — the lab shows the sheet, not a send).
   const askedAt = asked ? labAskedAt() : null;
-  // 📖 The coordinator holds Edit on the Schedule (`COORDINATOR_AREAS`), so their sheet carries the chapters too.
-  const chapters: ChaptersInput | null =
-    as === 'coordinator' ? { measured: true, chapters: LAB_CHAPTERS, venues: [], lastDay: LAB_EVENT_DAY, mayInvite: true } : null;
-  return (
-    <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} yoursAskedAt={askedAt} chapters={chapters} chaptersLab />
-  );
+  return <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} yoursAskedAt={askedAt} />;
 }
 
 /** The lab's one moment of asking — 3:04 PM today, Philippine time. */

@@ -100,7 +100,7 @@ test('2 · the call time is the Schedule’s earliest tagged moment — one rule
   // Both readers ask the one rule; nobody keeps a copy.
   assert.match(readFileSync(join(process.cwd(), 'lib', 'coordinator-broadcasts.ts'), 'utf8'), /const earliest = earliestTaggedBlock\(blocks, meta, vendor\.vendor_id\);/);
   assert.match(readFileSync(join(process.cwd(), 'lib', 'booked-call-times.server.ts'), 'utf8'), /earliestTaggedBlock\(blocks, meta, vendorId\)/);
-  assert.match(read('vendors', '_components', 'booked-slot.tsx'), /readBookedCallTimes\(supabase, eventId, bookedIds\)/);
+  assert.match(read('vendors', '_components', 'booked-slot.tsx'), /readBookedSchedule\(supabase, eventId, bookedIds\)/);
 });
 
 test('3 · the plan rows are the Pay sheet’s own rows; a refused read is said', () => {

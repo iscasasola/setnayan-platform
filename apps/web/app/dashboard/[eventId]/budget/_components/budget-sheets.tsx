@@ -38,6 +38,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ContactShortlistVendorButton } from '@/app/dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button';
 import { OTHER_BUCKET } from '@/lib/budget-truth';
+import { keepPesoTyping } from '@/lib/peso-as-you-type';
 import { shortDate, suggestedPayment, type BudgetList, type ExpenseRow, type SupplierRow } from '@/lib/budget-page-view';
 import type { CostCategoryOption } from '@/lib/event-costs';
 import { logScheduledPayment } from '../actions';
@@ -290,6 +291,7 @@ function RecordSheet({
               id={`${titleId}-amt`}
               className={styles.num}
               inputMode="decimal"
+              onInput={(e) => void keepPesoTyping(e.currentTarget)}
               autoComplete="off"
               placeholder="₱"
               value={amount}
@@ -425,6 +427,7 @@ function ExpenseSheet({
               id={`${titleId}-amt`}
               className={styles.num}
               inputMode="decimal"
+              onInput={(e) => void keepPesoTyping(e.currentTarget)}
               autoComplete="off"
               value={amount}
               onChange={(e) => onType('amount', e.target.value)}
@@ -436,6 +439,7 @@ function ExpenseSheet({
               id={`${titleId}-paid`}
               className={styles.num}
               inputMode="decimal"
+              onInput={(e) => void keepPesoTyping(e.currentTarget)}
               autoComplete="off"
               value={paid}
               onChange={(e) => onType('paid', e.target.value)}
@@ -545,6 +549,7 @@ function AddExpenseSheet({
               id={`${titleId}-amt`}
               className={styles.num}
               inputMode="decimal"
+              onInput={(e) => void keepPesoTyping(e.currentTarget)}
               autoComplete="off"
               placeholder="₱"
               value={amount}
@@ -558,6 +563,7 @@ function AddExpenseSheet({
             <input
               className={styles.num}
               inputMode="decimal"
+              onInput={(e) => void keepPesoTyping(e.currentTarget)}
               autoComplete="off"
               aria-label="Paid so far"
               placeholder="₱ 0"

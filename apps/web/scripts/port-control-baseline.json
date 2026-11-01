@@ -6195,7 +6195,6 @@
         "Rotor",
         "Row",
         "RsvpAskConfig",
-        "RsvpAskField",
         "RsvpAsks",
         "RulePlanRows",
         "SDLoader",
@@ -13812,6 +13811,31 @@
         "Metadata",
         "OrbitControls",
         "SoftGate"
+      ]
+    },
+    "/v/[slug]/dates": {
+      "files": [
+        "v/[slug]/dates/_components/check-a-date-calendar.tsx",
+        "v/[slug]/dates/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages/[seg]",
+        "/login",
+        "/v/[seg]",
+        "/v/[seg]/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "CalendarGrid",
+        "CheckADateCalendar",
+        "ChosenRow",
+        "FormRows",
+        "Metadata",
+        "Sheet",
+        "SignInHereLink",
+        "Step",
+        "SwitchRow"
       ]
     },
     "/vendor-dashboard": {

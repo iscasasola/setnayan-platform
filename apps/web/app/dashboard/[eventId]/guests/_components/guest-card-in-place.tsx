@@ -1,6 +1,6 @@
 'use client';
 
-import { openGuestCard } from '../open-guest-card';
+import { openGuestCard, type GuestCardOpened } from '../open-guest-card';
 import { GuestCard, type GuestCardResult } from './guest-card';
 
 /**
@@ -19,7 +19,12 @@ import { GuestCard, type GuestCardResult } from './guest-card';
  * 🔒 `app/dashboard/[eventId]/_components/the-settings-sheet-is-in-homes-graph.test.ts`
  */
 export async function openGuestCardInPlace(eventId: string, guestId: string, at: 'march' | 'seats' | 'invitation' | 'home'): Promise<GuestCardResult> {
-  const r = await openGuestCard(eventId, guestId, at);
+  return drawOpenedGuestCard(eventId, await openGuestCard(eventId, guestId, at));
+}
+
+/** The one card, drawn from the one read's answer — also the Guest list's tap (`guest-actions-context.tsx`), which sends
+ *  the read and fetches this code TOGETHER so a first tap waits for neither in turn (guest card opens fast, 2026-10-28). */
+export function drawOpenedGuestCard(eventId: string, r: GuestCardOpened): GuestCardResult {
   if (!r.ok) return r;
   return {
     ok: true,

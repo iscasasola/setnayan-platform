@@ -143,6 +143,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds resolveVendorDisplayName only (a creator surface\'s vendor credit) — no badge field on the result.' },
   ],
   [
+    'lib/check-a-date.server.ts',
+    { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal on /v/[slug]/dates). The page\'s Verified badge (shop.verified) calls hasVerifiedBadge.' },
+  ],
+  [
     'lib/creator-offers.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only — same shape as creator-public.ts.' },
   ],

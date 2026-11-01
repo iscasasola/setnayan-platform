@@ -1116,12 +1116,12 @@ export function EditorBridge() {
         seqStop = playSequence(
           target,
           !part && !block,
-          (r) => {
-            if (r.phase === 'rest') seqStop = null;
-            window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
-          },
+          /* ✋ `rest` keeps the stop: the Maker holds the finished look until its Exit preview (or a tap) sends `playStop`. */
+          (r) => window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin),
           /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
           only === 'in' || only === 'act' || only === 'out' ? only : undefined,
+          /* ✋ …and holds on its finished look (owner 1 Nov 2026); a whole life's finished look is its rest. */
+          only === 'in' || only === 'act' || only === 'out',
         );
         return;
       }

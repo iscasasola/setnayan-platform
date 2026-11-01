@@ -118,7 +118,8 @@ test('3 · the hold-▶ preview’s row: Exit preview, and exactly ONE See as �
   const menus = row.match(/<PickMenu\b/g)?.length ?? 0;
   const seeAs = row.match(/<PickMenu\s+label="See as"/g)?.length ?? 0;
   console.log(`  hold-▶ row: ${menus} PickMenu, ${seeAs} labelled See as`);
-  assert.match(row, /label="Exit preview" onClick=\{exitPreview\}/, '"Exit preview" left the row');
+  /* (✋ 1 Nov 2026: the same pill also ends ▶ tap's held end — `stopPlay`, `lib/the-tap-preview-holds.test.ts`.) */
+  assert.match(row, /label="Exit preview" onClick=\{previewing \? exitPreview : stopPlay\}/, '"Exit preview" left the row');
   assert.equal(seeAs, 1, 'the row does not hold exactly one See as ▾');
   // 🎭 …plus, under it, the one Role ▾ (owner 2026-10-17, "view it as a father of the bride") — WHICH guest See as
   // draws, not a stage. Any other dropdown is still refused.

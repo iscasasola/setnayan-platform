@@ -73,3 +73,26 @@ export function pesoTypedNumber(text: string): number {
   const t = String(text ?? '').replace(/[^\d.]/g, '');
   return t === '' || t === '.' ? NaN : Number(t);
 }
+
+/**
+ * 💱 THE ONE WAY A MONEY `<input>` KEEPS ITS WORDS — call it from the field's `onInput` (which React runs before its
+ * `onChange` reads the value): whatever was typed or pasted becomes the formatted amount in place, the caret stays after
+ * the digit just typed. So a letter never stands in an amount ("2,250,000abc", Budget's Target, walk 2026-11-01) and the
+ * number pad's missing comma key costs nothing. `decimals` = 0 for whole pesos, 2 (the default) where centavos count.
+ * The shared Form row's amount (`form-row.tsx`) and every Budget money field go through it.
+ */
+export function keepPesoTyping(
+  el: { value: string; selectionStart: number | null; setSelectionRange(start: number, end: number): void },
+  decimals = 2,
+): string {
+  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length, decimals);
+  if (f.text !== el.value) {
+    el.value = f.text;
+    try {
+      el.setSelectionRange(f.caret, f.caret);
+    } catch {
+      /* a field that cannot hold a caret (not focused, or gone) still keeps the words */
+    }
+  }
+  return f.text;
+}

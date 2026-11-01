@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { isUuid } from '@/lib/is-uuid';
 import { printsPageHref } from '@/lib/prints-page-href';
 import { readGuestCard, type GuestCardRead } from './_components/guest-card-read';
@@ -36,6 +37,9 @@ const RETURN_TO = {
   seats: (eventId: string) => `/dashboard/${eventId}/guests?gview=seats`,
   /* 🖨 The invitation's parents are a print's — its return is the Prints page (R8, 2026-10-27 "PRINTS LEAVES STUDIO"). */
   invitation: (eventId: string) => printsPageHref(eventId, 'invitation'),
+  /* 🪪 The Guest list itself (guest card opens fast, 2026-10-28): a tap on a row reads ONLY this card here, instead of
+     re-rendering the whole list with `?inspect=` — and a failed save lands on that same open card. */
+  list: (eventId: string, guestId: string) => `/dashboard/${eventId}/guests?inspect=${guestId}`,
   // 👀 Home › Who's here — a face of a guest viewing the Event Hub (owner 2026-10-29).
   home: (eventId: string) => `/dashboard/${eventId}`,
 } as const;
@@ -49,13 +53,18 @@ export async function openGuestCard(eventId: string, guestId: string, at: keyof 
   if (!isUuid(eventId) || !isUuid(guestId) || !(at in RETURN_TO)) return { ok: false, reason: COULD_NOT_OPEN };
   try {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    /* ⚡ WHO IS ASKING rides BESIDE the card's reads, not in front of them (`guests-page-reads.harness.ts` › cardAlone,
+       150 ms a trip). Asked on its OWN client (`getCurrentUser`): a sign-in check on the card's client holds that client's
+       auth lock for its whole trip, and every read behind it waits. Every card read is the viewer's own session under
+       RLS — a stranger reads nothing — and the answer is still refused below unless someone is signed in; only the
+       helper's grants and the linked face wait on the id. */
+    const userRead = getCurrentUser();
+    userRead.catch(() => undefined);
+    const read = await readGuestCard(supabase, eventId, guestId, userRead.then((u) => u?.id ?? null).catch(() => null));
+    const user = await userRead;
     if (!user) return { ok: false, reason: COULD_NOT_OPEN };
-    const read = await readGuestCard(supabase, eventId, guestId, user.id);
     if (!read) return { ok: false, reason: 'This guest isn’t on your guest list any more.' };
-    return { ok: true, read, returnTo: RETURN_TO[at](eventId) };
+    return { ok: true, read, returnTo: RETURN_TO[at](eventId, guestId) };
   } catch {
     return { ok: false, reason: COULD_NOT_OPEN };
   }

@@ -692,7 +692,9 @@ test('(7) the drag rides no first load and no guest’s page: it is reached only
   assert.deepEqual(loadsPanel, [`${L}/details-lazy.tsx`, `${L}/stage-tools.tsx`]);
   assert.match(raw(`${L}/details-lazy.tsx`), /export const StageTools = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stage-tools'\)\.then\(\(m\) => m\.StageTools\)/);
   /* The rules import no engine and nothing of the browser — they can be loaded anywhere, and are loaded only here. */
-  assert.deepEqual([...src('lib/maker-scene-drag.ts').matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort(), ['./maker-scene-list', './stage-scenes']);
+  /* (2026-11-01: the edge scroll is the ONE every list's drag shares — `./drag-edge-scroll`, pure, importing nothing.) */
+  assert.deepEqual([...src('lib/maker-scene-drag.ts').matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort(), ['./drag-edge-scroll', './maker-scene-list', './stage-scenes']);
+  assert.deepEqual([...src('lib/drag-edge-scroll.ts').matchAll(/from '([^']+)'/g)], [], 'the shared edge scroll carries an import into the drag');
   assert.doesNotMatch(src('lib/maker-scene-drag.ts'), /\b(?:window|document)\./);
   /* No guest-page file was touched to make this: the canvas is driven from the Maker (same origin). */
   for (const f of files.filter((p) => relative(WEB, p).startsWith('app/[slug]/'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /scene-drag|data-scene-drag|attachSceneDrag/, `${relative(WEB, f)} knows the drag`);

@@ -45,8 +45,8 @@ test('what Enter sends is the previewed draft — through the real queue and the
   const add = async (_e: string, d: ParsedGuestDraft): Promise<QuickAddResult> => {
     sent.push(d);
     return runAddSingleGuest('e', d, {
-      createGroup: async (_eid, name) => ({ ok: true, group: { group_id: `g-${name}`, label: name } }) as never,
-      addGuest: async (_eid, input) => {
+      createGroup: async (_eid: string, name: string) => ({ ok: true, group: { group_id: `g-${name}`, label: name } }) as never,
+      addGuest: async (_eid: string, input: unknown) => {
         inserted.push(input as Record<string, unknown>);
         return { ok: true, guest: { guest_id: 'G1' } } as never;
       },

@@ -77,3 +77,27 @@ test('the model counts no category as missing a service it could not read, and c
     assert.ok(!/\b0 of\b/.test(s.text), `${p.key}: "${s.text}" states a count of services nobody read`);
   }
 });
+
+/** A client whose every read is refused — any chain of builder calls ends in `{ data: null, error }`. */
+function refusingClient(): unknown {
+  const refused = { data: null, error: { message: 'permission denied (test)', code: '42501' }, count: null };
+  const chain: unknown = new Proxy(function () {}, {
+    get: (_t, k) => (k === 'then' ? (ok: (v: unknown) => unknown) => Promise.resolve(refused).then(ok) : chain),
+    apply: () => chain,
+  });
+  return { from: () => chain };
+}
+
+test('the loader carries `loadCategories`’s refusal of the services onto the map — and only that refusal', async () => {
+  const { loadMapData } = await import('./load-map');
+  const cats = (failed: string[]) =>
+    ({ groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} }, failed }) as never;
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    assert.equal((await loadMapData(refusingClient() as never, cats(['services']))).servicesRead, false);
+    assert.equal((await loadMapData(refusingClient() as never, cats(['deadlines']))).servicesRead, true);
+  } finally {
+    console.error = quiet;
+  }
+});

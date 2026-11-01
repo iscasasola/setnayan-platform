@@ -66,6 +66,7 @@ import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
+import { quickAddTips } from '@/lib/quick-add-tips';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
@@ -1024,7 +1025,13 @@ export default async function GuestsLabPage({
           {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_guest_list_v2" script={TOURS.customer_guest_list_v2.spotlight!} /> : null}
           {/* The + sheet's name box reaches its add through the SAME stand-ins as the screen — never the real action. */}
           <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
-            <AddGuestSheet eventId={EVENT} defaultSide="both" />
+            {/* As the page mounts it: this event's examples (its roles, its groups) and the roles it offers. */}
+            <AddGuestSheet
+              eventId={EVENT}
+              defaultSide="both"
+              tips={quickAddTips({ hasSides: true, offeredRoles: WEDDING_ROLE_SET.offeredRoles, groupNames: ['Barkada', 'Choir'] })}
+              offeredRoles={WEDDING_ROLE_SET.offeredRoles}
+            />
             {/* "Add another way › With details" — the shipped Quick add, on the lab's roster. */}
             <QuickAddSheet
               eventId={EVENT}

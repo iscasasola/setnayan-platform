@@ -14,9 +14,21 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_CHAPTER_MOMENTS, LAB_EVENT_DAY, LAB_SCHEDULE_CHAPTERS, LAB_VENUES } from './lab-chapters';
+import { LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
 
-export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean; fail: boolean; viewOnly: boolean }) {
+export function LabScheduleChapters({
+  empty,
+  fail,
+  viewOnly,
+  clash = false,
+  tasksFail = false,
+}: {
+  empty: boolean;
+  fail: boolean;
+  viewOnly: boolean;
+  clash?: boolean;
+  tasksFail?: boolean;
+}) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const input: ChaptersInput = fail
@@ -24,7 +36,11 @@ export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean;
     : {
         measured: true,
         chapters: empty ? [] : LAB_SCHEDULE_CHAPTERS,
-        moments: empty ? [] : LAB_CHAPTER_MOMENTS,
+        moments: empty ? [] : [...LAB_CHAPTER_MOMENTS, LAB_MOMENT_ROW],
+        // 📖 Step 3b: the run-of-show moment holds three tasks at once in two places; `?clash=1` puts Coord A in the
+        // lobby too, at the same time; `?tasksfail=1` is the tasks read failing (said, never "no tasks").
+        tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,
+        who: LAB_WHO,
         venues: LAB_VENUES,
         eventDay: LAB_EVENT_DAY,
         lastDay: LAB_EVENT_DAY,

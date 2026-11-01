@@ -16,14 +16,18 @@
  *     line, opens Chapter details (`chapter-sheets.tsx`), which saves on ✕ or a tap outside (the Form Row rule) and
  *     holds Delete chapter at its foot.
  *
- * Moments are SHOWN here; making and editing them on this page is the next slice. Nothing here is seen by a guest.
+ * 📖 STEP 3b — MOMENTS AND THEIR PARALLEL TASKS (plan §3 "Moments work the same way", §3c): + Add a moment in the thumb
+ * row and a tap on any moment open the moment sheet (`moment-sheets.tsx`) — the moment's own fields, its tasks (one per
+ * supplier, crew, role, group or person, each with what they do and a place), a clash flagged, and Delete moment.
+ * Each moment's row says how many tasks it holds and in how many places, and flags a clash. Nothing here is seen by a
+ * guest unless a host turns on Visible to guests.
  *
  * 🛑 A FAILED READ IS SAID, NEVER DRAWN AS NO CHAPTERS (`{ measured: false }`).
  * 🔒 app/dashboard/[eventId]/schedule/chapters-live-on-the-schedule.test.ts
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
 import { useThumbRoom } from '@/lib/thumb-room';
 import {
@@ -31,30 +35,54 @@ import {
   chapterStage,
   chapterWhen,
   chapterWhere,
+  clashesForMoment,
   clockWords,
   egressAt,
   ingressAt,
   momentSection,
+  shiftWall,
+  tasksLine,
   wallDay,
   wallIso,
   wallLocal,
   type Chapter,
   type ChapterSection,
+  type TaskPeople,
+  type TaskRow,
 } from '@/lib/schedule-chapters';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
 import { ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors } from './chapter-sheets';
+import { LAB_MOMENT_DOORS, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 
-/** A moment as a chapter's page lists it — a child block, with who is on it in words. */
+/** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
   block_id: string;
   parent_block_id: string;
   label: string;
   start_at: string;
+  end_at: string | null;
+  /** Its own venue (rare — a moment normally follows its chapter's). */
+  location: string | null;
+  /** Its room: the default place of every task in it (§3c #2). */
+  spot: string | null;
+  notes: string | null;
+  /** "If kept" (§3c #6). */
+  is_optional: boolean;
+  /** A travel moment: from → to (§3c #4); `travel_to` set = a trip. */
+  travel_from: string | null;
+  travel_to: string | null;
   is_public: boolean;
   /** "Lumina Studio" · "Bride's family, Alyssa" — the suppliers or party on it; '' for none. */
   who: string;
+};
+
+/** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
+export type TaskWhoList = {
+  suppliers: { id: string; name: string }[];
+  people: TaskPeople | null;
+  crews: { vendorId: string; crew: string }[];
 };
 
 export type ChaptersInput =
@@ -62,6 +90,10 @@ export type ChaptersInput =
       measured: true;
       chapters: Chapter[];
       moments: ChapterMoment[];
+      /** Every moment's parallel tasks; null = the read failed (the moment sheet says so, never "no tasks"). */
+      tasks: TaskRow[] | null;
+      /** Who a task can name. */
+      who: Omit<TaskWhoList, 'crews'>;
       /** The event's own venues by name — Where offers them first. */
       venues: string[];
       /** The event's first day (`YYYY-MM-DD`): before it a chapter lives in Planning Stage; null = no exact day yet. */
@@ -109,14 +141,34 @@ export function ChaptersHost({
   children: ReactNode;
 }) {
   const doors = useMemo(() => (lab ? LAB_CHAPTER_DOORS : realChapterDoors(eventId)), [eventId, lab]);
+  const momentDoors = useMemo(() => (lab ? LAB_MOMENT_DOORS : realMomentDoors(eventId)), [eventId, lab]);
   const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
+  const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
+  const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
+  const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   // A fresh server answer (a rail write revalidates the page) supersedes what this page laid on the list.
   useEffect(() => {
-    if (input.measured) setChapters(input.chapters);
+    if (!input.measured) return;
+    setChapters(input.chapters);
+    setMoments(input.moments);
+    setTasks(input.tasks);
   }, [input]);
+  const who = useMemo<TaskWhoList>(() => {
+    const base = input.measured ? input.who : { suppliers: [], people: null };
+    const seen = new Set<string>();
+    const crews: TaskWhoList['crews'] = [];
+    for (const t of tasks ?? []) {
+      if (!t.vendor_id || !t.crew) continue;
+      const k = `${t.vendor_id}:${t.crew.trim().toLowerCase()}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      crews.push({ vendorId: t.vendor_id, crew: t.crew });
+    }
+    return { ...base, crews };
+  }, [input, tasks]);
   const api = useMemo<Api | null>(
     () =>
       input.measured
@@ -151,6 +203,17 @@ export function ChaptersHost({
 
   const sorted = sortChapters(chapters);
   const current = openId ? (chapters.find((c) => c.block_id === openId) ?? null) : null;
+  const openMoment = momentSheet?.kind === 'edit' ? (moments.find((x) => x.block_id === momentSheet.id) ?? null) : null;
+  // ⚠ The moments with a task in two places at once (§3c #5) — flagged on their rows, never refused.
+  const clashedMoments = new Set<string>();
+  if (current && tasks) {
+    const names = taskNamesFrom(who);
+    const all = moments.map(clashMomentOf);
+    for (const mo of moments) {
+      if (mo.parent_block_id !== current.block_id) continue;
+      if (clashesForMoment(mo.block_id, tasks, all, chapters, names).size > 0) clashedMoments.add(mo.block_id);
+    }
+  }
   const patch = (id: string, next: Partial<Chapter>) => setChapters((cs) => cs.map((c) => (c.block_id === id ? { ...c, ...next } : c)));
   const back = (c: Chapter | null) => {
     setOpenId(null);
@@ -168,7 +231,9 @@ export function ChaptersHost({
           key={`page:${current.block_id}`}
           chapter={current}
           chapters={sorted}
-          moments={input.moments.filter((m) => m.parent_block_id === current.block_id)}
+          moments={moments.filter((m) => m.parent_block_id === current.block_id)}
+          tasks={tasks}
+          clashed={clashedMoments}
           dateLine={dateLine}
           eventDay={input.eventDay}
           canEdit={input.canEdit}
@@ -184,6 +249,69 @@ export function ChaptersHost({
             api.open(key);
           }}
           onEdit={() => setSheet('edit')}
+          onAddMoment={(section) => setMomentSheet({ kind: 'new', section })}
+          onOpenMoment={(id) => setMomentSheet({ kind: 'edit', id })}
+        />
+      ) : null}
+
+      {momentSheet?.kind === 'new' && current ? (
+        <NewMomentSheet
+          key={`new-moment:${current.block_id}`}
+          chapter={current}
+          section={momentSheet.section}
+          onClose={() => setMomentSheet(null)}
+          onCreate={async (label, startIso, minutes) => {
+            const blockId = crypto.randomUUID();
+            const endIso = shiftWall(startIso, minutes);
+            const ok = await momentDoors.create(blockId, current.block_id, label, startIso, endIso);
+            if (!ok) return false;
+            setMoments((ms) => [
+              ...ms,
+              {
+                block_id: blockId,
+                parent_block_id: current.block_id,
+                label,
+                start_at: startIso,
+                end_at: endIso,
+                location: null,
+                spot: null,
+                notes: null,
+                is_optional: false,
+                travel_from: null,
+                travel_to: null,
+                is_public: false,
+                who: '',
+              },
+            ]);
+            patch(current.block_id, { moments: current.moments + 1 });
+            // The prototype's Add then shows the moment: its sheet is where the tasks are set.
+            setMomentSheet({ kind: 'edit', id: blockId });
+            return true;
+          }}
+        />
+      ) : null}
+
+      {momentSheet?.kind === 'edit' && current && openMoment ? (
+        <MomentSheet
+          key={`moment:${openMoment.block_id}`}
+          moment={openMoment}
+          chapter={current}
+          chapters={chapters}
+          moments={moments}
+          tasks={tasks}
+          who={who}
+          mayShowGuests={input.mayInvite}
+          doors={momentDoors}
+          onPatch={(next) => setMoments((ms) => ms.map((x) => (x.block_id === openMoment.block_id ? { ...x, ...next } : x)))}
+          onTasks={setTasks}
+          onClose={() => setMomentSheet(null)}
+          onDeleted={() => {
+            setMoments((ms) => ms.filter((x) => x.block_id !== openMoment.block_id));
+            setTasks((ts) => (ts ? ts.filter((t) => t.block_id !== openMoment.block_id) : ts));
+            patch(current.block_id, { moments: Math.max(0, current.moments - 1) });
+            setMomentSheet(null);
+            setFlash(`${openMoment.label} is deleted.`);
+          }}
         />
       ) : null}
 
@@ -240,6 +368,8 @@ function ChapterPage({
   chapter: c,
   chapters,
   moments,
+  tasks,
+  clashed,
   dateLine,
   eventDay,
   canEdit,
@@ -247,10 +377,15 @@ function ChapterPage({
   onBack,
   onPick,
   onEdit,
+  onAddMoment,
+  onOpenMoment,
 }: {
   chapter: Chapter;
   chapters: Chapter[];
   moments: ChapterMoment[];
+  tasks: TaskRow[] | null;
+  /** The moments with a task in two places at once. */
+  clashed: ReadonlySet<string>;
   dateLine: string;
   eventDay: string | null;
   canEdit: boolean;
@@ -258,6 +393,8 @@ function ChapterPage({
   onBack: () => void;
   onPick: (key: string) => void;
   onEdit: () => void;
+  onAddMoment: (section: ChapterSection) => void;
+  onOpenMoment: (id: string) => void;
 }) {
   const [open, setOpen] = useState<ChapterSection>('Event');
   const backTo = chapterStage(c, eventDay) === 'planning' ? 'Planning Stage' : 'Event Day';
@@ -366,22 +503,54 @@ function ChapterPage({
                   <p className="py-3 text-[14px] text-ink/55">Nothing yet.</p>
                 ) : (
                   <ul>
-                    {s.rows.map((m) => (
-                      <li key={m.block_id} data-chapter-moment={m.block_id} className="flex min-h-14 items-start gap-4 border-b border-ink/10 py-3">
-                        <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{clockWords(m.start_at)}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[15px] text-ink">{m.label}</span>
-                          {m.who ? <span className="block truncate text-[13px] text-ink/60">{m.who}</span> : null}
-                        </span>
-                        {s.key === 'Event' ? (
-                          m.is_public ? (
-                            <Eye aria-label="Shown to guests" className="mt-0.5 h-4 w-4 flex-none text-ink/60" />
+                    {s.rows.map((m) => {
+                      const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id);
+                      const sub = [
+                        m.travel_to ? `${m.travel_from ?? 'Here'} → ${m.travel_to}` : null,
+                        tasksLine(mine, m, c) || m.who || null,
+                        m.is_optional ? 'Optional' : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ');
+                      const clash = clashed.has(m.block_id);
+                      const inner = (
+                        <>
+                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{clockWords(m.start_at)}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] text-ink">{m.label}</span>
+                            {sub ? <span className="block truncate text-[13px] text-ink/60">{sub}</span> : null}
+                            {clash ? (
+                              <span data-moment-clash="" className="block text-[13px] font-semibold text-danger-700">
+                                ⚠ Someone is in two places at once
+                              </span>
+                            ) : null}
+                          </span>
+                          {s.key === 'Event' ? (
+                            m.is_public ? (
+                              <Eye aria-label="Shown to guests" className="mt-0.5 h-4 w-4 flex-none text-ink/60" />
+                            ) : (
+                              <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
+                            )
+                          ) : null}
+                        </>
+                      );
+                      return (
+                        <li key={m.block_id} data-chapter-moment={m.block_id} className="border-b border-ink/10">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMoment(m.block_id)}
+                              aria-label={`Open ${m.label}`}
+                              className="sn-press flex min-h-14 w-full items-start gap-4 py-3 text-left"
+                            >
+                              {inner}
+                            </button>
                           ) : (
-                            <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
-                          )
-                        ) : null}
-                      </li>
-                    ))}
+                            <div className="flex min-h-14 items-start gap-4 py-3">{inner}</div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )
               ) : null}
@@ -390,13 +559,13 @@ function ChapterPage({
         })}
       </div>
 
-      {canEdit ? <ChapterThumbRow onEdit={onEdit} /> : null}
+      {canEdit ? <ChapterThumbRow onEdit={onEdit} onAddMoment={() => onAddMoment(open)} /> : null}
     </div>
   );
 }
 
 /** The chapter page's thumb row — Edit, in the thumb zone above the bottom nav (the prototype's `thumb()`). */
-function ChapterThumbRow({ onEdit }: { onEdit: () => void }) {
+function ChapterThumbRow({ onEdit, onAddMoment }: { onEdit: () => void; onAddMoment: () => void }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
   useEffect(() => setHost(document.body), []);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -408,10 +577,14 @@ function ChapterThumbRow({ onEdit }: { onEdit: () => void }) {
       data-chapter-thumb=""
       data-safe-x=""
     >
-      <div ref={rowRef} className="pointer-events-auto mx-4">
-        <button type="button" onClick={onEdit} data-chapter-edit="" className={actionButtonClass('neutral', { main: true })}>
+      <div ref={rowRef} className="pointer-events-auto mx-4 flex gap-2">
+        <button type="button" onClick={onEdit} data-chapter-edit="" className={actionButtonClass('neutral')}>
           <Pencil aria-hidden strokeWidth={2} />
           Edit
+        </button>
+        <button type="button" onClick={onAddMoment} data-moment-add="" className={actionButtonClass('brand', { main: true })}>
+          <Plus aria-hidden strokeWidth={2} />
+          Add a moment
         </button>
       </div>
     </div>,

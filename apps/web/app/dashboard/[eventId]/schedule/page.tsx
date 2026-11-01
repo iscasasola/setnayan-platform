@@ -117,7 +117,7 @@ import { formatCount } from '@/lib/format-number';
 import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
-import { readChapters } from '@/lib/schedule-chapters.server';
+import { readChapterBook, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -219,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
@@ -251,7 +251,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     /* 📖 The event's chapters (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE") — in the same round, with their
        own fields (spot, ingress, call time…). Not in the Maker: Details › Schedule keeps its moments as they are. A
        refused read is kept as a failure and said on the page, never drawn as "no chapters". */
-    inMaker ? Promise.resolve(null) : readChapters(supabase, eventId).catch(() => ({ ok: false as const })),
+    inMaker ? Promise.resolve(null) : readChapterBook(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 📖 Step 3b — each moment's parallel tasks, and who a task can name (people, groups, roles), in the same round.
+       A refused read is kept as a failure: the moment sheet says so, never "no tasks". */
+    inMaker ? Promise.resolve(null) : readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
+    inMaker ? Promise.resolve(null) : readTaskPeople(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -303,7 +307,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // memoised GET the seed note above warns about).
   const chapterRead =
     chapterReadFirst && scheduleBlocks !== blocks
-      ? await readChapters(supabase, eventId).catch(() => ({ ok: false as const }))
+      ? await readChapterBook(supabase, eventId).catch(() => ({ ok: false as const }))
       : chapterReadFirst;
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
@@ -579,13 +583,22 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   /* 📖 What the chapters' pages read: the chapters, and each one's moments (its child blocks) with who is on them in
      words — the suppliers tagged (by shop name), else the responsible party. Not for a trip: it keeps its own view. */
   const supplierName = new Map(rosVendors.map((v) => [v.vendor_id, v.vendor_name]));
+  // A task names a BOOKED supplier (plan §2 "Booked suppliers only"): the page's supplier read when it made one, else its own.
+  const taskSuppliers =
+    chapterRead?.ok && !isTravel
+      ? (rosEnabled ? rosVendors : await readScheduleSuppliers(supabase, eventId))
+          .filter((v) => v.standing === 'Booked')
+          .map((v) => ({ id: v.vendor_id, name: v.vendor_name }))
+      : [];
+  for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
+  const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
   const chaptersInput: ChaptersInput | null =
     chapterRead === null || isTravel
       ? null
       : chapterRead.ok
         ? {
             measured: true,
-            chapters: chapterRead.value,
+            chapters: chapterRead.value.chapters,
             moments: dayMoments
               .filter((m): m is DayMoment & { parent_block_id: string } => typeof m.parent_block_id === 'string')
               .map(
@@ -594,6 +607,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   parent_block_id: m.parent_block_id,
                   label: m.label,
                   start_at: m.start_at,
+                  end_at: m.end_at,
+                  location: m.location,
+                  spot: momentFacts.get(m.block_id)?.spot ?? null,
+                  notes: m.notes,
+                  is_optional: momentFacts.get(m.block_id)?.is_optional ?? false,
+                  travel_from: momentFacts.get(m.block_id)?.travel_from ?? null,
+                  travel_to: momentFacts.get(m.block_id)?.travel_to ?? null,
                   is_public: m.is_public,
                   who:
                     m.responsible_vendor_ids
@@ -603,6 +623,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 }),
               ),
             venues: [],
+            tasks: taskRead?.ok ? taskRead.value : null,
+            who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
             eventDay: eventDateKey,
             lastDay:
               eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey

@@ -12,6 +12,9 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
  *      time between chapters and a "Time TBA" one under it, + Add a chapter (name and time), a tap opens the chapter's
  *      page (‹ back · the dropdown · Ingress · Event · Egress · Edit), Chapter details, Delete (warning → Continue →
  *      deleting), and Planning Stage's "Final fitting". `?empty=1` none · `?fail=1` the failed read · `?view=1` view only.
+ *      Step 3b: Preparation · Bride › "Entourage hair and make-up starts" (8:00) holds three tasks at once in two
+ *      places; tap it for the moment sheet (tasks, Who ▾, clash flag, Delete moment's Papic count — the lab answers 4).
+ *      `?tasksfail=1` the tasks read failed.
  *   2. THE RUN-OF-SHOW SHAPE (§3c): one moment holding three parallel tasks in two places, each place resolved by the
  *      real `taskPlace` (a task with no place follows its moment's room). `?clash=1` adds the planner's Coord A in a
  *      second place at the same time, and the real `findTaskClashes` flags it — flagged, never blocked.
@@ -19,7 +22,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
 export default async function ChaptersLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string }>;
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -29,7 +32,7 @@ export default async function ChaptersLabPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

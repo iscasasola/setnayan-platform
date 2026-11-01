@@ -18,6 +18,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { DRAG_EDGE_MAX_STEP, DRAG_EDGE_MIN_STEP, DRAG_EDGE_PAST_PX, DRAG_EDGE_PX, dragEdgeStep, type DragEdgeBand, type DragEdgeReach } from './drag-edge-scroll';
 import { SCENE_EDGE_MAX_STEP, SCENE_EDGE_PX, sceneEdgeScroll } from './maker-scene-drag';
+import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 const SHARED = 'lib/drag-edge-scroll.ts';
@@ -114,7 +115,7 @@ test('2 · exactly one edge-scroll implementation — no second copy of the math
   const copies: string[] = [];
   for (const f of FILES) {
     if (f.rel === SHARED) continue;
-    const code = f.src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const code = stripComments(f.src);
     for (const re of EDGE_MATH) {
       const m = code.match(re);
       if (m) copies.push(`${f.rel}: ${m[0]}`);

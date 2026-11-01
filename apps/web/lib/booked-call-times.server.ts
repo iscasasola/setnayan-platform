@@ -107,7 +107,7 @@ export async function readQuoteWhere(
       .eq('event_id', eventId),
     client
       .from('event_schedule_blocks')
-      .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids')
+      .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids, time_tba')
       .eq('event_id', eventId),
   ]);
   if (vendorsRes.error || blocksRes.error) {

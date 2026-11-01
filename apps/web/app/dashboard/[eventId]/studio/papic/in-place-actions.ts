@@ -23,6 +23,7 @@ import {
 } from './actions';
 import { setPapicGuestCaptureEarly } from './guest-window-actions';
 import { setCoupleFaceTaggingDeclined } from './face-tagging-actions';
+import { pickPapicChapter, startPapicChapterNow } from './_lib/papic-chapter-doors';
 import { papicInPlaceAnswer, type PapicDoor, type PapicInPlaceResult } from './_lib/papic-in-place';
 
 /**
@@ -57,6 +58,8 @@ const DOORS: Readonly<Record<PapicDoor, (fd: FormData) => Promise<unknown>>> = {
   armChallengeAction,
   stopChallengeAction,
   deleteCoupleChallengeAction,
+  pickPapicChapter,
+  startPapicChapterNow,
 };
 
 export async function papicSaveInPlace(door: PapicDoor, formData: FormData): Promise<PapicInPlaceResult> {

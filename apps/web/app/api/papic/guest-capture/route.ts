@@ -38,6 +38,8 @@ import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
 import { recordedClipNeedsRaw, webCopyPlayable } from '@/lib/papic-upload/mp4';
 import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
 import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
+import { papicChapterCaptureDecision, readChapterId } from '@/lib/papic-chapter';
+import { linkCaptureToChapter, papicChapterRefusal } from '@/lib/papic-chapter.server';
 
 // POST /api/papic/guest-capture
 //
@@ -151,6 +153,38 @@ async function windowRefusal(session: GuestSession, admin: Admin, shotAtMs: numb
     }
   }
   return null;
+}
+
+// ── 📷 THE CHAPTER THE CAMERA SHOWED (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") ──────
+// A shot carries `chapter_id` when its camera showed one. The DATABASE answers whether THIS guest may shoot into it
+// at THE SHUTTER (`papic_chapter_capture_refusal` — its window, its photo rule), BEFORE a credit moves:
+//   yes                    → the chapter IS the time gate (a meeting before the day turns Papic on at its start)
+//                            and the shot is linked to it once recorded;
+//   no, camera open anyway → recorded event-wide (Unsorted), exactly as before chapters — a shot is never lost;
+//   no, chapter was the only way in → refused with the chapter's reason (the phone keeps the shot).
+// No `chapter_id` → the event-day gate alone, unchanged. `papicChapterCaptureDecision` (lib/papic-chapter.ts) is the
+// one place that decides; held by lib/papic-chapter.test.ts and tests/db/papic-shoots-into-a-chapter.db.test.ts.
+async function chapterGate(
+  session: GuestSession,
+  admin: Admin,
+  body: Body,
+  shotAtMs: number,
+): Promise<{ res: NextResponse | null; into: string | null }> {
+  const chapterId = readChapterId(body.chapter_id);
+  if (!chapterId) return { res: await windowRefusal(session, admin, shotAtMs), into: null };
+  const verdict = await papicChapterRefusal(admin, {
+    blockId: chapterId,
+    eventId: session.event_id,
+    guestId: session.guest_id,
+    atMs: shotAtMs,
+  });
+  const laneRes = verdict === null ? null : await windowRefusal(session, admin, shotAtMs);
+  const decision = papicChapterCaptureDecision({ chapterId, verdict, laneOpen: laneRes === null });
+  if (decision.kind === 'into') return { res: null, into: decision.blockId };
+  if (decision.kind === 'refuse') {
+    return { res: json({ error: decision.error }, decision.error === 'chapter_unread' ? 503 : 403), into: null };
+  }
+  return { res: laneRes, into: null };
 }
 
 // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
@@ -307,7 +341,7 @@ async function handleSign(
     }
     const duration = parseDuration(body);
     const refused =
-      (await windowRefusal(session, admin, judgedShotInstant(body.captured_at_ms, Date.now()))) ??
+      (await chapterGate(session, admin, body, judgedShotInstant(body.captured_at_ms, Date.now()))).res ??
       (await moderationRefusal(session, admin)) ??
       (await creditRefusal(session, admin, papicCaptureCost(mediaType, duration.ok ? duration.ms : null)));
     if (refused) return refused;
@@ -378,8 +412,8 @@ async function handleRecord(
   const durationMs = isClip ? duration.ms : null;
 
   const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
-  const refusedEarly =
-    (await windowRefusal(session, admin, shotAtMs)) ?? (await moderationRefusal(session, admin));
+  const chapter = await chapterGate(session, admin, body, shotAtMs);
+  const refusedEarly = chapter.res ?? (await moderationRefusal(session, admin));
   if (refusedEarly) return refusedEarly;
 
   // ⏱ THE SAME PER-CAMERA CEILING, on the guest door. Keyed on the guest, not
@@ -536,6 +570,15 @@ async function handleRecord(
     webVerified = webCopyPlayable(web ? await probeMp4DurationMs(web.intent.r2_ref, web.size) : null);
   }
   const wantFull = (await eventKeepsFullRes(admin, session.event_id)) || !webVerified;
+  // 📷 Into the chapter the camera showed — the link's trigger asks the same refusal again (judged by the row's own
+  // shutter). After the answer: a link that fails leaves the shot event-wide, never unrecorded.
+  if (chapter.into && captureId) {
+    const into = chapter.into;
+    const cid = captureId;
+    after(async () => {
+      await linkCaptureToChapter(admin, into, { guestCaptureId: cid });
+    });
+  }
   if (recordDuplicate) {
     // Another attempt of this shutter won the race: the row points at ITS
     // copies, so this attempt's are nobody's (major 3).

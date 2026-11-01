@@ -157,7 +157,7 @@ export const dynamic = 'force-dynamic';
 */
 /** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
-  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, date_window_start, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
 
 export async function generateMetadata({
   params,
@@ -773,6 +773,7 @@ export default async function EventHomePage({
                 event_type: (event.event_type as string | null) ?? null,
                 event_date: (event.event_date as string | null) ?? null,
                 date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
+                date_window_start: (event as { date_window_start?: string | null }).date_window_start ?? null,
                 created_at: (event as { created_at?: string | null }).created_at ?? null,
               },
             })

@@ -111,6 +111,14 @@ import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { fixtureControl, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
+import { planningProgress } from '@/lib/preparation';
+import { labPlanningList } from '../schedule-lab/lab-planning';
+
+/** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
+function labTodoFacts() {
+  const p = planningProgress(labPlanningList().items);
+  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+}
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -629,6 +637,9 @@ export default async function HomeLab({
       : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+    /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=
+       preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
+    ...(unread ? {} : { checklist: labTodoFacts() }),
   });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·

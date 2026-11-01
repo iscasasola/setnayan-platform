@@ -6,7 +6,7 @@
  *   1 · RENDERED, both versions (the phone's tiles and the md+ cards): every door inside a widget — the tile, each
  *       face, each tiny action, each card button — lands on THAT widget's one page, and no page is the door of two
  *       widgets. Countdown → Event Settings · Guests → Guests · Event Hub → the Hub (Maker or public page) · Suppliers
- *       → Suppliers · Budget → Budget · To do (was Checklist) → To do.
+ *       → Suppliers · Budget → Budget · To do → Planning Stage (its To do filter, since 2026-11-01).
  *   2 · THE TABLE ("A face opens the EXACT item"): each face's href, as the notes list it.
  *   3 · THE OTHER CALLERS STILL WORK: the params Home leans on are read by their pages as before (`?q=` by the
  *       Guests search, `?inspect=v:` and `?open=` by Suppliers, `?part=budget`, `?tab=`, the Maker's `?stage=`).
@@ -47,8 +47,8 @@ function pageOf(href: string): string {
   if (/^\/launch\b/.test(path)) return 'Event Hub';
   if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';
   if (/^\/vendors\b/.test(path)) return 'Suppliers';
-  // The To do widget (was Checklist, owner 2026-11-01) — `/checklist` forwards to Planning Stage's To do filter (#7149).
-  if (/^\/checklist\b/.test(path)) return 'To do';
+  // ✅ To do opens Planning Stage's To do filter since the Checklist merged into it (owner 2026-11-01).
+  if (/^\/schedule\?view=preparation&filter=todo\b/.test(path)) return 'Planning Stage';
   return `elsewhere (${h})`;
 }
 const hrefs = (html: string) => [...html.matchAll(/(?:href|data-home-face-href)="([^"]*)"/g)].map((m) => m[1]!);
@@ -100,8 +100,8 @@ test('2 · each face opens the exact item the notes name', () => {
     ['budget', 'budget-summary', '/dashboard/e1/vendors?part=budget'],
     // PR-E: the exact payment (its Pay sheet opens) and the exact task.
     ['budget', 'pay-li-1', '/dashboard/e1/vendors?part=budget&pay=li-1'],
-    ['plan', 'plan-open', '/dashboard/e1/checklist#task-t1'],
-    ['plan', 'plan-pct', '/dashboard/e1/checklist'],
+    ['plan', 'plan-open', '/dashboard/e1/schedule?view=preparation&filter=todo#task-t1'],
+    ['plan', 'plan-pct', '/dashboard/e1/schedule?view=preparation&filter=todo'],
   ];
   for (const [key, id, href] of table) {
     const f = face(key, id);

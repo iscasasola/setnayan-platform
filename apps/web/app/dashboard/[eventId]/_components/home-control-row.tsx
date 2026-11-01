@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count } from '@/components/count';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
-import { checklistTaskAnchor } from '@/lib/checklist-anchor';
+import { planningTodoHref } from '@/lib/checklist-anchor';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -499,15 +499,15 @@ function DetailCard({
       if (c === null) return null;
       if (c === 'unread') {
         return (
-          <Shell k="plan" door={`/dashboard/${e}/checklist`} today={today} failed>
-            <Failed words="Your To do list couldn’t load · not zero, unread" />
+          <Shell k="plan" door={planningTodoHref(e)} today={today} failed>
+            <Failed words="Your to do list couldn’t load · not zero, unread" />
           </Shell>
         );
       }
       const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
       const calm = input.next.kind === 'plan';
       return (
-        <Shell k="plan" door={`/dashboard/${e}/checklist`} brand={pct !== null ? `Your plan · ${formatCount(pct)}% done` : 'Your plan'} today={today}>
+        <Shell k="plan" door={planningTodoHref(e)} brand={pct !== null ? `To do · ${formatCount(pct)}% done` : 'To do'} today={today}>
           <Dot mood={calm || c.open === 0 ? 'ok' : 'wait'}>
             {c.open === 0
               ? 'Everything is done'
@@ -519,8 +519,8 @@ function DetailCard({
             <ul className="hc-list">
               {c.next.map((t) => (
                 <li key={t.id} data-home-task={t.id}>
-                  {/* Each task opens itself on the checklist (`/checklist#task-<id>`). */}
-                  <Link href={`/dashboard/${e}/checklist#${checklistTaskAnchor(t.id)}`} className="hc-li">
+                  {/* Each task opens itself in Planning Stage's To do filter (`#task-<id>`). */}
+                  <Link href={planningTodoHref(e, t.id)} className="hc-li">
                     <span className="hc-tick" aria-hidden />
                     <span className="hc-li-t">{t.title}</span>
                     {t.dueDate ? <span className={`hc-li-due${t.daysUntilDue !== null && t.daysUntilDue <= 7 ? ' soon' : ''}`}>{shortDay(t.dueDate)}</span> : null}

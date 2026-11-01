@@ -337,12 +337,13 @@ const exists = (route: string) => {
 };
 const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'));
 
-test('e · a calm Today points at the Checklist — the plan, step by step — and the Checklist opens it', () => {
-  assert.ok(exists('checklist'), 'the checklist page exists');
+test('e · a calm Today points at the To do tile — the plan, step by step — and it opens Planning Stage’s To do', () => {
+  // The Checklist merged into Planning Stage (owner 2026-11-01); its old address forwards there.
+  assert.ok(exists('checklist'), 'the old checklist address still exists (it forwards)');
   const html = draw({}, NOTHING);
   assert.match(todayLine(html), /data-home-today="plan"/, 'the calm Today does not point at the Checklist');
   assert.match(todayLine(html), /Nothing waits on you/);
-  assert.match(html, /data-home-tile="plan"[\s\S]*?href="\/dashboard\/e1\/checklist"/, 'the Checklist widget does not open the checklist');
+  assert.match(html, /data-home-tile="plan"[\s\S]*?href="\/dashboard\/e1\/schedule\?view=preparation&amp;filter=todo"/, 'the To do widget does not open Planning Stage’s To do filter');
   assert.doesNotMatch(html, /just below|See your plan/i, 'Home still points at a section that no longer exists');
 });
 
@@ -438,8 +439,8 @@ test('f · no What’s next row, no dashboard mode for it', () => {
   assert.doesNotMatch(html, /sheet=next/, 'something on Home opens the ?sheet=next portal');
   assert.doesNotMatch(DASH, /only\?: 'whatsnext'|only === 'whatsnext'|HomeWhatsNext/, 'the dashboard still carries the What’s next mode');
   assert.throws(() => readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'), 'the sheet shell is back');
-  // The To do widget (was Checklist, owner 2026-11-01) holds the plan: % done and the next dated tasks.
-  assert.match(html, /data-home-card-key="plan"[\s\S]*?Your plan · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the To do card does not hold the plan');
+  // The Checklist widget holds the plan: % done and the next dated tasks.
+  assert.match(html, /data-home-card-key="plan"[\s\S]*?To do · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the To do card does not hold the plan');
 });
 
 test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {

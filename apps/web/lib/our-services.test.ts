@@ -241,7 +241,8 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
       addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&
       row('launch')?.matchPrefix === `${base}/website`,
     checklist: () =>
-      read(EV, '_components', 'event-dashboard.tsx').includes('href={`${base}/checklist`}'),
+      // The Checklist merged into Planning Stage (owner 2026-11-01): the doorway opens its To do filter.
+      read(EV, '_components', 'event-dashboard.tsx').includes('href={planningTodoHref(eventId)}'),
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),

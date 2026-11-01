@@ -31,6 +31,8 @@ const WEB = join(__dirname, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ACTIONS = 'app/dashboard/[eventId]/schedule/actions.ts';
+// The one accept path moved to lib in Step 4b (2026-11-02) so Auto-agree runs the same code as Approve.
+const DECIDE = 'lib/schedule-suggestion-decide.server.ts';
 const FLOOR = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
@@ -67,7 +69,7 @@ const WRITERS: [file: string, fn: string][] = [
   [ACTIONS, 'bulkRetimeScheduleBlocks'],
   [ACTIONS, 'setBlockResponsibleParty'],
   // One Approve and Approve all share one accept path (2026-11-01) — the write lives there.
-  [ACTIONS, 'decideSuggestion'],
+  [DECIDE, 'decideSuggestion'],
   [FLOOR, 'floorRetimeFrom'],
 ];
 
@@ -124,7 +126,7 @@ test('⓹ a change in words only is said as one — on the sheet and in the supp
   assert.match(requests, /'a note only'/, 'the Asked line no longer says a note is a note');
   assert.match(requests, /Nothing on the schedule moves/, 'the footnote no longer says a note moves nothing');
   // The one accept path (Approve and Approve all both go through it) tells a note from a change in the notice.
-  const resolve = body(read(ACTIONS), 'decideSuggestion');
+  const resolve = body(read(DECIDE), 'decideSuggestion');
   assert.match(resolve, /body: accepted[\s\S]*?isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
 });
 

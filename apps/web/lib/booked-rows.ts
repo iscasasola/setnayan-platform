@@ -40,6 +40,7 @@ import { initialsOf, type SupplierRow } from './budget-page-view';
 import type { PlanProgress } from './vendor-service-payment-schedules';
 import type { TeamRow, TeamRowTone } from './your-team-rows';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
+import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
 
 /** What the page knows about one supplier besides their team row. */
 export type BookedFacts = {
@@ -59,6 +60,10 @@ export type BookedFacts = {
   moneyMoved: boolean;
   /** Deadline of an outstanding ask (`event_vendors.lock_request_expires_at`). */
   lockRequestExpiresAt: string | null;
+  /** 📍 The in-house groups this booking also brings ("Catering" with Seda) — `lib/supplier-where.ts`. */
+  covered?: readonly CoveredGroup[];
+  /** 📍 The in-house groups whose chapters the host changed (`event_vendors.covered_where`). */
+  coveredWhere?: Readonly<Record<string, readonly string[]>> | null;
 };
 
 type VerbTone = ReturnType<typeof cardVerbWords>['tone'];
@@ -166,6 +171,11 @@ export type BookedRow = {
   callTime: BookedCallTime | null;
   /** The payment plan's rows, as the Pay sheet holds them (one source) — drawn when the row opens. */
   plan: BookedPlan;
+  /**
+   * 📍 WHERE they go — the chapters they work (owner 2026-11-01, `lib/supplier-where.ts`). `null` = not drawn (the
+   * viewer cannot read the Schedule).
+   */
+  where: SupplierWhere | null;
   verbs: BookedVerb[];
   threadId: string | null;
 };
@@ -227,6 +237,8 @@ export type BookedView = {
   booked: BookedRow[];
   /** Booked suppliers with no price recorded. */
   unpriced: number;
+  /** 📍 Booked suppliers on no chapter yet, while the event has chapters ("· 2 need a chapter"). */
+  needWhere: number;
 };
 
 /** The pill, the sub line and the line under a waiting row — the prototype's words. */
@@ -302,6 +314,8 @@ function bookedRowOf(
     now: Date | undefined;
     callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
     plansKnown: boolean;
+    chapters: readonly WhereChapter[] | null | undefined;
+    venues: ReadonlyMap<string, string>;
   },
 ): BookedRow {
   const thread = f.threadId !== null;
@@ -326,6 +340,18 @@ function bookedRowOf(
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
     plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
+    where:
+      extra.chapters === undefined
+        ? null
+        : supplierWhere({
+            vendorId: team.vendorId,
+            groupId: f.groupId,
+            booked: true,
+            chapters: extra.chapters,
+            venues: extra.venues,
+            covered: f.covered,
+            coveredWhere: f.coveredWhere,
+          }),
     threadId: f.threadId,
   };
   const withVerbs = (next: BookedNext, main: BookedVerb): BookedRow => ({
@@ -438,6 +464,11 @@ export function bookedView(args: {
    * `null` = the Schedule read was refused; `undefined` = nobody asked (no call-time line is drawn).
    */
   callTimes?: ReadonlyMap<string, TaggedMoment> | null;
+  /**
+   * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
+   * `undefined` = nobody asked (no Where is drawn).
+   */
+  chapters?: readonly WhereChapter[] | null;
   now?: Date;
 }): BookedView {
   const factsById = new Map(args.facts.map((f) => [f.vendorId, f]));
@@ -455,6 +486,13 @@ export function bookedView(args: {
   });
   const waiting: WaitingRow[] = [];
   const booked: BookedRow[] = [];
+  // Each booked VENUE's name, by its booking — a chapter with no venue typed takes the venue that picked it.
+  const venues = new Map<string, string>(
+    args.rows.flatMap((r) => {
+      const g = factsById.get(r.vendorId)?.groupId;
+      return r.group === 'booked' && g && VENUE_GROUPS.has(g) ? [[r.vendorId, r.name] as const] : [];
+    }),
+  );
   for (const r of args.rows) {
     const f = factsById.get(r.vendorId) ?? fallback(r.vendorId);
     if (r.group === 'asked') waiting.push(waitingRowOf(r, f, args.now));
@@ -466,11 +504,13 @@ export function bookedView(args: {
           now: args.now,
           callTimes: args.callTimes,
           plansKnown: args.plans !== null,
+          chapters: args.chapters,
+          venues,
         }),
       );
     }
   }
-  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length };
+  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length, needWhere: needWhereCount(booked.map((b) => b.where)) };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

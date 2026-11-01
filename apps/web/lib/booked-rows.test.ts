@@ -365,7 +365,7 @@ test('with the handshake off there is no waiting state at all', () => {
     { eventId: E, lockHandshakeEnabled: false, now: NOW },
   );
   const view = bookedView({ rows, facts: [fact({ vendorId: 'h' })], money: ledger({}), now: NOW });
-  assert.deepEqual(view, { waiting: [], booked: [], unpriced: 0 });
+  assert.deepEqual(view, { waiting: [], booked: [], unpriced: 0, needWhere: 0 });
 });
 
 test('the words are the prototype’s, and a category with no map feeds the Schedule', () => {

@@ -568,9 +568,10 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   if (request === 'times') {
     const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
     const { data: chapters } = ids.length
-      ? await supabase.from('event_schedule_blocks').select('block_id, start_at').eq('event_id', eventId).in('block_id', ids).is('parent_block_id', null)
-      : { data: [] as { block_id: string; start_at: string | null }[] };
-    const wanted = ((chapters ?? []) as { block_id: string; start_at: string | null }[]).flatMap((c) =>
+      ? await supabase.from('event_schedule_blocks').select('block_id, start_at, time_tba').eq('event_id', eventId).in('block_id', ids).is('parent_block_id', null)
+      : { data: [] as { block_id: string; start_at: string | null; time_tba: boolean | null }[] };
+    // ⏰ A Time-TBA chapter's 00:00 is only its DAY: the times typed land on that day, never measured against midnight.
+    const wanted = ((chapters ?? []) as { block_id: string; start_at: string | null; time_tba: boolean | null }[]).flatMap((c) =>
       timesRequests({
         shop: supplierName,
         chapter: c,
@@ -622,11 +623,13 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   if (clock && (chapterId || blockId)) {
     const anchorId = kind === 'new' ? chapterId : nullIfBlank(formData.get('chapter_of_block'), 64);
     const { data: anchor } = anchorId
-      ? await supabase.from('event_schedule_blocks').select('start_at').eq('block_id', anchorId).eq('event_id', eventId).maybeSingle()
+      ? await supabase.from('event_schedule_blocks').select('start_at, time_tba').eq('block_id', anchorId).eq('event_id', eventId).maybeSingle()
       : { data: null };
     const section = formData.get('section');
-    const start = anchor
-      ? momentStartIn(anchor as { start_at: string | null }, clock, section === 'Ingress' || section === 'Event' || section === 'Egress' ? section : null)
+    const a = anchor as { start_at: string | null; time_tba: boolean | null } | null;
+    // ⏰ A Time-TBA chapter has no clock to be before or after — its 00:00 is only its day, so no section shifts it.
+    const start = a
+      ? momentStartIn(a, clock, a.time_tba ? null : section === 'Ingress' || section === 'Event' || section === 'Egress' ? section : null)
       : null;
     sheetTimes = { start, end: start ? shiftWall(start, momentMinutes(formData.get('minutes'))) : null };
   }

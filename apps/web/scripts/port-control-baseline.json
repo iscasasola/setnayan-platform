@@ -9926,6 +9926,7 @@
         "dashboard/[eventId]/vendors/_components/booked-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-slot.tsx",
         "dashboard/[eventId]/vendors/_components/booked-stand-ins.ts",
+        "dashboard/[eventId]/vendors/_components/booked-where.tsx",
         "dashboard/[eventId]/vendors/_components/build-body.tsx",
         "dashboard/[eventId]/vendors/_components/build-cart.tsx",
         "dashboard/[eventId]/vendors/_components/build-compare.tsx",
@@ -10027,6 +10028,8 @@
         "BookedRowList",
         "BookedSlot",
         "BookedStandIns",
+        "BookedWhere",
+        "BookedWhereLine",
         "BudgetBuildTab",
         "BudgetPage",
         "BudgetWords",
@@ -10058,6 +10061,7 @@
         "ChangePickButton",
         "ChildRail",
         "Chips",
+        "ChosenRow",
         "CityPick",
         "ClearButton",
         "ClusterHead",
@@ -10097,6 +10101,7 @@
         "Face",
         "FacetSelection",
         "FactLine",
+        "FactRow",
         "FactSheet",
         "FactSheetData",
         "FactSheetStandIns",
@@ -10220,6 +10225,7 @@
         "ServiceOpenOverlay",
         "ServiceSection",
         "ServicesTakeover",
+        "SetWhereResult",
         "SetnayanGiftLine",
         "Sheet",
         "SheetDoor",
@@ -10275,6 +10281,7 @@
         "WaitingRow",
         "WaitingRowItem",
         "WeddingFolder",
+        "WherePick",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
       ]
@@ -13415,8 +13422,10 @@
       ],
       "blocks": [
         "AccordionLockButton",
+        "BookedWhere",
         "Link",
         "PrintButton",
+        "QuoteWhereFact",
         "SubmitButton"
       ]
     },

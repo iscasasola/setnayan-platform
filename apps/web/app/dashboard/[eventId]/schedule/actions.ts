@@ -22,7 +22,7 @@ import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
 import { APPROVE_ALL_MAX, computeRetimePatches } from '@/lib/schedule-ros';
 // ✅ The ONE accept path — Approve, Approve all and Auto-agree all run it (moved to lib in Step 4b).
-import { decideSuggestion } from '@/lib/schedule-suggestion-decide.server';
+import { NOTHING_CHANGED, decideSuggestion } from '@/lib/schedule-suggestion-decide.server';
 import {
   FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
@@ -46,8 +46,6 @@ import { userHostsEvent } from '@/lib/events';
 import { isCallLead, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
-/** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
-const NOTHING_CHANGED = 'Nothing on the schedule changed — the moment is gone, or this account cannot edit it.';
 
 /**
  * Coordinator P1: is this user the event's EXTERNAL coordinator

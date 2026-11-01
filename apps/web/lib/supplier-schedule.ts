@@ -17,7 +17,7 @@
  * Nothing here reads or writes the database: the page reads, `lib/schedule-suggestion-decide.server.ts` applies.
  */
 
-import { wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
+import { VENUE_TBA, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -175,8 +175,6 @@ export type SupplierDay = {
   /** Created/updated times of what is on their part of the day — the Seen check reads these. */
   stamps: string[];
 };
-
-const VENUE_TBA = 'Venue TBA';
 
 function minutesOf(a: string | null, b: string | null): number | null {
   if (!a || !b) return null;

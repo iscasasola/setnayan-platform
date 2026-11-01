@@ -200,6 +200,7 @@ import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-paymen
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import { buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import type { ComponentProps } from 'react';
 
@@ -723,7 +724,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // event's tasks), their Seen / Confirm marks (own rows), and the host's Auto-agree + the event day + every
       // booking row of theirs (admin, scoped to this org on this event — a supplier has no read on events' settings
       // or event_vendors). Each read's failure is said on the view, never drawn as "none".
-      supabase.from('event_schedule_tasks').select('block_id, vendor_id, crew').eq('event_id', eventId),
+      supabase.from('event_schedule_tasks').select(TASK_COLUMNS).eq('event_id', eventId),
       supabase
         .from('event_supplier_schedule_marks')
         .select('seen_at, confirmed_at')

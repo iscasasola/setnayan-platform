@@ -22,6 +22,7 @@
  *                   order write of the stage's own order (`stageOrderPatch`, under the stage's key) = one Undo step.
  *   BUSY            no second lift while a press is still on its way to the page (`sceneLiftAllowed`).
  */
+import { DRAG_EDGE_PX, dragEdgeStep } from './drag-edge-scroll';
 import type { MakerTile } from './maker-scene-list';
 import { stepChangesThePage } from './stage-scenes';
 
@@ -33,9 +34,10 @@ export const SCENE_HOLD_MS = 350;
 export const SCENE_SCROLL_PX = 8;
 /** A mouse lifts on the first real move: this far, no hold (the prototype's `> 6`). */
 export const SCENE_MOUSE_LIFT_PX = 6;
-/** Near the page's top or bottom edge the page scrolls by itself (prototype `EDGE`). */
-export const SCENE_EDGE_PX = 56;
-/** The fastest the page scrolls by itself, per frame (the prototype's `14`). */
+/** Near the page's top or bottom edge the page scrolls by itself (prototype `EDGE`) — the ONE edge band every list's
+ *  drag shares (`lib/drag-edge-scroll.ts`), never typed again here. */
+export const SCENE_EDGE_PX = DRAG_EDGE_PX;
+/** The fastest the page scrolls by itself, per frame (the prototype's `14`) — this drag's cap on the shared curve. */
 export const SCENE_EDGE_MAX_STEP = 14;
 /** The lower third slides away while a scene is held, and back on release (prototype `--dur`, `--ease`). */
 export const SCENE_COLLAPSE_MS = 280;
@@ -224,13 +226,14 @@ export function sceneOverBin(x: number, y: number, bin: SceneBox | null, reach: 
 
 /**
  * HOW FAR THE PAGE SCROLLS BY ITSELF THIS FRAME (px; negative = up) with the finger at `y` between the page's `top`
- * and `bottom` — the prototype's `tick()`: within `SCENE_EDGE_PX` of an edge, faster the nearer; never while the
- * finger is on the bin (the bin sits in that band), never once the finger is past the bottom.
+ * and `bottom` — the ONE shared edge scroll (`dragEdgeStep`, owner 2026-11-01 "ONE SHARED DRAG-AND-DROP WITH EDGE
+ * SCROLL FOR EVERY LIST"): within `SCENE_EDGE_PX` of an edge, faster the nearer, never faster than
+ * `SCENE_EDGE_MAX_STEP`. The scene's own reach: a finger anywhere above the page's top still scrolls up (the top bar
+ * stands there); never while the finger is on the bin (the bin sits in the bottom band), never once the finger is past
+ * the bottom (the lower third / the guests' bar).
  */
 export function sceneEdgeScroll(y: number, top: number, bottom: number, overBin: boolean): number {
-  if (y < top + SCENE_EDGE_PX) return -Math.min(SCENE_EDGE_MAX_STEP, Math.ceil((top + SCENE_EDGE_PX - y) / 5));
-  if (y > bottom - SCENE_EDGE_PX && y < bottom && !overBin) return Math.min(SCENE_EDGE_MAX_STEP, Math.ceil((y - (bottom - SCENE_EDGE_PX)) / 5));
-  return 0;
+  return dragEdgeStep(y, { top, bottom }, { max: SCENE_EDGE_MAX_STEP, pastTop: Infinity, pastBottom: 0, bottomOff: overBin });
 }
 
 /**

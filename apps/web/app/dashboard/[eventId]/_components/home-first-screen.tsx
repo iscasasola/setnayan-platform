@@ -48,6 +48,8 @@ export type PapicCardInput = {
   buy?: ReactNode;
   /** Open on arrival — a save's outcome or a purchase error is said inside the open card. */
   defaultOpen?: boolean;
+  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, under the counts; null = not drawn. */
+  chapter?: ReactNode;
 };
 
 /** Where each service in the "Your services" row goes — `href:` literals, for the port-controls scan. */
@@ -476,6 +478,7 @@ function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVIC
       headLine={card.headLine ?? null}
       counts={card.counts ?? null}
       buy={card.buy ?? null}
+      chapter={card.chapter ?? null}
       defaultOpen={card.defaultOpen ?? false}
       marker={{ 'data-home-service': 'papic', 'data-home-today-papic': '' }}
     />

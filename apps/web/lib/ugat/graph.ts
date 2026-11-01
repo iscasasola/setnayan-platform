@@ -3656,6 +3656,44 @@ export const UGAT_JOINTS: UgatJoint[] = [
     traps:
       'The card’s window is the debounce (30 min), never less — a 15-minute window would drop a guest who is still looking. The beacon path is exempt from the hub cache-bust cookie (HUB_BUST_EXEMPT_PATHS); without it every open would cost that guest their cached hub. HUB_VIEWS_DISABLED=1 is the kill switch.',
   },
+  {
+    /**
+     * 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01, DECISION_LOG "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER";
+     * migration 20271300249267). A capture — a guest's or a seat camera's — belongs to a chapter (a top-level schedule
+     * block); the host's two acts on a chapter (Start now, the card's pick) sit beside it. The window is the chapter's own
+     * start → end and who may shoot is its own photo_who — no second copy of either.
+     */
+    id: 'J60',
+    claims: [
+      { kind: 'table', table: 'papic_chapter_captures' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'guest_capture_id', references: 'papic_guest_captures' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'seat_photo_id', references: 'papic_photos' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'event_id', references: 'events' },
+      { kind: 'check', table: 'papic_chapter_captures', name: 'papic_chapter_captures_one_capture', mentions: 'seat_photo_id' },
+      { kind: 'table', table: 'papic_chapter_windows' },
+      { kind: 'fk', table: 'papic_chapter_windows', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'column', table: 'papic_chapter_windows', column: 'opened_early_at' },
+      { kind: 'column', table: 'papic_chapter_windows', column: 'picked' },
+      // One fact, one column: who may shoot is the chapter's own photo rule, and its window its own times.
+      { kind: 'column', table: 'event_schedule_blocks', column: 'photo_who' },
+      { kind: 'no_column', table: 'papic_chapter_windows', column: 'photo_who' },
+      { kind: 'no_column', table: 'papic_chapter_windows', column: 'start_at' },
+    ],
+    chain: 21,
+    pair: ['TYPE-PAPIC', 'TYPE-RUNOFSHOW'],
+    title: 'Papic capture → Chapter (the chapter Papic shoots into)',
+    joint: 'papic_chapter_captures',
+    cardinality: 'A capture may sit in more than one chapter (how = added, Memories — Step 7); one picked chapter per event',
+    implementedBy:
+      'papic_chapter_captures (block_id → event_schedule_blocks CASCADE · guest_capture_id → papic_guest_captures CASCADE · seat_photo_id → papic_photos CASCADE, exactly one) + papic_chapter_windows (block_id PK · opened_early_at · picked). Read by papic_event_chapters(event) — SECURITY INVOKER, one call — for the Home card (papic-chapter-row.tsx) and the cameras (papicCameraChapter)',
+    writtenBy:
+      'Links: ONLY the capture lanes, on the service role — /api/papic/guest-capture (record) and recordSeatCapture — after papic_chapter_capture_refusal said yes at the shutter. Windows: the couple, from the card (studio/papic/chapter-actions.ts)',
+    guardedBy:
+      'A BEFORE trigger re-asks papic_chapter_capture_refusal for every captured link (the window, judged by the capture’s own captured_at, and the chapter’s photo_who); no INSERT grant on the links to any browser role; windows written by the couple only (RLS) · tests/db/papic-shoots-into-a-chapter.db.test.ts · lib/papic-chapter.test.ts',
+    traps:
+      'Deleting a CHAPTER deletes its links, never a photo — they fall back to Unsorted (ruled 1 Nov). A refused chapter never loses a shot when the camera was open anyway: it lands event-wide (papicChapterCaptureDecision). Not yet: the photo-URL membership check, Memories by chapter, and the moment-delete count (Step 7).',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

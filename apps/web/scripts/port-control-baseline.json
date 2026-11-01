@@ -5155,6 +5155,7 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Image",
@@ -6522,7 +6523,7 @@
         "/explore?category=date_fengshui_consultant"
       ],
       "actions": [
-        "lockEventDate",
+        "lockThisDate",
         "markDateUndecided"
       ],
       "blocks": [

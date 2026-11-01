@@ -11,6 +11,8 @@
  *   ?shop=<name>        they own a shop of this name (default: none)
  *   ?groups=1           they organize two groups (owner 2026-10-28, "Your groups" — prototype who_is_it_for_2026-10-28)
  *   ?for=<row id>       open on that "For ▾" row (`self` · `unspecified` · `business` · `memorial` · `group:g-batch`)
+ *   ?internal=1         the founders' (is_internal) account: its date pickers start today, not on December 19, 2026
+ *                       (owner 2026-11-01, lib/event-date-floor.ts)
  *   ?settings=generic   instead of the grid: Event settings' "Kind of event" line on an existing generic event
  *   ?settings=asked     … on an event whose host's ask ("Alumni homecoming") is now added
  *                       (its pick calls the REAL action, which — with no database — answers with its own refusal)
@@ -70,7 +72,7 @@ const GROUPS = [
 export default async function CreateForLab({
   searchParams,
 }: {
-  searchParams: Promise<{ birth?: string; sex?: string; shop?: string; groups?: string; for?: string; settings?: string }>;
+  searchParams: Promise<{ birth?: string; sex?: string; shop?: string; groups?: string; for?: string; settings?: string; internal?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -116,6 +118,7 @@ export default async function CreateForLab({
         budgetBands={[]}
         subjects={subjects}
         todayISO={manilaToday()}
+        dateExempt={sp.internal === '1'}
         groupTypeKeys={groups.length > 0 ? types.filter((t) => GROUP_TYPES.includes(t.key)).map((t) => t.key) : undefined}
         initialSubjectId={sp.for}
       />

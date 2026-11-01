@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -43,6 +45,7 @@ const BOOKED_ERRORS: Record<string, string> = {
   contract: 'Pick one of your saved contracts to attach.',
   description: 'Describe what the couple availed.',
   event_date: 'Set the agreed event date.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
 };
@@ -242,6 +245,7 @@ export default async function VendorQrCodesPage({
     const live = services.filter((s) => s.is_active);
     generator = (
       <LockedQrGenerator
+        dateExempt={await viewerIsInternal().catch(() => false)}
         eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
         services={
           live.length

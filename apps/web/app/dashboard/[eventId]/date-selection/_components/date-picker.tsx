@@ -16,6 +16,7 @@
  * surfaces the rare case where someone bypasses the `min` attribute).
  */
 
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Loader2 } from 'lucide-react';
 import { lockEventDate } from '../actions';
@@ -29,6 +30,8 @@ import {
 import { isChineseWedding } from '@/lib/chinese-wedding';
 
 type Props = {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   eventId: string;
   /** Host's ceremony type, drives ceremony-specific positive overlays. */
   ceremonyType: CeremonyType | null;
@@ -59,6 +62,7 @@ const TODAY_ISO = (() => {
 
 export function DatePicker({
   eventId,
+  dateExempt = false,
   ceremonyType,
   secondaryCeremonyType = null,
   meaningfulDates,
@@ -110,7 +114,12 @@ export function DatePicker({
     setError(null);
     startTransition(async () => {
       try {
-        await lockEventDate(form);
+        const res = await lockEventDate(form);
+        // 💍 A refusal comes back in words (lib/event-date-floor.ts) — said here, beside the date.
+        if (res && res.ok === false) {
+          setError(res.error);
+          return;
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Something went wrong — please try again';
         // NEXT_REDIRECT errors are thrown by the server action's redirect()
@@ -158,7 +167,7 @@ export function DatePicker({
           id="phase0-date"
           type="date"
           value={selected}
-          min={TODAY_ISO}
+          min={eventDateMinFor(TODAY_ISO, dateExempt)}
           onChange={(e) => {
             setError(null);
             setSelected(e.target.value);

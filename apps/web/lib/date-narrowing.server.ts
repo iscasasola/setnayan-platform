@@ -11,6 +11,8 @@ import {
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 
 /** The one runtime list, imported rather than re-typed — `auspicious-date.ts`
  *  carries a compile-time exhaustiveness proof against the union. */
@@ -102,11 +104,16 @@ export async function narrowEventDateAfterAgreement(
   const existingDate = (dateRow as { event_date?: string | null }).event_date ?? null;
   if (existingDate) return { status: 'no_op' };
 
-  const candidates = Array.isArray((dateRow as { date_candidates?: unknown }).date_candidates)
-    ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
-        (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
-      )
-    : [];
+  // 💍 A candidate before December 19, 2026 is never narrowed to (owner 2026-11-01,
+  // lib/event-date-floor.ts); the founders' events keep every candidate.
+  const candidates = await candidatesOnOrAfterFirstEventDay(
+    Array.isArray((dateRow as { date_candidates?: unknown }).date_candidates)
+      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+        )
+      : [],
+    () => eventDateFloorExempt(db, { eventId }),
+  );
   if (candidates.length === 0) return { status: 'no_op' };
 
   const { data: lockedRows } = await db

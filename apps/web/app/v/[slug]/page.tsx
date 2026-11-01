@@ -3433,15 +3433,22 @@ export async function renderVendorBySlug({
             `/admin/user-reports` now names this target type, and
             `a-couple-can-report-a-shop.test.ts` asserts the filing path and the
             desk together.
+
+            🔴 A <div>, NEVER A <p>. `ReportPageButton`'s root is a <div> (and its
+            sheet is more <div>s and an <h2>). Inside a <p> the browser's parser
+            closes the <p> early, so the server HTML no longer matches the tree
+            React hydrates — React error #418 on EVERY load of every shop page,
+            light and dark (live walk 2026-11-01, /setnaprod and /v/setnaprod).
+            Held by `no-block-inside-a-paragraph.test.ts`.
           */}
-          <p className="pt-1">
+          <div className="pt-1">
             <ReportPageButton
               targetType="vendor"
               targetId={vendor.vendor_profile_id}
               label="Report this shop"
               className="inline-flex min-h-[44px] items-center text-ink/45 hover:text-ink/70"
             />
-          </p>
+          </div>
         </footer>
       </article>
     </main>

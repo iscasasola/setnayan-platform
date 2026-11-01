@@ -117,11 +117,14 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
 
       <ConsoleRule />
 
-      {model.seatFinder.state === 'ready' ? (
-        <SeatScanner eventId={eventId} />
-      ) : (
-        <Closed title="Find a guest’s seat" reason={model.seatFinder.reason} />
-      )}
+      {/* 🪑 Anchored — the Hub's "Find a guest's seat" row lands here (S9, owner 2026-10-29). */}
+      <div id="seat-finder" className="scroll-mt-24">
+        {model.seatFinder.state === 'ready' ? (
+          <SeatScanner eventId={eventId} />
+        ) : (
+          <Closed title="Find a guest’s seat" reason={model.seatFinder.reason} />
+        )}
+      </div>
 
       <ConsoleRule />
 

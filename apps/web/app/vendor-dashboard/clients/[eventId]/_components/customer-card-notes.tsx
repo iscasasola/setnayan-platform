@@ -39,10 +39,15 @@ function fmtRemind(iso: string): string {
   });
 }
 
-export function ClientNotes({ eventId, notes }: { eventId: string; notes: ClientNote[] }) {
+export function ClientNotes({ eventId, notes, failed = false }: { eventId: string; notes: ClientNote[]; /** A note write was refused (`?note=error`) — said, never silent. */ failed?: boolean }) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="space-y-3">
+      {failed ? (
+        <p role="alert" className="text-sm text-terracotta-700" data-note-failed="">
+          Couldn’t save that — try again.
+        </p>
+      ) : null}
       {notes.map((n) => {
         const overdue = !n.done_at && n.remind_at != null && n.remind_at <= today;
         return (

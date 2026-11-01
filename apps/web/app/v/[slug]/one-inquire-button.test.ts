@@ -29,14 +29,15 @@ const src = readFileSync(join(HERE, 'page.tsx'), 'utf8');
 const code = src.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('the page has exactly the Inquire buttons we expect', () => {
-  // Three, and only three: the cinematic hero's, the action row's, and the
-  // desktop sticky rail's. A fourth means a new one was added without deciding
-  // how it interacts with the hero — which is exactly how the duplicate arose.
+  // Two, and only two: the cinematic hero's and the action row's. (The Pro desktop sticky rail and its third Inquire
+  // were retired 2026-10-30 — supplier website by plan: the whole card column is sticky on every plan now, so the
+  // action row's Inquire stays on screen.) A third means a new one was added without deciding how it interacts with
+  // the hero — which is exactly how the duplicate arose.
   const count = (code.match(/^\s*Inquire\s*$/gm) ?? []).length;
   assert.equal(
     count,
-    3,
-    `expected 3 Inquire button labels (hero · action row · sticky rail), found ${count}. ` +
+    2,
+    `expected 2 Inquire button labels (hero · action row), found ${count}. ` +
       'Adding one means deciding whether it can appear beside the hero button.',
   );
 });

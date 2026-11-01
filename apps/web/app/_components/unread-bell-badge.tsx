@@ -56,7 +56,12 @@ const NotificationsList = dynamic(
  * reload. When the count goes UP the bell asks whether one of these arrived,
  * and refreshes the server render if so — no reload, nothing typed is lost.
  */
-const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation'];
+/*
+ * 🖼⏱ …and so does a coordinator's Mood Board change (owner 2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"): the notice
+ * is written by the database itself (the event_inspiration_assets trigger, 20271299051148), and the Undo it promises
+ * lives on Home's Today list (`MoodBoardAsksDoorway`). An owner already on Home sees that line appear at once.
+ */
+const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed'];
 
 type Props = {
   userId: string;
@@ -108,7 +113,7 @@ export function UnreadBellBadge({
         onValue: setUnread,
         refreshOn: PAGE_CHANGING_TYPES,
         onArrival: () => {
-          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited); nothing was pressed here.
+          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited / a Mood Board change to undo); nothing was pressed here.
           router.refresh();
         },
       });

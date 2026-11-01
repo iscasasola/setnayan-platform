@@ -76,7 +76,6 @@ platform_settings.spotlight_homepage_enabled | ⚖ CORRECTED 2026-08-17 — I ov
 # lib/gate-writers.ts (blind spot #5) rather than excused with a baseline line.
 
 # ── DELIBERATELY PARKED: the author says so in the column comment ───────────
-platform_settings.free_tier_booking_cap_enabled | Parked on purpose. Comment: "FALSE = inert (default). Do NOT flip until the lock paths ha[ve]..." — built ahead of its consumer, matching vendor-free-tier-booking-cap-flag in PARKED_ON_PURPOSE.
 platform_settings.vendor_addon_tiered_pricing_enabled | DB mirror of NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING, flipped together with the env flag by hand. No app writer by design.
 platform_settings.vendor_tier_pipeline_caps_enabled | Owner-locked 2026-08-09 and already recorded as named debt: the per-tier caps ship switched off and the flip is one UPDATE with no admin button. Known, deliberate, documented.
 venue_directory.is_bookable_via_setnayan | V1.5+ flag. Comment: "V1 always FALSE; couples inquire via chat." Nothing should write it in V1.

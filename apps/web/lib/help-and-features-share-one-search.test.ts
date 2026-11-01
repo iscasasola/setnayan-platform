@@ -102,7 +102,10 @@ test('1 · ONE SEARCH BAR, AT THE BOTTOM, ON BOTH PAGES — signed in AND signed
   assert.match(code('app/_components/frontdoor/app-rail-shell.tsx'), /pageSearchPaths=\{variant === 'doorway' \? DOORWAY_PAGE_SEARCH_PATHS : undefined\}/);
   const shell = code('app/_components/frontdoor/front-door-shell.tsx');
   assert.match(shell, /search: searchProp,/, 'the shell reads the prop under one name and decides `search` once');
-  assert.match(shell, /const search = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : searchProp;/);
+  // 2026-11-01: decided by `topBarSearch` (one rule: own row → none · handed → it · signed in → none · else the box).
+  assert.match(shell, /const search = topBarSearch\(\{[^}]*handed: searchProp,[^}]*pageHasOwnSearch: pageSearchPaths\?\.includes\(pathname \?\? ''\)/);
+  const { topBarSearch } = await import('@/app/_components/frontdoor/shell-page-search');
+  assert.equal(topBarSearch({ handed: 'box', signedIn: false, pageHasOwnSearch: true }), false, 'a page with its own row still draws a top-bar box');
   assert.equal((shell.match(/search === false \? null/g) ?? []).length, 2, 'a top-bar box (desktop or phone row) ignores the switch');
   assert.equal((shell.match(/\bsearchProp\b/g) ?? []).length, 2, 'the unswitched prop is read ONLY where `search` is decided — a top-bar box reading it would ignore /help and /features');
 });

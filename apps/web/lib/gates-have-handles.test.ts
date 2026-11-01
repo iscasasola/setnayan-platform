@@ -338,7 +338,6 @@ test('every feature-flag module has at least one non-test importer', () => {
   const PARKED_ON_PURPOSE = new Map([
     ['public-api-flag', 'V1 lock: "no public API endpoints" — 0033 plumbs the gateway only.'],
     ['slot-seat-reservations-flag', 'Owner-parked 2026-08-01; docblock states it is not yet wired.'],
-    ['vendor-free-tier-booking-cap-flag', 'Built ahead of its consumer; docblock says so.'],
     ['vendor-launch-free-window-flag', 'Built ahead of its consumer; docblock says so.'],
   ]);
 

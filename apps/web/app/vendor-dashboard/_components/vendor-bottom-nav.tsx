@@ -139,7 +139,8 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     label: 'Hub',
     href: '/vendor-dashboard/on-the-day',
     icon: CalendarCheck,
-    activeMatch: ['/vendor-dashboard/on-the-day'],
+    // 🗂 "Events" FOLDED INTO HUB (owner 2026-10-29): the old fifth tab's address forwards here and lights it.
+    activeMatch: ['/vendor-dashboard/on-the-day', '/vendor-dashboard/events'],
   },
 ];
 
@@ -154,6 +155,7 @@ export function vendorBarItems({
   bookingsBadge,
   threadsBadge,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -161,11 +163,16 @@ export function vendorBarItems({
   threadsBadge?: number | null;
   /** One of this shop's days is today — a helper gets the Hub then (owner 2026-10-21, item 6). */
   eventToday?: boolean;
+  /**
+   * This person coordinates at least one event, live. "Events" FOLDED INTO HUB (owner 2026-10-29): no fifth tab — a
+   * scoped teammate who runs an event gets the Hub, where "Events you run" now lives. Their own seat; a door, not access.
+   */
+  runsEvents?: boolean;
 }): BottomNavItem[] {
   // Role-aware: owner/admin get the four; agent/viewer get Today · Customers,
   // plus the Hub on an event day. FAILS CLOSED — a role that could not be read
   // is not an owner.
-  const scoped = vendorScopedBarKeys({ eventToday });
+  const scoped = vendorScopedBarKeys({ eventToday: eventToday || runsEvents === true });
   const base = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => scoped.has(i.key));
@@ -196,6 +203,7 @@ export function VendorBottomNav({
   bookingsBadge,
   threadsBadge,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -209,6 +217,8 @@ export function VendorBottomNav({
   threadsBadge?: number | null;
   /** One of this shop's days is today (the layout reads it for a helper only). */
   eventToday?: boolean;
+  /** At least one LIVE coordinator seat (`readEventsYouRun`) — the Events tab shows only then. */
+  runsEvents?: boolean;
 }) {
-  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge, eventToday })} />;
+  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge, eventToday, runsEvents })} />;
 }

@@ -69,7 +69,6 @@ const SWEEP: Array<[file: string, reads: number, what: string]> = [
   ['lib/print-set.server.ts', 1, 'printed passes'],
   ['app/dashboard/[eventId]/guests/checkin/page.tsx', 1, 'the door list'],
   ['app/dashboard/[eventId]/guests/souvenirs/page.tsx', 1, 'the souvenir table'],
-  ['app/dashboard/[eventId]/plan3d/page.tsx', 2, 'the 3D plan’s guest counts'],
   ['lib/after-summary.ts', 1, 'the after-the-day attending count'],
   ['lib/auto-recap.ts', 1, 'the recap’s guest count'],
   ['app/[slug]/_components/editorial/data.ts', 3, 'the story’s guests / attending / replied'],

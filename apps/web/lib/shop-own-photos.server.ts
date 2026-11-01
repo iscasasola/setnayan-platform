@@ -6,6 +6,7 @@ import { displayUrlForStoredAsset, parseStoredAsset } from '@/lib/uploads';
 import { r2GetBytes } from '@/lib/r2';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
+import { isFromAlbumPageRef } from '@/lib/put-photo-on-my-page';
 
 /**
  * lib/shop-own-photos.server.ts — THE SHOP'S OWN PHOTOS, as the inspiration library's "From your shop's photos"
@@ -43,6 +44,10 @@ export async function shopOwnPhotoRefs(
     if (typeof ref !== 'string' || !ref.trim() || seen.has(ref)) return;
     /* A clip is not an inspiration photo (the library takes stills only). */
     if (/\.(mp4|mov|m4v|webm|avi)(\?|$)/i.test(ref)) return;
+    /* An event-album photo has people from somebody's event in it. It is on the page through their 7-day notice
+       (owner 2026-10-03) and a takedown pulls it from there — a copy into the library or another couple's board would
+       be out of reach of both, so it never travels on from the page. */
+    if (isFromAlbumPageRef(ref)) return;
     seen.add(ref);
     out.push({ ref, from });
   };

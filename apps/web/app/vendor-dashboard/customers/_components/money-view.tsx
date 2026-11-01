@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { RotateCw } from 'lucide-react';
+import { RotateCw, Wallet } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { formatPhp } from '@/lib/php';
@@ -10,8 +10,9 @@ import { MONEY_WINDOW_LABEL, MONEY_WINDOWS, moneyTopLine, type MoneyRow, type Mo
 import type { Paged } from '@/lib/paginate';
 import { ListPager } from '../../_components/list-pager';
 import { CustomersPick } from './customers-pick';
-import { DatesRow } from './dates-row';
-import { MoneyFill, PesoCount } from './money-figures';
+import { DatesRow, RowTile } from './dates-row';
+import { MoneyFill } from './money-figures';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * CUSTOMERS › MONEY — the segment, drawn (S-PR4; plan § 2 "Merge into Customers › Money: Received · To come in · one
@@ -22,9 +23,18 @@ import { MoneyFill, PesoCount } from './money-figures';
  *                           divider below. Unread → "Couldn't load · Retry" in the figures' own place (frame 15).
  *   Next in ▾               ONE dropdown (This month · Next month · All), one hairline row per instalment still to
  *                           come in: the customer · what it is and when · the amount · a state badge · the arrow.
- *   Setnayan                the shop's booking-fee bills (one row each, Pay — the pay page is the confirm + pay
+ *   Setnayan                the SHOP WALLET row first (owner 2026-10-23, option A — one shop wallet: "Shop wallet ·
+ *                           128 Papic credits", a door to its sheet; unread → said, with Retry, never 0), then the
+ *                           shop's booking-fee bills (one row each, Pay — the pay page is the confirm + pay
  *                           step), the waived ones (a "Waived" badge), and a row to every bill and receipt.
  *   This year ⌄             the confirmed payments by month; the pre-2026 payout records only when any exist.
+ *
+ * 📌 v13 (APPROVED 2026-10-29, prototype `custMoney()`; DECISION_LOG "EVERY SUPPLIER-DASHBOARD PAGE: THE TOP ROWS
+ * COMPRESS INTO ONE PINNED ROW ON SCROLL" — *"like on money, they get the overdue to comin and received as a sompressed
+ * pinned row"*): Received · To come in · Overdue are the FIGURES ON CUSTOMERS' PINNED ROW (`money-segment.tsx` →
+ * `customers-figures.tsx`), folded by the shared `usePinFold`; this block keeps only the meter and its honest line
+ * ("N with no amount set" is said here, never summed as ₱0). The two eyebrows are the prototype's words — Payments ⓘ
+ * (with the Next in ▾ window) and What you owe Setnayan ⓘ.
  *
  * Read-only rows are rows, not buttons (owner 2026-10-13). The ONE main on this screen is the thumb row's Log a
  * payment (`money-log.tsx`).
@@ -71,6 +81,11 @@ export type MoneyViewData = {
   lockedLine?: string;
   /** Pre-cutover payout records. Null ⇒ not read; [] ⇒ none (nothing drawn). */
   legacy: MoneyLegacyPayout[] | null;
+  /**
+   * The shop wallet's ONE home (prototype frame `money-wallet-row`). `read: false` ⇒ the balance was not read — the
+   * row says so and offers Retry (frame `f1-wallet-unreadable`); it never shows a number.
+   */
+  wallet: { read: boolean; title: string; line: string; href: string };
 };
 
 /** The waived bills Money shows in place; the rest are one tap on, on the Booking fees page. */
@@ -83,21 +98,11 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
   return (
     <div data-customers-money="">
       {/* ── RECEIVED · TO COME IN · the meter (frame 05's top block) ── */}
-      <section className="border-b border-ink/10 pb-3 pt-4" data-money-totals={totals ? 'read' : 'unread'} data-tour="money-summary" aria-label="Your money">
+      <section className="border-b border-ink/10 pb-3 pt-1" data-money-totals={totals ? 'read' : 'unread'} data-tour="money-summary" aria-label="Your money">
         {totals ? (
           <>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-1">
-              <div>
-                <p className="home-k2">Received</p>
-                <PesoCount value={totals.receivedPhp} id="money-received" className="block text-[22px] font-semibold leading-tight" tone="ok" />
-              </div>
-              <div>
-                <p className="home-k2">To come in</p>
-                <PesoCount value={totals.toComePhp} id="money-to-come" className="block text-[22px] font-semibold leading-tight text-ink" />
-              </div>
-            </div>
             {moneyTopLine(totals) === 'meter' && totals.pct !== null ? (
-              <div className="mt-3" data-money-meter="">
+              <div data-money-meter="">
                 <div className="h-2 overflow-hidden rounded-full bg-ink/10">
                   <MoneyFill value={totals.pct} id="money-received-of-booked" />
                 </div>
@@ -135,7 +140,11 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
       {totals && totals.bookings > 0 ? (
         <>
           <div className="mt-4 flex min-h-11 items-center gap-3" data-money-eyebrow="">
-            <span className="home-k2">Next in</span>
+            <InfoTip label="Payments" labelClassName="home-k2" align="start">
+              A payment a couple logs waits for your Confirm on their booking — nothing counts as received until you confirm
+              it. The window picks which payments still to come in are listed.
+            </InfoTip>
+            <span className="flex-1" aria-hidden />
             <CustomersPick label="Next in" value={data.window} options={windowOptions} dataAttr="data-money-window" compact className="!min-h-11" />
           </div>
           <div id="money-rows" className="scroll-mt-24" data-money-rows="" data-tour="money-next">
@@ -170,9 +179,41 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
 
       {/* ── SETNAYAN — the shop's own bills from Setnayan, then the year ── */}
       <div className="mt-5 flex min-h-11 items-center" data-money-eyebrow="setnayan">
-        <span className="home-k2">Setnayan</span>
+        <InfoTip label="What you owe Setnayan" labelClassName="home-k2" align="start">
+          Setnayan&rsquo;s booking fee for the couples we bring you, and your shop wallet. Every bill and receipt is one row
+          down.
+        </InfoTip>
       </div>
       <div data-money-setnayan="" data-tour="money-fees">
+        {data.wallet.read ? (
+          <DatesRow
+            data="shop-wallet"
+            lead={
+              <RowTile>
+                <Wallet strokeWidth={1.8} />
+              </RowTile>
+            }
+            title={data.wallet.title}
+            line={data.wallet.line}
+            href={data.wallet.href}
+          />
+        ) : (
+          <DatesRow
+            data="shop-wallet-unread"
+            lead={
+              <RowTile>
+                <Wallet strokeWidth={1.8} />
+              </RowTile>
+            }
+            title={data.wallet.title}
+            line={data.wallet.line}
+            end={
+              <Link href={data.retryHref} className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 text-[14px] font-semibold text-sn-accent">
+                <RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} /> Retry
+              </Link>
+            }
+          />
+        )}
         {fees.billsRead ? (
           <BookingFeeBills compact bills={fees.bills} copyFor={fees.copyFor} />
         ) : (
@@ -186,7 +227,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
           href={VENDOR_BOOKING_FEES_PATH}
         />
 
-        <div className="border-t border-ink/10" data-money-fold="year">
+        <div id="money-year" className="scroll-mt-24 border-t border-ink/10" data-money-fold="year">
           <Fold title="This year" line={yearLine(year)} data="money-year">
             <div className="pb-3" data-money-year-body="">
               {year === 'locked' ? (

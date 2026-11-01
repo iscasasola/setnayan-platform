@@ -338,6 +338,33 @@ export function profilePhotoScope(userId: unknown): CleanupScope {
   return mintScope(`users:${u}`, [{ bucket: MEDIA, prefixes: [`profile-photo/${u}/`] }]);
 }
 
+/**
+ * A supplier's PAGE COPY of one of its event-album photos — `putAlbumPhotoOnMyPage` names it
+ * `vendors/<vendor_profile_id>/portfolio/from-album/…` (`pagePhotoKeyFor`) and the 7-day notice publishes it there.
+ * Deleted when a guest removes it or a takedown is honoured (lib/supplier-page-notice.server.ts). Only that folder:
+ * the shop's own uploads beside it are never this cleanup's to touch.
+ */
+export function supplierPageAlbumCopyScope(vendorProfileId: unknown): CleanupScope {
+  const v = safeId(vendorProfileId);
+  if (!v) return emptyScope('supplier_page_photo_notices');
+  return mintScope(`supplier_page_photo_notices:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] }]);
+}
+
+/**
+ * 📸 `couple_photo_shares` — the FROZEN COPY of one approved couple photo (#7089): `couple-looks/<share_id>/…`,
+ * in the public media bucket (audience Public) or the private thread-files bucket (every other audience). Only
+ * that share's folder in either bucket. Deleted on withdraw · decline · take off · an audience move · a refused
+ * approve, by the sweep for orphans, and by erasure (lib/erasure/purge.ts).
+ */
+export function couplePhotoLookScope(shareId: unknown): CleanupScope {
+  const s = safeId(shareId);
+  if (!s) return emptyScope('couple_photo_shares');
+  return mintScope(`couple_photo_shares:${s}`, [
+    { bucket: MEDIA, prefixes: [`couple-looks/${s}/`] },
+    { bucket: 'setnayan-thread-files', prefixes: [`couple-looks/${s}/`] },
+  ]);
+}
+
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */
 export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);

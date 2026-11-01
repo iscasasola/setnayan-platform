@@ -29,18 +29,40 @@ export function pinRoomPx(m: { targetTop: number; margin: number; viewport: numb
   return need > 0 ? Math.ceil(need) : 0;
 }
 
+/** How far the page still cannot reach for `targetTop` to rest on its `margin` line (pure). 0 when it can. */
+export function pinRoomShortfall(m: { targetTop: number; margin: number; maxScroll: number }): number {
+  const missing = m.targetTop - m.margin - m.maxScroll;
+  return missing > 0.5 ? Math.ceil(missing) : 0;
+}
+
 /** Give `holder` the room `target` needs to be scrolled to its `scroll-margin-top` line. Returns the room in px. */
 export function makeRoomToPin(target: HTMLElement, holder: HTMLElement): number {
   if (typeof window === 'undefined') return 0;
   const current = parseFloat(holder.style.getPropertyValue(PIN_ROOM_VAR)) || 0;
-  const px = pinRoomPx({
-    targetTop: target.getBoundingClientRect().top + window.scrollY,
-    margin: parseFloat(getComputedStyle(target).scrollMarginTop) || 0,
+  const targetTop = target.getBoundingClientRect().top + window.scrollY;
+  const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+  let px = pinRoomPx({
+    targetTop,
+    margin,
     viewport: window.innerHeight,
     content: document.documentElement.scrollHeight - current,
   });
   if (px > 0) holder.style.setProperty(PIN_ROOM_VAR, `${px}px`);
   else holder.style.removeProperty(PIN_ROOM_VAR);
+  // 🪤 A PAGE SHORTER THAN THE SCREEN HIDES HOW SHORT IT IS (2026-10-29, a new event's Find at 768): the column is
+  // `min-h-screen`, so `scrollHeight` reads the SCREEN, not the content, and the room above came out short by exactly
+  // the difference — the opened row stopped 21 px under the pinned row. Read the page's real reach once the room is
+  // in, and add what is still missing (`pinRoomShortfall`).
+  for (let pass = 0; pass < 2; pass += 1) {
+    const missing = pinRoomShortfall({
+      targetTop,
+      margin,
+      maxScroll: document.documentElement.scrollHeight - window.innerHeight,
+    });
+    if (missing <= 0) break;
+    px += missing;
+    holder.style.setProperty(PIN_ROOM_VAR, `${px}px`);
+  }
   return px;
 }
 

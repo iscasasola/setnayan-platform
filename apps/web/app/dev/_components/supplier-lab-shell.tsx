@@ -22,23 +22,35 @@ import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
 import { VendorRailContext } from '@/app/vendor-dashboard/_components/vendor-rail-context';
 import { vendorBarItems } from '@/app/vendor-dashboard/_components/vendor-bottom-nav';
+import { SupplierPageMenu } from '@/app/vendor-dashboard/_components/supplier-page-menu';
+import '@/app/vendor-dashboard/_components/supplier-frame.css';
 
 /** The pages' own outermost columns — `vendor-dashboard/page.tsx` (Today) and `customers/page.tsx`. */
 const COLUMN = {
-  today: 'mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8',
+  today: 'mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8',
   reading: 'mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-3xl',
   wide: 'mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-5xl',
 } as const;
 
 export type SupplierLabMeasure = keyof typeof COLUMN | 'own';
 
-export function SupplierLabShell({ measure, children }: { measure: SupplierLabMeasure; children: ReactNode }) {
+export function SupplierLabShell({
+  measure,
+  children,
+  page = '/vendor-dashboard',
+}: {
+  measure: SupplierLabMeasure;
+  children: ReactNode;
+  /** 📌 The dashboard address this lab state draws — the pinned row's page menu names it (v13 frame, 2026-10-29). */
+  page?: string;
+}) {
   return (
     <div className="app-surface" data-lab-shell="supplier">
       <style>{`[data-lab-shell] [data-supplier-lab]{min-height:0;background:transparent;padding-left:0;padding-right:0}`}</style>
       <FrontDoorShell
         variant="app"
         boundary="tab"
+        pinnedBar={{ lead: <SupplierPageMenu path={page} /> }}
         account={{ signedIn: true, initials: 'RM', shopName: 'Lumina Studio', isAdmin: false }}
         navLabels={{}}
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
@@ -47,7 +59,7 @@ export function SupplierLabShell({ measure, children }: { measure: SupplierLabMe
         }
         topBarSlot={
           <div className="flex items-center gap-3" data-lab-cluster="">
-            <span className="hidden text-sm text-ink/60 lg:inline">Lumina Studio</span>
+            <span className="hidden text-sm text-ink/60 lg:inline" data-supplier-shell-shop="">Lumina Studio</span>
             <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">RM</span>
           </div>
         }

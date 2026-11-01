@@ -34,6 +34,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { isWelcomeDiscountEnabled } from '@/lib/welcome-discount-flag';
+import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
@@ -142,6 +144,21 @@ export async function readServicesStepView(
   const discountPct = readOnboardingDiscountPct(settingsRow?.onboarding_discount_pct);
 
   /**
+   * 💲 IS THIS BUYER ON THE SET-UP PRICE AT ALL? (owner 2026-10-28, "ONE PRICE
+   * EVERYWHERE"). With the welcome switch OFF, yes — exactly as shipped. With it
+   * ON, only when this is the account's FIRST purchase (an anonymous visitor has
+   * made none). The bill asks the SAME question (`onboarding-services-orders.ts`),
+   * so the card cannot quote a figure the bill will not charge. The account is
+   * read only when the switch is on — off, nothing extra is asked.
+   */
+  const setupApplies = isWelcomeDiscountEnabled()
+    ? await client.auth
+        .getUser()
+        .then(({ data }) => setupPriceAppliesForCreateFlow(data.user?.id ?? null))
+        .catch(() => false)
+    : true;
+
+  /**
    * ── WHAT IT COSTS HERE, AND WHAT IT COSTS LATER ────────────────────────────
    *
    * ⚖ Owner, 2026-08-28: *"we give them a 10% discount if they purchase now.
@@ -161,11 +178,13 @@ export async function readServicesStepView(
   // function `onboarding-services-orders.ts` mints with, so a figure on this
   // screen cannot differ from the one on the bill.
   const priceOfRow = (row: { retail_price_php: number; onboarding_price_php?: number | null }) =>
-    setupPricePhp(
-      Number(row.retail_price_php),
-      row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
-      discountPct,
-    );
+    setupApplies
+      ? setupPricePhp(
+          Number(row.retail_price_php),
+          row.onboarding_price_php == null ? null : Number(row.onboarding_price_php),
+          discountPct,
+        )
+      : Number(row.retail_price_php);
   const pricePhpByCode = new Map<string, number>(
     customerSkus.map((s) => [s.service_code, priceOfRow(s)]),
   );
@@ -200,7 +219,7 @@ export async function readServicesStepView(
     listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
-    aiPricePhp: aiOffered ? aiPricePhp : null,
+    aiPricePhp: aiOffered ? (setupApplies ? aiPricePhp : aiListPricePhp) : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,
     hubPro: {
       websiteEnabled: surfaceEnabled(profile, 'website'),

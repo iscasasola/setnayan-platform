@@ -98,3 +98,30 @@ export function useGuestActions(): GuestActions {
   const over = useContext(GuestActionsContext);
   return useMemo(() => (over ? { ...REAL_GUEST_ACTIONS, ...over } : REAL_GUEST_ACTIONS), [over]);
 }
+
+/**
+ * ☑ PICK WHO, IN PLACE (owner 2026-10-28: "guest settings beside send to 107 there is a button pick who. that does not
+ * show anything"). The ⚙ sheet's "Pick who" was a link to the page it sits on (`?select=to-invite`), so the sheet stayed
+ * open over an unchanged list. The Guests screen provides this: one press CLOSES the sheet, turns Select on and narrows
+ * the list to To invite (the carousel's `toinvite` filter, `isToInvite`) — no navigation, the screen never resets. Its
+ * Select bar's "Invite N" then walks the picked guests in the ONE send run (`sendRunHref`).
+ * Absent (the ⚙ rows drawn outside the Guests screen) → "Pick who" keeps its link, the cold-load way in, which opens the
+ * list in the same state (`initialSelect`). 🔒 guests/_components/pick-who-narrows-in-place.test.ts
+ */
+export const PickWhoContext = createContext<(() => void) | null>(null);
+
+/**
+ * 📥 ⚙ › REQUESTS TO JOIN, IN PLACE (R4 slice 11; house rule "a save never resets the screen"). The Guests screen
+ * provides this for the couple: the row's press closes the sheet and opens Asking to join on the List — the requests
+ * drawn in place, each Accept · Decline answered there with Undo. Absent (the ⚙ rows drawn outside the Guests screen,
+ * or a helper) → the row keeps its link to the Requests page. 🔒 lib/requests-are-inside-guests.test.ts
+ */
+export const OpenRequestsContext = createContext<(() => void) | null>(null);
+
+export function useOpenRequests(): (() => void) | null {
+  return useContext(OpenRequestsContext);
+}
+
+export function usePickWho(): (() => void) | null {
+  return useContext(PickWhoContext);
+}

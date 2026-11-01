@@ -252,3 +252,31 @@
   --gs-ok: rgb(var(--color-ok, 43 116 74));
   --gs-warn: rgb(var(--color-warn, 150 90 0));
 }
+
+/* ═══ 👥 a group row reads like a chat (owner 2026-10-28; prototype user_dash_2026-10-28 B–D) ═══
+   The face sits in a 52-px ring box; the ring (gold → brand → gold, tokens) is drawn only while the group has live
+   stories, so a row never changes size between the two. The disc itself is the shipped fold's (`bg-gold/[0.14]`). */
+.groupRing {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--m-r-full);
+  padding: 2px;
+}
+.groupRingLive {
+  background: conic-gradient(rgb(var(--color-terracotta)), rgb(var(--color-mulberry)), rgb(var(--color-terracotta)));
+}
+/* The face is opaque (the page ground under the gold wash), so the ring never shows through the initials. */
+.groupDisc {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-full);
+  border: 2px solid rgb(var(--color-cream));
+  background: linear-gradient(rgb(var(--color-terracotta) / 0.16), rgb(var(--color-terracotta) / 0.16)), rgb(var(--color-cream));
+  font-size: 13px;
+  font-weight: 700;
+}

@@ -15,6 +15,9 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
+import type { BadgeTrackerData } from './_components/badge-tracker';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -44,6 +47,8 @@ export type PageData = {
   yearsLabel: string | null;
   rating: number | null;
   reviewCount: number | null;
+  /** 📌 Couples who opened the page in the last 30 days (v13 Shop › Page's first figure). null = unread, never 0. */
+  views30: number | null;
   saved: PageSaved;
   services: { key: string; label: string }[];
   portfolio: { key: string; url: string }[];
@@ -58,6 +63,8 @@ export type PageData = {
   tier: string | null;
   storeShell: boolean;
   plans: PagePlanLine[];
+  /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
+  badges: BadgeTrackerData & { summary: string };
 };
 
 type OwnRow = Record<string, unknown> & {
@@ -168,8 +175,23 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     }),
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
+  // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
+  const badgesRead = readShopTrackerFacts(vendorId);
+  // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
+  const views30Read = (async (): Promise<number | null> => {
+    const { count, error } = await supabase
+      .from('vendor_profile_views')
+      .select('view_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorId)
+      .gte('viewed_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
+    if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
+    return error || count === null ? null : count;
+  })().catch((err) => {
+    logQueryError('VendorPage.views30', err, { vendorId });
+    return null;
+  });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -178,6 +200,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     vocabRead,
     portfolioRead,
     shellRead,
+    badgesRead,
+    views30Read,
   ]);
 
   const microsite = micrositeFromRow(own);
@@ -218,6 +242,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       : null,
     rating: stats === undefined ? null : Number(stats?.avg_rating_overall ?? 0) || 0,
     reviewCount: stats === undefined ? null : Number(stats?.total_count ?? 0) || 0,
+    views30,
     saved,
     services,
     portfolio,
@@ -230,5 +255,11 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     tier,
     storeShell,
     plans: pagePlanLines(),
+    badges: {
+      summary: trackerSummary(badgeFacts),
+      pills: shopBadges(badgeFacts),
+      next: nextToEarnLine(badgeFacts.completedEvents),
+      rows: badgeTracker(badgeFacts),
+    },
   };
 }

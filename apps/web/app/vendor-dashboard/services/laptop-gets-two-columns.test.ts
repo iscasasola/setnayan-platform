@@ -60,9 +60,11 @@ test('every sheet docks right on a laptop, and keeps its veil on a phone', () =>
   for (const cls of column.slice(1, -1).split(' ')) {
     assert.ok(cls.startsWith('lg:'), `"${cls}" in the laptop column applies on a phone`);
   }
+  /* The phone veil is the one scrim (owner 2026-10-29, `lib/one-scrim.test.ts`); the laptop's catcher is clear. */
+  assert.match(sheetSrc, /<OverlayBackdrop onClose=\{onClose\} className="lg:hidden" \/>/, 'the phone veil changed');
   assert.match(
     sheetSrc,
-    /["']absolute inset-0 bg-ink\/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none["']/,
-    'the phone veil changed, or the laptop still veils the card it is editing',
+    /<button type="button" aria-label="Close" tabIndex=\{-1\} onClick=\{onClose\} className="absolute inset-0 hidden cursor-default lg:block" \/>/,
+    'the laptop veils the card it is editing, or a tap beside the sheet no longer closes it',
   );
 });

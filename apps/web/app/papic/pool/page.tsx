@@ -48,13 +48,9 @@ export default async function PapicPoolPage() {
         title="Open your invitation first."
         sub="Scan your personal QR or open your invite link, then come back here to browse everyone's photos."
       >
-        {/* 🚪 A DEAD END STILL HAS A WAY OUT (2026-09-30). This screen ended at
-            the sentence — nothing to press, only the browser's back button.
-            With no session there is no guest to send back to, so the way out
-            is the same fallback /papic/guest uses for a bare visit. */}
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
+        {/* 🧭 No back here (lib/page-home.ts, owner 2026-10-28, superseding the 2026-09-30 "Back to
+            Setnayan" fallback): a guest page goes back to ITS event's hub, never the marketing front
+            page — and with no session this screen knows no event to go back to. */}
       </DoorShell>
     );
   }

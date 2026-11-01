@@ -1,5 +1,6 @@
 import 'server-only';
 import { setupPricePhp, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
+import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 
 /**
  * onboarding-services-orders.ts — turn what the couple picked on the onboarding
@@ -120,7 +121,11 @@ const lineTotal = (p: Part) => p.unitPhp * p.quantity;
  * would pass the `php > 0` gate at exactly the wrong moment and hand the product
  * away free.
  */
-async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<number | null> {
+async function priceOf(
+  admin: SupabaseClient,
+  serviceCode: string,
+  setupApplies: boolean,
+): Promise<number | null> {
   const [{ data }, { data: settings }] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
@@ -131,6 +136,9 @@ async function priceOf(admin: SupabaseClient, serviceCode: string): Promise<numb
   ]);
   if (data?.is_active !== true) return null;
   const retail = Number(data?.retail_price_php ?? 0);
+  // 💲 Not this buyer's set-up purchase (the welcome switch is on and the
+  // account has bought before): the regular catalogue price, nothing derived.
+  if (!setupApplies) return Number.isFinite(retail) && retail > 0 ? retail : null;
   // 🔑 THE SAME FUNCTION THE CARD USED. The screen and the charge cannot quote
   // different figures if they cannot hold different rules.
   const php = setupPricePhp(
@@ -199,6 +207,10 @@ export async function mintOnboardingServiceOrders(
   if (!eventId || !userId) return NOTHING;
 
   try {
+    // 💲 ONE answer for the whole bill (owner 2026-10-28, "ONE PRICE EVERYWHERE"):
+    // switch OFF → the set-up price, as shipped; ON → only on the account's
+    // first purchase. The card asked the same function, so they agree.
+    const setupApplies = await setupPriceAppliesForCreateFlow(userId);
     const parts: Part[] = [];
     // ── the shared Pool rung ────────────────────────────────────────────────
     // Read from the TABLE, never an allow-list: a rung an admin deactivates must
@@ -209,7 +221,7 @@ export async function mintOnboardingServiceOrders(
     if (selection.poolRungKey) {
       const tiers = await fetchPapicPassTiers(admin);
       const tier = tiers.find((t) => t.serviceCode === selection.poolRungKey && !t.isTopup);
-      const unitPhp = tier ? await priceOf(admin, tier.serviceCode) : null;
+      const unitPhp = tier ? await priceOf(admin, tier.serviceCode, setupApplies) : null;
       if (tier && tier.points > 0 && unitPhp !== null) {
         parts.push({
           serviceCode: tier.serviceCode,
@@ -245,7 +257,8 @@ export async function mintOnboardingServiceOrders(
         // This module runs server-side off the event-commit path and nothing in
         // a request body reaches this literal, so a browser cannot buy at the
         // discount later. Everywhere else defaults to the regular price.
-        priceContext: 'onboarding',
+        // 💲 …and only while the set-up price applies to this buyer at all.
+        priceContext: setupApplies ? 'onboarding' : 'regular',
       });
       if (!charge.ok) {
         console.warn('[onboarding-services-orders] AI charge refused:', charge.refusal);
@@ -273,7 +286,7 @@ export async function mintOnboardingServiceOrders(
       const [websiteEnabled, alreadyOwned, unitPhp] = await Promise.all([
         eventHasEventHub(admin, eventId),
         eventAlreadyHasHubPro(admin, eventId),
-        priceOf(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY),
+        priceOf(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY, setupApplies),
       ]);
       const line = hubProBillLine({ selected: true, websiteEnabled, alreadyOwned, unitPhp });
       if (line) {

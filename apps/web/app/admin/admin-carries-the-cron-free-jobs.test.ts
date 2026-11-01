@@ -79,6 +79,7 @@ const JOBS = [
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },
   { fn: 'maybeRunEmailDeliveryCheck', what: 'asking Resend whether each email was delivered' },
+  { fn: 'maybeRunSupplierPagePublish', what: 'a supplier’s event photo going on its page after the guests’ 7-day notice' },
   // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
   // per window, and an admin-only mount would leave a supplier's fuse waiting on

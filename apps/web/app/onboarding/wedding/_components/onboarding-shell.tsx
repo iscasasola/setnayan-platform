@@ -4691,7 +4691,7 @@ export function OnboardingShell({
         </div>
 
         {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}
-        <div className={`sheet-backdrop${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
+        <div className={`sheet-backdrop sn-popup-dark${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
         <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own supplier">
           <div className="sheet-handle" />
           <div className="sheet-h">Add your own supplier</div>

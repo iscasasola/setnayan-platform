@@ -18,6 +18,7 @@ export function LibraryLab({
   gallerySlots,
   shopName,
   view,
+  cardsByPart,
 }: {
   assets: LabLibraryAsset[];
   shopPhotos: ShopPhotoChoice[];
@@ -25,6 +26,8 @@ export function LibraryLab({
   shopName: string;
   /** `review` = the lab's stand-in for Setnayan's queue (Approve). */
   view: 'supplier' | 'review';
+  /** 🔗 The lab shop's cards per part ("Which of your services is this?"). */
+  cardsByPart?: StylistLibraryEditorProps['cardsByPart'];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -93,6 +96,7 @@ export function LibraryLab({
         backCatalogueCap={20}
         importableEditorial={[]}
         importableEditorialFailed={false}
+        cardsByPart={cardsByPart}
         actions={{
           uploadStylistAsset: async (fd) => {
             return (await libraryLab({ op: 'upload' }, fd)) as { assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: Record<number, { slotId: number; sampledHex: string; toleranceDe: number; regionLabel?: string }> };

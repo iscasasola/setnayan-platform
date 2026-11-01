@@ -5,7 +5,7 @@
  * Pins, against the replayed schema: the number is 40; every stored derived
  * sign-up copy (Papic rungs, Setnayan AI bands) is exactly what the TypeScript
  * `signupPriceFor` produces at that number — so the admin save and the migration
- * can never disagree; and Event Hub Pro's own ₱3,000 is untouched.
+ * can never disagree; and Event Hub Pro carries no override (2026-10-28 one price: the dial prices it).
  */
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,10 +49,11 @@ test('every stored derived sign-up price is exactly signupPriceFor(regular, the 
   assert.ok(checked > 0, 'nothing was checked — a zero that looked nowhere');
 });
 
-test('Event Hub Pro keeps its own owner-set sign-up price', async () => {
+test('Event Hub Pro carries no sign-up override — the house dial prices it (2026-10-28)', async () => {
   const { rows } = await db.query<{ signup: string | null }>(
     `SELECT onboarding_price_php AS signup FROM public.platform_retail_catalog_v2
       WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
-  if (rows.length > 0) assert.equal(Number(rows[0]!.signup), 3000);
+  // Was ₱3,000 (owner 2026-09-25, 40% of ₱5,000); cleared when Pro moved to the App Store price ₱6,590.
+  if (rows.length > 0) assert.equal(rows[0]!.signup, null);
 });

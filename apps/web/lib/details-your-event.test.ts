@@ -162,7 +162,7 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   // 🚶 The march reads the invitation's own loader, in its march form (the couple's sides too, owner 2026-10-06).
   // (Since 2026-10-06 its own read beside the invitation's — the "Not walking" tray rides with it — built by the SAME builder.)
   assert.match(LOAD, /loadMarch\(admin, eventId\)/, 'the march maker reads the march loader');
-  assert.match(read('app/[slug]/_lib/loaders.ts'), /buildEntourage\(these, order, names, style, \{ march: true \}\)/, 'the march is not the invitation’s builder');
+  assert.match(read('app/[slug]/_lib/loaders.ts'), /buildEntourage\(these, order, names, style, \{ march: true(?:, own)? \}\)/, 'the march is not the invitation’s builder');
   assert.match(LOAD, /sections: marchSections\(groups\)/, 'the maker is not handed the march the loader read');
   assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
@@ -174,8 +174,10 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
   assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
   // The maker's sections follow the couple's own section order — the printed one, the couple's sides in their place.
-  assert.match(read('lib/entourage.ts'), /export function marchGroupKeys\(saved\?: readonly string\[\] \| null\): string\[\] \{\s*const middle = orderedGroupKeys\(saved\)/);
-  assert.match(read('lib/entourage.ts'), /opts\?\.march \? marchGroupKeys\(sectionOrder\) : orderedGroupKeys\(sectionOrder\)/);
+  // 🏷 (+ the couple's own groups in their saved place since 2026-10-29 — `marchOrderKeys` is `orderedGroupKeys` + them.)
+  assert.match(read('lib/entourage.ts'), /export function marchGroupKeys\(saved\?: readonly string\[\] \| null, own: readonly string\[\] = \[\]\): string\[\] \{\s*const middle = marchOrderKeys\(saved, own\)/);
+  assert.match(read('lib/entourage.ts'), /export function marchOrderKeys\([^)]*\): string\[\] \{\s*const out = orderedGroupKeys\(saved\);/);
+  assert.match(read('lib/entourage.ts'), /opts\?\.march \? marchGroupKeys\(sectionOrder, own\.map\(\(g\) => g\.key\)\) : orderedGroupKeys\(sectionOrder\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /marchPlace=\{isMakerCanvas \? null : marchPlaceOf\(entourage, guest\?\.guest_id\)\}/);

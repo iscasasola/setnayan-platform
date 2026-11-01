@@ -118,7 +118,9 @@ test("🔴 moderation says it couldn't check, and keeps its own capture list", (
     /\{guestAccess === 'off' \? \(/,
     '"once Papic is on" may render only when the check answered off',
   );
+  // 📷 "When guests can shoot" is part of the Papic card's head dropdown now (owner 2026-10-30): a failed read of the
+  // saved value — or of the Event Hub draft — is null, which the head says as "Couldn’t check", never a position.
   const cams = read('_components', 'guest-cameras-choice.tsx');
-  assert.match(cams, /if \(access === 'off'\) return null;/);
-  assert.match(cams, /if \(access !== 'on'\) \{[\s\S]{0,900}value="Couldn’t check"/);
+  assert.match(cams, /const early = row \? row\.papic_guest_capture_early === true : null;/);
+  assert.match(cams, /readHubDraft\(supabase, eventId\)\.then\(\s*\(d\) => \(\{ ok: true as const, d \}\),\s*\(\) => \(\{ ok: false as const \}\),/);
 });

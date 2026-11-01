@@ -71,11 +71,6 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
     hint: 'Your other cards, not yet on this thread',
   },
   {
-    id: 'thread-call',
-    label: 'Voice or video call',
-    hint: 'Free, one to one',
-  },
-  {
     id: 'deal-or-meeting',
     label: 'Deal or meeting',
     hint: 'Propose a schedule or a handshake',
@@ -97,18 +92,14 @@ export const VENDOR_THREAD_PANELS: readonly VendorThreadPanel[] = [
  *   • `pending-payments`     — the empty scroll anchor above the couple's
  *                              logged-payment confirm cards. Not a disclosure;
  *                              a plain scroll still does the right thing.
- *   • `thread-call-{voice,video}` — the two Start buttons INSIDE the
- *                              `thread-call` panel. Revealing one opens the
- *                              panel around it and focuses that button, which
- *                              is how "Voice call" and "Video call" can be two
- *                              entries in the list without two call machines.
- *                              The ids exist only when the thread page passes
- *                              `buttonIdPrefix="thread-call"` to the launcher.
+ *
+ * 📵 NO CALLS IN THE CHAT (owner 2026-10-28, verbatim: *"remove both voice and video call"*). The `thread-call` panel
+ * and its `thread-call-{voice,video}` anchors are gone from both lists; the call server code
+ * (`app/_actions/thread-call-actions.ts`, `app/_components/thread-call-room.tsx`, `lib/thread-calls-gate.ts`) is left
+ * in place, unused by the chat, for the owner to decide on. `lib/the-chat-has-no-calls.test.ts` holds it.
  */
 export const VENDOR_THREAD_IN_PAGE_ANCHORS: readonly string[] = [
   'pending-payments',
-  'thread-call-voice',
-  'thread-call-video',
   // The guest-count surcharge cards (Apply / Hold price) — a band inside the pinned area, not a disclosure.
   'guest-count',
 ] as const;
@@ -153,15 +144,29 @@ export type VendorThreadToolIcon =
   | 'schedule'
   | 'file'
   | 'offer'
-  | 'voice'
   | 'deal'
   | 'guests'
   | 'outcome'
   | 'problem';
 
+/**
+ * THE FOUR GROUPS OF THE SUPPLIER'S ＋ SHEET (owner-approved chat prototype 2026-10-28, frame D:
+ * `prototypes/chat_messenger_2026-10-28/index.html` — Money · Plan · Talk & files · Just you). Every tool names its
+ * group; the sheet draws a quiet heading where the group changes, in this order.
+ */
+export const THREAD_TOOL_GROUPS = [
+  { key: 'money', label: 'Money' },
+  { key: 'plan', label: 'Plan' },
+  { key: 'talk', label: 'Talk & files' },
+  { key: 'you', label: 'Just you' },
+] as const;
+export type ThreadToolGroup = (typeof THREAD_TOOL_GROUPS)[number]['key'];
+
 type ToolBase = {
   key: string;
   label: string;
+  /** Which heading of the ＋ sheet it sits under (`THREAD_TOOL_GROUPS`). */
+  group: ThreadToolGroup;
   /**
    * The grey half-sentence under the label in the ＋ Tools sheet (prototype `SHEETS.tools`: "From your card or
    * blank", "GCash · bank", "Private to you"…). Says what the tool is for, never how it works.
@@ -245,14 +250,16 @@ export type VendorThreadTool = VendorThreadRevealTool | VendorThreadLinkTool | V
  * list of launchers) and the composer's 🧾 / 📞 icons. Nothing it opens moved: each row opens the SAME panel or page,
  * which posts the SAME server action it always did.
  *
- * ⚖ "Voice call" and "Video call" were two entries (2026-09-08); they are one row now, "Call them · Voice or video",
- * opening the ONE call panel where both Start buttons sit. Nothing in this list starts a call, sends money or sends a
- * message: a row opens a tool, the tool is where the act happens.
+ * 2026-10-28 · grouped Money · Plan · Talk & files · Just you (chat prototype frame D), "Call them" removed, and the
+ * file row is the ONE "Share a file". Nothing in this list sends money or sends a message: a row opens a tool, the
+ * tool is where the act happens.
  */
 export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
+  // ── Money ──
   {
     // The ONE quote launcher (SUP-H) — start from a card, a saved quote or blank lives inside the panel it opens.
     key: 'build-quote',
+    group: 'money',
     label: 'Send a quote',
     line: 'From your card, a saved quote or blank',
     icon: 'quote',
@@ -261,6 +268,7 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
   },
   {
     key: 'booking-ask',
+    group: 'money',
     label: 'Answer their booking ask',
     line: 'Agree · or turn it down',
     icon: 'answer',
@@ -271,6 +279,7 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
     // The ask lives on the customer card (`PaymentAsksPanel` → `vendorAskForPayment`), which refuses before a
     // booking (RLS: a confirmed booking only) — so the row says so first.
     key: 'ask-payment',
+    group: 'money',
     label: 'Ask for a payment',
     line: 'GCash · bank · the amount and when',
     icon: 'payment',
@@ -280,15 +289,18 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
   {
     // The couple's logged payments wait in the pinned band (`confirmVendorPayment` / `refuseVendorPayment`).
     key: 'log-payment',
+    group: 'money',
     label: 'Confirm a payment they sent',
     line: 'Received · or not received',
     icon: 'confirm',
     reveal: ['pending-payments'],
     shutWhenNothing: { reason: 'No payment from them to confirm yet', counts: 'paymentsToConfirm' },
   },
-  { key: 'deal-or-meeting', label: 'Propose a date or meeting', line: 'Tasting · ocular · a deal', icon: 'deal', reveal: ['deal-or-meeting'] },
+  // ── Plan ──
+  { key: 'deal-or-meeting', group: 'plan', label: 'Propose a date or meeting', line: 'Tasting · ocular · a deal', icon: 'deal', reveal: ['deal-or-meeting'] },
   {
     key: 'propose-schedule',
+    group: 'plan',
     label: 'Your call time',
     line: 'Your part of their day · they tap OK',
     icon: 'schedule',
@@ -296,22 +308,28 @@ export const VENDOR_THREAD_TOOLS: readonly VendorThreadTool[] = [
     // The destination's own words, so the two cannot drift apart.
     shutUntilAgreement: { reason: 'Opens once they book you' },
   },
-  { key: 'share-file', label: 'Share a file or the contract', line: 'Photo · PDF · contract', icon: 'file', attach: true },
-  { key: 'offer-service', label: 'Offer another service', line: 'Your other cards', icon: 'offer', reveal: ['offer-service'] },
-  { key: 'voice-call', label: 'Call them', line: 'Voice or video · free', icon: 'voice', reveal: ['thread-call-voice', 'thread-call'] },
   {
     // The surcharge cards (`acceptPaxSurcharge` / `declinePaxSurcharge`) appear when the couple's count moved.
     key: 'guest-count',
+    group: 'plan',
     label: 'Guest count changed',
     line: 'Re-price · or hold your price',
     icon: 'guests',
     reveal: ['guest-count'],
     shutWhenNothing: { reason: 'Their count has not changed since your quote', counts: 'guestCountChanges' },
   },
-  { key: 'log-outcome', label: 'Mark won or lost', line: 'Private to you', icon: 'outcome', reveal: ['log-outcome'] },
+  { key: 'offer-service', group: 'plan', label: 'Offer another service', line: 'Your other cards', icon: 'offer', reveal: ['offer-service'] },
+  // ── Talk & files ──
+  // ONE Share a file (owner 2026-10-28, verbatim: *"Share a file can be file, photo or video"*) — the composer's own
+  // picker, so a photo, a video, a PDF or the contract travels as an ordinary message through the shipped upload.
+  { key: 'share-file', group: 'talk', label: 'Share a file', line: 'File · photo · video · the contract', icon: 'file', attach: true },
+  // 📵 "Call them" was here — removed (owner 2026-10-28, "remove both voice and video call").
+  // ── Just you ──
+  { key: 'log-outcome', group: 'you', label: 'Mark won or lost', line: 'Private to you', icon: 'outcome', reveal: ['log-outcome'] },
   {
     // The shipped disputes page — owner 2026-10-14: it joins these tools, its own page stays.
     key: 'report-problem',
+    group: 'you',
     label: 'Report a problem',
     line: 'This couple or this booking',
     icon: 'problem',

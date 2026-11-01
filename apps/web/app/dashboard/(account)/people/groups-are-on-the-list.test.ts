@@ -45,12 +45,15 @@ test('the roster draws it as a fold with the Groups icon', () => {
 test('"New group" heads the section; each row opens the group page', () => {
   const list = SECTION.slice(SECTION.indexOf('export function GroupsFoldList('));
   const door = list.indexOf('href="/dashboard/samahan/new"');
-  const row = list.indexOf('href={`/dashboard/samahan/${g.communityId}`}');
+  const ROWS = stripComments(readFileSync(join(HERE, '_components', 'group-chat-rows.tsx'), 'utf8'));
+  const row = list.indexOf('<GroupChatRows ');
+  // `g.labHref ??` — only /dev/people-lab sets it (its rows open /dev/group-lab, 2026-10-29); the reader never does.
+  assert.match(ROWS, /href=\{(?:g\.labHref \?\? )?`\/dashboard\/samahan\/\$\{g\.communityId\}`\}/, 'a group row no longer opens the group page');
   assert.ok(door >= 0 && list.includes('New group'), 'the section lost its "New group" door');
   assert.ok(row >= 0, 'a group row no longer opens the group page');
   assert.ok(door < row, '"New group" must head the section, not trail its rows');
 });
 
 test('the ≡ Groups view stays', () => {
-  assert.match(PAGE, /\{view === 'samahan' \? \(/, 'the ≡ Groups view is gone');
+  assert.match(PAGE, /\{view === 'samahan' && groupRows \? \(/, 'the ≡ Groups view is gone');
 });

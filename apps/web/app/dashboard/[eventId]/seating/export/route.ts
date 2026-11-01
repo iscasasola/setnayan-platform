@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { fetchGuestsByEvent, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchSigns, fetchTables } from '@/lib/seating';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -65,7 +65,8 @@ export async function GET(
 
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
-    name: guestDisplayName(g),
+    // 🖨 The full name, the nickname beside it — never cut on the plan (owner 2026-10-29).
+    name: guestPrintName(g),
     role: g.role,
     rsvp_status: g.rsvp_status,
   }));

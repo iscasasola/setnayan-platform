@@ -40,7 +40,9 @@ import { stripComments } from './strip-comments';
 
 const ROOT = join(import.meta.dirname, '..');
 const ACTIONS = 'app/dashboard/[eventId]/seating/actions.ts';
-const HUD = 'app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx';
+/* The 3D room's own Show early / Hide until the day left it when the room became view-only (owner 2026-10-30); the
+   ONE switch is the 2D plan's "Show guests their seats early" (`doorStrip` in the seat-plan editor). */
+const EDITOR = 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx';
 const PAGE = 'app/dashboard/[eventId]/seating/lab/page.tsx';
 
 const read = (rel: string) => stripComments(readFileSync(join(ROOT, rel), 'utf8'));
@@ -102,67 +104,35 @@ test('publishSeating still stamps BOTH surfaces — the gate and the print pack'
   assert.ok(body.includes('published_at: now'), 'publishSeating still opens the public gate');
 });
 
-test('the lab panel READS the published flag it is sent', () => {
+test('the seat plan READS the published flag it is sent', () => {
   const page = read(PAGE);
-  const hud = read(HUD);
+  const editor = read(EDITOR);
 
   // The server half — it never stopped shipping this.
   assert.ok(
     page.includes('published: floorPlan.published_at != null'),
     'page.tsx must keep deriving `published` from the floor plan row',
   );
-
-  // The wire that was missing. Count, do not first-match: `published` is a
-  // common word in this file and an indexOf would happily land on the
-  // publishSeating notice string and call the panel wired.
-  const passes = hud.match(/published=\{floor\.published\}/g) ?? [];
-  assert.equal(passes.length, 1, 'Hud must be handed floor.published exactly once');
-
-  const reads = hud.match(/\bpublished \? /g) ?? [];
-  assert.ok(
-    reads.length >= 2,
-    `the panel must branch on \`published\` (status + control); found ${reads.length}`,
-  );
+  // The wire: the switch starts from, and re-syncs to, the stored gate.
+  assert.match(editor, /const \[doorOpen, setDoorOpen\] = useState\(Boolean\(floorPlan\.published_at\)\);/);
+  assert.match(editor, /setDoorOpen\(Boolean\(floorPlan\.published_at\)\);/);
 });
 
-test('the panel offers the opposite action, and names both states', () => {
-  const hud = read(HUD);
-
-  assert.ok(
-    hud.includes('onClick={published ? onUnpublish : onPublish}'),
-    'the one button must swap action with the state, not sit beside a second one',
-  );
-  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the
-  // switch is now "show early" — on the day the walk opens by itself.
-  assert.ok(hud.includes("'Hide until the day'"), 'the shown-early state must offer a way down');
-  assert.ok(hud.includes("'Show early'"), 'the before-the-day state must still offer a way up');
-
-  // The status line says WHEN guests can walk
-  // their reception; without it the dot is decoration.
-  assert.ok(
-    /Shown early — guests can walk your reception/.test(hud),
-    'the shown-early state must say what it MEANS',
-  );
-  assert.ok(
-    /Guests can walk your reception on the day/.test(hud),
-    'the default state must say WHEN guests see it',
-  );
-
-  // The promise unpublishSeating actually keeps, told to the person deciding.
-  assert.ok(
-    /Printed table signs keep working/.test(hud),
-    'the take-down copy must say the print pack survives',
-  );
+test('the switch offers the opposite action, and names both states', () => {
+  const editor = read(EDITOR);
+  const flip = editor.slice(editor.indexOf('const flipDoor = '), editor.indexOf('const doorStrip = '));
+  assert.ok(flip.length > 0, 'flipDoor moved — this guard is blind');
+  assert.match(flip, /if \(open\) await publishSeating\(fd\);\s*else await unpublishSeating\(fd\);/, 'one switch, both directions');
+  const strip = editor.slice(editor.indexOf('const doorStrip = '), editor.indexOf('const plan3dFacts = '));
+  assert.match(strip, /onChange=\{\(open\) => flipDoor\(open\)\}/);
+  assert.match(strip, /'Guests see their seats now\.'/, 'the shown-early state must say what it MEANS');
+  assert.match(strip, /'Guests see their seats on the day\.'/, 'the default state must say WHEN guests see it');
+  assert.match(strip, /Turn it off before the day and they are hidden again/, 'the take-down must be told to the person deciding');
 });
 
 test('publishing no longer describes itself as only a printing job', () => {
-  const hud = read(HUD);
-  // The shipped notice read "Published — N table QR sheets ready to print",
-  // which is a true sentence about the smaller of the two things that happened.
-  const notice = hud.slice(hud.indexOf('const publishPlan'), hud.indexOf('const unpublishPlan'));
-  assert.ok(notice.length > 0, 'publishPlan must still precede unpublishPlan');
-  assert.ok(
-    /guests can walk your reception/.test(notice),
-    'the publish confirmation must name the public walk it just opened',
-  );
+  const strip = read(EDITOR).slice(read(EDITOR).indexOf('const doorStrip = '));
+  // It names the guests' seats and the 3D walk it opens — and says printing the signs does not do it.
+  assert.match(strip, /the 3D walk of your room all follow this/);
+  assert.match(strip, /Printing the table signs does not turn it on/);
 });

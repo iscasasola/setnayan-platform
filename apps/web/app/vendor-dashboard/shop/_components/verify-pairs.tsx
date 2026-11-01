@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { VERIFY_DOCS_ANCHOR } from '../../_components/get-verified-line';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { AlertTriangle, Check, Clock, Loader2, Minus } from 'lucide-react';
 
 import { FileUpload } from '@/app/_components/file-upload';
@@ -185,6 +186,21 @@ export function VerifyPairs({
   const tally = tallyChecks(allStates);
   const total = allStates.length;
   const nothingSent = perPair.every((p) => !p.paperPresent);
+  // 🛡 THE PAPER THAT HOLDS THEM BACK (owner 2026-10-29, v13 note 4): an unverified shop's FIRST missing paper is
+  // marked, and [Get verified] (`#docs`) brings it into view — the one thing to do next, not a list to read.
+  const firstMissing = isVerified || locked ? null : (perPair.find((p) => !p.paperPresent)?.pair.slotKey ?? null);
+  const firstMissingRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!firstMissing) return;
+    const bring = () => {
+      if (window.location.hash !== `#${VERIFY_DOCS_ANCHOR}`) return;
+      // After the fold has opened and moved the page — then this paper, not the fold's top.
+      window.setTimeout(() => firstMissingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+    };
+    bring();
+    window.addEventListener('hashchange', bring);
+    return () => window.removeEventListener('hashchange', bring);
+  }, [firstMissing]);
 
   return (
     <div className="space-y-4">
@@ -211,7 +227,17 @@ export function VerifyPairs({
 
       <ol className="space-y-3">
         {perPair.map(({ pair, entry, paperPresent, read, states }) => (
-          <li key={pair.slotKey}>
+          <li
+            key={pair.slotKey}
+            ref={pair.slotKey === firstMissing ? firstMissingRef : undefined}
+            data-first-missing={pair.slotKey === firstMissing ? '' : undefined}
+            className={pair.slotKey === firstMissing ? 'scroll-mt-24 rounded-xl ring-2 ring-[color:var(--m-orange)] ring-offset-2 ring-offset-[color:var(--m-paper,transparent)]' : undefined}
+          >
+            {pair.slotKey === firstMissing ? (
+              <p className="mb-1.5 text-xs font-medium" style={{ color: 'var(--m-orange-deep)' }}>
+                Missing · the one that holds you back
+              </p>
+            ) : null}
             <PairCard
               pair={pair}
               entry={entry}

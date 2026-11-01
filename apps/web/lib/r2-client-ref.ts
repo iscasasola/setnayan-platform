@@ -427,6 +427,16 @@ export function pabuyaQrPolicy(eventId: string): ClientRefPolicy {
 }
 
 
+/**
+ * 📸 A couple's photo approved onto a supplier's service card, NON-public copy (owner 2026-10-30, #7089) — the
+ * server makes it at Approve as `couple-looks/<share_id>/<attempt>.<ext>` in the private thread-files bucket; the
+ * key is written only by SECURITY DEFINER doors and CHECK-pinned to the share's own id. Scoped to ONE share's
+ * folder, so a signed URL can never be minted for another share's copy.
+ */
+export function couplePhotoLookPolicy(shareId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`couple-looks/${shareId}/`] };
+}
+
 /** Seating walkthrough zone videos. */
 export function walkthroughVideoPolicy(eventId: string, zoneId: string): ClientRefPolicy {
   return { prefixes: [`zone-walkthroughs/${eventId}/${zoneId}/`] };

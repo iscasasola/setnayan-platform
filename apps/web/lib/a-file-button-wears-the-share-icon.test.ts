@@ -41,9 +41,6 @@ const DOWNLOAD_ARROWS = new Set(['Download', 'ImageDown', 'ArrowDownToLine', 'Ha
 const ALLOWED_DOWNLOAD: Record<string, string> = {
   // The desktop-app download page's "Download for Mac / Windows" — installing the app, not keeping a file of yours.
   'app/download/_download-motion.tsx': 'installs the Setnayan desktop app (a marketing "download the app" CTA)',
-  // PENDING, not exempt: a chat attachment's chip. The chat files are owned by the chat builders (C1/C2) while this
-  // change lands; the swap to `Share` is theirs. Remove this line when they make it.
-  'app/_components/chat-message-stream.tsx': 'PENDING — owned by the chat builders (C1/C2); swap to Share there',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

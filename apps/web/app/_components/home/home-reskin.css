@@ -1966,9 +1966,10 @@ html.hr-snap {
   justify-content: center;
   padding: max(5vh, 28px) 16px;
   overflow-y: auto;
-  background: rgba(38, 38, 36, 0.46);
-  backdrop-filter: blur(9px) saturate(1.05);
-  -webkit-backdrop-filter: blur(9px) saturate(1.05);
+  /* The one scrim's dark and blur (owner 2026-10-29: one darkness everywhere). */
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
   animation: hr-ov-fade 0.22s ease;
   /* fonts: the overlay renders in a portal OUTSIDE .home-reskin, so it must
      re-declare the greige tokens + fonts it depends on. */
@@ -3378,7 +3379,7 @@ html.hr-snap {
    words #B3AEA3. INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
    set on a ready route, and none is. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
 html.dark .home-reskin-ov:has(.sn-signin-terra) {
-  background: rgba(0, 0, 0, 0.5);
+  /* The dark is the scrim token's own dark-mode value (`--sn-scrim`, flipped on html.dark). */
   --hr-bg: #2b2821;
   --hr-ink: #fbfaf7;
   --hr-grey: #b3aea3;

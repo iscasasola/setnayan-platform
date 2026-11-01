@@ -426,7 +426,9 @@ export function StoryClock({
 
   return (
     <>
-      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur-sm">
+      {/* 📱 Pins at the top of the SAFE AREA (house rule for a sticky head), never at 0 — under the iPhone's clock
+          (owner 2026-10-30). The page's band above paints the strip behind the clock. */}
+      <div className="sticky top-[env(safe-area-inset-top,0px)] z-20 border-b border-ink/10 bg-cream/95 backdrop-blur-sm">
         <div className="mx-auto max-w-5xl px-4 py-2 sm:px-6">
           <div className="flex items-baseline justify-between gap-3">
             <div className="flex min-w-0 items-baseline gap-2.5">

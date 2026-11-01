@@ -33,7 +33,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -81,6 +81,8 @@ import {
 } from '../../website/editor/_components/canvas-bridge-watch';
 import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
+import { guestsSettingsHref } from '@/lib/event-settings-record';
+import { guestsViewHref } from '@/lib/guests-views';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
@@ -190,8 +192,8 @@ const RSVP_TAB_ICON: Record<RsvpStageScene, LucideIcon> = { form: Reply, thanks:
 
 /**
  * A part's ONE door on the RSVP stage is where its content really lives FOR THESE SCREENS: the couple's mark, their
- * names, the date and the place keep their own (Logo · Info · Suppliers); the form and the two notes are the RSVP
- * tool's. The rest — each guest's own name, their ticket, the door's fixed words — has no door: its name, and ⓘ.
+ * names, the date and the place keep their own (Logo · Info · Suppliers); the form and the two notes are the reply's
+ * settings — Guests ⚙ since R1 (owner 2026-10-28; it was Studio › RSVP). The rest — each guest's own name, their ticket, the door's fixed words — has no door: its name, and ⓘ.
  */
 const RSVP_OWN_DOOR: readonly MakerPartKey[] = ['logo', 'names', 'date', 'place'];
 const RSVP_TOOL_PARTS: readonly MakerPartKey[] = ['rsvp', 'yesnote', 'nonote'];
@@ -203,6 +205,8 @@ function rsvpQuietRow(picked: MakerPartKey | null): ReturnType<typeof makerPartQ
 const RSVP_PART_ABOUT: Partial<Record<MakerPartKey, string>> = {
   ename: 'Every reply page opens with these words.',
   heroline: 'Your invitation line. You type it on the Invitation’s Welcome page.',
+  /* 🗂 R1 (owner 2026-10-28): each move updates its own help — the form's settings are Guests ⚙'s now. */
+  rsvp: 'Your RSVP settings — what it asks, the reply-by date, when replies open — live in Guests ⚙. A change here is the same setting.',
 };
 
 /** Ask the RSVP stage: show that screen · open (or fold) the picked part's tools. */
@@ -380,6 +384,18 @@ export function StageTools({
   const [previewing, setPreviewing] = useState(false);
   const previewingRef = useRef(false);
   previewingRef.current = previewing;
+  /**
+   * 🫥 THE TOOLBAR STOWED TO ITS HEAD (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — … THE EDITING
+   * TOOLBAR SHOWS AND HIDES"): a tap on the empty page, a scroll of the page or a swipe down puts it away — the part
+   * stays picked, its frame stays on the page — and the head that is left ("You're editing · … ▴") brings it back, as
+   * does any part or tool picked. It SHOWS on arrival (call 2: something is always picked) and hides on the first
+   * scroll. A desktop's tools column never stows (`desk`).
+   */
+  const [stowed, setStowed] = useState(false);
+  /** …the return's glide, for the length of it (the rule set's `data-stage-stow="back"`). */
+  const [stowBack, setStowBack] = useState(false);
+  /** Stow — never while a scene is held on the page (its own slide is on) or the page is a guest's (the preview). */
+  const stowRef = useRef<() => void>(() => {});
   /** 👁 See as, as the Maker holds it (`maker-shell.tsx` seeAs/setSeeAs) — read by Exit preview, declared above it. */
   const seeAsNow = useRef<{ seeAs: SeeAs | null; set?: (next: SeeAs | null) => void; setRole?: (next: string | null) => void }>({ seeAs: null });
   seeAsNow.current = { seeAs: maker?.seeAs ?? null, set: maker?.setSeeAs, setRole: maker?.setSeeAsRole };
@@ -635,6 +651,7 @@ export function StageTools({
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
+      setStowed(false);
       setSlotAsk(null);
       if (k === 'reveal' || k === 'camera') {
         /* 🎭 🎛 Its tools are drawn here; whatever the work area had open folds. */
@@ -687,6 +704,8 @@ export function StageTools({
         return;
       }
       if (d.t === 'edit' && typeof d.key === 'string') {
+        /* 🫥 A part tapped on the page (the one already picked too): the toolbar comes back up. */
+        setStowed(false);
         const k =
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
           makerPartOfCanvas(where.current.stageKey, d.key);
@@ -739,8 +758,11 @@ export function StageTools({
         const words = STAGE_PREVIEW_REFUSED[(d as { what?: unknown }).what === 'send' ? 'send' : 'link'];
         setWhyRef.current(words);
       }
-      /* A tap on the page's ground, between parts: let the picked part go (owner 2026-10-07). */
-      else if (d.t === 'tapOutside' && !previewingRef.current) deselectRef.current();
+      /* A tap on the page's ground, between parts: the toolbar is put away — the part stays picked (owner 2026-10-30,
+         "hides on a tap on empty page"; it let the part go until then, 2026-10-07 — something is always picked). */
+      else if (d.t === 'tapOutside' && !previewingRef.current) stowRef.current();
+      /* 🫥 The couple scrolls the page (a finger or a wheel — `editor-bridge.tsx`): the toolbar is put away. */
+      else if (d.t === 'pageScroll' && !previewingRef.current) stowRef.current();
       else if (d.t === 'playSeq' && typeof d.phase === 'string') {
         const skipped = Array.isArray((d as { skipped?: unknown }).skipped)
           ? ((d as { skipped: unknown[] }).skipped.filter((x) => typeof x === 'string') as string[]).slice(0, 3)
@@ -760,7 +782,7 @@ export function StageTools({
         setLineAtPart(k && tappedLine ? { part: k, line: tappedLine } : null);
         if (k) pickPartRef.current(k);
         else deselectRef.current();
-      } else if (d.t === RSVP_GROUND_MESSAGE) deselectRef.current();
+      } else if (d.t === RSVP_GROUND_MESSAGE) stowRef.current();
       else if (d.t === RSVP_TYPING_MESSAGE && d.phase === 'start') setTyping(true);
       else if (d.t === 'rsvpReady') sendRsvpPickedRef.current();
     };
@@ -1238,12 +1260,18 @@ export function StageTools({
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
   /** 🎞 The picked part's Post Event scene, by its canvas key (`p:<scene>`) — null off Post Event, or on a part that is not one. */
   const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf(stageKey, picked) ? makerPartCanvasOn(stageKey, picked) : null;
+  /** 🗂 R1 — the event the Guests ⚙ door names (the shell's own id); null outside the Maker. */
+  const makerEventId = maker?.eventId ?? null;
   useEffect(() => {
-    /* The RSVP stage's screens are the RSVP tool's: its one quiet bar is "Edit the RSVP · Studio ›". */
+    /* The RSVP stage's screens: the form and its two notes have ONE door — the reply's settings, in Guests ⚙ (R1). */
     const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
     let quiet: StageQuiet | null = null;
     if (q) {
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
+      /* 🗂 R1 (owner 2026-10-28): the reply's settings left Studio for Guests ⚙ — its door opens that sheet on the row. */
+      else if ('guests' in q.to) quiet = makerEventId ? { kind: 'guests', words: q.words, href: guestsSettingsHref(makerEventId, q.to.guests) } : null;
+      /* 🗂 R4 (owner 2026-10-27/28): the march and the seat plan are Guests' views — the door opens the view. */
+      else if ('guestsView' in q.to) quiet = makerEventId ? { kind: 'guests', words: q.words, href: guestsViewHref(makerEventId, q.to.guestsView) } : null;
       else {
         const to = q.to.studio;
         quiet = {
@@ -1272,7 +1300,7 @@ export function StageTools({
     const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;
     const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null) ?? story;
     setStagePanelNow({ picked, quiet, about, line: rsvpLine });
-  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp]);
+  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp, makerEventId]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says
@@ -1347,6 +1375,7 @@ export function StageTools({
   const pickTool = (t: MakerPartTool) => {
     if (!toolWorks(t)) return setWhy((w) => ({ words: whyNot(t), n: (w?.n ?? 0) + 1 }));
     setTool(t);
+    setStowed(false);
     /* Nothing picked: the tool is remembered for the next part. The Reveal's body is this toolbar's own. */
     if (!picked || picked === 'reveal') return;
     /* Edit, Style and Background share ONE body in the work area — it is asked again only for another one, or when
@@ -1407,6 +1436,42 @@ export function StageTools({
      make sure animation to collapse and expand shows"*). `slide` names the motion for the rule set below: 'away'
      while it is held, 'back' for the length of the return. */
   const held = edits.held;
+  /* 🫥 Stowing (declared above, for the canvas's listener): never on a desktop, never while a scene is held. */
+  stowRef.current = () => {
+    if (!desk && !held) setStowed(true);
+  };
+  useEffect(() => {
+    if (desk) setStowed(false);
+  }, [desk]);
+  const wasStowed = useRef(false);
+  useEffect(() => {
+    if (stowed) {
+      wasStowed.current = true;
+      setStowBack(false);
+      /* How far the work area's tool (laid over the four rows) travels to leave with them — the scene hold's measure. */
+      const lt = document.querySelector<HTMLElement>('[data-maker-lower-third]')?.getBoundingClientRect().height ?? 0;
+      document.querySelector<HTMLElement>('[data-maker-shell]')?.style.setProperty('--scene-bar-px', `${Math.round(lt)}px`);
+      return;
+    }
+    if (!wasStowed.current) return;
+    wasStowed.current = false;
+    setStowBack(true);
+    const id = window.setTimeout(() => setStowBack(false), 340);
+    return () => window.clearTimeout(id);
+  }, [stowed]);
+  /* ↓ A SWIPE DOWN on the toolbar puts it away (the prototype's 40 px) — never from a field, a slider or a card strip
+     (those take the finger themselves). A finger's touches and a mouse's drag, each once. */
+  const swipe = useRef<number | null>(null);
+  const swipeFrom = (y: number, target: EventTarget | null) => {
+    const el = target instanceof Element ? target : null;
+    swipe.current = stowed || desk || el?.closest('input,textarea,select,[contenteditable="true"],[data-look-cards],[role="slider"]') ? null : y;
+  };
+  const swipeTo = (y: number) => {
+    if (swipe.current !== null && y - swipe.current > STAGE_BAR_SWIPE_PX) {
+      swipe.current = null;
+      stowRef.current();
+    }
+  };
   const [slide, setSlide] = useState<'away' | 'back' | null>(null);
   const wasHeld = useRef(false);
   useEffect(() => {
@@ -1429,6 +1494,11 @@ export function StageTools({
       onPx(0);
       return;
     }
+    /* 🫥 Stowed: only its head — the handle and the "You're editing … ▴" line. */
+    if (stowed && !desk) {
+      onPx(STAGE_BAR_STOW_PX);
+      return;
+    }
     const say = () => {
       const safe = safeBottomPx();
       onPx(stageBarPx(window.innerHeight, safe) - safe);
@@ -1436,7 +1506,7 @@ export function StageTools({
     say();
     window.addEventListener('resize', say);
     return () => window.removeEventListener('resize', say);
-  }, [playing, previewing, typing, held, onPx]);
+  }, [playing, previewing, typing, held, onPx, stowed, desk]);
   useEffect(() => () => onPx(null), [onPx]);
   /* THE LINE UNDER THE TOOLS (row 4, where Earlier · Later · Remove stood — `scene-drag.tsx`). On Edit, and with
      nothing picked, the row is its own and the line stays as long as it has something to say. Under another tool the
@@ -1633,6 +1703,16 @@ export function StageTools({
       /* The line under the tools is speaking under another tool: that tool gives row 4 back, as it does for Style's own row. */
       data-stage-line={statusOn && !editOn && picked !== null ? '' : undefined}
       style={{ transitionDuration: `${STAGE_PANEL_MS}ms` }}
+      /* 🫥 Stowed to its head ('away'), or just brought back ('back') — the rule set below glides with it. */
+      data-stage-stow={desk ? undefined : stowed ? 'away' : stowBack ? 'back' : undefined}
+      onTouchStart={(e) => swipeFrom(e.touches[0]?.clientY ?? 0, e.target)}
+      onTouchMove={(e) => swipeTo(e.touches[0]?.clientY ?? 0)}
+      onPointerDown={(e) => {
+        if (e.pointerType === 'mouse') swipeFrom(e.clientY, e.target);
+      }}
+      onPointerMove={(e) => {
+        if (e.pointerType === 'mouse' && e.buttons === 1) swipeTo(e.clientY);
+      }}
     >
       {/* One rule set, drawn only while this toolbar is (phone only): the prototype's colours and the frame's two
           measures (`--sp-rh` a row, `--sp-rg` a gap); the lower third as the toolbar's own ground — paper behind its
@@ -1645,7 +1725,7 @@ export function StageTools({
           '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
-          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
+          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--maker-lift,0px))!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🧩 …except where Edit IS that tool's (a picked LINE of the RSVP stage: its words and its Start from ▾ are
              the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
@@ -1654,7 +1734,7 @@ export function StageTools({
           /* ⚙ …and where Edit is that tool's in rows 1–3 only (the RSVP form's card: its settings — `data-stage-edit-card`):
              in sight, three rows tall, standing on this toolbar's own row 4 (Earlier · Later · Remove) — the same
              measure Style's last row leaves it (`data-stage-row4`, below). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
@@ -1664,7 +1744,7 @@ export function StageTools({
              a toolbar that had gone, and covered "Exit preview". */
           '[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🎨 STYLE: this toolbar draws row 4 (Colour · Size) — the work area's tool is rows 1–3, standing on it. */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* …and the scene's Format under Style is laid in rows (`StageStyle` `rows`): the look cards take the rows
              left to them; a row under them (the Dress code's palette) and a save's error keep theirs; anything else
              of the part's Format — an editor of its content, its older rows — is not drawn here (it stays mounted):
@@ -1702,8 +1782,23 @@ export function StageTools({
           '[data-maker-shell]:has([data-stage-tools]):has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
           /* The line under the tools, speaking under a tool whose rows are the work area's: that tool stands three
              rows tall on it for as long as it speaks (the measure Style's own row 4 leaves it). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
-          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
+          /* 🫥 STOWED TO ITS HEAD (owner 2026-10-30): the lower third's room goes to the head's over the app's ONE pin
+             glide (`STAGE_BAR_STOW_GLIDE`) and comes back over the same, so the page's room follows it — never a jump;
+             the guests' bar rides it, the work area's tool leaves with the four rows, and what the head does not show
+             stops being reachable once the glide has hidden it. */
+          `[data-maker-lower-third]:has(>[data-stage-tools][data-stage-stow]){transition:height ${STAGE_BAR_STOW_GLIDE}!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-stow]) [data-stage-guest-bar]{transition:bottom ${STAGE_BAR_STOW_GLIDE}!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-stow]) [data-phone-chrome="panel"]{transition:transform ${STAGE_BAR_STOW_GLIDE},opacity ${STAGE_BAR_STOW_GLIDE}!important}` +
+          '[data-maker-shell]:has([data-stage-tools][data-stage-stow="away"]) [data-phone-chrome="panel"]{transform:translateY(var(--scene-bar-px,100%))!important;opacity:0;pointer-events:none}' +
+          '[data-stage-tools][data-stage-stow="away"]>:not([data-stage-handle],[data-stage-caption],[data-stage-show]){visibility:hidden;transition:visibility 0s linear var(--sn-pin-glide-ms,300ms)}' +
+          '[data-stage-tools][data-stage-stow="away"] [data-stage-about]{visibility:hidden}' +
+          '[data-stage-tools]:not([data-stage-stow="away"]) [data-stage-show]{display:none}' +
+          /* ▴ — the head says it opens upward (the prototype's "Editing · Top line ▴"), drawn by the rule set: the line's words stay its own. */
+          '[data-stage-tools][data-stage-stow="away"] [data-stage-caption]>span[aria-hidden]::after{content:"\\25B4";margin-left:5px;color:rgb(var(--sn-accent))}' +
+          '}@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools][data-stage-stow]),[data-maker-shell]:has([data-stage-tools][data-stage-stow]) :is([data-stage-guest-bar],[data-phone-chrome="panel"]){transition:none!important}' +
+          '[data-stage-tools][data-stage-stow="away"]>*{transition:none!important}}' +
+          '@media (prefers-reduced-motion:reduce){[data-maker-lower-third]:has(>[data-stage-tools]),[data-maker-shell]:is([data-stage-playing],[data-stage-previewing]) [data-phone-chrome="bar"]{transition:none}' +
           /* 🕊 Reduce Motion: a short FADE in place of the slide (the prototype's `.ltin{transition:opacity}`) — the
              toolbar fades out and only then gives its room up; on release the room is back at once and it fades in.
              (`!important`: the app's Reduce Motion reset cuts every transition to nothing — measured 1e-06 s on this
@@ -1755,6 +1850,18 @@ export function StageTools({
       </p>
       {/* ══ ⓘ — the toolbar's ONE explanation, at the right end of that line (nothing when the part has none) ══ */}
       <StageAbout />
+      {/* ══ 🫥 THE HEAD, STOWED — the whole strip is the one button that brings the four rows back (owner 2026-10-30:
+          "a slim handle to bring it back"). Drawn only while stowed (the rule set hides it otherwise). ══ */}
+      {stowed && !desk ? (
+        <button
+          type="button"
+          data-stage-show=""
+          aria-label={`Show the editing tools — ${linePieces.join(' › ')}`}
+          aria-expanded={false}
+          onClick={() => setStowed(false)}
+          className={STAGE_BAR_STOW_BUTTON}
+        />
+      ) : null}
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
       <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
@@ -2026,7 +2133,7 @@ export function StageTools({
               hidden={pages.length <= 1}
               className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
               /* It rides the toolbar's slide away and back (the same 240 ms), never across it. */
-              style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
+              style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >
               {
                 <div className="flex h-11 items-stretch px-1">

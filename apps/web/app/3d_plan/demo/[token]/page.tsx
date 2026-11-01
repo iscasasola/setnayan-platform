@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { resolvePlan3DGuestToken } from '@/app/_actions/plan3d-demo-actions';
@@ -37,9 +36,6 @@ export default async function Plan3DDemoJoinPage({ params }: Props) {
         title="This demo link expired."
         sub="Demo codes are fresh every time — open a new one from the 3D Plan tile on the Setnayan homepage."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

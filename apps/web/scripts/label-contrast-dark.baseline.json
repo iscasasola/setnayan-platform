@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 239,
+  "total": 231,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -18,14 +18,9 @@
     "app/admin/approvals/page.tsx · white on ink": 1,
     "app/admin/approvals/page.tsx · white on success-600": 1,
     "app/admin/categories/_components/ask-prefill.tsx · white on success-600": 2,
-    "app/admin/categories/_components/in-place.tsx · danger-700 on white": 1,
-    "app/admin/categories/_components/in-place.tsx · ink on white": 1,
     "app/admin/categories/_components/prepared-job-card.tsx · white on success-600": 1,
     "app/admin/categories/_components/request-controls.tsx · ink on white": 1,
     "app/admin/categories/_components/request-controls.tsx · white on success-600": 1,
-    "app/admin/categories/_components/what-couples-choose.tsx · ink on white": 4,
-    "app/admin/categories/_components/what-couples-choose.tsx · white on success-600": 1,
-    "app/admin/categories/_components/what-suppliers-fill-in.tsx · success-700 on white": 1,
     "app/admin/demand/page.tsx · ink on white": 1,
     "app/admin/demo-vendors/_components/demo-vendor-actions.tsx · white on warn-600": 1,
     "app/admin/disputes/_components/deposit-disputes-section.tsx · white on ink": 1,

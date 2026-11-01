@@ -197,12 +197,15 @@ export function LiveWallBlock({
 
     let running = false;
     const schedule = () => {
+      // 🧯 EV1 (2026-10-28): after a miss, a little longer each time (×2, ×4, to ×8 = ~3 min) — a venue whose Wi-Fi or
+      // our server is struggling is not asked again at full speed by every phone at once. One good answer
+      // (`misses = 0`) brings the 25 s back.
       timer = setTimeout(() => {
         timer = null;
         void poll().finally(() => {
           if (running) schedule();
         });
-      }, jittered(POLL_MS));
+      }, jittered(POLL_MS * Math.min(2 ** misses, 8)));
     };
     const start = () => {
       if (running) return;

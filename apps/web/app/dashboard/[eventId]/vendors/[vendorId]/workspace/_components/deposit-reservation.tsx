@@ -81,6 +81,11 @@ type Props = {
   payMethods: CoupleFacingMethod[];
   payMethodsState: CouplePayMethodsState;
   /**
+   * The Pay sheet already lists HOW TO PAY THEM from the couple's own record of a supplier they added (2026-10-29),
+   * so "isn't on Setnayan, so their payment details aren't here" would contradict the ways right above it.
+   */
+  ownWaysShown?: boolean;
+  /**
    * The first payment the accepted quote requested, in centavos — the MINIMUM
    * the deposit may be (`recordDeposit` refuses less, via
    * `decideDepositAmount`). null = no accepted quote / no schedule: the form
@@ -132,6 +137,7 @@ export function DepositReservation({
   depositDisputeNote,
   payMethods,
   payMethodsState,
+  ownWaysShown = false,
   requestedFirstPaymentCentavos = null,
   requestedFirstPaymentSentence = null,
   requestedTermsUnreadable = false,
@@ -273,7 +279,9 @@ export function DepositReservation({
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/55">
             1 · Pay {vendorName}
           </p>
-          {noMethods ? (
+          {ownWaysShown ? (
+            <p className="text-[12px] text-ink/70">Pay them one of the ways above, then record it here.</p>
+          ) : noMethods ? (
             <p role="note" className="rounded-md border border-ink/10 bg-ink/[0.03] px-2.5 py-1.5 text-[11px] text-ink/70">
               {noMethods}
             </p>

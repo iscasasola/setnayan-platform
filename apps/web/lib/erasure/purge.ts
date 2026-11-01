@@ -76,6 +76,7 @@ import {
   vendorIdentityUploadScope,
   vendorLogoScope,
   type CleanupScope,
+  couplePhotoLookScope,
 } from '@/lib/cleanup-delete-scope';
 import {
   PROVENANCE_ROW_CEILING,
@@ -84,6 +85,7 @@ import {
   type ChatAttachmentRow,
 } from '@/lib/erasure/chat-attachment-provenance';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { coupleLookRef } from '@/lib/couple-photo-share';
 import type { AppleRevokeOutcome } from '@/lib/apple-sign-in';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
@@ -1203,6 +1205,75 @@ export async function purgeSamahanStories(
 }
 
 /**
+ * RA 10173 right-to-erasure — 📸 A COUPLE'S PHOTOS ON SUPPLIERS' SERVICE CARDS (#7089).
+ *
+ * Two sides, two different answers:
+ *   · Shares the subject SENT (`shared_by_user_id`) — their consent and credit for their own photo. Each share's
+ *     FROZEN COPY (`couple-looks/<share_id>/…`, in the bucket its audience put it) is deleted through the cleanup
+ *     executor, scoped to that share's folder; then the row goes (also a SUBJECT_ROW_DELETES entry — the generic
+ *     loop then no-ops). The row goes only once its copy is gone: a surviving row is the retry handle.
+ *   · Shares sent TO the subject's shop — the COUPLE's, not the subject's. Withdrawn (off the card at once) and
+ *     their copy deleted, never erased: the couple keeps their record of what they shared and can see it ended.
+ * Best-effort per step, audit-logged, never thrown — same contract as every purge here.
+ */
+export async function purgeCouplePhotoShares(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  io: ErasureIo,
+  vendorProfileId: string | null,
+): Promise<void> {
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'purgeCouplePhotoShares',
+    'erasure_step_failed',
+    { kind: 'couple_photo_shares' },
+  );
+  const dropCopy = async (r: { share_id: string; public_key?: string | null; audience?: string | null }): Promise<boolean> => {
+    if (typeof r.public_key !== 'string' || r.public_key.length === 0) return true;
+    try {
+      await io.deleteStoredAsset(coupleLookRef(r.public_key, r.audience === 'public'), couplePhotoLookScope(r.share_id));
+      return true;
+    } catch (e) {
+      await auditFail('couple-photo-copy-delete', e instanceof Error ? e.message : String(e));
+      return false;
+    }
+  };
+
+  const { data: sent, error: sentErr } = await admin
+    .from('couple_photo_shares')
+    .select('share_id, public_key, audience')
+    .eq('shared_by_user_id', targetUserId);
+  if (sentErr) await auditFail('couple-photo-shares-lookup', sentErr.message);
+  for (const row of (sent ?? []) as Array<{ share_id: string; public_key?: string | null; audience?: string | null }>) {
+    if (!(await dropCopy(row))) continue;
+    const { error: delErr } = await admin.from('couple_photo_shares').delete().eq('share_id', row.share_id);
+    if (delErr) await auditFail('couple-photo-shares-row-delete', delErr.message);
+  }
+
+  if (!vendorProfileId) return;
+  const { data: received, error: recvErr } = await admin
+    .from('couple_photo_shares')
+    .select('share_id, public_key, audience')
+    .eq('vendor_profile_id', vendorProfileId)
+    .in('state', ['waiting', 'approved']);
+  if (recvErr) await auditFail('couple-photo-shares-received-lookup', recvErr.message);
+  for (const row of (received ?? []) as Array<{ share_id: string; public_key?: string | null; audience?: string | null }>) {
+    const { error: wErr } = await admin
+      .from('couple_photo_shares')
+      .update({ state: 'withdrawn', withdrawn_at: new Date().toISOString(), public_key: null })
+      .eq('share_id', row.share_id);
+    if (wErr) {
+      await auditFail('couple-photo-shares-received-withdraw', wErr.message);
+      continue;
+    }
+    await dropCopy(row);
+  }
+}
+
+/**
  * RA 10173 right-to-erasure — the subject's PER-EVENT guest-side BIOMETRICS.
  *
  * The guest-face-enrolment table has NO user FK: a row holds the biometric
@@ -1617,6 +1688,8 @@ export async function eraseUserAccount(
   // BEFORE purgeUserOwnedRecords: the generic SUBJECT_ROW_DELETES loop there
   // deletes the story rows, and the rows are the only thing naming the files.
   await purgeSamahanStories(admin, targetUserId, actorUserId, io);
+  // 📸 Before the generic subject-row deletes: a share's copy is named by nothing but its row.
+  await purgeCouplePhotoShares(admin, targetUserId, actorUserId, io, preVendorRow?.vendor_profile_id ?? null);
   await purgeUserOwnedRecords(admin, targetUserId, actorUserId, { originalEmail, now });
   await purgeUserGuestBiometrics(admin, targetUserId, actorUserId, io, now);
 

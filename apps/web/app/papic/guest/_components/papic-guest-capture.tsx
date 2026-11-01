@@ -25,6 +25,8 @@ import {
   Square,
   Trophy,
 } from 'lucide-react';
+import { papicFrameCrop } from '@/lib/papic-viewfinder-crop';
+import { CameraPageLock } from '@/app/papic/_components/camera-page-lock';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
@@ -371,6 +373,14 @@ export function PapicGuestCapture({
   useEffect(() => {
     styleRef.current = eventStyle;
   }, [eventStyle]);
+  // ⚡ ON A mode_a EVENT THE FACE MODELS LOAD WHILE THE CAMERA OPENS (owner 2026-10-30: *"sending photos after taking
+  // picture takes so long"*). Each photo's face pass (`prepare.faceVectors`, in the upload queue) runs before the
+  // photo counts as prepared, and the FIRST one used to wait for face-api.js and ~12 MB of weights to download — so
+  // the first photo sat unsent while they arrived. A download, no face is read; the pass itself is unchanged.
+  useEffect(() => {
+    if (faceMode !== 'mode_a') return;
+    void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Clip recorder (Option A).
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -482,6 +492,14 @@ export function PapicGuestCapture({
   const snippetDownAtRef = useRef(0);
   const stopOnUpRef = useRef(false);
   const viewfinderRef = useRef<HTMLDivElement>(null);
+  // 📐 The 9:16 box the picture is drawn in — exactly the frame the shutter keeps (lib/papic-viewfinder-crop.ts).
+  const frameBoxRef = useRef<HTMLDivElement>(null);
+  // A phone held sideways delivers a landscape frame: the box turns with it (16:9), as the photo does.
+  const [frameSideways, setFrameSideways] = useState(false);
+  // 📱 Full screen, the top row and the controls lie OVER the picture; the tools on the picture keep clear of both.
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const [overlayInsets, setOverlayInsets] = useState({ top: 0, bottom: 0 });
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
 
@@ -509,6 +527,41 @@ export function PapicGuestCapture({
     // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
     holdRestart: () => recordingRef.current,
   });
+
+  // 📐 The picture's box follows the camera frame's orientation: 9:16, or 16:9 while the phone is held sideways.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const read = () => {
+      if (video.videoWidth && video.videoHeight) setFrameSideways(video.videoWidth > video.videoHeight);
+    };
+    read();
+    video.addEventListener('loadedmetadata', read);
+    video.addEventListener('resize', read);
+    return () => {
+      video.removeEventListener('loadedmetadata', read);
+      video.removeEventListener('resize', read);
+    };
+  }, [videoRef, ready]);
+
+  // 📱 Full screen, the tools on the picture (grid, Selfie ⇄ Main, 1×/2×, the corners) sit between the top row and the
+  // controls laid over it — measured, so a taller control stack (a challenge line, a Kwento card) moves them up.
+  useEffect(() => {
+    if (!fullScreen || typeof ResizeObserver === 'undefined') return;
+    const top = topBarRef.current;
+    const bottom = controlsRef.current;
+    if (!top || !bottom) return;
+    const measure = () =>
+      setOverlayInsets((was) => {
+        const next = { top: Math.round(top.getBoundingClientRect().height), bottom: Math.round(bottom.getBoundingClientRect().height) };
+        return was.top === next.top && was.bottom === next.bottom ? was : next;
+      });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(top);
+    ro.observe(bottom);
+    return () => ro.disconnect();
+  }, [fullScreen]);
 
   /*
     TWO REFUSALS, TWO SENTENCES.
@@ -638,20 +691,23 @@ export function PapicGuestCapture({
     (e: RMouseEvent<HTMLDivElement>) => {
       if (!canFocus || !ready || switching || tagging || exhausted) return;
       if ((e.target as HTMLElement).closest('button, a, input, label')) return;
-      const box = viewfinderRef.current?.getBoundingClientRect();
+      const stage = viewfinderRef.current?.getBoundingClientRect();
+      const box = frameBoxRef.current?.getBoundingClientRect();
       const video = videoRef.current;
-      if (!box || !video) return;
-      const tapX = e.clientX - box.left;
-      const tapY = e.clientY - box.top;
+      if (!stage || !box || !video) return;
+      // The tap is read against the 9:16 picture; the square is drawn where the finger was, on the stage.
+      const tapX = e.clientX - stage.left;
+      const tapY = e.clientY - stage.top;
       const point = focusPointFromTap({
-        tapX,
-        tapY,
+        tapX: e.clientX - box.left,
+        tapY: e.clientY - box.top,
         boxW: box.width,
         boxH: box.height,
         videoW: video.videoWidth,
         videoH: video.videoHeight,
         crop: recordingRef.current ? 1 : crop,
         mirrored,
+        fit: mode === 'snippet' || recordingRef.current ? 'contain' : 'cover',
       });
       if (!point) return;
       focusAt(point);
@@ -659,7 +715,7 @@ export function PapicGuestCapture({
       setFocusMark({ x: tapX, y: tapY, key });
       setTimeout(() => setFocusMark((m) => (m?.key === key ? null : m)), 1200);
     },
-    [canFocus, ready, switching, tagging, exhausted, crop, mirrored, focusAt, videoRef],
+    [canFocus, ready, switching, tagging, exhausted, crop, mirrored, mode, focusAt, videoRef],
   );
 
   const closeShots = useCallback(() => setShotsOpen(false), []);
@@ -787,14 +843,15 @@ export function PapicGuestCapture({
     // 2× on a phone with no 2× of its own is a DIGITAL crop (owner 2026-10-24:
     // "2× shows on every phone") — the centre half of the frame, at its own
     // pixels, exactly what the preview showed.
-    const sw = Math.round(w / crop);
-    const sh = Math.round(h / crop);
+    // 📐 …and the photo is the ONE frame, 9:16 portrait (owner 2026-10-30: "9:16") — the centre of the camera frame,
+    // exactly what the 9:16 viewfinder box shows (lib/papic-viewfinder-crop.ts).
+    const { sx, sy, sw, sh } = papicFrameCrop({ width: w, height: h }, crop);
     const canvas = document.createElement('canvas');
     canvas.width = sw;
     canvas.height = sh;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
-    ctx.drawImage(video, Math.round((w - sw) / 2), Math.round((h - sh) / 2), sw, sh, 0, 0, sw, sh);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
     // 🕐 THE SHUTTER — stamped on the frame itself, before the look and the
     // encode, and long before any of the network. Everything after this line
@@ -1543,11 +1600,23 @@ export function PapicGuestCapture({
       data-camera-dress={pro ? 'pro' : 'free'}
       className={
         fullScreen
-          ? 'flex h-[100dvh] flex-col overflow-hidden bg-ink text-cream'
+          ? 'fixed inset-0 z-30 h-[100dvh] overflow-hidden overscroll-none bg-ink text-cream'
           : 'flex min-h-screen flex-col bg-ink text-cream'
       }
     >
-      <header className={`flex items-center px-4 py-3 ${exitTo ? 'justify-between' : 'justify-end'}`}>
+      {/* 📱 THE CAMERA PAGE IS EXACTLY THE SCREEN (owner 2026-10-30: "scroll free full screen camera page that works on
+          browser and app"): a fixed stage the browser sizes (toolbar shown or hidden, the app's WKWebView), the
+          document held still behind it, the picture edge to edge and every control laid over it. */}
+      {fullScreen ? <CameraPageLock /> : null}
+      <div
+        ref={topBarRef}
+        data-camera-top=""
+        className={fullScreen ? 'absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-ink/75 via-ink/35 to-transparent' : 'contents'}
+      >
+      {/* 📱 The camera is full screen: its ✕ row clears the iPhone's clock and Dynamic Island, and the side insets
+          (owner 2026-10-30). env() is 0 on a desktop, so the row is where it was. 🔒
+          app/[slug]/_lib/the-hub-clears-the-island.test.ts. */}
+      <header className={`flex items-center pb-3 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] ${exitTo ? 'justify-between' : 'justify-end'}`}>
         {/* ✕ ONE EXIT, TOP-LEFT — back to the Event Hub tab this was opened
             from, with the count of shots that landed. */}
         {exitTo ? (
@@ -1624,14 +1693,36 @@ export function PapicGuestCapture({
           </button>
         </div>
       ) : null}
+      </div>
 
-      <div ref={viewfinderRef} onClick={onViewfinderTap} className="relative flex-1 overflow-hidden">
+      <div
+        ref={viewfinderRef}
+        onClick={onViewfinderTap}
+        className={fullScreen ? 'absolute inset-0 overflow-hidden' : 'relative flex-1 overflow-hidden'}
+      >
+        {/* 📐 THE PICTURE IS THE PHOTO (owner 2026-10-30: "9:16"): one 9:16 box — 16:9 while the phone is held
+            sideways — as large as the screen allows, the camera `object-cover` inside it. That is exactly the frame
+            the shutter keeps (`papicFrameCrop`), at 1× and at the digital 2×. */}
+        <div className="absolute inset-0 flex items-center justify-center [container-type:size]">
+        <div
+          ref={frameBoxRef}
+          data-camera-frame={frameSideways ? '16:9' : '9:16'}
+          className="relative overflow-hidden"
+          style={{
+            aspectRatio: frameSideways ? '16 / 9' : '9 / 16',
+            width: frameSideways ? 'min(100cqw, 100cqh * 16 / 9)' : 'min(100cqw, 100cqh * 9 / 16)',
+          }}
+        >
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
-          className="h-full w-full object-cover"
+          /* 📐 A clip records the camera's WHOLE frame (cropping a recording means re-encoding it on the phone), so
+             Snippet (and a hold that is recording) shows the whole frame inside the box — the camera is asked for
+             16:9, so on most phones that frame IS 9:16 and nothing changes; a photo keeps the 9:16 box
+             (`papicFrameCrop`). On screen is what is kept, both ways (owner 2026-10-30). */
+          className={`h-full w-full ${mode === 'snippet' || recording ? 'object-contain' : 'object-cover'}`}
           /* Live preview of the locked event look — presentation-only, so the
              captured pixels (and the clean face embed) are unaffected.
              A digital 2× scales the preview about its centre — except while a
@@ -1644,10 +1735,17 @@ export function PapicGuestCapture({
           }}
         />
         {grid && !tagging && !exhausted ? <GuestGridLines /> : null}
+        </div>
+        </div>
+        {/* The tools on the picture: full screen they keep between the top row and the controls laid over it. */}
+        <div
+          data-camera-tools=""
+          className={fullScreen ? 'pointer-events-none absolute inset-x-0 [&_button]:pointer-events-auto' : 'contents'}
+          style={fullScreen ? { top: overlayInsets.top, bottom: overlayInsets.bottom } : undefined}
+        >
         {/* 🎯 THE FOCUS CORNERS — white, or the theme's colour on a Pro event. */}
         {/* Inset as the prototype draws them — clear of the grid button and the Selfie · Main pill above. */}
         {!tagging && !exhausted ? <FocusCorners tint={tint} inset="inset-x-8 top-[60px] bottom-16" /> : null}
-        {focusMark ? <GuestFocusSquare key={focusMark.key} x={focusMark.x} y={focusMark.y} /> : null}
         {((!ready && !exhausted) || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
@@ -1743,14 +1841,27 @@ export function PapicGuestCapture({
             )}
           </div>
         )}
+        </div>
+        {focusMark ? <GuestFocusSquare key={focusMark.key} x={focusMark.x} y={focusMark.y} /> : null}
       </div>
 
-      <div className={fullScreen ? 'max-h-[45dvh] space-y-3 overflow-y-auto px-4 pb-6 pt-3' : 'space-y-3 px-4 pb-8 pt-4'}>
-        {saveError && <p className="text-center text-xs text-cream/80">{saveError}</p>}
+      {/* 📱 Full screen the controls lie OVER the picture, in the lower third (house rule: tools in the thumb zone),
+          on a soft scrim, above the home indicator. Stacked from the bottom, so a line that comes and goes (a
+          challenge, a Kwento card, a recording's countdown) never moves the shutter under the guest's thumb. */}
+      <div
+        ref={controlsRef}
+        data-camera-controls=""
+        className={
+          fullScreen
+            ? 'absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 bg-gradient-to-t from-ink/85 via-ink/55 to-transparent pb-[max(1rem,env(safe-area-inset-bottom,0px))] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-10'
+            : 'space-y-3 px-4 pb-8 pt-4'
+        }
+      >
+        {saveError && <p className="order-2 text-center text-xs text-cream/80">{saveError}</p>}
 
         {/* 📷 PHOTO ⇄ SNIPPET (owner 2026-10-24) — one pill, so a guest can
             choose Snippet on purpose. Hold-to-record still works in Photo. */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="order-4 flex items-center justify-between gap-2">
           {/* 🏆 "Challenge · … ▾" — the event's running challenges as one dropdown (owner prototype 2026-10-24). */}
           {!exhausted ? <span className="inline-flex" data-tour="camera-challenge"><ChallengePill c={challenges} /></span> : null}
           <div role="group" aria-label="Photo or snippet" data-tour="camera-mode" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
@@ -1770,13 +1881,26 @@ export function PapicGuestCapture({
               </button>
             ))}
           </div>
+          {/* ⓘ Full screen, how the shutter works lives in the ⓘ (details go in the ⓘ), not in a line under it. */}
+          {fullScreen ? (
+            <InfoTip
+              label=""
+              ariaLabel="How the shutter works"
+              align="end"
+              className="shrink-0 [&_button]:border-cream/50 [&_button]:text-cream/80"
+            >
+              {mode === 'snippet'
+                ? 'Tap to start a snippet; tap again, or let go, to stop (up to 10s).'
+                : 'Tap for a photo. Press and hold to record a snippet (up to 10s).'}
+            </InfoTip>
+          ) : null}
         </div>
 
         {/* THE gesture shutter: tap = photo, press-and-hold = record. Pointer
             events (not onClick) drive the hold detection; the guards kill iOS
             long-press selection / the context menu so a hold reliably records.
             Run out, it stays drawn and rests (disabled) — owner prototype 2026-10-24. */}
-        <div className="relative flex h-[84px] items-center justify-center">
+        <div className="relative order-5 flex h-[84px] shrink-0 items-center justify-center">
             {/* 🖼 MY SHOTS, one tap away — a sheet OVER the camera, never a new
                 page (owner 2026-10-24, pick 3). The badge counts shots still on
                 this phone while they cannot send. */}
@@ -1922,8 +2046,8 @@ export function PapicGuestCapture({
         </div>
         {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
             over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
-        {exhausted && poolEmpty ? null : (
-          <p className="text-center text-xs text-cream/60" data-camera-hint="">
+        {exhausted && poolEmpty ? null : (fullScreen && !exhausted && !recording && !tagging) ? null : (
+          <p className="order-3 text-center text-xs text-cream/60" data-camera-hint="">
             {exhausted
               ? 'Your camera is all used up — enjoy the event.'
               : recording
@@ -1944,7 +2068,9 @@ export function PapicGuestCapture({
             SELECT → COMMENCE → RETAKE: the guest arms a challenge, the next
             capture completes it (the panel watches lastCaptureId). */}
         {/* 🏆 What a challenge adds under the shutter: the pause, a completion, its share ask, the reward. */}
+        <div className={fullScreen ? 'order-1 max-h-[30dvh] space-y-3 overflow-y-auto overscroll-contain empty:hidden' : 'contents'}>
         <ChallengeFollowUp c={challenges} storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null} />
+        </div>
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are
@@ -1954,10 +2080,17 @@ export function PapicGuestCapture({
           /* ONE LINE, THE DETAIL IN THE ⓘ (owner 2026-10-24 prototype): the
              shipped two-line card, compacted. The ⓘ is a button, so pressing it
              never ticks the box; pressing the line does. */
+          /* 📱 Full screen it is a compact toggle on the bottom row, left — the right of that row is kept clear for the
+             floating "Add credits" button (it sat ON this line, owner's iPhone 2026-10-30). Same box, same default
+             (off), same meaning: the guest's consent, never pre-ticked. */
           <label
             data-camera-share=""
             htmlFor={shareId}
-            className="flex min-h-11 items-center gap-2.5 rounded-xl border border-cream/15 px-2.5 text-[12.5px] text-cream/90 [&_button]:border-cream/50 [&_button]:text-cream/80"
+            className={
+              fullScreen
+                ? 'order-6 flex min-h-11 max-w-[calc(100%-10rem)] items-center gap-2 self-start rounded-full border border-cream/25 bg-ink/45 px-3 text-[12.5px] text-cream/90 [&_button]:border-cream/50 [&_button]:text-cream/80'
+                : 'flex min-h-11 items-center gap-2.5 rounded-xl border border-cream/15 px-2.5 text-[12.5px] text-cream/90 [&_button]:border-cream/50 [&_button]:text-cream/80'
+            }
           >
             <input
               id={shareId}
@@ -1967,17 +2100,19 @@ export function PapicGuestCapture({
               className="h-[18px] w-[18px] shrink-0 accent-mulberry"
             />
             <InfoTip
-              label="Let the host feature my clips on their event page"
+              label="Feature my clips"
+              ariaLabel="About Let the host feature my clips on their event page"
               labelClassName="min-w-0 truncate"
-              className="min-w-0 flex-1 justify-between"
-              align="end"
+              className="min-w-0 flex-1 justify-between gap-2"
+              align="start"
             >
-              Optional. Your photos always reach the host either way — this just lets them share the ones you
-              take publicly on their event page. You can leave it off.
+              Let the host feature my clips on their event page. Optional — off unless you tick it. Your photos always
+              reach the host either way; this only lets them share the ones you take publicly on their event page.
             </InfoTip>
           </label>
         ) : null}
 
+        <div className={fullScreen ? 'order-1 max-h-[38dvh] space-y-3 overflow-y-auto overscroll-contain empty:hidden' : 'contents'}>
         {/* ── Flash prompt — bottom one-liner, auto-dismisses in 5 s ──────── */}
         {/* canKwento gates the whole Kwento UI: the event must own the paid SKU. */}
         {canKwento && kwentoCaptureId && kwentoPhase === 'flash' ? (
@@ -2114,6 +2249,7 @@ export function PapicGuestCapture({
             ) : null}
           </div>
         ) : null}
+        </div>
       </div>
 
       <MyShotsSheet open={shotsOpen} onClose={closeShots} shots={myShotsList} eventId={eventId} />

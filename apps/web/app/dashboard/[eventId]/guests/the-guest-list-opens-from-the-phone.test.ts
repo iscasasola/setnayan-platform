@@ -116,7 +116,8 @@ test('4 · the copy’s first draw is the list’s own first draw — at most RO
   const html = await renderGuestsScreen({ guests: back!.rows as never, copy: { freshness: 'updating', savedAt: Date.now() } });
   const rows = (html.match(/data-guest-row=""/g) ?? []).length;
   assert.ok(rows > 0 && rows <= ROW_WINDOW, `${rows} rows drawn first (window ${ROW_WINDOW})`);
-  assert.match(html, /List<b[^>]*>.*?200/s, '"List 200" — the copy’s own count');
+  // 🎚 2026-10-30: the total is the carousel's Total guests card (the Guests ▾ segment that carried "Guests 200" is gone).
+  assert.match(html, /data-count="gs-total"[^>]*>200</, '"200 Total guests" — the copy’s own count');
 });
 
 test('5 · saved, read back and drawn, the copy shows the same people', () => {

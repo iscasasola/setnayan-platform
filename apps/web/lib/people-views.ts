@@ -67,6 +67,13 @@ export function resolvePeopleView(raw: string | null | undefined, g: PeopleViewG
   return (open as string[]).includes(want) ? (want as PeopleView) : defaultPeopleView(g);
 }
 
+/**
+ * 👥 People › Groups — where every group page, action and old link returns (owner 2026-10-28: *"an issue on groups is
+ * it makes us go back to groups which was not part of people. it did not return to people"*). The old standalone
+ * `/dashboard/samahan` index forwards here. `resolvePeopleView` opens Groups from `?view=samahan`.
+ */
+export const PEOPLE_GROUPS_HREF = '/dashboard/people?view=samahan';
+
 /** The URL of a view. The default view is the bare page, so the bell's
  *  `/dashboard/people` and the Connected row are one address. */
 export function peopleViewHref(view: PeopleView, g: PeopleViewGates): string {
@@ -95,4 +102,27 @@ export function peopleViewOptions(
         ? { key: v, label, dot: true, dotNote: 'waiting on you' }
         : { key: v, label };
     });
+}
+
+/**
+ * 📌 THE PINNED ROW'S PICKER (owner 2026-10-28, DECISION_LOG "USER DASHBOARD PART 1 — PEOPLE & GROUPS — APPROVED";
+ * prototype `prototypes/user_dash_2026-10-28/`): the existing views, shown as "People ▾" / "Groups ▾". Its list is the
+ * prototype's sheet — People · Groups · Following · Followers · Loved ones — the SAME `?view=` keys the rail and the ≡
+ * list link to (Requests stays the "asking you" door). `connected` reads "People" here: the row is the People page.
+ */
+export const PINNED_VIEW_ORDER = ['connected', 'samahan', 'following', 'followers', 'alaga'] as const satisfies readonly PeopleView[];
+
+/** The face the pinned row shows — "People" on the list, "Groups" on the Groups view. */
+export type PinnedFace = 'people' | 'groups';
+
+export const PINNED_FACE_LABEL: Record<PinnedFace, string> = { people: 'People', groups: 'Groups' };
+
+/** The pinned picker's rows, from the page's own `peopleViewOptions` (labels keep their counts). */
+export function pinnedViewOptions<O extends { key: PeopleView; label: string }>(options: readonly O[]): O[] {
+  const byKey = new Map(options.map((o) => [o.key, o] as const));
+  return PINNED_VIEW_ORDER.flatMap((k) => {
+    const o = byKey.get(k);
+    if (!o) return [];
+    return [k === 'connected' ? { ...o, label: o.label.replace(/^(Connected|Your people)/, 'People') } : o];
+  });
 }

@@ -192,6 +192,9 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'seatMap',
     'seatPassActive',
     'showClaimAccountCta',
+    // supplierPageNotices (2026-10-28) — suppliers who will show photos from THIS event on their page, each with
+    // Remove (the 7-day guest notice). About the event this guest belongs to; never an owner capability.
+    'supplierPageNotices',
   ].sort());
   for (const key of ['capability', 'ownerUserId', 'ownerEventId']) {
     assert.ok(!(key in identity), `owner key ${key} leaked onto the simulated identity`);

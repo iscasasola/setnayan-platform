@@ -87,7 +87,7 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   },
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
-    literal: '₱2,500',
+    literal: '₱3,300',
     sku: 'PAKANTA',
     reason: 'Music Maker demo frame checkout button.',
   },
@@ -174,6 +174,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     literal: '₱85,000',
     sku: null,
     reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/supplier-lab/couple-photos-lab.tsx',
+    literal: '₱8,500',
+    sku: null,
+    reason:
+      'A made-up supplier’s own "from" price on the DEV-ONLY lab service card (404 in production) that shows an approved couple photo — not a Setnayan SKU.',
   },
 ];
 

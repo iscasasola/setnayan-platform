@@ -836,6 +836,27 @@ export async function fetchChecklistItems(
 }
 
 /**
+ * How many of an event's tasks are OVERDUE today — the one count the events board's "N tasks overdue" and the
+ * coordinator's "Events you run" line (owner 2026-10-28) both print. Same anchor (`checklistAnchorDateFor`) and
+ * runway (`checklistRunwayFor`) the checklist page dates by, so a card and the page it opens cannot disagree.
+ * The SAME three calls `app/dashboard/(launcher)/page.tsx` makes inline (that inline form is pinned by
+ * `checklist-anchor.test.ts`, so it stays); `events-you-run-attention.test.ts` holds the two to one answer.
+ */
+export function checklistOverdueCount(
+  items: ReadonlyArray<Pick<ChecklistItemRow, 'status' | 'due_offset_days'>>,
+  event: ChecklistAnchorEvent & { created_at?: string | null },
+  todayISO: string,
+): number {
+  const anchorDate = checklistAnchorDateFor(event);
+  const runway = checklistRunwayFor(items, anchorDate, event.created_at ?? null);
+  return items.filter((i) => {
+    if (i.status !== 'pending') return false;
+    const due = dueDateForItem(anchorDate, i.due_offset_days, runway);
+    return !!due && due < todayISO;
+  }).length;
+}
+
+/**
  * THE SAME READ, HONEST ABOUT FAILING: `null` when the rows could not be read,
  * `[]` only when the event genuinely has none.
  *

@@ -34,6 +34,8 @@ const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
 const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
+/** The page's one drawing of the maker (shared with Today's setup sheet, 2026-10-28) — read with the page. */
+const NEW_DOOR_MAKER = 'app/vendor-dashboard/services/new/_components/new-service-maker.tsx';
 const OLD_DOOR = 'app/vendor-dashboard/services/new/[category]/page.tsx';
 // Since 2026-10-14 every door into the maker reads through ONE loader.
 const LOADER = 'lib/service-card-maker.server.ts';
@@ -42,7 +44,7 @@ const LOADER = 'lib/service-card-maker.server.ts';
 // reports a pass. Every count below is measured against a file this size.
 test('the files under test actually read back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
-  assert.ok(read(NEW_DOOR).length > 500, 'the new door read back empty');
+  assert.ok((read(NEW_DOOR) + read(NEW_DOOR_MAKER)).length > 500, 'the new door read back empty');
   assert.ok(read(OLD_DOOR).length > 500, 'the old door read back empty');
 });
 
@@ -87,7 +89,7 @@ test('every per-kind editor reads the chosen kind', () => {
 });
 
 test('the new door opens the maker with no kind chosen, and hands it the list', () => {
-  const src = read(NEW_DOOR);
+  const src = (read(NEW_DOOR) + read(NEW_DOOR_MAKER));
   assert.match(src, /categoryValue=""/, 'the new door started pre-picking a kind');
   assert.match(src, /categoryOptions=\{ctx\.categoryOptions\}/, 'the new door stopped handing over the kinds');
   // Drawn from the SAME groups My Shop draws (in the one loader), never a second hand-typed list.

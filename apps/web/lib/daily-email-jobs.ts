@@ -23,6 +23,7 @@ import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
 import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { maybeRunPushSchedule } from '@/lib/push-schedule.server';
 import { GUEST_REMINDER_GAP_MS } from '@/lib/periodic-job-registry';
 import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
@@ -695,6 +696,8 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
  * its own send-idempotency lock. Best-effort, never throws.
  */
 export async function runDailyEmailJobs(): Promise<void> {
+  // 📱 Rides the same public traffic: the 7 am phone release and the evening summary (no email in it).
+  await maybeRunPushSchedule();
   await runClaimedJob('anniversary-digest', DAILY_GAP_MS, async () => {
     const { sent } = await runAnniversaryDigest();
     return sent;

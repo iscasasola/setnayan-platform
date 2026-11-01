@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -39,6 +39,9 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import { InfoTip } from '@/app/_components/info-tip';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -50,8 +53,7 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -93,9 +95,12 @@ import {
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
-import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatInfoRailTrigger } from './_components/chat-info-rail';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
+import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
@@ -230,6 +235,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
 
+  /*
+    📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a
+    first chat"): a pending inquiry opens on the event's fixed lines and Accept · Decline · Ask, the same lines Today and
+    Customers draw (`readSupplierEventLines`). Started now, beside every other read; only for a pending inquiry.
+  */
+  const askLinesRead =
+    thread.inquiry_status === 'pending'
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId: profile.vendor_profile_id,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: [{ eventId: thread.event_id, stage: 'asking' }],
+        })
+          .then((m) => m.get(thread.event_id) ?? null)
+          .catch(() => null)
+      : Promise.resolve(null);
+
   // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
   // The 2026-07-01 batch below took the first fourteen reads off the serial
   // path, but it still waited for three reads before it, and about twenty more
@@ -251,9 +272,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of the page.
 
-  // Voice/video calling is a paid-vendor capability (gate-dark by default).
-  // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
-  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
+  // 📵 No calls in the chat (owner 2026-10-28, "remove both voice and video call") — the calls-gate read is gone
+  // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
 
   /**
    * THE TWO MONEY LINES UNDER THE QUOTE TOTAL — resolved ONCE here so the
@@ -292,7 +312,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // awaited in turn before the batch started, so no write ran while one of them
   // could still fail the page.
   const writesWaitFor = Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
   ]);
@@ -932,9 +951,33 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     return conversationRows;
   })();
 
+  // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
+  // Its own read (admin, like `eventRead`: the ownership gate above already passed), so the brief's read stays as it is.
+  const eventFileDayRead = (async () => {
+    const { data, error } = await createAdminClient()
+      .from('events')
+      .select('event_date_precision, event_end_date')
+      .eq('event_id', thread.event_id)
+      .maybeSingle();
+    if (error) logQueryError('VendorThreadPage.eventDay', error, { event_id: thread.event_id }, 'graceful_degrade');
+    return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
+  })();
+
+  // ✓✓ "Seen" under the supplier's last message (owner 2026-10-28, *"yes show seen"*) — one started read, like the
+  // rest; it waits for the batch only to know who has written for the couple (`lib/chat-thread-receipts.server.ts`).
+  const receiptsRead = (async () => {
+    const batch = await batchRead;
+    return readThreadReceipts(createAdminClient(), {
+      threadId,
+      viewerRole: 'vendor',
+      viewerUserId: user.id,
+      vendorProfileId: thread.vendor_profile_id,
+      messages: batch[2],
+    });
+  })();
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
-    callsEnabled,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -972,8 +1015,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     standingExtras,
     conversationRows,
     dayAnswer,
+    receipts,
+    eventFileDay,
   ] = await Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -997,6 +1041,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     standingExtrasRead,
     conversationRowsRead,
     dayAnswerRead,
+    receiptsRead,
+    eventFileDayRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1011,7 +1057,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Owner ruling 2026-09-08: "we do not need to hide anything, since no more
   // tokens." 'Couple' remains only for a genuinely missing event row.
   const coupleLabel = event?.display_name ?? 'Couple';
-  const headerLabel = coupleLabel;
   const inquiryCity = inquiryCityLabel(event?.region ?? null);
 
   const alreadyOnThread = new Set(
@@ -1303,22 +1348,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
-    'thread-call': (
-        <ThreadCallLauncher
-          threadId={threadId}
-          currentUserId={user.id}
-          counterpartyLabel={coupleLabel}
-          callsEnabled={callsEnabled}
-          viewerRole="vendor"
-          upgradeHref="/vendor-dashboard/subscription"
-          // Gives the two Start buttons the ids `thread-call-voice` and
-          // `thread-call-video`, which is what lets the rail offer "Voice call"
-          // and "Video call" as two entries that open ONE panel and land on the
-          // right button. Passed here only — the launcher is mounted on three
-          // other screens and must not grow duplicate ids there.
-          buttonIdPrefix="thread-call"
-        />
-    ),
     'deal-or-meeting': (
         <NegotiationComposerMenu
           embedded
@@ -1421,6 +1450,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     service: railService,
     threadId,
     eventId: thread.event_id,
+    // Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the vendor; NULL resolves to "Website Inquiry". The
+    // returning flag is a COMPANION chip: it combines with any origin, never replaces it.
+    source: { label: sourceChipLabel, returning: thread.is_returning ? RETURNING_CUSTOMER_LABEL : null },
   };
 
   /*
@@ -1487,74 +1519,77 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     panel past 55dvh.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
+  const askLines = await askLinesRead;
+
+  /*
+    📦 ARCHIVE LIVES IN THE CHAT NOW (owner 2026-10-28: the Customers list IS the messages, so the Messages fold and
+    its per-row archive button are gone). ⋮ › "Archive this chat" takes it off Customers' list (into "Archived and
+    closed chats"); a new message brings it back on its own. Read AFTER the mark-read write, which upserts the same
+    row — the shop's own marker (RLS scopes it), archived ⇔ marked no earlier than the last message (`lib/chat.ts`).
+    ⚠ Unread → no archive item at all, never one that claims the wrong state.
+  */
+  await markedRead;
+  const { data: archiveMark, error: archiveMarkError } = await supabase
+    .from('chat_thread_reads')
+    .select('archived_at')
+    .eq('thread_id', threadId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (archiveMarkError) {
+    logQueryError('VendorThreadPage.archiveMark', archiveMarkError, { thread_id: threadId }, 'graceful_degrade');
+  }
+  const archivedAt = (archiveMark as { archived_at?: string | null } | null)?.archived_at ?? null;
+  const threadArchive = archiveMarkError
+    ? null
+    : {
+        archived: Boolean(archivedAt && new Date(archivedAt).getTime() >= new Date(thread.updated_at).getTime()),
+        returnTo: '/vendor-dashboard/customers',
+      };
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
-      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
-          xl, where there is room for all three without squeezing the middle —
-          the whole point was to give the conversation back its space. */}
-      <ConversationColumn
-        rows={conversationRows}
-        activeThreadId={threadId}
-        side="vendor"
-        hrefBase="/vendor-dashboard/messages"
-      />
-      {/* A deep link from the client brief (Quote / Call / Log payment) and the
-          rail's own launchers both land on an id inside a CLOSED disclosure.
-          This opens it; without it those four controls scroll to a collapsed
-          strip and read as doing nothing. */}
-      <ThreadToolHashReveal />
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {lockAnswer ? (
-          <p
-            role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
-            className={`mb-2 rounded-xl border px-4 py-2.5 text-sm ${
-              lockAnswer.tone === 'refused'
-                ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
-                : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
-            }`}
-          >
-            {lockAnswer.text}
-            {lockAnswer.door ? (
-              <>
-                {' '}
-                <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
-                  {lockAnswer.door.label}
-                </Link>
-              </>
-            ) : null}
-          </p>
-        ) : null}
+    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
+    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
+    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
+    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
+    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
+    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="vendor"
+          hrefBase="/vendor-dashboard/messages"
+        />
+      }
+    >
         <ChatBox
           header={
-            <>
-              <Link
-                href="/vendor-dashboard/messages"
-                aria-label="Back to Messages"
-                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
-              >
-                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-              </Link>
-              <span
-                aria-hidden
-                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
-              >
-                {railInitials}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">
-                  {headerLabel}
+            <ChatThreadHead
+              back={<BackButton route="/vendor-dashboard/messages/[threadId]" params={{ threadId }} variant="chat" />}
+              // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
+              nameHref={`/vendor-dashboard/clients/${thread.event_id}?tab=details`}
+              name={
+                <>
+                  {eventChatTitle({
+                    name: event?.display_name ?? null,
+                    kind: event?.event_type && event.event_type !== 'unspecified' ? eventTypeLabel(event.event_type) : null,
+                    date: event?.event_date ?? null,
+                    nowMs: Date.now(),
+                  })}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                       {FOUNDER_BADGE_LABEL}
                     </span>
                   ) : null}
-                </p>
-                {/* ONE muted line: what they asked about · the date, as a date
-                    ("December 18, 2026", never the raw ISO key — owner
-                    2026-09-08) · the live count, naming the inquiry count
-                    whenever the two differ, either way. */}
-                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+                </>
+              }
+              initials={railInitials}
+              // ONE muted line: what they asked about · the date, as a date ("December 18, 2026", never the raw ISO
+              // key — owner 2026-09-08) · the live count, naming the inquiry count whenever the two differ.
+              line={
+                <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
                   {guestCountLine(guestCounts) ? (
@@ -1562,30 +1597,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                       Planning for {guestCountLine(guestCounts)}
                     </span>
                   ) : null}
-                </p>
-                {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
-                    vendor; NULL resolves to "Website Inquiry". The returning
-                    flag is a COMPANION chip: it combines with any origin, never
-                    replaces it. */}
-                <p className="mt-0.5 flex flex-wrap items-center gap-1">
-                  <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
-                    {sourceChipLabel}
-                  </span>
-                  {thread.is_returning ? (
-                    <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                      {RETURNING_CUSTOMER_LABEL}
-                    </span>
-                  ) : null}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {/* Mobile: opens the customer info rail as a sheet. Desktop
-                    shows the rail as a docked column instead (see below). */}
+                </>
+              }
+              actions={
+                <>
+                {/* "Customer" opens the customer card as a sheet, at every width — the same head as the couple's, with
+                    the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
+                    private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}
                   blockedByMe={blockState.blockedByMe}
+                  archive={threadArchive}
                   // The client page's sections live behind ⋮ (One Chat Box,
                   // 2026-09-18). That page used to embed its own copy of this
                   // conversation; it now sends a chat landing HERE, and these
@@ -1593,17 +1617,40 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   // `?tab=` — a bare link would bounce straight back to this
                   // frame.
                   links={[
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments', icon: 'quote' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
                   ]}
                 />
-              </div>
-            </>
+                </>
+              }
+            />
           }
           notice={
             <>
+              {/* THE ANSWER TO A BOOKING ASK, with its Pay door — inside the box, so a phone sees it (it sat above the
+                  box until 2026-10-29, where the full-screen takeover covered it). */}
+              {lockAnswer ? (
+                <p
+                  role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
+                  // A band across the box, like the answer line under it — no frame: nothing here is pressed but the door.
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    lockAnswer.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-lock-answer=""
+                >
+                  {lockAnswer.text}
+                  {lockAnswer.door ? (
+                    <>
+                      {' '}
+                      <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                        {lockAnswer.door.label}
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
               {answerLine}
               <ChatPrivacyNotice inBox viewer="vendor" />
             </>
@@ -1616,6 +1663,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               id="pending-payments"
               className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-ink/10 px-3 py-2 empty:hidden sm:px-4"
             >
+      {/* 📋 THEIR ASK — the inquiry card at the top of a first chat (supplier dashboard v13): the event's fixed lines, then
+          Decline · Ask a question · Accept (Accept starts a quote here). The band under the conversation keeps the
+          shipped "Talk to them" — the same answer, one more door. */}
+      {askLines && thread.inquiry_status === 'pending' ? (
+        <section data-chat-inquiry-card="" aria-label="Their ask" className="pb-2">
+          <p className="home-k2 pt-1">
+            <InfoTip label="Their ask" align="start">
+              What they asked, read from their event before you answer. Accept says yes and starts a quote; Ask a question
+              says yes and opens the chat to type; Decline tells them kindly. Nothing is booked until they ask to book.
+            </InfoTip>
+          </p>
+          <EventLinesBody lines={askLines} />
+          <InquiryAnswers
+            threadId={threadId}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            pinned
+            acceptTo={`/vendor-dashboard/messages/${threadId}?compose=quote`}
+            acceptInquiry={acceptInquiry}
+            declineInquiry={declineInquiry}
+          />
+        </section>
+      ) : null}
       {showDayPrep ? (
         <VendorEventDayPrepCta
           threadId={threadId}
@@ -1764,14 +1833,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
                     ＋ · message · Send (simpler supplier dashboard step 4, 2026-10-14): the grey ＋ opens ONE sheet
-                    of every tool this conversation has (`thread-tools-sheet.tsx`) — it replaced the composer's
-                    🧾 / 📞 icons and the rail's Tools column. The paperclip moved into that sheet ("Share a file or
-                    the contract"); its input stays here so the file still rides this form. Send is the one main. */}
+                    of every tool this conversation has (`thread-tools-sheet.tsx`), grouped Money · Plan · Talk & files ·
+                    Just you (chat prototype 2026-10-28, frame D) — 📵 no call. The paperclip is its ONE "Share a file"
+                    (file · photo · video · the contract); its input stays here so the file still rides this form, and
+                    📷 · 🖼 are the composer's shortcuts into the same input. */}
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
                   lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
+                  userId={user.id}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -1984,13 +2055,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                private signer — see the prop in chat-message-stream.tsx. */
             paymentProofUrl={bookedMoney.deposit?.proofUrl ?? null}
             payoutReadiness={payoutReadiness}
+            theirLastReadAt={receipts.theirLastReadAt}
+            fileExpiry={{
+              eventDate: event?.event_date ?? null,
+              endDate: eventFileDay?.event_end_date ?? null,
+              precision: eventFileDay?.event_date_precision ?? null,
+            }}
           />
         </ChatBox>
-      </section>
-
-      {/* Customer info rail — docked column on lg+ (mobile uses the header
-          trigger + sheet above). Customer Card respine PR-3. */}
-      <ChatInfoRailColumn {...railProps} />
+    </ChatThreadFrame>
     </div>
   );
 }

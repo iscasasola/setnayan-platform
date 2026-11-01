@@ -45,7 +45,7 @@ export function wipeLastSeen(storage: LastSeenStorage | null | undefined): numbe
 }
 
 /** The Supabase auth session cookie (`sb-<project>-auth-token`, or one of its `.0`/`.1` chunks). */
-const AUTH_COOKIE = /(?:^|;\s*)sb-[^=;\s]+-auth-token(?:\.\d+)?=[^;]/;
+export const AUTH_COOKIE = /(?:^|;\s*)sb-[^=;\s]+-auth-token(?:\.\d+)?=[^;]/;
 
 /**
  * True when the cookie string carries a Supabase auth session cookie

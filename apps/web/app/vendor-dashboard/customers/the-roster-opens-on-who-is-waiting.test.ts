@@ -193,8 +193,9 @@ test('the date-clash count is computed over EVERY customer, not the filtered lis
   // warning vanish the moment a shop pressed "Booked" — a warning that
   // disappears when you look away is worse than no warning.
   assert.ok(
-    /holdingByDate\(derived\)/.test(pageSrc),
-    'holdingByDate is no longer computed over the full derived set',
+    // 2026-10-28: over every LISTED customer — `derived` less only the chats the shop archived (`listed`).
+    /holdingByDate\(listed\)/.test(pageSrc) && /const listed = derived\.filter\(\(r\) => !archivedOff\.has\(r\.eventId\)\)/.test(pageSrc),
+    'holdingByDate is no longer computed over the full listed set',
   );
   assert.ok(
     !/holdingByDate\(rosterRows\)/.test(pageSrc),
@@ -262,7 +263,8 @@ test('the retired "Book of business" lives ON People — outside clients and kep
   const people = stripComments(readFileSync(join(HERE, '_components', 'people-more.tsx'), 'utf8'));
   assert.match(pageSrc, /\.filter\(\(b\) => b\.source === 'external_client'\)/, 'People no longer reads the outside clients');
   assert.match(pageSrc, /const outsidePage = paginate\(/, 'the outside clients are not paged before they render');
-  assert.match(pageSrc, /\{showOutside \? \(\s*<OutsideClientRows\b/, 'the outside clients are not drawn on People');
+  // 2026-10-28: under the Booked door (they are booked customers), after the Setnayan rows.
+  assert.match(pageSrc, /\{isBooked \? \(\s*<OutsideClientRows\b/, 'the outside clients are not drawn on People');
   assert.match(people, /removeBlock/, 'an outside client can no longer be removed');
   assert.match(pageSrc, /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,300}<KeptNotesFold\b/, 'the kept notes are not drawn on People');
   assert.equal(/\?open=clients/.test(rosterSrc + pageSrc), false, 'a door still names the retired Clients fold');
@@ -276,13 +278,14 @@ test('Add (the thumb row) opens the SHIPPED outside-client import (owner answer 
   assert.match(pageSrc, /<OutsideClientAdd\b[\s\S]{0,300}action=\{importExternalClient\}/, 'Add no longer posts the shipped import');
   assert.match(pageSrc, /startOpen=\{search\.add === 'outside'\}/, '?add=outside (an older link) no longer opens it');
   assert.match(add, /<form\b[^>]*action=\{action\}/, 'the sheet does not post the action it is handed');
-  // S-PR3: the same sheet is Dates' Add too — it comes back to where it was opened, People unless told Dates.
-  assert.match(add, /returnTo = 'people'/, 'the import no longer comes back to People by default');
+  // S-PR3: the same sheet is Dates' Add too — it comes back to where it was opened, Events unless told Dates.
+  assert.match(add, /returnTo = 'events'/, 'the import no longer comes back to Events by default');
   assert.match(add, /name="return_to" value=\{returnTo\}/, 'the sheet does not post where it came from');
   const peopleAdd = pageSrc.slice(pageSrc.indexOf('<OutsideClientAdd'), pageSrc.indexOf('/>', pageSrc.indexOf('<OutsideClientAdd')));
-  assert.doesNotMatch(peopleAdd, /returnTo=/, 'People’s Add is sent somewhere else');
+  assert.doesNotMatch(peopleAdd, /returnTo=/, 'Events’ Add is sent somewhere else');
   const actions = stripComments(readFileSync(join(HERE, '..', 'calendar', 'actions.ts'), 'utf8'));
-  assert.match(actions, /returnTo === 'people'[\s\S]{0,200}seg: 'people'/, 'the action does not bring the outcome back to People');
+  // 2026-10-30: Events is the hub itself (no `seg`); `people` — the view's old name — still comes back to it.
+  assert.match(actions, /returnTo === 'events' \|\| returnTo === 'people'\) \{[\s\S]{0,200}new URLSearchParams\(\{ notice \}\)/, 'the action does not bring the outcome back to Events');
 });
 
 test('every fold door lands somewhere on this page', () => {

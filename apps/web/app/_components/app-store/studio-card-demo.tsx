@@ -947,8 +947,8 @@ const PAKANTA_SCENES: RichFrame[] = [
             <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
           </div>
           <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
-            {/* ₱2,500 = PAKANTA. Was ₱3,499, which matches no active SKU at all. */}
-            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱2,500
+            {/* ₱3,300 = PAKANTA (the one price, 2026-10-28; was ₱2,500). Registered in lib/public-price-literals.ts. */}
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱3,300
           </button>
         </div>
       </div>

@@ -51,8 +51,9 @@ test('2 · the shared Sheet draws THE backdrop and closes on Back; the backdrop 
 
   const css = read('app/globals.css');
   const rule = /\.sn-popup-dark \{([^}]*)\}/.exec(css)?.[1] ?? '';
-  assert.match(rule, /backdrop-filter:\s*blur\((\d+)px\)/, 'the popup dark no longer blurs');
-  const px = Number(/blur\((\d+)px\)/.exec(rule)?.[1]);
+  assert.match(rule, /backdrop-filter:\s*blur\(var\(--sn-scrim-blur\)\)/, 'the popup dark no longer blurs (by the scrim token)');
+  /* The blur's figure lives on the token (owner 2026-10-29: "a partial blur") — `lib/one-scrim.test.ts` holds the rest. */
+  const px = Number(/--sn-scrim-blur:\s*(\d+)px;/.exec(css)?.[1]);
   assert.ok(px >= 6 && px <= 8, `the popup blur is ${px}px — the house rule is 6–8`);
 });
 

@@ -85,6 +85,11 @@ const GUEST_FACING: Record<string, GuestRead> = {
     why: 'the day-of "has anything changed?" stamp the guests’ hub, seat and find-seat pages poll (live-day polling, 2026-10-18) — only a stamp leaves it, but it must move only for lines a guest may see. Service-role.',
     reads: 1,
   },
+  'app/api/live/run-of-show/[eventId]/route.ts': {
+    why: 'the guests’ "Now · Up next" header, asked on a timer instead of a Realtime socket (EV1, 2026-10-28) — read exactly as a cookie-only guest’s own read (the anonymous client), fenced the same way, one remembered answer per event.',
+    reads: 1,
+    ownShape: true,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,
@@ -98,9 +103,12 @@ const GUEST_FACING: Record<string, GuestRead> = {
  * are exactly the people the narrower moments are FOR.
  */
 const NOT_GUEST_FACING: Record<string, string> = {
+  'app/join/crew/[token]/page.tsx':
+    'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',
+  'lib/booked-call-times.server.ts': 'host — Suppliers › Booked › Team: each booked supplier’s call time (the couple’s session)',
   'app/dashboard/[eventId]/launch/_components/details-guided-progress.ts': 'host — the Maker’s Details progress ticks',
   'app/dashboard/[eventId]/launch/page.tsx': 'host — the Maker’s Details › Schedule pieces',
   'app/dashboard/[eventId]/checklist-actions.ts': 'host — a head count for the checklist',

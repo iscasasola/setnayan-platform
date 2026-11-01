@@ -169,8 +169,10 @@ test('every claim on the page is gated on that measurement', () => {
   const scr = screen();
   // (🎠 2026-10-27: the counts line + meter became the summary carousel — the ring, the counts, the +1s — and it sits
   //  behind the SAME gate.)
-  assert.match(scr, /\{measured \? \(\s*<>\s*<div className=\{`\$\{styles\.summary\}/, 'the summary carousel (counts, ring) is drawn on a refused read');
-  assert.match(scr, /count !== undefined && measured \? <b>/, 'the List segment prints a count nobody measured');
+  assert.match(scr, /\{measured(?: && !makerView)? \? \(\s*<>\s*<div className=\{`\$\{styles\.summary\}/, 'the summary carousel (counts, ring) is drawn on a refused read');
+  // (🎚 2026-10-30: the Guests segment and its number are gone — the ONE top row carries ✓ ✕ ? instead, behind the gate.)
+  assert.match(scr, /doors=\{\s*measured && \(gview === 'list' \|\| gview === 'map'\)\s*\?/, 'the top row prints reply counts nobody measured');
+  assert.doesNotMatch(scr, /gs-seg-guests/, 'a second, ungated guest count is back on a segment');
   // 4 · a refused read shows the page's "couldn't load" state, never sections.
   assert.match(src, /!guestsMeasured \|\| rosterAll\.length === 0 \?/, 'a refused read is not routed to the honest empty state');
   assert.doesNotMatch(scr, /hidden lg:|lg:hidden/, 'a gated figure is hidden at one width');

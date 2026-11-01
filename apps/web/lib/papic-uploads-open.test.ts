@@ -34,7 +34,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { manualUploadsClosedFrom } from './papic-uploads-open-rule';
-import { PAPIC_UPLOADS_CAMERA_INDEX } from './papic-cameras';
+import { PAPIC_HOST_CAMERA_LAST_INDEX, PAPIC_UPLOADS_CAMERA_INDEX } from './papic-cameras';
 
 const OFF = { papic_uploads_open: false };
 const ON = { papic_uploads_open: true };
@@ -130,4 +130,13 @@ test('5 · 🪤 the switch is read on its OWN select, naming nothing else', () =
       'that is a second copy of the fail-open direction, and the tested one is ' +
       'then no longer the one that runs',
   );
+});
+
+test("6 · 👥 EVERY host camera is gated — a co-host's own camera obeys the same switch (owner 2026-10-31)", () => {
+  const OFF6 = { papic_uploads_open: false };
+  for (const idx of [PAPIC_UPLOADS_CAMERA_INDEX, PAPIC_UPLOADS_CAMERA_INDEX + 1, PAPIC_HOST_CAMERA_LAST_INDEX]) {
+    assert.equal(manualUploadsClosedFrom(idx, OFF6, false), true, `host camera ${idx} adds photos with the switch off`);
+  }
+  // …and the block ends where it says: the first paid seat is an ordinary camera, never gated.
+  assert.equal(manualUploadsClosedFrom(PAPIC_HOST_CAMERA_LAST_INDEX + 1, OFF6, false), false);
 });

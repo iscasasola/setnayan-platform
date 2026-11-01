@@ -213,7 +213,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakulay',
         title: 'What is Pakulay?',
-        body: 'Pakulay is the Mood Board: your event’s colours and what each role wears, free with every account. Set it in Studio › Mood Board & Dress Code. Each guest sees their own role’s dress code on your Event Hub, and the 3D seat plan dresses them in it.',
+        body: 'Pakulay is the Mood Board: your event’s colours and what each role wears, free with every account. Set it in Studio › Palette + Dress Code. Each guest sees their own role’s dress code on your Event Hub, and the 3D seat plan dresses them in it.',
       },
       {
         slug: 'how-does-setnayan-handle-privacy',
@@ -372,7 +372,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // The supplier bar (owner 2026-10-21 "SUPPLIER BAR — TODAY · CUSTOMERS · SHOP · HUB"; More left the bar).
         slug: 'supplier-dashboard-tabs',
         title: 'Suppliers: where is everything in my dashboard?',
-        body: 'The bar is Today, Customers, Shop and Hub. Today shows the one thing waiting on you. Customers holds your people, dates and money — and your messages, which also open from the envelope at the top. Shop is your page and what you sell, with How it is going. Hub runs your event days. Settings is under your profile picture.',
+        body: 'The bar is Today, Customers, Shop and Hub. Today shows the one thing waiting on you. Customers holds your people, dates and money — and your messages, which also open from the envelope at the top. Shop is your page and what you sell, with Analytics. Hub runs your event days. Settings is under your profile picture.',
       },
       {
         slug: 'event-id-vs-slug',
@@ -591,7 +591,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'dress-code-by-role',
         title: 'How does the dress code work?',
-        body: 'Set it in Studio › Mood Board & Dress Code. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
+        body: 'Set it in Studio › Palette + Dress Code. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
       },
       {
         slug: 'palette-chip-dot',

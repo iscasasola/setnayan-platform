@@ -79,8 +79,18 @@ test('1 · the stream is mounted in exactly the two thread pages, nowhere else u
     const n = count(stripComments(readFileSync(f, 'utf8')), /<ChatMessageStream\b/g);
     for (let i = 0; i < n; i++) mounts.push(f.slice(WEB.length + 1));
   }
+  // The ONE exception: the chat lab (`/dev/chat-lab`), which draws the real stream on fixtures so a walk can see it —
+  // allowed only because it 404s in production as its FIRST statement (checked here, not assumed).
+  // The supplier's chat lab (`/dev/supplier-chat-lab`) draws it too since 2026-10-29, on the same terms.
+  const LABS = ['app/dev/chat-lab/t/[threadId]/page.tsx', 'app/dev/supplier-chat-lab/page.tsx'];
+  const product = mounts.filter((m) => !LABS.includes(m));
+  for (const LAB of LABS.filter((l) => mounts.includes(l))) {
+    const lab = stripComments(readFileSync(join(WEB, LAB), 'utf8'));
+    const body = lab.slice(lab.indexOf('{', lab.indexOf(')', lab.indexOf('export default async function'))) + 1).trimStart();
+    assert.match(body, /^if \(process\.env\.NODE_ENV === 'production'\) notFound\(\);/, `${LAB} can render on the live site`);
+  }
   assert.deepEqual(
-    mounts.sort(),
+    product.sort(),
     [COUPLE_THREAD, SUPPLIER_THREAD].sort(),
     `a conversation is drawn somewhere other than the two frames: ${mounts.join(', ')}`,
   );
@@ -137,9 +147,11 @@ test('5 · the shell draws a link tab as an anchor and never selects it', () => 
 });
 
 test("6 · each frame's ⋮ carries the embedding page's sections", () => {
+  // Read inside the ⋮'s own `links` (2026-10-28: the head's TITLE also opens `?tab=details`, the event's card).
+  const menu = supplierThread.slice(supplierThread.indexOf('<ChatThreadMenu'), supplierThread.indexOf('/>', supplierThread.indexOf('links={[')));
   for (const tab of ['quote', 'files', 'schedule', 'details']) {
     assert.equal(
-      count(supplierThread, new RegExp(`clients/\\$\\{thread\\.event_id\\}\\?tab=${tab}`, 'g')),
+      count(menu, new RegExp(`clients/\\$\\{thread\\.event_id\\}\\?tab=${tab}`, 'g')),
       1,
       `the supplier's ⋮ lost the client page's ${tab} section`,
     );

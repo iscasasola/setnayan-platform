@@ -54,6 +54,10 @@ export function allInOneRefusal(piece: string): string {
 /** Prints › Schedule — the printed programme lists only the moments for Everyone (controller 2026-10-13, 01:00 PHT). */
 export const PRINT_SCHEDULE_TIP = 'Only the moments marked for Everyone print here. A moment for the entourage or a smaller circle stays off the paper.';
 
-/** Prints › Kindly reply — the same stored line as Studio › RSVP's (owner's answer (1): two doors, one field — no link out). */
+/**
+ * Prints › Kindly reply — who guests reply to, printed on The Finer Details. 🗂 R1 (owner 2026-10-28): the line said "It is
+ * the same line Studio › RSVP shows" — the Studio RSVP tile LEFT for Guests ⚙ (and never drew this line: it is
+ * `events.print_details`, Words › Kindly reply), so the sentence that named a door that is gone is gone with it.
+ */
 export const PRINT_KINDLY_REPLY_TIP =
-  'Who guests reply to, printed on the card. A host or your coordinator is read from their account; or type your own line. It is the same line Studio › RSVP shows — change it in either place.';
+  'Who guests reply to, printed on the card. A host or your coordinator is read from their account; or type your own line.';

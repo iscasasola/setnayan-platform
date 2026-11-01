@@ -13,6 +13,7 @@ import {
 } from '@/app/onboarding/wedding/_data/wedding-cities';
 import type { PhPlace } from '@/app/onboarding/wedding/_data/ph-places';
 import { askLocationOnce } from '@/lib/location-ask';
+import { TOP_PLACES_HEAD, nearestCity, topPlaces } from '@/lib/your-place';
 
 /**
  * 📍 CITY OR AREA — ONE DROPDOWN, NEVER TYPED (owner 2026-10-01, DECISION_LOG
@@ -32,20 +33,14 @@ import { askLocationOnce } from '@/lib/location-ask';
  */
 
 type Pos = { lat: number; lon: number };
-type Row = { c: WeddingCity; d: number | null };
+type Row = { c: WeddingCity; d: number | null; rank?: number };
 
 /** Metro Manila — where "Near me" stands when the phone will not say (onboarding's own fallback). */
 const NCR_FALLBACK: Pos = { lat: 14.58, lon: 121.0 };
 
-/** The curated city nearest a pin, by km — the dropdown's pre-fill when the reception is pinned. */
-export function nearestCity(at: { lat: number; lng: number }): WeddingCity | null {
-  let best: { c: WeddingCity; d: number } | null = null;
-  for (const c of CITIES) {
-    const d = kmBetween({ lat: at.lat, lon: at.lng }, c);
-    if (!best || d < best.d) best = { c, d };
-  }
-  return best?.c ?? null;
-}
+/** The curated city nearest a pin, by km — the dropdown's pre-fill when the reception is pinned. One implementation,
+ *  in `lib/your-place.ts` (the Suppliers place sheet's locked place stands in it too). */
+export { nearestCity };
 
 /** The region half of a place's sub-line ("Metro Manila · NCR" → "Metro Manila"). */
 const area = (r: string) => r.split(' · ')[0] ?? r;
@@ -54,12 +49,20 @@ export function CityPick({
   value,
   near,
   onPick,
+  start = 'nearest',
 }: {
   /** The stored place name ('' = none yet). */
   value: string;
   /** The reception's pin, when it has one — the list is measured from it. */
   near: { lat: number; lng: number } | null;
   onPick: (name: string) => void;
+  /**
+   * What the list shows with nothing typed and Near me off. `nearest` (the Maker's Details, as shipped): the places
+   * nearest the reception's pin, else the top 30. `top10` (the Suppliers place sheet — owner 2026-10-30, "we show the
+   * top 10 locations in the country … and also allow search city?"): the app's TOP 10 IN THE PHILIPPINES, ranked 1–10,
+   * each with its km from the pin when there is one (`lib/your-place.ts`).
+   */
+  start?: 'nearest' | 'top10';
 }) {
   const [open, setOpen] = useState(false);
   const [ph, setPh] = useState<PhPlace[] | null>(null);
@@ -110,6 +113,9 @@ export function CityPick({
       }
       rows = curated;
       header = rows.length ? 'Matches' : 'No match — try another spelling';
+    } else if (start === 'top10' && !me) {
+      header = TOP_PLACES_HEAD;
+      rows = topPlaces().map((c) => ({ c, d: km(c), rank: c.top }));
     } else if (from) {
       header = me ? 'Nearest to you' : 'Nearest to your reception';
       rows = CITIES.map((c) => ({ c, d: km(c) })).sort((a, b) => (a.d ?? 0) - (b.d ?? 0)).slice(0, 30);
@@ -175,7 +181,7 @@ export function CityPick({
           </div>
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/50">{header}</p>
           <ul className="flex max-h-72 flex-col overflow-y-auto" role="listbox" aria-label="Places">
-            {rows.map(({ c, d }) => {
+            {rows.map(({ c, d, rank }) => {
               const on = c.n === value;
               return (
                 <li key={c.k}>
@@ -187,12 +193,19 @@ export function CityPick({
                     data-city-option={c.n}
                     className={`flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-2 text-left ${on ? 'bg-terracotta/10' : ''}`}
                   >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                    {rank != null ? (
+                      <span aria-hidden className="w-[18px] shrink-0 text-right font-mono text-[11px] text-ink/45" data-city-rank={rank}>
+                        {rank}
+                      </span>
+                    ) : null}
                     <span className="flex flex-col">
                       <span className="text-sm font-medium text-ink">
                         {c.n}
                         {d != null ? <span className="font-normal text-ink/55"> · {d} km</span> : null}
                       </span>
                       <span className="text-xs text-ink/55">{c.r}</span>
+                    </span>
                     </span>
                     <span aria-hidden className={`h-4 w-4 shrink-0 rounded-full border ${on ? 'border-terracotta bg-terracotta' : 'border-ink/25'}`} />
                   </button>

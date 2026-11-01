@@ -3,13 +3,15 @@ import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { after } from 'next/server';
+import { markReplyNoticesSeen } from '@/lib/rsvp-push.server';
 import { guestsSettingsHref, isSettingsRowKey } from '@/lib/event-settings-record';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
+import { resolveProfileByEvent, resolveRoleSetKeyForEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
@@ -51,7 +53,9 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { parseGuestsFilter } from '@/lib/guests-filter';
+import { GUESTS_VIEWS, guestsViewHref, parseGuestsView, parseSeatView, type GuestsView } from '@/lib/guests-views';
+import { marchOffered } from '@/lib/details-your-event';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlanMeasured, fetchTables } from '@/lib/seating';
 import { measuredOr } from '@/lib/measured-read';
@@ -65,7 +69,10 @@ import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
-import { GuestsScreen } from './_components/guests-screen';
+import { GuestsScreen, type RowInvite } from './_components/guests-screen';
+import { GuestsMarch } from './_components/guests-march';
+import RequestsPage from './claims/page';
+import SeatingPage from '../seating/page';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
 import { mapRootLabel, mayBeInvited } from '@/lib/guest-roster-view';
@@ -217,6 +224,12 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
+    /** 🗂 R4 — Seats' own view (`3d` · `list` · `map`), carried to the seat plan (`lib/guests-views.ts` `SEAT_VIEWS`). */
+    seat?: string;
+    /** ⇅ R4 slice 1 — the shared Show · Group by · Sort (`lib/guests-filter.ts` FILTER_PARAMS), read by the screen only. */
+    gshow?: string;
+    ggroup?: string;
+    gsort?: string;
     /** `1` — Guests ⚙ open (a link's way in; the ⚙ press opens it in place). */
     settings?: string;
     /** With `settings=1`: the row to land on (`SETTINGS_ROWS` key). */
@@ -280,14 +293,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   /*
-    🚶 THE WEDDING MARCH LIVES IN THE MAKER NOW (owner 2026-09-29, DECISION_LOG
-    "THE GUEST LIST KEEPS PEOPLE…"): Details › Your event › the march, in the
-    three parts. An old link to the Guest list's march view lands there; the
-    order itself (`guests.entourage_order`, `events.entourage_section_order`)
-    is untouched and the invitation prints it exactly as before.
+    🚶 THE WEDDING MARCH COMES HOME TO GUESTS (R4, owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS ·
+    MARCH"): it lived in the Maker from 2026-09-29; it is Guests › March now. The Guest list's own old march links
+    (`?gview=walk`, `?view=march`) land on it; the order itself (`guests.entourage_order`,
+    `events.entourage_section_order`) is untouched and the invitation prints it exactly as before.
   */
   if (search.gview === 'walk' || search.view === 'march') {
-    redirect(detailsItemHref(eventId, 'march'));
+    redirect(guestsViewHref(eventId, 'march'));
   }
   /*
     ⚖ THE GUESTS · HOSTS · CHECK-IN PARTS ROW IS GONE (owner 2026-09-30,
@@ -510,9 +522,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
      profile photo, it will show here too" — the account photos, beside everything else. */
   const accountRefRead = userRead.then((user) => (user ? accountPhotoRefsByGuest(supabase, eventId, user.id) : ({} as Record<string, string>)));
-  // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
-  // → null, and no row claims an account nobody measured.
-  const linkedGuestIdsRead = readLinkedGuestIds(supabase, eventId);
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -527,7 +536,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     invitationBase,
     inviteSetup,
     accountRefByGuest,
-    linkedGuestIds,
     eventPapic,
     storeShell,
   ] = await Promise.all([
@@ -542,7 +550,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     invitationBaseRead,
     inviteSetupRead,
     accountRefRead,
-    linkedGuestIdsRead,
     eventPapicRead,
     storeShellRead,
   ]);
@@ -570,6 +577,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // read the same name. lib/linked-profile-names.ts holds the gate.
   const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
+  // 📱 The couple is looking at the list → the next reply's phone notice counts from zero (owner 2026-10-31). Only when
+  // the list was really read, after the response, so it adds nothing to this page's wait.
+  if (viewer.isCouple && guestsMeasured) after(() => markReplyNoticesSeen(user.id, eventId));
   // 📏 THE READS BESIDE THE LIST — each value, and whether it is real. A refused read is
   // still an empty stand-in (the tab never crashes over one), but the page now KNOWS,
   // and `sideReads` is what it says: one line in the counts strip, "We couldn’t load
@@ -652,7 +662,49 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
+  /* 🗂 R4 · LIST · MAP · SEATS · MARCH (owner 2026-10-27/28). Seats where the type has a seat plan (the seat rooms'
+     own rule, `surfaceEnabled(…, 'seating')`); March where the role set prints an entourage (`marchOffered`, the
+     Maker's own rule) and only for the couple — the march drafts into THEIR Event Hub draft. A view this event does
+     not have is the List. 🔒 lib/r4-seats-march-forwards.test.ts */
+  const views: GuestsView[] = GUESTS_VIEWS.filter((v) =>
+    v === 'seats'
+      ? surfaceEnabled(eventProfile, 'seating')
+      : v === 'march'
+        ? viewer.isCouple && marchOffered({ offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })
+        : true,
+  );
+  const askedView = parseGuestsView(search.gview);
+  const gview: GuestsView = views.includes(askedView) ? askedView : 'list';
+  /* Seats and March are the shipped makers, drawn whole under the view row. 🗂 R4 (owner 2026-10-29, *"fastest load and
+     fewest requests"*): BOTH are streamed with the page — their reads run in parallel on the server, behind the list —
+     so a switch between List · Map · Seats · March is a client switch that asks the server for nothing; each maker's
+     code loads the first time its view is opened. Seats is the seat plan's own page (`seating/page.tsx`,
+     `host=guests`), which still asks every seat rule itself (the type, the helper's seat-plan area). */
+  const viewLoading = (v: 'seats' | 'march') => (
+    <p role="status" className="px-4 py-10 text-center text-[13px] text-ink/60" data-guests-view-loading={v}>
+      {v === 'seats' ? 'Opening your seat plan…' : 'Opening your march…'}
+    </p>
+  );
+  const bodies = {
+    ...(views.includes('seats')
+      ? {
+          seats: (
+            <Suspense fallback={viewLoading('seats')}>
+              <SeatingPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ host: 'guests', seat: gview === 'seats' ? search.seat : undefined })} />
+            </Suspense>
+          ),
+        }
+      : {}),
+    ...(views.includes('march')
+      ? {
+          march: (
+            <Suspense fallback={viewLoading('march')}>
+              <GuestsMarch eventId={eventId} />
+            </Suspense>
+          ),
+        }
+      : {}),
+  };
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
@@ -934,7 +986,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // recounted here, so the meters, the counts line and the header cannot disagree.
   const stats = guestsRead.stats;
   const flash = pickFlash(search);
-  // (`linkedGuestIds` — which guests an account holds, read in the one wait above.)
 
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.
@@ -1025,11 +1076,33 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // membership read blipped is never shown a read-only list (owner 2026-09-28 · live report 2026-10-25).
   const guestsViewOnly =
     !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
+  /* 📤 EACH ROW'S SHARE (owner 2026-10-27, "GUEST ROW = SHARE + DELETE") — the event's address and words, read ONCE above
+     (the same `invitationBase` + `inviteSetup` the open card uses), and the token of every guest the send run would hold
+     (`mayBeInvited` — never the couple, a declined guest, a passed-away one, or a +1 riding their guest's invitation).
+     Only the token travels, never the rest of the row (the-list-sends-only-what-it-draws.test.ts), and only to a viewer
+     who may send — a look-only helper gets no Share, the same seam as Select and Delete. */
+  const rowInvite: RowInvite | null =
+    !guestsViewOnly && invitationBase
+      ? {
+          base: invitationBase,
+          tokens: Object.fromEntries(
+            guests
+              .filter((g) => !selfJoinIds.includes(g.guest_id) && mayBeInvited(g) && Boolean(g.qr_token))
+              .map((g) => [g.guest_id, g.qr_token as string] as const),
+          ),
+          facts: inviteSetup.facts,
+          template: inviteSetup.template,
+        }
+      : null;
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
       roleSetKey={guestRoleSetKey}
       gview={gview}
+      seat={gview === 'seats' ? parseSeatView(typeof search.seat === 'string' ? search.seat : null) : null}
+      views={views}
+      bodies={bodies}
+      filter={parseGuestsFilter(search)}
       guests={rosterAll}
       measured={guestsMeasured}
       notLoaded={guestListUnreadLine(sideReads)}
@@ -1039,10 +1112,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}
-      linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      // 📥 R4 slice 11 — Requests inside Guests: the shipped Requests page, drawn in place (`maker=1` — every Accept ·
+      // Decline · Link stays put), streamed with the page for the couple while someone is asking (or the address asks).
+      // `maker: 'guests'` — each Accept · Decline · Link answers in place: the row stays here with a toast and Undo, a
+      // refusal is said here, nothing navigates (guests/claims/decide-in-place.tsx). An unread count streams the body too,
+      // so it can say so itself; a MEASURED zero needs no read — the screen says nobody is waiting.
+      requestsInPlace={viewer.isCouple}
+      // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs, never inside the iPhone app.
+      replyAsk={viewer.isCouple && !storeShell}
+      requestsBody={
+        viewer.isCouple && (pendingClaimsCount > 0 || pendingClaims.error !== null || search.gshow === 'requests') ? (
+          <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>
+            <RequestsPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: 'guests' })} />
+          </Suspense>
+        ) : null
+      }
+      initialAsking={search.gshow === 'requests'}
       oneQr={guestsOneQr}
+      invite={rowInvite}
       titlesWaiting={titlesWaiting}
       papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}
@@ -1587,22 +1676,6 @@ function pickFlash(search: {
  * A refusal returns null, and the column then says "—" for everybody rather than
  * a confident "Not linked" nobody measured.
  */
-async function readLinkedGuestIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  eventId: string,
-): Promise<string[] | null> {
-  const { data, error } = await supabase
-    .from('event_members')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .not('guest_id', 'is', null);
-  if (error) {
-    logQueryError('GuestsPage.linkedGuestIds', error, { eventId }, 'graceful_degrade');
-    return null;
-  }
-  return [...new Set(((data ?? []) as { guest_id: string | null }[]).map((r) => r.guest_id).filter((id): id is string => Boolean(id)))];
-}
-
 function EmptyState({
   hasGuests,
   eventId,

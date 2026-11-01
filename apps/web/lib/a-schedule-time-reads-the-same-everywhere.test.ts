@@ -121,6 +121,7 @@ const EXEMPT: Record<string, { count: number; why: string }> = {
   'lib/schedule.ts': { count: 2, why: 'the tz maths itself, and formatViewerTime — the lift into the viewer\'s zone' },
   'app/[slug]/_components/schedule-widget.tsx': { count: 1, why: 'the Clock face style\'s hand — `now`, a real instant, read in the venue\'s zone to sit among the stored wall-clock times' },
   'lib/upcoming-items.ts': { count: 1, why: 'appointments carry real timestamps, not schedule wall clocks' },
+  'app/join/crew/[token]/page.tsx': { count: 1, why: 'when the crew pass ends (vendor_crew_codes.ends_at) is a real instant, derived by the database, shown in Manila' },
 };
 
 const SCHEDULE_TIME = /\b(start_at|end_at|startAt|endAt|startIso|endIso)\b/;

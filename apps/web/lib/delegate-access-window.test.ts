@@ -109,6 +109,9 @@ test('🔑 EVERY reader of permissions_json applies the window', () => {
     // Who is told about a supplier's schedule request (S1, 2026-10-04): an
     // expired coordinator cannot approve, so must not be told.
     'lib/schedule-request-recipients.ts',
+    // The coordinator's door (owner 2026-10-28): the Events tab, Today's "Events you run" and "Open their event"
+    // are drawn only inside the window — a closed one must take the door away, not leave a dead tab.
+    'lib/events-you-run.ts',
   ];
   for (const f of READERS) {
     const src = stripComments(readFileSync(join(process.cwd(), f), 'utf8'));

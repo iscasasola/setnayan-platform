@@ -203,15 +203,16 @@ test('Announcements: nothing kept is the same bytes; a look kept adds its style 
   const [{ AnnouncementLook }, { DayOfAnnouncement }] = await withMarkersStubbed(() =>
     Promise.all([import('../app/[slug]/_components/announcement-look'), import('../app/[slug]/_components/day-of-announcement')]),
   );
-  /* The layout's wrapper, as `app/[slug]/layout.tsx` draws it (held word for word by the motion guard §2 and §4). */
+  /* As `app/[slug]/layout.tsx` mounts it: the look handed to the card, which draws it inside its own (sticky on the
+     day) wrapper right before the block's root (held word for word by the motion guard §2 and §4). */
   const draw = (stage: 'before' | 'live', sceneStyle: string | null, looks: unknown) =>
     renderToStaticMarkup(
-      React.createElement(
-        'div',
-        { className: stage === 'live' ? 'sticky top-0 z-50' : undefined },
-        React.createElement(AnnouncementLook, { stylePreferences: looks === undefined ? null : { [BLOCK_LOOKS_PREF_KEY]: looks } }),
-        React.createElement(DayOfAnnouncement, { body: 'Phones down — the ceremony is starting.', eventId: FIXTURE_EVENT.event_id, stage, sceneStyle }),
-      ),
+      React.createElement(DayOfAnnouncement, {
+        body: 'Phones down — the ceremony is starting.',
+        stage,
+        sceneStyle,
+        look: React.createElement(AnnouncementLook, { stylePreferences: looks === undefined ? null : { [BLOCK_LOOKS_PREF_KEY]: looks } }),
+      }),
     );
   const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="announcements"></span>`;
   for (const stage of ['before', 'live'] as const) {

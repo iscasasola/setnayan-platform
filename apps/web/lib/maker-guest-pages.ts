@@ -78,7 +78,12 @@ export function guestBarForStage(stage: LifecyclePhase, hasStory = true) {
   return resolveSiteNav({
     viewer: { kind: 'guest' },
     phase: STAGE_NAV_PHASE[stage],
-    hostAllowsCamera: true,
+    /* 📷 THE MAKER'S PAGES ARE THE PAGES THERE ARE TO DESIGN (owner 2026-10-30, "PAPIC ON = A CAMERA TAB ON EVERY
+       STAGE"): while Papic is on a guest's bar carries Camera on every stage, but off the day that tab only LEAVES
+       for the full-screen camera — nothing on it to fix — and on Post Event it would push Suppliers, a page the
+       couple does design, off this list. So the Maker asks with the switch open on The Day only (its Camera page is
+       the stand-in `MAKER_STAGE_PAGES.event.camera`); the canvas still draws the guest's REAL bar, Camera and all. */
+    hostAllowsCamera: STAGE_NAV_PHASE[stage] === 'day',
     anyChapterPublic: true,
     hasStory,
     hasDetails: true,

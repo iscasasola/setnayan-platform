@@ -104,6 +104,11 @@ export type BudgetSheetState =
   | null;
 
 const BudgetSheets = dynamic(() => import('./budget-sheets').then((m) => m.BudgetSheets), { ssr: false });
+/**
+ * Suppliers › Booked's Pay sheet — the supplier's own payment plan and the payment card (`vendors/_components/
+ * pay-sheet.tsx`). Loaded on the first press, never with the page.
+ */
+const PaySheet = dynamic(() => import('../../vendors/_components/pay-sheet').then((m) => m.PaySheet), { ssr: false });
 
 /** The shipped Guests / Find search waits the same 250 ms after the last keystroke. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -117,6 +122,7 @@ export function BudgetScreen({
   categories,
   targetNote,
   initialPayVendorId = null,
+  supplierOpens = 'ledger',
 }: {
   eventId: string;
   /** Writing money is the couple's alone; a delegate who may read sees the same rows without the verbs. */
@@ -139,8 +145,20 @@ export function BudgetScreen({
   targetNote?: ReactNode;
   /** 🔗 `?pay=<line_item_id>` resolved to its supplier (`payTargetVendor`): that Pay sheet opens on arrival. */
   initialPayVendorId?: string | null;
+  /**
+   * WHAT A SUPPLIER'S ROW (and the Next line's "Pay ›") OPENS.
+   *   ledger  this page's own sheet — the payments the ledger holds (the Budget page on its own)
+   *   plan    Suppliers › Booked's Pay sheet — the supplier's own payment plan, the SAME rows their Team row opens
+   *           on and the same door its "Pay" opens (owner 2026-10-30: *"i still do not see schedule and budget
+   *           properly connected to each other here"*). The Budget drawn under Booked is connected this way.
+   */
+  supplierOpens?: 'ledger' | 'plan';
 }) {
   const [sheet, setSheet] = useState<BudgetSheetState>(initialPayVendorId ? { kind: 'pay', vendorId: initialPayVendorId } : null);
+  // Under Booked, a supplier's payments ARE the Pay sheet their Team row opens (`supplierOpens: 'plan'`).
+  const planDoor = supplierOpens === 'plan';
+  const paying = planDoor && sheet?.kind === 'pay' ? sheet.vendorId : null;
+  const nameOf = (vendorId: string) => list.suppliers?.find((s) => s.vendorId === vendorId)?.name ?? 'your supplier';
   const [filter, setFilter] = useState<ListFilter>('all');
   const [query, setQuery] = useState('');
   const shown = useMemo(() => filterBudgetList(list, filter, query), [list, filter, query]);
@@ -228,11 +246,22 @@ export function BudgetScreen({
         />
       </BodyPortal>
 
+      {paying ? (
+        <PaySheet
+          eventId={eventId}
+          vendorId={paying}
+          vendorName={nameOf(paying)}
+          version={JSON.stringify(list.suppliers?.find((s) => s.vendorId === paying) ?? null)}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
+
       {sheetsWanted ? (
         <BudgetSheets
           eventId={eventId}
           canEdit={canEdit}
-          sheet={sheet}
+          // The Pay sheet stands in for this page's own supplier sheet under Booked — never both.
+          sheet={paying ? null : sheet}
           onChange={setSheet}
           list={list}
           supplierExtras={supplierExtras}

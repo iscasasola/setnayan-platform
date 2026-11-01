@@ -159,9 +159,15 @@ export function LockedQrGenerator({
   services,
   contracts,
   initialDate = '',
+  blockId = null,
 }: {
   /** The date filled in when the shop came from a day ("Show a QR", Dates › a day — 2026-10-14). */
   initialDate?: string;
+  /**
+   * The outside booking this code is for — Customers › People › "Send their code" (owner 2026-10-28). Carried as
+   * `block_id`, so the customer's row can say Code sent / Linked from the code itself.
+   */
+  blockId?: string | null;
   eventTypes: Opt[];
   /** The vendor's own leaf offerings (vendor_services), DB-driven — value is a
    *  vendor_service_id, or a VendorCategory key for the no-published-services
@@ -329,6 +335,7 @@ export function LockedQrGenerator({
   return (
     <form action={issueLockedQr} className="mt-6 space-y-5">
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
+      {blockId ? <input type="hidden" name="block_id" value={blockId} /> : null}
       <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />
       <input type="hidden" name="proof_r2_ref" value={proof.ref} />
       <input type="hidden" name="remembrance_r2_ref" value={remembrance.ref} />

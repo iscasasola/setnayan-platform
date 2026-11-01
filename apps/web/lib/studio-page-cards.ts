@@ -69,36 +69,10 @@ export const STUDIO_PAGE_CARDS: Readonly<Record<StudioTileKey, StudioPageCard>> 
     seenAt: 'On the Our Love Story page.',
     first: 'Write one moment — how you met — and add a photo.',
   },
-  march: {
-    description: 'Who walks, in what order, down both aisles.',
-    controls: 'The entourage in two columns, dragged into the order they walk; parents, sponsors and the bridal party.',
-    seenAt: 'On your Event Hub, as your entourage, and on The Entourage card.',
-    first: 'Add your parents and sponsors first; the rest fills in as you confirm people.',
-  },
-  seats: {
-    description: 'The tables, and who sits where.',
-    controls: 'Your tables, their sizes and shapes, and each guest’s seat; the room as a map.',
-    seenAt: 'On a guest’s pass (their table), and where guests find their seat on the day.',
-    first: 'Make the tables; seat people once replies are in.',
-  },
   gifts: {
     description: 'How guests can send a gift, and your thank-you.',
     controls: 'Where gifts are received — GCash, Maya, a bank, PayPal, a registry link — and the thank-you message a guest sees after giving.',
     seenAt: 'On the E-Gifts page of your Event Hub.',
     first: 'Add one way to give; write the thank-you later.',
-  },
-  rsvp: {
-    description: 'What the reply form asks, and the date to reply by.',
-    /* The designer's line named "meal, plus-one, song requests" — not checked against what the form ships; said without the list. */
-    controls: 'What the reply form asks your guests, who may reply, and the reply-by date.',
-    seenAt: 'On your Event Hub’s reply form, and in the reminder emails.',
-    first: 'Set the reply-by date; the questions have good defaults.',
-  },
-  prints: {
-    description: 'The invitation set and the printed pieces for the day.',
-    /* The pieces that SHIP (`lib/print-pieces.ts`) — the designer's line named an RSVP card and programmes, which do not. */
-    controls: 'The invitation, the entourage, the details card, the menu, passes, posters, and table signs and place cards — each as a file to print.',
-    seenAt: 'In the hands of your guests and on the tables.',
-    first: 'Download the invitation once Info and Look are done; it carries both.',
   },
 };

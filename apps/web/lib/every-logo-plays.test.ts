@@ -437,9 +437,11 @@ const STILL: Record<string, string> = {
   'app/dev/hero-lab/page.tsx': 'a dev-only lab',
   'app/dev/art-kit-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in QR on the sample bank card — not the couple’s saved logo',
   'app/dev/memories-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for kept frames — not the couple’s saved logo',
+  'app/dev/photo-privacy-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are gradient stand-ins for a supplier’s album photos — not the couple’s saved logo',
   'app/dev/bar-lab/[[...path]]/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are numbered gradient stand-ins for an event’s Memories frames — not the couple’s saved logo',
   'app/dev/home-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` is a drawn stand-in for a SHOP’s logo in the "For <name>" tag (no R2 in a lab) — not the couple’s saved logo',
   'app/dev/group-lab/page.tsx': 'a dev-only lab: its `data:image/svg+xml` pictures are drawn gradient stand-ins for a group’s photo and story frames — not the couple’s saved logo',
+  'app/dev/supplier-lab/page-lab.tsx': 'a dev-only lab: its `data:image/svg+xml` URIs are the badges’ PRINT FILE (lib/shop-badge-print.ts) handed to Save to print so the lab saves with no session — a shop’s badge pill, not the couple’s saved logo',
   'app/papic/decorate/_components/kwento-decorator.tsx': 'a flat colour swatch beside each caption-colour option in a dropdown — not a logo',
 };
 

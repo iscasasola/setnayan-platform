@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { GuestNick } from '@/app/_components/guest-nick';
 import { composeFormalName } from '@/lib/formal-name';
+import { seatWhyWords } from '@/lib/seat-why';
 import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -26,6 +28,7 @@ import {
   isAPlusOne,
   plusOneSeats,
   guestNameAsGiven,
+  guestNameWithNick,
   guestHasTicket,
 } from '@/lib/guests';
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
@@ -157,12 +160,20 @@ export function guestCardEyebrow(
     .filter(Boolean)
     .join(' · ');
 }
-/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
+/**
+ * The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by their
+ * FULL name (owner, Guests prototype v24 2026-10-29 — `guestNameWithNick`); the nickname sits beside it
+ * (`guestCardNick` → `<GuestNick>`).
+ */
 export function guestCardTitle(
-  guest: Parameters<typeof guestDisplayName>[0],
+  guest: Parameters<typeof guestNameWithNick>[0],
   plusOneOf?: GuestCardData['plusOneOf'],
 ): string {
-  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
+  return plusOneOf?.name ?? displayPersonName(guestNameWithNick(guest).name);
+}
+/** The nickname beside the card's title — none for a +1 named by their guest. */
+export function guestCardNick(guest: Parameters<typeof guestNameWithNick>[0], plusOneOf?: GuestCardData['plusOneOf']): string | null {
+  return plusOneOf?.name ? null : guestNameWithNick(guest).nick;
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
@@ -542,7 +553,7 @@ export function GuestCardBody({
           )}
           {variant === 'page' ? (
             /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
-            <h1 className={`${data.plusOneOf?.name ? 'break-words' : 'truncate'} font-display text-2xl tracking-tight text-ink`}>{guestCardTitle(guest, data.plusOneOf)}</h1>
+            <h1 className="font-display text-2xl tracking-tight text-ink [overflow-wrap:anywhere]">{guestCardTitle(guest, data.plusOneOf)}<GuestNick nick={guestCardNick(guest, data.plusOneOf)} /></h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (
@@ -596,10 +607,11 @@ export function GuestCardBody({
                 label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
                 the guest's own tab on the Event Hub — a host reading this card
                 does not know that name, so it says where they see it. */}
-            <p className="sn-eye">Their ticket</p>
-            <p className="mt-1 text-[13px] leading-snug text-ink/65">
+            {/* 🎟 "What they see on their phone" lives in the ⓘ beside the eyebrow now (owner 2026-10-27, prototype
+                `send_run_simple_2026-10-27` frame card) — the row under it is Share · NFC · New QR · ⋯. */}
+            <InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye" align="start">
               {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
-            </p>
+            </InfoTip>
           </div>
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
               do not invite themselves. */}
@@ -786,8 +798,9 @@ export function GuestCardBody({
                   options={roleOptions}
                   solo={SINGLETON_GUEST_ROLES}
                 />
-                {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
-                {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
+                {/* 🏷 The role's and the section's own words are renamed on the List's selected header now (R4 slice 4,
+                    owner 2026-10-29: "the renaming of that group will be removed since it will be set on when the
+                    highlighted group/role is pressed") — `section-head-toolbar.tsx`. The card keeps the role PICK. */}
                 {/* 🧍 "Proxy ▾" — only for a guest who HOLDS A ROLE (owner: "this only works if they have role and not guest"). */}
                 {ProxyRow && proxy && (proxy.offer || representedBy || proxy.unread) ? (
                   <ProxyRow eventId={eventId} guestId={guest.guest_id} firstName={callName} proxy={proxy} variant={variant} />
@@ -1042,6 +1055,13 @@ export function GuestCardBody({
                   ]}
                 />
                 <input type="hidden" name="table_posted" value="1" />
+                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
+                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
+                {seatTableId && data.seatPlaced ? (
+                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
+                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>

@@ -1,2 +1,2 @@
-/* Loading shell for dashboard/[eventId]/messages/[threadId] — owner perf pass 2026-06-03 (instant animated skeleton). */
-export { FeedPageSkeleton as default } from '@/components/skeletons';
+/* The thread, at once — its last-known messages in its own shape (owner 2026-10-27 "CHAT MUST BE EFFICIENT AND FAST"). */
+export { ThreadArrival as default } from '@/app/_components/chat/thread-arrival';

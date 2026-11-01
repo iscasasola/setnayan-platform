@@ -134,7 +134,8 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/, 'anti-vacuity: the frame follows `open`');
   assert.match(tools, /parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/, 'arriving on a page picks a part during the preview');
   assert.match(tools, /if \(tab && held && !previewingRef\.current && /, 'turning a page lets the held part go during the preview');
-  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) deselectRef\.current\(\);/);
+  /* (A tap on the ground puts the toolbar away since 2026-10-30 — the part stays picked; never in the preview.) */
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\);/);
   assert.match(tools, /if \(!previewing\) askPage\(p\.key\);/);
   assert.match(tools, /\{guestBarHost && \(!away \|\| previewing\)/, 'the guests’ pages cannot be turned in the preview');
   /* EXIT PREVIEW — the ONE ActionButton, clear of the home bar and of the guests' bar. */

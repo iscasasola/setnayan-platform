@@ -69,7 +69,9 @@ test('🔒 every Sheet in the gallery — + Add photos first — is drawn throug
   const all = sheets(GALLERY);
   const titles = all.map((s) => s.title);
   assert.ok(titles.includes('Add photos'), `the + Add photos sheet is gone from the gallery (found: ${titles.join(', ')})`);
-  assert.ok(all.length >= 2, `expected the gallery's own sheets (photo · Add photos), found ${all.length}`);
+  // (2026-10-30: the photo's own sheet became the shared viewer — `memories-photo-viewer.tsx` — whose Share · Tag ·
+  //  confirm panels rise INSIDE the viewer, which stands above the bar at z-80; so Add photos is the gallery's sheet.)
+  assert.ok(all.length >= 1, `expected the gallery's own sheet (Add photos), found ${all.length}`);
   // The ⚙ sheet is the shared menu door's now — the gallery mounts the door, the door draws the sheet.
   assert.match(GALLERY, /<MenuSettingsButton\b[^>]*menu="memories"/, 'the gallery no longer mounts the shared ⚙ door — where did its settings sheet go?');
   const door = sheets(MENU_DOOR);

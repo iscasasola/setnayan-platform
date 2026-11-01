@@ -20,10 +20,10 @@
  *       a row — Our Services, or the row that holds it — including an unknown
  *       future product; no row opens a page twice.
  *   5 · EVERY OLD ROW'S PAGE LIGHTS ITS NEW HOME on the rail (one resolver).
- *   6 · 3D PLAN LIVES IN SEAT PLAN — and the Seat plan is Details › Your
- *       event › Seat plan, so its pages (and /seating) light the Event Hub
- *       Maker, or Our Services where there is no Maker; the `pa3d` key
- *       survives; the seat plan still opens both 3D doors.
+ *   6 · 3D PLAN LIVES IN SEAT PLAN — and since R4 (owner 2026-10-27/28) the
+ *       Seat plan is Guests › Seats, so its pages (and /seating) light Guests,
+ *       Maker or no Maker; the `pa3d` key survives; the seat plan still opens
+ *       its 3D view, and `/plan3d` forwards there.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -281,9 +281,8 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
     ['/memories', 'memories'], ['/galleries', 'memories'],
     ['/studio/papic', 'home'], ['/studio/patiktok', 'home'], ['/studio/pakanta', 'home'],
     ['/studio/setnayan-ai', 'home'],
-    // Train n: the Seat plan row left — /seating is Details › Your event ›
-    // Seat plan, so it lights the Maker (the page lands the couple there).
-    ['/seating', 'launch'],
+    // R4: the seat plan is Guests › Seats (the page lands everyone there), so it lights Guests.
+    ['/seating', 'guests'],
   ];
   for (const [p, key] of HOMES) {
     assert.equal(activeRailKey(matchRows, `${BASE}${p}`), key, `${p || '(home)'} does not light ${key}`);
@@ -299,9 +298,10 @@ test('the Refer a couple row went to the account menu, behind the programme togg
   assert.match(switcher, /referHref \? \(\s*<Link\s+href=\{referHref\}/, 'the account menu draws no Refer a couple link');
 });
 
-/* ══ 6 · 3D PLAN LIVES IN SEAT PLAN — WHICH LIVES IN THE MAKER ════════════ */
+/* ══ 6 · 3D PLAN LIVES IN SEAT PLAN — WHICH LIVES IN GUESTS › SEATS (R4) ══ */
 
-const THREE_D_PAGES = ['/seating/lab', '/seating/lab?mode=play', '/plan3d'];
+/* `/plan3d` is a forward to Seats' 3D room since R4 — never a page to light. */
+const THREE_D_PAGES = ['/seating/lab', '/seating/lab?mode=play'];
 
 test('no surface draws a 3D Plan row — rail and ☰, phone bar', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
@@ -317,53 +317,49 @@ test('no surface draws a 3D Plan row — rail and ☰, phone bar', () => {
   }
 });
 
-test('the 3D pages light the Event Hub Maker on the rail, exactly as /seating does', () => {
-  const matchRows = eventRailMatchRows({
-    eventId: EVENT_ID, websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
-  });
-  for (const p of ['/seating', ...THREE_D_PAGES.map((x) => x.split('?')[0]!), '/plan3d/anything']) {
-    assert.equal(activeRailKey(matchRows, `${BASE}${p}`), 'launch', `${p} does not light the Maker on the rail`);
+test('the 3D pages light Guests on the rail, exactly as /seating does', () => {
+  for (const websiteEnabled of [true, false]) {
+    const matchRows = eventRailMatchRows({ eventId: EVENT_ID, websiteEnabled, seatingEnabled: true, studioRows: studioRowsFor(WEDDING) });
+    for (const p of ['/seating', ...THREE_D_PAGES.map((x) => x.split('?')[0]!)]) {
+      assert.equal(activeRailKey(matchRows, `${BASE}${p}`), 'guests', `${p} does not light Guests on the rail (Maker: ${websiteEnabled})`);
+    }
   }
 });
 
-test('the 3D pages light the Maker tab on the phone, as /seating does', () => {
+test('the 3D pages light the Guests tab on the phone, as /seating does', () => {
   const bar = buildCustomerMenuTree(EVENT_ID, {
     websiteEnabled: true, seatingEnabled: true, studioRows: studioRowsFor(WEDDING),
   });
-  const maker = bar.find((m) => m.key === 'launch')!.activeMatch as string[];
-  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.ok(maker.includes(`${BASE}${p}`), `${p} lights no tab on the phone`);
-  }
+  const guests = bar.find((m) => m.key === 'guests')!.activeMatch as string[];
+  assert.ok(guests.includes(`${BASE}/seating`), '/seating lights no tab on the phone');
+  assert.ok(!(bar.find((m) => m.key === 'launch')!.activeMatch as string[]).includes(`${BASE}/seating`), 'two tabs light the seat plan');
   assert.ok(!bar.some((m) => (m.key as string) === 'seat'), 'the phone bar grew a Seat plan tab');
 });
 
-test('with no Maker, /seating and the 3D pages light Home — never nowhere', () => {
+test('with no Maker, /seating and the 3D pages still light Guests — never nowhere', () => {
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { websiteEnabled: false, seatingEnabled: true, studioRows: studioRowsFor(WEDDING) }),
   );
   assert.ok(!rows.some((r) => r.key === 'launch' || r.key === 'seat'), 'a Maker or Seat plan row with no Maker');
-  const home = eventMenuRowClaims(rows.find((r) => r.key === 'home')!);
-  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.ok(home.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
+  const guests = eventMenuRowClaims(rows.find((r) => r.key === 'guests')!);
+  for (const p of ['/seating', '/seating/lab']) {
+    assert.ok(guests.includes(`${BASE}${p}`) || guests.includes(`${BASE}/seating`), `${p} lights nothing where there is no Maker`);
   }
 });
 
 test('the pa3d key survives — still offered, absorbed by rule, and never silently lost', () => {
   // Still in the Suite-parity product list (`studio-menu-adapts-to-event`).
   assert.ok(studioRowsFor(WEDDING).some((r) => r.key === 'pa3d'), 'pa3d left railToolsSignedIn — the Suite parity breaks');
-  assert.equal(STUDIO_ABSORBED.pa3d?.into, 'launch', 'pa3d is no longer absorbed into the Maker (the Seat plan’s home) by the documented rule');
-  /*
-    ⚠ NOT A DROP. With the host row absent (no Maker) but the product
-    offered, its pages light Our Services — not nowhere.
-  */
+  assert.equal(STUDIO_ABSORBED.pa3d?.into, 'guests', 'pa3d is no longer absorbed into Guests (the Seat plan’s home since R4) by the documented rule');
+  /* ⚠ NOT A DROP. Guests is a row of every event, so the 3D view is always claimed — Maker or not, seating or not. */
   const rows = eventMenuRows(
     buildEventMenuSections(EVENT_ID, { seatingEnabled: false, studioRows: studioRowsFor(WEDDING) }),
   );
-  const home = rows.find((r) => r.key === 'home')!;
-  assert.ok(eventMenuRowClaims(home).includes(`${BASE}/plan3d`), 'the 3D Plan is lost with no Maker row');
+  const claimed = rows.flatMap((r) => eventMenuRowClaims(r));
+  assert.ok(claimed.some((c) => `${BASE}/seating/lab`.startsWith(c)), 'the 3D Plan is lost with no seating claim');
 });
 
-test('the seat plan still opens the 3D view, and the 3D view opens /plan3d', () => {
+test('the seat plan still opens the 3D view, and /plan3d forwards to it (R4)', () => {
   const src = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
   const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   const frame = src('app/dashboard/[eventId]/seating/_components/seating-frame.tsx');
@@ -371,5 +367,6 @@ test('the seat plan still opens the 3D view, and the 3D view opens /plan3d', () 
   assert.match(editor, /labUrl\s*=\s*`\/dashboard\/\$\{eventId\}\/seating\/lab`/, 'the 2D seat plan lost its URL to the 3D view');
   assert.match(editor, /<SeatingViewSegment\b/, 'the 2D seat plan lost its List · 2D · 3D segment');
   assert.match(frame, /key:\s*'3d',\s*label:\s*'3D'/, 'the segment lost its 3D option');
-  assert.match(lab, /href=\{`\/dashboard\/\$\{eventId\}\/plan3d`\}/, 'the 3D view lost its door to the 3D Plan control centre');
+  assert.doesNotMatch(lab, /\/plan3d`/, 'the 3D view still links the retired control centre — it forwards to Seats’ 3D room');
+  assert.match(src('app/dashboard/[eventId]/plan3d/page.tsx'), /redirect\(guestsViewHref\(eventId, 'seats', \{ seat: '3d' \}\)\)/);
 });

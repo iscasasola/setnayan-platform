@@ -10,8 +10,7 @@ import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
 import { getIapGate } from '@/lib/request-platform';
-import { PAPIC_UPLOADS_CAMERA_INDEX, provisionUploadsCameraAdmin } from '@/lib/papic-cameras';
-import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
+import { hostCameraSeat, provisionUploadsCameraAdmin, readHostCamera } from '@/lib/papic-cameras';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -19,9 +18,15 @@ import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
-import { MagazineCard } from '@/app/dashboard/[eventId]/studio/papic/_components/magazine-card';
+import { MagazineCard, readMagazineCard } from '@/app/dashboard/[eventId]/studio/papic/_components/magazine-card';
 import { RecapCard } from '@/app/dashboard/[eventId]/studio/papic/_components/recap-card';
-import { LifeFlashCard } from '@/app/dashboard/[eventId]/studio/papic/_components/life-flash-card';
+import { LifeFlashCard, readLifeFlashCard } from '@/app/dashboard/[eventId]/studio/papic/_components/life-flash-card';
+import { ServiceParts, readServicePart } from '@/app/dashboard/[eventId]/studio/_components/service-parts';
+import { loadRecapCoupleSummary } from '@/lib/auto-recap';
+import { SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
+import { keepsakeDoors, type KeepsakeKey } from '@/lib/memories-keepsakes';
+import { MemoriesKeepsakeRow } from '@/app/_components/memories/memories-keepsake-row';
+import { addCellWords } from '@/lib/memories-add-cell';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
@@ -29,6 +34,8 @@ import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-wo
 import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
 import { memoriesNotice } from '@/lib/memories-notice';
+import { memoriesManagerRole } from '@/lib/memories-rules.server';
+import type { MemoriesManagerRole } from '@/lib/memories-rules';
 
 export const metadata = { title: 'Memories' };
 
@@ -43,7 +50,8 @@ type Props = { params: Promise<{ eventId: string }>; searchParams: Promise<Recor
  * compressed copies only) and one honest count beside it (`countGalleryFrames` — counted with the GRID'S OWN filters, so the number never counts a frame the grid will not draw). For the
  * couple it also draws what is theirs to run: ⚙ Gallery settings (`MemoriesSettings` — the controls that left the
  * Papic page) and + Add photos (the shipped uploader — one press: pick, the camera is claimed on the way; when adding by
- * hand is off, the sheet offers that switch).
+ * hand is off, the sheet offers that switch), with its second door, the grid's ＋ Add cell (owner 2026-10-31) — and
+ * the KEEPSAKE ROW under the top row: Magazine · Recap · Flash · Thank You, each its shipped card in the house sheet.
  *
  * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY — `memoriesUnreadable`, and each album's own read (`refused`).
  * And `refused.photos` is set when ANY capture read errored — said as "couldn't load", never as a smaller gallery.
@@ -85,6 +93,10 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     | null;
   if (!ev && !eventRes.error) notFound();
   const host = membershipRes.data?.member_type === 'couple';
+  /* 👥 WHO MANAGES THE MEMORIES RULES (owner 2026-10-30): the hosts — `host` above, the couple + every co-host — and
+     the event's coordinator. Asked only of a non-host (a host needs no second read); a failed read answers null, so a
+     refusal hides the ⚙ rather than drawing a control whose save would be refused (`lib/memories-rules.server.ts`). */
+  const managerRole: MemoriesManagerRole | null = host ? 'host' : await memoriesManagerRole(supabase, eventId, user.id);
 
   // `seesAll` = the couple's own sources reach this viewer; a viewer they do not fails closed on the hidden suppliers.
   const isCouple = seesAll;
@@ -115,7 +127,19 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   // row). ONE PRESS (owner 2026-10-26, live: "it seems there is no add photos" · "the turn on is not working as well
   // fix it"): "Choose photos" opens the picker at once, and the camera is claimed on the way (`startAddingPhotos`).
   let addPhotos: React.ReactNode = null;
+  let addCell: { line: string; tip: string } | null = null;
+  let keepsakes: React.ReactNode = null;
   if (host) {
+    /* 📖 THE KEEPSAKE ROW'S READS (owner 2026-10-31, "Build both") — each card's OWN read, started now so they run beside
+       the camera work below, and read ONCE: the answer sizes the row's button AND is handed to the card in its sheet.
+       (Marked handled at once; the `await` below still throws a refusal into the page, as the cards' own reads did.) */
+    const keepsakeReads = Promise.all([
+      readMagazineCard(eventId),
+      loadRecapCoupleSummary(eventId),
+      readLifeFlashCard(eventId),
+      readServicePart(eventId, 'papic'),
+    ]);
+    keepsakeReads.catch(() => undefined);
     // ⚠ ABSENT MEANS OPEN — the switch's own rule (`the-uploads-switch-is-real.test.ts`), read off the one event select.
     const uploadsRow = ev;
     const uploadsOpen = uploadsRow?.papic_uploads_open ?? true;
@@ -125,33 +149,30 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
        the studio render safe (`the-uploads-camera-has-no-back-door.test.ts`). Until 2026-10-26 only the studio page
        minted it, and since 2026-10-24 that page sends the couple to Home before it gets there — so on 7 of 13 live
        events the sheet's press found no camera and could only ever answer "please try again". Idempotent (the
-       UNIQUE upsert), best-effort, never throws; the same capture window as every camera. */
+       UNIQUE upsert), best-effort, never throws; the same capture window as every camera.
+       👥 ONE PER HOST (owner 2026-10-31, "yes. papic credits still"): it mints THIS host's own camera (the 4th argument
+       is the viewer's own id, never a form field) when they have none and no spare is waiting, so each couple member and
+       each co-host adds photos on their own camera — all from the one shared pool. */
     if (uploadsOpen && win) {
-      await provisionUploadsCameraAdmin(admin, eventId, { validFrom: win.startIso, validUntil: win.endIso });
+      await provisionUploadsCameraAdmin(admin, eventId, { validFrom: win.startIso, validUntil: win.endIso }, user.id);
     }
-    const { data: seat, error: seatErr } = await admin
-      .from('paparazzi_seats')
-      .select('seat_id, claim_qr_token, claimer_user_id')
-      .eq('event_id', eventId)
-      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-      .is('revoked_at', null)
-      .maybeSingle();
-    if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
-    const claimer = (seat?.claimer_user_id as string | null | undefined) ?? null;
-    // The token reaches the browser only once the camera is THIS person's; unclaimed, the picker claims it on the pick.
-    const token = claimer === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
-    const takenByOther = claimer !== null && claimer !== user.id;
+    const hostCam = await readHostCamera(admin, eventId, user.id);
+    if (hostCam.readFailed) logQueryError('EventMemoriesPage.uploadsSeat', { message: 'host camera read refused' }, { event_id: eventId }, 'graceful_degrade');
+    const seat = hostCameraSeat(hostCam.pick);
+    // The token reaches the browser only once the camera is THIS person's; a spare is claimed by the picker on the pick.
+    const mineSeat = hostCam.pick?.kind === 'mine' ? hostCam.pick.seat : null;
+    const token = mineSeat && mineSeat.claimer_user_id === user.id ? (mineSeat.claim_qr_token ?? null) : null;
     /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
        gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
        number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.
        A read that failed is null — "Couldn't check", never 0. Asked whenever the uploader is drawn — claimed or not. */
     let pot: UploadPot = null;
-    if (uploadsOpen && !takenByOther && seat?.seat_id) {
+    if (uploadsOpen && seat?.seat_id) {
       const unlocked = await eventHasPapicUnlock(await eventEntitlementClient(eventId), eventId).catch(() => false);
       if (unlocked) pot = 'unmetered';
       else {
         const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {
-          p_seat_id: seat.seat_id as string,
+          p_seat_id: seat.seat_id,
           p_event_id: eventId,
         });
         if (potErr) logQueryError('EventMemoriesPage.uploadsPot', potErr, { event_id: eventId }, 'graceful_degrade');
@@ -167,14 +188,31 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     );
     addPhotos = !uploadsOpen ? (
       <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
-    ) : takenByOther ? (
-      // Said before the press, never discovered after a pick: the one Uploads camera belongs to the other host.
-      <p className="text-sm text-ink/70" data-add-photos-taken="">
-        {UPLOADS_TAKEN_LINE}
-      </p>
     ) : (
       <AddToLibrary token={token} eventId={eventId} pot={pot} buy={buy} />
     );
+    // ＋ The grid's Add cell — the SAME door's words, from the same three faces (`lib/memories-add-cell.ts`).
+    addCell = addCellWords(!uploadsOpen ? 'off' : 'open', pot);
+
+    const [magazine, recap, flash, thankYou] = await keepsakeReads;
+    // Each door opens its SHIPPED card, unchanged, handed the read above — the stack that sat at the page's foot.
+    const cards: Record<KeepsakeKey, React.ReactNode> = {
+      magazine: <MagazineCard eventId={eventId} state={magazine} />,
+      recap: <RecapCard eventId={eventId} state={recap} />,
+      flash: <LifeFlashCard eventId={eventId} state={flash} />,
+      // 🎬 The Thank-You Video door — out of the ⚙, ONE home: this row (owner 2026-10-31).
+      'thank-you': <ServiceParts eventId={eventId} service="papic" door={thankYou} />,
+    };
+    const doors = keepsakeDoors({
+      magazine,
+      recap,
+      flash,
+      flashMin: SCOPE_MIN_MOMENTS.event,
+      thankYou: thankYou !== null,
+    });
+    /* 🔑 Keyed: its props carry ASYNC server cards, so the element reaches the client still resolving, and React (dev)
+       then asks it for a list key where the gallery draws it among its siblings (measured in the lab, 2026-10-31). */
+    keepsakes = <MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />;
   }
 
   return (
@@ -214,21 +252,19 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       unreadable={unreadable}
       refusedParts={refusedParts}
       timeZone={ev ? eventTimezoneFromCoords(ev.venue_latitude, ev.venue_longitude) : null}
-      settings={host ? <MemoriesSettings eventId={eventId} loginEmail={user.email ?? null} appleIap={appleIap} /> : null}
+      settings={
+        managerRole ? (
+          <MemoriesSettings eventId={eventId} loginEmail={user.email ?? null} appleIap={appleIap} role={managerRole} />
+        ) : null
+      }
       addPhotos={addPhotos}
+      addCell={addCell}
+      keepsakes={keepsakes}
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
+      // 🏷 Tag in the viewer — the hosts and the coordinator (the 2026-10-30 Memories ruling); the action re-checks.
+      canTag={managerRole !== null}
     />
-    {/* 📖 MADE FROM YOUR MEMORIES — Photo Notes Magazine, Your Recap and this day's Life-Flash, moved here unchanged from
-        the Papic page when it was removed (2026-10-26; controller's call, DECISION_LOG "THE PAPIC CARD LIVES ON HOME ›
-        TODAY"): they are made FROM these photos, so they sit under them. The host's, as the page was; each self-gates. */}
-    {host ? (
-      <section className="flex flex-col gap-3 px-4 pb-8 pt-2" aria-label="Made from your memories" data-memories-keepsakes="">
-        <MagazineCard eventId={eventId} />
-        <RecapCard eventId={eventId} />
-        <LifeFlashCard eventId={eventId} />
-      </section>
-    ) : null}
     {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
     <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </>

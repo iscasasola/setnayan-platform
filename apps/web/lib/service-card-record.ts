@@ -4,7 +4,7 @@
  * Owner-locked 2026-07-28 (DECISION_LOG row 2819): "every event this card
  * creates is documented on the card". A card that has done work earns a record
  * — how many events it has served, what kind, a short anonymized ledger of the
- * most recent ones, and a milestone medal at 10 / 25 / 50 / 100.
+ * most recent ones, and a milestone medal at each step of `MILESTONE_THRESHOLDS`.
  *
  * TWO HALVES, deliberately split:
  *   • compileCardRecord() is PURE — raw reader payload in, view model out. It
@@ -55,9 +55,13 @@ import { formatEventTypeLabel } from '@/lib/reviews';
  * Milestone medals. A medal is a PURE FUNCTION of the booked count — nothing is
  * awarded, stored, or granted, so a medal can never drift from the number it
  * claims to represent, and a booking that is later voided silently un-earns it.
- * Owner-locked ladder 2026-07-28.
+ * Owner-locked ladder 2026-07-28 (10 / 25 / 50 / 100), CHANGED 2026-10-28 — owner, verbatim: *"like youtube. they
+ * have specific numbers that are not too close. so they always strive to be better"* → *"10,50,100,500,1000,5000,
+ * 10000?"*. Steps far apart, so each one is worth reaching. ⚠ A shop at 25–49 events lost its old "25" medal with
+ * this change (nothing was stored, so nothing needed revoking). The THE ONE SOURCE: every badge, tier and tracker
+ * (`lib/shop-badges.ts`, `lib/badge-tiers.ts`) reads this list.
  */
-export const MILESTONE_THRESHOLDS = [10, 25, 50, 100] as const;
+export const MILESTONE_THRESHOLDS = [10, 50, 100, 500, 1000, 5000, 10000] as const;
 
 /**
  * Hard cap on ledger rows. The SQL reader already LIMITs to this, and the pure

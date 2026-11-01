@@ -26,6 +26,7 @@ export type UploadsClaimCode =
   | 'unavailable'
   | 'no_camera'
   | 'taken'
+  | 'full'
   | 'claim_failed';
 
 /** The seat as the action reads it (service role — the token is never sent to the browser before the claim lands). */
@@ -42,7 +43,8 @@ export function uploadsClaimStep(seat: UploadsSeatRead, readFailed: boolean): { 
 
 /**
  * After the claim: `papic_claim_seat`'s answer. 'claimed' is BOTH "it is yours now" and "it was already yours" — the
- * second press is a no-op in the database, so it is a no-op here. 'taken' is somebody else's (the other host).
+ * second press is a no-op in the database, so it is a no-op here. 'taken' is somebody else's: since every host has their
+ * own camera (owner 2026-10-31), that is only ever another host claiming the same spare a moment earlier.
  */
 export function uploadsClaimAnswer(status: string | null | undefined): { ok: true } | { refuse: UploadsClaimCode } {
   if (status === 'claimed') return { ok: true };
@@ -52,8 +54,11 @@ export function uploadsClaimAnswer(status: string | null | undefined): { ok: tru
   return { refuse: 'claim_failed' };
 }
 
-/** Before any press, when the one Uploads camera is already the other host's — said up front, not after a pick. */
-export const UPLOADS_TAKEN_LINE = 'Adding photos on this event is set up on the other host’s account — add them from there.';
+/*
+ * 👥 THERE IS NO "IT IS THE OTHER HOST'S" LINE ANY MORE (owner 2026-10-31, *"yes. papic credits still"*): every host —
+ * each couple member and each co-host — has their own host camera (`hostCameraPick`, `lib/papic-cameras.ts`), so no host
+ * is ever sent to somebody else's account to add a photo. `UPLOADS_TAKEN_LINE` was deleted with the one-camera model.
+ */
 
 /** Every refusal in words that name something the reader can do. */
 export function uploadsClaimWords(code: UploadsClaimCode): string {
@@ -67,7 +72,9 @@ export function uploadsClaimWords(code: UploadsClaimCode): string {
     case 'no_camera':
       return 'Adding photos isn’t ready on this event yet — close this, pull down to refresh, and pick again. Nothing was uploaded.';
     case 'taken':
-      return `${UPLOADS_TAKEN_LINE} Nothing was uploaded.`;
+      return 'Another host took that camera a moment ago — close this, pull down to refresh, and pick again. Nothing was uploaded.';
+    case 'full':
+      return 'Every host camera on this event is already in use, so adding photos can’t start from this account. Nothing was uploaded.';
     case 'claim_failed':
       return 'Adding photos didn’t start — nothing was uploaded. Try again in a moment.';
   }

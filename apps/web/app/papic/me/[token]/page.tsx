@@ -228,9 +228,6 @@ export default async function PapicMyCameraPage({ params }: Props) {
         title="This link isn't active."
         sub="This personal QR doesn't open a camera right now — it may have been replaced with a new one. Ask your host for your current QR or link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

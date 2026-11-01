@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import { emitNotification } from './notification-emit';
+import { logQueryError } from './supabase/error-detect';
 import { isNoteOnlySuggestion } from './schedule-ros';
 import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
 
@@ -229,7 +230,12 @@ export async function settleAfterAsking(eventId: string, suggestionId: string): 
         .select('supplier_requests_auto_agree')
         .eq('event_id', eventId)
         .maybeSingle();
-      if (error || !data) return null;
+      if (error) {
+        // Unread = Off: the request waits for a person (said in the log, never the look of a choice).
+        logQueryError('settleAfterAsking.autoAgree', error, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }
+      if (!data) return null;
       return (data as { supplier_requests_auto_agree: boolean | null }).supplier_requests_auto_agree === true;
     },
     async () => {

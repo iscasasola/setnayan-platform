@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useState } from 'react';
 import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -156,11 +157,14 @@ function useUploadSlot() {
  */
 export function LockedQrGenerator({
   eventTypes,
+  dateExempt = false,
   services,
   contracts,
   initialDate = '',
   blockId = null,
 }: {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   /** The date filled in when the shop came from a day ("Show a QR", Dates › a day — 2026-10-14). */
   initialDate?: string;
   /**
@@ -371,12 +375,18 @@ export function LockedQrGenerator({
             name="event_date"
             type="date"
             required
-            min={today}
+            min={eventDateMinFor(today, dateExempt)}
             className="input-field w-full"
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
           />
           <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+          {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+          {eventDateFloorRefusal({ date: eventDate, exempt: dateExempt }) ? (
+            <p role="alert" data-event-date-floor="" className="text-xs text-danger-700">
+              {EVENT_DATE_FLOOR_MESSAGE}
+            </p>
+          ) : null}
           {dateStatusLoading && !dateStatus && (
             <p className="flex items-center gap-1.5 text-xs text-ink/40">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />

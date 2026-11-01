@@ -55,9 +55,11 @@ type Props = {
   label?: string;
   /** False on a vendor-free type: no Suppliers row (`needRows`). */
   marketplace?: boolean;
+  /** 💍 The founders' (is_internal) account — any date (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
 };
 
-export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', marketplace = false }: Props) {
+export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', marketplace = false, dateExempt = false }: Props) {
   if (!view) {
     return (
       <>
@@ -66,10 +68,10 @@ export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', m
       </>
     );
   }
-  return <Paced view={view} steps={steps} start={start} finish={finish} label={label} marketplace={marketplace} />;
+  return <Paced view={view} steps={steps} start={start} finish={finish} label={label} marketplace={marketplace} dateExempt={dateExempt} />;
 }
 
-function Paced({ view, steps, finish, label, marketplace }: Props & { view: SetupView; label: string; marketplace: boolean }) {
+function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: Props & { view: SetupView; label: string; marketplace: boolean }) {
   const scope = useMemo(() => ({ marketplace }), [marketplace]);
   const [answers, setAnswers] = useState<SetupAnswers>(() => setupDefaults(view));
   const [preset, setPreset] = useState<NeedPreset>(() => defaultPresetFor(view.eventType));
@@ -131,7 +133,7 @@ function Paced({ view, steps, finish, label, marketplace }: Props & { view: Setu
           onName={setName}
           where={answers.whereText}
           onWhere={(v) => setAnswers((a) => ({ ...a, whereText: v, where: v.trim() ? 'place' : null }))}
-          when={only ? { value: when, onChange: setWhen } : null}
+          when={only ? { value: when, onChange: setWhen, dateExempt } : null}
           preset={preset}
           onPreset={(p) => {
             setPreset(p);

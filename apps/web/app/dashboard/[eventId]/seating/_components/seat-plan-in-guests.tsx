@@ -93,7 +93,8 @@ export function SeatPlanInGuests({ children, seat }: { children: ReactNode; seat
           (`--gs-stick-h`, the row's measured height); the plan in the middle runs under it, it is the background. */}
       <SeatPlanSlot name="place" className={`hidden min-h-0 w-60 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-ink/10 p-2 lg:flex ${under ? UNDER_THE_ROW : ''}`} />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
-      <SeatPlanSlot name="guests" className={`hidden min-h-0 w-80 shrink-0 flex-col overflow-y-auto border-l border-ink/10 md:flex ${under ? UNDER_THE_ROW : ''}`} />
+      {/* 🗺 2D is the room (owner 2026-11-01): the plan draws no guest list there, so an EMPTY guests column takes no room. */}
+      <SeatPlanSlot name="guests" className={`hidden min-h-0 w-80 shrink-0 flex-col overflow-y-auto border-l border-ink/10 md:[&:not(:empty)]:flex ${under ? UNDER_THE_ROW : ''}`} />
     </div>
   );
 }

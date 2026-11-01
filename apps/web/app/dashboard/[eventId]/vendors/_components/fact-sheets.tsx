@@ -24,6 +24,7 @@
  *
  * Lab: `FactSheetStandInCtx` answers the read and the writes from fixtures (`/dev/suppliers-lab?sheet=…`).
  */
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
 import { CalendarDays, Check, RotateCcw, Search, Star, X } from 'lucide-react';
@@ -295,7 +296,7 @@ function DateBody({
             name={shown.precision === 'day' ? 'Change the day' : 'The day'}
             value={shown.precision === 'day' ? shown.date : null}
             empty="Pick the day"
-            min={todayKey()}
+            min={eventDateMinFor(todayKey(), false)}
             onKeep={(day) => save(day, 'day')}
             pillAttrs={{ 'data-fact-date-row': '' }}
           />

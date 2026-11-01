@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { HeartHandshake, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -72,6 +74,7 @@ const ERROR_COPY: Record<string, string> = {
   plan_next_year_failed:
     'We couldn’t set up next year’s event. Nothing was charged — please try again.',
   missing_name: 'Please give the event a name.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   invalid_type:
     "That event type isn't available yet — pick one to continue.",
   missing_ceremony_type:
@@ -411,6 +414,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         hiddenTypeKeys={hiddenTypeKeys}
         subjects={subjects}
         todayISO={today}
+        dateExempt={await viewerIsInternal().catch(() => false)}
         couple={together}
         groupTypeKeys={groupSubjects.length > 0 ? groupTypes.map((t) => t.key) : undefined}
       />

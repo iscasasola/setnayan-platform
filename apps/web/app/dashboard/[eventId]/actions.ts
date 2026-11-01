@@ -15,6 +15,8 @@ import { isCelebrantShape } from '@/lib/event-type-profile';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { parsePaxSettingsForm } from '@/lib/pax-settings-form';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -89,7 +91,7 @@ function isPrecision(value: unknown): value is EventDatePrecision {
  * the Edit button, and this action enforces the same rule server-side as
  * defense-in-depth against direct form submits.
  */
-export async function updateEventDate(formData: FormData) {
+export async function updateEventDate(formData: FormData): Promise<{ ok: false; error: string } | void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
@@ -107,17 +109,6 @@ export async function updateEventDate(formData: FormData) {
       throw new Error('Invalid date format — use YYYY-MM-DD');
     }
     eventDate = trimmed;
-  }
-
-  // Task #41 (2026-05-22) — reject past dates. The client `min` attrs
-  // restrict the picker, but a direct form-submit could still try to
-  // sneak past it; this is defense-in-depth. Precision-aware: year mode
-  // accepts the rest of the current calendar year, month mode the rest
-  // of the current month, day mode strictly today onwards.
-  if (eventDate && isEventDateInPast(eventDate, newPrecision)) {
-    throw new Error(
-      "Wedding date can't be in the past. Pick today or a future date.",
-    );
   }
 
   const supabase = await createClient();
@@ -138,6 +129,27 @@ export async function updateEventDate(formData: FormData) {
   // Hub's Apply asks the same one when it writes a date typed into the draft.
   const prior = { date: (priorRow?.event_date as string | null | undefined) ?? null, precision: priorRow?.event_date_precision };
   const next = { date: eventDate, precision: newPrecision };
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) —
+  // RETURNED, not thrown, so the owner's words reach the screen beside the date
+  // (a thrown message is replaced by a generic one in production).
+  const floorRefusal = eventDateFloorRefusal({
+    date: eventDate,
+    precision: newPrecision,
+    prior,
+    exempt: await eventDateFloorExempt(supabase, { eventId }),
+  });
+  if (floorRefusal) return { ok: false, error: floorRefusal };
+
+  // Task #41 (2026-05-22) — reject past dates. The client `min` attrs
+  // restrict the picker, but a direct form-submit could still try to
+  // sneak past it; this is defense-in-depth. Precision-aware: year mode
+  // accepts the rest of the current calendar year, month mode the rest
+  // of the current month, day mode strictly today onwards.
+  if (eventDate && isEventDateInPast(eventDate, newPrecision)) {
+    throw new Error(
+      "Wedding date can't be in the past. Pick today or a future date.",
+    );
+  }
   if (eventDateChangeIsGoverned(prior, next)) {
     const { count } = await supabase
       .from('event_vendors')

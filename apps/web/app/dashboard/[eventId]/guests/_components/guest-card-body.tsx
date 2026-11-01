@@ -333,7 +333,7 @@ export function GuestCardBody({
      ruled 2026-09-29). Their sentences speak of them as their guest's +1. 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
   const typedName = seatNameAsTyped(guest);
   const isSeat = Boolean(guest.plus_one_of_guest_id);
-  const callName = typedName.first_name || (data.plusOneOf ? `${data.plusOneOf.hostName}’s +1` : isSeat ? 'Their +1' : guest.first_name);
+  const callName = typedName.first_name || (data.plusOneOf ? `${data.plusOneOf.hostName}’s ${data.plusOneOf.mark}` : isSeat ? 'Their +1' : guest.first_name);
   const inviteUrl = invitationBase && guest.qr_token ? invitationLinkOn(invitationBase, guest.qr_token) : null;
   // Linked is known only to the couple (it reads another account); anyone else is told nothing either way.
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;

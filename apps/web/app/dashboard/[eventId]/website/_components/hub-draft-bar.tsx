@@ -136,11 +136,22 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
   date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',
+  date_before_first_event: 'is before December 19, 2026 — it stays in your draft',
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
   address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
+
+/**
+ * One held key, in words. 💍 A date before the first event day is said in the owner's own
+ * words — the server sends that sentence AS the label (hub-draft-actions.ts), so it is not
+ * imported into the Maker's first load.
+ */
+function heldLine(h: { label: string; reason: HubDraftRefusal }): string {
+  if (h.reason === 'date_before_first_event') return h.label;
+  return `${h.label} ${HELD_REASON[h.reason]}.`;
+}
 
 /** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
 const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset'];
@@ -309,7 +320,7 @@ function ResultLine({ result }: { result: HubDraftActionResult | null }) {
         <ul className="mt-1 list-disc pl-5">
           {result.held.map((h, i) => (
             <li key={`${h.label}-${i}`}>
-              {h.label} {HELD_REASON[h.reason]}.
+              {heldLine(h)}
             </li>
           ))}
         </ul>
@@ -770,11 +781,11 @@ function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDr
   if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
   if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
   if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;
-  const all = outcome.held.map((h) => `${h.label} ${HELD_REASON[h.reason]}.`).join(' ');
+  const all = outcome.held.map(heldLine).join(' ');
   const one = outcome.held.length === 1 ? outcome.held[0]! : null;
   return (
     <span role="alert" data-maker-save-status="held" title={all} className={loud}>
-      {one ? `${one.label} ${HELD_REASON[one.reason]}.` : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
+      {one ? heldLine(one) : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
     </span>
   );
 }

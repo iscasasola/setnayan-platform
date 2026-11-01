@@ -70,9 +70,13 @@ test('1 · no drag on a phone: a press is a tap below 768 px, and every plan pre
     /onPointerDown=\{on(Hub|Marker|Booth|Sign|RectGrip|WallGrip)(PointerDown|GripDown|Down)\(/,
     'a plan element binds a DRAG handler with no planPress check — it would drag on a phone',
   );
-  for (const kind of ['Hub', 'Marker', 'Booth', 'Sign']) {
+  for (const kind of ['Marker', 'Booth', 'Sign']) {
     assert.match(ed, new RegExp(`press === 'drag' \\? on${kind}PointerDown\\(`), `${kind}: the drag handler is not behind planPress`);
   }
+  /* 🗺 One exception (owner 2026-11-01, "SEATS 2D IS THE ROOM": *"impossible for me to move the table"*): in Guests ›
+     Seats › 2D the PICKED table drags on a phone too. Every other table still asks planPress (`tablePress`). */
+  assert.match(ed, /tablePress\(t\) === 'drag' \? onHubPointerDown\(/, 'Hub: the drag handler is not behind planPress / the picked-table rule');
+  assert.match(ed, /const tablePress = \(t: EventTableRow\): 'tap' \| 'drag' => \(roomOnly && highlightId === t\.table_id \? 'drag' : press\);/);
   assert.match(ed, /press === 'drag' \? onRectGripDown\('stage'\) : undefined/, 'the resize grips mount on a phone');
   assert.match(ed, /press === 'drag' \? onWallGripDown\('se'\) : undefined/, 'the wall grips mount on a phone');
   // The phone tap never moves anything: it selects, seats, or links.

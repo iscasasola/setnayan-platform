@@ -125,7 +125,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
         q={state.q}
         show={state.show}
         drawer={panel}
-        counts={`${cats.groups.length} groups · ${cats.categories.length} categories · ${cats.services.length} services`}
+        counts={`${cats.groups.length} groups · ${cats.categories.length} categories · ${cats.failed.includes('services') ? '—' : cats.services.length} services`}
         groupDefaultIcon={GROUP_DEFAULT_ICON}
         basePath="/dev/categories-lab"
       />

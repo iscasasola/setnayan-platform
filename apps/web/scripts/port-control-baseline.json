@@ -24,6 +24,7 @@
         "DesktopUpdaterListener",
         "DeviceCapture",
         "FrontDoor",
+        "GlobalClearField",
         "GlobalHaptics",
         "GlobalSliderHint",
         "LastSeenSignedOutWipe",
@@ -10002,6 +10003,7 @@
         "ChildRail",
         "Chips",
         "CityPick",
+        "ClearButton",
         "ClusterHead",
         "CompareSheet",
         "CompareTable",
@@ -10574,6 +10576,7 @@
         "CanvasBridgeWatch",
         "CanvasFrames",
         "CanvasHold",
+        "CanvasLanding",
         "CanvasStaysOnThePage",
         "CanvasWords",
         "CanvasWordsContext.Provider",
@@ -13791,6 +13794,31 @@
         "SoftGate"
       ]
     },
+    "/v/[slug]/dates": {
+      "files": [
+        "v/[slug]/dates/_components/check-a-date-calendar.tsx",
+        "v/[slug]/dates/page.tsx"
+      ],
+      "destinations": [
+        "/dashboard/[seg]/messages/[seg]",
+        "/login",
+        "/v/[seg]",
+        "/v/[seg]/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "CalendarGrid",
+        "CheckADateCalendar",
+        "ChosenRow",
+        "FormRows",
+        "Metadata",
+        "Sheet",
+        "SignInHereLink",
+        "Step",
+        "SwitchRow"
+      ]
+    },
     "/vendor-dashboard": {
       "files": [
         "vendor-dashboard/_components/badge-earned-line.tsx",
@@ -15727,6 +15755,7 @@
         "GridCard",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionsEditor",

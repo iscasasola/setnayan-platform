@@ -1,7 +1,8 @@
 import type { Chapter, MomentLike, TaskRow } from '@/lib/schedule-chapters';
+import type { ChapterMoment } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 
 /**
- * 🧪 FAKE CHAPTERS FOR THE LABS (`/dev/chapters-lab`, `/dev/home-lab?settings=1&row=chapters`). A sample wedding on
+ * 🧪 FAKE CHAPTERS FOR THE LAB (`/dev/chapters-lab`). A sample wedding on
  * 18 Dec with made-up venues — the SHAPE of a real run of show (preparations split by room in one hotel, a ceremony at
  * a parish, a reception and an after party back at the hotel, a reception egress past midnight), never anyone's data.
  * Nothing here is written anywhere.
@@ -45,6 +46,42 @@ export const LAB_CHAPTERS: Chapter[] = [
     photo_when: 'after_event',
   }),
   chapter('00000000-0000-4000-8000-0000000000c6', 'After party', '23:00', '02:00', 'Hotel Aurora', 'Foyer', { photo_who: 'tagged' }),
+];
+
+/**
+ * 📖 Step 3a, the Schedule page: a chapter with no time yet on the day ("Time TBA"), and one before the day — a fitting —
+ * which lives in Planning Stage.
+ */
+export const LAB_TBA_CHAPTER: Chapter = chapter('00000000-0000-4000-8000-0000000000c7', 'Send-off', '00:00', null, null, null, { time_tba: true });
+export const LAB_PLANNING_CHAPTER: Chapter = chapter('00000000-0000-4000-8000-0000000000c8', 'Final fitting', '15:00', '16:00', 'Atelier Rosa', null, {
+  start_at: '2026-12-05T15:00:00.000Z',
+  end_at: '2026-12-05T16:00:00.000Z',
+  moments: 1,
+});
+export const LAB_SCHEDULE_CHAPTERS: Chapter[] = [...LAB_CHAPTERS, LAB_TBA_CHAPTER, LAB_PLANNING_CHAPTER];
+
+const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean, who: string, day = LAB_EVENT_DAY): ChapterMoment => ({
+  block_id: `00000000-0000-4000-8000-0000000m${id}`,
+  parent_block_id: parent,
+  label,
+  start_at: `${day}T${hhmm}:00.000Z`,
+  is_public: pub,
+  who,
+});
+
+/** The moments inside the lab's chapters — the Ceremony's run of show, the Reception's ingress and egress. */
+export const LAB_CHAPTER_MOMENTS: ChapterMoment[] = [
+  m('0001', LAB_CHAPTERS[0]!.block_id, 'Hair and make-up starts', '06:30', false, 'Glow HMUA'),
+  m('0002', LAB_CHAPTERS[0]!.block_id, 'Gown on', '11:30', false, ''),
+  m('0003', LAB_CHAPTERS[0]!.block_id, 'Bride’s portraits', '12:30', false, 'Lightbox Studio'),
+  m('0004', LAB_CHAPTERS[3]!.block_id, 'Guests arrive', '15:00', true, ''),
+  m('0005', LAB_CHAPTERS[3]!.block_id, 'Line up', '15:15', false, 'The Planning Desk'),
+  m('0006', LAB_CHAPTERS[3]!.block_id, 'Wedding march', '15:30', true, 'Lightbox Studio'),
+  m('0007', LAB_CHAPTERS[3]!.block_id, 'Mass', '15:40', true, ''),
+  m('0008', LAB_CHAPTERS[4]!.block_id, 'Florist sets the stage', '12:00', false, 'Bloom & Co.'),
+  m('0009', LAB_CHAPTERS[4]!.block_id, 'Dinner is served', '19:00', true, 'Hotel Aurora banquets'),
+  m('0010', LAB_CHAPTERS[4]!.block_id, 'Strike and load-out', '23:30', false, 'Bloom & Co.'),
+  m('0011', LAB_PLANNING_CHAPTER.block_id, 'Last pinning', '15:15', false, '', '2026-12-05'),
 ];
 
 /* ── the run-of-show shape: ONE moment, THREE parallel tasks, TWO places ─────────────────────────────────────── */

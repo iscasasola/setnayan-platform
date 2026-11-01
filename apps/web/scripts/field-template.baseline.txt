@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 323 files · 769 boxes
+# 325 files · 771 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -47,6 +47,7 @@
 3 apps/web/app/admin/categories/_components/add-rows.tsx
 4 apps/web/app/admin/categories/_components/ask-prefill.tsx
 5 apps/web/app/admin/categories/_components/drawer-kit.tsx
+1 apps/web/app/admin/categories/_components/event-type-asks.tsx
 8 apps/web/app/admin/categories/_components/event-type-panel.tsx
 1 apps/web/app/admin/categories/_components/four-level-map.tsx
 1 apps/web/app/admin/categories/_components/in-place.tsx
@@ -115,6 +116,7 @@
 1 apps/web/app/dashboard/(account)/api-keys/page.tsx
 1 apps/web/app/dashboard/(account)/clusters/_components/create-cluster-form.tsx
 1 apps/web/app/dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx
+1 apps/web/app/dashboard/(account)/create-event/_components/ask-for-event-type.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/create-location-picker.tsx
 2 apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx
 3 apps/web/app/dashboard/(account)/creator/page.tsx

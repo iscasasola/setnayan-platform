@@ -1,4 +1,5 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readGuestChapterReplies, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -1474,6 +1475,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1746,6 +1748,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -2522,11 +2525,17 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  const chapterReplies = invitationChapters && invitationChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, invitationChapters);
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({

@@ -55,6 +55,8 @@ import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { EventWordsProvider } from './event-words-provider';
+import { ChapterNotices } from './chapter-notices';
+import { chapterNotices, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { eventWordsFor } from '../_lib/event-words';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -463,6 +465,14 @@ type SiteBodyProps = {
   // visitors). Hoisted to the page level 2026-05-23 so both identity tiers
   // can render the Schedule widget.
   scheduleBlocks: ScheduleBlockRow[];
+  /**
+   * ✉ GUESTS AND RSVP BY CHAPTER (owner 2026-11-01, plan §3 · §11c, Step 5). The invitation's chapters (`null` = the
+   * read failed or none were read — the page then draws the reply and Details › Schedule as before), this guest's own
+   * answers per chapter, and the names of chapters they said yes to that left the invitation.
+   */
+  invitationChapters?: readonly InvitationChapter[] | null;
+  chapterReplies?: readonly StoredChapterReply[] | null;
+  removedChapterLabels?: ReadonlyMap<string, string>;
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
@@ -642,6 +652,9 @@ export async function SiteBody({
   ourPhotoUrls,
   widgets: widgetsIn,
   scheduleBlocks,
+  invitationChapters = null,
+  chapterReplies = null,
+  removedChapterLabels,
   backdrop,
   liveWall,
   liveWallUnreadable = false,
@@ -3240,6 +3253,7 @@ export async function SiteBody({
       guest={guest}
       sideLabel={sideLabel}
       scheduleBlocks={scheduleBlocks}
+      invitationChapters={invitationChapters}
       isLive={isLive}
       scheduleEstimated={
         isGuestNowTriggerEnabled() &&
@@ -3404,6 +3418,15 @@ export async function SiteBody({
             }
           >
 
+          {/* ✉ AFTER THE INVITES WENT OUT (ruled 1 Nov, plan §9 #7): a chapter added since this guest replied asks
+              one Yes / Can't make it; one they said yes to that left the invitation says so, once. Nothing at all
+              when there is neither — and never on the Maker's canvas. */}
+          {isMakerCanvas ? null : (
+            <ChapterNotices
+              action={submitRsvp.bind(null, event.event_id, guest.guest_id)}
+              {...chapterNotices(invitationChapters ?? [], chapterReplies, guest.rsvp_status, removedChapterLabels ?? new Map())}
+            />
+          )}
           {replyCard && tabs.on ? (
             /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page the Welcome draws no Reply card — the cover's
                button opens Me at its Reply (`#me-reply`). */
@@ -3991,6 +4014,7 @@ export async function SiteBody({
                       guest={guest}
                       sideLabel={sideLabel}
                       scheduleBlocks={scheduleBlocks}
+                      invitationChapters={invitationChapters}
                       isLive={isLive}
                       isLimitedPlusOne={isLimitedPlusOne}
                       ourPhotoUrls={ourPhotoUrls}
@@ -4040,6 +4064,7 @@ export async function SiteBody({
                         guest={guest}
                         sideLabel={sideLabel}
                         scheduleBlocks={scheduleBlocks}
+                        invitationChapters={invitationChapters}
                         isLive={isLive}
                         isLimitedPlusOne={isLimitedPlusOne}
                         ourPhotoUrls={ourPhotoUrls}
@@ -4369,6 +4394,9 @@ export async function SiteBody({
                    this page already holds. Null for a couple who arranged nothing: the card as it always was. */
                 lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
                 pictures={rsvpPictures}
+                /* ✉ The invitation's chapters and this guest's answers (Step 5) — the same reads the reply page uses. */
+                chapters={invitationChapters}
+                chapterReplies={chapterReplies}
               />
               {/* 🎨 EACH LINE'S LOOK REACHES THIS SHEET TOO (2026-10-10 — a dead setting until now: a Font, a Colour,
                   a Size, a Build in set on the Maker's RSVP stage showed on the invitation's reply page and never

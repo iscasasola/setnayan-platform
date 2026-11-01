@@ -6,6 +6,8 @@ import type { GuestRow } from '../_lib/types';
 import { guestRoleLabel, isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { holdsARole, roleOfRecord, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
+import { RsvpCantPick, RsvpChapterList } from './rsvp-chapters';
+import { chapterAnswers, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
 import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
@@ -68,7 +70,17 @@ export function RsvpWidget({
   sceneStyle = null,
   lines = null,
   pictures,
+  chapters = null,
+  chapterReplies = null,
 }: {
+  /**
+   * ✉ THE INVITATION'S CHAPTERS (owner 2026-11-01, plan §3 "RSVP depends on chapters", Step 5) — read by the page
+   * (`readInvitationChapters`). Given: the card names them (time, and the venue or "Venue TBA") above the answer, and
+   * "I can't make it" asks which (two or more). `null`/empty: the card as it always was — one answer to the invitation.
+   */
+  chapters?: readonly InvitationChapter[] | null;
+  /** This guest's own answers per chapter (`readGuestChapterReplies`); `null` = none read. */
+  chapterReplies?: readonly StoredChapterReply[] | null;
   /**
    * 🧱 THE CARD'S LINES IN THE COUPLE'S ORDER, with the lines they added and their groups (the Maker's RSVP stage —
    * ＋, drag, Group; `rsvpScreenLayout(readRsvpLook(config), 'rsvp')`, `lib/rsvp-look.ts`). `null` — a couple who
@@ -216,6 +228,16 @@ export function RsvpWidget({
 }) {
   const action = doorAction ?? submitRsvp.bind(null, eventId, guest.guest_id);
   const onDoor = Boolean(doorAction);
+  /* ✉ By chapter: each chapter's answer, and whether this guest is coming to only SOME — then the card reopens on
+     "I can't make it" with those still ticked, so an unrelated Save (a phone number) can never turn a partial answer
+     into a yes to everything. */
+  const inviteChapters = chapters ?? [];
+  const answersByChapter = chapterAnswers(inviteChapters, chapterReplies, guest.rsvp_status);
+  const comingToSome =
+    guest.rsvp_status === 'attending' &&
+    [...answersByChapter.values()].some((a) => a === 'no') &&
+    [...answersByChapter.values()].some((a) => a === 'yes');
+  const shownAnswer = comingToSome ? 'declined' : guest.rsvp_status;
 
   // The answer is on record and only details are missing → ask ONLY those.
   if (gate && gate.missing.length > 0 && !gate.missing.includes('attending') && !replyLocked) {
@@ -622,6 +644,8 @@ export function RsvpWidget({
       ) : (
         placeFacts
       )}
+      {/* ✉ WHAT THE GUEST IS ANSWERING — the invitation's chapters (Step 5). Nothing at all without chapters. */}
+      {inviteChapters.length > 0 ? <RsvpChapterList chapters={inviteChapters} answers={answersByChapter} /> : null}
 
       {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
@@ -641,7 +665,7 @@ export function RsvpWidget({
             sceneStyle={answerStyle}
             legend={words.solemn ? 'Will you be with us?' : 'Will you be there?'}
             options={answerShown}
-            current={guest.rsvp_status}
+            current={shownAnswer}
             required={termsOnSend || guest.rsvp_status === 'maybe'}
             legendShown={onDoor}
           />
@@ -679,7 +703,7 @@ export function RsvpWidget({
                   type="radio"
                   name="rsvp_status"
                   value={option.key}
-                  defaultChecked={guest.rsvp_status === option.key}
+                  defaultChecked={shownAnswer === option.key}
                   required={termsOnSend || guest.rsvp_status === 'maybe' || undefined}
                   className="sr-only"
                 />
@@ -708,6 +732,16 @@ export function RsvpWidget({
           })()}
         </fieldset>
         )
+      )}
+
+      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's first step, two or more chapters only. */}
+      {replyLocked || inviteChapters.length < 2 ? null : (
+        <RsvpCantPick
+          chapters={inviteChapters}
+          answers={answersByChapter}
+          className={revealAll ? '' : 'declined-reveal '}
+          questionClassName={questionClass(oneAtATime)}
+        />
       )}
 
       {/* ── 🪑 SEATS, THEN YOU (owner 2026-10-25, verbatim: *"We reserved one seat for you · We reserved two seats for

@@ -120,6 +120,7 @@ import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, Sc
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapters } from '@/lib/schedule-chapters.server';
+import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -616,6 +617,18 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   /* 📖 What the chapters' pages read: the chapters, and each one's moments (its child blocks) with who is on them in
      words — the suppliers tagged (by shop name), else the responsible party. Not for a trip: it keeps its own view. */
   const supplierName = new Map(rosVendors.map((v) => [v.vendor_id, v.vendor_name]));
+  /* ✉ Who replied to each chapter on the invitation (Step 5) — two exact counts and the first names who said yes, per
+     chapter; read only for chapters on the invitation. A chapter whose count failed is `null`, said on the switch. */
+  const replyCounts =
+    chapterRead?.ok && !isTravel
+      ? Object.fromEntries(
+          await readChapterCounts(
+            supabase,
+            eventId,
+            chapterRead.value.filter((c) => c.on_invitation).map((c) => c.block_id),
+          ),
+        )
+      : undefined;
   const chaptersInput: ChaptersInput | null =
     chapterRead === null || isTravel
       ? null
@@ -649,6 +662,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
             // here; the door checks again (`mayShowToGuests`).
             mayInvite: dayRole !== 'view',
+            replyCounts,
           }
         : { measured: false };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({

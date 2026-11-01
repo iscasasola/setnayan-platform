@@ -20,6 +20,8 @@ type Block = {
   start_at: string;
   end_at: string | null;
   location: string | null;
+  /** ⏰ A Time-TBA chapter (migration 20271300482585): listed as "Time TBA", never now, never ranked by time. */
+  time_tba?: boolean | null;
 };
 
 type Props = {

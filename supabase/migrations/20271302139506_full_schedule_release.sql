@@ -57,9 +57,11 @@ BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'release_full_schedule: sign in first' USING ERRCODE = '42501';
   END IF;
+  -- ⚠ NULL-SAFE ON PURPOSE: `moderator_area_level` is NULL for anyone who is not a helper, and `NOT (false OR NULL)`
+  -- is NULL — which an IF reads as "do not raise". Caught by the db test on its first run (a stranger released).
   IF NOT (
     p_event_id IN (SELECT public.current_couple_event_ids())
-    OR public.moderator_area_level(p_event_id, 'schedule') = 'edit'
+    OR COALESCE(public.moderator_area_level(p_event_id, 'schedule') = 'edit', false)
   ) THEN
     RAISE EXCEPTION 'release_full_schedule: only a host or a coordinator with Edit on the Schedule may release'
       USING ERRCODE = '42501';

@@ -47,6 +47,7 @@ import {
   wallLocal,
   type Chapter,
   type ChapterSection,
+  type MarchList,
   type TaskPeople,
   type TaskRow,
 } from '@/lib/schedule-chapters';
@@ -73,6 +74,8 @@ export type ChapterMoment = {
   /** A travel moment: from → to (§3c #4); `travel_to` set = a trip. */
   travel_from: string | null;
   travel_to: string | null;
+  /** 🚶 Which march it is (migration 20271301571290): null = not a march · 'entourage' · an own march's key. */
+  march_key: string | null;
   is_public: boolean;
   /** "Lumina Studio" · "Bride's family, Alyssa" — the suppliers or party on it; '' for none. */
   who: string;
@@ -94,6 +97,10 @@ export type ChaptersInput =
       tasks: TaskRow[] | null;
       /** Who a task can name. */
       who: Omit<TaskWhoList, 'crews'>;
+      /** 🚶 The couple's own marches (Guests › March) for "This is a march"; `ok: false` = unread (said). */
+      marches: MarchList;
+      /** What the event's Wedding March itself is called in that dropdown. */
+      wholeMarch: string;
       /** The event's own venues by name — Where offers them first. */
       venues: string[];
       /** The event's first day (`YYYY-MM-DD`): before it a chapter lives in Planning Stage; null = no exact day yet. */
@@ -149,6 +156,7 @@ export function ChaptersHost({
   const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
   const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
   const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
+  const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
@@ -162,6 +170,7 @@ export function ChaptersHost({
     setChapters(input.chapters);
     setMoments(input.moments);
     setTasks(input.tasks);
+    setMarches(input.marches);
   }, [input]);
   const who = useMemo<TaskWhoList>(() => {
     const base = input.measured ? input.who : { suppliers: [], people: null };
@@ -295,6 +304,7 @@ export function ChaptersHost({
                 is_optional: false,
                 travel_from: null,
                 travel_to: null,
+                march_key: null,
                 is_public: false,
                 who: '',
               },
@@ -315,6 +325,9 @@ export function ChaptersHost({
           tasks={tasks}
           who={who}
           mayShowGuests={input.mayInvite}
+          marches={marches}
+          wholeMarch={input.measured ? input.wholeMarch : ''}
+          onMarches={(made) => setMarches((l) => (l.ok ? { ok: true, marches: [...l.marches, made] } : l))}
           doors={momentDoors}
           onPatch={(next) => setMoments((ms) => ms.map((x) => (x.block_id === openMoment.block_id ? { ...x, ...next } : x)))}
           onTasks={setTasks}

@@ -14,7 +14,7 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
+import { LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
 
 export function LabScheduleChapters({
   empty,
@@ -22,6 +22,7 @@ export function LabScheduleChapters({
   viewOnly,
   clash = false,
   tasksFail = false,
+  marchFail = false,
   openMoment = false,
 }: {
   empty: boolean;
@@ -29,6 +30,8 @@ export function LabScheduleChapters({
   viewOnly: boolean;
   clash?: boolean;
   tasksFail?: boolean;
+  /** `?marchfail=1`: the marches read failed (said on the row, never "no marches"). */
+  marchFail?: boolean;
   /** `?moment=1`: open on the run-of-show moment's sheet (a phone shown it by a link). */
   openMoment?: boolean;
 }) {
@@ -44,6 +47,8 @@ export function LabScheduleChapters({
         // lobby too, at the same time; `?tasksfail=1` is the tasks read failing (said, never "no tasks").
         tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,
         who: LAB_WHO,
+        marches: marchFail ? { ok: false } : { ok: true, marches: LAB_MARCHES },
+        wholeMarch: 'Wedding March',
         venues: LAB_VENUES,
         eventDay: LAB_EVENT_DAY,
         lastDay: LAB_EVENT_DAY,

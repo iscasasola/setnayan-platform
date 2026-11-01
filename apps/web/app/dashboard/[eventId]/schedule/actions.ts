@@ -43,6 +43,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
 import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
 import { runMomentOp } from '@/lib/schedule-chapters.server';
+import { runMomentMarch } from './moment-march-step';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
@@ -403,6 +404,8 @@ export async function updateScheduleBlock(formData: FormData) {
   const momentOp = formData.get('moment_op');
   if (momentOp !== null) {
     if (!isMomentOp(momentOp)) throw new Error('Invalid input');
+    // 🚶 "This is a march" (migration 20271301571290): the moment names a march, or a new one is made for it.
+    if (momentOp === 'march_set' || momentOp === 'march_new') return runMomentMarch(supabase, momentOp, eventId, blockId, formData);
     return runMomentOp(supabase, momentOp, blockId, formData, user.id);
   }
 

@@ -55,6 +55,8 @@
  *                   anyway (said yes in person — "Kat Arroyo · Attending", never stamped). They are not "to invite":
  *                   the List's To invite, the run's "more to invite" and its queue all leave them out
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
+ *   &roleplus=1     (screen) GUESTS OF EACH ROLE (owner 2026-11-01): +1s brought by the best man, a groomsman (one of them
+ *                   a bridesmaid herself), a principal sponsor and a plain guest — "Guests of [Role]", jump rows, "+N ↓"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
  *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
@@ -442,6 +444,43 @@ function withPlusOnes(roster: GuestRow[], backfilled = false, paired = false): G
        draws the row the backfill (20271282098748) mints for him; without it, the List as it stood. */
     guest({ guest_id: 'g-p1-h003', public_id: 'S89G-LABP1H0003', first_name: 'Antonio', last_name: 'Loo', role: 'guest', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
     ...(backfilled ? [seat('g-p1-0003', 'g-p1-h003', { side: 'groom', group_category: 'family' })] : []),
+  ];
+}
+
+/**
+ * 👥 `&roleplus=1` — GUESTS OF EACH ROLE (owner 2026-11-01, prototype `guests_of_each_role_2026-11-01`): every case the
+ * owner named, on maria-and-jose's roster — the best man brings Lea (no role: "Guests of Honour attendants"), a groomsman
+ * brings Maria Cruz (no role: "Guests of Groomsmen") AND Ana Reyes, who is a bridesmaid herself (counted once, under
+ * Bridesmaids; a jump row under "Guests of Groomsmen"), a principal sponsor brings Lito, and a plain guest brings Pia (who
+ * stays in Guests, beside her). Stand-in names; nothing is read.
+ */
+function withRolePlusOnes(roster: GuestRow[]): GuestRow[] {
+  const plus = (id: string, of: string, first: string, last: string, p: Partial<GuestRow> = {}) => {
+    const host = roster.find((g) => g.guest_id === of);
+    return guest({
+      guest_id: id,
+      public_id: `S89G-LABRP${id.slice(-4).padStart(5, '0')}`,
+      first_name: first,
+      last_name: last,
+      role: 'guest',
+      side: host?.side ?? 'both',
+      group_category: 'friends',
+      rsvp_status: 'attending',
+      invitation_sent_at: '2026-09-20T00:00:00Z',
+      plus_one_of_guest_id: of,
+      plus_one_mode: 'limited',
+      plus_one_name_confirmed_at: '2026-09-21T00:00:00Z',
+      ...p,
+    });
+  };
+  const brings: Record<string, number> = { 'g-mj-3': 1, 'g-mj-5': 2, 'g-mj-6': 1, 'g-mj-24': 1 };
+  return [
+    ...roster.map((g) => (brings[g.guest_id] ? { ...g, plus_one_count: brings[g.guest_id]!, plus_one_allowed: true } : g)),
+    plus('g-rp-0001', 'g-mj-3', 'Lea', 'Ramos'),
+    plus('g-rp-0002', 'g-mj-5', 'Maria', 'Cruz'),
+    plus('g-rp-0003', 'g-mj-5', 'Ana', 'Reyes', { role: 'bridesmaid', side: 'bride' }),
+    plus('g-rp-0004', 'g-mj-6', 'Lito', 'Bautista', { rsvp_status: 'pending' }),
+    plus('g-rp-0005', 'g-mj-24', 'Pia', 'Ocampo'),
   ];
 }
 
@@ -846,7 +885,8 @@ export default async function GuestsLabPage({
 
   if (part === 'screen' || part === 'setup') {
     const roster000 = sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
-    const roster00 = sp.plusones === '1' ? withPlusOnes(roster000, sp.backfilled === '1', sp.paired === '1') : roster000;
+    const roster00p = sp.plusones === '1' ? withPlusOnes(roster000, sp.backfilled === '1', sp.paired === '1') : roster000;
+    const roster00 = sp.roleplus === '1' ? withRolePlusOnes(roster00p) : roster00p;
     /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
        above the screen), so a search can be walked on a list a phone has to scroll. */
     const roster0 = roster00

@@ -37,7 +37,6 @@ const EXAMPLE_ROLES: readonly GuestRole[] = [
   'bridesmaid',
   'principal_sponsor_ninang',
   'flower_girl',
-  'best_man',
   'vip',
   'host',
   'family',

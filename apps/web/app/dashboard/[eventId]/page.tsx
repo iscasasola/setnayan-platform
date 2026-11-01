@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
+import { PapicChapterRead } from './_components/papic-chapter-read';
 import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
@@ -1013,6 +1014,12 @@ export default async function EventHomePage({
           ),
           counts: { total: papicNow.total, left: papicNow.count },
           buy: papicBuy,
+          // 📷 The chapter it shoots into (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") — streamed.
+          chapter: (
+            <Suspense fallback={null}>
+              <PapicChapterRead eventId={eventId} />
+            </Suspense>
+          ),
           defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
           settings: (
             <>

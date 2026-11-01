@@ -130,7 +130,7 @@ test('≡ holds the same ways — ONE list, the imported openers — on the list
 test('Enter with no match still adds, and the typed Add row runs the same addTyped', () => {
   assert.match(SCREEN, /if \(typedLineIsAFilter\(v, facts, filterLabels\)\) return;\s*addTyped\(v\);/, 'Enter no longer adds');
   assert.match(SCREEN, /const addTypedOrSheet = \(v: string\) => \{\s*if \(addTyped\(v\) === NEEDS_BOTH_NAMES\) openAddGuest\(v\);/);
-  assert.match(SCREEN, /<SearchAddRow query=\{q\} as="a guest" onAdd=\{addTypedOrSheet\} \/>/, 'the typed Add row does not add the way Enter does');
+  assert.match(SCREEN, /<SearchAddRow query=\{q\} as="a guest" onAdd=\{addTypedOrSheet\}[^>]*\/>/, 'the typed Add row does not add the way Enter does');
   assert.match(SCREEN, /onClick=\{\(\) => addTypedOrSheet\(q\)\}/, 'the no-match Add does not add the way Enter does');
 });
 

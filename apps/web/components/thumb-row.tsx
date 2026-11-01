@@ -49,6 +49,7 @@ import { ClearButton, clearTyped } from '@/components/clear-field';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
+import { useRotatingHint } from '@/lib/use-rotating-hint';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
 
@@ -113,6 +114,11 @@ export type ThumbField = {
    */
   onClear?: () => void;
   tour?: string;
+  /**
+   * 💡 Example lines the empty box cycles through after its name (owner 2026-11-01: every search and add box shows
+   * rotating example hints) — `lib/use-rotating-hint.ts`. Each from what THIS box does and this event's own data.
+   */
+  hints?: readonly string[];
 };
 
 /** A shipped control in a round seat — a PickMenu (drawn as the 44 round, its option's icon the face) or an icon
@@ -205,6 +211,8 @@ export function ThumbRow({
   const onFieldBlur = ride.rowProps.onBlur;
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
   const onFieldInput = ride.rowProps.onInput;
+  /* 💡 The empty box's hint cycles its examples — the placeholder attribute only, never a render (rotating-hint.ts). */
+  useRotatingHint(ownInput, field && !('node' in field) ? field.placeholder : '', field && !('node' in field) ? field.hints : null);
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;

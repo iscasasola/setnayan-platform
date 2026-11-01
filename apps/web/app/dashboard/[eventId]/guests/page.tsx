@@ -1312,7 +1312,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <AddGuestSheet
         eventId={eventId}
         defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-        tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })}
+        tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles, groupNames: groups.map((g) => g.label), roleNames })}
+        offeredRoles={resolveRoleSet(guestRoleSetKey).offeredRoles}
       />
       <QuickAddSheet
         eventId={eventId}

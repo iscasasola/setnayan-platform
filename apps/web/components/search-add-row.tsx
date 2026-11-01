@@ -29,11 +29,27 @@ export function searchAddLabel(query: string, as: string): string {
   return `Add “${shown}” as ${as}`;
 }
 
+/**
+ * 👁 THE PREVIEW LINE (owner 2026-11-01: *"A live preview line under the box shows what will be added before Enter"*)
+ * — "→ Mr. Roman Atkinson · +2 · Groomsman · #Barkada". One line, the page's own words; the page passes the text
+ * (Guests: `typedGuestPreview`, the same draft its add sends). Polite live region, so a screen reader hears it settle.
+ * Nothing to say → nothing drawn.
+ */
+export function AddPreviewLine({ text, className }: { text: string | null | undefined; className?: string }) {
+  if (!text) return null;
+  return (
+    <p aria-live="polite" className={`min-w-0 truncate text-xs text-ink/65 ${className ?? ''}`} data-add-preview="">
+      {text}
+    </p>
+  );
+}
+
 export function SearchAddRow({
   query,
   as,
   onAdd,
   className,
+  preview,
 }: {
   /** What is in the search box. */
   query: string;
@@ -42,11 +58,13 @@ export function SearchAddRow({
   /** The page's own add door, with the typed name. */
   onAdd: (name: string) => void;
   className?: string;
+  /** What the add will make of the words, said under the button (`AddPreviewLine`). */
+  preview?: string | null;
 }) {
   const name = query.trim();
   if (!name) return null;
   return (
-    <div className={`flex min-w-0 ${className ?? ''}`} data-search-add="">
+    <div className={`flex min-w-0 flex-col items-start gap-1 ${className ?? ''}`} data-search-add="">
       <ActionButton
         tone="brand"
         icon={Plus}
@@ -55,6 +73,7 @@ export function SearchAddRow({
         className="max-w-full"
         onClick={() => onAdd(name)}
       />
+      <AddPreviewLine text={preview} className="max-w-full px-1" />
     </div>
   );
 }

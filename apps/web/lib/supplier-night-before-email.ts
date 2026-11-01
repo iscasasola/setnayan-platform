@@ -1,3 +1,4 @@
+import { onlyTimedBlocks } from './schedule';
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
@@ -122,10 +123,10 @@ export async function runSupplierNightBeforeEmailReminders(): Promise<{ scanned:
         continue;
       }
 
-      const { data: blocksRaw } = await admin
-        .from('event_schedule_blocks')
-        .select('label, block_type, start_at')
-        .eq('event_id', booking.event_id);
+      // ⏰ No call time from a Time-TBA chapter (plan §3) — its 00:00 would be emailed as a 12:00 AM call.
+      const { data: blocksRaw } = await onlyTimedBlocks(
+        admin.from('event_schedule_blocks').select('label, block_type, start_at').eq('event_id', booking.event_id),
+      );
       const blocks = (blocksRaw ?? []) as LensBlock[];
       // Same pure lens the vendor Brief page uses (vendor-timeline.ts) — a
       // single-category booking, so no separate relevance ranking is needed.

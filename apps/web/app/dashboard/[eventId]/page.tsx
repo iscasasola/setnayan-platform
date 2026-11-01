@@ -1430,6 +1430,7 @@ export default async function EventHomePage({
             start_at: b.start_at,
             end_at: b.end_at,
             location: b.location,
+            time_tba: b.time_tba === true,
           }))}
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}

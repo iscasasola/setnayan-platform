@@ -61,6 +61,7 @@ import {
   scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
+import { isTimeTba, TIME_TBA } from '@/lib/schedule-chapters';
 import { isSetnayanAiActiveForEvent, setnayanAiOffered } from '@/lib/setnayan-ai';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
@@ -2049,6 +2050,8 @@ export async function EventDashboard({
               </span>
               <span className="min-w-0 flex-1 line-clamp-2 font-semibold leading-snug text-ink">
                 {block.label}
+                {/* ⏰ A Time-TBA chapter is listed as such — its day is known, its clock is not. */}
+                {isTimeTba(block) ? <span className="font-normal text-ink/55"> · {TIME_TBA}</span> : null}
               </span>
             </span>
           ))}
@@ -3161,7 +3164,7 @@ export async function EventDashboard({
                         {block.label}
                       </span>
                       <span className="whitespace-nowrap text-[11px] text-ink/45">
-                        {scheduleBlockLabelFor(block.block_type, eventType)}
+                        {isTimeTba(block) ? TIME_TBA : scheduleBlockLabelFor(block.block_type, eventType)}
                       </span>
                     </div>
                   ))}

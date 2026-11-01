@@ -431,7 +431,7 @@ test('B3 · the Story’s arranged pages are grouped under the same moments', as
 
 /** The columns the public fetch has always asked for, in its one private list. */
 const PUBLIC_COLUMNS =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience,time_tba';
 
 test('B4 · the guests’ schedule is unchanged — the same request, condition for condition', async () => {
   // The chain below is what `fetchPublicScheduleBlocks` sent BEFORE the fence

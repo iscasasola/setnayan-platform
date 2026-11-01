@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hubDayWords } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
-import { onlyWhatABookedShopMaySee } from '@/lib/schedule';
+import { onlyTimedBlocks, onlyWhatABookedShopMaySee } from '@/lib/schedule';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleReadsRunOfShow, isCrewToken } from '@/lib/crew-pass';
 import { crewPassAnonEnabled } from '@/lib/crew-pass-flag';
@@ -90,10 +90,13 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
     admin.from('vendor_profiles').select('business_name, services').eq('vendor_profile_id', pass.vendor_profile_id).maybeSingle(),
     crewRoleReadsRunOfShow(role)
       ? onlyWhatABookedShopMaySee(
-          admin
-            .from('event_schedule_blocks')
-            .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
-            .eq('event_id', eventId),
+          // ⏰ No Time-TBA chapter on the crew's run of show — its 00:00 is only its day (onlyTimedBlocks).
+          onlyTimedBlocks(
+            admin
+              .from('event_schedule_blocks')
+              .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
+              .eq('event_id', eventId),
+          ),
         )
           .order('start_at', { ascending: true })
           .order('sort_order', { ascending: true })

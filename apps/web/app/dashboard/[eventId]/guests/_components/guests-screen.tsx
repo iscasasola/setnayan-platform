@@ -45,6 +45,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  ArrowDown,
+  ArrowUpRight,
   Armchair,
   Check,
   ChevronDown,
@@ -67,6 +69,7 @@ import {
   Tag,
   Upload,
   User,
+  UserPlus,
   Users,
   Trash2,
   X,
@@ -152,6 +155,7 @@ import { renameSection } from '../role-name-actions';
 import { useSetRoleNames } from './role-names-context';
 import { isRenamableSection, sectionUsualHeading } from '@/lib/entourage';
 import { sectionName } from '@/lib/role-names';
+import { mostImportantRole } from '@/lib/role-groups';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
 import { PinCountDoor } from './view-summary-cards';
@@ -359,6 +363,7 @@ const SECTION_ICON: Record<SectionIcon, typeof Star> = {
   invite: Mail,
   side: User,
   none: Minus,
+  guestsOf: UserPlus,
 };
 
 /**
@@ -1090,6 +1095,52 @@ export function GuestsScreen(props: GuestsScreenProps) {
     });
     if (opening) setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
   };
+
+  /* 👥 ↗ THE JUMP (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: \"GUESTS OF [ROLE]\" APPROVED"): "guest of Antonio ↗"
+     goes to Antonio's row, Antonio's "+2" to his guests, a jump row ("Ana Reyes · Bridesmaid ↗") to the row that counts
+     her — its section opened if folded, the row brought to the middle of the screen and lit for a moment. Nothing is
+     saved and nothing navigates (a save never resets the screen). */
+  const jumpTo = (targets: readonly { id: string; jumpRow?: boolean }[]) => {
+    const keys = new Set<string>();
+    for (const t of targets) {
+      const sec = sections.find((x) => (t.jumpRow ? (x.jumps ?? []) : x.guests).some((g) => g.guest_id === t.id));
+      if (sec) keys.add(sec.key);
+    }
+    if (keys.size === 0) return;
+    const folded = [...keys].some((k) => !isOpen(k));
+    if (folded) setOpen((prev) => new Set([...prev, ...keys]));
+    const sel = (t: { id: string; jumpRow?: boolean }) => `${t.jumpRow ? '[data-jump-row]' : '[data-guest-row]'}[data-guest-id="${CSS.escape(t.id)}"]`;
+    let tries = 0;
+    const look = () => {
+      const els = targets.map((t) => listRef.current?.querySelector<HTMLElement>(sel(t))).filter((el): el is HTMLElement => Boolean(el));
+      // The rows of a section never opened arrive a render later (`drawnRows`) — look again, briefly.
+      if (els.length < targets.length && ++tries < 15) return void window.setTimeout(look, 60);
+      if (!els.length) return;
+      els[0]!.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      for (const el of els) {
+        el.removeAttribute('data-lit');
+        void el.offsetWidth; // restart the light when the same row is jumped to twice
+        el.setAttribute('data-lit', '');
+        window.setTimeout(() => el.removeAttribute('data-lit'), 1900);
+      }
+    };
+    // A section that has to unfold first is given its unfold (280 ms) before the row is measured.
+    window.setTimeout(look, folded ? 320 : 30);
+  };
+  /** 👥 Who each guest brings, among the rows this view draws — their "+N" jumps there (Role view). */
+  const broughtBy = useMemo(() => {
+    const by = new Map<string, string[]>();
+    for (const g of visible) {
+      const h = g.plus_one_of_guest_id;
+      if (h && h !== g.guest_id) by.set(h, [...(by.get(h) ?? []), g.guest_id]);
+    }
+    return by;
+  }, [visible]);
+  const visibleIds = useMemo(() => new Set(visible.map((g) => g.guest_id)), [visible]);
+  /** The jump rows on screen now — a +1 with their own role is reached through theirs when it is drawn. */
+  const jumpRowIds = new Set(sections.flatMap((x) => (x.jumps ?? []).map((g) => g.guest_id)));
+  /** The section that COUNTS a guest — named on their jump row ("Listed under Bridesmaids"). */
+  const countedIn = (id: string) => sections.find((x) => x.guests.some((g) => g.guest_id === id))?.label ?? '';
 
   // ── The counts (they count on load and on change — rule 2).
   // The counts are read off the SAME list the rows are drawn from (`roster`),
@@ -1846,8 +1897,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 <ChevronDown className={styles.chev} style={selectMode ? { marginLeft: 0, flex: '0 0 auto' } : { flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
               </button>
               )}
-              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`). */}
-              {selectMode || writesOff ? null : (
+              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`), and only on the
+                  header that is PICKED — opened, its chip lit (owner 2026-11-01, verbatim: "Edit icon only shows when the
+                  group is picked and highlighted"); never a pencil on every header at rest. A real button while shown, so
+                  the keyboard and a screen reader reach it. 🔒 a-header-pencil-shows-only-when-picked.test.ts */}
+              {selectMode || writesOff || !(opened || renaming === sec.key) ? null : (
                 <SectionRenameInPlace
                   eventId={eventId}
                   section={{ key: sec.key, label: sec.label }}
@@ -1869,15 +1923,27 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {sec.guests.length === 0 ? (
                   <p className={styles.empty}>Nobody here yet.</p>
                 ) : (
-                  (drawnRows.get(sec.key) ?? []).map((g, i, drawn) => (
+                  (drawnRows.get(sec.key) ?? []).map((g, i, drawn) => {
+                    const pw = plusWords.get(g.guest_id) ?? null;
+                    /* 👥 Role view: a +1 drawn away from their guest says whose guest they are, with ↗ back to them — in
+                       "Guests of [Role]" on the name line, under their own role on the meta line (the prototype's rows). */
+                    const away = view === 'role' && !sec.celebrants && pw && !sec.guests.some((x) => x.guest_id === pw.hostId);
+                    const hostLink: HostLink | null = away && pw
+                      ? { hostId: pw.hostId, hostName: pw.card.hostName, where: sec.guestsOf ? 'name' : 'meta', shown: visibleIds.has(pw.hostId) }
+                      : null;
+                    const kids = view === 'role' ? broughtBy.get(g.guest_id) : undefined;
+                    return (
                     <GuestRowLine
                       key={g.guest_id}
                       g={g}
-                      plusWords={plusWords.get(g.guest_id) ?? null}
+                      plusWords={pw}
+                      hostLink={hostLink}
+                      onJump={(id) => jumpTo([{ id }])}
+                      jumpKids={kids?.length ? () => jumpTo(kids.map((id) => ({ id, jumpRow: jumpRowIds.has(id) }))) : null}
                       standIn={standIns.get(g.guest_id) ?? null}
                       standingInFor={standingIn.get(g.guest_id) ?? null}
                       seatsOnList={seatRows.get(g.guest_id) ?? 0}
-                      joined={joinedToTheRowAbove(g, drawn[i - 1])}
+                      joined={!hostLink && joinedToTheRowAbove(g, drawn[i - 1])}
                       selectMode={selectMode}
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
@@ -1894,8 +1960,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       }}
                       onRelease={() => releaseSeats([g.guest_id])}
                     />
-                  ))
+                    );
+                  })
                 )}
+                {/* 🔗 "Guests of [Role]": the +1s who hold a role of their own — listed so the group reads whole, counted
+                    in their own role (never in this heading's "· N", never selected). */}
+                {sec.jumps && (drawnRows.get(sec.key)?.length ?? 0) > 0
+                  ? sec.jumps.map((g) => (
+                      <GuestJumpRow
+                        key={`jump-${g.guest_id}`}
+                        g={g}
+                        plusWords={plusWords.get(g.guest_id) ?? null}
+                        roleWord={guestRoleLabel(mostImportantRole([g.role, ...(g.extra_roles ?? [])]), roleNames)}
+                        countedIn={countedIn(g.guest_id)}
+                        face={faceByGuest[g.guest_id]}
+                        onJump={() => jumpTo([{ id: g.guest_id }])}
+                      />
+                    ))
+                  : null}
               </div>
             </div>
           </section>
@@ -2281,9 +2363,27 @@ function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean 
 }
 
 /** 🧍 The table is the proxy's — the role's seat moved to them (trigger `the_proxy_takes_the_seat`). */
+/** 👥 Whose guest a +1 drawn away from them is, and where the row says it (`hostLink` on `GuestRowLine`). */
+type HostLink = { hostId: string; hostName: string; where: 'name' | 'meta'; /** their guest's row is on screen */ shown: boolean };
+
+/** ↗ — a jump's mark. Drawn INSIDE the row's name button (a button may not hold a button), so the row's own press reads
+ *  where it landed (`data-jump-to` / `data-jump-kids`); the words beside it say the same to a screen reader. */
+function JumpMark({ to }: { to?: string }) {
+  return (
+    <span className={styles.jump} data-jump-to={to} aria-hidden>
+      <i>
+        <ArrowUpRight strokeWidth={2.4} />
+      </i>
+    </span>
+  );
+}
+
 function GuestRowLine({
   g,
   plusWords,
+  hostLink = null,
+  onJump,
+  jumpKids = null,
   standIn = null,
   standingInFor = null,
   seatsOnList,
@@ -2303,6 +2403,12 @@ function GuestRowLine({
   g: GuestRow;
   /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
   plusWords: PlusOneWords | null;
+  /** 👥 Role view: a +1 drawn away from their guest — "· guest of Antonio Loo ↗". */
+  hostLink?: HostLink | null;
+  /** ↗ Go to a guest's row (their guest, from `hostLink`). */
+  onJump?: (guestId: string) => void;
+  /** 👥 Role view: this guest's "+N" goes to the guests they bring. Null → the "+N" is only a number. */
+  jumpKids?: (() => void) | null;
   /** 🧍 On a ROLE HOLDER's row: the proxy standing in for them — "Represented by … · not counted" (`withStandIns`). */
   standIn?: StandInOnRow | null;
   /** 🧍 On the PROXY's own row: the role holder they stand in for — "Proxy for …". */
@@ -2339,7 +2445,15 @@ function GuestRowLine({
   // 🪑 A +1 with no name yet travels on their guest's invitation (the send run skips them): the row says whose, instead
   // of a To invite of its own on every seat. The COUNT rule (`isToInvite`) is untouched — only the drawing.
   const rides = plusWords?.name ? plusWords.host : null;
-  const act = (e: React.MouseEvent<HTMLElement>) => (selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget));
+  const act = (e: React.MouseEvent<HTMLElement>) => {
+    if (!selectMode) {
+      // ↗ / "+N" are drawn inside the name button: a press that lands on one is the jump, not the card.
+      const t = e.target as HTMLElement;
+      if (hostLink?.shown && onJump && t.closest('[data-jump-to]')) return onJump(hostLink.hostId);
+      if (jumpKids && t.closest('[data-jump-kids]')) return jumpKids();
+    }
+    return selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget);
+  };
   // A +1 shows their guest's side — the side follows the guest who brings them.
   const side = plusWords?.side ?? g.side;
   const sideCls = side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth;
@@ -2359,7 +2473,7 @@ function GuestRowLine({
       : null;
   return (
     <div
-      className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
+      className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id && !hostLink ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
       // 🔦 The Guests tour rings the first row drawn (the engine takes the first visible match).
       data-tour="guests-row"
@@ -2393,9 +2507,21 @@ function GuestRowLine({
           <span className={styles.nmt} data-row-name-text="">
             {name}
             <GuestNick nick={nick} />
-            {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
+            {plusWords?.of && !hostLink ? <span className={styles.of}> · {plusWords.of}</span> : null}
+            {/* 👥 "Maria Cruz · guest of Antonio Loo ↗" — an unnamed seat already names their guest ("Antonio Loo’s +1 · TBA"). */}
+            {hostLink?.where === 'name' && plusWords?.of ? <span className={styles.of} data-row-guest-of=""> · guest of {hostLink.hostName}</span> : null}
           </span>
-          {plus > 0 ? <span className={styles.pill}>+{plus}</span> : null}
+          {hostLink?.where === 'name' && hostLink.shown ? <JumpMark to={hostLink.hostId} /> : null}
+          {plus > 0 ? (
+            jumpKids ? (
+              <span className={`${styles.pill} ${styles.plusn}`} data-jump-kids="">
+                +{plus}
+                <ArrowDown aria-hidden strokeWidth={2.6} />
+              </span>
+            ) : (
+              <span className={styles.pill}>+{plus}</span>
+            )
+          ) : null}
         </div>
         <div className={styles.meta}>
           {g.passed_away ? (
@@ -2429,6 +2555,9 @@ function GuestRowLine({
               {table ? ` · ${table}` : ''}
               {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}
+              {/* 👥 A +1 counted under their OWN role (Ana Reyes, a bridesmaid Antonio brings) — the way back to him. */}
+              {hostLink?.where === 'meta' ? <span data-row-guest-of="">{` · guest of ${hostLink.hostName}`}</span> : null}
+              {hostLink?.where === 'meta' && hostLink.shown ? <JumpMark to={hostLink.hostId} /> : null}
             </>
           )}
         </div>
@@ -2449,6 +2578,58 @@ function GuestRowLine({
           ) : null}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * 🔗 A JUMP ROW in "Guests of [Role]" (owner 2026-11-01): a +1 who holds a role of their own — "Ana Reyes · Bridesmaid ↗",
+ * "Listed under Bridesmaids · not counted here". Listed so the group reads whole; COUNTED once, in their own role. The
+ * whole row is the jump to that row (no Share, no Delete — those are on the row that counts them).
+ */
+function GuestJumpRow({
+  g,
+  plusWords,
+  roleWord,
+  countedIn,
+  face,
+  onJump,
+}: {
+  g: GuestRow;
+  plusWords: PlusOneWords | null;
+  /** Their own role, in the couple's words ("Bridesmaid"). */
+  roleWord: string;
+  /** The heading that counts them ("Bridesmaids"). */
+  countedIn: string;
+  face?: string;
+  onJump: () => void;
+}) {
+  const named = plusWords?.name ? null : guestNameWithNick(g);
+  const name = plusWords?.name ?? displayPersonName(named?.name ?? guestDisplayName(g));
+  const side = plusWords?.side ?? g.side;
+  const sideCls = side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth;
+  const label = `Go to ${name} under ${countedIn}`;
+  return (
+    <div className={`${styles.g} ${styles.jumprow}`} data-jump-row="" data-guest-id={g.guest_id}>
+      <button type="button" className={styles.ava} onClick={onJump} aria-label={label}>
+        {face ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={face} alt="" width={40} height={40} loading="lazy" />
+        ) : (
+          guestInitials(g)
+        )}
+      </button>
+      <button type="button" className={styles.who} onClick={onJump} aria-label={label} data-jump-row-name="">
+        <div className={styles.nm}>
+          <span aria-hidden className={`${styles.dot} ${sideCls}`} />
+          <span className={styles.nmt}>
+            {name}
+            <span className={styles.of}> · {roleWord}</span>
+          </span>
+          <JumpMark />
+        </div>
+        <div className={styles.meta}>Listed under {countedIn} · not counted here</div>
+      </button>
     </div>
   );
 }

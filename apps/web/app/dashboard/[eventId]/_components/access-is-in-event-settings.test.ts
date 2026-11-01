@@ -46,7 +46,7 @@ test('1 · the sheet mounts THE People with access, once, last, landing a Remove
 
 test('2 · the action reads access with Event Details’ readers, in the sheet’s one round', () => {
   const action = code('open-event-settings.tsx');
-  const at = action.indexOf('const [draft, parents, people, claims, settings] = await Promise.all([');
+  const at = action.indexOf('const [draft, parents, people, claims, settings');
   assert.ok(at >= 0, 'the sheet’s one round no longer reads the draft, the parents and access together');
   const round = action.slice(at, action.indexOf(']);', at));
   assert.ok(round.length > 0, 'no Promise.all in the action — this check would pass vacuously');
@@ -55,7 +55,7 @@ test('2 · the action reads access with Event Details’ readers, in the sheet�
   assert.match(round, /measured: false as const/, 'a failed access read is not kept as a failure');
   // A non-host never reaches the hosts' rows: a helper is handed their own access (`a-helper-sees-their-own-access.test.ts`),
   // anyone else a refusal — both return BEFORE this round.
-  const nonHost = action.slice(action.indexOf('if (!viewer.isCouple) {'), action.indexOf('const [draft, parents, people, claims, settings]'));
+  const nonHost = action.slice(action.indexOf('if (!viewer.isCouple) {'), action.indexOf('const [draft, parents, people, claims, settings'));
   assert.ok(nonHost.length > 0, 'the non-host branch is gone, or now sits after the hosts’ round');
   assert.match(nonHost, /return yourAccessSheet\(/, 'a helper is not handed their own access');
   assert.match(nonHost, /return \{ ok: false/, 'a non-host who is not a helper gets the hosts’ sheet');
@@ -123,10 +123,12 @@ test('7 · the rest of what Event Details EDITS moved into the sheet — the sam
   assert.ok(rows.indexOf('<PutAwayCard') > rows.indexOf('<PeopleWithAccess'), 'Put this away is no longer last');
   // The action reads the moved parts in the same round (no read per part, no second round).
   const action = code('open-event-settings.tsx');
-  const at = action.indexOf('const [draft, parents, people, claims, settings] = await Promise.all([');
+  const at = action.indexOf('const [draft, parents, people, claims, settings');
   assert.ok(at >= 0, 'the sheet’s round no longer reads the event settings with the rest');
   assert.match(action.slice(at, action.indexOf(']);', at)), /loadEventSettings\(\{ supabase, eventId, userId: user\.id \}\)/);
-  assert.match(action, /select\('event_type, planning_mode, archived, display_name'\)/, 'Plan it myself / Put this away read their own extra row');
+  assert.match(action, /select\('event_type, planning_mode, archived, display_name[^']*'\)/, 'Plan it myself / Put this away read their own extra row');
+  // 📖 …and the chapters (owner 2026-11-01) in that SAME round — one read of the blocks, a failure kept as a failure.
+  assert.match(action.slice(at, action.indexOf(']);', at)), /readChapters\(supabase, eventId\)\.catch\(\(\) => \(\{ ok: false as const \}\)\)/, 'the chapters are not read in the sheet’s round');
   // The couple's /details forwards to the sheet (keeping a Remove's words); a helper still reads the page.
   const details = code('../details/page.tsx');
   assert.match(details, /if \(viewer\.isCouple\) \{[\s\S]{0,400}?redirect\(eventSettingsHref\(eventId,/, 'the couple still lands on a second copy of Event Settings');

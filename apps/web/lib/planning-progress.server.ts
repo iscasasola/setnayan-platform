@@ -17,9 +17,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchPreparationAgenda, planningProgress, type PlanningProgress, type PlanningTaskEvent } from './preparation';
 import { resolveProfile } from './event-type-profile';
+import { logQueryError } from './supabase/error-detect';
 
-/** The event columns the To do filter's dates are counted back from. */
-export const PLANNING_EVENT_COLUMNS = 'event_type, event_date, date_candidates, date_window_start, created_at';
+/** The event columns the To do filter's dates are counted back from — this reader's own narrow read, not a canonical list. */
+const DATE_FIELDS_READ = 'event_type, event_date, date_candidates, date_window_start, created_at';
 
 export async function readPlanningProgress(
   supabase: SupabaseClient,
@@ -31,8 +32,12 @@ export async function readPlanningProgress(
   try {
     let event = known ?? null;
     if (!event) {
-      const { data, error } = await supabase.from('events').select(PLANNING_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
-      if (error || !data) return null;
+      const { data, error } = await supabase.from('events').select(DATE_FIELDS_READ).eq('event_id', eventId).maybeSingle();
+      if (error) {
+        logQueryError('readPlanningProgress.event', error, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }
+      if (!data) return null;
       event = data as unknown as PlanningTaskEvent;
     }
     const profile = await resolveProfile(event.event_type ?? 'wedding');

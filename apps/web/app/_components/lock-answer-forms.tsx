@@ -1,8 +1,16 @@
 import { Check, X } from 'lucide-react';
 import { AskSubmit } from '@/app/_components/ask-submit';
-import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
+import dynamic from 'next/dynamic';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+
+/**
+ * ⚡ LOADED WHEN IT IS FIRST NEEDED. The decline's Why ▾ + note are a Field-template row (`TypedRow`), and this card rides
+ * every chat thread: imported statically, the whole Field template (and its ⓘ popup) joined each thread page's first
+ * load for a fold that starts SHUT — and re-packed the event dashboard's shared chunks, which put the Maker 0.3 KB over
+ * its first-load budget (`check-maker-js-budget.mjs`, PR #7142). Rendered on the server as before; only its code waits.
+ */
+const DeclineReasonFields = dynamic(() => import('@/app/_components/decline-reason-fields').then((m) => m.DeclineReasonFields));
 
 /**
  * THE SUPPLIER'S ANSWER TO A BOOKING ASK, ON THE ACCEPTED QUOTE CARD.

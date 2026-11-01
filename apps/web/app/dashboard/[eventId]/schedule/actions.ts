@@ -41,6 +41,7 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
+import { isCallLead, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
@@ -259,12 +260,15 @@ export async function deleteScheduleBlock(formData: FormData) {
 
   // ON DELETE CASCADE on parent_block_id self-FK means deleting a parent
   // automatically removes all its child parts · no app-layer cleanup needed.
-  const { error } = await supabase
+  const { data: gone, error } = await supabase
     .from('event_schedule_blocks')
     .delete()
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // RLS answers a refused DELETE with zero rows and no error — said, never "deleted" (a chapter's Delete shows it).
+  if (!gone || gone.length === 0) throw new Error(NOTHING_CHANGED);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -392,6 +396,16 @@ export async function updateScheduleBlock(formData: FormData) {
     notes?: string | null;
     block_type?: ScheduleBlockType;
     audience?: string | null;
+    spot?: string | null;
+    ingress_minutes_before?: number | null;
+    egress_minutes_after?: number | null;
+    call_lead_minutes?: number;
+    on_invitation?: boolean;
+    photo_who?: string;
+    photo_when?: string;
+    is_optional?: boolean;
+    travel_from?: string | null;
+    travel_to?: string | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -467,6 +481,65 @@ export async function updateScheduleBlock(formData: FormData) {
     patch.notes = nullIfBlank(notesRaw);
   }
 
+  // 📖 A CHAPTER'S AND A MOMENT'S OWN FIELDS (owner 2026-11-01, migration 20271300072429 — the Chapters row of Home ›
+  // Event Settings saves each one as it is kept). Each is read only when posted; an unknown word is refused here and
+  // again by the column's CHECK.
+  const spotRaw = formData.get('spot');
+  if (spotRaw !== null) {
+    const spot = nullIfBlank(spotRaw);
+    if (spot && spot.length > 120) throw new Error('Keep the exact spot under 120 letters');
+    patch.spot = spot;
+  }
+  for (const [field, max] of [['ingress_minutes_before', 1440], ['egress_minutes_after', 2880]] as const) {
+    const raw = formData.get(field);
+    if (raw === null) continue;
+    if (typeof raw === 'string' && raw.trim() === '') {
+      patch[field] = null; // blank = no ingress / no egress (owner: "not placing a time means no ingress")
+      continue;
+    }
+    const n = typeof raw === 'string' ? Number(raw) : NaN;
+    if (!Number.isInteger(n) || n < 0 || n > max) throw new Error('Invalid ingress or egress time');
+    patch[field] = n;
+  }
+  const leadRaw = formData.get('call_lead_minutes');
+  if (leadRaw !== null) {
+    const n = typeof leadRaw === 'string' ? Number(leadRaw) : NaN;
+    if (!isCallLead(n)) throw new Error('Invalid call time');
+    patch.call_lead_minutes = n;
+  }
+  const whoRaw = formData.get('photo_who');
+  if (whoRaw !== null) {
+    if (!isPhotoWho(whoRaw)) throw new Error('Invalid photo setting');
+    patch.photo_who = whoRaw;
+  }
+  const whenRaw = formData.get('photo_when');
+  if (whenRaw !== null) {
+    if (!isPhotoWhen(whenRaw)) throw new Error('Invalid photo setting');
+    patch.photo_when = whenRaw;
+  }
+  const optionalRaw = formData.get('is_optional');
+  if (optionalRaw !== null) patch.is_optional = optionalRaw === 'true' || optionalRaw === 'on';
+  const travelToRaw = formData.get('travel_to');
+  if (travelToRaw !== null) {
+    patch.travel_to = nullIfBlank(travelToRaw);
+    patch.travel_from = patch.travel_to ? nullIfBlank(formData.get('travel_from')) : null;
+  }
+  const inviteRaw = formData.get('on_invitation');
+  if (inviteRaw !== null) {
+    patch.on_invitation = inviteRaw === 'true' || inviteRaw === 'on';
+    // 👁 Putting a chapter ON the invitation reaches guests (Step 5) — the hosts' and the coordinator's call, the same
+    // rule as showing a moment to guests. Keeping it as it is, or taking it off, is anyone's who may edit the day.
+    if (patch.on_invitation === true && !(await mayShowToGuests(supabase, user.id, eventId))) {
+      const { data: was } = await supabase
+        .from('event_schedule_blocks')
+        .select('on_invitation')
+        .eq('block_id', blockId)
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if ((was as { on_invitation?: boolean } | null)?.on_invitation !== true) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
+    }
+  }
+
   // Travel double-book guard on retime (ai-travel-scheduling): moving a TOUR
   // block onto another tour's slot is rejected at save, mirroring create.
   // The extra read runs only when a time actually changes; non-tour blocks
@@ -502,12 +575,29 @@ export async function updateScheduleBlock(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // 📖 MOVING A CHAPTER MOVES ITS MOMENTS (plan §3 "Time moves"): with `with_moments`, a new start on a top-level block
+  // shifts the chapter AND every moment in it by the same amount, in one statement under the caller's own RLS
+  // (`move_schedule_chapter`, migration 20271300072429). Its ingress and egress are minutes from the start, so they
+  // come along. A move that reached no row is said, never a quiet "saved".
+  if (formData.get('with_moments') === '1' && patch.start_at !== undefined) {
+    const { data: moved, error: moveError } = await supabase.rpc('move_schedule_chapter', {
+      p_block_id: blockId,
+      p_start_at: patch.start_at,
+    });
+    if (moveError) throw new Error(moveError.message);
+    if (typeof moved !== 'number' || moved < 1) throw new Error(NOTHING_CHANGED);
+    delete patch.start_at;
+  }
+
+  const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update(patch)
     .eq('block_id', blockId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('block_id');
   if (error) throw new Error(error.message);
+  // RLS answers a refused UPDATE with zero rows and no error — said, never "saved" (a chapter's row says "didn't save").
+  if (!changed || changed.length === 0) throw new Error(NOTHING_CHANGED);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }

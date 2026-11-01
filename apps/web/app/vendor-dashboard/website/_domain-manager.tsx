@@ -9,6 +9,7 @@ import {
   type DomainRow,
 } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 type DnsRec = { type: string; name: string; value: string };
 type Item = DomainRow & { dns?: DnsRec[]; note?: string };
@@ -170,17 +171,25 @@ export function DomainManager({
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          type="text"
-          inputMode="url"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-          placeholder="sny.yourshop.com"
-          aria-label="Your custom domain"
-          className="min-w-0 flex-1 rounded-lg px-3 py-2 font-mono text-sm text-ink"
-          style={{ background: 'var(--m-ivory, #fff)', border: '1px solid var(--m-line)' }}
-        />
+        {/* ✍ A row of the ONE Field template (`TypedRow`, owner 1 Nov 2026). It follows what is typed (`onType`), so
+            "Add domain" lights up as before; keeping it (Enter, tap away) only keeps it — adding is the button. */}
+        <div className="min-w-0 flex-1">
+          <FormRows width="wide">
+            <TypedRow
+              name="Your custom domain"
+              value={input}
+              empty="sny.yourshop.com"
+              placeholder="sny.yourshop.com"
+              inputMode="url"
+              autoCapitalize="off"
+              maxLength={253}
+              onType={setInput}
+              onKeep={(t) => setInput(t)}
+              data="custom-domain"
+              pillAttrs={{ 'data-custom-domain': '' }}
+            />
+          </FormRows>
+        </div>
         <button
           type="button"
           onClick={handleAdd}

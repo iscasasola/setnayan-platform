@@ -545,7 +545,7 @@ function MyMomentSheet({
               <TypedRow
                 name="Notes"
                 value={note}
-                empty="Anything the host should know"
+                empty="Add"
                 long
                 maxLength={1000}
                 onKeep={(t) => {

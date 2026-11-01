@@ -62,6 +62,7 @@ export function PapicHomeCard({
   headLine = null,
   counts = null,
   buy = null,
+  chapter = null,
 }: {
   name: string;
   brand?: string;
@@ -86,6 +87,11 @@ export function PapicHomeCard({
   counts?: { total: number | null; left: number | null } | null;
   /** "Add more" — the one buy sheet, built by the server for this platform; null = not offered here. */
   buy?: ReactNode;
+  /**
+   * 📷 The chapter Papic shoots into (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") — its dropdown,
+   * its window and "This chapter: N photos", under the event-wide counts (`PapicChapterRow`). null = not drawn.
+   */
+  chapter?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [saidLine, sayLine] = useState<string | null>(null);
@@ -172,6 +178,10 @@ export function PapicHomeCard({
               ) : null}
             </div>
           ) : null}
+
+          {/* 📷 THE CHAPTER IT SHOOTS INTO — under the event-wide counts, closed and open (owner 2026-11-01). Outside the
+              head's button, like the counts: its dropdown and Start now are presses of their own. */}
+          {chapter}
 
           {/* THE SETTINGS, INSIDE THE CARD'S OWN FRAME — the height grows, the settings fade in; folded, they are inert. */}
           <div

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6922
+# facts: 6946
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     583
-#   col       5059
-#   policy    984
+#   tpriv     585
+#   col       5074
+#   policy    988
 #   view      9
-#   func      283
+#   func      286
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -320,6 +320,8 @@ tpriv	public.panood_screens|authenticated	SIUD
 tpriv	public.paparazzi_seats|anon	SIUD
 tpriv	public.paparazzi_seats|authenticated	SIUD
 tpriv	public.papic_challenge_library|authenticated	S
+tpriv	public.papic_chapter_captures|authenticated	S
+tpriv	public.papic_chapter_windows|authenticated	SIUD
 tpriv	public.papic_event_pool_usage|authenticated	SIUD
 tpriv	public.papic_guest_captures|anon	SIUD
 tpriv	public.papic_guest_captures|authenticated	SIUD
@@ -3202,6 +3204,21 @@ col	public.papic_challenge_library.priority_rank	anon=- authenticated=S
 col	public.papic_challenge_library.prompt	anon=- authenticated=S
 col	public.papic_challenge_library.slug	anon=- authenticated=S
 col	public.papic_challenge_library.title	anon=- authenticated=S
+col	public.papic_chapter_captures.added_by	anon=- authenticated=S
+col	public.papic_chapter_captures.block_id	anon=- authenticated=S
+col	public.papic_chapter_captures.created_at	anon=- authenticated=S
+col	public.papic_chapter_captures.event_id	anon=- authenticated=S
+col	public.papic_chapter_captures.guest_capture_id	anon=- authenticated=S
+col	public.papic_chapter_captures.how	anon=- authenticated=S
+col	public.papic_chapter_captures.link_id	anon=- authenticated=S
+col	public.papic_chapter_captures.seat_photo_id	anon=- authenticated=S
+col	public.papic_chapter_windows.block_id	anon=- authenticated=SIU
+col	public.papic_chapter_windows.created_at	anon=- authenticated=SIU
+col	public.papic_chapter_windows.event_id	anon=- authenticated=SIU
+col	public.papic_chapter_windows.opened_early_at	anon=- authenticated=SIU
+col	public.papic_chapter_windows.picked	anon=- authenticated=SIU
+col	public.papic_chapter_windows.updated_at	anon=- authenticated=SIU
+col	public.papic_chapter_windows.updated_by	anon=- authenticated=SIU
 col	public.papic_event_pool_usage.created_at	anon=- authenticated=SIU
 col	public.papic_event_pool_usage.event_id	anon=- authenticated=SIU
 col	public.papic_event_pool_usage.points_used	anon=- authenticated=SIU
@@ -6207,6 +6224,10 @@ policy	public.panood_screens|panood_screens_couple_full	mode=PERMISSIVE cmd=ALL 
 policy	public.paparazzi_seats|paparazzi_seats_claimer_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(claimer_user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.paparazzi_seats|paparazzi_seats_couple_full	mode=PERMISSIVE cmd=ALL roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = paparazzi_seats.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'couple'::member_type))))) check=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = paparazzi_seats.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'couple'::member_type)))))
 policy	public.papic_challenge_library|papic_challenge_library_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.papic_chapter_captures|papic_chapter_captures_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.papic_chapter_captures|papic_chapter_captures_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
+policy	public.papic_chapter_windows|papic_chapter_windows_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
+policy	public.papic_chapter_windows|papic_chapter_windows_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.papic_event_pool_config|papic_event_pool_config_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.papic_guest_captures|papic_guest_captures_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.papic_guest_captures|papic_guest_captures_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = papic_guest_captures.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'couple'::member_type))))) check=NULL
@@ -6807,10 +6828,13 @@ func	public.papic_armed_challenge(p_event_id uuid)	secdef=no exec=authenticated 
 func	public.papic_challenge_ends_at(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_challenge_is_open(p_mission_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_challenge_pick_counts()	secdef=yes exec=authenticated search_path=public
+func	public.papic_chapter_tz(p_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.papic_chapter_window_bounds(p_start_at timestamp with time zone, p_end_at timestamp with time zone, p_opened_early_at timestamp with time zone, p_tz text, OUT opens_at timestamp with time zone, OUT closes_at timestamp with time zone)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.papic_claim_seat(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_close_open_challenge(p_event_id uuid, p_at timestamp with time zone, p_only_mission uuid)	secdef=no exec=authenticated search_path=public
 func	public.papic_complete_mission(p_guest_id uuid, p_mission_id uuid, p_capture_id uuid, p_consent_to_share boolean)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.papic_event_chapters(p_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public

@@ -31,6 +31,7 @@ import { cameraProFor } from '@/lib/papic-photo-mark.server';
 import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
+import { papicCameraChapter } from '@/lib/papic-chapter.server';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -209,7 +210,11 @@ export default async function PapicGuestPage({
     windowStart: (ev as { papic_window_start?: string | null } | null)?.papic_window_start,
     windowEnd: (ev as { papic_window_end?: string | null } | null)?.papic_window_end,
   });
-  if (gate.state !== 'open') {
+  // 📷 THE CHAPTER HAPPENING NOW (owner 2026-11-01): a meeting before the day turns Papic on at its start and off at
+  // its end — for the people in it. Resolved by the database (its window + its photo rule), the SAME refusal the
+  // capture route asks at the shutter. Null = the whole event; the event-day gate above then decides, unchanged.
+  const chapter = await papicCameraChapter(admin, { eventId: session.event_id, guestId: session.guest_id });
+  if (gate.state !== 'open' && !chapter) {
     return (
       <DoorShell
         tone="dead_end"
@@ -428,6 +433,7 @@ export default async function PapicGuestPage({
       dress={cameraDress}
       photoMark={photoMark}
       myShots={ownShots?.shots ?? null}
+      chapter={chapter}
     />
     {/* ✍ "WRITE A COLUMN" ON THE DAY LIVES IN THE CAMERA (owner 2026-10-04,
         DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"), under the

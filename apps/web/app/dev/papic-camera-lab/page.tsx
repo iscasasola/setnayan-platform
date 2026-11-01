@@ -15,6 +15,7 @@
  *   ?pro=1          the guest camera on a PRO event (owner 2026-10-24 ruling)
  *   ?lane=seat      the seat camera (`PapicSeatCapture`) on fixture props
  *   &buy=1          the real floating "Add credits" doorway over the camera (one fixture rung)
+ *   &chapter=1      📷 the camera shoots into a chapter ("Meeting with caterer", owner 2026-11-01) — named on it
  */
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
@@ -33,7 +34,7 @@ export default async function PapicCameraLabPage({
   // &spot=1 — the camera's first-visit spotlight (guest_papic_camera_v2), first run, nothing recorded.
   return (
     <>
-      <LabCamera lane={lane} pro={sp.pro === '1'} buy={sp.buy === '1'} />
+      <LabCamera lane={lane} pro={sp.pro === '1'} buy={sp.buy === '1'} chapter={sp.chapter === '1'} />
       {sp.spot === '1' && lane === 'guest' ? <LabPageSpotlight tourKey="guest_papic_camera_v2" script={TOURS.guest_papic_camera_v2.spotlight!} /> : null}
     </>
   );

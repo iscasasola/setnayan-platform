@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
 import { approvableTogether, computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { formatCount } from '@/lib/format-number';
 import {
   formatClock,
   formatClockRange,
@@ -638,14 +639,14 @@ export function RequestsSheet({
         >
           <ConfirmForm
             action={resolveScheduleSuggestion}
-            title={`Approve all ${together.length}?`}
-            confirmLabel={`Approve all ${together.length}`}
+            title={`Approve all ${formatCount(together.length)}?`}
+            confirmLabel={`Approve all ${formatCount(together.length)}`}
             destructive={removals > 0}
             message={
               <>
-                {together.length} change{together.length === 1 ? '' : 's'} go on your schedule
-                {removals > 0 ? ` — ${removals === 1 ? 'one takes its moment' : `${removals} take their moments`} off it` : ''}.{' '}
-                {suppliersTold === 1 ? 'The supplier is' : `All ${suppliersTold} suppliers are`} told in the app.
+                {formatCount(together.length)} change{together.length === 1 ? '' : 's'} go on your schedule
+                {removals > 0 ? ` — ${removals === 1 ? 'one takes its moment' : `${formatCount(removals)} take their moments`} off it` : ''}.{' '}
+                {suppliersTold === 1 ? 'The supplier is' : `All ${formatCount(suppliersTold)} suppliers are`} told in the app.
                 {requests.length > together.length ? ' Suggestions in words stay here for you to mark Noted.' : ''}
               </>
             }
@@ -656,7 +657,7 @@ export function RequestsSheet({
               <input key={r.suggestion_id} type="hidden" name="suggestion_id" value={r.suggestion_id} />
             ))}
             <SubmitButton pendingLabel="Approving…" className="h-11 rounded-full bg-ink px-5 text-[13.5px] font-semibold text-cream">
-              Approve all {together.length}
+              Approve all {formatCount(together.length)}
             </SubmitButton>
           </ConfirmForm>
         </div>

@@ -61,7 +61,7 @@ test('2 · the sheet pins Approve all behind the house confirm, with the ids it 
   assert.match(foot, /<ConfirmForm\s+action=\{resolveScheduleSuggestion\}/, 'Approve all fires without the house confirm');
   assert.match(foot, /<input type="hidden" name="decision" value="accept_all" \/>/, 'the press is not marked as Approve all');
   assert.match(foot, /together\.map\(\(r\) => \(\s*<input key=\{r\.suggestion_id\} type="hidden" name="suggestion_id" value=\{r\.suggestion_id\} \/>/, 'it posts something other than the ids shown');
-  assert.match(foot, /Approve all \{together\.length\}/, 'the button does not say how many');
+  assert.match(foot, /Approve all \{formatCount\(together\.length\)\}/, 'the button does not say how many');
   assert.match(sheet, /\{isNoteOnlySuggestion\(r\) \? 'Noted' : 'Approve'\}/, 'a suggestion in words is Approved, not Noted');
   assert.match(sheet, /\{isNoteOnlySuggestion\(r\) \? null : \(\s*<form action=\{resolveScheduleSuggestion\}>[\s\S]*?value="decline"/, 'a suggestion in words can be Declined');
 });

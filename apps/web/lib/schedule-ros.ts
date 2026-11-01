@@ -73,7 +73,10 @@ export async function readBlockRosMeta(supabase: SupabaseClient, eventId: string
     .from('event_schedule_blocks')
     .select('block_id, responsible_party, responsible_vendor_ids')
     .eq('event_id', eventId);
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('[supabase-error] lib/schedule-ros.ts · from:event_schedule_blocks.select', error?.message ?? 'no rows', { event_id: eventId });
+    return null;
+  }
   const map: RosMetaMap = new Map();
   for (const row of data as Array<{
     block_id: string;

@@ -120,6 +120,8 @@ import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, Sc
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapterBook, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -381,6 +383,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     rosVendors = suppliersRes;
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
+  /* 👁 VIEW AS (Step 3c): the tasks, rooms, groups and Pro the rail's View as ▾ reads — started now, awaited where the
+     chapters are handed down, so it rides beside the reads below instead of after them. Never in the Maker or a trip. */
+  const viewAsAhead =
+    !inMaker && !isTravel && chapterRead?.ok ? readViewAsExtras(supabase, eventId, { readSuppliers: !rosEnabled, tasks: Promise.resolve(taskRead?.ok ? taskRead.value : null) }) : null;
   const rosTemplates = rosEnabled
     ? // Both rites: an INC / Muslim / LDS / SDA day (either column) is never
       // offered a cocktail hour or a dance set (`riteIsDanceFree`).
@@ -629,6 +635,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       : [];
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
   const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
+  const viewAsExtras = viewAsAhead ? await viewAsAhead : null;
   const chaptersInput: ChaptersInput | null =
     chapterRead === null || isTravel
       ? null
@@ -671,6 +678,25 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
             // here; the door checks again (`mayShowToGuests`).
             mayInvite: dayRole !== 'view',
+            viewAs: viewAsExtras
+              ? {
+                  pro: viewAsExtras.pro,
+                  proHref: viewAsExtras.proHref,
+                  data: {
+                    moments: dayMoments.flatMap((m): ViewMoment[] => {
+                      if (!m.parent_block_id) return [];
+                      const at = momentFacts.get(m.block_id);
+                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null }];
+                    }),
+                    tasks: taskRead?.ok ? taskRead.value : null,
+                    suppliers:
+                      viewAsExtras.suppliers ??
+                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked' })),
+                    groups: viewAsExtras.groups,
+                    roleNames: viewAsExtras.roleNames,
+                  },
+                }
+              : null,
           }
         : { measured: false };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({

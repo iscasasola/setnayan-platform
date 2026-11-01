@@ -6,6 +6,7 @@ import { readAllPages } from '@/lib/read-all-pages';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { fetchVendorServiceAttributes, payloadHidesPricesPublicly } from '@/lib/vendor-service-attributes';
 import { formatPhpRounded } from '@/lib/php';
 import { NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
@@ -73,6 +74,7 @@ type ShopRow = {
   location_city: string | null;
   public_visibility: unknown;
   verification_state: string | null;
+  next_renewal_due_at: string | null;
   is_demo: boolean | null;
   name_revealed_at: string | null;
   screen_name: string | null;
@@ -80,7 +82,7 @@ type ShopRow = {
 };
 
 const SHOP_COLS =
-  'vendor_profile_id, business_name, business_slug, services, location_city, public_visibility, verification_state, is_demo, name_revealed_at, screen_name, tier_state';
+  'vendor_profile_id, business_name, business_slug, services, location_city, public_visibility, verification_state, next_renewal_due_at, is_demo, name_revealed_at, screen_name, tier_state';
 
 function initialsOf(name: string): string {
   const words = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean);
@@ -267,7 +269,8 @@ export async function readCheckADateFresh(slug: string, now: Date = new Date()):
       slug: row.business_slug ?? slug,
       name,
       initials: initialsOf(name),
-      verified: row.verification_state === 'verified',
+      // The badge is the ONE predicate (`hasVerifiedBadge`): verified AND inside its renewal deadline.
+      verified: hasVerifiedBadge(row, now),
     },
     services: serviceRows.map((s) => ({
       serviceId: s.vendor_service_id,

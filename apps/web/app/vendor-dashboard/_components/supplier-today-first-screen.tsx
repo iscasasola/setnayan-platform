@@ -53,6 +53,7 @@ import { SupplierSubmit } from './supplier-submit';
 import { TodayFigure } from './today-figure';
 import { EventsYouRunRows } from './events-you-run-rows';
 import { TodayCounts } from './today-counts';
+import { PinDoor, PinDoors, PinWord } from '@/app/_components/pinned-row/pin-door';
 import { UndoableAnswers } from './undoable-answers';
 import { SupplierOpenRow } from './supplier-open-row';
 import type { EventYouRun } from '@/lib/events-you-run';
@@ -707,38 +708,36 @@ export function SupplierTodayFirstScreen({
           the day's own (next moment · checked in), each a door to the Event Hub, as before. A new shop has no row. */}
       {setup ? null : numbers.day ? (
         <>
-        <div className="flex items-center gap-1">
-          <div className="min-w-0 flex-1">
-          <div className="mb-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-first-row="" data-tour="today-numbers">
-            <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
-              {numbers.waiting === null ? (
-                <Unread />
-              ) : (
-                <>
-                  {/* Something waits → the number wears the app's accent (the token, never a colour written here). */}
-                  <span className={`block text-[26px] font-semibold leading-none tabular-nums ${numbers.waitingNow ? 'text-sn-accent' : 'text-ink'}`}>
-                    <Figure word={numbers.waiting} id="today-waiting" />
-                  </span>
-                  <span className="block text-[11.5px] text-ink/60">waiting on you</span>
-                </>
-              )}
-              <TapMark />
-            </Link>
+        <div
+          className="mb-3 flex min-h-11 items-center gap-1 border-y border-ink/10 py-1.5"
+          data-today-numbers=""
+          data-first-row=""
+          data-tour="today-numbers"
+        >
+          {/* The ONE SELECTOR's word form + the one door (owner 2026-10-30 "all yes") — the same row as every other day,
+              but each count is a door: waiting → Customers; the day's own two → the Event Hub. */}
+          <PinWord mark={{ 'data-today-word': '' }} barAbove>
+            Today
+          </PinWord>
+          <PinDoors>
+            <PinDoor
+              value={numbers.waiting === null ? null : <Figure word={numbers.waiting} id="today-waiting" />}
+              word="waiting on you"
+              hot={numbers.waitingNow}
+              href="/vendor-dashboard/customers?lane=waiting#customers"
+              mark={{ 'data-today-number': 'waiting' }}
+              unreadMark="data-today-unread"
+            />
             {/* 🌑 The day's own two — the next moment and who checked in — each opens the Event Hub. */}
-            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="next-moment">
-              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">{numbers.day.next ?? '—'}</span>
-              <span className="block text-[11.5px] text-ink/60">next moment</span>
-              <TapMark />
-            </Link>
-            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="checked-in">
-              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
-                {numbers.day.checkedIn === null ? '—' : <Figure word={numbers.day.checkedIn} id="today-checked-in" />}
-              </span>
-              <span className="block text-[11.5px] text-ink/60">checked in</span>
-              <TapMark />
-            </Link>
-          </div>
-          </div>
+            <PinDoor value={numbers.day.next ?? '—'} word="next moment" href="/vendor-dashboard/on-the-day" mark={{ 'data-today-number': 'next-moment' }} />
+            <PinDoor
+              value={numbers.day.checkedIn === null ? '—' : <Figure word={numbers.day.checkedIn} id="today-checked-in" />}
+              word="checked in"
+              href="/vendor-dashboard/on-the-day"
+              mark={{ 'data-today-number': 'checked-in' }}
+            />
+          </PinDoors>
+          <span className="min-w-0 flex-1" aria-hidden />
           {gear}
         </div>
         {cardBlock}
@@ -855,14 +854,6 @@ function ListDoor({ label, href }: { label: string; href: string }) {
   );
 }
 
-/**
- * ➜ THE SMALL MARK UNDER A NUMBER — each of the three numbers is a door to the list it counts, and says so the way
- * every other door on the page does: a small terracotta arrow (owner 2026-10-12: the numbers stay tappable "with a
- * small terracotta mark under each"). Decorative — the link's words already name it.
- */
-function TapMark() {
-  return <ChevronRight aria-hidden data-today-tapmark="" className="mx-auto mt-0.5 h-3.5 w-3.5 text-sn-accent" strokeWidth={2.2} />;
-}
 
 /**
  * A number counts up to its value (the prototype's `countUp`): a bare count through `Count`, a worded figure
@@ -873,16 +864,3 @@ function Figure({ word, id }: { word: string; id: string }) {
   return n === null ? <TodayFigure word={word} id={id} /> : <Count value={n} id={id} />;
 }
 
-/** The read did not happen — said in the number's own place. */
-function Unread() {
-  return (
-    <>
-      <span className="block text-[26px] font-semibold leading-none" style={{ color: 'rgb(var(--color-warn))' }} aria-hidden>
-        —
-      </span>
-      <span className="block text-[11.5px] text-ink/60" data-today-unread="">
-        couldn&rsquo;t load
-      </span>
-    </>
-  );
-}

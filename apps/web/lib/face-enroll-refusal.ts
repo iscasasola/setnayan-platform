@@ -24,6 +24,7 @@ export type FaceStepFailure =
   | 'excluded'
   | 'minor'
   | 'bad_photo'
+  | 'face_unread'
   | 'save';
 
 const WORDS: Record<FaceStepFailure, string> = {
@@ -39,6 +40,7 @@ const WORDS: Record<FaceStepFailure, string> = {
   excluded: 'your hosts turned this off for you',
   minor: 'for guests 18 and over',
   bad_photo: 'that photo didn’t upload',
+  face_unread: 'your face wasn’t clear',
   save: 'connection lost',
 };
 

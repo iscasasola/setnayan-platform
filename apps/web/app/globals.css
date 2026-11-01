@@ -840,6 +840,21 @@ html.guests-subnav-docked [data-shell-main] {
     padding-bottom: var(--sn-thumb-room, 0px);
   }
 }
+/* 🗺 A PLAN THAT IS THE WHOLE SCREEN LEAVES NOTHING TO SCROLL (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE
+   MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"): on Guests › Map · Seats › 2D · 3D the surface already stops at
+   the bottom nav and the thumb row floats over it, so the column's clearance would only add a scroll that slides the
+   top nav away — and so would the page wrapper's own foot (`pb-6`, the column's direct child), measured as a 24-px scroll
+   on a desk where the dock is gone. 🔒 lib/maps-are-always-full-screen.test.ts
+   📏 Seats › List's row surface (`data-guests-row-surface`) stops at the bottom nav too — the same: nothing to scroll, so
+   the list starts and stays right under the pinned row. 🔒 lib/guests-top-row-and-full-screen.test.ts (7) */
+html [data-shell-main]:has([data-guests-full]),
+html.guests-subnav-docked [data-shell-main]:has([data-guests-full]),
+html [data-shell-main]:has([data-guests-full]) > *,
+html [data-shell-main]:has([data-guests-row-surface]),
+html.guests-subnav-docked [data-shell-main]:has([data-guests-row-surface]),
+html [data-shell-main]:has([data-guests-row-surface]) > * {
+  padding-bottom: 0;
+}
 
 @layer components {
   /* ══════════════════════════════════════════════════════════════════════
@@ -6072,6 +6087,11 @@ div:has(> [data-apply-pro-sheet]),
   z-index: var(--sn-z-pop);
   width: max-content;
   max-width: min(18rem, calc(100vw - 32px));
+  /* The bubble wraps in its own width, whatever its trigger does. A tip inside a `whitespace-nowrap` heading (the
+     Categories map's column heads) inherited `nowrap`: its text ran one 1,300-px line out of the 18rem box — off
+     screen when open, and while CLOSED (hidden, still laid out) it widened the page to 1,856 px at 1,280.
+     🔒 lib/a-tip-wraps-in-its-own-width.test.ts */
+  white-space: normal;
   padding-top: 8px;
   opacity: 0;
   visibility: hidden;
@@ -6092,6 +6112,9 @@ div:has(> [data-apply-pro-sheet]),
 .sn-tip[data-align='center'] { left: 50%; --sn-tip-x: -50%; }
 .sn-tip[data-align='start'] { left: -4px; }
 .sn-tip[data-align='end'] { right: -4px; }
+/* A PickMenu row that cannot be picked yet (`pick-menu-off-row.tsx`, owner 2026-10-31): its reason hangs from the ROW,
+   inside the list's width — the list scrolls (overflow clips), so an 18rem popover from a 200-px list would be cut. */
+[data-pick-off] .sn-tip { left: 0; right: 0; width: auto; max-width: none; }
 .sn-tip-body {
   border-radius: var(--m-r-md);
   padding: 10px 12px;
@@ -10478,6 +10501,12 @@ html.dark .sn-acc-head[data-open] {
   }
 }
 
+/* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";
+   `app/_components/global-clear-field.tsx`). While the app-wide ✕ stands inside a box, the box gives it room at its end
+   (`--sn-clear-room`, never less than the box's own padding) and the browser's own search ✕ steps aside — never two. */
+input[data-clearing] { padding-right: var(--sn-clear-room) !important; }
+input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -10624,3 +10653,4 @@ html.dark .sn-acc-head[data-open] {
     animation-range: normal;
   }
 }
+

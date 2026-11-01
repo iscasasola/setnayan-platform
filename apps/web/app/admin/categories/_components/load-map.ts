@@ -130,5 +130,7 @@ export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<M
     cards,
     partsRead,
     cardsRead,
+    // `loadCategories` already read the services and named a refusal in `failed` — carried here so the map says it.
+    servicesRead: !cats.failed.includes('services'),
   };
 }

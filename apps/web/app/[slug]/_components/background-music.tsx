@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
-import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { onUnveil, onUnveilPress, primeMedia, VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { SILENT_HINT_COPY, SILENT_HINT_FADE_MS, SILENT_HINT_SHOW_MS, songStartNeedsSilentHint } from '@/lib/hub-music-silent-hint';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -37,6 +38,13 @@ import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
  * While music plays, three small bars move in place of the speaker — they
  * hold still under prefers-reduced-motion.
  *
+ * 🔕 AND ONE HINT EACH TIME IT STARTS, ON AN iPHONE OR iPAD (owner 2026-11-01:
+ * "keep it silently playing but a message saying the audio is playing but your
+ * phone is in silent/muted?"). The song respects the silent switch, so on a
+ * phone set to silent it plays unheard while the bars move. A page cannot read
+ * that switch, so the same chip says "may be on silent" for a few seconds and
+ * fades (no fade under reduced motion). Never on Android or a computer.
+ *
  * v1 uses a looping <audio> element. The spec's gapless-via-Web-Audio loop is
  * a deferred refinement — `loop` has a tiny seam on some browsers but is
  * robust, accessible, and ships the feature; Web Audio gapless can layer on
@@ -49,6 +57,26 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [touched, setTouched] = useState(false);
+  // 🔕 The silent hint: shown after a start, then fading, then gone (`lib/hub-music-silent-hint.ts`).
+  const [silentHint, setSilentHint] = useState<'off' | 'on' | 'fading'>('off');
+  const silentHintTimers = useRef<number[]>([]);
+  function hideSilentHint() {
+    for (const t of silentHintTimers.current) window.clearTimeout(t);
+    silentHintTimers.current = [];
+    setSilentHint('off');
+  }
+  function showSilentHint() {
+    if (!songStartNeedsSilentHint(navigator.userAgent, navigator.maxTouchPoints)) return;
+    hideSilentHint();
+    setSilentHint('on');
+    silentHintTimers.current = [
+      window.setTimeout(() => setSilentHint('fading'), SILENT_HINT_SHOW_MS),
+      window.setTimeout(() => setSilentHint('off'), SILENT_HINT_SHOW_MS + SILENT_HINT_FADE_MS),
+    ];
+  }
+  useEffect(() => () => {
+    for (const t of silentHintTimers.current) window.clearTimeout(t);
+  }, []);
   // 📜 THE HINT BELONGS TO THE TOP OF THE PAGE. The button is pinned to the
   // viewport, so a hint pinned with it rode down over the invitation's text
   // as the guest scrolled (seen live 2026-09-21, covering the "open the link
@@ -99,12 +127,25 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     };
     return onUnveil(startOnUnveil);
   }, []);
+  /* 👇 …AND THE PRESS UNLOCKS IT (PR #7129). A swipe up's pointerup carries no media credit on iOS (measured in the
+     app's "View Event Hub" sheet: refused 2 of 2, a tap allowed), so the unveil's play() above was refused for a
+     swipe and the song stayed off. The veil's pointerdown plays-and-pauses the song at once (silent), which unlocks
+     it, and the swipe up's play() then starts it (2 of 2). */
+  useEffect(
+    () =>
+      onUnveilPress(() => {
+        const el = audioRef.current;
+        if (el) primeMedia(el);
+      }),
+    [],
+  );
 
   /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */
   async function startSong(el: HTMLAudioElement): Promise<boolean> {
     try {
       await el.play();
       setPlaying(true);
+      showSilentHint();
       return true;
     } catch {
       // Autoplay/gesture policy rejected play — leave it paused. The tap that
@@ -123,6 +164,7 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     if (playing) {
       el.pause();
       setPlaying(false);
+      hideSilentHint();
       return;
     }
     await startSong(el);
@@ -147,6 +189,15 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
           className="absolute right-0 top-full mt-2 whitespace-nowrap rounded-lg bg-ink px-3 py-1.5 text-xs text-cream shadow-lg"
         >
           Tap for their song
+        </span>
+      )}
+      {silentHint === 'off' ? null : (
+        <span
+          role="status"
+          data-silent-hint
+          className={`pointer-events-none absolute right-0 top-full mt-2 w-max max-w-[min(16rem,calc(100vw-1.5rem))] rounded-lg bg-ink px-3 py-1.5 text-xs text-cream shadow-lg transition-opacity duration-700 motion-reduce:transition-none ${silentHint === 'fading' ? 'opacity-0' : 'opacity-100'}`}
+        >
+          {SILENT_HINT_COPY}
         </span>
       )}
     </div>

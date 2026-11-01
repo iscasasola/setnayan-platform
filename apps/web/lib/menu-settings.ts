@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub';
 
 export type SettingsEntry = {
   /**
@@ -56,16 +56,28 @@ export type SettingsEntry = {
 export const MENU_SETTINGS_TIP =
   'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
 
+/**
+ * 🪪 HOME'S ⚙ FOR A HELPER (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙
+ * EVENT SETTINGS"): the same door and the same sheet, whose one row is "Your access" — so its line says that, never the
+ * hosts' "Names, date, venues…" a helper cannot change.
+ */
+export const HOME_HELPER_SHEET = {
+  line: 'What you can open on this event.',
+  tip: 'The hosts set what each helper can open. The event’s own facts stay with them.',
+} as const;
+
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   /**
    * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":
-   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents). The
+   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents; and
+   * since 2026-10-30 People with access — owner: *"that shoud be inside home settings"*). The
    * sheet's rows are the editors those facts already have (`open-event-settings.tsx`) — never a second editor.
    */
   home: {
     door: 'cover-gear',
     sheet: 'Event settings',
-    line: 'Names, date, venues and parents.',
+    // 👥 + People with access, the sheet's last section (owner 2026-10-30, *"that shoud be inside home settings"*).
+    line: 'Names, date, venues, parents and who has access.',
     live: true,
     tip: 'The event’s own facts. Each menu — Guests, Suppliers, Memories — keeps its own settings under its own ⚙.',
   },
@@ -75,17 +87,29 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How guests get in, what you ask, when the list closes.',
     live: true,
   },
+  /**
+   * 🎛 THE EVENT HUB ⚙ (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+   * right end of the Hub's pinned row — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙ (`maker-shell.tsx`). Its sheet is "Your Event
+   * Hub": Go live · who can view · which version · open browsing · the QR — what the Maker's "Your Event Hub" sheet held.
+   */
   hub: {
     door: 'first-row-gear',
     sheet: 'Event Hub settings',
     line: 'What guests see, your address and QR, the look, the tools.',
-    live: false,
+    live: true,
   },
+  /**
+   * 🖨 THE PRINTS PAGE ⚙ (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings, if there is a real
+   * Prints setting"*): the right end of the Prints page's top bar, where the Hub's ⚙ stood (it opened Hub settings, which
+   * change nothing on a print). The door only (`MenuSettingsButton` with no rows): its sheet is the ONE print settings
+   * sheet, `StudioPrintSettings` — Your Event Hub look ◆ · the print words · ticket style · special message · thank-you.
+   * Mounted once, in `studio-prints-settings.tsx` (`StudioPrintSettingsDoor`); the slides draw no ⚙ of their own.
+   */
   prints: {
     door: 'first-row-gear',
     sheet: 'Print settings',
     line: 'What every print shares.',
-    live: false,
+    live: true,
   },
   memories: {
     door: 'first-row-gear',
@@ -130,6 +154,31 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How you get paid, your schedules and days.',
     live: true,
     tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
+  },
+  /**
+   * 🗓 THE SUPPLIER'S HUB ⚙ (supplier dashboard v13, prototype `renderViewrow` "Hub ▾ · ⓘ · ⚙"; DECISION_LOG 2026-10-31
+   * "SUPPLIER HUB: ONE ROW, ITS ⚙, CREW SEARCH"). Not the couple's Event Hub ⚙ (`hub`). It ends the supplier Hub's one
+   * row (`HubSettings`, one mount) and holds what the crew sees — the rest of the v13 sheet has nothing to save to yet.
+   */
+  'supplier-hub': {
+    door: 'first-row-gear',
+    sheet: 'Hub settings',
+    line: 'What your crew sees on the day.',
+    live: true,
+    tip: 'Set once for every event. Each event’s own tools are under Set up; each phone’s role is under Crew.',
+  },
+  /**
+   * 🏪 THE SUPPLIER'S SHOP ⚙ (owner 2026-10-31, verbatim *"Yes follow your recommendation"*; DECISION_LOG "SHOP ⚙ — WHAT A
+   * SUPPLIER SETS ONCE"): the right end of Shop's pinned row on every Shop section (`ShopSettings`, one mount). It holds
+   * what a supplier sets once and rarely touches — Plan and billing · Team · Verification and documents · Notifications ·
+   * Shop status — the Home rule: the ⚙ is for rare, account-level things; the page is for the work.
+   */
+  shop: {
+    door: 'first-row-gear',
+    sheet: 'Shop settings',
+    line: 'Your plan, who helps run the shop, your papers, how we reach you.',
+    live: true,
+    tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
   },
 };
 

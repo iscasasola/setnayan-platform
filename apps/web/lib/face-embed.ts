@@ -36,6 +36,8 @@ type FaceApi = {
 };
 
 let apiPromise: Promise<FaceApi | null> | null = null;
+/** The last load attempt of face-api.js or its weights FAILED (a hosted model that did not arrive). */
+let lastLoadFailed = false;
 
 /** Where the face-api.js UMD lives — next to the weights on R2 by default. */
 function faceApiScriptUrl(modelUrl: string): string {
@@ -86,11 +88,28 @@ async function getFaceApi(): Promise<FaceApi | null> {
   })();
   apiPromise = attempt;
   const api = await attempt;
+  lastLoadFailed = api == null && isFaceModelConfigured();
   // Never cache a FAILED load: a transient script/weight/network error (common
   // on first paint over cellular) would otherwise wedge the whole session as
   // "no model" forever. Clear so the next call retries the load from scratch.
   if (!api && apiPromise === attempt) apiPromise = null;
   return api;
+}
+
+/**
+ * ⚡ Start loading face-api.js and its three weight files now (~12 MB — the bulk of the old two-minute wait), so the
+ * press only runs them (owner 2026-10-30). A download, no face is read; a failed load is retried by the press.
+ */
+export function warmFaceEmbed(): void {
+  void getFaceApi();
+}
+
+/**
+ * Did the face reader fail to ARRIVE (the script or a weight file did not load), as opposed to reading a photo and
+ * finding no face? Lets the selfie screen say "connection lost" instead of blaming the guest's face (2026-10-30).
+ */
+export function faceEmbedDidNotLoad(): boolean {
+  return lastLoadFailed;
 }
 
 /**

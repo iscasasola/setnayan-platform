@@ -138,3 +138,47 @@ export function ViewCountRow({ view, tiles }: { view: string; tiles: CountTile[]
     </div>
   );
 }
+
+/**
+ * 📌 ONE COUNT DOOR IN THE ONE TOP ROW (owner 2026-10-30, Guests › Seats on the iPhone app: *"Seat ls should be pinned on
+ * top row and on map and 3d"* → *"Like this one"* — Guests › List's `✓ 80 ✗ 0 ? 152`). A mark and the number; the word
+ * is for a screen reader. Pressed = the number underlined, never boxed. The List's and Map's reply doors and Seats'
+ * seated · unseated · tables are all this ONE drawing (`.pinCount`), so the row reads the same on every view. A count
+ * nobody could read is "—", never 0, and is no door.
+ */
+export function PinCountDoor({
+  dot,
+  value,
+  id,
+  word,
+  icon,
+  pressed,
+  onPress,
+  attrs,
+}: {
+  /** The mark's colour key (`data-pin-dot`): attending · declined · none · seated · unseated · tables. */
+  dot: string;
+  value: number | null;
+  id: string;
+  word: string;
+  icon: ReactNode;
+  pressed?: boolean;
+  onPress?: () => void;
+  attrs?: Record<string, string>;
+}) {
+  return (
+    <button
+      type="button"
+      className={styles.pinCount}
+      aria-pressed={pressed ?? false}
+      onClick={onPress}
+      disabled={!onPress || value === null}
+      data-pin-dot={dot}
+      {...attrs}
+    >
+      {icon}
+      <b>{value === null ? '—' : <Count value={value} id={id} />}</b>
+      <span className="sr-only"> {value === null ? `${word} · couldn’t read` : word}</span>
+    </button>
+  );
+}

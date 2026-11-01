@@ -30,7 +30,8 @@ const AFTER = navPhaseFor({ dayOfPhase: 'post', isRecapBody: true });
 const base: NavInput = {
   viewer: { kind: 'guest' },
   phase: AFTER,
-  hostAllowsCamera: true,
+  // 📷 Papic OFF here, so E1's doors read as ruled; Papic ON adds the guest's Camera (owner 2026-10-30, below).
+  hostAllowsCamera: false,
   anyChapterPublic: true,
   liveBroadcast: false,
   postEvent: { film: true, suppliers: true },
@@ -48,6 +49,9 @@ const labels = (o: Partial<NavInput> = {}) => bar(o).map((s) => s.label);
 
 test('E1 · after the day a guest reads Recap · Film · Suppliers · Memories · Me — in that order', () => {
   assert.deepEqual(labels(), ['Recap', 'Film', 'Suppliers', 'Memories', 'Me']);
+  // 📷 Papic ON (owner 2026-10-30, "no matter what event hub stage it is"): the Camera joins, and — the five-slot
+  // shape holding — Suppliers, a scroll within the Recap, yields first (the same rule as the couple's six doors).
+  assert.deepEqual(labels({ hostAllowsCamera: true }), ['Recap', 'Film', 'Camera', 'Memories', 'Me']);
   for (const slot of bar()) assert.equal(slot.state, 'live', `${slot.key} is drawn but not pressable — a door with something behind it is live`);
   const film = bar().find((s) => s.key === 'film')!;
   assert.equal(film.href, '#open-film', 'Film opens the film’s open-up through its hash, so Back closes it');
@@ -69,13 +73,16 @@ test('E1 · the stranger: Recap · Film · Suppliers · Memories — no fifth sl
   assert.deepEqual(labels({ viewer: { kind: 'public' } }), ['Recap', 'Film', 'Suppliers', 'Memories']);
 });
 
-test('E2 · after the day a guest and a stranger have NO camera; the couple keeps theirs', () => {
-  for (const kind of ['guest', 'public'] as const) {
-    for (const hostAllowsCamera of [true, false]) {
-      const keys = bar({ viewer: { kind }, hostAllowsCamera }).map((s) => s.key);
-      assert.ok(!keys.includes('camera'), `${kind} still has a camera after the day (host switch ${hostAllowsCamera})`);
-    }
+test('E2 · after the day a stranger has NO camera, a guest none while Papic is off; the couple keeps theirs', () => {
+  for (const hostAllowsCamera of [true, false]) {
+    const keys = bar({ viewer: { kind: 'public' }, hostAllowsCamera }).map((s) => s.key);
+    assert.ok(!keys.includes('camera'), `a stranger has a camera after the day (host switch ${hostAllowsCamera})`);
   }
+  assert.ok(!bar({ hostAllowsCamera: false }).some((s) => s.key === 'camera'), 'a guest has a camera after the day with Papic off');
+  // 📷 …and with Papic ON (owner 2026-10-30) the guest's Camera is LIVE — never a locked stand-in after the day.
+  const on = bar({ hostAllowsCamera: true }).find((s) => s.key === 'camera');
+  assert.equal(on?.state, 'live', 'Papic on: the guest lost the Camera on Post Event');
+  assert.ok(!bar({ hostAllowsCamera: true, destinations: { ...base.destinations, camera: null } }).some((s) => s.key === 'camera'), 'no address → no camera, never a locked one');
   const couple = bar({ viewer: { kind: 'couple' } });
   const cam = couple.find((s) => s.key === 'camera');
   assert.ok(cam, 'the couple lost their camera after the day');

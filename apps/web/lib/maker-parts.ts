@@ -287,7 +287,7 @@ export type MakerGuestsRow = 'asks';
 export const MAKER_GUESTS_DOOR_WORDS = 'RSVP settings in Guests';
 export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   logo: 'Logo',
-  mood: 'Mood Board & Dress Code',
+  mood: 'Palette + Dress Code',
   schedule: 'Schedule',
   story: 'Love Story',
   gifts: 'E-Gifts',

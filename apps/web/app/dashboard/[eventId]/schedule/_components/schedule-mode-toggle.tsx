@@ -33,7 +33,7 @@ type Mode = 'journey' | 'preparation' | 'event-day';
 
 const VIEWS: { mode: Mode; label: string; Icon: typeof Route }[] = [
   { mode: 'journey', label: 'Journey', Icon: Route },
-  { mode: 'preparation', label: 'Preparation', Icon: CalendarRange },
+  { mode: 'preparation', label: 'Planning Stage', Icon: CalendarRange },
   { mode: 'event-day', label: 'Event Day', Icon: CalendarClock },
 ];
 

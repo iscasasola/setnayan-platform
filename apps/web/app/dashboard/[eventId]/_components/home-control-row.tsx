@@ -217,7 +217,7 @@ function DetailCard({
     case 'count': {
       const c = input.countdown;
       return (
-        <Shell k="count" door={`/dashboard/${e}/details`} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
+        <Shell k="count" door={tile.door} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
           {c.hasDate ? (
             <>
               <Dot mood="ok">Date set{c.placeLine ? ` · ${c.placeLine}` : ''}</Dot>
@@ -231,7 +231,7 @@ function DetailCard({
             <>
               <Dot mood="wait">No date yet</Dot>
               <div className="sg-acts">
-                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={`/dashboard/${e}/date-selection`} />
+                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={tile.faces[0]?.action?.href ?? tile.door} />
               </div>
             </>
           )}

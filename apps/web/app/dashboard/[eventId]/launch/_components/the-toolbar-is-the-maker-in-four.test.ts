@@ -42,6 +42,11 @@
  *
  *     ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n)
  *
+ * 🧭 2026-10-30 — THE HUB KEEPS THE APP'S NAV (DECISION_LOG "EVENT HUB PRO (look redesign)"): the bar is the Hub's
+ * pinned row under the app's top bar, the ✕ is dropped and ⚙ ends it:
+ *
+ *     [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n) · ⚙
+ *
  * The tests below hold that bar; the ones that held Page ▾ · Event Details · Both · Scenes say they are gone.
  */
 import test from 'node:test';
@@ -134,11 +139,13 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
-test('the rendered toolbar is EXACTLY ✕ Exit · Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply — nothing else', async () => {
-  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['exit', 'side', 'undo', 'apply']);
+test('the rendered toolbar is EXACTLY Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
+  /* 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
+     out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. */
+  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'undo', 'apply', 'settings']);
   const html = await paint();
   /* 👁 Preview is in the DOM between Undo and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
-  assert.deepEqual(toolsOf(html), ['exit', 'side', 'undo', 'preview', 'apply'], 'a control joined or left the top level of the Maker');
+  assert.deepEqual(toolsOf(html), ['side', 'undo', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
   const header = headerOf(html);
   assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'Preview shows on a phone');
   // The old bar is gone: no Page ▾, no Event Details door, no Look chip.
@@ -157,7 +164,8 @@ test('the four stage names are not a top-level row — they live inside Page ▾
 
 test('a viewer with no work (a coordinator): the same one Maker’s bar, without the draft', async () => {
   const html = await paint({ hasWork: false });
-  assert.deepEqual(toolsOf(html), ['exit', 'side', 'preview'], 'a coordinator is drawn another bar');
+  /* No ⚙ for a coordinator: the Hub's settings are the couple's (its sheet's rows are the editor's, which they lack). */
+  assert.deepEqual(toolsOf(html), ['side', 'preview'], 'a coordinator is drawn another bar');
   assert.doesNotMatch(headerOf(html), /Only the host can open this part of the Event Hub Maker\.|data-maker-page-menu/, 'the old Maker’s shut door or Page ▾ is back');
 });
 
@@ -196,7 +204,7 @@ test('👁 Preview holds how the page is SEEN: See as · Phone / Desktop · Play
   assert.ok(menu.includes('<ViewAsFreeRow'), 'the internal "view as a free couple" row is lost');
 });
 
-test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Prints · Restore · address · who can view · About after Post Event', () => {
+test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Restore · address · who can view · About after Post Event', () => {
   const base = makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: null, hasWork: true }).options;
   const all = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'ready', tried: true }, hasWork: true, canRestore: false });
   const keys = all.map((o) => o.key);
@@ -207,13 +215,15 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   assert.equal(all[lastPage + 1]!.trail?.text, '◆ PRO', 'a tried Add a scene lost its ◆ PRO mark');
   // After Post Event, the "Your Event Hub" line.
   const hub = all.filter((o) => o.group === MAKER_PAGE_HUB_GROUP).map((o) => o.label);
-  assert.deepEqual(hub, ['Prints', 'Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
-  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.prints) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Prints is not after Post Event');
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home. */
+  assert.deepEqual(hub, ['Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
+  assert.ok(!all.some((o) => o.label === 'Prints'), 'Prints is a row of Page ▾ again — it has its own page');
+  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.restore) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Restore is not after Post Event');
   assert.equal(all.find((o) => o.key === MAKER_PAGE_ACTIONS.restore)?.disabledNote, 'Guests already see this.');
   // A refused Add a scene says why; a viewer with no draft has no Reset, Prints or Restore.
   const refused = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'refused', note: 'Up to 6' }, hasWork: false, canRestore: null });
   assert.equal(refused.find((o) => o.key === MAKER_PAGE_ACTIONS.addScene)?.disabledNote, 'Up to 6');
-  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.prints, MAKER_PAGE_ACTIONS.restore]) {
+  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.restore]) {
     assert.ok(!refused.some((o) => o.key === k), `${k} offered to a viewer with no draft`);
   }
   // Every action key is read back as its act, and is never a place.
@@ -224,9 +234,10 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   // The shell runs each act — the same acts ⋯ ran.
   const shell = src('maker-shell.tsx');
   const pick = shell.slice(shell.indexOf('const pickPage = '), shell.indexOf('const pick = makerPagePick(key);'));
-  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', "pressDoor('prints')", 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
+  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
     assert.ok(pick.includes(act), `Page ▾ no longer runs ${act}`);
   }
+  assert.ok(!pick.includes("pressDoor('prints')"), 'Page ▾ opens Prints in the Maker again — Prints is its own page (R8)');
   // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
   assert.match(shell, /const aboutTheMaker = [\s\S]{0,400}else setTour\(true\)/, 'About the Maker lost its short-slides fallback');
   /* The old bar's Page ▾ (which listed these acts as rows) went with the old Maker (2026-10-25); the shell still runs
@@ -343,7 +354,8 @@ test('"Your info" is retired as a name: the Maker says Event Details', () => {
 test('first open: no tour and no Pro — ONE quiet line on the canvas, and only on the first open', async () => {
   const first = await paint({ firstVisit: true });
   assert.match(first, /data-maker-first-hint=""[^>]*>Tap anything to change it</);
-  assert.equal((first.match(/role="dialog"/g) ?? []).length, 1, 'a dialog besides the shut ⋯ sheet opened on the first visit');
+  /* (The shut "Your Event Hub" sheet was the one dialog in the DOM; since 2026-10-30 it is the ⚙'s and draws nothing shut.) */
+  assert.equal((first.match(/role="dialog"/g) ?? []).length, 0, 'a dialog opened on the first visit');
   assert.doesNotMatch(first, /Event Hub Pro|maker-tour-title/, 'a tour or a Pro pitch opens before the first tap');
   assert.doesNotMatch(await paint({ firstVisit: false }), /data-maker-first-hint/, 'the line shows after the first visit');
   // The first touch records it; the tour itself only plays from ⋯ › About the Maker, never recording.

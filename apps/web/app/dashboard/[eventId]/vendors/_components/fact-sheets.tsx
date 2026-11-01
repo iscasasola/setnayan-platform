@@ -61,6 +61,7 @@ import { ManualVenuePin, ShopPinNote, type ManualVenuePinSave } from '../../_com
 import { saveManualVenuePin } from '../[vendorId]/workspace/actions';
 import { shopPinLine, venuePinDoor } from '@/lib/venue-pin-door';
 import { CityPick } from '../../launch/_components/details-city-pick';
+import { lockedPlaceWhy, placeLockedByReception } from '@/lib/your-place';
 
 /* ── THE DOORS (the real ones; the lab stands in) ─────────────────────────────────────────────────────────────── */
 
@@ -600,6 +601,9 @@ function PlaceBody({
   const [city, setCity] = useState(data.city ?? '');
   const reception = slots.find((s) => s.slot === 'reception') ?? null;
   const pinNear = reception ? (reception.booked && reception.choice.source !== 'own' ? null : reception.pin) : null;
+  /* 🔒 A BOOKED RECEPTION SETS THE PLACE (owner 2026-10-30, final Suppliers design: "once a reception is booked, location
+     changed to the receptions location") — its city, read-only, and one line why. The picker is for before booking. */
+  const locked = placeLockedByReception({ city: data.city, slots: data.slots });
 
   const writeEvents = async (events: Record<string, unknown>): Promise<boolean> => {
     try {
@@ -619,13 +623,27 @@ function PlaceBody({
 
   return (
     <>
-      <Ladder rungs={placeLadder({ city: data.city === null ? null : city, slots })} />
-      {data.city !== null ? (
+      <Ladder rungs={placeLadder({ city: data.city === null ? null : locked ? locked.where : city, slots })} />
+      {locked ? (
+        <section className="flex flex-col gap-1.5" data-place-locked="">
+          <div className="flex items-center justify-between gap-3">
+            <span className={SECTION_HEAD}>Where</span>
+            <span className="min-w-0 text-right text-[15px] font-medium text-ink" data-place-locked-where="">
+              {locked.where}
+            </span>
+          </div>
+          <p className="text-[12.5px] text-ink/60" data-place-locked-why="">
+            {lockedPlaceWhy(locked)}
+          </p>
+        </section>
+      ) : data.city !== null ? (
         <section className="flex flex-col gap-1.5" data-place-city="">
-          {/* CityPick names itself ("City or area") — no second heading over it. */}
+          {/* CityPick names itself ("City or area") — no second heading over it. Nothing typed → the Top 10 in the
+              Philippines (owner 2026-10-30); search finds any city; Near me measures from the phone. */}
           <CityPick
             value={city}
             near={pinNear}
+            start="top10"
             onPick={(name) => {
               const was = city;
               setCity(name);
@@ -634,6 +652,9 @@ function PlaceBody({
               });
             }}
           />
+          <p className="text-[12.5px] text-ink/60" data-place-before-booking="">
+            Once you book a reception, your place becomes its city.
+          </p>
         </section>
       ) : null}
       {slots.map((s) => (

@@ -21,7 +21,14 @@ import { OUR_SERVICE_PARTS } from '@/lib/our-services';
  * live, offered for this event type, and not refused by the store shell — the
  * rules the card's part obeyed.
  */
-export async function ServiceParts({ eventId, service }: { eventId: string; service: 'papic' | 'music-maker' }) {
+export type ServicePartDoor = { key: string; name: string; line: string; href: string };
+
+/**
+ * Whether the part is offered here, and where its door goes — split out (2026-10-31, the Memories keepsake row) so
+ * the row's Thank You button and the door in its sheet answer from ONE read. `null` = the part shows NOTHING here
+ * (not live, not offered for this event type, or refused by the store shell) — the row draws no button then.
+ */
+export async function readServicePart(eventId: string, service: 'papic' | 'music-maker'): Promise<ServicePartDoor | null> {
   const part = OUR_SERVICE_PARTS[service];
   if (!part) return null;
   const entry = ADD_ONS.find((a) => a.key === part.key);
@@ -31,15 +38,30 @@ export async function ServiceParts({ eventId, service }: { eventId: string; serv
   const href = appStoreDetailHref(entry.key, eventId);
   // 🍎 Where Apple sells the part in this app (`iap`), its door stays — its page's one pay step is Apple's sheet.
   if (storeShell && (isStoreShellHiddenAddon(entry.key, iap) || isStoreShellWebOnlyPath(href.split('?')[0]!, iap))) return null;
+  return { key: entry.key, name: part.name, line: part.line, href };
+}
+
+export async function ServiceParts({
+  eventId,
+  service,
+  door: given,
+}: {
+  eventId: string;
+  service: 'papic' | 'music-maker';
+  /** The answer the page already read (the Memories keepsake row) — so it is read once. Absent = read here. */
+  door?: ServicePartDoor | null;
+}) {
+  const door = given === undefined ? await readServicePart(eventId, service) : given;
+  if (!door) return null;
   return (
     <Link
-      href={href}
-      data-service-part={entry.key}
+      href={door.href}
+      data-service-part={door.key}
       className="sn-tile flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink/[0.03]"
     >
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-ink">{part.name}</span>
-        <span className="block text-[13px] text-ink/60">{part.line}</span>
+        <span className="block text-sm font-semibold text-ink">{door.name}</span>
+        <span className="block text-[13px] text-ink/60">{door.line}</span>
       </span>
       <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
     </Link>

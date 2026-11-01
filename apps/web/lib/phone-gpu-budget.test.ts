@@ -27,6 +27,23 @@
  *   · lab `{roomOnScreen && !webgl.lost ? (` → `{!webgl.lost ? (`           → 2 RED
  *   · hook `if (canvas.isConnected) setLost(true)` → `setLost(true)`         → 3 RED
  *   · lab `cinematicFx` without `&& !phoneGpu` (composer on a phone)       → 2 RED
+ *
+ *   5. NO FULL SCREEN AT ALL (owner, iPhone app, 2026-10-30, after the in-page fix below still closed the app: *"The 3d
+ *      plan is still shutting down the app when i try to press the full screen button. And we can remove that button"*
+ *      → DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"). The room is the
+ *      whole screen in Guests, so there is no ⤢, no double-tap toggle, no full-screen state and NO Fullscreen API in the
+ *      room or its tools; the one Canvas keeps `key={webgl.attempt}` and the `canvasDpr` cap.
+ *      Sabotage (2026-10-30): a `requestFullscreen` call put back in the room → test 5 RED.
+ *      HISTORY — the superseded in-page path (owner, iPhone app, 2026-10-30: *"3d crashed again. when i tried to press
+ *      the full screen icon"*). The installed app's web view has the element Fullscreen API ON (Capacitor 8.4.3 sets
+ *      `isElementFullscreenEnabled = true`; iPhone Safari has no element API at all), so the ⤢ handed the live WebGL
+ *      canvas to WebKit's NATIVE full screen. On a phone the press now grows the SAME element in the page: one Canvas,
+ *      one context, never remounted (no full-screen state in the Canvas's key or props, no portal), its dpr still
+ *      `canvasDpr`. Measured (lab, WebKit 390×844 DPR 3, 25 tables / 230 guests): open → full → exit → full = 1 context
+ *      throughout, drawing buffer 487×655 → 487×1055 → 487×655 → 487×1055 (DPR 1.25 held).
+ *      Sabotages (2026-10-30, each run → red → restored): the phone branch removed from `toggleFullscreen` → test 5 RED ·
+ *      `key={`${webgl.attempt}-${inPageFull}`}` on the Canvas → tests 2 + 5 RED · a `createPortal` import in the room →
+ *      test 5 RED.
  */
 
 import test from 'node:test';
@@ -35,6 +52,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PHONE_3D, canvasDpr, phoneGpuFrom } from './phone-gpu-budget';
+import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -136,4 +154,24 @@ test('4 · the shared 3D surfaces (Event Hub venue walk, 3D Plan demo): capped a
     }
     assert.match(src, /\{webgl\.lost \? <ContextLostNotice onRetry=\{webgl\.retry\} \/> : null\}/, `${rel}: honest line`);
   }
+});
+
+test('5 · no full screen at all: no ⤢, no Fullscreen API, no full-screen state — one Canvas that never remounts', () => {
+  const src = stripComments(read(LAB));
+  const tools = stripComments(read('app/dashboard/[eventId]/seating/lab/_components/room-view-tools.tsx'));
+  // The Fullscreen API is what closed the app (the app's web view hands the canvas to WebKit's native full screen).
+  for (const [name, s] of [['the room', src], ['its tools', tools]] as const) {
+    assert.doesNotMatch(s, /requestFullscreen|webkitRequestFullscreen|exitFullscreen|fullscreenchange|fullscreenElement/, `${name}: the Fullscreen API is back`);
+    assert.doesNotMatch(s, /inPageFull|isFullscreen|toggleFullscreen|onFullscreen|data-room-fullscreen/, `${name}: a full-screen state or toggle is back`);
+    assert.doesNotMatch(s, /\bMaximize2\b|\bMinimize2\b|[Ff]ull screen/, `${name}: a ⤢ / full-screen control is back`);
+  }
+  // The double-tap on the room's outside toggled full screen too — gone with it.
+  assert.doesNotMatch(src, /onDoubleClick=/, 'a double-tap toggle is back on the room');
+
+  // One Canvas whose identity and pixel ratio are the GPU budget's alone: no remount, no escape from the cap.
+  const tags = canvasTags(src);
+  assert.equal(tags.length, 1, 'one Canvas');
+  assert.match(tags[0]!, /key=\{webgl\.attempt\}/);
+  assert.match(tags[0]!, /dpr=\{canvasDpr\(phoneGpu,\s*[\d.]+\)\}/);
+  assert.doesNotMatch(src, /createPortal/, 'a portal would move the room — React remounts the Canvas, a second WebGL context');
 });

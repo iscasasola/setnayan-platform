@@ -12,7 +12,9 @@
  *       All guests (the all-guests file, or its ◆ door), Pick guests… (that file narrowed by `guests=`);
  *   3 · the count line under each slide is ITS file's own line — the pass list on the pass, the QR sheet's list on the QR codes, the
  *       seated list on the place cards (`guestPrintCountLine`) — never another print's number;
- *   4 · ⚙ Print settings is on EVERY slide (the phone's toolbar and the computer's right column) and opens the one sheet;
+ *   4 · ⚙ Print settings is on NO slide (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings"* — was "on EVERY
+ *       slide", 2026-10-26): the Prints page's ONE ⚙ is its top bar's (`the-prints-gear-opens-print-settings.test.ts`), the same
+ *       one sheet; neither the phone's toolbar nor the computer's right column draws a second;
  *   5 · cheap to swipe: only the slide on screen and its two neighbours ask for their picture — every other slide is its paper's shape;
  *   6 · the long row list, the piece bar and the tap-to-enlarge sheet are DELETED, not hidden; the dev lab reaches this surface;
  *   7 · the Digital ticket's three looks are ON ITS SLIDE, not in ⚙ Print settings (owner 2026-10-26, verbatim: *"The 3 designs for
@@ -175,19 +177,20 @@ test('3 · the count line under each slide is its own file’s line', async () =
   }
 });
 
-test('4 · ⚙ Print settings is on every slide — and opens the one sheet', async () => {
+test('4 · no slide draws a ⚙ of its own — the page’s one ⚙ is its top bar’s, and it opens the one sheet', async () => {
   try {
     const { items } = await everySlide();
+    assert.ok(items.length >= 5, 'anti-vacuity: too few slides drawn');
     for (const it of items) {
       const html = await carouselAt(items, it.key);
-      assert.match(toolsOf(html), /data-prints-settings=""[\s\S]*?aria-label="Print settings"/, `${it.key}: no ⚙ on the phone’s toolbar`);
-      assert.match(deskOf(html), /data-prints-settings-row=""[\s\S]*?Print settings/, `${it.key}: no Print settings row on the computer`);
+      assert.ok(toolsOf(html).length > 200 && deskOf(html).length > 200, `${it.key}: anti-vacuity — the toolbars were not drawn`);
+      assert.doesNotMatch(toolsOf(html), /data-prints-settings|aria-label="Print settings"/, `${it.key}: the phone’s toolbar draws a second ⚙`);
+      assert.doesNotMatch(deskOf(html), /data-prints-settings-row|>Print settings</, `${it.key}: the computer draws a second Print settings row`);
     }
   } finally {
     await endSlides();
   }
-  const carousel = read(`${L}/studio-prints-carousel.tsx`);
-  assert.equal((carousel.match(/onClick=\{\(\) => setPrintSettingsOpen\(true\)\}/g) ?? []).length, 2, '⚙ does not open the one sheet (phone and computer)');
+  assert.doesNotMatch(read(`${L}/studio-prints-carousel.tsx`), /setPrintSettingsOpen/, 'a slide opens the print settings sheet itself');
   assert.match(read(`${L}/studio-prints-settings.tsx`), /const open = usePrintSettingsOpen\(\);/);
 });
 

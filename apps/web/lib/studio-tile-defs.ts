@@ -4,7 +4,7 @@
  * their status derivation (`lib/studio-tiles.ts` → the guided flow, the setup steps) into its first load
  * (`scripts/check-maker-js-budget.mjs`). `lib/studio-tiles.ts` re-exports all of it — one truth.
  */
-import { EVERY_PRINT_ITEM, LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
+import { LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
 
 /**
  * 🗂 R1 (owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS · MARCH; RSVP SETTINGS LIVE IN THE GUESTS ⚙"):
@@ -16,8 +16,28 @@ import { EVERY_PRINT_ITEM, LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@
  * and Seat plan tiles LEFT — they are Guests › March and Guests › Seats (`lib/guests-views.ts`), the same makers drawn
  * whole there; every old door forwards (`lib/r4-seats-march-forwards.test.ts`).
  */
-export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts', 'prints'] as const;
+export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts'] as const;
+/* 🖨 Prints is no Studio tile (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page, `lib/prints-page.ts`. */
 export type StudioTileKey = (typeof STUDIO_TILE_KEYS)[number];
+
+/**
+ * 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27, DECISION_LOG "STUDIO IS LOOK AND WORDS ONLY — LOGO · PALETTE +
+ * DRESS CODE · LOVE STORY · PRINTS": *"I want to make the event hub maker have less things to do on its studio."*;
+ * built 2026-10-30 with the Event Hub Pro redesign — *"Stages and the Studio will be on dropdown. move all other details
+ * on the settings."*). The pages Studio ▾ LISTS — and the Studio home's cards, and "n of N ready". The other pages stay
+ * pages the Maker opens, each through its new home, so every door to them still lands:
+ *   · Look and E-Gifts → the Hub's ⚙ Event Hub settings (`hub-settings.tsx`: Look's sections · Ways to give);
+ *   · Info → its facts are Home › Event settings ("INFO SPLITS BY WHAT IT IS ABOUT"), the Hub's address the Hub's ⚙;
+ *   · Schedule → Suppliers › Booked (ruled 27 Oct; moved by its own builder — its page opens until then from every
+ *     door that names it).
+ * 🖨 Prints is not listed (R8, "PRINTS LEAVES STUDIO"): its own page, `lib/prints-page.ts`, opened from Home's Prints line.
+ */
+export const STUDIO_MENU_KEYS = ['logo', 'mood', 'story'] as const satisfies readonly StudioTileKey[];
+
+/** Is this page one Studio ▾ lists? */
+export function isStudioMenuKey(key: string): boolean {
+  return (STUDIO_MENU_KEYS as readonly string[]).includes(key);
+}
 
 /**
  * The shipped Event Details item each tile opens — ALL the Maker's shell needs of a tile. The tiles' WORDS
@@ -33,8 +53,6 @@ export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> =
   schedule: 'schedule',
   story: 'love-story',
   gifts: 'gifts',
-  /* 🖨 Prints opens at the head of its form — "On every print", then the Invitation (owner 2026-10-16). */
-  prints: EVERY_PRINT_ITEM,
 };
 
 /**

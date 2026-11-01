@@ -3,6 +3,8 @@ import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { after } from 'next/server';
+import { markReplyNoticesSeen } from '@/lib/rsvp-push.server';
 import { guestsSettingsHref, isSettingsRowKey } from '@/lib/event-settings-record';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -69,6 +71,7 @@ import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen, type RowInvite } from './_components/guests-screen';
 import { GuestsMarch } from './_components/guests-march';
+import RequestsPage from './claims/page';
 import SeatingPage from '../seating/page';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
@@ -574,6 +577,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // read the same name. lib/linked-profile-names.ts holds the gate.
   const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
+  // 📱 The couple is looking at the list → the next reply's phone notice counts from zero (owner 2026-10-31). Only when
+  // the list was really read, after the response, so it adds nothing to this page's wait.
+  if (viewer.isCouple && guestsMeasured) after(() => markReplyNoticesSeen(user.id, eventId));
   // 📏 THE READS BESIDE THE LIST — each value, and whether it is real. A refused read is
   // still an empty stand-in (the tab never crashes over one), but the page now KNOWS,
   // and `sideReads` is what it says: one line in the counts strip, "We couldn’t load
@@ -1108,6 +1114,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      // 📥 R4 slice 11 — Requests inside Guests: the shipped Requests page, drawn in place (`maker=1` — every Accept ·
+      // Decline · Link stays put), streamed with the page for the couple while someone is asking (or the address asks).
+      // `maker: 'guests'` — each Accept · Decline · Link answers in place: the row stays here with a toast and Undo, a
+      // refusal is said here, nothing navigates (guests/claims/decide-in-place.tsx). An unread count streams the body too,
+      // so it can say so itself; a MEASURED zero needs no read — the screen says nobody is waiting.
+      requestsInPlace={viewer.isCouple}
+      // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs, never inside the iPhone app.
+      replyAsk={viewer.isCouple && !storeShell}
+      requestsBody={
+        viewer.isCouple && (pendingClaimsCount > 0 || pendingClaims.error !== null || search.gshow === 'requests') ? (
+          <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>
+            <RequestsPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: 'guests' })} />
+          </Suspense>
+        ) : null
+      }
+      initialAsking={search.gshow === 'requests'}
       oneQr={guestsOneQr}
       invite={rowInvite}
       titlesWaiting={titlesWaiting}

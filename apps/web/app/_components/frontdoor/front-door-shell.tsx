@@ -70,6 +70,7 @@ import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+import { topBarSearch } from './shell-page-search';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
@@ -503,9 +504,10 @@ type Props = {
    */
   createSlot?: React.ReactNode;
   /**
-   * The search control. Defaults to the front door's marketplace GET form.
-   * The app variant passes the command palette — see the file header for why
-   * that is the one question worth answering inside the app.
+   * The search control. Left out: SIGNED IN draws no box (2026-10-22, "One
+   * thumb row"); signed out draws the front door's marketplace GET form — the
+   * one rule in `topBarSearch` (`shell-page-search.ts`), so a mount that
+   * forgets to say `false` cannot put the stranger's box in a signed-in bar.
    */
   search?: React.ReactNode;
   /**
@@ -824,7 +826,11 @@ export function FrontDoorShell({
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
   /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
      switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
-  const search = pageSearchPaths?.includes(pathname ?? '') ? false : searchProp;
+  const search = topBarSearch({
+    handed: searchProp,
+    signedIn: account.signedIn,
+    pageHasOwnSearch: pageSearchPaths?.includes(pathname ?? '') ?? false,
+  });
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1311,6 +1317,16 @@ export function FrontDoorShell({
             hangs half-open (CSS faster).
           */
           style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
+          /*
+            A DRAWER LINK TO THE PAGE YOU ARE ON STILL CLOSES THE DRAWER (owner 2026-10-30, the event mark opening
+            Home's ⚙ sheet from Home). The pathname effect above only closes it once the PATH changes; a link that
+            changes only the query (`/dashboard/<id>?settings=1` from `/dashboard/<id>`) would leave the drawer over
+            the sheet it just opened. A plain tap on any link inside the open drawer shuts it too.
+          */
+          onClickCapture={(e) => {
+            if (!railOpen || railClosing || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if ((e.target as Element | null)?.closest?.('a[href]')) closeRail();
+          }}
         >
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The

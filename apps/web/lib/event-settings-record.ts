@@ -31,7 +31,7 @@ export const GUESTS_SETTINGS_CLUSTERS = ['Getting in', 'Replies', 'Closing the l
 export const SETTINGS_ROWS = {
   /* ── Guests ⚙ (PR B) ── */
   'get-in': { menu: 'guests', cluster: 'Getting in', writer: 'hubDraftAction' },
-  invitations: { menu: 'guests', cluster: 'Getting in', writer: '/guests/send' },
+  /* (`invitations` — gone, R4 slice 11: sending lives on the List — the To invite door's Invite N ›, Select › ✉ Invite N.) */
   'one-link': { menu: 'guests', cluster: 'Getting in', writer: 'readOneLink' },
   asks: { menu: 'guests', cluster: 'Replies', writer: 'hubDraftAction' },
   /**

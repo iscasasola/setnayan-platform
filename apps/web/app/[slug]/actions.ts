@@ -857,17 +857,32 @@ export async function submitRsvp(
       // ⚠ Two rows can carry the same user_id. Without this the couple gets the
       // same allergy twice.
       const seen = new Set<string>();
+      const hosts: string[] = [];
       for (const m of coupleMembers ?? []) {
         if (!m.user_id || seen.has(m.user_id as string)) continue;
         seen.add(m.user_id as string);
-        await emitNotification({
-          userId: m.user_id,
-          type: 'rsvp_received',
-          title,
-          body: parts.length ? parts.join(' ') : null,
-          relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
-        });
+        hosts.push(m.user_id as string);
       }
+      // 📱 AFTER THE REPLY IS SAVED, NEVER IN FRONT OF IT (owner 2026-10-31: every
+      // RSVP pushes at once — "instant, but each new RSVP notification replaces
+      // the last one on the lock screen"). The bell row and the phone notice go
+      // out once the response has left, so a slow push service can never hold a
+      // guest on a spinner. Fire-and-forget; a failure is logged, never thrown.
+      after(async () => {
+        for (const userId of hosts) {
+          try {
+            await emitNotification({
+              userId,
+              type: 'rsvp_received',
+              title,
+              body: parts.length ? parts.join(' ') : null,
+              relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
+            });
+          } catch (e) {
+            console.error('[rsvp] notifying a host failed:', e);
+          }
+        }
+      });
     } catch {
       // Notification failures must not break the guest-side RSVP submit.
     }

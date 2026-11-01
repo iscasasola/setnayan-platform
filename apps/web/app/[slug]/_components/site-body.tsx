@@ -28,6 +28,7 @@ import { DRESS_CODE_ANCHOR } from './dress-code-widget';
 import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { countGalleryFrames } from '@/lib/papic-gallery';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
@@ -138,6 +139,7 @@ import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
    See that function's docblock for what the old one-input version got wrong. */
 
 import { GuestColumnCard } from './guest-column-card';
+import { WRITE_A_COLUMN_SHOWN_IN_APP } from '@/lib/hidden-guest-extras';
 import { resolveHubTheme } from '../_lib/hub-look';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { stdAccentFromPalette, paletteSwatches } from '@/lib/site-palette';
@@ -1186,6 +1188,18 @@ export async function SiteBody({
       : null;
   /** Which moment the bar is in. Both trees resolve it from the same pair. */
   const navPhase = navPhaseFor({ dayOfPhase, isRecapBody: recapBody });
+  /* 🖼 MEMORIES OPENS ONCE THERE ARE PHOTOS (owner 2026-10-30, DECISION_LOG "PAPIC ON = A CAMERA TAB ON EVERY
+     STAGE", point 2): the event's Papic frames — shots AND uploads, counted with the Memories grid's own filters
+     (`countGalleryFrames`, the host's Memories count). Asked ONLY where the answer can change a bar: a guest before
+     the day with early shooting on (their Memories closes when there is nothing), or a guest / the couple / the
+     Maker's canvas on the day and after it when the page is not already drawing photographs there. A stranger never
+     asks. A refused count is `null` — not known, so the bar's rules decide as before (never a confident zero). */
+  const galleryAlreadyDrawn = dayOfPhase === 'live' ? Boolean(liveWall) : recapHasPhotos;
+  const memoriesAsked =
+    (identity.kind === 'guest' && identity.earlyOwnShots) ||
+    ((identity.kind === 'guest' || Boolean(ownerCapability) || isEditorCanvas) && navPhase !== 'before' && !galleryAlreadyDrawn);
+  const memoriesFrames = memoriesAsked ? await countGalleryFrames(createAdminClient(), event.event_id) : null;
+  const memoriesHasPhotos = memoriesFrames === null ? null : memoriesFrames > 0;
   // 🧭 The stage this page is showing (a host's `?phase=` preview included) —
   // its Event Bar (`STAGE_BAR`) names the header and filters the tab bar.
   const pageStage = pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase });
@@ -1958,6 +1972,8 @@ export async function SiteBody({
         phase: navPhase,
         hostAllowsCamera: hostCameraOpen,
         anyChapterPublic: menuSections.gallery,
+        // 🖼 Memories once there are photos (owner 2026-10-30) — the couple's and the canvas guest's bar.
+        memoriesHasPhotos,
         hasStory: menuSections.story,
         hasDetails: menuSections.details,
         hasSchedule: plan.publicSafeWidgets.some((w) => w.widget_type === 'schedule'),
@@ -3026,6 +3042,8 @@ export async function SiteBody({
       // coerce it, or the resolver receives a truthy non-boolean.
       hostAllowsCamera: Boolean(papicGuest) || hostCameraOpen,
       anyChapterPublic: menuSections.gallery,
+      // 🖼 Memories once the event has a Papic shot or upload; none → no tab (owner 2026-10-30).
+      memoriesHasPhotos,
       hasStory: menuSections.story,
       hasDetails: menuSections.details,
       hasSchedule: plan.hideableInOrder.some((w) => w.widget_type === 'schedule'),
@@ -4165,14 +4183,18 @@ export async function SiteBody({
               guest's column card sits in the Recap, under the story — the paper
               of approved columns, and the form in its closed state (the card
               itself mirrors the editorial cutoff). Guest-session tree only;
-              GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control, or null. */}
-          <GuestColumnCard
-            eventId={event.event_id}
-            guestId={guest.guest_id}
-            eventDate={event.event_date}
-            eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
-            eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
-          />
+              GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control, or null.
+              🙈 HIDDEN IN THE APP UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now") — the constant is asked FIRST,
+              before the card's own env gate. Bring-back steps: lib/hidden-guest-extras.ts. */}
+          {WRITE_A_COLUMN_SHOWN_IN_APP ? (
+            <GuestColumnCard
+              eventId={event.event_id}
+              guestId={guest.guest_id}
+              eventDate={event.event_date}
+              eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+              eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+            />
+          ) : null}
           </>) : null)}
 
           {/* Menu-shell "Me" anchor (PR6) — used to be an EMPTY div, so a guest

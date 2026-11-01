@@ -41,12 +41,17 @@ function norm(p: string): string {
   return p.replace(/\*$/, '').replace(/\/$/, '');
 }
 
-function iosPaths(): string[] {
+function iosEntries(): string[] {
   const aasa = JSON.parse(readFileSync(AASA, 'utf8'));
   const details = aasa.applinks.details;
   assert.equal(details.length, 1, 'one appID');
   assert.equal(details[0].appID, 'P95JPDWWB3.com.setnayan.app');
   return details[0].paths as string[];
+}
+
+/** What iOS CLAIMS — the `NOT …` exclusions are not claims (see the camera test below). */
+function iosPaths(): string[] {
+  return iosEntries().filter((p) => !p.startsWith('NOT '));
 }
 
 function androidPrefixes(): string[] {
@@ -88,4 +93,21 @@ test('the bare event landing path is deliberately NOT claimed', () => {
   // get the browser, which is correct: most of them do not have the app.
   const paths = iosPaths();
   assert.ok(!paths.includes('/*'), 'claiming the whole domain would swallow marketing + auth');
+});
+
+test('the camera pages are NOT claimed on iPhone, so Safari draws no "Open in the Setnayan app" banner over them', () => {
+  // Owner's iPhone, 2026-10-30: the banner took the top strip of the full-screen camera. It is Safari's Universal
+  // Links banner — drawn for any page under a claimed path while the app is installed (there is no
+  // `apple-itunes-app` meta anywhere in the app). The two camera pages are excluded; every other `/papic/*` link — a
+  // seat claim, `/papic/me/…`, `/papic/join/…` — still opens the app. Exclusions only work BEFORE the claim they carve
+  // out of, so the order is pinned too. (iOS re-reads this file on install/update or Apple's CDN refresh, not on deploy.)
+  const all = iosEntries();
+  const claim = all.indexOf('/papic/*');
+  assert.ok(claim >= 0, '/papic/* is no longer claimed');
+  for (const not of ['NOT /papic/guest', 'NOT /papic/guest/*', 'NOT /papic/seat/*']) {
+    const at = all.indexOf(not);
+    assert.ok(at >= 0, `${not} is missing — the banner is back on the camera`);
+    assert.ok(at < claim, `${not} comes after /papic/* — iOS reads top-down, so it excludes nothing`);
+  }
+  assert.ok(!all.some((p) => /^NOT \/papic\/(me|join|claim)/.test(p)), 'a seat-claim or join link no longer opens the app');
 });

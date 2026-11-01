@@ -65,6 +65,48 @@ export function onUnveil(cb: () => void): () => void {
     unveilCallbacks.delete(cb);
   };
 }
+/**
+ * 👇 Who runs on THE PRESS that may become an unveil — the veil's `pointerdown`, called directly, in its own call
+ * stack. PR #7129, measured in the iOS 27 simulator inside the app's "View Event Hub" sheet (SFSafariViewController,
+ * the same engine as iOS Safari): a SWIPE UP's `pointerup` carries NO media gesture credit — `play()` there is
+ * refused with `NotAllowedError` (2 of 2), while a TAP's is allowed. So the song the swipe up should start stayed
+ * off. A `play()` made on the press itself (and paused at once) unlocks the element, and the swipe up's `play()`
+ * then plays (2 of 2). The app's own web view never showed it: it lets media play with no gesture at all.
+ * Returns the unsubscribe.
+ */
+const unveilPressCallbacks = new Set<() => void>();
+export function onUnveilPress(cb: () => void): () => void {
+  unveilPressCallbacks.add(cb);
+  return () => {
+    unveilPressCallbacks.delete(cb);
+  };
+}
+/** The veil's press — call it synchronously from its `pointerdown`. One callback never stops the others. */
+export function primeUnveilPress(): void {
+  for (const cb of [...unveilPressCallbacks]) {
+    try {
+      cb();
+    } catch {
+      /* one primer never stops the press */
+    }
+  }
+}
+/**
+ * 🔓 Unlock a paused media element for a later `play()` outside a gesture the browser credits: `play()` and
+ * `pause()` in the same call, inside the press. Nothing is heard — the pause lands before a frame is output, and
+ * a `preload="none"` song has not loaded a byte. The interrupted play's rejection (`AbortError`) is expected and
+ * swallowed. A playing element is left alone.
+ */
+export function primeMedia(el: Pick<HTMLMediaElement, 'paused' | 'play' | 'pause'>): void {
+  if (!el.paused) return;
+  try {
+    const p = el.play() as Promise<void> | undefined;
+    el.pause();
+    p?.catch?.(() => undefined);
+  } catch {
+    /* an element that cannot play now simply stays locked — the tap still starts it */
+  }
+}
 /** Dispatched on `window` when the hold comes off — by the gesture or by the opening standing down. */
 export const HUB_VEIL_RELEASED_EVENT = 'hub-veil-released';
 /**

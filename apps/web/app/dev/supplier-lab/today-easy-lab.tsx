@@ -440,7 +440,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
   const outcome: TodayOutcome | null = agreed ? { text: agreed.text, tone: 'ok', door: agreed.door ?? null } : null;
 
   return (
-    <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
+    <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
       <SupplierTodayScreen
         view={view}
         outcome={outcome}

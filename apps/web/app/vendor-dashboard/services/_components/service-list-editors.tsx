@@ -73,6 +73,24 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
   );
 }
 
+/**
+ * A peso worth: numeric, WITHOUT the native spinner. `type="number"` draws ▲▼ arrows in a desktop browser (the walk
+ * caught them in "worth ₱", 2026-11-01) and nudges the value on a scroll-wheel. A text box with the numeric keypad,
+ * a digits-only pattern and a filter that drops anything else keeps the answer a whole number of pesos — what
+ * `parseInclusionRows` (actions.ts) already insists on. 🔒 a-worth-box-has-no-spinner.test.ts
+ */
+const WHOLE_PESOS = {
+  type: 'text',
+  inputMode: 'numeric',
+  pattern: '[0-9]*',
+  autoComplete: 'off',
+  onInput: (e: React.FormEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const digits = el.value.replace(/[^0-9]/g, '');
+    if (digits !== el.value) el.value = digits;
+  },
+} as const;
+
 // ════════════════════════════════════════════════════════════════════════════
 // 1 · InclusionsEditor — FREE items each with an optional stated worth
 // ════════════════════════════════════════════════════════════════════════════
@@ -117,9 +135,7 @@ export function InclusionsEditor({
             <input
               name="inclusion_worth"
               defaultValue={r.worth}
-              type="number"
-              min={0}
-              step={1}
+              {...WHOLE_PESOS}
               aria-label="Worth (PHP, optional)"
               placeholder="worth ₱"
               className="input-field min-w-0 flex-1"
@@ -177,9 +193,7 @@ export function InclusionsEditor({
                 <input
                   name="inclusion_worth"
                   defaultValue={r.worth}
-                  type="number"
-                  min={0}
-                  step={1}
+                  {...WHOLE_PESOS}
                   placeholder="worth ₱"
                   className="input-field flex-1"
                 />

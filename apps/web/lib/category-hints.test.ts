@@ -108,7 +108,8 @@ const BENCH = stripComments(
 
 test('source · the folder ⓘ renders, and its panel with it', () => {
   assert.match(BENCH, /folderHintButtonLabel\(folder\.label\)/, 'the folder ⓘ lost its label');
-  assert.match(BENCH, /folderHintFor\(folder\.folder\)/, 'the folder hint panel is gone');
+  // Its text is the folder's own resolved ⓘ (`folderInfoText`, owner 2026-10-31) — never a lookup that can miss.
+  assert.match(BENCH, /\{folder\.hint\}/, 'the folder hint panel is gone');
   // The panel is the ONE ⓘ template now (Explain, 2026-10-12): it holds its own open state.
   assert.match(BENCH, /<Explain title=\{folder\.label\} label=\{folderHintButtonLabel\(folder\.label\)\}/, 'the folder ⓘ is not the ⓘ template');
 });

@@ -244,6 +244,23 @@ export function onlyWhatGuestsMaySee<Q extends { eq: unknown; is: unknown; neq: 
 }
 
 /**
+ * 🔒 WHAT A BOOKED SHOP MAY SEE OF THE SCHEDULE — for a read made on the SERVICE-ROLE client on a shop's behalf (its
+ * crew's phone, `app/join/crew/[token]/page.tsx`), which passes straight through RLS, so this filter IS the fence.
+ *
+ * It mirrors `event_schedule_blocks_booked_vendor_read` (20270901120000) EXACTLY, and nothing more:
+ *   `event_id IN (current_vendor_booked_event_ids()) AND visibility <> 'coordinator_only'`.
+ * The booked part is the caller's already-proven pass (scoped to its ONE event); this adds the second condition — a
+ * coordinator's unreleased prep block is never the shop's to read, so never its crew's. That policy has no branch for
+ * a coordinator SHOP (the coordinator reads staged rows through their own moderator seat, a person, not a shop), so
+ * neither does this. No public/audience filter: the shop reads the full timeline (locked D2).
+ *
+ * Pinned to the policy, row for row, by `tests/db/crew-pass-sees-only-its-event.db.test.ts` (the run of show test).
+ */
+export function onlyWhatABookedShopMaySee<Q extends { neq: unknown }>(query: Q): Q {
+  return (query as unknown as { neq(column: 'visibility', value: 'coordinator_only'): Q }).neq('visibility', 'coordinator_only');
+}
+
+/**
  * 🔒 THE SAME FENCE, ASKED OF ONE ROW ALREADY IN HAND — a realtime change's payload (2026-10-18, live-day polling).
  *
  * The guests' live header (`run-of-show-header.tsx`, `forGuests`) used to answer every change on

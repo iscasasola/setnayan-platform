@@ -1146,9 +1146,43 @@ export function guestPrintName(
   if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) return guestDisplayName(guest);
   const full = guestFullName(guest, style);
   if (!full) return guestDisplayName(guest);
-  const nick = guest.display_name?.trim();
-  if (!nick || full.toLowerCase().includes(nick.toLowerCase())) return full;
-  return `${full} “${nick}”`;
+  const nick = guestNickBeside(guest, full);
+  return nick ? `${full} “${nick}”` : full;
+}
+
+/**
+ * 💬 THE NICKNAME THAT SITS BESIDE A FULL NAME — the couple's "Shown as" (`guests.display_name`, no new column), or
+ * null when there is none or `full` already says it ("Monching" beside "Ramon “Monching” Cruz" would say it twice).
+ * The one rule behind `guestPrintName` and `guestNameWithNick`.
+ */
+export function guestNickBeside(guest: { display_name?: string | null }, full: string | null | undefined): string | null {
+  const nick = guest.display_name?.replace(/\s+/g, ' ').trim();
+  if (!nick || !full) return null;
+  // WHOLE WORDS: "Ramon" is said by "Atty. Ramon Dela Cruz"; "Dan" is NOT said by "Daniel Ramos" (a substring is not a name).
+  const said = new RegExp(`(?:^|[\\s“"'(])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s”"'),.])`, 'i');
+  return said.test(full) ? null : nick;
+}
+
+/**
+ * 🪪 THE NAME IN GUESTS (owner, Guests prototype v24–v26, 2026-10-29): wherever Guests names a person — the list row,
+ * a March chip, a Seats list face, the guest card's head, a search result — the FULL name (`guestFullName`: title ·
+ * first · middle · last · suffix) with the nickname (`guestNickBeside`) BESIDE it, drawn muted in quotes by
+ * `<GuestNick>` (app/_components/guest-nick.tsx). A row with no name parts keeps its compact name and no nickname.
+ * An unnamed +1 seat reads as the list reads it ("+1 · TBA"). Never cut: the caller wraps.
+ * 🔒 lib/guests-names-wear-the-nickname.test.ts
+ */
+export function guestNameWithNick(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  style?: NameStyle,
+): { name: string; nick: string | null } {
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) {
+    return { name: guestDisplayName(guest), nick: null };
+  }
+  const full = guestFullName(guest, style);
+  // No parts at all: guestFullName fell back to the "Shown as" itself — it IS the name, not a nickname beside it.
+  const parts = [guest.name_prefix, guest.first_name, guest.middle_name, guest.last_name, guest.name_suffix].some((p) => p?.trim());
+  if (!full || !parts) return { name: guestDisplayName(guest), nick: null };
+  return { name: full, nick: guestNickBeside(guest, full) };
 }
 
 /**

@@ -136,6 +136,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // reaches it through the subject's guest ids and removes the screenshot.
   'event_gift_records',
   'vendor_push_tokens', // keyed by vendor_profile_id
+  // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
+  // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
+  'vendor_crew_codes',
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff
   // actor and skips. So the table holding vendors' government IDs / DTI / BIR

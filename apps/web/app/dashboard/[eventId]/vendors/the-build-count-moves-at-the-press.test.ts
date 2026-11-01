@@ -124,7 +124,7 @@ test('wiring: the bench says it at every in-place pin; the shell’s segment and
   assert.match(shell, /liveBuildTally\(liveTally, \(v, g, drawn\) => builtNowIn\(benchLocalStore\(eventId\), v, g, drawn\)\)/);
   assert.match(shell, /tally: drawnTally,/, 'the drawn tally must not be read directly by the segment or the peek');
   assert.match(shell, /<BuildCart tally=\{tally\} \/>/);
-  assert.match(shell, /<Count value=\{tally\.filled\} id="sup-seg-filled" \/>/);
+  assert.match(shell, /<Count value=\{tally\.filled\} id="sup-row-filled" \/>/);
   const page = src('page.tsx');
   assert.match(page, /liveTally=\{liveTallyBase\}/, 'the page must hand the shell its inputs');
   assert.match(bench, /vendorCount: yours,/, 'the row’s state word must count a supplier saved here');

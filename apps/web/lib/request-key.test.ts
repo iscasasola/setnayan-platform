@@ -158,14 +158,21 @@ test('🔒 the door scanner asks the server LIVE on every scan, and check-in its
 
 test('🔒 Link leaves the forward, and the Requests page words are Accept · Decline · Link with Undo', () => {
   const a = read('app/dashboard/[eventId]/guests/claims/actions.ts');
-  const link = a.slice(a.indexOf('export async function linkGuestAction'));
+  // R4 slice 11: the bodies live in `linkRequest` · `undoAccept` · `undoDecline`, run by the page's doors and by Guests'
+  // in-place door alike; the page's two Undos share one door (`undoRequestAction`, `undo` = accepted · declined).
+  const at = a.indexOf('async function linkRequest(');
+  assert.ok(at > 0, 'the Link body is gone');
+  const link = a.slice(at, a.indexOf('\n}\n', at));
   assert.match(link, /custom_tags: \[\.\.\.sourceTags, linkedIntoTag\(targetId\)\]/, 'a Linked request reads as Declined');
-  assert.match(a, /export async function undoAcceptAction/);
-  assert.match(a, /export async function undoDeclineAction/);
+  assert.match(a, /async function undoAccept\(/);
+  assert.match(a, /async function undoDecline\(/);
+  assert.match(a, /export async function undoRequestAction\(/);
   const page = read('app/dashboard/[eventId]/guests/claims/page.tsx');
   assert.match(page, />\s*Accept\s*<\/summary>/);
   assert.match(page, />\s*Decline\s*<\/SubmitButton>/);
   assert.match(page, /Accepted · just now · their QR and link now open their invitation/);
+  assert.match(page, /<form action=\{undoRequestAction\.bind\(null, eventId\)\}>\s*<input type="hidden" name="undo" value="accepted" \/>/, 'the accepted row lost its Undo');
+  assert.match(page, /<form action=\{undoRequestAction\.bind\(null, eventId\)\} className="mt-2">\s*<input type="hidden" name="undo" value="declined" \/>/, 'the declined row lost its Undo');
   assert.match(page, /<SendInviteActions\b/, 'the accepted row has no Send invite · Copy message');
   assert.doesNotMatch(page, />\s*(Keep|Remove)\s*</, 'the old verbs are back');
 });

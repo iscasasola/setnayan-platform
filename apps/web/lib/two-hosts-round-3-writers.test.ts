@@ -76,8 +76,10 @@ test('seating · the floor: a stale editor writes only the columns IT changed �
   assert.match(action, /Object\.entries\(row\)\.filter\(\(\[k\]\) => changed!\.has\(k\)\)/, 'the floor save writes every column again');
   const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   assert.match(editor, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(floorBase\.current\)\);\s*await saveFloorPlan\(fd\);/, 'the 2D editor sends no floor base');
+  // The 3D room no longer writes the floor at all (view-only since 2026-10-30) — so it has no base to send, and must not
+  // grow a floor write that skips one.
   const lab = src('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx');
-  assert.match(lab, /fd\.set\(MERGE_BASE_FIELD, JSON\.stringify\(floorBase\.current\)\);/, 'the 3D lab sends no floor base');
+  assert.doesNotMatch(lab, /saveFloorPlan/, 'the view-only 3D room writes the floor again');
 });
 
 test('seating · booths and signs: a row this screen never saw is never deleted; only changed fields are written', () => {

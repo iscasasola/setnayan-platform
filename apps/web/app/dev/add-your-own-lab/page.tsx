@@ -29,6 +29,7 @@ import { planInstancesToRows } from '@/lib/self-added-payment-plan';
 import { computePlanInstances, defaultPaymentScheduleRows } from '@/lib/vendor-service-payment-schedules';
 import { LabCard, LabRecord } from './lab-client';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { labSupplierShare } from '../lab-supplier-share';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000aa';
@@ -96,6 +97,19 @@ export default async function AddYourOwnLabPage({
           link={sp.nolink === '1' ? undefined : { url: 'https://setnayan.com/vendor/claim/lab-sample-token', qrSvg: await renderUrlQrSvg('https://setnayan.com/vendor/claim/lab-sample-token') }}
           coverCatalog={coverCatalogFromFolders(
             buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+          )}
+          share={await labSupplierShare(
+            {
+              shopName: dunkin ? "Dunkin' Donuts" : SUPPLIER,
+              contactPerson: 'Maria Santos',
+              eventWord: 'wedding',
+              eventDate: '2026-12-18',
+              datePrecision: 'day',
+              service: dunkin ? 'Everything else' : 'Catering',
+              hostsName: 'Ana & Paolo',
+              services: dunkin ? ['Everything else', 'Guest booths'] : ['Catering'],
+            },
+            'https://setnayan.com/vendor/claim/lab-sample-token',
           )}
           categoryLabel={dunkin ? 'Everything else' : 'Catering'}
           edit={{

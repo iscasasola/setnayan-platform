@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react';
 import { Loader2 } from 'lucide-react';
 import { setPoolGalleryOpen } from './pool-gallery-actions';
 import { SwitchTrack } from '@/app/_components/switch-track';
+import { MEMORIES_RULES_FORBIDDEN } from '@/lib/memories-rules';
 
 /**
  * The Shared Pool Gallery open/close switch — client half of PoolGalleryCard.
- * Calls the COUPLE-ONLY server action; a coordinator (or any non-couple
- * member) gets 'forbidden' and the switch snaps back with the error shown.
+ * Calls the hosts-and-coordinator server action (owner 2026-10-30, `lib/memories-rules.ts`); anyone else
+ * gets 'forbidden' and the switch snaps back with the error shown.
  */
 export function PoolGalleryToggle({
   eventId,
@@ -31,7 +32,7 @@ export function PoolGalleryToggle({
       } else {
         setError(
           res.error === 'forbidden'
-            ? 'Only the couple can open or close the shared Memories.'
+            ? MEMORIES_RULES_FORBIDDEN
             : 'That didn’t save — try again.',
         );
       }

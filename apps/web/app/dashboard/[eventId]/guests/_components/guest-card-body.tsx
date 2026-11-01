@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { GuestNick } from '@/app/_components/guest-nick';
 import { composeFormalName } from '@/lib/formal-name';
 import { seatWhyWords } from '@/lib/seat-why';
 import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
@@ -27,6 +28,7 @@ import {
   isAPlusOne,
   plusOneSeats,
   guestNameAsGiven,
+  guestNameWithNick,
   guestHasTicket,
 } from '@/lib/guests';
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
@@ -158,12 +160,20 @@ export function guestCardEyebrow(
     .filter(Boolean)
     .join(' · ');
 }
-/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
+/**
+ * The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by their
+ * FULL name (owner, Guests prototype v24 2026-10-29 — `guestNameWithNick`); the nickname sits beside it
+ * (`guestCardNick` → `<GuestNick>`).
+ */
 export function guestCardTitle(
-  guest: Parameters<typeof guestDisplayName>[0],
+  guest: Parameters<typeof guestNameWithNick>[0],
   plusOneOf?: GuestCardData['plusOneOf'],
 ): string {
-  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
+  return plusOneOf?.name ?? displayPersonName(guestNameWithNick(guest).name);
+}
+/** The nickname beside the card's title — none for a +1 named by their guest. */
+export function guestCardNick(guest: Parameters<typeof guestNameWithNick>[0], plusOneOf?: GuestCardData['plusOneOf']): string | null {
+  return plusOneOf?.name ? null : guestNameWithNick(guest).nick;
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
@@ -543,7 +553,7 @@ export function GuestCardBody({
           )}
           {variant === 'page' ? (
             /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
-            <h1 className={`${data.plusOneOf?.name ? 'break-words' : 'truncate'} font-display text-2xl tracking-tight text-ink`}>{guestCardTitle(guest, data.plusOneOf)}</h1>
+            <h1 className="font-display text-2xl tracking-tight text-ink [overflow-wrap:anywhere]">{guestCardTitle(guest, data.plusOneOf)}<GuestNick nick={guestCardNick(guest, data.plusOneOf)} /></h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (

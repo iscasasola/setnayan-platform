@@ -131,6 +131,8 @@ export function InspirationBoard({
     return m;
   });
   const [error, setError] = useState<string | null>(null);
+  /** A drag-move that did not land — shown inside the slot it was dropped on. */
+  const [moveError, setMoveError] = useState<{ slot: string; message: string } | null>(null);
   const [openGallerySlot, setOpenGallerySlot] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -149,6 +151,7 @@ export function InspirationBoard({
   async function onFile(slot: string, pos: number, file: File | undefined) {
     if (!file) return;
     setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [key(slot, pos)]: 'uploading' }));
     try {
       const palette = await extractPaletteFromFile(file);
@@ -176,6 +179,7 @@ export function InspirationBoard({
   function onRemove(slot: string, pos: number) {
     const was = tiles[key(slot, pos)];
     setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [key(slot, pos)]: undefined }));
     startTransition(async () => {
       const fd = new FormData();
@@ -206,16 +210,28 @@ export function InspirationBoard({
     if (fromSlot === toSlot && fromPos === toPos) return;
     const fromKey = key(fromSlot, fromPos);
     const toKey = key(toSlot, toPos);
+    const wasFrom = tiles[fromKey];
+    const wasTo = tiles[toKey];
+    setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [fromKey]: t[toKey], [toKey]: t[fromKey] }));
+    /* ↩ A move that did not land puts BOTH photos back and says so in the slot it was dropped on. The board
+       paints the swap before the server answers, so leaving the optimistic swap up after a refusal drew a
+       move that never happened — until the next reload quietly undid it. */
+    const undo = (message: string) => {
+      setTiles((t) => ({ ...t, [fromKey]: wasFrom, [toKey]: wasTo }));
+      setMoveError({ slot: toSlot, message });
+    };
     startTransition(async () => {
       try {
-        await reorderMoodboardSlot(
+        const res = await reorderMoodboardSlot(
           eventId,
           { slotKey: fromSlot, slotPosition: fromPos },
           { slotKey: toSlot, slotPosition: toPos },
         );
+        if (!res.ok) undo(res.message);
       } catch {
-        setError('Could not reorder — please try again.');
+        undo('Could not move that photo — please try again.');
       }
     });
   }
@@ -252,6 +268,11 @@ export function InspirationBoard({
                     />
                   ))}
                 </div>
+                {moveError?.slot === slot.k ? (
+                  <p role="alert" className="px-0.5 text-[10px] text-terracotta-700">
+                    {moveError.message}
+                  </p>
+                ) : null}
                 {/* The door into the supplier gallery. Only for slots a trade
                     actually supplies, and only once the actions are wired —
                     a button that cannot fetch is worse than no button. */}

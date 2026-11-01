@@ -100,7 +100,7 @@ test('2 · EVERY entry point opens the one card — `GuestCard`, or `GuestCardSh
   assert.match(sheet, /\(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'march'\)/);
   assert.match(sheet, /\(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'invitation'\)/);
   const inPlace = SRC.get(`${EVENT}/guests/_components/guest-card-in-place.tsx`)!;
-  assert.match(inPlace, /const r = await openGuestCard\(eventId, guestId, at\);/, 'the in-place card is not read by the one action');
+  assert.match(inPlace, /return drawOpenedGuestCard\(eventId, await openGuestCard\(eventId, guestId, at\)\);/, 'the in-place card is not read by the one action');
   assert.match(inPlace, /<GuestCard frame="panel"/);
   /* A surface that opens a guest's sheet is an entry point — a new one must be listed (and so read) here. */
   const sheetUsers = ALL.filter((f) => f !== SHEET && /<GuestCardSheet\b/.test(SRC.get(f)!));

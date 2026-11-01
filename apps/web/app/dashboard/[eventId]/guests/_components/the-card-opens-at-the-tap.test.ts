@@ -80,10 +80,11 @@ test('1 · a tap on a row hands the inspector the card read alone, and the perso
 
 test('2 · the head at the tap is the card’s own head — the same words, the same face', () => {
   const open = arrow(SCREEN, 'openCard');
-  assert.match(SCREEN, /import \{ GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle \} from '\.\/guest-card-head';/);
+  assert.match(SCREEN, /import \{ GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle \} from '\.\/guest-card-head';/);
   for (const piece of [
     /eyebrow=\{guestCardEyebrow\(g, \{ hasSides, roleNames, plusOneOf \}\)\}/,
-    /title=\{title\}/,
+    // the title is the card's: the full name, the nickname beside it (`guest-card.tsx`), so the header does not jump.
+    /title=\{\s*<>\s*\{title\}\s*<GuestNick nick=\{guestCardNick\(g, plusOneOf\)\} \/>\s*<\/>\s*\}/,
     /const title = guestCardTitle\(g, plusOneOf\);/,
     /badge=\{guestCardReply\(g,/,
     /lead=\{<GuestCardAvatar guest=\{g\} photoDisplayUrl=\{faceByGuest\[id\] \?\? null\} size="head" \/>\}/,
@@ -94,8 +95,8 @@ test('2 · the head at the tap is the card’s own head — the same words, the 
   }
   // …and the card draws its head from the very same module (re-exported by the body).
   const BODY = read(`${G}/_components/guest-card-body.tsx`);
-  assert.match(BODY, /export \{ GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle \} from '\.\/guest-card-head';/);
-  for (const fn of ['guestCardEyebrow', 'guestCardTitle', 'guestCardReply', 'GuestCardAvatar']) {
+  assert.match(BODY, /export \{ GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle \} from '\.\/guest-card-head';/);
+  for (const fn of ['guestCardEyebrow', 'guestCardTitle', 'guestCardNick', 'guestCardReply', 'GuestCardAvatar']) {
     assert.doesNotMatch(BODY, new RegExp(`export function ${fn}\\(`), `${fn} has a second definition in the body — two heads can drift`);
   }
   // The +1's card wording rides on the row's words, so a +1's head says "+1 of …" at the tap too.
@@ -130,7 +131,13 @@ test('4 · the page’s card counts only for the id the address names; a newer s
 test('5 · the card-only opener ships with the list (no code fetched at the first tap), and answers for the list', () => {
   assert.match(ACTIONS, /^import \{ openGuestCard \} from '\.\.\/open-guest-card';$/m, 'the opener must be imported statically');
   assert.doesNotMatch(ACTIONS, /import\(['"]\.\.\/open-guest-card['"]\)/, 'a lazy import fetches a chunk at the first tap, before the card is even asked for');
-  assert.match(ACTIONS, /openGuestCard: \(eventId, guestId\) => openGuestCard\(eventId, guestId, 'list'\)/);
+  /* The read answers DATA (main, 2026-10-29); THE card is drawn in the browser by `guest-card-in-place.tsx`, whose code is
+     fetched BESIDE the read (one Promise.all), never in front of it. */
+  assert.match(
+    ACTIONS,
+    /openGuestCard: async \(eventId, guestId\) => \{\s*const \[opened, inPlace\] = await Promise\.all\(\[openGuestCard\(eventId, guestId, 'list'\), import\('\.\/guest-card-in-place'\)\]\);\s*return inPlace\.drawOpenedGuestCard\(eventId, opened\);/,
+    'the card’s drawing code must ride beside the one read, never in front of it',
+  );
   assert.match(OPENER, /list: \(eventId: string, guestId: string\) => `\/dashboard\/\$\{eventId\}\/guests\?inspect=\$\{guestId\}`/, 'a failed save on a list card must land back on that open card');
 });
 

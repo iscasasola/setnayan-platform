@@ -5765,6 +5765,7 @@
         "dashboard/[eventId]/_components/event-dashboard.tsx",
         "dashboard/[eventId]/_components/event-rail-context.tsx",
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
+        "dashboard/[eventId]/_components/event-settings-chapters.tsx",
         "dashboard/[eventId]/_components/event-settings-rows.tsx",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
@@ -5940,6 +5941,8 @@
         "BudgetHealthUnreadable",
         "Card",
         "ChannelToggle",
+        "Chapter",
+        "ChapterSheet",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
         "ChosenRow",
@@ -5984,6 +5987,7 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventSettingsChapters",
         "EventSettingsEditor",
         "EventSettingsResult",
         "EventSettingsRows",
@@ -6108,6 +6112,7 @@
         "MoodBoardAsks",
         "MoodBoardAsksActions",
         "MoodBoardAsksDoorway",
+        "NewChapterSheet",
         "OneCodeUnderGetIn",
         "OneLink",
         "OneLinkRow",
@@ -6217,7 +6222,9 @@
         "SupplierShareButton",
         "SupplierShareResult",
         "Suspense",
+        "SwitchRow",
         "SwitchTrack",
+        "TimeRow",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -6753,6 +6760,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-head.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-in-place.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
         "dashboard/[eventId]/guests/_components/guest-card-read.ts",
@@ -11232,6 +11240,19 @@
         "ServicePanel"
       ]
     },
+    "/dev/chapters-lab": {
+      "files": [
+        "dev/chapters-lab/lab-chapters.ts",
+        "dev/chapters-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Chapter",
+        "EventSettingsChapters",
+        "TaskRow"
+      ]
+    },
     "/dev/chat-lab": {
       "files": [
         "dev/chat-lab/fixtures.tsx",
@@ -11401,7 +11422,8 @@
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/guests-lab?part=notices"
+        "/dev/guests-lab?part=notices",
+        "/dev/guests-lab?part=screen&open=1&inspect=[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -11414,10 +11436,12 @@
         "GuestActions",
         "GuestActionsProvider",
         "GuestCard",
+        "GuestCardResult",
         "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSetupRows",
         "GuestsScreen",
+        "InspectorLayout",
         "InspectorSheetAlone",
         "LabCardSheet",
         "LabGuestActions",

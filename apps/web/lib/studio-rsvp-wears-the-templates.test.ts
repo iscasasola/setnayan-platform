@@ -249,7 +249,7 @@ test('(3) the shared parts in the Maker’s frame: a date pill, a dropdown in a 
   // THE SIX ASKS (owner 2026-11-01, "Dropdown with ticks") — a row named by the part, its sentence behind the ⓘ, its
   // answer ONE dropdown with ticks in the row's pill (the shared PickMenu with `picked`): its face says how many are on.
   const asks = await list(h(RsvpAsks, { frame: asksFrame, config: { meal: false, mobile: false }, onToggle: () => {} } as Record<string, unknown>));
-  assert.match(asks, /^<div data-form-rows="rsvp"[^>]*><div data-setup-row="asks" data-made-once="rsvp-ask" data-form-row-kind="chosen" data-form-row="asks"/, 'the asks’ row is wrapped, lost its part’s marks, or is not the dropdown row');
+  assert.match(asks, /^<div data-form-rows="rsvp"[^>]*><div data-setup-row="asks" data-made-once="rsvp-ask" data-rsvp-asks-on="plus_ones dietary song_request note" data-form-row-kind="chosen" data-form-row="asks"/, 'the asks’ row is wrapped, lost its part’s marks, or is not the dropdown row');
   assert.match(asks, /aria-label="About RSVP asks"/);
   assert.doesNotMatch(asks, /Yes or no is always asked\./, 'the asks’ sentence is printed on the panel');
   const pills = [...asks.matchAll(/<button type="button" aria-label="RSVP asks: ([^"]+)" aria-haspopup="listbox" aria-expanded="false" data-rsvp-asks=""/g)];

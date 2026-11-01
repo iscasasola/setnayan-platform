@@ -1,4 +1,4 @@
-## 2026-11-01 · fix(budget,schedule,guests): money fields take only money · a request strip keeps to its time · RSVP asks is a dropdown with ticks
+## 2026-11-01 · fix(budget,schedule,guests): money fields take only money · a request strip keeps to its time · RSVP asks is a dropdown with ticks · a filtered summary card stays put
 
 From the walk of the dev labs (Step 0 "Fix first").
 
@@ -23,6 +23,13 @@ From the walk of the dev labs (Step 0 "Fix first").
   in chips now hold the new property (one shared PickMenu with ticks, the same row in both doors):
   `setup-and-maker-mount-the-same-parts.test.ts`, `lib/studio-rsvp-wears-the-templates.test.ts`. Port-control baseline
   regenerated (the asks' chip control is gone on purpose).
+
+- **Guests — the summary card you filtered by stays put** (owner 2026-11-01: *"when i press it it should stop auto
+  scroll and stays there until the picked item … is unpicked"*). `SnapCarousel` takes an optional `holdKey`: while it
+  is set the carousel centres that card and never advances (a swipe still works; after the touch pause it comes back).
+  Guests holds Replies while Attending · Not coming · No reply · To invite is picked, and the +1s card while a +1
+  filter is on; cleared, the rotation resumes. No other carousel changes. One decision per tick (`carouselMove`,
+  pure). Guard: `lib/a-held-carousel-card-stays-put.test.ts`.
 
 Not changed: Budget's Agreed / Paid differing between two loads is the owner-ruled count-up (`components/count.tsx`)
 caught mid-count; the "Saved." under the file buttons is the calendar file's share sheet, not a database write.

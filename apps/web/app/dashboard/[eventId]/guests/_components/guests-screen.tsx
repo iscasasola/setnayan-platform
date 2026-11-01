@@ -2013,7 +2013,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
         {measured && !makerView ? (
           <>
             <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
-              <SnapCarousel cards={summaryCards} label="Guest summary" attrs={{ 'data-guests-carousel': '' }} />
+              {/* ✋ The card holding the filter the list shows stays in the centre, no rotation, until it is unpicked (owner
+                  2026-11-01): Replies for Attending · Not coming · No reply · To invite, the +1s card for its two halves. */}
+              <SnapCarousel
+                cards={summaryCards}
+                label="Guest summary"
+                attrs={{ 'data-guests-carousel': '' }}
+                holdKey={replyFilter ? 'replies' : plusFilter ? 'plus' : null}
+              />
               {/* What a search or a door is showing — "N of M shown · × Clear" — only while one is on. */}
               {q || filtered ? (
                 <p className={`${styles.counts} ${styles.mute} ${styles.shownLine}`} data-roster-shown="">

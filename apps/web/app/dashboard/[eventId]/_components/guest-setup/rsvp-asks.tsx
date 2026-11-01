@@ -54,6 +54,8 @@ export function RsvpAsks({
 }) {
   const asks = RSVP_ASK_FIELDS.map((field) => ({ key: field, label: RSVP_ASK_LABEL[field] }));
   const on = RSVP_ASK_FIELDS.filter((field) => rsvpAsks(config, field));
+  /* `data-rsvp-asks-on` — the asks that are on, on the row itself: a shut dropdown shows only "4 of 6 on", so this is
+     where a check (and a person inspecting the page) reads WHICH ones (`one-setting-two-doors.test.ts`). */
   if (frame) {
     /* Never a wrapper of this part's own: a row must stay a direct child of its list. */
     return (
@@ -61,7 +63,7 @@ export function RsvpAsks({
         {frame({
           name: RSVP_ASKS_TITLE,
           line: RSVP_ASKS_LINE,
-          attrs: { 'data-setup-row': 'asks', 'data-made-once': 'rsvp-ask' },
+          attrs: { 'data-setup-row': 'asks', 'data-made-once': 'rsvp-ask', 'data-rsvp-asks-on': on.join(' ') },
           asks,
           on,
           onToggle,
@@ -70,7 +72,7 @@ export function RsvpAsks({
     );
   }
   return (
-    <section className={rowClassName} data-setup-row="asks" data-made-once="rsvp-ask">
+    <section className={rowClassName} data-setup-row="asks" data-made-once="rsvp-ask" data-rsvp-asks-on={on.join(' ')}>
       <div className="min-w-0">
         <p className={SETUP_TITLE}>{RSVP_ASKS_TITLE}</p>
         <p className={SETUP_SUB}>{RSVP_ASKS_LINE}</p>

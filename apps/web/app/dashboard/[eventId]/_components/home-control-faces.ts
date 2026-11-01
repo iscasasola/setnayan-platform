@@ -28,13 +28,14 @@ import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
 import { planningTodoHref } from '@/lib/checklist-anchor';
 import { dateFinderHref } from '@/lib/home-date-finder';
+import { releaseOpen, type HomeScheduleFacts } from '@/lib/home-schedule';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
 export type HomeControlKey = (typeof HOME_CONTROL_KEYS)[number];
 
 /** The ONE page each widget opens (notes: "One widget → the ONE page it opens"). */
-export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
+export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey | 'sched', string>> = {
   // 📅 The Date Finder (owner 2026-10-30: *"date finder. because we want them to find the date for their event"*;
   // DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (3)) — Event Details itself is combined into Home's ⚙ Event Settings.
   count: 'Date Finder',
@@ -43,7 +44,22 @@ export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
   sup: 'Suppliers',
   budget: 'Budget',
   plan: 'Planning Stage',
+  // 📅 The Schedule widget (owner 2026-11-01) opens the Schedule — its doors open their own sheets and pages.
+  sched: 'Schedule',
 };
+
+/**
+ * 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, DECISION_LOG "EVENT HOME: FRAMES ONLY WHERE YOU ACT" · "HOME
+ * PROTOTYPE APPROVED", `prototypes/home_frames_where_you_act_2026-11-01/`): *"look at how there are widgets with frame
+ * and without frame. i looks clean rather than all having frames"*. A heading plus plain tiles has no frame (Safari's
+ * Favorites); only a block you act on is a card (its Start Page). On Home the cards are the Schedule (its doors), the
+ * Budget (each payment's Pay) and Papic (its own card) — every other widget sits on the page, unframed. One list, read
+ * by the tile, the detail card and `only-the-acting-widgets-are-framed.test.ts`.
+ */
+export const HOME_FRAMED_WIDGETS: ReadonlySet<HomeControlKey | 'sched'> = new Set<HomeControlKey | 'sched'>(['sched', 'budget']);
+export function homeWidgetFramed(key: HomeControlKey | 'sched'): boolean {
+  return HOME_FRAMED_WIDGETS.has(key);
+}
 
 /** A face's one tiny action — an icon (the compact tile) or icon + word (the detail card). */
 export type FaceIcon = 'mail' | 'plus' | 'check' | 'pay' | 'reload' | 'pen' | 'eye' | 'cal' | 'sliders';
@@ -83,10 +99,27 @@ export type HomeFace = {
   /** A true total only (Checklist % · Budget % paid). */
   meter?: number | null;
   action?: FaceAction | null;
+  /**
+   * 📅 THE SCHEDULE'S FACE (plan §5 — "overrides the one big figure tile rule for this tile only"): a small kicker
+   * ("Happening now" · "What's next" · "Then") over up to three lines, each the chapter and its when · what · where.
+   */
+  kicker?: string;
+  rows?: Array<{ k: string; v: string }>;
+};
+
+/** A door under the Schedule's faces (owner 1 Nov: *"Keep the doors"*) — a word and the page it opens. */
+export type HomeDoor = {
+  id: 'approve' | 'release' | 'needyou' | 'owe';
+  label: string;
+  href: string;
+  /** The filled main verb (what waits on the hosts first). */
+  main?: boolean;
+  /** ◆ PRO beside the word — Release on Free (plan §3b); the door stays usable up to the sheet that names its part. */
+  pro?: boolean;
 };
 
 export type HomeTileModel = {
-  key: HomeControlKey;
+  key: HomeControlKey | 'sched';
   /** The small quiet label — only where the figure would not say what it is (none on Countdown · Guests · Budget). */
   label: string | null;
   /** The tile's one page (its first face's door when a tap lands between faces). */
@@ -102,6 +135,8 @@ export type HomeTileModel = {
   info?: string | null;
   /** The Today strip points here. */
   today: boolean;
+  /** 📅 The Schedule's doors, under its dots — a wrapping row, never on a rotating face (plan §5). */
+  doors?: HomeDoor[];
 };
 
 /* ─── The inputs — each from the shipped reader named ─────────────────────── */
@@ -199,6 +234,12 @@ export type HomeControlInput = {
   budget: HomeBudgetFacts | 'unread' | null;
   /** null = nothing to show (never seeded); 'unread' = the read failed. */
   checklist: HomeChecklistFacts | 'unread' | null;
+  /**
+   * 📅 THE SCHEDULE (owner 2026-11-01, "Schedule goes to home" · "Gets its own widget in home") — read through the
+   * chapters (`readHomeSchedule` → `homeScheduleFrom`). Absent/null = no widget for this viewer; 'unread' = the read
+   * failed (said, never "No chapters yet"). `pro` = the event owns Pro (Release wears no ◆ PRO).
+   */
+  schedule?: (HomeScheduleFacts & { pro: boolean }) | 'unread' | null;
 };
 
 /* ─── Words ────────────────────────────────────────────────────────────────── */
@@ -259,7 +300,7 @@ export const BUDGET_MAX_PAY_FACES = 5;
 
 /* ─── Today — the one pointer (notes: option A, "a pointer, not a door") ───── */
 
-export type HomeTodayTarget = HomeControlKey | 'papic' | 'ai';
+export type HomeTodayTarget = HomeControlKey | 'sched' | 'papic' | 'ai';
 export type HomeToday = { target: HomeTodayTarget; words: string; tail: string; calm: boolean };
 
 /**
@@ -292,7 +333,7 @@ export function homeToday(next: HomeNext, guests: HomeControlInput['guests']): H
 
 const RELOAD: FaceAction = { icon: 'reload', label: 'Reload', href: null };
 
-function failedTile(key: HomeControlKey, label: string, big: string, sm: string, door: string, today: boolean, span = false): HomeTileModel {
+function failedTile(key: HomeControlKey | 'sched', label: string, big: string, sm: string, door: string, today: boolean, span = false): HomeTileModel {
   return {
     key,
     label,
@@ -521,6 +562,9 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
   return { key: 'sup', label: 'Suppliers', door: `/dashboard/${e}/vendors`, failed: false, span: false, today: isToday, faces };
 }
 
+/** What the To do tile's ⓘ says (the approved prototype's words). */
+export const TODO_TILE_INFO = 'Only the plan: how far along you are and the next dated tasks, soonest first. One list now, in Schedule › Planning Stage.';
+
 /**
  * ⑥ TO DO — only the plan: % done · open · due this week. One list since the owner merged the Checklist into Planning
  * Stage (2026-11-01): the tile is named To do (approved Home prototype `home_frames_where_you_act_2026-11-01`) and
@@ -546,7 +590,7 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
     faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: planningTodoHref(e, soon.id) });
   }
   if (faces.length === 0) return null;
-  return { key: 'plan', label: 'To do', door, failed: false, span: false, today: isToday, faces };
+  return { key: 'plan', label: 'To do', door, failed: false, span: false, today: isToday, faces, info: TODO_TILE_INFO };
 }
 
 export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
@@ -598,6 +642,50 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   return { key: 'budget', label: null, door: `/dashboard/${e}/vendors?part=budget`, failed: false, span: true, today: isToday, faces };
 }
 
+/** What the Schedule card's ⓘ says (the approved prototype's words). */
+export const SCHEDULE_TILE_INFO =
+  'Every chapter running now with its exact line, then what is next. The doors under it: supplier changes to approve, Release (one week out, Pro), clashes that need you, suppliers who owe their times.';
+
+/** Three lines a face, the rest on further faces — nothing cut (plan §5). */
+export const SCHEDULE_LINES_PER_FACE = 3;
+
+/**
+ * 📅 THE SCHEDULE — Happening now (every running chapter) · What's next (the next, or all starting together) · Then,
+ * and under the faces the doors the owner kept: N to approve · Release · N need you · N owe times (plan §5).
+ */
+export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
+  const e = input.eventId;
+  const s = input.schedule;
+  const isToday = today.target === 'sched';
+  if (s === undefined || s === null) return null;
+  const door = `/dashboard/${e}/schedule`;
+  if (s === 'unread') return failedTile('sched', 'Schedule', 'Schedule couldn’t load', 'not empty · unread', door, isToday, true);
+  const faces: HomeFace[] = [];
+  const chunk = (kicker: string, id: string, lines: HomeScheduleFacts['now']) => {
+    for (let at = 0; at < lines.length; at += SCHEDULE_LINES_PER_FACE) {
+      const part = lines.slice(at, at + SCHEDULE_LINES_PER_FACE);
+      faces.push({ id: `${id}-${at / SCHEDULE_LINES_PER_FACE}`, big: part[0]!.k, sm: part[0]!.v, kicker, rows: part.map(({ k, v }) => ({ k, v })), href: door });
+    }
+  };
+  chunk('Happening now', 'sched-now', s.now);
+  chunk('What’s next', 'sched-next', s.next);
+  if (s.now.length === 0) chunk('Then', 'sched-then', s.then);
+  if (faces.length === 0) {
+    faces.push(
+      s.chapters === 0
+        ? { id: 'sched-none', big: 'No chapters yet', sm: 'Add the first in your Schedule', kicker: 'What’s next', rows: [{ k: 'No chapters yet', v: 'Add the first in your Schedule' }], href: door }
+        : { id: 'sched-done', big: 'Every chapter has passed', sm: 'Open the schedule', kicker: 'What’s next', rows: [{ k: 'Every chapter has passed', v: 'Open the schedule' }], href: door },
+    );
+  }
+  const doors: HomeDoor[] = [];
+  // ✅ "N to approve" opens the supplier requests sheet — Approve one, Approve all (#7150) — with the Schedule.
+  if (s.toApprove > 0) doors.push({ id: 'approve', label: `${n(s.toApprove)} to approve`, href: `/dashboard/${e}/schedule?sheet=requests`, main: true });
+  if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: `/dashboard/${e}/schedule`, main: true, pro: !s.pro });
+  if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: `/dashboard/${e}/schedule` });
+  if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} owe times`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
+  return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors };
+}
+
 /**
  * The control row in the compact grid's order (notes: "Countdown / Guests · Event Hub / Suppliers · Checklist /
  * Budget") — so no half tile is left alone; a widget that is absent for this event closes its gap by spanning.
@@ -606,6 +694,8 @@ export function homeControlTiles(input: HomeControlInput): { today: HomeToday; t
   const today = homeToday(input.next, input.guests);
   const built = [
     countdownTile(input, today),
+    // 📅 Full width, after the Countdown (owner-approved 1 Nov prototype, plan §4).
+    scheduleTile(input, today),
     guestsTile(input, today),
     hubTile(input, today),
     suppliersTile(input, today),
@@ -680,6 +770,8 @@ export function composeHomeControl(i: {
   hub: HomeControlInput['hub'];
   suppliers: HomeControlInput['suppliers'];
   checklist: HomeControlInput['checklist'];
+  /** 📅 The Schedule widget's read (`readHomeSchedule`) and whether the event owns Pro; absent = no widget. */
+  schedule?: HomeControlInput['schedule'];
   /** The Countdown's page when it is not Home's ⚙ (a helper has no ⚙) — absent = the ⚙ sheet. */
   countdownDoor?: string;
 }): HomeControlInput {
@@ -704,5 +796,6 @@ export function composeHomeControl(i: {
           ? 'unread'
           : { paidPhp: i.money.paid, owingPhp: i.money.owing, pays: homePaysFrom(i.ledger) },
     checklist: i.checklist,
+    schedule: i.schedule ?? null,
   };
 }

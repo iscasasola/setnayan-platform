@@ -1,3 +1,4 @@
+import { onlyTimedBlocks } from '@/lib/schedule';
 import Link from 'next/link';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -690,12 +691,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
-      supabase
-        .from('event_schedule_blocks')
-        .select(
-          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
-        )
-        .eq('event_id', eventId)
+      // ⏰ A Time-TBA chapter is left out of the supplier's timeline (its file lists it all-day, "· Time TBA") — its
+      // stored 00:00 is only its day and must never be drawn as 12:00 AM. The chapter fields feed their Schedule view
+      // (Step 4b) — never `notes`, which stay couple-side.
+      onlyTimedBlocks(
+        supabase
+          .from('event_schedule_blocks')
+          .select(
+            'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
+          )
+          .eq('event_id', eventId),
+      )
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
       supabase

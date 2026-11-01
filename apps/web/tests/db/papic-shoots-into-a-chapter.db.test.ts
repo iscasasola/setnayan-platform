@@ -234,7 +234,7 @@ test('a capture OUTSIDE the chapter window is refused — before its start and a
   assert.equal(await linkCount(`block_id = '${meeting}'`), 1, 'the shot inside the window is in the chapter');
 });
 
-test('a chapter with no end closes at the end of its own day (the venue's clock)', async () => {
+test('a chapter with no end closes at the end of its own day (the venue’s clock)', async () => {
   const noEnd = await chapter('Fitting', MEETING_START_WALL, { photo_who: 'everybody' });
   assert.equal(await refusal(noEnd, { guest: F.outGuest }, '2099-06-10T15:59:00Z'), null, '11:59 PM Manila, the same day');
   assert.equal(await refusal(noEnd, { guest: F.outGuest }, '2099-06-10T16:01:00Z'), 'chapter_closed', '12:01 AM the next day');

@@ -326,6 +326,11 @@ export function isHonoreeRole(role: GuestRole): boolean {
 // guest-list SECTIONS in agreement for multi-role guests (e.g. a Bridesmaid
 // who is also a Principal Sponsor ranks + sections by Principal Sponsor).
 export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
+  return roleGroupOf(mostImportantRole(roles));
+}
+
+/** A guest's MOST important role (primary or extra) — what they are sectioned and ranked by. */
+export function mostImportantRole(roles: readonly GuestRole[]): GuestRole {
   let best: GuestRole = roles[0] ?? 'guest';
   let bestRank = roleImportanceRank(best);
   for (const r of roles) {
@@ -335,8 +340,22 @@ export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
       best = r;
     }
   }
-  return roleGroupOf(best);
+  return best;
 }
+
+/**
+ * 👯 THE HONOUR ATTENDANTS — ONE GROUP ON GUESTS › LIST (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE
+ * ROLE · HONOUR ATTENDANTS GET THEIR OWN GROUP": *"there should be a dedicated group for best woman, best man, maid of
+ * honor and matron of honor and man of honor because right now they are on the grooms crew and brides crew"*).
+ *
+ * A LIST SECTION, not a `RoleGroup`: the role groups also key the Mood Board palette, the dress code and the seating
+ * tiers, where the honour attendants still stand with their side (`ROLE_TO_GROUP` above). The List's sections
+ * (`guest-roster-view.ts`), its role sort and its section head read this set; it is the same five roles the dress
+ * code's honour rows hold (`HONOUR_ROW_OF`, attire-rows.ts — held equal by `the-honour-attendants-are-one-list-group`).
+ */
+export const HONOUR_ATTENDANT_ROLES: readonly GuestRole[] = ['best_man', 'best_woman', 'maid_of_honor', 'matron_of_honor', 'man_of_honor'];
+export const HONOUR_ATTENDANTS_LABEL = 'Honour attendants';
+export const isHonourAttendant = (role: GuestRole): boolean => HONOUR_ATTENDANT_ROLES.includes(role);
 
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {

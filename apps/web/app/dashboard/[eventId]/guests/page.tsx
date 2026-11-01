@@ -36,7 +36,9 @@ import {
 } from '@/lib/guests';
 import {
   filterByRoleGroup,
+  HONOUR_ATTENDANTS_LABEL,
   honoreeRank,
+  isHonourAttendant,
   roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
@@ -874,6 +876,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     lastName: (g) => g.last_name,
     sideLabel: (g) => SIDE_LABELS[g.side],
     roleGroupLabel: (g) => {
+      // 👯 An honour attendant sorts with Honour attendants, above both crews — the List's own section (owner 2026-11-01).
+      if (isHonourAttendant(g.role)) return HONOUR_ATTENDANTS_LABEL;
       const grp = roleGroupOf(g.role);
       // ⚠ A SORT KEY, NOT A HEADING — `ROLE_SECTION_ORDER` ranks by these exact
       // words, so the couple's renames are applied where the heading is DRAWN.

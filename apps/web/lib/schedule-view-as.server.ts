@@ -3,7 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
 import { readMomentTasks } from './schedule-chapters.server';
 import { readScheduleSuppliers } from './schedule-suppliers-read';
-import { ROLE_LABELS, type GuestRole } from './guests';
+import { ROLE_LABELS, guestRoleLabel, type GuestRole } from './guests';
+import { sanitizeRoleNames } from './role-names';
 import { eventCoupleWebsiteProActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
@@ -40,7 +41,7 @@ export type ViewAsExtras = {
 };
 
 export async function readViewAsExtras(supabase: SupabaseClient, eventId: string, opts: { readSuppliers: boolean }): Promise<ViewAsExtras> {
-  const [tasks, places, groups, suppliers, pro, gate] = await Promise.all([
+  const [tasks, places, groups, suppliers, pro, gate, roleWords] = await Promise.all([
     readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
     supabase
       .from('event_schedule_blocks')
@@ -71,12 +72,22 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
     opts.readSuppliers ? readScheduleSuppliers(supabase, eventId).catch(() => []) : Promise.resolve(null),
     asViewed((async () => eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId))().catch(() => false)),
     getIapGate().catch(() => ({ storeShell: false, iap: false })),
+    // The couple's own word for a role (Bridesmaid → "Bride's Crew") — the word every screen shows.
+    supabase
+      .from('events')
+      .select('role_names')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then(
+        ({ data }) => sanitizeRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null),
+        () => sanitizeRoleNames(null),
+      ),
   ]);
   const taskRows = tasks.ok ? tasks.value : null;
   const roleNames: Record<string, string> = {};
   for (const t of taskRows ?? []) {
     const word = t.role?.trim().toLowerCase();
-    if (word && word in ROLE_LABELS) roleNames[word] = ROLE_LABELS[word as GuestRole];
+    if (word && word in ROLE_LABELS) roleNames[word] = guestRoleLabel(word as GuestRole, roleWords);
   }
   return {
     tasks: taskRows,

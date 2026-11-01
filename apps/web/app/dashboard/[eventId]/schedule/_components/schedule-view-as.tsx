@@ -19,6 +19,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
+import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
 import { TIME_TBA, chapterWhen, chapterWhere, type Chapter } from '@/lib/schedule-chapters';
 import {
@@ -207,7 +208,7 @@ function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: rea
             <b className="font-semibold text-ink">
               {g.from} to {g.to}
             </b>
-            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {g.suppliers} suppliers at once</span> : null}
+            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers at once</span> : null}
           </p>
           <ul className="border-t border-ink/10">
             {g.items.map((i) => (

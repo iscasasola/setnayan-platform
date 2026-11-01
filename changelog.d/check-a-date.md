@@ -24,5 +24,7 @@ inquiries on that day."* → *"index.html approve"* (prototype `prototypes/check
   month builder is never handed its asks list), `lib/check-a-date.test.ts`, `lib/check-a-date-qr.test.ts` (renders,
   rasterises and scans the code back with `jsqr`). Each sabotaged red once.
 
+- **One scan = one read** (2026-11-01): the page's title and body share the request-cached `readCheckADate` (React `cache`) — before, every scan ran the six window reads twice. Guard: `no-inquiry-reads.test.ts` "one scan is ONE read".
+
 SPEC IMPACT: DECISION_LOG row "✅📅 CHECK A DATE — APPROVED; BUILD `/v/[slug]/dates`" — built (the row said the landing
 does not exist yet). No migration, no new server action.

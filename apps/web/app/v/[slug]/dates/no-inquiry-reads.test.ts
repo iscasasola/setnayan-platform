@@ -117,3 +117,10 @@ test('the answer builder never hands the month builder a list of asks', () => {
   }
   assert.doesNotMatch(src, /inquir|ask(?:s|ing)\b/i, 'lib/check-a-date.ts mentions asks/inquiries in code');
 });
+
+test('one scan is ONE read: the title and the body share the request-cached read', () => {
+  const server = stripComments(fs.readFileSync(path.join(WEB, 'lib/check-a-date.server.ts'), 'utf8'));
+  assert.match(server, /export const readCheckADate = cache\(/, 'the read the page calls is not request-cached — a scan pays for it twice');
+  const page = stripComments(fs.readFileSync(path.join(WEB, ROUTE), 'utf8'));
+  assert.doesNotMatch(page, /readCheckADateFresh/, 'the page calls the uncached read');
+});

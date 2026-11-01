@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
@@ -91,7 +92,13 @@ export function checkDateToday(now: Date = new Date()): string {
   return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 }
 
-export async function readCheckADate(slug: string, now: Date = new Date()): Promise<CheckDateRead> {
+/**
+ * ONE read per page view: the page's title (`generateMetadata`) and its body both ask, and React's request `cache`
+ * answers the second from the first — never the six window reads twice per scan.
+ */
+export const readCheckADate = cache((slug: string): Promise<CheckDateRead> => readCheckADateFresh(slug));
+
+export async function readCheckADateFresh(slug: string, now: Date = new Date()): Promise<CheckDateRead> {
   const admin = createAdminClient();
   const shopRead = await admin.from('vendor_profiles').select(SHOP_COLS).ilike('business_slug', slug).maybeSingle();
   if (shopRead.error) {

@@ -22,6 +22,8 @@ it' looks good."* and *"Other Event - no we need to be specific because the cove
   allowlist). A host who started with the closest type sees the asked type on that event's "Kind of event" line.
 - The group CHECK `events_community_class_consistency` is widened to gala_night · date · hangout, which their profiles
   already called community_eligible (a group picking one passed the app gate and was refused by the database).
+- `event_type_added` has push level **low** (`lib/push-levels.ts`, bell only — main's exhaustive map landed after
+  this branch started): a small update, never a buzz.
 - +0 exported server actions: the admin answers ride `setEventTypeStatus` / `createEventTypeRoster` (`request_id`),
   the switch rides `updateEventMatchCriteria`, the ask is an RLS-bound insert.
 - Guards: `who-is-it-for-renders.test.ts` (the real picker, painted — one test per item), 

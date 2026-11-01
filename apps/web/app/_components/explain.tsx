@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState, type ReactNode } from 'react';
-import dynamic from 'next/dynamic';
 import { useOneOpen } from '@/lib/one-open';
+import { ExplainNote, ExplainPopup, loadExplainOpen as loadOpen } from './explain-lazy';
 
 /**
  * ⓘ EXPLANATION — the longer "what is this", behind its own small button (`INTERACTION_RULES.md` § 9, kind 7;
@@ -36,14 +36,11 @@ import { useOneOpen } from '@/lib/one-open';
 /**
  * ⚡ WHAT OPENS LOADS ON THE FIRST PRESS (2026-11-01, PR #7142). The ⓘ is drawn on most screens and opened on few: its
  * popup and its note (`explain-open.tsx` — the portal, the dark, the modal contract, the placement) are code nobody
- * needs until the press, so they are their own chunk, warmed the moment a finger or pointer comes down on the ⓘ and
+ * needs until the press, so they are their own chunk (stand-ins in `explain-lazy.tsx`), warmed the moment a finger or pointer comes down on the ⓘ and
  * never drawn by the server (they only exist after a press). The mark itself — the house "i" — stays here, drawn with
  * the page. Measured: with the Field template on more screens, the ⓘ's whole code in every first load put the Event
  * Hub Maker 0.3 KB over its budget (`check-maker-js-budget.mjs`).
  */
-const loadOpen = () => import('./explain-open');
-const ExplainPopup = dynamic(() => loadOpen().then((m) => m.ExplainPopup), { ssr: false });
-const ExplainNote = dynamic(() => loadOpen().then((m) => m.ExplainNote), { ssr: false });
 
 /** A phone's width — the same line the Maker's sheet and every `PickMenu` draw (below `lg`). */
 export const EXPLAIN_PHONE_QUERY = '(max-width: 1023.98px)';

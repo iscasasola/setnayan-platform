@@ -28,3 +28,7 @@ export const AddPreparationItem = dynamic(() => import(/* webpackChunkName: "mak
 export const DeletePreparationItemButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.DeletePreparationItemButton), { loading: SlotButton });
 export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header').then((m) => m.RunOfShowHeader), { loading: SlotRows });
 export const BookedScheduleFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './booked-schedule-frame').then((m) => m.BookedScheduleFrame), { loading: SlotFill });
+/* 📖 Chapters on the Schedule page (owner 2026-11-01): the page that lays a chapter over the views, and Planning Stage's
+   chapter rows — loaded with the rest of the Schedule, never with the Maker. */
+export const ChaptersHost = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './chapters-host').then((m) => m.ChaptersHost), { loading: SlotFill });
+export const PlanningChapters = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './chapters-host').then((m) => m.PlanningChapters), { loading: SlotNone });

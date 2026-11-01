@@ -23,6 +23,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Tip } from './day-ui';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ScheduleViewOnScreen } from './schedule-sheet';
+import { useChapters } from './chapters-context';
 
 export type BookedScheduleView = 'event-day' | 'preparation' | 'journey';
 
@@ -54,6 +55,9 @@ export function BookedScheduleFrame({
   panels: Record<BookedScheduleView, ReactNode>;
 }) {
   const [view, setView] = useState<BookedScheduleView>(initial);
+  /* 📖 The page's dropdown also lists every chapter and + New chapter (owner 2026-11-01, the approved prototype's
+     `viewPick`): a chapter opens its page (`chapters-host.tsx`). */
+  const chapters = useChapters();
   // `?view=` changed by Back/Forward (a pick only replaces it) — follow it.
   useEffect(() => {
     const onPop = () => {
@@ -64,6 +68,8 @@ export function BookedScheduleFrame({
     return () => window.removeEventListener('popstate', onPop);
   }, []);
   const pick = (key: string) => {
+    if (chapters && key === 'chapter:new') return chapters.add();
+    if (chapters && key.startsWith('chapter:')) return chapters.open(key.slice('chapter:'.length));
     if (key !== 'event-day' && key !== 'preparation' && key !== 'journey') return;
     if (key === view) return;
     setView(key);
@@ -88,11 +94,16 @@ export function BookedScheduleFrame({
               label="Schedule view"
               value={view}
               buttonText={current?.label}
-              options={views.map((v) => ({
-                key: v.key,
-                label: v.label,
-                trail: v.count > 0 ? { text: String(v.count), tone: 'muted' as const } : undefined,
-              }))}
+              options={[
+                ...views.map((v) => ({
+                  key: v.key,
+                  label: v.label,
+                  group: chapters ? 'Schedule' : undefined,
+                  trail: v.count > 0 ? { text: String(v.count), tone: 'muted' as const } : undefined,
+                })),
+                ...(chapters?.canEdit ? [{ key: 'chapter:new', label: '+ New chapter', group: 'Chapters' }] : []),
+                ...(chapters?.chapters ?? []).map((c) => ({ key: `chapter:${c.block_id}`, label: c.label, group: 'Chapters' })),
+              ]}
               onPick={pick}
               dataAttr="data-schedule-view"
               compact

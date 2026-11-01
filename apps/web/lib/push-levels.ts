@@ -114,6 +114,8 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',
+  // "Ask us to add it" — the event type you asked for is now in the picker. A small update.
+  event_type_added: 'low',
   vendor_status_change: 'low',
   vendor_credit_expiring: 'low',
   vendor_joined: 'low',

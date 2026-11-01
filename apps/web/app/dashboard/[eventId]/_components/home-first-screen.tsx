@@ -140,6 +140,8 @@ export type HomeFirstScreenProps = {
    * Absent = the shipped row (a lab, the app).
    */
   papicCard?: PapicCardInput | null;
+  /** 👀 Who's here (owner 2026-10-29) — the team on the dashboard now and the guests viewing the Event Hub. */
+  whosHere?: ReactNode;
   /** 🧩 Every service as a card that grows in place (the couple's, on the web) — `YourServices` `cards`. */
   serviceCards?: boolean;
   /**
@@ -192,6 +194,7 @@ export function HomeFirstScreen({
   papicLeft = null,
   papicSizes = null,
   papicCard = null,
+  whosHere = null,
   serviceCards = false,
   needs = null,
   apple = null,
@@ -237,6 +240,10 @@ export function HomeFirstScreen({
               on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
               last tile, so the card follows the row. Your services below no longer draws it. */}
           {papicCard ? <PapicTodayCard card={papicCard} /> : null}
+
+          {/* 👀 WHO'S HERE — after Papic, before Your services (owner 2026-10-29): who of the team is on the dashboard
+              now, and which guests are viewing the Event Hub. */}
+          {whosHere}
 
           {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it"). */}
           {prints ? <HomePrintsLine eventId={eventId} /> : null}

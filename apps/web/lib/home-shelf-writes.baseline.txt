@@ -67,7 +67,7 @@ waits	creator_chapters	app/admin/storytellers/actions.ts	1
 waits	event_type_vocab	app/admin/categories/actions.ts	3
 waits	event_type_vocab	lib/event-types-mutations.ts	2
 waits	events	app/admin/real-stories/actions.ts	3
-waits	events	app/dashboard/[eventId]/actions.ts	2
+waits	events	app/dashboard/[eventId]/actions.ts	3
 waits	events	app/dashboard/[eventId]/date-selection/actions.ts	1
 waits	events	app/dashboard/[eventId]/invitation/actions.ts	1
 waits	events	app/dashboard/[eventId]/monogram/studio-actions.ts	2

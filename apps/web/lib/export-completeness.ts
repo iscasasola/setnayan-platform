@@ -68,6 +68,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // A guest's "I sent it" (E-Gifts wish list, 2026-10-08) — keyed to a guest, like
   // the face records; scoped to the subject's own guest ids.
   { table: 'event_gift_records', decision: 'exported', as: 'gifts_you_said_you_sent' },
+  // When a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29) — keyed to a guest, scoped
+  // to the subject's own guest ids. Strangers' counts (hub_visitor_buckets) hold no person at all.
+  { table: 'hub_guest_views', decision: 'exported', as: 'event_hub_opens' },
   { table: 'dependents', decision: 'exported', as: 'alaga_dependents' },
   { table: 'godparents', decision: 'exported', as: 'alaga_godparents' },
   { table: 'community_members', decision: 'exported', as: 'samahan_memberships' },
@@ -83,6 +86,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 🖼⏱ The Mood Board photo changes the subject MADE under Mood Board Edit (2026-10-30, migration 20271299051148) —
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
+  { table: 'event_type_requests', decision: 'exported', as: 'event_type_requests' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6865
+# facts: 6890
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     579
-#   col       5019
-#   policy    974
+#   tpriv     582
+#   col       5033
+#   policy    980
 #   view      9
-#   func      280
+#   func      282
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -185,6 +185,7 @@ tpriv	public.event_type_onboarding|anon	SIUD
 tpriv	public.event_type_onboarding|authenticated	SIUD
 tpriv	public.event_type_profiles|anon	SIUD
 tpriv	public.event_type_profiles|authenticated	SIUD
+tpriv	public.event_type_requests|authenticated	SIUD
 tpriv	public.event_type_vocab|anon	S
 tpriv	public.event_type_vocab|authenticated	S
 tpriv	public.event_vendor_booth_posters|anon	SIUD
@@ -243,7 +244,9 @@ tpriv	public.hiring_roadmap|anon	SIUD
 tpriv	public.hiring_roadmap|authenticated	SIUD
 tpriv	public.homepage_background_videos|anon	SIUD
 tpriv	public.homepage_background_videos|authenticated	SIUD
+tpriv	public.hub_guest_views|authenticated	S
 tpriv	public.hub_music_tracks|authenticated	IUD
+tpriv	public.hub_visitor_buckets|authenticated	S
 tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
 tpriv	public.inquiry_outcomes|authenticated	SIUD
@@ -1900,6 +1903,14 @@ col	public.event_type_profiles.team_first	anon=SIU authenticated=SIU
 col	public.event_type_profiles.template_pack_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.terminology	anon=SIU authenticated=SIU
 col	public.event_type_profiles.updated_at	anon=SIU authenticated=SIU
+col	public.event_type_requests.created_at	anon=- authenticated=SIU
+col	public.event_type_requests.event_type	anon=- authenticated=SIU
+col	public.event_type_requests.label	anon=- authenticated=SIU
+col	public.event_type_requests.request_id	anon=- authenticated=SIU
+col	public.event_type_requests.resolved_at	anon=- authenticated=SIU
+col	public.event_type_requests.resolved_by	anon=- authenticated=SIU
+col	public.event_type_requests.status	anon=- authenticated=SIU
+col	public.event_type_requests.user_id	anon=- authenticated=SIU
 col	public.event_type_vocab.ai_price_tier	anon=S authenticated=S
 col	public.event_type_vocab.created_at	anon=S authenticated=S
 col	public.event_type_vocab.description	anon=S authenticated=S
@@ -2626,6 +2637,9 @@ col	public.homepage_background_videos.updated_by_admin_id	anon=SIU authenticated
 col	public.homepage_background_videos.video_mime_type	anon=SIU authenticated=SIU
 col	public.homepage_background_videos.video_r2_key	anon=SIU authenticated=SIU
 col	public.homepage_background_videos.video_url	anon=SIU authenticated=SIU
+col	public.hub_guest_views.event_id	anon=- authenticated=S
+col	public.hub_guest_views.guest_id	anon=- authenticated=S
+col	public.hub_guest_views.last_seen_at	anon=- authenticated=S
 col	public.hub_music_tracks.created_at	anon=- authenticated=SIU
 col	public.hub_music_tracks.created_by	anon=- authenticated=IU
 col	public.hub_music_tracks.duration_seconds	anon=- authenticated=SIU
@@ -2638,6 +2652,9 @@ col	public.hub_music_tracks.sort_order	anon=- authenticated=SIU
 col	public.hub_music_tracks.title	anon=- authenticated=SIU
 col	public.hub_music_tracks.track_id	anon=- authenticated=SIU
 col	public.hub_music_tracks.updated_at	anon=- authenticated=SIU
+col	public.hub_visitor_buckets.bucket_start	anon=- authenticated=S
+col	public.hub_visitor_buckets.event_id	anon=- authenticated=S
+col	public.hub_visitor_buckets.opens	anon=- authenticated=S
 col	public.inquiry_outcome_reason_codes.applies_to	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.created_at	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.is_active	anon=SIU authenticated=SIU
@@ -5927,6 +5944,10 @@ policy	public.event_type_onboarding|event_type_onboarding_select	mode=PERMISSIVE
 policy	public.event_type_onboarding|event_type_onboarding_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_type_profiles|event_type_profiles_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_type_profiles|event_type_profiles_read_all	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
+policy	public.event_type_requests|event_type_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.event_type_requests|event_type_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.event_type_requests|event_type_requests_ask	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::text) AND (event_type IS NULL) AND (resolved_by IS NULL) AND (resolved_at IS NULL))
+policy	public.event_type_requests|event_type_requests_read_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.event_type_vocab|event_type_vocab_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_type_vocab|event_type_vocab_read_all	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.event_vendor_booth_posters|event_vendor_booth_posters_vendor_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid)) UNION SELECT tm.vendor_profile_id FROM vendor_team_members tm WHERE (tm.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
@@ -6033,8 +6054,10 @@ policy	public.help_messages|help_messages_sender_read	mode=PERMISSIVE cmd=SELECT
 policy	public.hiring_roadmap|hiring_roadmap_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.hiring_roadmap|hiring_roadmap_owner_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND ((users.is_internal = true) OR (users.account_type = 'admin'::account_type))))) check=NULL
 policy	public.homepage_background_videos|homepage_background_videos_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.hub_guest_views|hub_guest_views_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) AND (EXISTS ( SELECT 1 FROM guests g WHERE (g.guest_id = hub_guest_views.guest_id)))) check=NULL
 policy	public.hub_music_tracks|hub_music_tracks_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.hub_music_tracks|hub_music_tracks_read_published	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_published = true) check=NULL
+policy	public.hub_visitor_buckets|hub_visitor_buckets_team_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.inquiry_outcome_reason_codes|reason_codes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.inquiry_outcome_reason_codes|reason_codes_read_active	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_active = true) check=NULL
 policy	public.inquiry_outcomes|inquiry_outcomes_org_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
@@ -6695,6 +6718,8 @@ func	public.event_comp_active_skus(p_event_id uuid)	secdef=yes exec=anon,authent
 func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.event_hub_viewers(p_event_id uuid, p_window_minutes integer)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.event_team_presence_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public

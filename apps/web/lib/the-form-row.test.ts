@@ -290,7 +290,8 @@ test('(8) the ⓘ is its own 44-px button: a centred popup with "Got it" on a ph
   // At rest only — open, it still turns the accent (`group-aria-expanded/explain:text-sn-accent`).
   assert.doesNotMatch(html, /[\s"](?:text-sn-accent|bg-white)[\s"]/, 'the mark is an accent "i" on a white disc again');
   assert.doesNotMatch(html, /Got it|role="dialog"/, 'the explanation is drawn before it is asked for');
-  const src = read(EXPLAIN);
+  // The ⓘ's mark and what it opens are two files since 2026-11-01 (the open forms load on the first press — explain.tsx).
+  const src = `${read(EXPLAIN)}\n${read('app/_components/explain-open.tsx')}`;
   // The pop-up rule, on a phone: dark + blurred, nothing behind works, the page does not scroll, the dark closes.
   // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`) — a separate close layer under it went inert.
   assert.match(src, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the rest of the screen is not darkened and blurred, or a tap on it does not close');

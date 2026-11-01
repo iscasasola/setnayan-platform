@@ -218,6 +218,19 @@ export function ScheduleClockFace({
           );
         })}
       </div>
+      {/* ✉ A Time-TBA chapter has no place on a dial — listed under it, never dropped and never put at midnight. */}
+      {moments.some((m) => m.minuteOfDay === null) ? (
+        <ul data-clock-unplaced="" className="space-y-1 text-center">
+          {moments
+            .filter((m) => m.minuteOfDay === null)
+            .map((m) => (
+              <li key={m.id} className="text-sm text-ink/75">
+                <span className="font-mono text-xs uppercase tracking-[0.14em] text-gild">{m.timeLabel}</span> · {m.label}
+                {m.location ? ` · ${m.location}` : ''}
+              </li>
+            ))}
+        </ul>
+      ) : null}
       {open ? (
         <div className="border-t border-ink/12 pt-3 text-center" aria-live="polite">
           <p className="font-mono text-sm tabular-nums text-gild">{open.timeLabel}</p>

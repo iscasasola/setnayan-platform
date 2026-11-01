@@ -9,6 +9,8 @@
  * atomically, via the vendor_claim_locked_qr() RPC when the couple scans.
  */
 
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, lockedQrProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
@@ -128,6 +130,11 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       ? rawDate
       : null;
   if (!eventDate) fail('event_date');
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — this code
+  // becomes the couple's event date when they scan it.
+  if (eventDateFloorRefusal({ date: eventDate, exempt: await eventDateFloorExempt(supabase) })) {
+    fail('event_date_before_first_event');
+  }
 
   // Owner rule #4 (2026-07): a Locked QR is the PRIMARY booking of its date, so
   // it cannot be issued for a date the vendor is no longer free on (already

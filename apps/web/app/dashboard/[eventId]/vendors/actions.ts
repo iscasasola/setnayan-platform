@@ -8,6 +8,8 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -1319,13 +1321,17 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .maybeSingle();
     const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
-    const candidates = Array.isArray(
-      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
-    )
-      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
-          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
-        )
-      : [];
+    // 💍 A candidate before December 19, 2026 is not a date this event may take (owner
+    // 2026-11-01, lib/event-date-floor.ts) — dropped before narrowing, so no lock ever
+    // writes it. The founders' events keep every candidate.
+    const candidates = await candidatesOnOrAfterFirstEventDay(
+      Array.isArray((dateRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+            (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+          )
+        : [],
+      () => eventDateFloorExempt(supabase, { eventId }),
+    );
 
     if (!existingDate && candidates.length > 0) {
       // Profile ids of vendors that constrain the date: already-locked

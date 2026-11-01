@@ -1,5 +1,7 @@
 'use server';
 
+import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -300,6 +302,17 @@ export async function createWeddingEvent(formData: FormData) {
         await getBudgetBands(),
         { today: new Date().toISOString().slice(0, 10), resolveArea: resolvePick },
       );
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): every
+  // date this event is created with — its candidates and its window — on or after it.
+  if (
+    eventDatesFloorRefusal(
+      [...capture.dateCandidates, capture.dateWindowStart, capture.dateWindowEnd],
+      await eventDateFloorExempt(null),
+    )
+  ) {
+    return redirect('/dashboard/create-event?error=event_date_before_first_event');
+  }
 
   // Both writes go through the admin client because the user-scoped JWT can
   // be stale or the role can resolve to anon at the edge — RLS would then

@@ -20,6 +20,7 @@ import { planningRowAction } from '../../checklist-actions';
 import { ScheduleSheet, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { formatCount } from '@/lib/format-number';
 
 // ── Tick ────────────────────────────────────────────────────────────────
 
@@ -274,8 +275,8 @@ export function PlanningFilterFrame({
           compact
           dataAttr="data-planning-filter"
           options={[
-            { key: 'all', label: `Everything · ${allCount}` },
-            { key: 'todo', label: `To do · ${todoOpen} of ${todoCount} open` },
+            { key: 'all', label: `Everything · ${formatCount(allCount)}` },
+            { key: 'todo', label: `To do · ${formatCount(todoOpen)} of ${formatCount(todoCount)} open` },
           ]}
           onPick={pick}
         />

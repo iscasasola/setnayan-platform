@@ -326,14 +326,15 @@ export type PlanningRowResult =
  * shown as a save that did not happen.
  */
 export async function planningRowAction(formData: FormData): Promise<PlanningRowResult> {
+  // Hosts' writes (RLS: the couple) — a limited helper is refused whatever their areas (AREA_RULES: null).
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const op = formData.get('op');
   const eventId = formData.get('event_id');
   const itemId = formData.get('item_id');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof itemId !== 'string' || itemId.length === 0) {
     return { ok: false, error: 'Something was missing — try again.' };
   }
-  const refusal = await limitedHelperRefusal(eventId, op === 'tick-step' ? 'schedule' : null);
-  if (refusal) return { ok: false, error: refusal };
 
   const supabase = await createClient();
   const {

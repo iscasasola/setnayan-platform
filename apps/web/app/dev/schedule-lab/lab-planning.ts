@@ -12,6 +12,8 @@ import { assemblePlanningList, taskItemsFrom, type PreparationAgenda, type Prepa
 import { PLAN_DATE } from './lab-moments';
 
 const LAB_EVENT = 'lab';
+/** A lab amount in the shipped peso words (`₱` + grouped) — the way the reader words a payment row. */
+const php = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 const DAY = 86_400_000;
 
 /** Ticked in the lab — auto-ticked ones (a set budget, a booked photographer) and a few by hand. */
@@ -52,19 +54,19 @@ function auto(now: Date, id: string, source: PreparationItem['source'], inDays: 
 function labAutofill(now: Date): PreparationItem[] {
   return [
     // Same work as a task → folds into it.
-    auto(now, 'payment:lab-casa-1', 'payment', 6, '₱40,000 due to Casa Catering', 'Deposit', { amountPhp: 40_000, twin: { kind: 'payment', category: 'catering', firstLine: true } }),
+    auto(now, 'payment:lab-casa-1', 'payment', 6, `${php(40_000)} due to Casa Catering`, 'First payment', { amountPhp: 40_000, twin: { kind: 'payment', category: 'catering', firstLine: true } }),
     auto(now, 'appointment:lab-tasting', 'meeting', 9, 'Food tasting', '3:00 PM · In-person with Casa Catering', { twin: { kind: 'meeting', appointmentType: 'food_tasting' } }),
     auto(now, 'paperwork:lab-license', 'paperwork', 14, 'Complete Marriage license', 'About 10 days at the civil registry', { twin: { kind: 'paperwork', documentType: 'marriage_license' } }),
     // Their own work → shown on their own.
-    auto(now, 'payment:lab-casa-2', 'payment', 39, '₱92,500 due to Casa Catering', 'Balance', { amountPhp: 92_500, twin: { kind: 'payment', category: 'catering', firstLine: false } }),
-    auto(now, 'payment:lab-lumina', 'payment', 4, '₱20,000 due to Lumina Studio', 'First payment', { amountPhp: 20_000, twin: { kind: 'payment', category: 'photographer', firstLine: true } }),
+    auto(now, 'payment:lab-casa-2', 'payment', 39, `${php(92_500)} due to Casa Catering`, 'Balance', { amountPhp: 92_500, twin: { kind: 'payment', category: 'catering', firstLine: false } }),
+    auto(now, 'payment:lab-lumina', 'payment', 4, `${php(20_000)} due to Lumina Studio`, 'First payment', { amountPhp: 20_000, twin: { kind: 'payment', category: 'photographer', firstLine: true } }),
   ];
 }
 
 function labManual(now: Date): PreparationItem[] {
   return [
     auto(now, 'manual:lab-m1', 'manual', 2, 'Pick up the barong from the tailor', 'Added by you', { isManual: true, itemId: 'lab-m1', done: false, kind: 'task', sourceLabel: 'Added by you' }),
-    auto(now, 'manual:lab-m2', 'manual', -3, 'Send the deposit slip to the venue', 'Added by you', { isManual: true, itemId: 'lab-m2', done: true, kind: 'task', sourceLabel: 'Added by you' }),
+    auto(now, 'manual:lab-m2', 'manual', -3, 'Send the payment slip to the venue', 'Added by you', { isManual: true, itemId: 'lab-m2', done: true, kind: 'task', sourceLabel: 'Added by you' }),
   ];
 }
 

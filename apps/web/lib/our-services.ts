@@ -362,7 +362,7 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   guests: { home: 'the Guest list menu row' },
   budget: { home: 'Suppliers — its Budget part' },
   schedule: { home: 'the Event Hub Maker — Event Details › Schedule', needsWebsite: true },
-  checklist: { home: 'Overview — "View your full checklist"' },
+  checklist: { home: 'Overview — "Open your to do list" (Planning Stage’s To do filter)' },
   compare: { home: 'Suppliers — its Compare tab' },
   // Catalogue tools.
   'mood-board': { home: 'the Event Hub Maker — Look › Mood Board', needsWebsite: true },

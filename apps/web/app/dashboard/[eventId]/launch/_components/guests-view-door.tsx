@@ -18,7 +18,7 @@ export function GuestsViewDoor({ eventId, view }: { eventId: string; view: Guest
       </p>
       <ActionButton
         tone="brand"
-        icon={view === 'seats' ? Armchair : Footprints}
+        icon={view === 'seats' ? <Armchair aria-hidden="true" strokeWidth={1.9} /> : <Footprints aria-hidden="true" strokeWidth={1.9} />}
         label={`Open Guests › ${GUESTS_VIEW_LABEL[view]}`}
         href={guestsViewHref(eventId, view)}
       />

@@ -114,7 +114,10 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, BookedScheduleFrame, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
+import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
+import type { ReactNode } from 'react';
+import { readChapters } from '@/lib/schedule-chapters.server';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -216,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
@@ -245,6 +248,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       // SET NULL since 20271263061583) has nothing left to approve.
       .or('kind.eq.new,block_id.not.is.null')
       .order('created_at', { ascending: true }),
+    /* 📖 The event's chapters (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE") — in the same round, with their
+       own fields (spot, ingress, call time…). Not in the Maker: Details › Schedule keeps its moments as they are. A
+       refused read is kept as a failure and said on the page, never drawn as "no chapters". */
+    inMaker ? Promise.resolve(null) : readChapters(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -292,6 +299,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   ) {
     scheduleBlocks = await seedNonWeddingRunOfShow(eventId);
   }
+  // A first open that just seeded its day reads its chapters again (that read is not the blocks read, so it is not the
+  // memoised GET the seed note above warns about).
+  const chapterRead =
+    chapterReadFirst && scheduleBlocks !== blocks
+      ? await readChapters(supabase, eventId).catch(() => ({ ok: false as const }))
+      : chapterReadFirst;
   // Iteration 0053 P4 Unit 1: only marriage-profile events get PH statutory
   // milestones in the agenda. Wedding → 'ph_marriage' → statutory true (byte-
   // identical); non-wedding → null → no PSA/CENOMAR/marriage-license rows.
@@ -563,6 +576,44 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     responsible_vendor_ids: rosMeta.get(b.block_id)?.responsible_vendor_ids ?? [],
     audience: b.audience ?? null,
   }));
+  /* 📖 What the chapters' pages read: the chapters, and each one's moments (its child blocks) with who is on them in
+     words — the suppliers tagged (by shop name), else the responsible party. Not for a trip: it keeps its own view. */
+  const supplierName = new Map(rosVendors.map((v) => [v.vendor_id, v.vendor_name]));
+  const chaptersInput: ChaptersInput | null =
+    chapterRead === null || isTravel
+      ? null
+      : chapterRead.ok
+        ? {
+            measured: true,
+            chapters: chapterRead.value,
+            moments: dayMoments
+              .filter((m): m is DayMoment & { parent_block_id: string } => typeof m.parent_block_id === 'string')
+              .map(
+                (m): ChapterMoment => ({
+                  block_id: m.block_id,
+                  parent_block_id: m.parent_block_id,
+                  label: m.label,
+                  start_at: m.start_at,
+                  is_public: m.is_public,
+                  who:
+                    m.responsible_vendor_ids
+                      .map((id) => supplierName.get(id))
+                      .filter(Boolean)
+                      .join(', ') || (m.responsible_party ?? ''),
+                }),
+              ),
+            venues: [],
+            eventDay: eventDateKey,
+            lastDay:
+              eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey
+                ? eventRow.event_end_date.slice(0, 10)
+                : eventDateKey,
+            canEdit: dayRole !== 'view',
+            // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
+            // here; the door checks again (`mayShowToGuests`).
+            mayInvite: dayRole !== 'view',
+          }
+        : { measured: false };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
     suggestion_id: s.suggestion_id,
     block_id: s.block_id,
@@ -608,6 +659,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
      page's, or Suppliers › Booked's one line (`booked-schedule-frame.tsx`), where its tools ride that line and its
      add is the pill in the thumb zone. */
   const prepView = (
+    <>
+    {/* 📖 Chapters dated before the day live here (plan §3) — chapter rows only, above the agenda, which is untouched. */}
+    {chaptersInput ? <PlanningChapters /> : null}
     <PreparationAgendaView
       eventId={eventId}
       agenda={agenda}
@@ -615,6 +669,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       eventWord={eventNoun(eventRow?.event_type)}
       booked={inBooked}
     />
+    </>
   );
   const eventDayView = (
       isTravel ? (
@@ -880,6 +935,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         <PageMasthead title="Schedule" />
       )}
 
+      {/* 📖 The chapters (owner 2026-11-01): a tapped chapter opens its page over the views — one place, this page. */}
+      <ChaptersFrame eventId={eventId} input={chaptersInput} dateLine={bookedDateLine}>
       {inBooked ? (
         /* 📅 SUPPLIERS › BOOKED › SCHEDULE (owner 2026-10-31, live iPhone: *"so many upper space not used"*; frames
            19 · 19b · 20): ONE line — the view ▾ · the day's tools · 🔊 — then the date line with everything else in its
@@ -979,12 +1036,23 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         {active === 'preparation' ? prepView : eventDayView}
         </>
       )}
+      </ChaptersFrame>
 
       {/* Every feature gets a first-visit tour (owner 2026-09-25) — the shipped
           MiniTour, keyed once per person. */}
       <MiniTour tourKey="customer_schedule_v1" />
     </section>
     </LastSeenCapture>
+  );
+}
+
+/** The chapters' host around the page's views — or the views alone where none are drawn (the Maker, a trip). */
+function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string; input: ChaptersInput | null; dateLine: string; children: ReactNode }) {
+  if (!input) return <>{children}</>;
+  return (
+    <ChaptersHost eventId={eventId} input={input} dateLine={dateLine}>
+      {children}
+    </ChaptersHost>
   );
 }
 

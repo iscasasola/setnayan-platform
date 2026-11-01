@@ -56,8 +56,7 @@ test('1 · the frame draws the line and the date line — and nothing else — b
       initial: 'event-day',
       views: [
         { key: 'event-day', label: 'Event Day', count: 7 },
-        { key: 'preparation', label: 'Preparation', count: 3 },
-        { key: 'journey', label: 'Journey', count: 9 },
+        { key: 'preparation', label: 'Planning Stage', count: 3 },
       ],
       dateLine: 'Friday 18 December 2026 · 48 days to go',
       info: React.createElement('b', null, 'Ana & Paolo'),
@@ -66,7 +65,6 @@ test('1 · the frame draws the line and the date line — and nothing else — b
       panels: {
         'event-day': React.createElement('i', { 'data-first-moment': '' }),
         preparation: React.createElement('i', null),
-        journey: React.createElement('i', null),
       },
     }),
   );
@@ -76,7 +74,7 @@ test('1 · the frame draws the line and the date line — and nothing else — b
   const marks = [...root.matchAll(/data-(schedule-line|schedule-date-line|schedule-panel)=/g)].map((m) => m[1]);
   assert.deepEqual(marks.slice(0, 3), ['schedule-line', 'schedule-date-line', 'schedule-panel'], 'a row was added above the moments');
   // …and nothing unnamed either: the frame's root has exactly three children — the line, the date line, the views.
-  assert.deepEqual(topLevelChildren(html, 'data-booked-schedule="event-day"'), ['div', 'p', 'div'], 'a row was added to the frame');
+  assert.deepEqual(topLevelChildren(html, 'data-booked-schedule="event-day"'), ['div', 'div', 'div'], 'a row was added to the frame');
   assert.match(before, /data-schedule-view=/, 'the line lost the view dropdown');
   assert.match(before, /data-announce-door="round"/, 'Announce is not on the line');
   assert.match(before, /Friday 18 December 2026 · 48 days to go/, 'the date line is gone');

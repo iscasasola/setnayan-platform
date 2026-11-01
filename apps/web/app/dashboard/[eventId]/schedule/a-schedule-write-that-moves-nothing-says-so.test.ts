@@ -119,8 +119,9 @@ test('⓹ a change in words only is said as one — on the sheet and in the supp
 
   const requests = body(read(SHEETS), 'RequestsSheet');
   assert.equal(requests.match(/isNoteOnlySuggestion\(r\)/g)?.length ?? 0, 2, 'the Asked line and the footnote must both tell a note from a change');
-  const resolve = body(read(ACTIONS), 'resolveScheduleSuggestion');
-  assert.match(resolve, /isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
+  // The one accept path (Approve and Approve all both go through it) tells a note from a change in the notice.
+  const resolve = body(read(ACTIONS), 'decideSuggestion');
+  assert.match(resolve, /body: accepted[\s\S]*?isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
 });
 
 test('⓺ a template on a schedule that is no longer empty redraws the page instead of doing nothing', () => {

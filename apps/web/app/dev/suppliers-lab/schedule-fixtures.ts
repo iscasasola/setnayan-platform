@@ -1,11 +1,9 @@
 /**
- * Booked › Schedule › Preparation and Journey on fixtures (the Suppliers lab) — the dated steps of frame 20 of the
- * approved final Suppliers design (`carry-2026-10-29/suppliers-final-proto/`), on this lab's own booked suppliers, run
- * through the SHIPPED shapes (`PreparationAgenda`, `buildJourneyTimeline`) so the real views draw them.
+ * Booked › Schedule › Planning Stage on fixtures (the Suppliers lab) — the dated steps of frame 20 of the approved final
+ * Suppliers design (`carry-2026-10-29/suppliers-final-proto/`), on this lab's own booked suppliers, run through the
+ * SHIPPED shape (`PreparationAgenda`) so the real view draws them. (Journey was removed 2026-11-01.)
  */
 import type { PreparationAgenda, PreparationItem, PreparationSource } from '@/lib/preparation';
-import { buildJourneyTimeline, type JourneyTimeline } from '@/lib/journey';
-import { PLAN_DATE } from '../schedule-lab/lab-moments';
 
 const DAY = 86_400_000;
 
@@ -49,16 +47,4 @@ export function labPrepAgenda(now: Date): PreparationAgenda {
     })),
     sourceCounts,
   };
-}
-
-export function labJourney(now: Date, agenda: PreparationAgenda): JourneyTimeline {
-  return buildJourneyTimeline({
-    eventId: 'lab',
-    agenda,
-    createdAt: '2026-03-02T08:00:00Z',
-    eventDate: PLAN_DATE,
-    recapPublishedAt: null,
-    now,
-    copy: { dayLabel: 'your wedding day', eventNoun: 'wedding' },
-  });
 }

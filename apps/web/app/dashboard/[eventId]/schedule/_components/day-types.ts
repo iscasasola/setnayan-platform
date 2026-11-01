@@ -75,4 +75,6 @@ export type DayActions = {
   loadScheduleTemplate: (fd: FormData) => Promise<unknown>;
   /** Used as a `<form action>`, so it keeps the form-action shape. */
   resolveScheduleSuggestion: (fd: FormData) => Promise<void>;
+  /** ✅ Approve all — the Requests sheet's pinned foot; a form action too. */
+  approveAllScheduleSuggestions: (fd: FormData) => Promise<void>;
 };

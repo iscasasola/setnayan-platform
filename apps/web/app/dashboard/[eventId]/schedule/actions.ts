@@ -20,7 +20,7 @@ import {
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { buildEmceeScript } from '@/lib/emcee-script';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
-import { computeRetimePatches, isNoteOnlySuggestion } from '@/lib/schedule-ros';
+import { APPROVE_ALL_MAX, computeRetimePatches, isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import {
   FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
@@ -645,25 +645,21 @@ export async function generateEmceeScript(
  * sides: the suggestion UPDATE policy + the block write policies admit the
  * couple and delegates holding schedule edit, nobody else.
  */
-export async function resolveScheduleSuggestion(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
-  const eventId = formData.get('event_id');
-  const suggestionId = formData.get('suggestion_id');
-  const decision = formData.get('decision');
-  if (
-    typeof eventId !== 'string' ||
-    typeof suggestionId !== 'string' ||
-    (decision !== 'accept' && decision !== 'decline')
-  ) {
-    throw new Error('Invalid input');
-  }
+type SuggestionOutcome = 'done' | 'gone' | 'words';
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
+/**
+ * One supplier suggestion, decided — THE accept path, shared by Approve (one) and Approve all (owner 2026-11-01, "also
+ * have an approve all"). Accept applies the proposal, then flips the status; the supplier is told either way.
+ * `onlyChanges` (Approve all) leaves a suggestion in words untouched — `'words'`. Throws on a refused write.
+ */
+async function decideSuggestion(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  eventId: string,
+  suggestionId: string,
+  decision: 'accept' | 'decline',
+  onlyChanges = false,
+): Promise<SuggestionOutcome> {
   const { data: suggestion } = await supabase
     .from('event_schedule_suggestions')
     .select(
@@ -672,9 +668,9 @@ export async function resolveScheduleSuggestion(formData: FormData) {
     .eq('suggestion_id', suggestionId)
     .eq('event_id', eventId)
     .maybeSingle();
-  if (!suggestion || suggestion.status !== 'open') {
-    redirect(`/dashboard/${eventId}/schedule?view=event-day`);
-  }
+  if (!suggestion || suggestion.status !== 'open') return 'gone';
+  // ✅ APPROVE ALL leaves a suggestion in words out: it changes nothing by itself, so it is Noted one by one.
+  if (onlyChanges && isNoteOnlySuggestion(suggestion)) return 'words';
 
   // The status flip, done AFTER the change it answers lands — so a refused
   // write never leaves a request reading 'accepted' over an unchanged
@@ -685,7 +681,7 @@ export async function resolveScheduleSuggestion(formData: FormData) {
       .from('event_schedule_suggestions')
       .update({
         status: decision === 'accept' ? 'accepted' : 'declined',
-        resolved_by_user_id: user.id,
+        resolved_by_user_id: userId,
         resolved_at: new Date().toISOString(),
       })
       .eq('suggestion_id', suggestionId)
@@ -805,7 +801,71 @@ export async function resolveScheduleSuggestion(formData: FormData) {
     }
   }
 
+  return 'done';
+}
+
+/** Approve, Noted or Decline ONE suggestion — the Requests sheet's form action (the path: `decideSuggestion`). */
+export async function resolveScheduleSuggestion(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
+  const eventId = formData.get('event_id');
+  const suggestionId = formData.get('suggestion_id');
+  const decision = formData.get('decision');
+  if (
+    typeof eventId !== 'string' ||
+    typeof suggestionId !== 'string' ||
+    (decision !== 'accept' && decision !== 'decline')
+  ) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  if ((await decideSuggestion(supabase, user.id, eventId, suggestionId, decision)) === 'gone') {
+    redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+  }
+
   revalidatePath(`/dashboard/${eventId}/schedule`);
+  redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+}
+
+/**
+ * ✅ APPROVE ALL (owner 2026-11-01: *"also have an approve all"*; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §6b) — every
+ * supplier change the host was SHOWN (the ids the sheet posts, never "whatever is open now": a change that arrived after
+ * they looked is not approved unseen), through the one accept path above. A suggestion in words is left for Noted.
+ * Each supplier approved is told in-app, as with one Approve. A refused one does not stop the rest; the count of
+ * refused ones is said, never the look of success.
+ */
+export async function approveAllScheduleSuggestions(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
+  const eventId = formData.get('event_id');
+  const ids = [...new Set(formData.getAll('suggestion_id').filter((v): v is string => typeof v === 'string' && v.length > 0))];
+  if (typeof eventId !== 'string' || ids.length === 0 || ids.length > APPROVE_ALL_MAX) throw new Error('Invalid input');
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  let refused = 0;
+  for (const id of ids) {
+    try {
+      await decideSuggestion(supabase, user.id, eventId, id, 'accept', true);
+    } catch (e) {
+      refused += 1;
+      console.error('[approveAllScheduleSuggestions] one change was refused', e instanceof Error ? e.message : e, { event_id: eventId });
+    }
+  }
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  if (refused > 0) {
+    throw new Error(
+      `${refused} of ${ids.length} change${ids.length === 1 ? '' : 's'} could not be approved — the rest are on your schedule. Open Requests to try those again.`,
+    );
+  }
   redirect(`/dashboard/${eventId}/schedule?view=event-day`);
 }
 

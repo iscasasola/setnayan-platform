@@ -105,6 +105,7 @@ const STUB_ACTIONS: DayActions = {
   setBlockPrepVisibility: noop,
   loadScheduleTemplate: noop,
   resolveScheduleSuggestion: noop,
+  approveAllScheduleSuggestions: noop,
 };
 
 function render(role: DayRole, requests: DayRequest[] = []) {

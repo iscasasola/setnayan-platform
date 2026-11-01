@@ -61,11 +61,19 @@ export async function fetchBlockRosMeta(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<RosMetaMap> {
+  return (await readBlockRosMeta(supabase, eventId)) ?? new Map();
+}
+
+/**
+ * The same read, but a refusal is NULL rather than an empty map — for a caller that must not print "nobody" for
+ * "could not read" (the schedule PDF, `lib/schedule-pdf.ts`).
+ */
+export async function readBlockRosMeta(supabase: SupabaseClient, eventId: string): Promise<RosMetaMap | null> {
   const { data, error } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, responsible_party, responsible_vendor_ids')
     .eq('event_id', eventId);
-  if (error || !data) return new Map();
+  if (error || !data) return null;
   const map: RosMetaMap = new Map();
   for (const row of data as Array<{
     block_id: string;
@@ -300,4 +308,20 @@ export function isNoteOnlySuggestion(s: {
   return (
     s.kind === 'adjust' && !s.proposed_label && !s.proposed_start_at && !s.proposed_end_at && !s.proposed_location
   );
+}
+
+/**
+ * ✅ APPROVE ALL (owner 2026-11-01: *"also have an approve all"*; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §6b). Pinned at the
+ * foot of the Requests sheet once at least `APPROVE_ALL_MIN` CHANGES wait. A suggestion in words is Noted one by one and
+ * is never in it — it changes nothing by itself. `APPROVE_ALL_MAX` bounds one press (the action refuses more).
+ */
+export const APPROVE_ALL_MIN = 2;
+export const APPROVE_ALL_MAX = 100;
+
+/** The requests one "Approve all N" press approves — every change, no suggestion in words. */
+export function approvableTogether<
+  T extends { kind: string; proposed_label: string | null; proposed_start_at: string | null; proposed_end_at: string | null; proposed_location: string | null },
+>(requests: ReadonlyArray<T>): T[] {
+  const changes = requests.filter((r) => !isNoteOnlySuggestion(r));
+  return changes.length >= APPROVE_ALL_MIN ? changes.slice(0, APPROVE_ALL_MAX) : [];
 }

@@ -65,6 +65,7 @@ const ACTIONS: DayActions = {
   setBlockPrepVisibility: noop,
   loadScheduleTemplate: noop,
   resolveScheduleSuggestion: noop,
+  approveAllScheduleSuggestions: noop,
 };
 
 test('a time-sized press on the rail drops the 44-px button floor', () => {

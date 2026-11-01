@@ -8217,6 +8217,38 @@ html.dark .hc-tiny.hc-tiny-main { color: #161513; }
 /* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
 [data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 .hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+/* 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, DECISION_LOG "EVENT HOME: FRAMES ONLY WHERE YOU ACT"; approved
+ * prototype `home_frames_where_you_act_2026-11-01/`): a heading plus plain tiles sits on the page, unframed (Safari's
+ * Favorites); only a block you act on is a card (Schedule · Budget · Papic). `hc-plain` takes the frame off any Home
+ * widget — the list of which is framed lives in `HOME_FRAMED_WIDGETS` (home-control-faces.ts), never here.
+ * Producers: home-tile.tsx, home-control-row.tsx, home-prints-line.tsx, home-whos-here-card.tsx, home-first-screen.tsx. */
+.hc-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+:is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.hc-tile.hc-plain { padding-top: 6px; padding-bottom: 4px; }
+.hc-tile.hc-plain.hc-count { padding: 14px 8px 6px; }
+.hc-tile.hc-plain .hc-chip { right: 0; top: 5px; }
+.hc-tile.hc-plain :is(.hc-acts, .hc-side) { right: 0; bottom: 6px; }
+.hc-glance { gap: 10px 14px; }
+.hc-glance > .hc-tile { min-height: 96px; }
+.hc-rule { height: 1px; margin: 4px 0; border: 0; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-ruled { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); padding-top: 4px; }
+/* Your services — plain rows with dividers; the row's own control (a switch, a door) is its frame. */
+.home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.home-svc.hc-plain-list > *:not(:first-child) { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-svc.hc-plain-list :is(.sg-row, .home-tile, .hc-tile, .home-card) { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.home-svc.hc-plain-list .hc-tiny-slot { right: 0; }
+@media (min-width: 768px) { .home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; } .home-svc.hc-plain-list > :nth-child(2) { border-top: 0; } }
+/* A section on the page: its small heading, then its content (Who's here). */
+.hc-sect-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+/* 📅 THE SCHEDULE CARD (plan §5): a kicker over up to three lines a face, then the doors the owner kept. */
+.hc-sched .hc-faces { margin-top: 2px; }
+.hc-kick { display: block; padding: 4px 0 2px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-line { display: block; min-height: 44px; padding: 7px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-kick + .hc-line { border-top: 0; }
+.hc-line-k { display: block; font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-line-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-sdoors { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-sdoors .ab { height: 36px; min-height: 36px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
   .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }

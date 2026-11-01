@@ -240,6 +240,13 @@ function CandidateCard({
   isBest: boolean;
   winners: string[];
 }) {
+  // 💍 The lock answers a refused date in words (lib/event-date-floor.ts) — said under this card.
+  const [lockError, setLockError] = useState<string | null>(null);
+  async function lockThisDate(fd: FormData) {
+    setLockError(null);
+    const res = await lockEventDate(fd);
+    if (res && res.ok === false) setLockError(res.error);
+  }
   // Pro 1 — vendor shortlist
   const shortlistValue = (() => {
     if (c.shortlist.total === 0) return 'No suppliers shortlisted yet';
@@ -362,7 +369,7 @@ function CandidateCard({
             : 'This month'}
         </span>
 
-        <form action={lockEventDate}>
+        <form action={lockThisDate}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="event_date" value={c.dateKey} />
           <input type="hidden" name="precision" value="day" />
@@ -378,6 +385,11 @@ function CandidateCard({
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         </form>
+        {lockError ? (
+          <p role="alert" className="mt-2 text-xs text-danger-700">
+            {lockError}
+          </p>
+        ) : null}
       </div>
     </li>
   );

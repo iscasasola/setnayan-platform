@@ -16,6 +16,7 @@
  * mobile (builder → preview → Render).
  */
 
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, ExternalLink, Moon, Music2, RotateCcw, Sparkles, Sun, Wand2 } from 'lucide-react';
@@ -206,7 +207,7 @@ export function StdBuilderClient({
   const [accentColor, setAccentColor] = useState<string | null>(initialFilmAccentColor ?? null);
 
   const [saving, startSave] = useTransition();
-  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro'>('idle');
+  const [result, setResult] = useState<'idle' | 'ok' | 'error' | 'pro' | 'needs-pro' | 'floor'>('idle');
   /* One lock, three places — the background, film and song uploaders. Built
      here as an ELEMENT and handed down, never a component or function prop. */
   const proHref = `/dashboard/${eventId}/studio/website-pro`;
@@ -446,6 +447,7 @@ export function StdBuilderClient({
           ? 'ok'
           : r.error === LOOK_PRO_REQUIRED ? 'pro'
             : r.error === REVEAL_NEEDS_PRO ? 'needs-pro'
+              : r.error === EVENT_DATE_FLOOR_MESSAGE ? 'floor'
               : 'error',
       );
     });
@@ -639,6 +641,12 @@ export function StdBuilderClient({
                     <p className={helperCls}>One of the dates you chose during onboarding.</p>
                   </>
                 )}
+                {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+                {result === 'floor' ? (
+                  <p role="alert" className="mt-1.5 text-xs text-danger-700">
+                    {EVENT_DATE_FLOOR_MESSAGE}
+                  </p>
+                ) : null}
               </div>
 
               {/* Ceremony venue — auto-fills from a finalized booking; the field

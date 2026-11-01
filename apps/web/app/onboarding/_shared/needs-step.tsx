@@ -23,6 +23,7 @@
  * the Get-together form both own the state and draw this.
  */
 
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -50,7 +51,8 @@ type Props = {
   where: string;
   onWhere: (v: string) => void;
   /** When (optional) — drawn only on the Simple shape; the other presets ask the date on its own screen. */
-  when?: { value: string; onChange: (v: string) => void } | null;
+  /** `dateExempt` — 💍 the founders' (is_internal) account: any date; everyone else from December 19, 2026. */
+  when?: { value: string; onChange: (v: string) => void; dateExempt?: boolean } | null;
   preset: NeedPreset;
   onPreset: (p: NeedPreset) => void;
   needs: EventNeeds;
@@ -141,9 +143,16 @@ export function NeedsStep({
             name={fieldNames?.when}
             value={when.value}
             onChange={(e) => when.onChange(e.target.value)}
+            min={eventDateMinFor(new Date().toISOString().slice(0, 10), when.dateExempt === true)}
             className={INPUT}
             data-needs-when=""
           />
+          {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+          {eventDateFloorRefusal({ date: when.value, exempt: when.dateExempt === true }) ? (
+            <span role="alert" data-event-date-floor="" className="mt-1 block text-xs text-danger-700">
+              {EVENT_DATE_FLOOR_MESSAGE}
+            </span>
+          ) : null}
         </label>
       ) : null}
 

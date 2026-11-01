@@ -86,6 +86,7 @@ export function EventTypePicker({
   couple = null,
   groupTypeKeys,
   initialSubjectId,
+  dateExempt = false,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -120,6 +121,9 @@ export function EventTypePicker({
   subjects?: CreateSubject[];
   /** Manila today, so the per-subject measurement matches the server's clock. */
   todayISO?: string;
+  /** 💍 The founders' (is_internal) account: its date pickers start today, not on
+   *  December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   /** The page's samahan banner / error alert. Rendered by this component (not
    *  the page) purely so it keeps sitting UNDER the heading now that the
    *  heading is step-dependent — the question changes between "who" and "what". */
@@ -625,7 +629,7 @@ export function EventTypePicker({
             </legend>
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-ink">When</span>
-              <CreateDatePicker />
+              <CreateDatePicker dateExempt={dateExempt} />
             </div>
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-ink">Where</span>

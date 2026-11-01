@@ -2773,6 +2773,7 @@
         "FlatList",
         "Fold",
         "FormInPlace",
+        "FormRows",
         "FourLevelMap",
         "GroupGlyph",
         "GroupPanel",
@@ -2868,6 +2869,7 @@
         "Thumbs",
         "TogglePick",
         "TypeQuestion",
+        "TypedRow",
         "Uint8Array",
         "UnitPick",
         "Vocab",
@@ -4675,9 +4677,11 @@
       "blocks": [
         "ActionButton",
         "AdminInviteResult",
+        "FormRows",
         "InviteResult",
         "PickMenu",
-        "Sec"
+        "Sec",
+        "TypedRow"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -5151,6 +5155,7 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Image",
@@ -6518,7 +6523,7 @@
         "/explore?category=date_fengshui_consultant"
       ],
       "actions": [
-        "lockEventDate",
+        "lockThisDate",
         "markDateUndecided"
       ],
       "blocks": [
@@ -6959,6 +6964,7 @@
         "GuestGroupPicker",
         "GuestHelperAccess",
         "GuestInviteCell",
+        "GuestJumpRow",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
         "GuestMapCanvas",
@@ -6999,6 +7005,7 @@
         "InviteSetup",
         "InvitedToBlock",
         "Item",
+        "JumpMark",
         "JustAdded",
         "K.Cols",
         "K.Door",
@@ -13501,6 +13508,7 @@
     "/signup/you": {
       "files": [
         "signup/you/_components/account-name-field.tsx",
+        "signup/you/_components/display-name-field.tsx",
         "signup/you/_components/you-card.tsx",
         "signup/you/actions.ts",
         "signup/you/page.tsx"
@@ -13513,11 +13521,15 @@
       "blocks": [
         "AccountNameCheck",
         "AccountNameField",
+        "DisplayNameField",
         "FileUpload",
         "FirstRunBrand",
+        "FormRows",
         "Link",
         "PrefixSelect",
+        "RequiredRowsHold",
         "SubmitButton",
+        "TypedRow",
         "YouCard"
       ]
     },
@@ -13928,6 +13940,7 @@
         "vendor-dashboard/_components/vendor-rail-context.tsx",
         "vendor-dashboard/_components/vendor-track-record-panel.tsx",
         "vendor-dashboard/_components/video-links-editor.tsx",
+        "vendor-dashboard/_components/why-row.tsx",
         "vendor-dashboard/actions.ts",
         "vendor-dashboard/error.tsx",
         "vendor-dashboard/instagram-actions.ts",
@@ -14025,6 +14038,7 @@
         "Figure",
         "Fold",
         "FormRow",
+        "FormRows",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLElement",
@@ -14118,6 +14132,7 @@
         "TodayRow",
         "TodaySettings",
         "TrackRecordRow",
+        "TypedRow",
         "UndoableAnswers",
         "Unread",
         "UnreadBellBadge",
@@ -14127,7 +14142,8 @@
         "VendorRailContext",
         "VerifySection",
         "ViewReport",
-        "WhatsNewFeed"
+        "WhatsNewFeed",
+        "WhyRow"
       ]
     },
     "/vendor-dashboard/activities": {
@@ -15808,6 +15824,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FormRows",
         "Fragment",
         "GridCard",
         "HTMLDivElement",
@@ -15815,6 +15832,7 @@
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
+        "InclusionDraft",
         "InclusionsEditor",
         "KindGroup",
         "KindRow",
@@ -15860,6 +15878,7 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack",
+        "TypedRow",
         "YourCoverage"
       ]
     },
@@ -16329,6 +16348,7 @@
         "DomainManager",
         "Fold",
         "FormPageSkeleton",
+        "FormRows",
         "InfoTip",
         "OwnRow",
         "PageData",
@@ -16347,7 +16367,8 @@
         "SupplierThumbRow",
         "SwitchRow",
         "SwitchTrack",
-        "ThumbRow"
+        "ThumbRow",
+        "TypedRow"
       ]
     },
     "/vendor-invite/[slug]": {

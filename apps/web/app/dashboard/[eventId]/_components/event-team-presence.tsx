@@ -8,6 +8,8 @@
  * stays mounted while the person moves between the event's pages, so the channel does too; no page joins its own.
  * Whatever wants the list (the Home card) reads it from this context.
  *
+ *   · The channel itself is `event-team-presence-join.ts`, loaded by `import()` once the page has drawn — this file is
+ *     only the context, so it costs every event page's first load next to nothing.
  *   · 🔒 PRIVATE (`private: true`) with the user's token on the socket — the migration's
  *     `event_team_presence_can_access` admits the event's hosts and accepted moderators only. Both halves ship
  *     together; the flag without the policy refuses everyone, the policy without the flag guards nothing.
@@ -21,9 +23,7 @@
  *     `failed` ("Couldn't check") — never an empty list read as "just you".
  */
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { pauseWhileHidden } from '@/lib/tab-return';
-import { eventTeamTopic, nextTeamPeers, type TeamMeta, type TeamPeer } from '@/lib/whos-here';
+import type { TeamMeta, TeamPeer } from '@/lib/whos-here';
 
 export type EventTeamPresenceState = {
   /** The others on the dashboard now; `null` until the channel has answered. */
@@ -57,52 +57,41 @@ export function EventTeamPresence({
 
   useEffect(() => {
     if (!enabled) return;
-    const supabase = createClient();
-    const stop = pauseWhileHidden(
-      () => {
-        let live = true;
-        const channel = supabase.channel(eventTeamTopic(eventId), {
-          config: { private: true, presence: { key: me.id } },
+    // ⚡ The channel's code loads AFTER the page has drawn (`event-team-presence-join.ts`), never in the first load of
+    // every event page — the Maker's first-load budget (`scripts/check-maker-js-budget.mjs`) holds that.
+    let gone = false;
+    let stop: (() => void) | null = null;
+    void import('./event-team-presence-join')
+      .then(({ joinTeamPresence }) => {
+        if (gone) return;
+        stop = joinTeamPresence({
+          eventId,
+          me,
+          onPeers: (next, first) => {
+            const changed = next !== peersRef.current;
+            peersRef.current = next;
+            // Decided OUTSIDE the state updater (an updater may run twice): the same list back = no render, unless
+            // this is the first answer, which turns "Checking…" into the list.
+            setValue((v) =>
+              !changed && !first && v.state === 'live' && v.peers !== null
+                ? v
+                : { peers: next, state: 'live', pulse: changed ? v.pulse + 1 : v.pulse },
+            );
+          },
+          onFailed: () => setValue((v) => ({ ...v, state: 'failed' })),
+          peers: () => peersRef.current,
         });
-        channel.on('presence', { event: 'sync' }, () => {
-          if (!live) return;
-          // Decided OUTSIDE the state updater (an updater may run twice): the same list back = no render, unless this
-          // is the first answer, which turns "Checking…" into the list.
-          const next = nextTeamPeers(peersRef.current, channel.presenceState<TeamMeta>(), me.id);
-          const changed = next !== peersRef.current;
-          peersRef.current = next;
-          setValue((v) =>
-            !changed && v.state === 'live' && v.peers !== null
-              ? v
-              : { peers: next, state: 'live', pulse: changed ? v.pulse + 1 : v.pulse },
-          );
-        });
-        // The socket must carry the user's token, or the private channel's predicate sees no one
-        // (`lib/panood-webrtc.ts` primeRealtimeAuth — measured 2026-09-01).
-        void supabase.auth
-          .getSession()
-          .then(({ data }) => {
-            if (data.session?.access_token) supabase.realtime.setAuth(data.session.access_token);
-          })
-          .catch(() => {})
-          .finally(() => {
-            if (!live) return;
-            channel.subscribe((status) => {
-              if (!live) return;
-              if (status === 'SUBSCRIBED') {
-                void channel.track({ name: me.name, role: me.role, photo: me.photo } satisfies TeamMeta);
-              } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                setValue((v) => ({ ...v, state: 'failed' }));
-              }
-            });
-          });
-        return () => {
-          live = false;
-          return supabase.removeChannel(channel);
-        };
-      },
-    );
-    return stop;
+      })
+      // The chunk itself did not load (offline, a deploy in between) → "Couldn't check", never "just you".
+      .catch(() => {
+        if (!gone) setValue((v) => ({ ...v, state: 'failed' }));
+      });
+    return () => {
+      gone = true;
+      stop?.();
+    };
+    // `me` is read through its parts below — a new object with the same person must not rejoin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, eventId, me.id, me.name, me.role, me.photo]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

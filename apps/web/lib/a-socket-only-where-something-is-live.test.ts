@@ -56,7 +56,7 @@ const LIVE: Record<string, string> = {
   'lib/panood-webrtc.ts': 'Panood / Live Studio camera signalling',
   'lib/panood-guest-webrtc.ts': 'Panood guest-pick camera signalling',
   'app/admin/connection-logs/connection-logs-client.tsx': 'admin only — the live connection log',
-  'app/dashboard/[eventId]/_components/event-team-presence.tsx':
+  'app/dashboard/[eventId]/_components/event-team-presence-join.ts':
     "Home › Who's here (owner 2026-10-29) — the event team on the dashboard now: presence only (no postgres_changes), private, lets go after 30 s hidden",
 };
 
@@ -70,7 +70,8 @@ const LAYOUT_MAY_REACH: Record<string, { why: string; gateFile: string; gate: Re
   // event layout. Its cost is bounded, not zero: one socket per VISIBLE dashboard tab of an event's TEAM (a handful of
   // people, never guests), presence only (no database evaluation per write), let go 30 s after the tab is hidden, and
   // OFF entirely with `TEAM_PRESENCE_DISABLED=1` — the gate below. Flagged to the owner in PR #7031.
-  'app/dashboard/[eventId]/_components/event-team-presence.tsx': {
+  // The channel is `event-team-presence-join.ts`, which the layout's provider reaches by `import()` after the page draws.
+  'app/dashboard/[eventId]/_components/event-team-presence-join.ts': {
     why: "the event team's presence — every dashboard page of the event, only while the tab is visible, off with TEAM_PRESENCE_DISABLED",
     gateFile: 'app/dashboard/[eventId]/layout.tsx',
     gate: /<EventTeamPresence\s+enabled=\{teamPresenceEnabled\(\)\}/,

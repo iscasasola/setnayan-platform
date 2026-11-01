@@ -129,13 +129,18 @@ test('4 · a name only through the guest’s own pass — the body is the slug, 
 });
 
 test('5 · the team’s side is ONE private channel, joined by the layout alone; the card reads one function, no timer', () => {
-  const presence = code('app/dashboard/[eventId]/_components/event-team-presence.tsx');
+  const provider = code('app/dashboard/[eventId]/_components/event-team-presence.tsx');
+  const presence = code('app/dashboard/[eventId]/_components/event-team-presence-join.ts');
   assert.match(presence, /private: true/, '🔒 the channel is private — the migration’s policies are the door');
   assert.match(presence, /supabase\.channel\(eventTeamTopic\(eventId\)/);
   assert.match(presence, /realtime\.setAuth\(/, 'the socket carries the user’s token, or the private predicate sees no one');
   assert.doesNotMatch(presence, /postgres_changes/, 'presence only — the database evaluates nothing per write');
-  assert.match(presence, /if \(!enabled\) return;\s*const supabase = createClient\(\);/, 'switched off (TEAM_PRESENCE_DISABLED), it opens nothing');
   assert.match(presence, /pauseWhileHidden\(/, 'a hidden tab lets the channel go');
+  // Switched off (TEAM_PRESENCE_DISABLED), the provider loads and opens nothing; on, the channel's code is loaded AFTER
+  // the page draws — never in every event page's first load (the Maker's first-load budget).
+  assert.match(provider, /if \(!enabled\) return;[\s\S]{0,400}?import\('\.\/event-team-presence-join'\)/, 'the channel is loaded by import(), behind the switch');
+  assert.doesNotMatch(provider, /^import [^;]*(createClient|pauseWhileHidden|nextTeamPeers)[^;]*;/m, 'the provider statically imports the channel’s code again — it rides every event page’s first load');
+  assert.doesNotMatch(provider, /\.channel\(/, 'the provider opens a channel itself');
   assert.equal(teamPresenceEnabled({}), true);
   assert.equal(teamPresenceEnabled({ TEAM_PRESENCE_DISABLED: '1' }), false);
   assert.equal(teamWords(null, 'off'), 'Team presence is switched off');

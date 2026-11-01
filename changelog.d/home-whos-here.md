@@ -40,6 +40,9 @@ viewing the event hub?"*
   where we see people go online"*):** a green dot on a face = active now; otherwise "Active N min ago". Every team face is
   on the channel this second, so it carries the dot; a guest face is dated from its own open (`seen_at`) — the dot only
   inside the first minute (`activeWords`, `lib/whos-here.ts`; guard 7). Worked out when an answer arrives, with no timer.
+- **The channel's code is loaded after the page draws** (`event-team-presence-join.ts`, by `import()`): the layout's
+  provider is only the context, so it no longer pushes the Maker's first load over its budget
+  (`check-maker-js-budget.mjs`, CI was +2.0 KB gz). Guard: `lib/whos-here.test.ts` 5.
   ⚠ **Not in this PR: "tap a face to message them"** (DECISION_LOG "WHO'S HERE → TAP A PERSON TO MESSAGE THEM") — there
   is no team-member or host↔guest thread to open (`chat_threads` is event↔supplier only), so it needs its own schema and
   an owner call on guests without an account.

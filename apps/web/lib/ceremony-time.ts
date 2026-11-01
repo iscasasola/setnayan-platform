@@ -26,7 +26,23 @@ export function blocksWithDraftedCeremony<T extends ScheduleBlockRow>(
   if (!start) return [...blocks];
   // A new Ceremony carries only what a schedule row needs to be read; it is public, as the Schedule seeds it.
   if (!block) return [...blocks, { label: 'Ceremony', block_type: 'ceremony', start_at: start, parent_block_id: null, location: null, is_public: true } as unknown as T];
-  return blocks.map((b) => (b === block ? { ...b, start_at: start } : b));
+  // A typed time is a real time: it clears a Time-TBA ceremony's flag, as Apply will (`placeCeremonyBlock`).
+  return blocks.map((b) => (b === block ? { ...b, start_at: start, time_tba: false } : b));
+}
+
+/**
+ * ⏰ WHAT THE MAKER'S CEREMONY-TIME BOX SHOWS (controller 2026-11-02, follow-up to #7158): the drafted time when the
+ * couple typed one; else the live one (`readLiveCeremony`). A live ceremony whose time is TBA shows "Time TBA" and an
+ * EMPTY box — never its placeholder 00:00, which a Save would otherwise write back as a real midnight. A refused read
+ * (`live` null) is no time and no TBA, as before.
+ */
+export function ceremonyTimeBox(
+  drafted: unknown,
+  live: { time: string | null; tba: boolean } | null,
+): { time: string | null; tba: boolean } {
+  if (typeof drafted === 'string') return { time: drafted, tba: false };
+  if (!live) return { time: null, tba: false };
+  return live.tba ? { time: null, tba: true } : { time: live.time, tba: false };
 }
 
 /**

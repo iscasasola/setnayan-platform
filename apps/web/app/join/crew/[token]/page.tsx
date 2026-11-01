@@ -93,7 +93,9 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
           admin
             .from('event_schedule_blocks')
             .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
-            .eq('event_id', eventId),
+            .eq('event_id', eventId)
+            // ⏰ No Time-TBA chapter on the crew's run of show: its 00:00 is only its day. Same fence as onlyTimedBlocks.
+            .eq('time_tba', false),
         )
           .order('start_at', { ascending: true })
           .order('sort_order', { ascending: true })

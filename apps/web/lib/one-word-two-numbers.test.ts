@@ -80,8 +80,9 @@ test('home still reports its CHECKLIST share — the measure is pinned, not the 
   );
   assert.match(
     home,
-    /pct: Math\.round\(\(done \/ items\.length\) \* 100\)/,
-    'and it must still be the CHECKLIST done/total — the measure, not the caption',
+    // Since 2026-11-01 the plan's done/total is the ONE list's To do count (the Checklist merged into Planning Stage).
+    /pct: Math\.round\(\(p\.done \/ p\.total\) \* 100\)/,
+    'and it must still be the plan’s done/total — the measure, not the caption',
   );
 });
 

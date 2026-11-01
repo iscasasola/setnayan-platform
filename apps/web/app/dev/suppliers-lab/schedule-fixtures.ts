@@ -3,7 +3,7 @@
  * Suppliers design (`carry-2026-10-29/suppliers-final-proto/`), on this lab's own booked suppliers, run through the
  * SHIPPED shape (`PreparationAgenda`) so the real view draws them. (Journey was removed 2026-11-01.)
  */
-import type { PreparationAgenda, PreparationItem, PreparationSource } from '@/lib/preparation';
+import { assemblePlanningList, type PreparationAgenda, type PreparationItem, type PreparationSource } from '@/lib/preparation';
 
 const DAY = 86_400_000;
 
@@ -31,20 +31,6 @@ export function labPrepAgenda(now: Date): PreparationAgenda {
     item(now, '2026-12-11', 'payment', 'Balance · Lumina Studio', 'Photo & Video', 45_000),
     item(now, '2026-12-15', 'manual', 'Final headcount to your caterer', 'Added by you', undefined, 'task'),
   ];
-  const groups = new Map<string, PreparationItem[]>();
-  for (const it of items) {
-    const key = it.date.toISOString().slice(0, 7);
-    groups.set(key, [...(groups.get(key) ?? []), it]);
-  }
-  const sourceCounts: Record<PreparationSource, number> = { payment: 0, paperwork: 0, meeting: 0, milestone: 0, manual: 0 };
-  for (const it of items) sourceCounts[it.source] += 1;
-  return {
-    items,
-    groups: [...groups].map(([key, list]) => ({
-      key,
-      label: new Date(`${key}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-      items: list,
-    })),
-    sourceCounts,
-  };
+  // Through the shipped assembler (sort · months · counts) — the same one the page's reader ends in.
+  return assemblePlanningList(items);
 }

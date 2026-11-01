@@ -1,20 +1,30 @@
 import { notFound } from 'next/navigation';
-import { EventSettingsChapters } from '@/app/dashboard/[eventId]/_components/event-settings-chapters';
 import { clockWords, findTaskClashes, taskPlace, taskWho, type TaskRow } from '@/lib/schedule-chapters';
-import { LAB_CHAPTERS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MOMENT, LAB_SUPPLIERS, LAB_TASKS, LAB_VENUES } from './lab-chapters';
+import { LAB_CHAPTERS, LAB_CLASH_TASK, LAB_MOMENT, LAB_SUPPLIERS, LAB_TASKS } from './lab-chapters';
+import { LabScheduleChapters } from './lab-schedule-chapters';
 
 /**
  * /dev/chapters-lab — 📖 Step 2 "Chapters" on fake data, no sign-in and no database (owner 2026-11-01, corpus
  * SCHEDULE_CHAPTERS_BUILD_PLAN §12 Step 2). DEV-ONLY: production builds 404 it.
  *
- *   1. THE CHAPTERS ROW of Home › Event Settings — the SAME component the sheet mounts (`EventSettingsChapters`), on
- *      fake chapters, with doors that only answer "saved": add a chapter (name and time), open one and change it,
- *      delete it (warning → Continue → deleting). `?empty=1` starts with none; `?fail=1` shows the failed read.
+ *   1. THE SCHEDULE PAGE'S CHAPTERS (Step 3a — chapters moved off Home › Event Settings, owner 2026-11-01): the REAL
+ *      frame, rail, chapter page and sheets on fake chapters, with doors that only answer "saved": the rail with the
+ *      time between chapters and a "Time TBA" one under it, + Add a chapter (name and time), a tap opens the chapter's
+ *      page (‹ back · the dropdown · Ingress · Event · Egress · Edit), Chapter details, Delete (warning → Continue →
+ *      deleting), and Planning Stage's "Final fitting". `?empty=1` none · `?fail=1` the failed read · `?view=1` view only.
+ *      Step 3b: Preparation · Bride › "Entourage hair and make-up starts" (8:00) holds three tasks at once in two
+ *      places; tap it for the moment sheet (tasks, Who ▾, clash flag, Delete moment's Papic count — the lab answers 4).
+ *      `?tasksfail=1` the tasks read failed · `?moment=1` opens straight on that moment's sheet.
+ *      👁 View as ▾ (Step 3c) on fake tasks: a guest, a role, a supplier or crew, Suppliers by time; `?free=1` a Free event.
  *   2. THE RUN-OF-SHOW SHAPE (§3c): one moment holding three parallel tasks in two places, each place resolved by the
  *      real `taskPlace` (a task with no place follows its moment's room). `?clash=1` adds the planner's Coord A in a
  *      second place at the same time, and the real `findTaskClashes` flags it — flagged, never blocked.
  */
-export default async function ChaptersLabPage({ searchParams }: { searchParams: Promise<{ empty?: string; fail?: string; clash?: string }> }) {
+export default async function ChaptersLabPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; moment?: string; free?: string }>;
+}) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   const chapter = LAB_CHAPTERS[0]!;
@@ -23,16 +33,7 @@ export default async function ChaptersLabPage({ searchParams }: { searchParams: 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <h1 className="text-[20px] font-semibold">Chapters</h1>
-        <EventSettingsChapters
-          eventId="00000000-0000-4000-8000-00000000e001"
-          lab
-          input={
-            q.fail === '1'
-              ? { measured: false }
-              : { measured: true, chapters: q.empty === '1' ? [] : LAB_CHAPTERS, venues: LAB_VENUES, lastDay: LAB_EVENT_DAY, mayInvite: true }
-          }
-        />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

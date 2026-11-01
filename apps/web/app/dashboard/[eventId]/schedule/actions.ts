@@ -41,7 +41,8 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
-import { isCallLead, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { runMomentOp } from '@/lib/schedule-chapters.server';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
@@ -220,6 +221,15 @@ export async function createScheduleBlock(formData: FormData) {
     is_public: formData.get('is_public') === 'on' && (await mayShowToGuests(supabase, user.id, eventId)),
     parent_block_id: parentBlockId,
   };
+  // 📖 A CHAPTER WITH NO TIME YET (owner 2026-11-01, "Time TBA", migration 20271300482585): `start_at` carries its DAY
+  // at 00:00 and `time_tba` says the clock is not known. Only a chapter may be TBA, it has no end, and it is never
+  // shown to guests — so a reader that does not know the flag can never put a guessed midnight on the Event Hub.
+  if (formData.get('time_tba') === '1') {
+    if (parentBlockId) throw new Error('Only a chapter can have its time TBA');
+    insertRow.time_tba = true;
+    insertRow.end_at = null;
+    insertRow.is_public = false;
+  }
   // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
   // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and
   // only when it is a uuid; the column's own default names every other row. An id already in use is refused by
@@ -387,6 +397,15 @@ export async function updateScheduleBlock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 📖 THE MOMENT SHEET'S TASKS AND ITS DELETE COUNT (Step 3b, owner 2026-11-01 §3c) — an intent branch on this door,
+  // not a new exported action (the server-action budget is at its ceiling). `block_id` is the moment (a task's) or
+  // the chapter (the Papic count). RLS decides every write; each one answers in words and reads back what it changed.
+  const momentOp = formData.get('moment_op');
+  if (momentOp !== null) {
+    if (!isMomentOp(momentOp)) throw new Error('Invalid input');
+    return runMomentOp(supabase, momentOp, blockId, formData, user.id);
+  }
+
   type Patch = {
     label?: string;
     start_at?: string;
@@ -406,6 +425,7 @@ export async function updateScheduleBlock(formData: FormData) {
     is_optional?: boolean;
     travel_from?: string | null;
     travel_to?: string | null;
+    time_tba?: boolean;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -537,6 +557,19 @@ export async function updateScheduleBlock(formData: FormData) {
         .eq('event_id', eventId)
         .maybeSingle();
       if ((was as { on_invitation?: boolean } | null)?.on_invitation !== true) throw new Error(ONLY_HOSTS_SHOW_GUESTS);
+    }
+  }
+
+  // 📖 TIME TBA (migration 20271300482585): a chapter whose time is not known keeps its day in `start_at` (00:00) and
+  // has no end, no ingress, no egress and no guests (the database refuses the rest). Posting a real time clears it.
+  const tbaRaw = formData.get('time_tba');
+  if (tbaRaw !== null) {
+    patch.time_tba = tbaRaw === '1' || tbaRaw === 'true';
+    if (patch.time_tba) {
+      patch.end_at = null;
+      patch.ingress_minutes_before = null;
+      patch.egress_minutes_after = null;
+      patch.is_public = false;
     }
   }
 

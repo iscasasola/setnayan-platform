@@ -81,7 +81,12 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
  * event."* Top to bottom, read as the event in time:
  *
  *   the cover → TODAY (one line, the shipped picker's one thing to do — a pointer, not a door)
- *   → ① Countdown · ② Guests · ③ Event Hub · ④ Suppliers · ⑤ Budget · ⑥ Checklist      — THE UPPER PARTS OPEN THEIR PAGE
+ *   → ① Countdown · 📅 Schedule · ② Guests · ③ Event Hub · ④ Suppliers · ⑥ To do · ⑤ Budget — THE UPPER PARTS OPEN THEIR PAGE
+ *   → Papic · Who's here · Prints
+ *
+ * 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, approved `home_frames_where_you_act_2026-11-01/`): only the Schedule,
+ * the Budget and Papic are cards; Countdown, the glance row (Guests · Event Hub · Suppliers · To do, closed by a
+ * divider), Who's here, Prints and Your services sit on the page (`HOME_FRAMED_WIDGETS`, `hc-plain`).
  *   → Your services (Papic · Setnayan AI · Live stream · Music · Video booth)             — THE LOWER PARTS GROW IN PLACE
  *
  * One widget per page, and no page appears twice. REMOVED (owner): the "Your next step" card (its verb now sits on the
@@ -247,8 +252,13 @@ export function HomeFirstScreen({
               now, and which guests are viewing the Event Hub. */}
           {whosHere}
 
-          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it"). */}
-          {prints ? <HomePrintsLine eventId={eventId} /> : null}
+          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it").
+              A row on the page, a divider above it (owner 2026-11-01: frames only where you act). */}
+          {prints ? (
+            <div className="hc-ruled">
+              <HomePrintsLine eventId={eventId} />
+            </div>
+          ) : null}
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices
@@ -323,10 +333,12 @@ export function YourServices({
   cards?: boolean;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch || apple?.thankYou)) return null;
+  /* 🧱 Frames only where you act (owner 2026-11-01): Your services is a heading plus plain rows with dividers — the
+     row's own control is its frame — closed off from what is above by a divider. */
   return (
-    <nav aria-label="Your services" id="your-services" data-home-services className="flex flex-col">
+    <nav aria-label="Your services" id="your-services" data-home-services className="hc-ruled flex flex-col">
       <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
-      <div className="home-svc">
+      <div className="home-svc hc-plain-list">
         {apple?.papic ? (
           <AppleServiceRow
             marker="papic"

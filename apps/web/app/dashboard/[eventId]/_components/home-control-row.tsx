@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count } from '@/components/count';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
-import { checklistTaskAnchor } from '@/lib/checklist-anchor';
+import { planningTodoHref } from '@/lib/checklist-anchor';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -16,6 +16,7 @@ import {
   HOME_CONTROL_PAGE,
   dueWords,
   homeControlTiles,
+  homeWidgetFramed,
   nextHubStage,
   paymentsToSettle,
   shortDay,
@@ -52,28 +53,47 @@ export function HomeControlRow({
 }) {
   const { tiles } = homeControlTiles(input);
   let rotating = 0;
+  const tile = (t: (typeof tiles)[number]) => {
+    const rotates = t.faces.length > 1 && !t.failed;
+    const stagger = rotates ? rotating++ : 0;
+    // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
+    return (
+      <HomeTile
+        key={t.key}
+        model={t}
+        eventId={input.eventId}
+        stagger={stagger}
+        tour={rotates && stagger === 0 ? 'home-faces' : undefined}
+        hubPick={t.key === 'hub' ? hubPick : null}
+      />
+    );
+  };
+  /* 🧱 THE PHONE'S ORDER (owner-approved 1 Nov prototype): Countdown on the page · the Schedule card · the glance row —
+     Guests · Event Hub / Suppliers · To do, unframed, closed by a divider — · the Budget card. */
+  const lead = tiles.filter((t) => t.key === 'count' || t.key === 'sched');
+  const glance = tiles.filter((t) => GLANCE.has(t.key));
+  const rest = tiles.filter((t) => t.key !== 'count' && t.key !== 'sched' && !GLANCE.has(t.key));
+  const sched = tiles.find((t) => t.key === 'sched') ?? null;
   return (
     <>
-      <div className="hc-grid md:hidden" data-home-control="compact" data-tour="home-tiles">
-        {tiles.map((t) => {
-          const rotates = t.faces.length > 1 && !t.failed;
-          const stagger = rotates ? rotating++ : 0;
-          // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
-          return (
-            <HomeTile
-              key={t.key}
-              model={t}
-              eventId={input.eventId}
-              stagger={stagger}
-              tour={rotates && stagger === 0 ? 'home-faces' : undefined}
-              hubPick={t.key === 'hub' ? hubPick : null}
-            />
-          );
-        })}
+      <div className="hc-stack md:hidden" data-home-control="compact" data-tour="home-tiles">
+        {lead.map(tile)}
+        {glance.length > 0 ? (
+          <>
+            <div className="hc-grid hc-glance" data-home-glance="">
+              {glance.map(tile)}
+            </div>
+            <hr className="hc-rule" aria-hidden />
+          </>
+        ) : null}
+        {rest.map(tile)}
       </div>
       <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
-          {(['count', 'hub', 'budget'] as const).map((k) => (
+          <DetailCard k="count" input={input} tile={tiles.find((t) => t.key === 'count') ?? null} hubPick={hubPick} />
+          {/* 📅 The Schedule, after the Countdown — the same card as the phone's (its faces, dots and doors). */}
+          {sched ? <HomeTile model={sched} eventId={input.eventId} stagger={0} /> : null}
+          {(['hub', 'budget'] as const).map((k) => (
             <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={hubPick} />
           ))}
         </div>
@@ -86,6 +106,9 @@ export function HomeControlRow({
     </>
   );
 }
+
+/** The glance row — heading-less tiles on the page, two across, like Safari's Favorites (owner 2026-11-01). */
+const GLANCE: ReadonlySet<string> = new Set(['guests', 'hub', 'sup', 'plan']);
 
 /* ─── The detail card — the shipped card's shape, no grow ─────────────────── */
 
@@ -109,7 +132,7 @@ const NAME: Record<HomeControlKey, string> = {
   hub: 'Event Hub',
   sup: 'Suppliers',
   budget: 'Budget',
-  plan: 'Checklist',
+  plan: 'To do',
 };
 
 /** What each card's ⓘ says — the detail lives here, not on the card (owner 2026-10-23: details go inside the ⓘ). */
@@ -142,7 +165,8 @@ function Shell({
   const label = `Open ${HOME_CONTROL_PAGE[k]}`;
   return (
     <article
-      className={`sg-row hc-card${failed ? ' hc-card-bad' : ''}`}
+      /* 🧱 Frames only where you act (owner 2026-11-01) — the same list the phone's tiles read. */
+      className={`sg-row hc-card${homeWidgetFramed(k) ? '' : ' hc-plain'}${failed ? ' hc-card-bad' : ''}`}
       data-home-card-key={k}
       data-mood={failed ? 'gone' : 'plain'}
       /* 💾 Money is never kept as last-seen data (lib/last-seen) — the Budget card is dropped from the snapshot. */
@@ -475,15 +499,15 @@ function DetailCard({
       if (c === null) return null;
       if (c === 'unread') {
         return (
-          <Shell k="plan" door={`/dashboard/${e}/checklist`} today={today} failed>
-            <Failed words="Your checklist couldn’t load · not zero, unread" />
+          <Shell k="plan" door={planningTodoHref(e)} today={today} failed>
+            <Failed words="Your to do list couldn’t load · not zero, unread" />
           </Shell>
         );
       }
       const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
       const calm = input.next.kind === 'plan';
       return (
-        <Shell k="plan" door={`/dashboard/${e}/checklist`} brand={pct !== null ? `Your checklist · ${formatCount(pct)}% done` : 'Your checklist'} today={today}>
+        <Shell k="plan" door={planningTodoHref(e)} brand={pct !== null ? `To do · ${formatCount(pct)}% done` : 'To do'} today={today}>
           <Dot mood={calm || c.open === 0 ? 'ok' : 'wait'}>
             {c.open === 0
               ? 'Everything is done'
@@ -495,8 +519,8 @@ function DetailCard({
             <ul className="hc-list">
               {c.next.map((t) => (
                 <li key={t.id} data-home-task={t.id}>
-                  {/* Each task opens itself on the checklist (`/checklist#task-<id>`). */}
-                  <Link href={`/dashboard/${e}/checklist#${checklistTaskAnchor(t.id)}`} className="hc-li">
+                  {/* Each task opens itself in Planning Stage's To do filter (`#task-<id>`). */}
+                  <Link href={planningTodoHref(e, t.id)} className="hc-li">
                     <span className="hc-tick" aria-hidden />
                     <span className="hc-li-t">{t.title}</span>
                     {t.dueDate ? <span className={`hc-li-due${t.daysUntilDue !== null && t.daysUntilDue <= 7 ? ' soon' : ''}`}>{shortDay(t.dueDate)}</span> : null}

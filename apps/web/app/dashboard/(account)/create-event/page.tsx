@@ -7,7 +7,7 @@ import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
-import { fetchCommunity } from '@/lib/communities';
+import { fetchCommunity, fetchUserCommunities } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isPersonDependent } from '@/lib/dependent-people';
 import { lovedOnesInMyCare, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
@@ -16,6 +16,7 @@ import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
 import {
   buildCreateRoster,
+  buildGroupSubject,
   buildSelfSubject,
   dependentSubjects,
   type CreateSubject,
@@ -177,17 +178,31 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // Community events are class-gated (owner lock 2026-07-15): the picker only
   // shows event types whose profile is community_eligible — a Samahan can
   // never own a personal milestone. resolveProfile is request-cached per type.
-  const typesForContext = samahan
-    ? (
-        await Promise.all(
-          eventTypes.map(async (t) =>
-            (await resolveProfile(t.key)).eventClass === 'community_eligible'
-              ? t
-              : null,
-          ),
-        )
-      ).filter((t): t is (typeof eventTypes)[number] => t !== null)
-    : eventTypes;
+  //
+  // 👥 "YOUR GROUPS" (owner 2026-10-28, DECISION_LOG "EVENT TYPES MUST BE SPECIFIC"): the SAME class rule narrows the
+  // grid when "For ▾" is one of the account's groups, so it is computed once here for both. Only groups this person
+  // ORGANIZES are offered — the create action refuses anyone else (`samahan_not_organizer`), and a row that can only
+  // fail is not offered. A refused read (logged inside `fetchUserCommunities`) offers no groups, never a wrong one.
+  const myGroups =
+    user && !samahan && !preselect
+      ? (await fetchUserCommunities(supabase, user.id)).filter((c) => c.role === 'organizer')
+      : [];
+  const groupTypes =
+    samahan || myGroups.length > 0
+      ? (
+          await Promise.all(
+            eventTypes.map(async (t) =>
+              (await resolveProfile(t.key)).eventClass === 'community_eligible'
+                ? t
+                : null,
+            ),
+          )
+        ).filter((t): t is (typeof eventTypes)[number] => t !== null)
+      : [];
+  const typesForContext = samahan ? groupTypes : eventTypes;
+  const groupSubjects = myGroups.map((g) =>
+    buildGroupSubject({ communityId: g.community_id, name: g.name, memberCount: g.member_count }),
+  );
 
   // Measured-life-type visibility (owner 2026-07-17: "hide events that do not
   // concern them for their life events — Wedding available anytime, it's not a
@@ -289,6 +304,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
       }),
       alagaSubjects,
       shopName,
+      groupSubjects,
     );
   }
 
@@ -396,6 +412,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         subjects={subjects}
         todayISO={today}
         couple={together}
+        groupTypeKeys={groupSubjects.length > 0 ? groupTypes.map((t) => t.key) : undefined}
       />
     </div>
   );

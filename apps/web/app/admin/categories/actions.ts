@@ -48,6 +48,7 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { tellAsksTheTypeIsReady } from '@/lib/event-type-requests.server';
 
 const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -1841,6 +1842,8 @@ type EventTypeStatusWord = keyof typeof EVENT_TYPE_STATUSES;
  */
 export async function setEventTypeStatus(formData: FormData): Promise<never> {
   const user = await requireAdmin();
+  // ➕ An answer to a host's "Ask us to add it" rides this action (+0 actions — owner 2026-10-28).
+  if (formData.has('request_id')) await answerEventTypeAsk(formData, user.id);
   const key = String(formData.get('event_type') ?? '').trim();
   const word = String(formData.get('status') ?? '').trim();
   if (!key) redirectBack(formData, 'error', 'Missing event type.');
@@ -1874,7 +1877,66 @@ export async function setEventTypeStatus(formData: FormData): Promise<never> {
     }
   }
   revalidateEventTypeRosterSurfaces();
-  redirectBack(formData, 'ok', `${before.label_en} is now “${want.label}”.`);
+  // ➕ In the picker now: every host who asked for it is told, in the app (owner 2026-10-28 — no email).
+  const told = word === 'picker' ? await tellAsksTheTypeIsReady(admin, key, before.label_en, user.id) : 0;
+  redirectBack(
+    formData,
+    'ok',
+    `${before.label_en} is now “${want.label}”.${told > 0 ? ` ${formatCount(told)} ${told === 1 ? 'host who asked was' : 'hosts who asked were'} told.` : ''}`,
+  );
+}
+
+/**
+ * ➕ The admin's answer to one host's ask (Admin › Event types › "Asked for by hosts"; owner 2026-10-28). Posted to
+ * `setEventTypeStatus` with `request_id` and ONE of:
+ *   · `request_answer=dismiss`            → closed without a type;
+ *   · `request_answer=link` + `event_type` → it IS that existing type. In the picker already → the host is told now;
+ *                                            hidden → told the moment its Status becomes “In the picker”.
+ * Always ends in a redirect — the status half of the action never runs for an answer.
+ */
+async function answerEventTypeAsk(formData: FormData, adminUserId: string): Promise<never> {
+  const requestId = String(formData.get('request_id') ?? '').trim();
+  const answer = String(formData.get('request_answer') ?? '').trim();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  if (answer === 'dismiss') {
+    const { data, error } = await admin
+      .from('event_type_requests')
+      .update({ status: 'dismissed', resolved_at: now, resolved_by: adminUserId })
+      .eq('request_id', requestId)
+      .in('status', ['pending', 'linked'])
+      .select('request_id');
+    if (error) redirectBack(formData, 'error', error.message);
+    if (!data || data.length === 0) redirectBack(formData, 'error', 'That ask was already answered.');
+    revalidatePath(BASE);
+    redirectBack(formData, 'ok', 'Ask closed.');
+  }
+  if (answer !== 'link' || !key) redirectBack(formData, 'error', 'Pick the event type it is.');
+  const { data: type } = await admin
+    .from('event_type_vocab')
+    .select('label_en, status, enabled')
+    .eq('event_type', key)
+    .maybeSingle();
+  if (!type) redirectBack(formData, 'error', 'Event type not found.');
+  const { data: linked, error: linkError } = await admin
+    .from('event_type_requests')
+    .update({ status: 'linked', event_type: key, resolved_at: now, resolved_by: adminUserId })
+    .eq('request_id', requestId)
+    .in('status', ['pending', 'linked'])
+    .select('request_id');
+  if (linkError) redirectBack(formData, 'error', linkError.message);
+  if (!linked || linked.length === 0) redirectBack(formData, 'error', 'That ask was already answered.');
+  const inPicker = type.status === 'active' && type.enabled === true;
+  const told = inPicker ? await tellAsksTheTypeIsReady(admin, key, type.label_en, adminUserId) : 0;
+  revalidatePath(BASE);
+  redirectBack(
+    formData,
+    'ok',
+    inPicker
+      ? `Linked to ${type.label_en} — ${formatCount(told)} told.`
+      : `Linked to ${type.label_en}. They’re told when its Status is “In the picker”.`,
+  );
 }
 
 /**
@@ -1903,6 +1965,22 @@ export async function createEventTypeRoster(formData: FormData): Promise<never> 
       redirectBack(formData, 'error', `"${key}" already exists — keys are permanent, edit the existing row instead.`);
     }
     redirectBack(formData, 'error', res.error);
+  }
+  // ➕ Made from a host's ask (owner 2026-10-28): the ask is linked to the new type now; the host is told when its
+  // Status becomes “In the picker” (`setEventTypeStatus`). A lost link is said, never silent.
+  const askId = String(formData.get('request_id') ?? '').trim();
+  if (askId) {
+    const { error: askError } = await admin
+      .from('event_type_requests')
+      .update({ status: 'linked', event_type: res.data.key, resolved_at: new Date().toISOString(), resolved_by: user.id })
+      .eq('request_id', askId)
+      .in('status', ['pending', 'linked']);
+    if (askError) {
+      logQueryError('createEventTypeRoster.linkAsk', askError, { request_id: askId }, 'graceful_degrade');
+      redirectBack(formData, 'error', `${res.data.label} created, but the ask could not be linked — link it from the list.`, {
+        open: res.data.key,
+      });
+    }
   }
   revalidateEventTypeRosterSurfaces();
   redirectBack(

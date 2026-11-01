@@ -1,7 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
-import { readMomentTasks } from './schedule-chapters.server';
 import { readScheduleSuppliers } from './schedule-suppliers-read';
 import { ROLE_LABELS, guestRoleLabel, type GuestRole } from './guests';
 import { sanitizeRoleNames } from './role-names';
@@ -17,8 +16,7 @@ import type { ViewSupplier } from './schedule-view-as';
  * round (the pure half is `schedule-view-as.ts`). Every read runs on the caller's own client, so RLS decides: the couple
  * and a helper on the Schedule read the tasks; nobody else does.
  *
- *   · the moments' tasks (`event_schedule_tasks`) — NULL when refused, so the view says so, never "no tasks";
- *   · each moment's room and travel (`spot`, `travel_from`, `travel_to` — the default place of its tasks, §3c #2);
+ *   · (the moments' tasks and rooms are the page's own reads — `readMomentTasks`, `readChapterBook` — never read twice);
  *   · the guest groups' names (a task may name a group);
  *   · the suppliers by shop name — only when the page has not already read them (the run-of-show switch off);
  *   · 💎 whether the event owns Pro — View as is Pro (owner 2026-11-01, plan §3b: *"chapters Free · View as and
@@ -30,8 +28,6 @@ import type { ViewSupplier } from './schedule-view-as';
  * It never writes.
  */
 export type ViewAsExtras = {
-  tasks: TaskRow[] | null;
-  places: Map<string, { spot: string | null; travel_from: string | null; travel_to: string | null }>;
   groups: Record<string, string> | null;
   /** NULL when the caller already holds them. */
   suppliers: ViewSupplier[] | null;
@@ -40,21 +36,9 @@ export type ViewAsExtras = {
   proHref: string | null;
 };
 
-export async function readViewAsExtras(supabase: SupabaseClient, eventId: string, opts: { readSuppliers: boolean }): Promise<ViewAsExtras> {
-  const [tasks, places, groups, suppliers, pro, gate, roleWords] = await Promise.all([
-    readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
-    supabase
-      .from('event_schedule_blocks')
-      .select('block_id, spot, travel_from, travel_to')
-      .eq('event_id', eventId)
-      .not('parent_block_id', 'is', null)
-      .then(
-        ({ data, error }) => {
-          if (error) logQueryError('readViewAsExtras.places', error, { event_id: eventId }, 'graceful_degrade');
-          return (data ?? []) as Array<{ block_id: string; spot: string | null; travel_from: string | null; travel_to: string | null }>;
-        },
-        () => [],
-      ),
+export async function readViewAsExtras(supabase: SupabaseClient, eventId: string, opts: { readSuppliers: boolean; tasks: Promise<TaskRow[] | null> }): Promise<ViewAsExtras> {
+  const [taskRows, groups, suppliers, pro, gate, roleWords] = await Promise.all([
+    opts.tasks,
     supabase
       .from('guest_groups')
       .select('group_id, label')
@@ -83,15 +67,12 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
         () => sanitizeRoleNames(null),
       ),
   ]);
-  const taskRows = tasks.ok ? tasks.value : null;
   const roleNames: Record<string, string> = {};
   for (const t of taskRows ?? []) {
     const word = t.role?.trim().toLowerCase();
     if (word && word in ROLE_LABELS) roleNames[word] = guestRoleLabel(word as GuestRole, roleWords);
   }
   return {
-    tasks: taskRows,
-    places: new Map(places.map((p) => [p.block_id, { spot: p.spot, travel_from: p.travel_from, travel_to: p.travel_to }])),
     groups,
     suppliers: suppliers ? suppliers.map((s) => ({ vendor_id: s.vendor_id, name: s.vendor_name, booked: s.standing === 'Booked' })) : null,
     roleNames,

@@ -212,13 +212,20 @@ export async function printMarkFor(event: PrintEventRow): Promise<{ monogram: Pr
   return { monogram: flat ? { kind: 'outline', ...flat } : null, image: null };
 }
 
-type BlockRow = { label: string | null; block_type: string | null; start_at: string | null; location: string | null; parent_block_id: string | null; is_public?: boolean | null; audience?: string | null; visibility?: string | null };
+type BlockRow = { label: string | null; block_type: string | null; start_at: string | null; location: string | null; parent_block_id: string | null; is_public?: boolean | null; audience?: string | null; visibility?: string | null; time_tba?: boolean | null };
+
+/** ⏰ A printed piece's time line: a Time-TBA chapter has none to print (its 00:00 is a placeholder), so it is left out. */
+function printedTime(b: BlockRow | null): string | null {
+  return b?.time_tba === true ? null : blockTime(b);
+}
 
 async function readBlocks(admin: SupabaseClient, eventId: string): Promise<BlockRow[]> {
   const { data, error } = await admin
     .from('event_schedule_blocks')
     // + `audience`, `visibility`: the programme prints only what guests may see (`printProgram`).
-    .select('label, block_type, start_at, location, parent_block_id, is_public, audience, visibility')
+    // + `time_tba`: the ceremony and reception lines read ANY block, so a Time-TBA chapter's placeholder 00:00 is
+    //   left off the print (`printedTime`) — never "Ceremony at 12:00 AM" (follow-up to #7158).
+    .select('label, block_type, start_at, location, parent_block_id, is_public, audience, visibility, time_tba')
     .eq('event_id', eventId)
     .order('start_at', { ascending: true });
   if (error) logQueryError('print-set.readBlocks', error, { event_id: eventId }, 'graceful_degrade');
@@ -813,9 +820,9 @@ export async function loadPrintSet(
     eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',
     // 📅📍 The date and the places AS THE EVENT HUB HOLDS THEM — one value, two doors (owner 2026-10-21).
     dateLabel: printedDate(event.event_date, event.event_date_precision),
-    ceremonyTime: blockTime(ceremony),
+    ceremonyTime: printedTime(ceremony),
     ceremonyVenue: hubVenues.ceremony,
-    receptionTime: blockTime(reception),
+    receptionTime: printedTime(reception),
     receptionVenue: hubVenues.reception,
     monogram: printMark.monogram,
     initials: [a, b].filter(Boolean).join(' & ') || 'S',

@@ -49,6 +49,8 @@ export type ArriveBlock = {
   parent_block_id: string | null;
   audience?: string | null;
   visibility?: string | null;
+  /** ⏰ Time TBA — `start_at` is a placeholder 00:00, never the guests' time (follow-up to #7158). */
+  time_tba?: boolean | null;
 };
 
 /** The label and type a NEW arrival moment is given — the Schedule templates' own. */
@@ -62,7 +64,8 @@ export const GUESTS_ARRIVE_UNSET = 'Set when guests arrive';
 
 /** The three conditions a guest's schedule asks (`onlyWhatGuestsMaySee`), asked of one row — and a start to read. */
 function guestsSee(b: ArriveBlock): boolean {
-  return b.is_public === true && (b.audience ?? null) === null && b.visibility !== 'coordinator_only' && Boolean(b.start_at);
+  // ⏰ + never a Time-TBA chapter: its 00:00 would read as "Guests arrive 12:00 AM" (the database also keeps it private).
+  return b.is_public === true && (b.audience ?? null) === null && b.visibility !== 'coordinator_only' && Boolean(b.start_at) && b.time_tba !== true;
 }
 
 /** The moments guests see, in the programme's order — `[0]` is the invitation's first moment. */

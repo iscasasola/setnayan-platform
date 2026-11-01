@@ -95,7 +95,6 @@ import {
   countsTowardEvent,
   guestDisplayName,
   guestNameAsGiven,
-  guestRoleLabel,
   guestNameWithNick,
   guestInitials,
   guestRoleLabel,

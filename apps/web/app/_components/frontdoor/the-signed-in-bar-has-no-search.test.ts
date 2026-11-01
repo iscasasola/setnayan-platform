@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 import { topBarSearch } from './shell-page-search';
 
 /**
@@ -38,9 +39,7 @@ test('a page with its own search row → no box, whatever was handed in', () => 
 
 test('FrontDoorShell resolves its search through topBarSearch with the account’s signed-in flag', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const src = readFileSync(join(here, 'front-door-shell.tsx'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  const src = stripComments(readFileSync(join(here, 'front-door-shell.tsx'), 'utf8'));
   const decl = src.match(/const search = ([\s\S]*?);\n/);
   assert.ok(decl, 'FrontDoorShell must declare `const search = …` (the one place the bar decides its search)');
   assert.match(decl[1]!, /topBarSearch\(/, 'the bar’s search must come from topBarSearch, not the raw prop');

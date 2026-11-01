@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 import { TICKET_SHADOW_LAYER } from './ticket-picture';
 
 /**
@@ -18,9 +19,7 @@ import { TICKET_SHADOW_LAYER } from './ticket-picture';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(here, 'ticket-picture.tsx'), 'utf8')
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^\s*\/\/.*$/gm, '');
+const src = stripComments(readFileSync(join(here, 'ticket-picture.tsx'), 'utf8'));
 
 test('the layer is a 3D transform (promotes the picture to its own compositing layer)', () => {
   assert.match(TICKET_SHADOW_LAYER, /^\[transform:translateZ\(0(px)?\)\]$|^transform-gpu$/);

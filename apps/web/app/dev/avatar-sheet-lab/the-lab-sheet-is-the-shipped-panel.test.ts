@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * 🪪 THE AVATAR SHEET LAB DRAWS THE SHIPPED PANEL BOX (walk 2026-11-01).
@@ -17,9 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const code = (rel: string) =>
-  readFileSync(join(here, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  stripComments(readFileSync(join(here, rel), 'utf8'));
 
 /** The string literals of the first `className={[ … ].join(' ')}` after `anchor`. */
 function classList(src: string, anchor: string, what: string): Set<string> {

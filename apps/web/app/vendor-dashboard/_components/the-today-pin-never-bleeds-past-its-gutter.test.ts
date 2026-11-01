@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * ↔ TODAY'S PINNED ROW NEVER BLEEDS PAST THE GUTTER IT SITS IN (walk 2026-11-01).
@@ -19,9 +20,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) =>
-  readFileSync(join(here, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  stripComments(readFileSync(join(here, rel), 'utf8'));
 
 const BREAKPOINTS = ['', 'sm:', 'lg:'] as const;
 

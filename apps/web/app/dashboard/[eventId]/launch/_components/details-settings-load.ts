@@ -16,6 +16,8 @@ import { resolveRegion } from '@/lib/region-source';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { getEventTypeVocab } from '@/lib/event-types-db';
+import { GENERIC_EVENT_TYPE, eventKindChoices, type EventKindLineInput, type EventTypeRequestRow } from '@/lib/event-type-requests';
 
 /**
  * 🗂 YOUR INFO › EVENT SETTINGS — the reads of the retired `/details/change`
@@ -70,11 +72,53 @@ export type EventSettingsInput = {
     rows: ReadonlyArray<'ceremony' | 'venue' | 'ceremony_venue' | 'pax'>;
   };
   pax: { deadline: string | null; mode: 'realtime' | 'final_only' };
+  /**
+   * 🏷 KIND OF EVENT — Event settings' one line (owner 2026-10-28, DECISION_LOG "EVENT TYPES MUST BE SPECIFIC"). Null
+   * = no line: the event already has a specific kind and the viewer asked for nothing that is now added.
+   */
+  kind: EventKindLineInput | null;
   /** The middle column's read-out — each fact as stored, words from the shared label maps. */
   readout: ReadonlyArray<{ label: string; value: string | null }>;
   /** The navigator row's line. */
   sub: string;
 };
+
+/**
+ * The line's data: the stored type, the create picker's roster, and the viewer's OWN asks that are now added (RLS
+ * returns no one else's). A refused asks read means none; a refused created_at read lets every added ask count — both
+ * only ever OFFER, and the action re-derives the same answer before writing.
+ */
+async function loadEventKind(
+  supabase: SupabaseClient,
+  eventId: string,
+  userId: string,
+  eventType: string | null,
+): Promise<EventKindLineInput | null> {
+  const [vocab, { data: asks, error: asksError }, { data: when, error: whenError }] = await Promise.all([
+    getEventTypeVocab(),
+    supabase
+      .from('event_type_requests')
+      .select('status, event_type, created_at, label')
+      .eq('user_id', userId)
+      .eq('status', 'added'),
+    supabase.from('events').select('created_at').eq('event_id', eventId).maybeSingle(),
+  ]);
+  if (asksError) logQueryError('DetailsSettings.kindAsks', asksError, { event_id: eventId }, 'graceful_degrade');
+  if (whenError) logQueryError('DetailsSettings.kindCreatedAt', whenError, { event_id: eventId }, 'graceful_degrade');
+  const creatable = vocab.filter((t) => t.enabled).map((t) => ({ key: t.key, label: t.label }));
+  const choices = eventKindChoices({
+    eventType,
+    eventCreatedAt: (when as { created_at?: string | null } | null)?.created_at ?? null,
+    creatable,
+    myAsks: (asks ?? []) as Pick<EventTypeRequestRow, 'status' | 'event_type' | 'created_at' | 'label'>[],
+  });
+  if (choices.length === 0) return null;
+  return {
+    generic: eventType === GENERIC_EVENT_TYPE,
+    currentLabel: vocab.find((t) => t.key === eventType)?.label ?? 'This event',
+    choices,
+  };
+}
 
 /** What each shape is called on screen (the retired page's own words). */
 const CELEBRANT_SHAPE_LABELS: Record<'single' | 'couple' | 'multiple', string> = {
@@ -119,11 +163,12 @@ export async function loadEventSettings(input: {
   };
 
   const eventType = str('event_type');
-  const [confirmedVendorCount, budgetAccess, profile, activeCeremonies] = await Promise.all([
+  const [confirmedVendorCount, budgetAccess, profile, activeCeremonies, kindLine] = await Promise.all([
     getConfirmedVendorCount(supabase, eventId),
     resolveBudgetVisibility(supabase, eventId, userId),
     resolveProfile(eventType ?? 'wedding'),
     eventType === 'wedding' ? fetchActiveCeremonyTypes(supabase) : Promise.resolve(null),
+    eventType === 'wedding' ? Promise.resolve(null) : loadEventKind(supabase, eventId, userId, eventType),
   ]);
 
   const budgetCentavos = num('estimated_budget_centavos');
@@ -215,6 +260,7 @@ export async function loadEventSettings(input: {
       rows,
     },
     pax: { deadline, mode },
+    kind: kindLine,
     readout,
     sub: [pax != null && pax > 0 ? `About ${formatCount(pax)} guests` : null, region?.display_label ?? null].filter(Boolean).join(' · ') || NOT_SET_YET,
   };

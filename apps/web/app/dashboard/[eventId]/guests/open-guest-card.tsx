@@ -40,6 +40,8 @@ const RETURN_TO = {
   /* 🪪 The Guest list itself (guest card opens fast, 2026-10-28): a tap on a row reads ONLY this card here, instead of
      re-rendering the whole list with `?inspect=` — and a failed save lands on that same open card. */
   list: (eventId: string, guestId: string) => `/dashboard/${eventId}/guests?inspect=${guestId}`,
+  // 👀 Home › Who's here — a face of a guest viewing the Event Hub (owner 2026-10-29).
+  home: (eventId: string) => `/dashboard/${eventId}`,
 } as const;
 
 const COULD_NOT_OPEN = 'Their guest card couldn’t open just now — try again.';

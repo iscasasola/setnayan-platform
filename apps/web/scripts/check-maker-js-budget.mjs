@@ -47,7 +47,13 @@ export const MAKER_FIRST_LOAD_MEASURED_KB = 481.5;
 // Studio frame (#6386) = 505.0 KB; the Studio editors PR (#6388) = 505.2 KB, its
 // whole cost one lazy stand-in (+56 B) and webpack runtime (+57 B). Every
 // remaining Stages | Studio PR adds such a lazy door, so ~2 KB, once.
-export const MAX_MAKER_FIRST_LOAD_GZIP = 507 * 1024;
+// RAISED 2026-11-01 507 → 507.5 KB (owner, verbatim, answering "Raise the Maker size limit 0.5 KB for Who's here? I
+// recommend: yes": "1. Yes"; DECISION_LOG row by the controller). Measured in CI: PR #7031 = 507.2 KB vs main 506.7 KB.
+// The whole cost is Home › Who's here's team presence provider, which the event layout must mount on every event page
+// (owner 2026-10-29: one live connection per open TEAM dashboard tab is OK) — the channel itself already loads by
+// import() after the page draws (`event-team-presence-join.ts`); what remains is the context and webpack's entry for
+// that lazy chunk.
+export const MAX_MAKER_FIRST_LOAD_GZIP = 507.5 * 1024;
 
 /** The manifest entries a cold open of `route` loads: its page and every layout/loading above it. */
 export function firstLoadEntries(pages, route) {

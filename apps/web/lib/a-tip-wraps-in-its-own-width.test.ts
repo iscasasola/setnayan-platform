@@ -19,9 +19,9 @@ import { stripComments } from './strip-comments';
 const CSS = stripComments(readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8'));
 
 test('the .sn-tip rule declares a wrapping white-space of its own', () => {
-  const blocks = [...CSS.matchAll(/(^|\})\s*\.sn-tip\s*\{([^}]*)\}/g)].map((m) => m[2]);
+  const blocks = [...CSS.matchAll(/(^|\})\s*\.sn-tip\s*\{([^}]*)\}/g)].map((m) => m[2] ?? '');
   assert.ok(blocks.length > 0, 'the base `.sn-tip { … }` rule was not found in app/globals.css');
-  const ws = blocks.flatMap((b) => [...b.matchAll(/white-space\s*:\s*([a-z-]+)/g)].map((m) => m[1]));
+  const ws = blocks.flatMap((b) => [...b.matchAll(/white-space\s*:\s*([a-z-]+)/g)].map((m) => m[1] ?? ''));
   assert.ok(ws.length > 0, '`.sn-tip` sets no white-space — it inherits its trigger’s (a nowrap heading makes it one endless line)');
   for (const v of ws) assert.ok(['normal', 'pre-wrap', 'pre-line', 'break-spaces'].includes(v), `.sn-tip white-space: ${v} does not wrap`);
 });

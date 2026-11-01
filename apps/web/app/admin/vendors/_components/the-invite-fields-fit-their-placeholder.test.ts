@@ -40,7 +40,7 @@ test('every typed field’s column holds its whole placeholder, at any window', 
   const min = /grid-cols-\[repeat\(auto-(?:fit|fill),minmax\((\d+(?:\.\d+)?)(rem|px),1fr\)\)\]/.exec(form);
   assert.ok(min, `the fields have no minimum column width: "${form}"`);
   const minPx = Number(min[1]) * (min[2] === 'rem' ? 16 : 1);
-  const placeholders = [...html.matchAll(/<input[^>]*placeholder="([^"]*)"[^>]*>/g)].map((m) => m[1]);
+  const placeholders = [...html.matchAll(/<input[^>]*placeholder="([^"]*)"[^>]*>/g)].map((m) => m[1] ?? '');
   assert.ok(placeholders.length >= 2, 'the email and business-name fields did not render');
   for (const p of placeholders) {
     const need = p.length * GLYPH_PX + FIELD_CHROME_PX;

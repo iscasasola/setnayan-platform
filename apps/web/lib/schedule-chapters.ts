@@ -1,3 +1,5 @@
+import { TIME_TBA, isTimeTba } from './time-tba';
+
 /**
  * 📖 CHAPTERS, MOMENTS AND THEIR PARALLEL TASKS — the pure half (owner 2026-11-01, DECISION_LOG "SCHEDULE AND
  * CHAPTERS — THE PLAN" · "THE BLOW BY BLOW FROM THE REAL RUN OF SHOW"; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §2, §3, §3c).
@@ -54,19 +56,9 @@ export function isPhotoWhen(v: unknown): v is PhotoWhen {
 
 /** A chapter with no venue yet (owner: *"Sometime it can be tba"*). */
 export const VENUE_TBA = 'Venue TBA';
-/** A chapter whose time is not known yet (owner 2026-11-01, ruled yes): no clock, no call time (plan §3). */
-export const TIME_TBA = 'Time TBA';
-
-/**
- * ⏰ IS THIS ROW'S CLOCK UNKNOWN? (migration 20271300482585, plan §3 "Chapter time TBA = no call time"). A TBA chapter
- * keeps its DAY in `start_at` at 00:00 — that midnight is a placeholder, never a time. Every reader that draws a clock,
- * ranks by time, picks "now", or derives a call time asks THIS before it touches `start_at`: a TBA row is listed as
- * "Time TBA" (or left out), never drawn as 12:00 AM, never "now", never a call time. Held by
- * `a-tba-chapter-is-never-midnight.test.ts`.
- */
-export function isTimeTba(row: { time_tba?: boolean | null }): boolean {
-  return row.time_tba === true;
-}
+// ⏰ `TIME_TBA` and `isTimeTba` live in the leaf `lib/time-tba.ts` (no imports), so a client bundle that only needs the
+// words — the Maker's ceremony-time box, `blockTime` — never carries this whole module (the Maker's JS budget).
+export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =

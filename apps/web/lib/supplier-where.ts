@@ -29,6 +29,10 @@ export const ON_EVERY_CHAPTER_GROUPS: ReadonlySet<string> = new Set(['coordinato
 export const ON_EVERY_CHAPTER_CATEGORY = 'planner_coordinator';
 /** The plan groups whose booking IS a venue — a venue's chapters are the ones it hosts. */
 export const VENUE_GROUPS: ReadonlySet<string> = new Set(['reception_venue', 'ceremony_venue']);
+/** The same, by the booking's stored category (`event_vendors.category`). */
+export const VENUE_CATEGORIES: ReadonlySet<string> = new Set(['venue', 'religious_venue']);
+/** The booking statuses that are BOOKED — the database's own list in `set_supplier_where`. */
+export const WHERE_BOOKED_STATUSES: ReadonlySet<string> = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
 export function isOnEveryChapter(groupId: string | null | undefined, category?: string | null): boolean {
   return (groupId != null && ON_EVERY_CHAPTER_GROUPS.has(groupId)) || category === ON_EVERY_CHAPTER_CATEGORY;
@@ -166,6 +170,8 @@ export type SupplierWhere =
 export function supplierWhere(args: {
   vendorId: string;
   groupId: string | null;
+  /** The booking's stored category, when the plan group is not known (the quote page). */
+  category?: string | null;
   booked: boolean;
   /** `null` = the read was refused. */
   chapters: readonly WhereChapter[] | null;
@@ -173,7 +179,7 @@ export function supplierWhere(args: {
   covered?: readonly CoveredGroup[];
   coveredWhere?: Readonly<Record<string, readonly string[]>> | null;
 }): SupplierWhere {
-  if (isOnEveryChapter(args.groupId)) return { kind: 'everywhere' };
+  if (isOnEveryChapter(args.groupId, args.category)) return { kind: 'everywhere' };
   if (args.chapters === null) return { kind: 'unread' };
   if (args.chapters.length === 0) return { kind: 'no_chapters' };
   const picked = pickedOf(args.chapters, args.vendorId);

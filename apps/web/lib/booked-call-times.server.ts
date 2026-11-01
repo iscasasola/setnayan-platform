@@ -4,7 +4,14 @@ import { logQueryError } from './supabase/error-detect';
 import { earliestTaggedBlock } from './coordinator-broadcasts';
 import type { RosMetaMap } from './schedule-ros';
 import type { TaggedMoment } from './booked-rows';
-import { whereChaptersFrom, type WhereChapter } from './supplier-where';
+import {
+  VENUE_CATEGORIES,
+  WHERE_BOOKED_STATUSES,
+  supplierWhere,
+  whereChaptersFrom,
+  type SupplierWhere,
+  type WhereChapter,
+} from './supplier-where';
 
 /**
  * EVERY BOOKED SUPPLIER'S CALL TIME, IN ONE READ — for the Booked Team row's "Call time 8:00 AM · Ingress & setup ·
@@ -69,4 +76,60 @@ export async function readBookedSchedule(
     if (b) out.set(vendorId, { startAt: b.start_at, label: b.label });
   }
   return { callTimes: out, chapters };
+}
+
+/**
+ * 📍 WHERE, ON THE QUOTE (owner 2026-11-01: *"The can set it even on quotation"*; plan: best set on the quote, since it
+ * changes the price). The supplier whose shop sent this quote, on this event: their Where, from the same two facts the
+ * Team row reads — the event's chapters with who is on each, and which bookings are venues (a chapter with no venue
+ * typed takes the venue that picked it). Two reads, together.
+ *
+ *   none     this shop is not on the couple's list for the event yet — nothing to pick on
+ *   unread   a read was refused — said, never drawn as "no chapters"
+ *   ok       `where` as the Team row would draw it; `booked` keeps at least one chapter
+ *
+ * `client` is the couple's own session (RLS), or — for the supplier's own copy of the page — the admin client the page
+ * already uses for the supplier side (a shop holds no row under the couple's policies).
+ */
+export async function readQuoteWhere(
+  client: SupabaseClient,
+  eventId: string,
+  shopId: string,
+): Promise<{ kind: 'none' } | { kind: 'unread' } | { kind: 'ok'; vendorId: string; booked: boolean; where: SupplierWhere }> {
+  const [vendorsRes, blocksRes] = await Promise.all([
+    client
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, category, status, archived_at, marketplace_vendor_id')
+      .eq('event_id', eventId),
+    client
+      .from('event_schedule_blocks')
+      .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids')
+      .eq('event_id', eventId),
+  ]);
+  if (vendorsRes.error || blocksRes.error) {
+    logQueryError('readQuoteWhere', vendorsRes.error ?? blocksRes.error, { event_id: eventId }, 'graceful_degrade');
+    return { kind: 'unread' };
+  }
+  type V = { vendor_id: string; vendor_name: string | null; category: string; status: string; archived_at: string | null; marketplace_vendor_id: string | null };
+  const vendors = ((vendorsRes.data ?? []) as V[]).filter((v) => v.archived_at === null);
+  const mine = vendors.find((v) => v.marketplace_vendor_id === shopId);
+  if (!mine) return { kind: 'none' };
+  const isBooked = (v: V) => WHERE_BOOKED_STATUSES.has(v.status);
+  const venues = new Map(
+    vendors.filter((v) => VENUE_CATEGORIES.has(v.category) && isBooked(v)).map((v) => [v.vendor_id, v.vendor_name ?? 'Venue'] as const),
+  );
+  const booked = isBooked(mine);
+  return {
+    kind: 'ok',
+    vendorId: mine.vendor_id,
+    booked,
+    where: supplierWhere({
+      vendorId: mine.vendor_id,
+      groupId: null,
+      category: mine.category,
+      booked,
+      chapters: whereChaptersFrom((blocksRes.data ?? []) as Parameters<typeof whereChaptersFrom>[0]),
+      venues,
+    }),
+  };
 }

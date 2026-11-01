@@ -105,8 +105,19 @@ function WherePick({
   );
 }
 
-/** The supplier's Where, then each in-house group's — drawn in the opened row. */
-export function BookedWhere({ eventId, vendorId, where }: { eventId: string; vendorId: string; where: SupplierWhere }) {
+/** The supplier's Where, then each in-house group's — drawn in the opened row (and on the quote, for the couple). */
+export function BookedWhere({
+  eventId,
+  vendorId,
+  where,
+  booked = true,
+}: {
+  eventId: string;
+  vendorId: string;
+  where: SupplierWhere;
+  /** Booked keeps at least one chapter; on a quote not yet booked it may be emptied. */
+  booked?: boolean;
+}) {
   if (where.kind === 'everywhere') {
     return <FactRow name="Where" value={WHERE_WORDS.everywhere} where="Coordinators are on every chapter" data="booked-where" attrs={{ 'data-where': 'everywhere' }} />;
   }
@@ -125,7 +136,7 @@ export function BookedWhere({ eventId, vendorId, where }: { eventId: string; ven
         about={WHERE_WORDS.info}
         options={where.options}
         initial={where.picked}
-        keepOne
+        keepOne={booked}
         data="booked-where"
       />
       {where.inHouse.map((g: InHouseWhere) => (
@@ -138,7 +149,7 @@ export function BookedWhere({ eventId, vendorId, where }: { eventId: string; ven
           about={WHERE_WORDS.inHouseInfo}
           options={where.options}
           initial={g.picked}
-          keepOne
+          keepOne={booked}
           covered={{ key: g.key, label: g.label }}
           data={`booked-where-${g.key}`}
         />
@@ -166,4 +177,18 @@ export function BookedWhereLine({ where }: { where: SupplierWhere | null }) {
       {where.names}
     </span>
   );
+}
+
+/**
+ * 📍 WHERE, AS THE SUPPLIER WHO SENT THE QUOTE READS IT — the chapters the couple picked, so the price can follow
+ * (plan: "best set on the quote, since it changes the price"). Only the couple picks it; a shop reads it.
+ */
+export function QuoteWhereFact({ where }: { where: SupplierWhere }) {
+  if (where.kind === 'everywhere') return <FactRow name="Where" value={WHERE_WORDS.everywhere} where="Coordinators are on every chapter" data="quote-where" />;
+  if (where.kind === 'unread') return <FactRow name="Where" value={null} where={WHERE_WORDS.unread} data="quote-where" />;
+  if (where.kind === 'no_chapters' || where.picked.length === 0) {
+    return <FactRow name="Where" value={null} where="The couple hasn’t picked the chapters yet" data="quote-where" />;
+  }
+  const labels = where.options.filter((o) => where.picked.includes(o.key)).map((o) => o.label);
+  return <FactRow name="Where" value={labels.join('\n')} where="Picked by the couple" data="quote-where" />;
 }

@@ -199,7 +199,8 @@ test('5 · Announce is mounted for the announcement policy’s people, through t
     assert.match(page.slice(Math.max(0, at - 600), at), /canAnnounce \? \([\s\S]*$/, 'Announce is mounted somewhere else, outside the gate');
     assert.doesNotMatch(page.slice(Math.max(0, at - 600), at).split('canAnnounce ? (').pop() ?? '', /\)\s*:/, 'Announce is mounted outside the gate');
   }
-  assert.match(page, /canAnnounce \? \(\s*<AnnounceButton eventId=\{eventId\} isEventDay=\{isEventDay\} recent=\{recentAnnouncements\} round \/>/);
+  // 📣 The round's sheet also carries Release (plan §4 "Release + announce"), handed its state — still behind the gate.
+  assert.match(page, /canAnnounce \? \(\s*<AnnounceButton eventId=\{eventId\} isEventDay=\{isEventDay\} recent=\{recentAnnouncements\} round release=\{scheduleRelease\} \/>/);
 
   const button = read('_components/announce-button.tsx');
   assert.match(button, /from '\.\.\/\.\.\/_actions\/day-of-broadcast'/, 'no second announcement channel');

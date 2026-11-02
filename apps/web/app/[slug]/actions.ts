@@ -301,7 +301,7 @@ export async function submitRsvp(
     nothing is saved and they are told — a partial "no" is never stored as a whole one.
   */
   // Only a post that carries an answer is a reply (a checklist tick, a seat name, one chapter's answer carry none).
-  const postedAnswer = clean(formData.get('rsvp_status'));
+  const postedAnswer = String(formData.get('rsvp_status') ?? '').trim();
   const chapterAdmin = createAdminClient();
   const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId) : null;
   const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
@@ -313,7 +313,11 @@ export async function submitRsvp(
   }
   const chapterReply = replyChapters ? resolveChapterReply(postedAnswer, cantTicks, replyChapters) : null;
   // The answer the rest of this action reads: "can't make SOME" arrives as a no and is stored as the yes it is.
-  if (chapterReply && chapterReply.status !== postedAnswer) formData.set('rsvp_status', chapterReply.status);
+  // The guest typed their details on the DECLINE arm, so they are taken from there first (as a no's would be).
+  if (chapterReply && chapterReply.status !== postedAnswer) {
+    adoptDeclinedContactArm(formData, 'declined');
+    formData.set('rsvp_status', chapterReply.status);
+  }
 
   /*
     ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
@@ -407,8 +411,7 @@ export async function submitRsvp(
   // 🪑 TWO HOMES, ONE ANSWER (owner 2026-10-25, RSVP seats-first): on a Yes these boxes are the reply's You step;
   // on a No they are the decline arm after the note, posted as `declined_contact_*` (both arms are in the form, the
   // card's CSS shows one). A No's own boxes take these names first, so the reads below are the ones they always were.
-  // ✉ The arm the guest actually filled: "can't make SOME" was typed on the decline arm (`postedAnswer`).
-  adoptDeclinedContactArm(formData, postedAnswer as RsvpStatus);
+  adoptDeclinedContactArm(formData, status);
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
   // ✍ "Wrong name? Tell the couple" (decision 1): one line added to the guest's note below — never the name itself.

@@ -711,7 +711,8 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
 }
 
 /** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set'] as const;
+// 'ask_supplier' — the moment sheet's "Ask a supplier to change their times" (D2, `lib/schedule-ask.server.ts`).
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set', 'ask_supplier'] as const;
 export type MomentOp = (typeof MOMENT_OPS)[number];
 export function isMomentOp(v: unknown): v is MomentOp {
   return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);

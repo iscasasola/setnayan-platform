@@ -14,7 +14,7 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { ScheduleOneLine } from '@/app/dashboard/[eventId]/schedule/_components/schedule-one-line';
 import { SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/schedule-tools-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
+import { LAB_ASKS, LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
 import { labViewAs } from './lab-view-as';
 
 export function LabScheduleChapters({
@@ -26,6 +26,7 @@ export function LabScheduleChapters({
   marchFail = false,
   openMoment = false,
   free = false,
+  asks = false,
 }: {
   empty: boolean;
   fail: boolean;
@@ -38,6 +39,8 @@ export function LabScheduleChapters({
   openMoment?: boolean;
   /** `?free=1`: a Free event — View as wears ◆ PRO and opens the upgrade. */
   free?: boolean;
+  /** `?asks=1`: 🗓 D2 — the run-of-show moment carries one waiting ask and one declined (`?asks=fail`: the read failed). */
+  asks?: boolean | 'fail';
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -59,6 +62,7 @@ export function LabScheduleChapters({
         canEdit: !viewOnly,
         mayInvite: !viewOnly,
         viewAs: empty ? null : labViewAs(!free),
+        asks: asks === 'fail' ? null : asks ? LAB_ASKS : [],
       };
   if (!mounted) return null;
   return (

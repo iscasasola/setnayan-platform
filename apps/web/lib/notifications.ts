@@ -521,7 +521,15 @@ export type NotificationType =
      event is told their own full schedule and call time are on Me. Written by the DATABASE (`release_full_schedule`,
      20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
      on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301956127. */
-  | 'schedule_released';
+  | 'schedule_released'
+  /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
+     SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
+     opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
+     supplier said yes (the moment moved) or no (with their reason). Sent from `lib/schedule-ask.server.ts` and the ONE
+     accept path (`lib/schedule-suggestion-decide.server.ts`). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is
+     why the ask is not `schedule_change_requested`, which is emailed. ⚠ ENUM values in 20271302910538. */
+  | 'schedule_ask'
+  | 'schedule_ask_answered';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -647,6 +655,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
   claim_access_answered: 'A couple answered your link',
+  schedule_ask: 'Asked to change your times',
+  schedule_ask_answered: 'A supplier answered your ask',
   schedule_released: 'Your full schedule is ready',
 };
 
@@ -874,6 +884,10 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
   claim_access_answered: 'bg-sky-100 text-sky-800',
+  // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
+  schedule_ask: 'bg-warn-100 text-warn-900',
+  // An answer, already settled → the informational sky.
+  schedule_ask_answered: 'bg-sky-100 text-sky-800',
   // News a guest plans their day around, not a yes or no → the informational sky.
   schedule_released: 'bg-sky-100 text-sky-800',
 };
@@ -1156,6 +1170,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   mood_board_changed: 'image',
   supplier_where_changed: 'calendar',
   schedule_released: 'calendar',
+  schedule_ask: 'calendar',
+  schedule_ask_answered: 'calendar',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

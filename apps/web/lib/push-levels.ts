@@ -45,6 +45,8 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   rsvp_received: 'normal',
   supplier_where_changed: 'normal', // the host changed which chapters a booked supplier works
   claim_access_answered: 'normal', // the couple let in (or declined) a supplier who joined from their link
+  schedule_ask: 'normal', // a host or the coordinator asks a booked supplier to change their times (D2)
+  schedule_ask_answered: 'normal', // the supplier said yes or no to that ask
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   vendor_inquiry_received: 'normal',

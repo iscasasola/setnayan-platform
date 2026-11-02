@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Clock, Eye, MessageSquarePlus, Plus, Trash2, Undo2 } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, Clock, Eye, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -21,6 +21,7 @@ import {
   type SupplierRequestRow,
 } from '@/lib/supplier-schedule';
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
+import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -76,6 +77,7 @@ export function SupplierSchedule({
   finalWeek,
   tasksRead,
   answered,
+  asked = [],
   lab = false,
 }: {
   eventId: string;
@@ -90,6 +92,8 @@ export function SupplierSchedule({
   tasksRead: boolean;
   /** Their latest answered requests (accepted · declined · taken back). */
   answered: SupplierRequestRow[];
+  /** 🗓 What a host or the coordinator asked of THEM, still open (D2); null = could not be read (said). */
+  asked?: ScheduleAsk[] | null;
   lab?: boolean;
 }) {
   const send = useMemo(() => (lab ? labSend : realSend(eventId)), [lab, eventId]);
@@ -106,6 +110,7 @@ export function SupplierSchedule({
   const [seenNow, setSeenNow] = useState(false);
   const [confirmedNow, setConfirmedNow] = useState(false);
   const [takingBack, setTakingBack] = useState<string | null>(null);
+  const [answeredNow, setAnsweredNow] = useState<string[]>([]);
 
   const after = (r: SupplierScheduleAnswer, okWords: string) => {
     if (r.ok) setSaid({ tone: 'ok', words: r.outcome === 'applied' ? 'Saved. It’s on the schedule.' : okWords });
@@ -166,6 +171,36 @@ export function SupplierSchedule({
         </div>
       ) : confirmed ? (
         <p data-times-confirmed="" className="text-xs text-success-900">✓ You confirmed your times.</p>
+      ) : null}
+
+      {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place, above everything else to do. */}
+      {asked === null ? (
+        <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
+          What the hosts asked of you couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
+        <section data-asked-of-you="" aria-label="Asked of you">
+          <InfoTip label="Asked of you" labelAs="h3" labelClassName="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55" align="start">
+            The hosts or their coordinator ask you to change your times. Accept moves the moment on their schedule at
+            once; Decline tells them, with your reason.
+          </InfoTip>
+          <ul className="mt-1 divide-y divide-ink/10">
+            {asked
+              .filter((a) => !answeredNow.includes(a.suggestion_id))
+              .map((a) => (
+                <AskedRow
+                  key={a.suggestion_id}
+                  a={a}
+                  label={labelOf(day, a.block_id)}
+                  send={send}
+                  onAnswered={(r, yes) => {
+                    if (r.ok) setAnsweredNow((l) => [...l, a.suggestion_id]);
+                    after(r, yes ? 'Accepted. Their schedule has your new time.' : 'Declined. They’ve been told.');
+                  }}
+                />
+              ))}
+          </ul>
+        </section>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -338,6 +373,74 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         {m.waiting ? <span className="block text-xs text-warn-900">{waitingWords(m.waiting, m.label)} · Waiting for the host</span> : null}
       </span>
     </>
+  );
+}
+
+/** One ask of this supplier: who asked, the moment, the new time, their note — Accept, or Decline with a reason. */
+function AskedRow({
+  a,
+  label,
+  send,
+  onAnswered,
+}: {
+  a: ScheduleAsk;
+  label: string | null;
+  send: Send;
+  onAnswered: (r: SupplierScheduleAnswer, yes: boolean) => void;
+}) {
+  const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
+  const answer = async (yes: boolean) => {
+    setBusy(yes ? 'accept' : 'decline');
+    const r = await send({ request: 'answer', suggestion_id: a.suggestion_id, decision: yes ? 'accept' : 'decline', reason: yes ? '' : reason.trim() });
+    setBusy(null);
+    onAnswered(r, yes);
+  };
+  return (
+    <li data-asked={a.suggestion_id} className="flex flex-col gap-2 py-3">
+      <p className="text-sm">
+        <span className="font-medium">{askerWords(a)}</span> asks you to move “{label ?? 'a moment'}”
+        {a.proposed_start_at ? (
+          <>
+            {' '}
+            to <span className="font-semibold tabular-nums">{clockWords(a.proposed_start_at)}</span>
+            {a.proposed_end_at ? <span className="text-ink/60"> – {clockWords(a.proposed_end_at)}</span> : null}
+          </>
+        ) : null}
+        .
+      </p>
+      {a.note ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
+      {declining ? (
+        <>
+          <FormRows width="wide">
+            <TypedRow
+              name="Why not"
+              about={{ words: 'Optional. They read it beside your answer.' }}
+              value={reason}
+              empty="We have another event until 3 PM"
+              long
+              boxed
+              maxLength={500}
+              onKeep={(t) => {
+                setReason(t);
+                return { ok: true as const };
+              }}
+              data="asked-reason"
+            />
+          </FormRows>
+          <div className="flex flex-wrap justify-end gap-2">
+            <ActionButton tone="neutral" quiet icon={ArrowLeft} label="Back" onClick={() => setDeclining(false)} disabled={busy !== null} />
+            <ActionButton tone="danger" icon={X} label={busy === 'decline' ? 'Sending…' : 'Send decline'} disabled={busy !== null} onClick={() => void answer(false)} data-testid="asked-decline-send" />
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap justify-end gap-2">
+          <ActionButton tone="neutral" icon={X} label="Decline" disabled={busy !== null} onClick={() => setDeclining(true)} data-testid="asked-decline" />
+          <ActionButton tone="brand" main icon={Check} label={busy === 'accept' ? 'Accepting…' : 'Accept'} disabled={busy !== null} onClick={() => void answer(true)} data-testid="asked-accept" />
+        </div>
+      )}
+    </li>
   );
 }
 

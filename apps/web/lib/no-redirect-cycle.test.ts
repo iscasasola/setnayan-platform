@@ -43,9 +43,10 @@ test('the vendor tree still bounces people who own nothing — to shop set-up, a
   // ⚖ 2026-11-02 (supplier gate audit G7): it sends them to `/open-shop` — the set-up — instead of the couple board.
   // `/open-shop` sends a visitor back here ONLY when it read their own named shop row, i.e. the same fact
   // (`hasVendor` = owns a shop or holds a seat) that keeps them here, so the pair cannot close a loop on a label.
-  const shopless = VENDOR.match(/if \(!switcherData\.context\.hasVendor\) \{\s*redirect\('([^']+)'\)/);
-  assert.ok(shopless, 'the vendor tree no longer sends shop-less visitors away');
-  assert.equal(shopless[1], '/open-shop', 'a shop-less account must land on shop set-up, not the couple board');
+  // A PROVEN shop-less account (measured, none) → set-up; an unmeasured one → the couple board, as before.
+  assert.match(VENDOR, /if \(vendorAccess === 'no-vendor'\) redirect\('\/open-shop'\);/, 'a shop-less account must land on shop set-up, not the couple board');
+  assert.match(VENDOR, /if \(vendorAccess === 'unmeasured'\) redirect\('\/dashboard'\);/, 'the vendor tree no longer sends unmeasured visitors away');
+  assert.match(VENDOR, /switcherData\.context\.hasVendor \? 'vendor' : switcherData\.context\.canOpenShop \? 'no-vendor' : 'unmeasured'/, 'no-vendor must mean MEASURED and none');
   const OPEN = readFileSync(join(WEB, 'app/open-shop/page.tsx'), 'utf8');
   const back = OPEN.split('\n').filter((l) => l.includes("redirect('/vendor-dashboard')") && !l.trim().startsWith('//'));
   assert.ok(back.length > 0, '/open-shop no longer sends a shop owner on to their dashboard');

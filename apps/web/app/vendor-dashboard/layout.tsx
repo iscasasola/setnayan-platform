@@ -444,10 +444,15 @@ export default async function VendorDashboardLayout({
   // creating new account"). A signed-in account with no shop reaches here from `/signup?as=vendor` while signed in and
   // from `accountHomePath('vendor')`; sending it to `/dashboard` dropped a supplier on the couples' screens with no way
   // to the shop set-up. `/open-shop` is that set-up, and it sends anyone who already has a named shop back here, so the
-  // two cannot loop. A REFUSED read never lands here — the fallback above keeps `hasVendor: true`.
-  if (!switcherData.context.hasVendor) {
-    redirect('/open-shop');
-  }
+  // two cannot loop.
+  //
+  // 🔒 ONLY A PROVEN ABSENCE GOES TO THE WIZARD (`the-open-shop-redirect-is-a-proven-absence.test.ts`). A refused role
+  // read can ALSO answer `hasVendor: false` (`getDashboardShell`'s fallback) — but it then holds `canOpenShop: false`,
+  // which is true only when the shop list was MEASURED (`lib/roles.ts`, fails closed). So `no-vendor` = measured and
+  // none; anything unmeasured goes to `/dashboard` as before, never to the create-a-shop wizard.
+  const vendorAccess = switcherData.context.hasVendor ? 'vendor' : switcherData.context.canOpenShop ? 'no-vendor' : 'unmeasured';
+  if (vendorAccess === 'no-vendor') redirect('/open-shop');
+  if (vendorAccess === 'unmeasured') redirect('/dashboard');
 
   // The supplier's own rows in the account sheet (prototype SHEETS.avatar). Step 5's
   // rows (Your details · Your page · Your collections) + step 6's sheet (Helpers ·

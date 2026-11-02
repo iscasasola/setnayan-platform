@@ -72,6 +72,8 @@ import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import { BookedRoomLine } from './booked-room-line';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SupplierShareButton } from '../../_components/supplier-share-button';
 import { CancelBookingButton } from './cancel-booking-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
 
@@ -409,6 +411,28 @@ function CallTimeLine({ line }: { line: BookedCallTime }) {
   );
 }
 
+/**
+ * 🔗 THE CLAIM LINK'S ONE DOOR (corpus SCHEDULE_CHAPTERS_BUILD_PLAN §3 Suppliers, "Sync: the claim link exists
+ * (`/vendor/claim/[token]`, `applyClaimAutoLink`). Move its door to the Team row. Until they join, the host enters their
+ * times."). A supplier who is not on Setnayan yet gets their link HERE — Share sends it from the couple's own phone
+ * through the one link writer (`createManualVendorInvite` → `ensureAutoShareInvite`, idempotent: their live link, or a
+ * new one), so there is no "Create link" step and no second copy of the link on their workspace page.
+ */
+function ClaimDoor({ eventId, vendorId, vendorName }: { eventId: string; vendorId: string; vendorName: string }) {
+  return (
+    <div className="flex items-center gap-3" data-booked-claim={vendorId}>
+      <p className="min-w-0 flex-1 text-[13.5px] leading-snug">
+        <InfoTip label="Not on Setnayan yet" labelClassName="text-ink" align="start">
+          Send {vendorName} their link. They join free and see their part of your schedule, and can confirm their times
+          themselves.
+        </InfoTip>
+        <span className="block text-[12.5px] text-ink/55">Until they join, you enter their times.</span>
+      </p>
+      <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} />
+    </div>
+  );
+}
+
 /** The payment plan's rows — the same rows the Pay sheet opens on. */
 function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }) {
   if (plan.kind === 'unread') {
@@ -577,6 +601,7 @@ function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
     <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
       {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">

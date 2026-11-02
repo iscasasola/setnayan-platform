@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { countGuestsByEvent } from '@/lib/guests';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
 import {
@@ -96,11 +97,15 @@ export default async function EventPeoplePage({ params }: Props) {
       (async () => {
         // The couple + accepted co-hosts and delegates, counted as one group
         // because that is how the /hosts page presents them.
+        // 🔑 HOSTS ARE `couple` + `coordinator` ONLY (audit 2026-11-02 #21): a guest who claims their invite gets an
+        // `event_members` row too (member_type 'guest'), and a supplier one ('vendor') — counted unfiltered, "Hosts"
+        // grew by every guest who signed in. `HOST_MEMBER_TYPES`, held by `the-hosts-count-is-hosts.test.ts`.
         const [members, mods] = await Promise.all([
           supabase
             .from('event_members')
             .select('user_id', { count: 'exact', head: true })
-            .eq('event_id', eventId),
+            .eq('event_id', eventId)
+            .in('member_type', [...HOST_MEMBER_TYPES]),
           supabase
             .from('event_moderators')
             .select('moderator_id', { count: 'exact', head: true })

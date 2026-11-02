@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7017
+# facts: 7018
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     587
-#   col       5102
+#   col       5103
 #   policy    1021
 #   view      9
 #   func      294
@@ -1757,6 +1757,7 @@ col	public.event_schedule_blocks.created_at	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.egress_minutes_after	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.end_at	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.event_id	anon=SIU authenticated=SIU
+col	public.event_schedule_blocks.follows_block_id	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.ingress_minutes_before	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.is_optional	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.is_public	anon=SIU authenticated=SIU

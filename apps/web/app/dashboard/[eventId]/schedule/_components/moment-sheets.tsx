@@ -171,7 +171,8 @@ export const LAB_MOMENT_DOORS: MomentDoors = {
     ),
   forSet: (_b, fields) =>
     new Promise((r) => setTimeout(() => r({ ok: true, value: fields.on === '1' && !fields.for_key.startsWith('s:') ? `lab-${Math.random().toString(36).slice(2, 10)}` : '' }), 150)),
-  ask: () => new Promise((r) => setTimeout(() => r({ ok: true, value: `lab-ask-${Math.random().toString(36).slice(2, 10)}` }), 200)),
+  // The lab's shop ids follow the lab bookings (`v-photo` → `shop-photo`), as `LAB_ASKS` writes them.
+  ask: (_b, fields) => new Promise((r) => setTimeout(() => r({ ok: true, value: `lab-ask-${Math.random().toString(36).slice(2, 10)}:${(fields.vendor_id ?? '').replace(/^v-/, 'shop-')}` }), 200)),
 };
 
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };

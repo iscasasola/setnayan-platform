@@ -112,7 +112,8 @@ export async function askSupplierToChange(
   } catch (e) {
     console.error('[askSupplierToChange] notify failed:', e);
   }
-  return { ok: true, value: (data as { suggestion_id: string }).suggestion_id };
+  // `<ask id>:<shop id>` — the sheet keys its "latest ask per supplier" on the shop, which only the server knows.
+  return { ok: true, value: `${(data as { suggestion_id: string }).suggestion_id}:${booking.marketplace_vendor_id}` };
 }
 
 export async function answerScheduleAsk(

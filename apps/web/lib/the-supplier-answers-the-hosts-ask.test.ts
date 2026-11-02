@@ -113,6 +113,8 @@ test('the host asks from the moment sheet’s own door, on the caller’s client
   const fn = body(read('lib/schedule-ask.server.ts'), 'askSupplierToChange');
   assert.match(fn, /await supabase\s*\.from\('event_schedule_suggestions'\)\s*\.insert\(/, 'the ask must be written by the caller, not the service role');
   assert.match(fn, /direction: 'to_supplier'/);
+  // The sheet keys "each supplier's latest ask" on the SHOP — the door must hand it back, or a new ask shows beside the old one.
+  assert.match(fn, /value: `\$\{[^`]*suggestion_id[^`]*\}:\$\{booking\.marketplace_vendor_id\}`/);
 });
 
 // ─── 4 · it reaches the supplier's day, and only there ──────────────────────────

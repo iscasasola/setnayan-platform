@@ -77,11 +77,12 @@ export function AskSupplierSection({
       return;
     }
     const shop = suppliers.find((s) => s.id === who)?.name ?? 'The supplier';
+    // The door answers `<ask id>:<shop id>` — the shop id keeps "each supplier's latest ask once" true at once.
+    const [askId, shopId] = r.value.split(':');
     onAsked({
-      suggestion_id: r.value,
+      suggestion_id: askId ?? r.value,
       block_id: m.block_id,
-      // The shop's own id comes back with the page's next read; until then the booking stands for it.
-      vendor_profile_id: `booking:${who}`,
+      vendor_profile_id: shopId || `booking:${who}`,
       suggested_by_name: null,
       asked_as: null,
       proposed_start_at: start,

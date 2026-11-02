@@ -58,6 +58,8 @@
  *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
+ *   ?s=schedule       🤝 the supplier's part of the schedule (Step 4b, `schedule-lab.tsx`): + My moment · My times · Suggest ·
+ *                     Take back · Seen · Confirm my times; &state=week|confirmed|auto|seen|unlinked|fail
  *   ?s=crew-phone     📱 the crew phone (`hub-lab.tsx` CrewPhoneLab): &state=name|waiting|member|helper|helper-shop|ended
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
@@ -69,6 +71,7 @@
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { SupplierLabShell, type SupplierLabMeasure } from '../_components/supplier-lab-shell';
+import { ScheduleLab } from './schedule-lab';
 import { Check, MessageSquare, Phone, Plus, Send, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -368,6 +371,10 @@ export default async function SupplierLabPage({
     /* 📸 Photos couples shared, waiting for Approve (owner 2026-10-30) — `&card=1` the service card with an approved
        one and its credit line. Stand-in writes only (`couple-photos-lab.tsx`). */
     return <CouplePhotosLab card={q.card === '1'} />;
+  }
+  if (q.s === 'schedule') {
+    /* 🤝 The supplier's part of the schedule (Step 4b) — `schedule-lab.tsx`; &state=week|confirmed|auto|seen|unlinked|fail. */
+    return wrap(<ScheduleLab state={q.state} />, 'own');
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;

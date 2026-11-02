@@ -119,7 +119,9 @@ import { formatCount } from '@/lib/format-number';
 import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
-import { readChapterBook, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -134,6 +136,7 @@ import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { wholeMarchLabel } from '@/lib/schedule-chapters';
 
 export const metadata = { title: 'Schedule' };
 
@@ -235,7 +238,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -256,7 +259,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, created_at',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
@@ -272,6 +275,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        A refused read is kept as a failure: the moment sheet says so, never "no tasks". */
     inMaker ? Promise.resolve(null) : readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
     inMaker ? Promise.resolve(null) : readTaskPeople(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 🚶 The couple's own marches, for a moment's "This is a march" (migration 20271301571290) — in the same round. A
+       refused read is kept as a failure and said on the row, never "no marches". */
+    inMaker ? Promise.resolve(null) : readMarchList(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -381,6 +387,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     rosVendors = suppliersRes;
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
+  /* 👁 VIEW AS (Step 3c): the tasks, rooms, groups and Pro the rail's View as ▾ reads — started now, awaited where the
+     chapters are handed down, so it rides beside the reads below instead of after them. Never in the Maker or a trip. */
+  const viewAsAhead =
+    !inMaker && !isTravel && chapterRead?.ok ? readViewAsExtras(supabase, eventId, { readSuppliers: !rosEnabled, tasks: Promise.resolve(taskRead?.ok ? taskRead.value : null) }) : null;
   const rosTemplates = rosEnabled
     ? // Both rites: an INC / Muslim / LDS / SDA day (either column) is never
       // offered a cocktail hour or a dance set (`riteIsDanceFree`).
@@ -629,6 +639,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       : [];
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
   const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
+  const viewAsExtras = viewAsAhead ? await viewAsAhead : null;
   const chaptersInput: ChaptersInput | null =
     chapterRead === null || isTravel
       ? null
@@ -651,6 +662,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   is_optional: momentFacts.get(m.block_id)?.is_optional ?? false,
                   travel_from: momentFacts.get(m.block_id)?.travel_from ?? null,
                   travel_to: momentFacts.get(m.block_id)?.travel_to ?? null,
+                  march_key: momentFacts.get(m.block_id)?.march_key ?? null,
                   is_public: m.is_public,
                   who:
                     m.responsible_vendor_ids
@@ -662,6 +674,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             venues: [],
             tasks: taskRead?.ok ? taskRead.value : null,
             who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
+            marches: marchRead ?? { ok: false },
+            wholeMarch: wholeMarchLabel(eventRow?.event_type),
             eventDay: eventDateKey,
             lastDay:
               eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey
@@ -671,6 +685,25 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
             // here; the door checks again (`mayShowToGuests`).
             mayInvite: dayRole !== 'view',
+            viewAs: viewAsExtras
+              ? {
+                  pro: viewAsExtras.pro,
+                  proHref: viewAsExtras.proHref,
+                  data: {
+                    moments: dayMoments.flatMap((m): ViewMoment[] => {
+                      if (!m.parent_block_id) return [];
+                      const at = momentFacts.get(m.block_id);
+                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null }];
+                    }),
+                    tasks: taskRead?.ok ? taskRead.value : null,
+                    suppliers:
+                      viewAsExtras.suppliers ??
+                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked' })),
+                    groups: viewAsExtras.groups,
+                    roleNames: viewAsExtras.roleNames,
+                  },
+                }
+              : null,
           }
         : { measured: false };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
@@ -682,6 +715,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_start_at: s.proposed_start_at,
     proposed_end_at: s.proposed_end_at,
     proposed_location: s.proposed_location,
+    proposed_crew: s.proposed_crew,
     note: s.note,
   }));
 
@@ -1133,6 +1167,7 @@ type VendorSuggestion = {
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  proposed_crew: string[] | null;
   note: string;
   created_at: string;
 };

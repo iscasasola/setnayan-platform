@@ -72,6 +72,7 @@ const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean
   is_optional: false,
   travel_from: null,
   travel_to: null,
+  march_key: null,
   is_public: pub,
   who,
   ...more,
@@ -84,7 +85,7 @@ export const LAB_CHAPTER_MOMENTS: ChapterMoment[] = [
   m('0003', LAB_CHAPTERS[0]!.block_id, 'Bride’s portraits', '12:30', false, 'Lightbox Studio'),
   m('0004', LAB_CHAPTERS[3]!.block_id, 'Guests arrive', '15:00', true, ''),
   m('0005', LAB_CHAPTERS[3]!.block_id, 'Line up', '15:15', false, 'The Planning Desk'),
-  m('0006', LAB_CHAPTERS[3]!.block_id, 'Wedding march', '15:30', true, 'Lightbox Studio'),
+  m('0006', LAB_CHAPTERS[3]!.block_id, 'Wedding march', '15:30', true, 'Lightbox Studio', LAB_EVENT_DAY, { march_key: 'entourage' }),
   m('0007', LAB_CHAPTERS[3]!.block_id, 'Mass', '15:40', true, ''),
   m('0012', LAB_CHAPTERS[3]!.block_id, 'Father’s reveal', '16:15', false, '', LAB_EVENT_DAY, { is_optional: true }),
   m('0013', LAB_CHAPTERS[3]!.block_id, 'Bridal car to the hotel', '16:30', false, '', LAB_EVENT_DAY, { travel_from: 'St. Mary’s Parish', travel_to: 'Hotel Aurora' }),
@@ -147,10 +148,18 @@ export const LAB_MOMENT_ROW: ChapterMoment = {
   is_optional: false,
   travel_from: null,
   travel_to: null,
+  // 🚶 The lab's run-of-show moment is one of the couple's own marches — its sheet shows "This is a march" picked.
+  march_key: 'own_labentr001',
   is_public: false,
   who: '',
   end_at: LAB_MOMENT.end_at,
 };
+
+/** 🚶 The couple's own marches (Guests › March) — made-up names only. */
+export const LAB_MARCHES = [
+  { key: 'own_labentr001', label: 'Grand Entrance' },
+  { key: 'own_labparade1', label: 'Flower girls’ parade' },
+];
 
 /** Who a lab task can name — made-up names only. */
 export const LAB_WHO = {

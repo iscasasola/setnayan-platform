@@ -107,6 +107,8 @@ const SCOPE_FILES = [
   'lib/booking-payment-plan.server.ts',
   'lib/date-change.server.ts',
   'lib/schedule-request-notify.server.ts',
+  // The one accept path's "accepted / declined your timeline suggestion" moved here from schedule/actions.ts (Step 4b).
+  'lib/schedule-suggestion-decide.server.ts',
   'lib/schedule-shift-notify.server.ts',
   'lib/vendor-invite-actions.ts',
   'app/_components/negotiation-actions.ts',

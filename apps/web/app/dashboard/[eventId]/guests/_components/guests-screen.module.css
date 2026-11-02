@@ -1825,3 +1825,23 @@ button.countsDoor[aria-pressed='true'] {
   font-weight: 600;
   color: var(--gs-ink);
 }
+
+/* ✋ DRAG TO CHANGE ROLE (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE ROLE") — Role grouping only
+   (`guest-role-drag.tsx`). A held name never opens the phone's own copy menu; the lifted row stays as a faint place-
+   holder while its picture follows the finger; the section under the finger lights (it takes them) or greys (it will
+   say why not). No frame is added — the header's own row is tinted. */
+.screen [data-role-drag] .g {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.screen [data-role-drag] .g[data-role-lifted] {
+  opacity: 0.35;
+}
+.sec[data-role-drop='ok'] > .barWrap {
+  background: rgb(var(--color-mulberry) / 0.1);
+  box-shadow: inset 3px 0 0 var(--gs-brand);
+}
+.sec[data-role-drop='no'] > .barWrap {
+  background: rgb(var(--color-ink) / 0.05);
+}

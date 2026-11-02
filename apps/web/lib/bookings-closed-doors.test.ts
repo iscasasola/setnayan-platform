@@ -71,7 +71,10 @@ test('door 8: the four booking doors of the fee close with bookings (the catch-u
   const body = functionBody(source, 'mintBookingFeeForBooking') ?? '';
   assert.match(body, /CLOSES_WITH_BOOKINGS\.has\(args\.door\)/, 'the mint must ask the set with its own door');
   const sweep = functionBody(source, 'maybeCatchUpHandshakesWithoutFee') ?? '';
-  assert.match(sweep, /door: 'catch_up'/, 'the sweep mints through the catch_up door, which closes with bookings');
+  // The sweep's door is an expression (a claim the couple approved re-mints through `claim_approved`, which is
+  // deliberately NOT in the set; every other row goes through `catch_up`). Ask for `catch_up` inside the door's
+  // value, not for one spelling of it.
+  assert.match(sweep, /door:[^,}]*'catch_up'/, 'the sweep mints through the catch_up door, which closes with bookings');
 });
 
 test('the switch opens only on an explicit TRUE — NULL (the launch default), FALSE and junk are closed', () => {

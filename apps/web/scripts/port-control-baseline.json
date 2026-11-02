@@ -13637,7 +13637,16 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "BackButton"
+        "DressCodeWidget",
+        "EntourageSection",
+        "GuestLookScope",
+        "GuestMeParts",
+        "GuestTicket",
+        "InvitationShell",
+        "MeGreeting",
+        "PaidMark",
+        "ScheduleWidget",
+        "YourSeatBlock"
       ]
     },
     "/signup": {

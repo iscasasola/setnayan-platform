@@ -8,11 +8,15 @@ import { marksByShop } from '@/lib/supplier-schedule-marks';
  * be given to (owner 2026-10-20): live `event_vendors` rows with their payments
  * embedded, plus the shops' own names, folded by `scheduleSuppliersFrom`.
  */
-/** The read the schedule page makes (couple / delegate session). Empty on a refusal, said in the log. */
+/**
+ * The read the schedule page makes (couple / delegate session). 🔌 `null` on a refusal (reads-are-honest, 2026-11-02
+ * audit #16): `[]` drew every tagged task as "A supplier", an empty Who picker and "A booked supplier" in the PDF —
+ * a schedule that looked unassigned. Every caller now says it could not load the suppliers.
+ */
 export async function readScheduleSuppliers(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<ScheduleSupplier[]> {
+): Promise<ScheduleSupplier[] | null> {
   const { data, error } = await supabase
     .from('event_vendors')
     .select(`vendor_id, vendor_name, status, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}`)
@@ -21,7 +25,7 @@ export async function readScheduleSuppliers(
     .order('vendor_name', { ascending: true });
   if (error) {
     console.error('[supabase-error] lib/schedule-suppliers-read.ts · from:event_vendors.select', error.message, { event_id: eventId });
-    return [];
+    return null;
   }
   const rows = (data ?? []) as unknown as ScheduleSupplierRow[];
   const shopIds = [...new Set(rows.map((r) => r.marketplace_vendor_id).filter((x): x is string => !!x))];

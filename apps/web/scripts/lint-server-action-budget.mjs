@@ -39,7 +39,11 @@ import { fileURLToPath } from 'node:url';
 // export nothing imports was left to drop (the two unreferenced ones in studio/recommend-actions.ts are kept on
 // purpose — de0b53d1f9). No fresh `vercel build` count was taken for this +1: the SUM is gated by
 // check-vercel-route-count.mjs on this PR's production build — read that job before merging.
-export const CEILING = 1226;
+// 1226 → 1227 (2026-11-01, Seats S1d "How guests see their seat"): ONE dispatcher (`guests/seat-view-actions.ts`,
+// `guestSeatView` — the Seats ⚙ write and the guest card's preview read) instead of the two exports it would have been;
+// the only unimported exports left are the two kept on purpose above. No fresh `vercel build` count for this +1 — the
+// SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
+export const CEILING = 1227;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

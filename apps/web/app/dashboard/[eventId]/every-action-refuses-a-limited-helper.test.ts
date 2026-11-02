@@ -108,6 +108,8 @@ const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
   // "Arrange tables and seats. Publishing the plan stays with you." (DELEGATE_AREA_DOES.seat_plan)
   ['seating/actions.ts#publishSeating', null],
   ['seating/actions.ts#unpublishSeating', null],
+  // How guests see their seat (Seats S1d) is the hosts' choice, like publishing the plan; its preview op only reads.
+  ['guests/seat-view-actions.ts#guestSeatView', null],
   // Unlocking a category is a purchase, not a supplier edit.
   ['vendors/_actions/unlock-category.ts', null],
   // The couple's own review of a supplier.

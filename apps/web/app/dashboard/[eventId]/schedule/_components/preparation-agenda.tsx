@@ -56,7 +56,7 @@ export function PreparationAgendaView({
   agenda,
   hasEventDate,
   eventWord = 'wedding',
-  booked = false,
+  line = false,
   eventDateIso = null,
   initialFilter = 'all',
   eventIsOver = false,
@@ -74,11 +74,11 @@ export function PreparationAgendaView({
   /** The celebration already happened — a date is just a date: no "overdue", no alarm red. */
   eventIsOver?: boolean;
   /**
-   * 📅 Drawn as Suppliers › Booked › Schedule › Preparation (owner 2026-10-31: *"so many upper space not used"*): the
+   * 📅 Drawn under the Schedule page's one line (owner 2026-10-31: *"so many upper space not used"*): the
    * steps start at once — "+ Add a step" is the pill in the thumb zone and what feeds the agenda is said in the page's
    * ⓘ (`preparationLegendWords`), not in a tinted band above the rows.
    */
-  booked?: boolean;
+  line?: boolean;
   /** eventNoun(event_type) — a birthday is not told to set its "wedding date". */
   eventWord?: 'wedding' | 'event';
 }) {
@@ -92,15 +92,16 @@ export function PreparationAgendaView({
   const progress = planningProgress(agenda.items);
 
   return (
-    <div className="space-y-7" data-prep-agenda={booked ? 'booked' : 'page'}>
+    <div className="space-y-7" data-prep-agenda={line ? 'line' : 'page'}>
       {unread.length > 0 ? (
         /* 🛑 A refused read says so — never an empty "nothing to do" (house rule). */
         <p role="alert" data-planning-unread={unread.join(' ')} className="rounded-xl bg-danger-50 px-3 py-2.5 text-sm text-danger-700">
-          We couldn’t load {unread.includes('task') ? 'your to-do tasks' : 'the steps you added'}. They’re safe — pull to
+          We couldn’t load{' '}
+          {unread.includes('task') ? 'your to-do tasks' : unread.includes('manual') ? 'the steps you added' : 'your payment steps'}. They’re safe — pull to
           refresh or try again in a moment.
         </p>
       ) : null}
-      {booked ? (
+      {line ? (
         <AddPreparationItem eventId={eventId} door="pill" />
       ) : (
         <div className="space-y-3">

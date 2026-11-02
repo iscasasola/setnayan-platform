@@ -1,7 +1,13 @@
 'use client';
 
 /**
- * 📅 SUPPLIERS › BOOKED › SCHEDULE — ONE LINE, ONE DATE LINE, THEN THE MOMENTS.
+ * 📅 THE SCHEDULE PAGE — ONE LINE, ONE DATE LINE, THEN THE MOMENTS.
+ *
+ * 🧹 This was Suppliers › Booked › Schedule's frame (`booked-schedule-frame.tsx`, 2026-10-31). On 2026-11-02 the owner
+ * ruled "BOOKED IS JUST THE TEAM" (*"no just schedule"*): the Booked WRAPPER went — the Suppliers shell, the
+ * `?part=schedule` part — and the page is the Schedule's own, opened from Home. The one-line layout itself is the
+ * approved design (frames 19 · 19b · 20) the owner was using on his iPhone, so it is the page's look now, renamed; the
+ * old stacked header (seven rows before the first moment) stays only inside the Maker's Details.
  *
  * Owner 2026-10-31, live iPhone, verbatim: *"so many design error on schedule. the pop up. design template. how the
  * space is strategically used. so many upper space not used."* At rest the Schedule stacked SEVEN rows before its
@@ -17,7 +23,7 @@
  * The views are Event Day · Planning Stage. (Journey was a third until the owner removed it on 2026-11-01 — an old
  * `?view=journey` lands on Planning Stage, `lib/schedule-view.ts`.) Every view is drawn by the server ONCE, with the page's one read, and kept: a pick
  * swaps what is shown in place — no request, no render — and writes `?view=` so a reload and Back come back to it.
- * 🔒 lib/the-schedule-under-booked-is-one-line.test.ts
+ * 🔒 lib/the-schedule-page-is-one-line.test.ts
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { Tip } from './day-ui';
@@ -25,11 +31,11 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ScheduleViewOnScreen } from './schedule-sheet';
 import { useChapters } from './chapters-context';
 
-export type BookedScheduleView = 'event-day' | 'preparation';
+export type ScheduleLineView = 'event-day' | 'preparation';
 
-import { BOOKED_SCHEDULE_TOOLS_SLOT } from './booked-schedule-slot';
+import { SCHEDULE_TOOLS_SLOT } from './schedule-tools-slot';
 
-export function BookedScheduleFrame({
+export function ScheduleOneLine({
   initial,
   views,
   dateLine,
@@ -40,24 +46,24 @@ export function BookedScheduleFrame({
   meetings,
   panels,
 }: {
-  initial: BookedScheduleView;
+  initial: ScheduleLineView;
   /** In the dropdown's order, each with its count (the open list's trailing number). */
-  views: ReadonlyArray<{ key: BookedScheduleView; label: string; count: number }>;
+  views: ReadonlyArray<{ key: ScheduleLineView; label: string; count: number }>;
   /** "Friday 18 December 2026 · 50 days to go" — the ⓘ's label. */
   dateLine: string;
   /** What the ⓘ always says: whose day, who can edit and why. */
   info: ReactNode;
   /** What the ⓘ adds for the view on screen. */
-  notes: Partial<Record<BookedScheduleView, ReactNode>>;
+  notes: Partial<Record<ScheduleLineView, ReactNode>>;
   /** Announce, as its round — null when this person cannot announce. */
   announce: ReactNode | null;
   /** 📤 Share the schedule as a PDF (`SharePdfButton`) — on the date line, right; null when there is no file to give. */
   share?: ReactNode | null;
   /** The supplier meetings, above Planning Stage (never above the day itself). */
   meetings?: ReactNode;
-  panels: Record<BookedScheduleView, ReactNode>;
+  panels: Record<ScheduleLineView, ReactNode>;
 }) {
-  const [view, setView] = useState<BookedScheduleView>(initial);
+  const [view, setView] = useState<ScheduleLineView>(initial);
   /* 📖 The page's dropdown also lists every chapter and + New chapter (owner 2026-11-01, the approved prototype's
      `viewPick`): a chapter opens its page (`chapters-host.tsx`). */
   const chapters = useChapters();
@@ -89,7 +95,7 @@ export function BookedScheduleFrame({
 
   return (
     <ScheduleViewOnScreen.Provider value={view}>
-      <div data-booked-schedule={view}>
+      <div data-schedule-one-line={view}>
         {/* ── THE ONE LINE: the view ▾ · the day's own tools (Event Day only) · 🔊 Announce. */}
         <div className="flex min-h-11 items-center gap-1.5" data-schedule-line="">
           <span className="flex min-w-0 shrink items-center">
@@ -114,7 +120,7 @@ export function BookedScheduleFrame({
           </span>
           {/* The day's tools are the Event Day's only: `hidden` as a CLASS — a `flex` class beats the attribute. */}
           <span
-            id={BOOKED_SCHEDULE_TOOLS_SLOT}
+            id={SCHEDULE_TOOLS_SLOT}
             hidden={view !== 'event-day'}
             className={view === 'event-day' ? 'ml-auto flex min-w-0 items-center' : 'hidden'}
             data-schedule-tools-slot=""
@@ -137,7 +143,7 @@ export function BookedScheduleFrame({
         {/* ── THE VIEWS, each drawn once and kept; the moments start right here. */}
         <div className="mt-3">
           {meetings ? <div hidden={view === 'event-day'}>{meetings}</div> : null}
-          {(Object.keys(panels) as BookedScheduleView[]).map((k) => (
+          {(Object.keys(panels) as ScheduleLineView[]).map((k) => (
             <div key={k} hidden={k !== view} data-schedule-panel={k}>
               {panels[k]}
             </div>

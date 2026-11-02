@@ -34,6 +34,9 @@ import {
   type ModeratorPermissions,
 } from '@/lib/event-moderators';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
+import { emitNotification } from '@/lib/notification-emit';
+import { claimAnswerNotice } from '@/lib/claim-access-wait';
 
 export type AnswerResult = { ok: boolean; error?: string };
 
@@ -210,16 +213,17 @@ async function answerClaimAccess(
 
   const { data: row, error: readErr } = await supabase
     .from('event_access_requests')
-    .select('request_id, status, kind')
+    .select('request_id, status, kind, requester_user_id')
     .eq('request_id', requestId)
     .eq('event_id', eventId)
     .maybeSingle();
   if (readErr || !row) return { ok: false, error: 'Could not find that request.' };
-  const ask = row as { status: string; kind: string | null };
+  const ask = row as { status: string; kind: string | null; requester_user_id: string | null };
   if (ask.kind !== 'claim') return { ok: false, error: 'Could not find that request.' };
   if (ask.status !== 'pending') return { ok: false, error: 'That request was already answered.' };
 
-  const { error } = await createAdminClient().rpc('answer_claim_access_request', {
+  const admin = createAdminClient();
+  const { data: answer, error } = await admin.rpc('answer_claim_access_request', {
     p_request_id: requestId,
     p_decided_by: user.id,
     p_approve: approve,
@@ -240,6 +244,37 @@ async function answerClaimAccess(
         ? 'We could not let them in just now. Nothing has changed. Please try again.'
         : 'We could not record that just now. Please try again.',
     };
+  }
+
+  // 💸 THE APPROVAL BOOKED THEM, SO IT MAKES THE FEE (supplier gate audit G4, 2026-11-02). Approve books the
+  // couple's hand-added row (when it carried a payment) and links the shop — and no door made a charge for it, so
+  // with "no charge" locking a booked shop, the supplier the couple had just let in found the event locked. The
+  // ordinary rules decide the charge (`booking_fee_open_lock_charge`): a supplier the couple brought is
+  // `waived_import`, nothing owed. Fail-soft: the approval is committed; the supplier's catch-up re-makes it.
+  const result = (answer ?? {}) as { granted?: boolean; booked?: boolean; booking_vendor_id?: string | null };
+  if (approve && result.granted && result.booked && result.booking_vendor_id) {
+    try {
+      await mintBookingFeeForBooking(admin, { eventVendorId: result.booking_vendor_id, door: 'claim_approved' });
+    } catch (e) {
+      console.error('[access-requests] claim approval fee mint failed:', e);
+    }
+  }
+
+  // 📣 TELL THE SUPPLIER THE ANSWER (audit G3). They were told at the claim that the couple must approve
+  // (`/vendor-dashboard` "Waiting for … to let you in"); nothing told them when the couple did. In-app only —
+  // `claim_access_answered` is not on EMAIL_ENABLED_TYPES (owner: no new emails without his word).
+  if (ask.requester_user_id) {
+    try {
+      const { data: ev } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
+      const notice = claimAnswerNotice({
+        approved: approve,
+        eventId,
+        eventName: (ev as { display_name?: string | null } | null)?.display_name ?? null,
+      });
+      await emitNotification({ userId: ask.requester_user_id, type: 'claim_access_answered', eventId, ...notice });
+    } catch (e) {
+      console.error('[access-requests] claim answer notice failed:', e);
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');

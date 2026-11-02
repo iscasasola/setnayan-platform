@@ -1946,6 +1946,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             vendorId={ev.vendor_id}
             vendorName={displayName}
             changeOrders={changeOrders}
+            readFailed={Boolean(changeOrderRowsError)}
           />
 
           {/*

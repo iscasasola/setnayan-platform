@@ -11,6 +11,7 @@ import {
   type MomentOp,
   type Chapter,
   type MomentFacts,
+  type MarchList,
   type TaskInput,
   type TaskPeople,
   type TaskRow,
@@ -165,7 +166,7 @@ export async function countChapterPapic(supabase: SupabaseClient, chapterId: str
  */
 export async function runMomentOp(
   supabase: SupabaseClient,
-  op: MomentOp,
+  op: Exclude<MomentOp, 'march_set' | 'march_new'>,
   blockId: string,
   fd: FormData,
   userId: string,
@@ -185,4 +186,50 @@ export async function runMomentOp(
   const taskId = fd.get('task_id');
   if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'That task is gone.' };
   return updateMomentTask(supabase, taskId, blockId, parsed.input);
+}
+
+/* ── 🚶 "This is a march": the marches a moment can pick (migration 20271301571290) ────────────────────────────────── */
+
+/**
+ * The couple's own marches (`march_groups`, made in Guests › March) for the moment sheet's "This is a march" dropdown —
+ * ONE read, on the caller's own client. A refused read is `{ ok: false }`: the sheet says so, never "no marches".
+ * (A coordinator who may not read the guest list gets no rows — not an error; a moment already linked keeps its line,
+ * `marchPickOptions`.)
+ */
+export async function readMarchList(supabase: SupabaseClient, eventId: string): Promise<MarchList> {
+  const { data, error } = await supabase
+    .from('march_groups')
+    .select('group_key, label')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  if (error || !data) {
+    if (error) logQueryError('readMarchList', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    marches: (data as Array<{ group_key: string; label: string }>).map((r) => ({ key: r.group_key, label: r.label })),
+  };
+}
+
+/**
+ * A moment becomes one march, or none (`key` null) — the moment's own row and nothing else: clearing the link never
+ * touches the march. The database refuses a march of another event or one that is gone (`march_not_found`). Counted:
+ * a zero-row UPDATE is success-shaped.
+ */
+export async function linkMomentMarch(supabase: SupabaseClient, eventId: string, momentId: string, key: string | null): Promise<Wrote<string>> {
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .update({ march_key: key })
+    .eq('block_id', momentId)
+    .eq('event_id', eventId)
+    .not('parent_block_id', 'is', null)
+    .select('block_id');
+  if (error) {
+    if (/march_not_found/.test(error.message ?? '')) return { ok: false, error: 'That march is gone — pick another.' };
+    logQueryError('linkMomentMarch', error, { block_id: momentId }, 'graceful_degrade');
+    return { ok: false, error: 'It didn’t save — try again.' };
+  }
+  if (!data || data.length === 0) return { ok: false, error: NOTHING_CHANGED };
+  return { ok: true, value: key ?? '' };
 }

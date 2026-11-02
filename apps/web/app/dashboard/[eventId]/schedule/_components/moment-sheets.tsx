@@ -11,6 +11,13 @@ import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import { normalizeSearchText } from '@/lib/guest-search';
 import {
   DEFAULT_MOMENT_MINUTES,
+  MARCH_NAME_MAX,
+  NEW_MARCH,
+  NOT_A_MARCH,
+  marchNameFrom,
+  marchPickOptions,
+  type MarchChoice,
+  type MarchList,
   callAtFrom,
   clashesForMoment,
   minutesBetween,
@@ -59,10 +66,12 @@ import type { ChapterMoment, TaskWhoList } from './chapters-host';
  *   · DELETE MOMENT warns, then Continue, then a deleting state. The warning counts the chapter's Papic photos: Papic
  *     shoots into chapters, never a moment, so nothing Papic is deleted with a moment — and the warning says so.
  *
- * 🚶 "This is a march" is NOT here: no march can be linked to a moment on main yet (no column, no list of marches —
- * Guests › March making marches is plan §8 step 7). Said in the PR, never drawn as a dropdown that saves nothing.
+ * 🚶 THIS IS A MARCH (owner 2026-11-01: *"When we say this is a march. It picks which march."*; migration 20271301571290):
+ * one dropdown — Not a march · the Wedding March · the couple's own marches (made in Guests › March, with the guests
+ * who walk) · + New march, which asks its name and makes it with the writer Guests › March uses. Two moments may pick
+ * one march; Not a march clears the link and never deletes the march (`MarchRow`, `moment-march-step.ts`).
  *
- * 🔒 app/dashboard/[eventId]/schedule/a-moment-holds-its-tasks.test.ts
+ * 🔒 app/dashboard/[eventId]/schedule/a-moment-holds-its-tasks.test.ts · a-moment-picks-a-march.test.ts
  */
 
 export type TaskOp = 'task_add' | 'task_save' | 'task_remove';
@@ -74,6 +83,8 @@ export type MomentDoors = {
   remove: (blockId: string) => Promise<boolean>;
   task: (op: TaskOp, blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
   papicCount: (chapterId: string) => Promise<Answer<number>>;
+  /** 🚶 The moment is a march (`march_set`, `march_key`), or a new one is made for it (`march_new`, `march_name`). */
+  march: (op: 'march_set' | 'march_new', blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
 };
 
 function form(eventId: string, fields: Record<string, string>): FormData {
@@ -115,6 +126,11 @@ export function realMomentDoors(eventId: string): MomentDoors {
         (r) => (r && r.ok && typeof r.value === 'number' ? { ok: true as const, value: r.value } : { ok: false as const, error: 'unread' }),
         () => ({ ok: false as const, error: 'unread' }),
       ),
+    march: (op, blockId, fields) =>
+      updateScheduleBlock(form(eventId, { block_id: blockId, moment_op: op, ...fields })).then(
+        (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : NOT_SAVED_WORDS }),
+        () => ({ ok: false as const, error: NOT_SAVED_WORDS }),
+      ),
   };
 }
 
@@ -126,6 +142,10 @@ export const LAB_MOMENT_DOORS: MomentDoors = {
   task: (op, _b, fields) =>
     new Promise((r) => setTimeout(() => r({ ok: true, value: op === 'task_add' ? `lab-${Math.random().toString(36).slice(2, 10)}` : (fields.task_id ?? '') }), 150)),
   papicCount: () => new Promise((r) => setTimeout(() => r({ ok: true, value: 4 }), 300)),
+  march: (op, _b, fields) =>
+    new Promise((r) =>
+      setTimeout(() => r({ ok: true, value: op === 'march_new' ? `own_lab${Math.random().toString(36).slice(2, 10)}` : (fields.march_key ?? '') }), 150),
+    ),
 };
 
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };
@@ -295,6 +315,9 @@ export function MomentSheet({
   tasks,
   who,
   mayShowGuests,
+  marches,
+  wholeMarch,
+  onMarches,
   doors,
   onPatch,
   onTasks,
@@ -311,6 +334,12 @@ export function MomentSheet({
   tasks: TaskRow[] | null;
   who: TaskWhoList;
   mayShowGuests: boolean;
+  /** 🚶 The couple's own marches (made in Guests › March); `ok: false` = unread, said on the row. */
+  marches: MarchList;
+  /** What the event's Wedding March itself is called (`wholeMarchLabel`). */
+  wholeMarch: string;
+  /** A march made here joins the list every moment's dropdown reads. */
+  onMarches: (made: MarchChoice) => void;
   doors: MomentDoors;
   onPatch: (next: Partial<ChapterMoment>) => void;
   /** The event's tasks after an add, change or removal here. */
@@ -434,6 +463,7 @@ export function MomentSheet({
                 onChange={(next) => void keep({ is_optional: next ? 'true' : 'false' }, { is_optional: next })}
                 data="moment-optional"
               />
+              <MarchRow moment={m} marches={marches} wholeMarch={wholeMarch} doors={doors} onPatch={onPatch} onMarches={onMarches} />
               <TypedRow
                 name="Travel to"
                 about={{ words: 'For a trip between places — the bridal car to the church. Leave it blank when nobody travels.' }}
@@ -787,5 +817,86 @@ function TaskEditor({
         />
       </div>
     </div>
+  );
+}
+
+/* ── 🚶 this is a march ──────────────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * "This is a march" — the house dropdown (`ChosenRow` → PickMenu): Not a march · the Wedding March · each own march ·
+ * + New march. Picking saves at once (the Form Row rule); + New march opens one more row for its name, and keeping the
+ * name makes the march and links it. A refused save keeps the old pick and says why — it never shows a march that
+ * did not save.
+ */
+function MarchRow({
+  moment: m,
+  marches,
+  wholeMarch,
+  doors,
+  onPatch,
+  onMarches,
+}: {
+  moment: ChapterMoment;
+  marches: MarchList;
+  wholeMarch: string;
+  doors: MomentDoors;
+  onPatch: (next: Partial<ChapterMoment>) => void;
+  onMarches: (made: MarchChoice) => void;
+}) {
+  const [naming, setNaming] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const current = m.march_key ?? NOT_A_MARCH;
+  return (
+    <>
+      <ChosenRow
+        name="This is a march"
+        about={{
+          words:
+            'Which march walks at this moment. Marches are made in Guests › March, with the guests who walk in them. Two moments can use one march, and Not a march never deletes the march.',
+        }}
+        line={marches.ok ? undefined : 'Your marches couldn’t be read just now — the Wedding March can still be picked.'}
+        value={naming ? NEW_MARCH : current}
+        options={marchPickOptions(marches, wholeMarch, m.march_key)}
+        problem={problem ? <span role="alert">{problem}</span> : undefined}
+        onPick={(k) => {
+          setProblem(null);
+          if (k === NEW_MARCH) {
+            setNaming(true);
+            return;
+          }
+          setNaming(false);
+          if (k === current) return;
+          void doors.march('march_set', m.block_id, { march_key: k }).then((r) => {
+            if (!r.ok) setProblem(r.error);
+            else onPatch({ march_key: k === NOT_A_MARCH ? null : k });
+          });
+        }}
+        data="moment-march"
+      />
+      {naming ? (
+        <TypedRow
+          name="March name"
+          value=""
+          empty="Grand Entrance"
+          maxLength={MARCH_NAME_MAX}
+          required
+          check={(t) => {
+            const n = marchNameFrom(t);
+            return n.ok ? null : n.error;
+          }}
+          onKeep={async (t) => {
+            const n = marchNameFrom(t);
+            if (!n.ok) return { ok: false, error: n.error };
+            const r = await doors.march('march_new', m.block_id, { march_name: n.name });
+            if (!r.ok) return { ok: false, error: r.error };
+            onMarches({ key: r.value, label: n.name });
+            onPatch({ march_key: r.value });
+            setNaming(false);
+            return { ok: true };
+          }}
+          data="moment-march-name"
+        />
+      ) : null}
+    </>
   );
 }

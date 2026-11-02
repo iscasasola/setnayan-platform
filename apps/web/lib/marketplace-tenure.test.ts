@@ -104,12 +104,18 @@ test('month boundaries are read in UTC, consistently with the stored value', () 
 
 // ── The shop page ─────────────────────────────────────────────────────────
 
-test('the shop page renders it, ungated, with the column it needs', () => {
+test('the shop page renders its tenure, ungated, with the column it needs', () => {
+  /*
+    🗓 2026-10-30 (supplier website by plan, owner-approved; "Since is two lines", 2026-10-29): the shop page now says
+    "On Setnayan since Oct 2026" through `onSetnayanSinceLine` (lib/in-business-since.ts — the one phrasing Your
+    details shares). This module's sentence stays as tested above; the PAGE's two rules carry over unchanged and are
+    held here: it is rendered, and it is computed OUTSIDE the flag-gated experience probe.
+  */
   const src = stripComments(
     readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'),
   );
-  assert.match(src, /marketplaceTenureLine\(/, 'the shop page never computes it');
-  assert.match(src, /\{marketplaceSince \? \(/, 'it is computed but never rendered');
+  assert.match(src, /onSetnayanSinceLine\(/, 'the shop page never computes it');
+  assert.match(src, /onSetnayanSince=\{onSetnayanSince\}/, 'it is computed but never rendered');
   /*
     ⚠ NOT INSIDE THE FLAG-GATED EXPERIENCE PROBE. `vendorExperienceEnabled()`
     guards that block, and a line behind a switch whose production value nobody
@@ -117,7 +123,7 @@ test('the shop page renders it, ungated, with the column it needs', () => {
     guest-session token check on the same day.
   */
   const gate = src.indexOf('vendorExperienceEnabled()');
-  const compute = src.indexOf('marketplaceTenureLine(');
+  const compute = src.indexOf('onSetnayanSinceLine(');
   assert.ok(gate > -1 && compute > -1);
   assert.ok(
     compute < gate,
@@ -126,6 +132,8 @@ test('the shop page renders it, ungated, with the column it needs', () => {
   // The column must be in BOTH selects — the legacy fallback must not drop it.
   const selects = (src.match(/,created_at';/g) ?? []).length;
   assert.equal(selects, 2, `created_at is in ${selects} of the 2 selects`);
+  const line = readFileSync(join(process.cwd(), 'app/v/[slug]/_components/shop-since-line.tsx'), 'utf8');
+  assert.match(line, /ON_SETNAYAN_SINCE_LABEL/, 'the shop page phrases "On Setnayan since" on its own');
 });
 
 test('case count', () => {

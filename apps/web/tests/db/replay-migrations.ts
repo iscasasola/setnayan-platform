@@ -77,7 +77,18 @@ export const ALLOWED_SKIP: ReadonlyMap<string, string> = new Map([
   ],
 ]);
 
+/*
+  📏 max_stack_depth 6MB (2026-11-02, measured). PGlite (WebAssembly) does not hand back all of its stack after an
+  ERROR — the replay raises ~1,600 of them on purpose (deferred files, and every skip `auditSkips` re-attempts), and
+  the room left shrinks with each one. At the stock 2MB the AUDITED replay ran out exactly when the corpus grew by one
+  file: the next two migrations failed with "stack depth limit exceeded" — and a one-line placeholder migration in
+  their place reproduced it, so it was the COUNT, not any file's SQL. Measured: a runaway recursion still ends the same
+  way at 2MB and at 6MB (PGlite stops either way), so this guards nothing less; it only stops an error budget from
+  reading as a broken migration. Held by replay-order-is-honest.db.test.ts ("every skip the drain took …"), which fails
+  at 2MB on today's corpus.
+*/
 const BOOTSTRAP = `
+SET max_stack_depth = '6MB';
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
@@ -684,16 +695,6 @@ export async function createReplayedDb(opts: ReplayOptions = {}): Promise<Replay
     forceEager: ReadonlySet<string>,
   ): Promise<{ db: PGlite; order: ReplayOrder }> {
     const db = await PGlite.create({ extensions: { pgcrypto } });
-    /*
-      🧱 EVERY FAILED STATEMENT COSTS PGLITE A LITTLE STACK, AND IT NEVER COMES BACK (measured 2026-11-02 on
-      @electric-sql/pglite, a fresh database: 1,657 failing `exec`s then "stack depth limit exceeded" on ANY statement,
-      at the default max_stack_depth = 2MB; 5,805 at 7MB, no crash). The audited replay (`auditSkips`) re-attempts
-      ~1,500 retries it knows will fail, so the corpus sat just under the line — and the next two migrations that
-      landed behind a newer one (#7167, #7170) tipped it over: the LAST files of the corpus then "failed" to apply
-      for no reason of their own. 7MB is headroom for the harness, not a fix in any migration; production Postgres
-      never sees it.
-    */
-    await db.exec(`SET max_stack_depth = '7MB'`);
     await db.exec(`CREATE SCHEMA IF NOT EXISTS extensions;`);
     await db.exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;`);
     await db.exec(BOOTSTRAP);

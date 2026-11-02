@@ -80,7 +80,7 @@ export async function BookedSlot({
     callTimes: schedule === undefined ? undefined : schedule === null ? null : schedule.callTimes,
     chapters: schedule === undefined ? undefined : schedule === null ? null : schedule.chapters,
   });
-  // The Budget is its own part now (Team · Budget · Schedule, owner 2026-10-29) — the whole Budget page, at
-  // `?part=budget`, behind the body's "Team ▾" — so the small block that sat under the rows is not drawn here.
+  // The Budget is its own page (Team · Budget · Schedule, owner 2026-10-29; Home's page since 2026-11-01), a door in
+  // the body's "Team ▾" — so the small block that sat under the rows is not drawn here.
   return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} parts={parts} />;
 }

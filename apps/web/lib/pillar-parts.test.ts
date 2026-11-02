@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { partHref, yourTeamBudgetHref, yourTeamParts } from './pillar-parts';
+import { budgetPageHref, partHref, yourTeamParts } from './pillar-parts';
 import * as pillarParts from './pillar-parts';
 
 /**
@@ -38,15 +38,16 @@ test('the Guest list has no parts row — and its old part addresses land', () =
   assert.match(desk, /<h1\b/);
 });
 
-test('Your Team holds the team and the Budget, both on the Your Team page', () => {
+test('Suppliers offers the team and a door to the Budget page (Home\'s page since 2026-11-01)', () => {
   assert.deepEqual(
     yourTeamParts({ eventId: 'E', budgetEnabled: true }).map((p) => [p.key, p.label, p.href]),
     [
       ['team', 'Suppliers', '/dashboard/E/vendors'],
-      ['budget', 'Budget', '/dashboard/E/vendors?part=budget'],
+      ['budget', 'Budget', '/dashboard/E/budget'],
     ],
   );
-  assert.equal(yourTeamBudgetHref('E'), '/dashboard/E/vendors?part=budget');
+  assert.equal(budgetPageHref('E'), '/dashboard/E/budget');
+  assert.equal(budgetPageHref('E', { pay: 'li 1' }), '/dashboard/E/budget?pay=li%201');
 });
 
 test('an event type without the budget surface is never offered a Budget that sends it home', () => {
@@ -80,14 +81,14 @@ test('/hosts lands on the Guest list for anybody who can see it, and keeps a hel
   assert.doesNotMatch(page, /<form|action=\{/, '/hosts grew a control again — its controls moved (the Hosts fold)');
 });
 
-test('Your Team MOUNTS the shipped Budget page as its part, and offers it from the team', () => {
+test('Suppliers offers the Budget page from the team — a door, never a second copy of it', () => {
   const page = read('vendors', 'page.tsx');
-  assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
-  // Under Booked since 2026-10-30 (Team · Budget · Schedule): the SAME shipped page, inside the Suppliers shell.
+  // 💰 Since 2026-11-01 the Budget is Home's page; Suppliers only forwards its old `?part=budget` address there.
+  assert.doesNotMatch(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Suppliers draws the Budget page again — two places');
   assert.match(
     page,
-    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) \{[\s\S]*?<BookedPartPage[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay \}/,
-    'the Budget part is not rendered, or does not tell the page it is embedded',
+    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\);/,
+    'the old Budget part address no longer forwards to the Budget page with its ?pay=',
   );
   // ⚖ Owner 2026-10-07 (the one-screen Suppliers shell, PR1): the five-row
   // "Your planning" menu is retired, so Budget is no longer a row of it. It
@@ -110,18 +111,15 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   const body = read('vendors', '_components', 'booked-body.tsx');
   assert.match(body, /<BookedPartRow current="team" line=\{countLine\} \/>/, 'the Booked body no longer says its count in the row');
   const section = read('vendors', '_components', 'booked-budget.tsx');
-  assert.match(section, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the Budget block builds the Budget part\'s address by hand');
+  assert.match(section, /const budgetHref = budgetPageHref\(eventId\);/, 'the Budget block builds the Budget page\'s address by hand');
   assert.ok(
     (section.match(/href=\{budgetHref\}/g) ?? []).length >= 1,
     'the Budget section no longer links the Budget part by its own address',
   );
 });
 
-test('/budget lands in Your Team only where Your Team exists', () => {
+test('/budget is its own page — it no longer lands in Suppliers (owner 2026-11-01, "Okay place it in home")', () => {
+  // The property itself is held by `the-budget-page-is-one-place.test.ts`; this keeps the old pin's slot honest.
   const page = read('budget', 'page.tsx');
-  assert.match(
-    page,
-    /if \(YOUR_TEAM_BUDGET_PART !== \(await searchParams\)\?\.part && profile\.marketplaceEnabled === true\)/,
-    'the budget redirect is not gated on the embedded marker and on Your Team existing',
-  );
+  assert.doesNotMatch(page, /YOUR_TEAM_BUDGET_PART|yourTeamBudgetHref/, 'the Budget page asks for the Suppliers part again');
 });

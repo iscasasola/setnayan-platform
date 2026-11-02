@@ -1,5 +1,5 @@
 import { sortTables, spreadForDisplay } from '@/lib/table-order';
-import { DEFAULT_FLOOR_PLAN, groupColorFor, type EventTableRow, type FloorBoothRow } from '@/lib/seating';
+import { DEFAULT_FLOOR_PLAN, computeAutoSeat, groupColorFor, type AutoSeatGuest, type EventTableRow, type FloorBoothRow, type VipPlusOneSeating } from '@/lib/seating';
 import type { SeatingGuest } from '@/app/dashboard/[eventId]/seating/_components/seating-editor';
 import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/seating-lazy';
 import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/seat-plan-in-guests';
@@ -77,13 +77,75 @@ function caleShapedTables(after: boolean): EventTableRow[] {
   return after ? spreadForDisplay(sortTables(db)) : db;
 }
 
-export function LabSeats({ guests, seat, big = false, cale = null }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null }) {
-  const LAB_TABLES = cale ? caleShapedTables(cale === 'after') : LAB_TABLES_SMALL;
+/**
+ * 🪑 `&cale=after&vip=none|beside|nearest` — seating slice B on the same cale-shaped room, SEATED BY THE SHIPPED
+ * `computeAutoSeat`: ~230 synthetic guests in groups, with families, crews, sponsors (+ their spouses as +1s), and
+ * Tables 2 and 3 marked VIP (`none` = no VIP table — the seater as it ran before VIP tables). Lab data only.
+ */
+type VipLab = 'none' | VipPlusOneSeating;
+function vipLabRoom(mode: VipLab) {
+  const tables = caleShapedTables(true).map((t) => ({ ...t, is_vip: mode !== 'none' && (t.table_label === 'Table 2' || t.table_label === 'Table 3') }));
+  const people: AutoSeatGuest[] = [];
+  const LAST = ['Reyes', 'Santos', 'Cruz', 'Bautista', 'Garcia', 'Mendoza', 'Torres', 'Flores', 'Ramos', 'Aquino'];
+  const FIRST = ['Ana', 'Ben', 'Carla', 'Dino', 'Ella', 'Fe', 'Gino', 'Hana', 'Ivo', 'Jen', 'Kiko', 'Lia', 'Mon', 'Nina', 'Oscar', 'Pia'];
+  let n = 0;
+  const add = (over: Partial<AutoSeatGuest>): AutoSeatGuest => {
+    const g = { guest_id: `lab-v-${String(n).padStart(3, '0')}`, role: 'guest', group_category: 'friends', rsvp_status: 'attending', plus_one_of_guest_id: null, last_name: LAST[n % LAST.length]!, first_name: FIRST[(n * 7) % FIRST.length]!, group_id: null, ...over } as AutoSeatGuest;
+    n++;
+    people.push(g);
+    return g;
+  };
+  ['bride_parents', 'bride_parents', 'groom_parents', 'groom_parents', 'bride_immediate_family', 'groom_immediate_family'].forEach((role, i) =>
+    add({ role, group_category: 'family', group_id: i % 2 ? 'lab-g-groomfam' : 'lab-g-bridefam' }),
+  );
+  ['maid_of_honor', 'best_man', 'bridesmaid', 'bridesmaid', 'groomsman', 'groomsman'].forEach((role, i) => add({ role, group_id: i % 2 ? 'lab-g-work' : 'lab-g-college' }));
+  const sponsors = Array.from({ length: 8 }, (_, i) => add({ role: i % 2 ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong', group_id: `lab-g-${i % 4}` }));
+  sponsors.forEach((sp) => add({ group_id: sp.group_id, plus_one_of_guest_id: sp.guest_id, last_name: sp.last_name }));
+  for (let grp = 0; grp < 20; grp++) {
+    for (let k = 0; k < 8; k++) {
+      const host = add({ group_id: `lab-g-${grp}` });
+      if (k % 4 === 0) add({ group_id: `lab-g-${grp}`, plus_one_of_guest_id: host.guest_id, last_name: host.last_name });
+    }
+  }
+  const rows = computeAutoSeat(tables, people, [], undefined, null, undefined, true, null, { vipPlusOnes: mode === 'nearest' ? 'nearest' : 'beside' });
+  const at = new Map(rows.map((r) => [r.guest_id, r]));
+  const groupIds = [...new Set(people.map((g) => g.group_id).filter((x): x is string => Boolean(x)))];
+  const groups = groupIds.map((id, i) => ({ group_id: id, label: id.replace('lab-g-', 'Group '), color: groupColorFor(i), member_count: people.filter((g) => g.group_id === id).length }));
+  const guests: SeatingGuest[] = people.map((g) => {
+    const name = `${g.first_name} ${g.last_name}`;
+    const r = at.get(g.guest_id);
+    return {
+      guest_id: g.guest_id,
+      name,
+      plus_one_of: g.plus_one_of_guest_id,
+      initials: `${g.first_name[0]}${g.last_name[0]}`,
+      photo_url: null,
+      side: 'both',
+      group_id: g.group_id,
+      rsvp_status: g.rsvp_status,
+      seated_table_id: r?.table_id ?? null,
+      seat_number: r?.seat_number ?? null,
+      seat_locked: false,
+      seat_placed_by: r ? 'auto' : null,
+      seat_placed_at: null,
+      role: g.role,
+      group_category: g.group_category,
+      meal_preference: null,
+      dietary_restrictions: null,
+      seating_priority: null,
+    };
+  });
+  return { tables, guests, groups };
+}
+
+export function LabSeats({ guests, seat, big = false, cale = null, vip = null }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
+  const vipRoom = vip ? vipLabRoom(vip) : null;
+  const LAB_TABLES = vipRoom ? vipRoom.tables : cale ? caleShapedTables(cale === 'after') : LAB_TABLES_SMALL;
   async function labPolicy(formData: FormData) {
     'use server';
     void formData;
   }
-  const seatingGuests: SeatingGuest[] = guests.map((g, i) => {
+  const seatingGuests: SeatingGuest[] = vipRoom ? vipRoom.guests : guests.map((g, i) => {
     const name = [g.first_name, g.last_name].filter(Boolean).join(' ') || 'Guest';
     const seated = i % 3 !== 2 ? LAB_TABLES[i % LAB_TABLES.length]! : null;
     return {
@@ -118,8 +180,8 @@ export function LabSeats({ guests, seat, big = false, cale = null }: { guests: r
         roleSetKey="wedding"
         tables={LAB_TABLES}
         guests={seatingGuests}
-        groups={[{ group_id: 'grp-b', label: 'Barkada', color: groupColorFor(0), member_count: 4 }]}
-        floorPlan={{ ...DEFAULT_FLOOR_PLAN, venue_width_m: 24, venue_length_m: 18 }}
+        groups={vipRoom ? vipRoom.groups : [{ group_id: 'grp-b', label: 'Barkada', color: groupColorFor(0), member_count: 4 }]}
+        floorPlan={{ ...DEFAULT_FLOOR_PLAN, venue_width_m: 24, venue_length_m: 18, vip_plus_ones: vip === 'nearest' ? 'nearest' : 'beside' }}
         booths={LAB_BOOTHS}
         signs={[]}
         bookedVendors={[]}

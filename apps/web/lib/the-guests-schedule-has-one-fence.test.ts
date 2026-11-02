@@ -90,6 +90,11 @@ const GUEST_FACING: Record<string, GuestRead> = {
     reads: 1,
     ownShape: true,
   },
+  'app/[slug]/_lib/your-schedule.server.ts': {
+    why: 'Event Hub › Me › Your schedule (owner 2026-11-01, plan §11b): the chapters a guest is invited to, and after Release their OWN lines in private moments too. Service-role; staged prep is refused in the read, and whose line it is is decided by `yourSchedule` — held row by row by app/[slug]/_lib/your-schedule-is-only-yours.test.ts.',
+    reads: 1,
+    ownShape: true,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,

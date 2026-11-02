@@ -681,7 +681,7 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
   const doors: HomeDoor[] = [];
   // ✅ "N to approve" opens the supplier requests sheet — Approve one, Approve all (#7150) — with the Schedule.
   if (s.toApprove > 0) doors.push({ id: 'approve', label: `${n(s.toApprove)} to approve`, href: `/dashboard/${e}/schedule?sheet=requests`, main: true });
-  if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: `/dashboard/${e}/schedule`, main: true, pro: !s.pro });
+  if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: `/dashboard/${e}/schedule?announce=1`, main: true, pro: !s.pro });
   if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: `/dashboard/${e}/schedule` });
   if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} owe times`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time
   return { key: 'sched', label: 'Schedule', door, failed: false, span: true, today: isToday, faces, info: SCHEDULE_TILE_INFO, doors };

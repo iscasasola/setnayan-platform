@@ -1866,6 +1866,7 @@
       "destinations": [
         "/[seg]",
         "/[seg]/find-my-table",
+        "/[seg]/hub",
         "/papic/me/[seg]"
       ],
       "actions": [],
@@ -2624,6 +2625,7 @@
     "/admin/booking-fees": {
       "files": [
         "admin/booking-fees/actions.ts",
+        "admin/booking-fees/bookings-open-form.tsx",
         "admin/booking-fees/page.tsx",
         "admin/booking-fees/review-min-form.tsx"
       ],
@@ -2634,6 +2636,8 @@
         "formAction"
       ],
       "blocks": [
+        "BookingsOpenForm",
+        "BookingsOpenState",
         "Link",
         "PageMasthead",
         "ReviewMinForm",
@@ -5789,6 +5793,7 @@
         "dashboard/[eventId]/_components/day-of-mode/grid.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-photo-wall-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-schedule-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/schedule-unread.tsx",
         "dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx",
         "dashboard/[eventId]/_components/details-guide-home-card.tsx",
@@ -5941,6 +5946,7 @@
         "updatePaxSettings"
       ],
       "blocks": [
+        "AccessAsksRead",
         "AccessRequestsDoorway",
         "AccountSwitcher",
         "ActionButton",
@@ -6227,6 +6233,7 @@
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "ScheduleDoors",
+        "ScheduleUnread",
         "Screen",
         "SearchHead",
         "SendBroadcastResult",
@@ -6303,6 +6310,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadRefusedNotice",
         "RequestCard"
       ]
     },
@@ -6390,6 +6398,7 @@
         "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/export?format=pdf",
         "/api/budget/[seg]/ics",
+        "/dashboard/[seg]/budget",
         "/dashboard/[seg]/messages"
       ],
       "actions": [
@@ -7418,6 +7427,7 @@
         "PageMasthead",
         "PaidMark",
         "QrActions",
+        "ReadRefusedNotice",
         "ReissueQrButton",
         "SlugField",
         "StatusBadge",
@@ -7433,7 +7443,9 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "ReadRefusedNotice"
+      ]
     },
     "/dashboard/[eventId]/launch": {
       "files": [
@@ -8561,6 +8573,7 @@
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
+        "dashboard/[eventId]/schedule/_components/request-decision.tsx",
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
         "dashboard/[eventId]/schedule/_components/schedule-lazy.tsx",
@@ -8595,7 +8608,6 @@
         "createScheduleBlock",
         "deleteScheduleBlock",
         "loadScheduleTemplate",
-        "resolveScheduleSuggestion",
         "saveHostAnswers",
         "sendStageNoteFromEvent",
         "setBlockPrepVisibility",
@@ -8687,7 +8699,9 @@
         "PreparationEmptyState",
         "PreparationLegend",
         "PreparationRow",
+        "ReadRefusedNotice",
         "ReleaseRow",
+        "RequestDecision",
         "RequestsSheet",
         "ResponsiblePartyEditor",
         "Rolled",
@@ -8702,6 +8716,7 @@
         "ScheduleLineView",
         "ScheduleModeToggle",
         "ScheduleOneLine",
+        "ScheduleRequestAnswer",
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
@@ -8846,6 +8861,7 @@
         "Pop",
         "PresenceMeta",
         "PriorityOrder",
+        "ReadRefusedNotice",
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
@@ -9631,6 +9647,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadRefusedNotice",
         "RecapDriveNudge",
         "RecapSocialFeatureToggle",
         "ShareButtons",
@@ -10057,6 +10074,7 @@
         "BarButtons",
         "BenchLocal",
         "BenchLocalCtx.Provider",
+        "BenchMarketSearch",
         "BenchRollUp",
         "BenchSort",
         "BenchUnread",
@@ -10474,7 +10492,8 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors/categories?q=[seg]"
       ],
       "actions": [
         "base"
@@ -13999,6 +14018,7 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
+        "vendor-dashboard/_components/claim-wait-lines.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-lines.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
@@ -14120,6 +14140,7 @@
         "BranchPlace",
         "BranchRow",
         "CardShell",
+        "ClaimWaitLines",
         "Collapsible",
         "ComingSoon",
         "Connected",

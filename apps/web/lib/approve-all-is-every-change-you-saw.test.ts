@@ -58,12 +58,16 @@ test('2 · the sheet pins Approve all behind the house confirm, with the ids it 
   assert.match(sheet, /const together = approvableTogether\(requests\)/, 'Approve all counts something other than the changes on the sheet');
   const foot = sheet.slice(sheet.indexOf('together.length > 0 ?'));
   assert.ok(foot.length > 0 && /sticky bottom-0/.test(foot), 'Approve all is not pinned at the foot');
-  assert.match(foot, /<ConfirmForm\s+action=\{resolveScheduleSuggestion\}/, 'Approve all fires without the house confirm');
+  // 🔁 Saved in place since 2026-11-02 (audit #15): the confirm's action reads the door's answer instead of redirecting.
+  assert.match(foot, /<ConfirmForm\s+action=\{async \(fd\) => \{[\s\S]*?await resolveScheduleSuggestion\(fd\)/, 'Approve all fires without the house confirm');
   assert.match(foot, /<input type="hidden" name="decision" value="accept_all" \/>/, 'the press is not marked as Approve all');
   assert.match(foot, /together\.map\(\(r\) => \(\s*<input key=\{r\.suggestion_id\} type="hidden" name="suggestion_id" value=\{r\.suggestion_id\} \/>/, 'it posts something other than the ids shown');
   assert.match(foot, /Approve all \{formatCount\(together\.length\)\}/, 'the button does not say how many');
-  assert.match(sheet, /\{isNoteOnlySuggestion\(r\) \? 'Noted' : 'Approve'\}/, 'a suggestion in words is Approved, not Noted');
-  assert.match(sheet, /\{isNoteOnlySuggestion\(r\) \? null : \(\s*<form action=\{resolveScheduleSuggestion\}>[\s\S]*?value="decline"/, 'a suggestion in words can be Declined');
+  // One request's Decline · Approve / Noted is `RequestDecision` (saved in place, 2026-11-02).
+  assert.match(sheet, /<RequestDecision [^>]*noteOnly=\{isNoteOnlySuggestion\(r\)\} decide=\{resolveScheduleSuggestion\} \/>/, 'a request does not decide through the one door');
+  const decision = stripComments(readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'schedule', '_components', 'request-decision.tsx'), 'utf8'));
+  assert.match(decision, /noteOnly \? 'Noted' : 'Approve'/, 'a suggestion in words is Approved, not Noted');
+  assert.match(decision, /\{noteOnly \? null : \([\s\S]*?press\('decline'\)/, 'a suggestion in words can be Declined');
 });
 
 test('3 · the server keeps notes out and approves through the one accept path', () => {
@@ -87,5 +91,5 @@ test('4 · it approves the ids that were shown, never whatever is open now', () 
   const all = body(read('actions.ts'), 'approveAllScheduleSuggestions');
   assert.match(all, /formData\.getAll\('suggestion_id'\)/);
   assert.doesNotMatch(all, /\.from\('event_schedule_suggestions'\)/, 'Approve all reads the open list itself');
-  assert.match(all, /refused > 0[\s\S]*?throw new Error/, 'a refused change ends in the look of success');
+  assert.match(all, /refused > 0[\s\S]*?ok: false/, 'a refused change ends in the look of success');
 });

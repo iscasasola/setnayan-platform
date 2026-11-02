@@ -231,7 +231,7 @@ test('E · a Programme edit from the Maker revalidates nothing; the standalone p
   const actions = read(`${SCH}/actions.ts`);
   assert.match(
     actions,
-    /function revalidateScheduleUnlessMaker\(eventId: string, formData: FormData\): void \{\s*if \(makerQuietWrite\(formData\)\) return;\s*revalidatePath\(`\/dashboard\/\$\{eventId\}\/schedule`\);\s*revalidatePath\(`\/dashboard\/\$\{eventId\}`\);\s*\}/,
+    /function revalidateScheduleUnlessMaker\(eventId: string, formData: FormData\): void \{\s*if \(makerQuietWrite\(formData\)\) return;\s*revalidatePath\(`\/dashboard\/\$\{eventId\}\/schedule`\);\s*revalidatePath\(`\/dashboard\/\$\{eventId\}`\);\s*(?:\/\/[^\n]*\n\s*)?(?:revalidatePath\(`\/dashboard\/\$\{eventId\}\/vendors`\);\s*)?\}/,
   );
   for (const fn of ['updateScheduleBlock', 'toggleBlockVisibility', 'setBlockResponsibleParty', 'setBlockPrepVisibility', 'bulkRetimeScheduleBlocks', 'deleteScheduleBlock']) {
     const at = actions.indexOf(`export async function ${fn}(`);

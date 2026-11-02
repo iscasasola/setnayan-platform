@@ -1,4 +1,5 @@
 'use client';
+import { ScheduleUnread } from './schedule-unread';
 
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 
@@ -38,6 +39,8 @@ export function upNext<B extends Block>(blocks: readonly B[], now: number): { ti
 type Props = {
   eventId: string;
   blocks: Block[];
+  /** 🛑 The schedule read was refused — said, never "Nothing else queued for today". */
+  failed?: boolean;
 };
 
 // A stored block time is the VENUE'S WALL CLOCK, not an instant. This card is
@@ -46,7 +49,7 @@ type Props = {
 // rendered the same value correctly on the server. See lib/schedule-datetime-local.ts.
 const formatClock = (iso: string): string => formatWallClock(iso);
 
-export function LiveScheduleCard({ eventId, blocks }: Props) {
+export function LiveScheduleCard({ eventId, blocks, failed = false }: Props) {
   // Re-render every 60s so the relative-time countdowns stay fresh.
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -72,7 +75,9 @@ export function LiveScheduleCard({ eventId, blocks }: Props) {
         </Link>
       </header>
 
-      {upcoming.length === 0 && tba.length === 0 ? (
+      {failed ? (
+        <ScheduleUnread />
+      ) : upcoming.length === 0 && tba.length === 0 ? (
         <p className="text-sm text-ink/55">
           Nothing else queued for today.
         </p>

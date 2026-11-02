@@ -26,6 +26,7 @@ import { passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 
 import { sampleArriveBy, sampleDay, sampleGuestName, sampleSeat, sampleSnapshot } from './hub';
 import type { SampleGuest } from './snapshot';
+import { joinCoupleNames } from '@/lib/typed-names';
 
 /** Where a sample ticket's picture is served (`app/sample/pass/[guestKey]/route.ts`). */
 export function samplePassSrc(guestKey: string, design?: PassCardDesign): string {
@@ -56,7 +57,7 @@ function printSetData(now: Date, design: PassCardDesign): PrintSetData {
     receptionTime: reception ? hhmm(reception.at) : null,
     receptionVenue: reception?.location ?? null,
     monogram: null,
-    initials: `${s.couple.bride.first[0]} & ${s.couple.groom.first[0]}`,
+    initials: joinCoupleNames(s.couple.bride.first[0], s.couple.groom.first[0]),
     details: { parents: [], openingLine: null, rsvpContact: null, giftLines: [], setnayanMark: true, passDesign: design },
     entourage: [],
     attire: [],

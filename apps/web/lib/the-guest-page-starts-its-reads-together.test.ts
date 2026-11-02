@@ -102,8 +102,17 @@ test('only these reads are started ahead — each one every path below awaits, n
     aheadCalls(PAGE).sort(),
     // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
     //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'resolveVendorCapability'].sort(),
+    // + `readYourSchedule` (2026-11-02, Event Hub › Me › Your schedule): four reads, started once the guest's row is
+    //   known to be theirs, awaited once where Me is drawn — no return lies between (held below).
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readYourSchedule', 'resolveVendorCapability'].sort(),
   );
+  {
+    const started = PAGE.indexOf('const yourScheduleAhead =');
+    const awaited = PAGE.indexOf('const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;');
+    assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, 'Your schedule is started before the guest is known, or never awaited');
+    assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, 'a path between starting Your schedule and awaiting it leaves without awaiting it');
+    assert.equal(count(PAGE, 'readYourSchedule('), 1, 'Your schedule is asked twice');
+  }
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
     [

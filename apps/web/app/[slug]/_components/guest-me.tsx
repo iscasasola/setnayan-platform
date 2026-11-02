@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { CelebrantRow } from '@/lib/event-celebrants.server';
 import { EventCelebrants, type CelebrantActions } from './event-celebrants';
@@ -66,7 +67,10 @@ export function GuestMe({
   celebrantActions = null,
   profileName = null,
   plain = false,
+  yourSchedule = null,
 }: {
+  /** 📅 "Your schedule" (plan §11b) — the card the page drew (`YourScheduleCard`), under the name and guests card. */
+  yourSchedule?: ReactNode;
   /** 🪪 The redrawn Me (owner 2026-10-24): no name of its own (Me's top says it), no cards. */
   plain?: boolean;
   name: string;
@@ -132,6 +136,7 @@ export function GuestMe({
           passCards={passCards}
         />
       </section>
+      {yourSchedule}
       {faceTagging ? <FaceTaggingRow {...faceTagging} /> : null}
       <EventCelebrants
         eventId={eventId}

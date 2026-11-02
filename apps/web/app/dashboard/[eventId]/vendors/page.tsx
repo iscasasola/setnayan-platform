@@ -217,6 +217,8 @@ type Props = {
     host_answers?: string;
     /** `requests` — Booked › Schedule opens its supplier requests sheet (Home's "N to approve", owner 2026-11-01). */
     sheet?: string;
+    /** 🔗 Booked › Team opens on this supplier's row (`event_vendors.vendor_id`) — "Not on Setnayan yet — invite them". */
+    team?: string;
   }>;
 };
 
@@ -2301,6 +2303,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       facts={bookedFacts}
       // Booked = Team · Budget · Schedule (owner 2026-10-29) — the body's first-row dropdown.
       parts={bookedPartList}
+      firstOpen={typeof sp.team === 'string' && sp.team ? sp.team : null}
       // A delegate the host kept out of the Schedule reads no moments — their rows draw no call-time line.
       scheduleShared={!isDelegateWithoutArea(viewer, 'schedule')}
     />

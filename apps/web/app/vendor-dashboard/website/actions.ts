@@ -215,7 +215,7 @@ export type ShowPageResult = { ok: true; shown: boolean } | { ok: false; error: 
 /**
  * The shop's manager shows (or hides) its page before Setnayan verifies it — only while bookings are closed, so
  * nothing on the page can be booked; the Verified badge still comes only from the documents. Written with the service
- * role after the manager check: `self_published_at` carries no session grant (migration 20271303245624).
+ * role after the manager check (a session may read `self_published_at`, migration 20271303245624, but the write is this action's).
  */
 export async function setShopPublished(show: boolean): Promise<ShowPageResult> {
   const supabase = await createClient();

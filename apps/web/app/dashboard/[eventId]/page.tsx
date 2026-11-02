@@ -24,7 +24,7 @@ import { HomeWhosHereCard } from './_components/home-cards/home-whos-here-card';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { AccessRequestsDoorway, accessAsksWaiting, readAccessAsks } from './_components/access-requests-doorway';
 import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
 import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
@@ -242,6 +242,8 @@ export default async function EventHomePage({
   if (!user) redirect('/login');
   // 🚪 What THIS event needs (Level 1) — started now, its own small read, degrading to "everything on".
   const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
+  // 🔑 What access asks wait on the hosts — started now; the Today line and its doorway share the one answer.
+  const accessAsksAhead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
 
   // Lazy expiry sweeps at the top of the dashboard (no-cron architecture per
   // CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures never block the
@@ -1123,8 +1125,11 @@ export default async function EventHomePage({
     one budget read, every payment still to settle from the resolved ledger (`event_vendor_line_items`, banded by
     `lib/budget-truth.ts` `dueState`). Never invented: an unread read is 'unread' and its widget says so.
   */
+  // 🔑 What access asks wait — ONE read, shared by the Today line (`asks`) and its doorway below (audit 2026-11-02 #2).
+  const accessAsks = await accessAsksAhead;
   const homeControl = composeHomeControl({
     eventId,
+    asks: accessAsksWaiting(accessAsks),
     next: homeNext,
     days: facts.days,
     daysN: facts.figures.days ?? null,
@@ -1168,7 +1173,7 @@ export default async function EventHomePage({
       <CoordinatorLevelCard eventId={eventId} userId={user.id} />
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
-      <AccessRequestsDoorway eventId={eventId} />
+      <AccessRequestsDoorway eventId={eventId} read={accessAsks} />
       {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
           2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
       <MoodBoardAsksDoorway eventId={eventId} />
@@ -1454,6 +1459,7 @@ export default async function EventHomePage({
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
           tablesFailed={dayOfTablesFailed}
+          blocksFailed={dayOfBlocksFailed}
           sameDayVendors={dayOfSameDayVendors}
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}

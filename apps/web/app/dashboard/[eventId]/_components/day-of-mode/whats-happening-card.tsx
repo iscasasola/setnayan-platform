@@ -1,4 +1,5 @@
 'use client';
+import { ScheduleUnread } from './schedule-unread';
 
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 
@@ -32,6 +33,8 @@ type Props = {
    * The wall clock stays the fallback while every block is still 'upcoming'.
    */
   runStateTrigger?: boolean;
+  /** 🛑 The schedule read was refused (Home's day-of grid) — said, never "wrapped" or "empty". */
+  failed?: boolean;
 };
 
 type State =
@@ -97,7 +100,7 @@ export function deriveState(blocks: Block[], now: number): State {
 // rendered the same value correctly on the server. See lib/schedule-datetime-local.ts.
 const formatClock = (iso: string): string => formatWallClock(iso);
 
-export function WhatsHappeningCard({ blocks, runStateTrigger = false }: Props) {
+export function WhatsHappeningCard({ blocks, runStateTrigger = false, failed = false }: Props) {
   // tick re-renders every 60s so the countdown stays current.
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -129,7 +132,9 @@ export function WhatsHappeningCard({ blocks, runStateTrigger = false }: Props) {
         />
       </header>
 
-      {state.kind === 'active' ? (
+      {failed ? (
+        <ScheduleUnread tone="dark" />
+      ) : state.kind === 'active' ? (
         <>
           <h3
             className="text-xl font-extrabold tracking-tight"

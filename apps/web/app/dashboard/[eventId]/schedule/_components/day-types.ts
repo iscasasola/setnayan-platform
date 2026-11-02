@@ -77,6 +77,6 @@ export type DayActions = {
   setBlockResponsibleParty: (fd: FormData) => Promise<unknown>;
   setBlockPrepVisibility: (fd: FormData) => Promise<unknown>;
   loadScheduleTemplate: (fd: FormData) => Promise<unknown>;
-  /** Used as a `<form action>`, so it keeps the form-action shape. */
-  resolveScheduleSuggestion: (fd: FormData) => Promise<void>;
+  /** 🔁 Answers in words (`ScheduleRequestAnswer`, read through `requestAnswerOf`) — the sheet saves in place. */
+  resolveScheduleSuggestion: (fd: FormData) => Promise<unknown>;
 };

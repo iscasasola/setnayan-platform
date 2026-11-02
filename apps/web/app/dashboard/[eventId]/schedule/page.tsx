@@ -32,6 +32,7 @@ import { BookedPartRow } from '../vendors/_components/booked-part-row';
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from './_components/booked-schedule-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { RequestDecision } from './_components/request-decision';
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -74,6 +75,7 @@ import { resolveAreaLevel, type ModeratorPermissions } from '@/lib/event-moderat
 import {
   EMPTY_ROS_META,
   fetchBlockRosMeta,
+  isNoteOnlySuggestion,
   type RosMetaMap,
 } from '@/lib/schedule-ros';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -1263,19 +1265,8 @@ function VendorSuggestionsQueue({
               {s.proposed_location ? (
                 <p className="text-xs text-ink/55">Location: {s.proposed_location}</p>
               ) : null}
-              <div className="flex items-center gap-2 pt-0.5">
-                <form action={resolveScheduleSuggestion}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
-                  <input type="hidden" name="decision" value="accept" />
-                  <SubmitButton pendingLabel="Accepting…" className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85">Accept</SubmitButton>
-                </form>
-                <form action={resolveScheduleSuggestion}>
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
-                  <input type="hidden" name="decision" value="decline" />
-                  <SubmitButton pendingLabel="Declining…" className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5">Decline</SubmitButton>
-                </form>
+              <div className="pt-0.5">
+                <RequestDecision eventId={eventId} suggestionId={s.suggestion_id} noteOnly={isNoteOnlySuggestion(s)} decide={resolveScheduleSuggestion} />
               </div>
             </li>
           );

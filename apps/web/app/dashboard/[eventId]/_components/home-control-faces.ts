@@ -240,6 +240,8 @@ export type HomeControlInput = {
    * failed (said, never "No chapters yet"). `pro` = the event owns Pro (Release wears no ◆ PRO).
    */
   schedule?: (HomeScheduleFacts & { pro: boolean }) | 'unread' | null;
+  /** 🔑 Access asks waiting on the hosts (`readAccessAsks`, drawn as Today lines above); 'unread' = the read failed. */
+  asks?: number | 'unread' | null;
 };
 
 /* ─── Words ────────────────────────────────────────────────────────────────── */
@@ -300,15 +302,76 @@ export const BUDGET_MAX_PAY_FACES = 5;
 
 /* ─── Today — the one pointer (notes: option A, "a pointer, not a door") ───── */
 
-export type HomeTodayTarget = HomeControlKey | 'sched' | 'papic' | 'ai';
+export type HomeTodayTarget = HomeControlKey | 'sched' | 'papic' | 'ai' | 'asks';
 export type HomeToday = { target: HomeTodayTarget; words: string; tail: string; calm: boolean };
+
+/**
+ * ☀ WHAT WAITS ON THE HOSTS, FROM THE WIDGETS' OWN FACTS (audit 2026-11-02 #2: the Today line said "Nothing waits on
+ * you" over an overdue payment, a quote waiting on the couple, supplier changes to approve and an access ask — the
+ * picker only knew hub · count · guests · papic · ai · plan). Read from what Home already read — no new opinion, no
+ * new read. `unread` = a widget's read failed, so "nothing waits" cannot be said.
+ */
+export type HomeWaiting = {
+  asks: number;
+  overdue: HomePayLine[];
+  toApprove: number;
+  toDecide: Array<{ name: string }>;
+  unread: boolean;
+};
+
+export function homeWaiting(input: Pick<HomeControlInput, 'guests' | 'hub' | 'suppliers' | 'budget' | 'checklist' | 'schedule' | 'asks'>): HomeWaiting {
+  const budget = input.budget && input.budget !== 'unread' ? input.budget : null;
+  const pays = budget && budget.pays !== 'unread' ? budget.pays : [];
+  const sched = input.schedule && input.schedule !== 'unread' ? input.schedule : null;
+  const sup = input.suppliers && input.suppliers !== 'unread' ? input.suppliers : null;
+  return {
+    asks: typeof input.asks === 'number' ? input.asks : 0,
+    overdue: paymentsToSettle(pays).filter((p) => p.state === 'overdue' || (p.days !== null && p.days < 0)),
+    toApprove: sched?.toApprove ?? 0,
+    toDecide: sup?.toDecide ?? [],
+    unread:
+      input.guests === 'unread' ||
+      input.hub === 'unread' ||
+      input.suppliers === 'unread' ||
+      input.budget === 'unread' ||
+      (budget !== null && budget.pays === 'unread') ||
+      input.checklist === 'unread' ||
+      input.schedule === 'unread' ||
+      input.asks === 'unread',
+  };
+}
+
+/** The first thing that waits, in the order it costs the hosts most to miss — or null when nothing does. */
+function waitingToday(w: HomeWaiting): HomeToday | null {
+  if (w.asks > 0) {
+    return { target: 'asks', words: w.asks === 1 ? 'An access request waits on you' : `${n(w.asks)} access requests wait on you`, tail: 'answer above', calm: false };
+  }
+  if (w.overdue.length > 0) {
+    const first = w.overdue[0]!;
+    return w.overdue.length === 1
+      ? { target: 'budget', words: `Pay ${first.who}`, tail: dueWords(first), calm: false }
+      : { target: 'budget', words: `${n(w.overdue.length)} payments are overdue`, tail: `${first.who} first`, calm: false };
+  }
+  if (w.toApprove > 0) {
+    return { target: 'sched', words: `${n(w.toApprove)} supplier ${plural(w.toApprove, 'change', 'changes')} to approve`, tail: 'in Schedule', calm: false };
+  }
+  if (w.toDecide.length > 0) {
+    return w.toDecide.length === 1
+      ? { target: 'sup', words: `${w.toDecide[0]!.name} waits on your answer`, tail: 'their quote', calm: false }
+      : { target: 'sup', words: `${n(w.toDecide.length)} quotes wait on your answer`, tail: 'Suppliers', calm: false };
+  }
+  return null;
+}
 
 /**
  * What the Today strip says — the SHIPPED picker's choice (`pickHomeNext`, `HOME_NEXT_ORDER`), not a new ranking, and
  * which widget it points at (notes: "Where each of today's 'Next step' kinds … goes now").
  */
-export function homeToday(next: HomeNext, guests: HomeControlInput['guests']): HomeToday {
+export function homeToday(next: HomeNext, guests: HomeControlInput['guests'], waiting: HomeWaiting | null = null): HomeToday {
   const counts = guests && guests !== 'unread' ? guests : null;
+  // What waits on the hosts outranks an offer (the AI) and the calm line — never the picker's own firsts.
+  const waits = waiting ? waitingToday(waiting) : null;
+  if (waits && (next.kind === 'ai' || next.kind === 'plan')) return waits;
   switch (next.kind) {
     case 'guide':
       return { target: 'hub', words: 'Finish your Event Hub', tail: next.title.replace(/^Finish your Event Hub — /, ''), calm: false };
@@ -325,6 +388,8 @@ export function homeToday(next: HomeNext, guests: HomeControlInput['guests']): H
     case 'ai':
       return { target: 'ai', words: next.title, tail: 'Try it', calm: false };
     default:
+      // A widget that could not be read means "nothing waits" is not known — said, never calm.
+      if (waiting?.unread) return { target: 'plan', words: 'Part of Home couldn’t load', tail: 'reload to check what waits', calm: false };
       return { target: 'plan', words: 'Nothing waits on you', tail: 'the plan has the rest', calm: true };
   }
 }
@@ -691,7 +756,7 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
  * Budget") — so no half tile is left alone; a widget that is absent for this event closes its gap by spanning.
  */
 export function homeControlTiles(input: HomeControlInput): { today: HomeToday; tiles: HomeTileModel[] } {
-  const today = homeToday(input.next, input.guests);
+  const today = homeToday(input.next, input.guests, homeWaiting(input));
   const built = [
     countdownTile(input, today),
     // 📅 Full width, after the Countdown (owner-approved 1 Nov prototype, plan §4).
@@ -774,6 +839,8 @@ export function composeHomeControl(i: {
   schedule?: HomeControlInput['schedule'];
   /** The Countdown's page when it is not Home's ⚙ (a helper has no ⚙) — absent = the ⚙ sheet. */
   countdownDoor?: string;
+  /** 🔑 Access asks waiting (`accessAsksWaiting`); absent = not read for this viewer. */
+  asks?: number | 'unread' | null;
 }): HomeControlInput {
   const hasDate = i.days.value !== '—';
   return {
@@ -797,5 +864,6 @@ export function composeHomeControl(i: {
           : { paidPhp: i.money.paid, owingPhp: i.money.owing, pays: homePaysFrom(i.ledger) },
     checklist: i.checklist,
     schedule: i.schedule ?? null,
+    asks: i.asks ?? null,
   };
 }

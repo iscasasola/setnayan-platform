@@ -183,8 +183,8 @@ export function ServicesTakeover({
   /** Booked's parts (`bookedParts`) — listed in the folded row's one dropdown. */
   bookedParts?: readonly PillarPart[];
   /**
-   * THIS IS A BOOKED PART'S OWN PAGE (`?part=budget|schedule`): the shell is drawn around the Budget or the Schedule
-   * page, rendered whole, and Find and Build are not on it — a press on them goes to the Suppliers page itself, which
+   * THIS IS A BOOKED PART'S OWN PAGE (`?part=schedule`): the shell is drawn around the Schedule page, rendered whole
+   * (the Budget is Home's own page since 2026-11-01 — Booked's dropdown only opens it), and Find and Build are not on it — a press on them goes to the Suppliers page itself, which
    * opens on that body. (The parts are their own addresses so the Suppliers page never pays for their reads.)
    */
   partPage?: boolean;

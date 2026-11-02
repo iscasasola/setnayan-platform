@@ -102,6 +102,6 @@ test('5 · the Schedule offers one Share — the shared button — on its page a
   assert.match(page, /<SharePdfButton\s+href=\{`\/api\/schedule\/\$\{eventId\}\/export`\}[\s\S]*?papers="document"/);
   assert.match(page, /share=\{shareSchedule\}/, 'Booked › Schedule lost its Share');
   assert.match(page, /<Tip align="end">\{viewNote\}<\/Tip>\s*\{shareSchedule\}/, 'the Schedule page lost its Share');
-  const frame = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'booked-schedule-frame.tsx');
+  const frame = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'schedule-one-line.tsx');
   assert.match(frame, /\{share \? <span className="ml-auto">\{share\}<\/span> : null\}/, 'the frame does not draw the Share');
 });

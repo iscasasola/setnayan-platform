@@ -83,6 +83,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { CONFIRMED_VENDOR_STATUSES } from './events';
 import { completeByDate, DOCUMENT_META, type PaperworkDocumentType } from './paperwork';
 import {
   CHECKLIST_CATEGORY_LABELS,
@@ -236,7 +237,7 @@ export type PreparationAgenda = {
   /** Per-source counts — surfaced in the page header + PR/debug logs. */
   sourceCounts: Record<PreparationSource, number>;
   /**
-   * 🛑 Sources whose read was REFUSED. Only the tickable sources ('task', 'manual') report here — they are counted
+   * 🛑 Sources whose read was REFUSED: the tickable sources ('task', 'manual') and the payment steps ('payment') — they are counted
    * (Home, the events board), and a refused read must say so, never count as "nothing to do".
    */
   unread: PreparationSource[];
@@ -263,6 +264,8 @@ type EventVendorNameRow = {
   vendor_id: string;
   vendor_name: string;
   category?: string | null;
+  status?: string | null;
+  archived_at?: string | null;
 };
 
 type PaperworkSourceRow = {
@@ -325,7 +328,9 @@ async function fetchPaymentItems(
   supabase: SupabaseClient,
   eventId: string,
   now: Date,
-): Promise<PreparationItem[]> {
+): Promise<PreparationItem[] | null> {
+  // 🔌 HONEST (reads-are-honest, 2026-11-02 audit #17): `null` = refused. A refused PAYMENTS read used to count as
+  // "nothing paid", so a paid milestone came back as owed or overdue — money invented on the plan.
   const [lineItemsRes, paymentsRes] = await Promise.all([
     supabase
       .from('event_vendor_line_items')
@@ -341,7 +346,11 @@ async function fetchPaymentItems(
   if (lineItemsRes.error) {
     if (isMissingRelation(lineItemsRes.error)) return [];
     console.error('[preparation] payment line items:', lineItemsRes.error.message);
-    return [];
+    return null;
+  }
+  if (paymentsRes.error && !isMissingRelation(paymentsRes.error)) {
+    console.error('[preparation] payments:', paymentsRes.error.message);
+    return null;
   }
   const lineItems = (lineItemsRes.data ?? []) as VendorLineItemRow[];
   if (lineItems.length === 0) return [];
@@ -356,10 +365,21 @@ async function fetchPaymentItems(
 
   // Batched vendor-name lookup; RLS already scopes event_vendors to the host.
   const vendorIds = Array.from(new Set(lineItems.map((r) => r.vendor_id)));
-  const { data: vendors } = await supabase
+  const { data: vendors, error: vendorsError } = await supabase
     .from('event_vendors')
-    .select('vendor_id, vendor_name, category')
+    .select('vendor_id, vendor_name, category, status, archived_at')
     .in('vendor_id', vendorIds);
+  if (vendorsError) {
+    console.error('[preparation] payment suppliers:', vendorsError.message);
+    return null;
+  }
+  // Only a REAL booking owes money on the plan — a milestone of a shortlisted or archived supplier is not owed.
+  const booked = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
+  const owingVendor = new Set(
+    ((vendors as EventVendorNameRow[]) ?? [])
+      .filter((v) => booked.has(v.status ?? '') && !v.archived_at)
+      .map((v) => v.vendor_id),
+  );
   const vendorName = new Map<string, string>(
     ((vendors as EventVendorNameRow[]) ?? []).map((v) => [v.vendor_id, v.vendor_name]),
   );
@@ -369,7 +389,7 @@ async function fetchPaymentItems(
   // Each supplier's FIRST still-owed line (its earliest due) — the one a booking task stands for (planning-twins).
   const firstLineOf = new Map<string, { id: string; due: string }>();
   for (const row of lineItems) {
-    if (!row.due_date) continue;
+    if (!row.due_date || !owingVendor.has(row.vendor_id)) continue;
     const amt = toPhp(row.amount_php);
     if (amt > 0 && (paidByLine.get(row.line_item_id) ?? 0) >= amt) continue;
     const cur = firstLineOf.get(row.vendor_id);
@@ -378,7 +398,7 @@ async function fetchPaymentItems(
 
   const items: PreparationItem[] = [];
   for (const row of lineItems) {
-    if (!row.due_date) continue;
+    if (!row.due_date || !owingVendor.has(row.vendor_id)) continue;
     const amountPhp = toPhp(row.amount_php);
     const paid = paidByLine.get(row.line_item_id) ?? 0;
     if (amountPhp > 0 && paid >= amountPhp) continue; // fully paid → skip
@@ -1087,9 +1107,10 @@ export async function fetchPreparationAgenda(
   const unread: PreparationSource[] = [];
   if (tasks === null) unread.push('task');
   if (manual === null) unread.push('manual');
+  if (payments === null) unread.push('payment');
 
   return assemblePlanningList(
-    [...(tasks ?? []), ...payments, ...paperwork, ...appointments, ...milestones, ...(manual ?? [])],
+    [...(tasks ?? []), ...(payments ?? []), ...paperwork, ...appointments, ...milestones, ...(manual ?? [])],
     unread,
   );
 }

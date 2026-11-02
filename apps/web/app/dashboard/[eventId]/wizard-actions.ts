@@ -73,6 +73,8 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
 import { isInspirationPartKey } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -509,6 +511,10 @@ async function completeVendorPickFromMarketplace(
   // finalizeVendor. The DB trigger is the hard guard; this friendly throw keeps
   // the wizard from producing a raw 23514. Admin read (verification_state is not
   // public-readable for non-verified profiles).
+  // 🚪 DOOR 3 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The trigger is the backstop.
+  if (!(await areBookingsOpen())) {
+    throw new Error(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+  }
   if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
     throw new Error(
       "This supplier is completing verification and can't be booked just yet. You'll be able to book them once they're verified.",

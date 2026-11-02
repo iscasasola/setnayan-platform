@@ -81,6 +81,8 @@ export type ChapterMoment = {
   is_public: boolean;
   /** "Lumina Studio" · "Bride's family, Alyssa" — the suppliers or party on it; '' for none. */
   who: string;
+  /** 👷 The suppliers it is for (`responsible_vendor_ids`) — "yours" on their day; Suppliers and crew ▾ ticks them. */
+  vendor_ids: string[];
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
@@ -120,7 +122,7 @@ export type ChaptersInput =
     }
   | { measured: false };
 
-/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`booked-schedule-frame.tsx`). */
+/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`schedule-one-line.tsx`). */
 type BackTo = 'event-day' | 'preparation';
 
 function showScheduleView(view: BackTo) {
@@ -314,6 +316,7 @@ export function ChaptersHost({
                 march_key: null,
                 is_public: false,
                 who: '',
+                vendor_ids: [],
               },
             ]);
             patch(current.block_id, { moments: current.moments + 1 });

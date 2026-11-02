@@ -22,6 +22,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -80,6 +81,10 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+
+  // 🚪 DOOR 7a · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A Locked QR IS a booking the moment it
+  // is scanned, so none is made while bookings are closed — a code that can only fail at the couple's scan helps nobody.
+  if (!(await areBookingsOpen())) fail('bookings_closed');
 
   // Service picker is the vendor's own leaf offerings (vendor_services,
   // DB-driven, MULTI-select). Each ref is a vendor_service_id, or a

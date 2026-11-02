@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 
@@ -33,6 +34,8 @@ export type ChatLockBookingOutcome =
   | { status: 'no_marketplace_link' }
   // Marketplace vendor is not verified → the lock is refused (friendly message).
   | { status: 'not_verified' }
+  // 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 4) → nothing asked, booked or billed.
+  | { status: 'bookings_closed' }
   // First lock committed at the negotiated total; fee attempted (`feeCharged` =
   // a 6th+ paid order was minted, vs free-5 / flag-off / off-platform).
   // `priceLanded` — did `total_cost_php` ACTUALLY receive the negotiated total?
@@ -66,11 +69,18 @@ export async function bookVendorAtChatLock(
     /** The couple-negotiated total in PESOS (the thread's frozen agreed price). */
     agreedTotalPhp: number;
   },
+  /** 🚪 The bookings switch — injectable so a test can run both sides; production reads the one switch. */
+  deps: { bookingsOpen: () => Promise<boolean> } = { bookingsOpen: areBookingsOpen },
 ): Promise<ChatLockBookingOutcome> {
   const { eventId, eventVendorId, marketplaceVendorId, agreedTotalPhp } = args;
 
   // Off-platform / no marketplace link → nothing to verify or charge.
   if (!marketplaceVendorId) return { status: 'no_marketplace_link' };
+
+  // 🚪 DOOR 4 · BOOKINGS CLOSED (owner 2026-11-02). Read before the verified read; ACTED ON once the press is planned
+  // (below): a closed platform neither books nor asks, but a new price on a supplier ALREADY booked (`refresh_fee_only`,
+  // recorded beside the agreed total) is not a booking and stays open. The trigger is the backstop.
+  const bookingsOpen = await deps.bookingsOpen();
 
   // Friendly verified pre-check (the DB trigger is the hard backstop below).
   const verified = await isMarketplaceVendorBookable(admin, marketplaceVendorId);
@@ -98,6 +108,7 @@ export async function bookVendorAtChatLock(
   });
 
   if (action === 'skip_no_link') return { status: 'no_marketplace_link' };
+  if (!bookingsOpen && (action === 'book' || action === 'request')) return { status: 'bookings_closed' };
   if (action === 'blocked_not_verified') return { status: 'not_verified' };
   if (action === 'already_requested') return { status: 'already_requested' };
 

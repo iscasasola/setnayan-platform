@@ -181,7 +181,7 @@ test('§1 · every request read the cached hub can reach is behind `cachedHubVie
       const at = m.index!;
       const stmt = enclosingTopLevel(sf, at);
       const before = stmt ? clean.slice(stmt.getStart(), at) : '';
-      if (/cachedHubViewer\(\)|\bhubViewer \?/.test(before)) continue;
+      if (/cachedHubViewer\(\)|onTheCachedHub\(\)|\bhubViewer \?/.test(before)) continue;
       const lineStart = clean.lastIndexOf('\n', at) + 1;
       const line = clean.slice(lineStart, clean.indexOf('\n', at)).trim();
       const name = declName(stmt);
@@ -204,24 +204,32 @@ test('§1 · every request read the cached hub can reach is behind `cachedHubVie
 
 // ── § 2 · the readers that answer for the cached hub ask it first ────────────────────────────────────────────────
 
-test('§2 · each request reader asks `cachedHubViewer()` before it touches the request', () => {
-  const firstIn = (file: string, fn: RegExp, call: RegExp) => {
+test('§2 · each request reader asks before it touches the request — from the render\'s FIRST moment', () => {
+  /*
+   * 🛑 HOTFIX 2026-11-02: asking `cachedHubViewer()` is not enough for a reader whose answer is the same for every
+   * guest — it is `null` until the route has read the guest's pass, and the `[slug]` layout renders before that
+   * (loadGuestLook → "view as free" → cookies()). Those readers ask `onTheCachedHub()`, which knows the route at once.
+   * Only the guest pass itself (`readHeldPass`) needs the held viewer. Behaviour held by
+   * lib/the-cached-hub-reads-no-cookie-before-its-viewer.test.ts.
+   */
+  const firstIn = (file: string, fn: RegExp, call: RegExp, asks: RegExp) => {
     const src = code(file);
     const at = src.search(fn);
     assert.ok(at >= 0, `${file}: ${fn} is gone — update this guard`);
     const body = src.slice(at, at + 1200);
-    const ask = body.search(/cachedHubViewer\(\)/);
+    const ask = body.search(asks);
     const touch = body.search(call);
-    assert.ok(ask > 0 && (touch < 0 || ask < touch), `${file}: ${fn} reads the request before asking cachedHubViewer()`);
+    assert.ok(ask > 0 && (touch < 0 || ask < touch), `${file}: ${fn} reads the request before asking ${asks}`);
   };
-  firstIn('lib/auth.ts', /export const getCurrentUser = cache\(/, /createClient\(\)/);
-  firstIn('lib/supabase/server.ts', /export const createClient = cache\(/, /await cookies\(\)/);
-  firstIn('lib/guest-session.ts', /async function readHeldPass\(/, /await cookies\(\)/);
-  firstIn('lib/guest-session.ts', /const signedInAccountId = cache\(/, /createSessionClient\(\)/);
-  firstIn('lib/request-platform.ts', /async function readShellSignals\(/, /await headers\(\)/);
-  firstIn('lib/request-platform.ts', /export async function getRequestPlatform\(/, /await headers\(\)/);
-  firstIn('lib/request-platform.ts', /export async function isStoreShellRequest\(/, /await headers\(\)/);
-  firstIn('lib/view-as-free.server.ts', /async function readCookie\(/, /await cookies\(\)/);
+  const ROUTE = /onTheCachedHub\(\)/;
+  firstIn('lib/auth.ts', /export const getCurrentUser = cache\(/, /createClient\(\)/, ROUTE);
+  firstIn('lib/supabase/server.ts', /export const createClient = cache\(/, /await cookies\(\)/, ROUTE);
+  firstIn('lib/guest-session.ts', /async function readHeldPass\(/, /await cookies\(\)/, /cachedHubViewer\(\)/);
+  firstIn('lib/guest-session.ts', /const signedInAccountId = cache\(/, /createSessionClient\(\)/, ROUTE);
+  firstIn('lib/request-platform.ts', /async function readShellSignals\(/, /await headers\(\)/, ROUTE);
+  firstIn('lib/request-platform.ts', /export async function getRequestPlatform\(/, /await headers\(\)/, ROUTE);
+  firstIn('lib/request-platform.ts', /export async function isStoreShellRequest\(/, /await headers\(\)/, ROUTE);
+  firstIn('lib/view-as-free.server.ts', /async function readCookie\(/, /await cookies\(\)/, ROUTE);
 });
 
 test('§2 · the cached viewer is held per render, never across requests', () => {

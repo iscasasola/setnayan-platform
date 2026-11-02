@@ -22,6 +22,9 @@ memories directly."*
 - **`groupIntoChapters`: two copies → one.** The engine is `lib/papic-chapters.ts` (countdown, trip, and now the run of
   show); `lib/alaala-chapters.ts` keeps only the schedule's window rules; `chapterDays` is the day split.
 - Prices, credits and ceilings untouched.
+- **DB replay harness:** `max_stack_depth` 2MB → 6MB in `tests/db/replay-migrations.ts`. PGlite does not hand back its
+  stack after an ERROR, and the audited replay (~1,600 deliberate errors) ran out the moment the corpus grew by one
+  file — a one-line placeholder migration reproduced it. Runaway recursion ends the same way at both limits.
 - Guards: `tests/db/memories-by-chapter.db.test.ts` (an outsider cannot read a chapter's photos, even face-tagged; the
   dropdown read lists only visible chapters; When; Add to Chapter), `lib/memories-chapters.test.ts`.
 - ⏭ NOT built (next Step 7 slice): the server check on every photo URL, signed links included — the papic tables' RLS

@@ -253,6 +253,8 @@ export type GuestsScreenProps = {
   tables: { tableId: string; label: string }[];
   /** guest_id → the table they are placed at. */
   tableByGuest: Record<string, string>;
+  /** 🏷 A partial invite's tag — "After party only" · "Not at Ceremony" (owner 2026-11-02, "Invited to"). Absent = none. */
+  inviteTagByGuest?: Record<string, string>;
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
   /** guest_id → a face to draw. */
@@ -427,6 +429,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     groups,
     tables,
     tableByGuest,
+    inviteTagByGuest = {},
     songsByGuest,
     faceByGuest,
     requests,
@@ -1974,6 +1977,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       // 🧍 The two sit in ONE seat — the proxy’s (the role’s seat moved to them).
                       table={tableByGuest[g.guest_id] ?? null}
+                      inviteTag={inviteTagByGuest[g.guest_id] ?? null}
                       verbs={writesOff ? [] : rowVerbsFor(g, { shareable: Boolean(invite?.tokens[g.guest_id]) })}
                       eventId={eventId}
                       invite={invite}
@@ -2425,6 +2429,7 @@ function GuestRowLine({
   picked,
   face,
   table,
+  inviteTag = null,
   verbs,
   eventId,
   invite,
@@ -2453,6 +2458,8 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
+  /** 🏷 A partial invite, quietly — "After party only" (owner 2026-11-02, "Invited to"). */
+  inviteTag?: string | null;
   /** `rowVerbsFor`: Share · Delete (or Release seat) — nothing else (owner 2026-10-27). */
   verbs: readonly RowVerb[];
   eventId: string;
@@ -2586,6 +2593,7 @@ function GuestRowLine({
               {/* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */}
               {replyMarkedByHost(g) ? <span className={styles.mute} data-reply-marked="">{' · marked'}</span> : null}
               {table ? ` · ${table}` : ''}
+              {inviteTag ? <span className={styles.mute} data-row-invite-tag="">{` · ${inviteTag}`}</span> : null}
               {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}
               {/* 👥 A +1 counted under their OWN role (Ana Reyes, a bridesmaid Antonio brings) — the way back to him. */}

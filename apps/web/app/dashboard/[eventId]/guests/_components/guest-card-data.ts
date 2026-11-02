@@ -18,6 +18,8 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { INVITATION_CHAPTER_FIELDS, invitationChapters, partialInviteTag } from '@/lib/invitation-chapters';
+import { onlyInvitationChapters } from '@/lib/invitation-chapters.server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
@@ -114,6 +116,13 @@ export type GuestCardData = {
   plusOneGuestId: string | null;
   /** The guest's saved invited-to blocks, filtered to values we still know. */
   initialInvited: InvitedToBlock[];
+  /**
+   * ✉ "INVITED TO ▾" BY CHAPTER (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO" CHAPTERS"). The event's chapters on
+   * the invitation, in the day's order, and the ones THIS guest was taken off (`guest_chapter_not_invited`). `[]` chapters =
+   * the event has none on its invitation: the card keeps the five fixed chips. NULL = a read was refused: the card says it
+   * could not read them and offers no change. Optional: a card drawn from elsewhere (the Maker) shows the chips.
+   */
+  inviteChapters?: CardInviteChapters | null;
   /** Table label when this guest is seated, else null. */
   seatedAt: string | null;
   /** Custom group memberships, for the read-only Tags row. */
@@ -188,6 +197,32 @@ export type GuestCardData = {
   proxy?: GuestProxyCard | null;
 };
 
+export type CardInviteChapters = {
+  chapters: { block_id: string; label: string }[];
+  notInvited: string[];
+  /** "After party only" · "Not at Ceremony" — the Guest list row's tag, worked out here so the card carries no rule. */
+  tag: string | null;
+};
+
+/** ✉ The card's two chapter reads, together. NULL when either is refused — never "invited to all" from a failed read. */
+async function readCardInviteChapters(supabase: SupabaseClient, eventId: string, guestId: string): Promise<CardInviteChapters | null> {
+  const [blocks, off] = await Promise.all([
+    onlyInvitationChapters(supabase.from('event_schedule_blocks').select(INVITATION_CHAPTER_FIELDS).eq('event_id', eventId)).order('start_at', {
+      ascending: true,
+    }),
+    supabase.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
+  ]);
+  if (blocks.error || off.error || !blocks.data || !off.data) {
+    const err = blocks.error ?? off.error;
+    if (err) logQueryError('loadGuestCard.inviteChapters', err, { eventId, guestId }, 'graceful_degrade');
+    return null;
+  }
+  const chapters = invitationChapters(blocks.data as unknown as Parameters<typeof invitationChapters>[0]).map((c) => ({ block_id: c.block_id, label: c.label }));
+  const on = new Set(chapters.map((c) => c.block_id));
+  const notInvited = (off.data as { block_id: string }[]).map((r) => r.block_id).filter((id) => on.has(id));
+  return { chapters, notInvited, tag: partialInviteTag(chapters, new Set(notInvited)) };
+}
+
 export type GuestProxyCard = {
   /** This guest holds a role, so the card offers "Proxy ▾" (owner: "this only works if they have role and not guest"). */
   offer: boolean;
@@ -236,6 +271,7 @@ export async function loadGuestCard(
     roleNames,
     { data: dressRow, error: dressRowError },
     { data: holderRow, error: holderRowError },
+    inviteChapterRead,
   ] = await Promise.all([
     fetchGuestById(supabase, eventId, guestId),
     // 👤 Linked to an account with a formal name → the card wears the profile's
@@ -295,6 +331,8 @@ export async function loadGuestCard(
       .eq('represented_by_guest_id', guestId)
       .is('deleted_at', null)
       .maybeSingle(),
+    // ✉ "Invited to ▾" (owner 2026-11-02): the event's chapters on the invitation and the ones THIS guest was taken off.
+    readCardInviteChapters(supabase, eventId, guestId),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
@@ -609,6 +647,7 @@ export async function loadGuestCard(
     plusOnePeople,
     plusOneGuestId: plusOneRowError ? null : (plusOneRowList[0]?.guest_id ?? null),
     initialInvited,
+    inviteChapters: inviteChapterRead,
     seatedAt,
     customGroups,
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),

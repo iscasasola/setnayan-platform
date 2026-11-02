@@ -6928,6 +6928,7 @@
         "CardFieldProps",
         "CardFoldProps",
         "CardGroupProps",
+        "CardInviteChapters",
         "CardInvitedToProps",
         "CardLockedProps",
         "CardPickProps",

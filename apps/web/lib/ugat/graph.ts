@@ -2670,6 +2670,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'guest_chapter_replies', column: 'block_id', references: 'event_schedule_blocks' },
       { kind: 'fk', table: 'guest_chapter_replies', column: 'guest_id', references: 'guests' },
       { kind: 'column', table: 'event_schedule_blocks', column: 'on_invitation' },
+      // ✉ A guest taken OFF one invitation chapter (20271302948959, owner 2026-11-02 "Invited to") — the exception; no row =
+      // invited. A row drops that guest's answer to it and the database refuses a later one.
+      { kind: 'table', table: 'guest_chapter_not_invited' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'guest_id', references: 'guests' },
       // 🤝 The supplier's part (20271300619930): + My moment names its chapter; Seen / Confirm my times are one row per
       // supplier org per event; Auto-agree is the event's own setting.
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'proposed_parent_block_id', references: 'event_schedule_blocks' },
@@ -2682,7 +2687,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     title: 'Block → suggestions · scripts · tasks',
     joint: 'event_schedule_blocks',
     cardinality: 'A tree of blocks (top-level = a chapter, child = a moment); vendors attach suggestions and scripts to a block; a moment holds parallel tasks',
-    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times in event_supplier_schedule_marks; guest_chapter_replies answers a chapter on the invitation',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times in event_supplier_schedule_marks; guest_chapter_replies answers a chapter on the invitation; guest_chapter_not_invited takes one guest off one (default: every guest on every chapter)',
     writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER) · a supplier\u2019s request, applied by the host\u2019s one accept path (lib/schedule-suggestion-decide.server.ts) or at once under events.supplier_requests_auto_agree · supplier_mark_schedule / withdraw_schedule_request (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
     traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',

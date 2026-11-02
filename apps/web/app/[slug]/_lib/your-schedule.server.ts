@@ -9,13 +9,14 @@ import { websiteProActiveFor } from './hub-look';
  * 📅 YOUR SCHEDULE — THE READ (Event Hub › Me; plan §3, §3b, §11b). The pure half, and every rule about whose lines a
  * guest sees, is `guest-your-schedule.ts`; this only asks the database and hands the answers in.
  *
- * Four small reads, together, on the SERVICE-ROLE client the guest page already uses (a guest holds no session the
+ * Five small reads, together, on the SERVICE-ROLE client the guest page already uses (a guest holds no session the
  * database knows), so the filters below and the pure function ARE the fence:
  *   · the event's blocks, minus a coordinator's staged prep — chapters and moments. The same question for every guest
  *     of the event at one rev, so the guest page's shared-read cache answers it once (`lib/event-shared-reads.ts`);
  *   · whether the schedule is released (`events.schedule_released_at`, 20271302139506);
  *   · the tasks that may be this guest's — their seat, and every role or group task (`isMine` keeps only theirs);
- *   · the groups this guest is in.
+ *   · the groups this guest is in;
+ *   · the chapters the hosts took this guest off (`guest_chapter_not_invited`, owner 2026-11-02 "Invited to").
  * 💎 Release is Pro (§3b): `released` is true only when the event holds Pro, so a Free event stays at the
  * before-Release view for good whatever the column says. A Pro read that fails answers Free — at worst the guest sees
  * the before view, never a full schedule the event has not paid for.
@@ -53,7 +54,7 @@ export async function readYourSchedule(
   input: { eventId: string; guestId: string; roles: readonly string[]; guestsArriveBy: string | null },
 ): Promise<YourScheduleRead> {
   const { eventId, guestId } = input;
-  const [blocksRes, eventRes, tasksRes, groupsRes, pro] = await Promise.all([
+  const [blocksRes, eventRes, tasksRes, groupsRes, notInvitedRes, pro] = await Promise.all([
     admin
       .from('event_schedule_blocks')
       .select(YOUR_SCHEDULE_BLOCK_FIELDS)
@@ -66,9 +67,11 @@ export async function readYourSchedule(
       .eq('event_id', eventId)
       .or(`guest_id.eq.${guestId},role.not.is.null,group_id.not.is.null`),
     admin.from('guest_group_memberships').select('group_id').eq('guest_id', guestId),
+    // ✉ The chapters the hosts took THIS guest off (owner 2026-11-02, "Invited to") — never drawn as theirs.
+    admin.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
     websiteProActiveFor(eventId).catch(() => false),
   ]);
-  const failed = blocksRes.error ?? eventRes.error ?? tasksRes.error ?? groupsRes.error;
+  const failed = blocksRes.error ?? eventRes.error ?? tasksRes.error ?? groupsRes.error ?? notInvitedRes.error;
   if (failed) {
     logQueryError('readYourSchedule', failed, { event_id: eventId }, 'graceful_degrade');
     return { kind: 'unread' };
@@ -107,6 +110,7 @@ export async function readYourSchedule(
         guestId,
         roles: input.roles,
         groupIds: ((groupsRes.data ?? []) as Array<{ group_id: string }>).map((g) => g.group_id),
+        notInvited: ((notInvitedRes.data ?? []) as Array<{ block_id: string }>).map((r) => r.block_id),
       },
       released: pro && releasedAt !== null,
       pro,

@@ -1,3 +1,4 @@
+import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -36,6 +37,7 @@ const STATUS_COPY: Record<string, string> = {
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
+  not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,
   error: 'Something went wrong locking the supplier. Please try again.',
 };
 

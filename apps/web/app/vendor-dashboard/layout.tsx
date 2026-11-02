@@ -439,8 +439,14 @@ export default async function VendorDashboardLayout({
   // resolves this via fetchUserRoleSummary internally and surfaces it as
   // context.hasVendor. Matches what the unified AccountSwitcher uses for the
   // "Shop console" target.
+  //
+  // 🏪 NO SHOP YET → OPEN ONE, never the couple board (supplier gate audit G7, 2026-11-02; owner "Onboarding via
+  // creating new account"). A signed-in account with no shop reaches here from `/signup?as=vendor` while signed in and
+  // from `accountHomePath('vendor')`; sending it to `/dashboard` dropped a supplier on the couples' screens with no way
+  // to the shop set-up. `/open-shop` is that set-up, and it sends anyone who already has a named shop back here, so the
+  // two cannot loop. A REFUSED read never lands here — the fallback above keeps `hasVendor: true`.
   if (!switcherData.context.hasVendor) {
-    redirect('/dashboard');
+    redirect('/open-shop');
   }
 
   // The supplier's own rows in the account sheet (prototype SHEETS.avatar). Step 5's

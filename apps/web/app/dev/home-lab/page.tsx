@@ -655,6 +655,8 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
+        /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */
+        memories={q.sched === 'day' ? '12 photos so far · filling now' : 'Fills on the day · photos, reels and your Thank-you video'}
         /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
         asks={
           q.level === '1' || q.level === 'unread' ? (

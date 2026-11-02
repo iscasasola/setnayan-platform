@@ -137,6 +137,14 @@ import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 export const dynamic = 'force-dynamic';
 
+/** ✨ The Memories line's words (Home redraw 2026-11-02, round 3 `memLine()`): before · on · after the day. */
+function memoriesLine({ after, day, photos }: { after: boolean; day: boolean; photos: number | null }): string {
+  const shot = photos !== null && photos > 0 ? `${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}` : null;
+  if (after) return shot ? `${shot} · everything from the day` : 'Everything from the day, in one place';
+  if (day) return shot ? `${shot} so far · filling now` : 'Filling now';
+  return 'Fills on the day · photos, reels and your Thank-you video';
+}
+
 /*
   ─── THE BROWSER TAB SAID "FILIPINO WEDDING PLANNING + VERIFIED VENDORS" ───
 
@@ -1257,6 +1265,9 @@ export default async function EventHomePage({
           : null
       }
       ground={homeCover}
+      /* ✨ The Memories line (Home redraw 2026-11-02): its state from what Home already read — the photos Papic gathered
+         (a count only where it was read; never a 0 over a refusal) and where the event is in time. */
+      memories={memoriesLine({ after: afterActive, day: dayOfActive, photos: typeof papicNow.photos === 'number' ? papicNow.photos : null })}
       needs={homeNeeds}
       /* 🖨 The Prints line (R8) — where Prints has work: the couple, with an Event Hub (the Maker's own `makerHasWork`,
          which the Prints page asks too), on an event that needs its details (as the Studio tile was offered). */

@@ -185,7 +185,8 @@ export async function readHomeChecklist(
     only: 'todo',
   }).catch(() => null);
   if (agenda === null || agenda.unread.length > 0) return 'unread';
-  const p = planningProgress(agenda.items);
+  // Four: Home's To do shows three, and the fourth fills in when Now holds one of them (round 3, Now never repeats).
+  const p = planningProgress(agenda.items, 4);
   if (p.total === 0) return null;
   return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
 }

@@ -20,7 +20,8 @@ import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
-import { homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
+import { countdownDoor, homeNowAction, homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
+import { HomeMemoriesLine, HomeTodoList } from './home-todo-list';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
@@ -177,6 +178,8 @@ export type HomeFirstScreenProps = {
    * (`HomePrintsLine`); the tool is the Prints page. Absent / false = no line.
    */
   prints?: boolean;
+  /** ✨ The Memories line's state words (round 3) — what Home already read; null = no line (a lab that leaves it out). */
+  memories?: string | null;
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
@@ -207,24 +210,44 @@ export function HomeFirstScreen({
   apple = null,
   hubPick = null,
   prints = false,
+  memories = null,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const today = homeToday(next, control.guests, homeWaiting(control));
+  const nowAction = homeNowAction(today, control);
+  const c = control.countdown;
   return (
+    /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
+    <HomeTodayFold eventId={eventId} kind={next.kind}>
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
-      {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
-          measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink} />
+      {/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — the GCash balance-card shape): the name, the
+          countdown (the Date Finder's door) and NOW, the ONE thing to do with its verb. It still wears the Event Hub's
+          main background (owner 2026-10-07, #6394) and still pins as one line. */}
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink}
+        countdown={{
+          value: c.hasDate ? c.value : '—',
+          label: c.hasDate ? c.label : 'No date yet',
+          line: [c.long, c.placeLine].filter(Boolean).join(' · ') || null,
+          href: c.door ?? countdownDoor(eventId),
+        }}
+        now={<HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} action={nowAction} eventId={eventId} />}
+      />
 
-      {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
-      <HomeTodayFold eventId={eventId} kind={next.kind}>
         <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
-          {/* ☀ THE TODAY ASKS — what waits on the hosts, before the Today line (the coordinator's access first). */}
+          {/* ✅ THE ONE TO DO — under the card: the three soonest tasks with their tick, then the plan's state (round 3).
+              The task Now holds is not repeated. */}
+          <HomeTodoList eventId={eventId} checklist={control.checklist} holds={today.holds?.task ?? null} />
+
+          {/* ☀ WHAT WAITS ON THE HOSTS — the access and date asks, each its own line (they join the Requests card next). */}
           <div className="contents" data-home-today-asks="">
             {asks}
           </div>
-          {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
-          <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
+
+          {/* 🎛 YOUR EVENT — the widgets; tap a name to open its page. */}
+          <p className="hc-k2" data-home-your-event="">
+            <span className="hc-k2-name">Your event</span>
+            <em>tap a name to open it</em>
+          </p>
 
           {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
               (owner 2026-10-08; prototype frame 2, its words). Opens the GUESTS' one link + QR (Guests › Invite,
@@ -253,6 +276,9 @@ export function HomeFirstScreen({
           {/* 👀 WHO'S HERE — after Papic, before Your services (owner 2026-10-29): who of the team is on the dashboard
               now, and which guests are viewing the Event Hub. */}
           {whosHere}
+
+          {/* ✨ MEMORIES — one slim line of its own (round 3): everything from the day, in one place. */}
+          {memories ? <HomeMemoriesLine eventId={eventId} line={memories} /> : null}
 
           {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it").
               A row on the page, a divider above it (owner 2026-11-01: frames only where you act). */}
@@ -300,8 +326,8 @@ export function HomeFirstScreen({
             </details>
           ) : null}
         </div>
-      </HomeTodayFold>
     </section>
+    </HomeTodayFold>
   );
 }
 

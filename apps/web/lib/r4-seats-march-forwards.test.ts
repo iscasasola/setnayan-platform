@@ -23,7 +23,7 @@
  * Sabotage (2026-10-28, each seen red, then restored): 'march' put back in `STUDIO_TILE_KEYS` → 1 red · the launch
  * page's `if (movedView) redirect(movedView);` removed → 2 red · `/seating`'s forward removed → 3 red · the guided
  * march's `view: 'march'` removed → 4 red · the `seats` part's source back to a Studio tile → 5 red · Guests'
- * `{makerView ? (` body switched off → 6 red · the 2D face's `tapFace` removed → 7 red · Not walking counted over an unread
+ * `{makerView ? (` body switched off → 6 red · the 2D face's `tapFace` removed → 7 red · the list's `onOpenGuest={tapFace}` removed → 7 red · Not walking counted over an unread
  * tray → 7 red · Preview enabled before it ships → 8 red · an unread tile drawn as 0 → 8 red.
  */
 import test from 'node:test';
@@ -301,32 +301,41 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   for (const k of ['table', 'entrance', 'service', 'dance', 'cocktail', 'sign', 'booth']) assert.match(ed, new RegExp(`if \\(k === '${k}'\\) return add`), `＋ Add lost ${k}`);
   assert.match(ed, /\{inGuests \? \(\s*<>\s*\{phoneRules\}/, 'Who sits together left the head’s ⋯ without a home');
   assert.match(ed, /key: 'people', label: unseatedComing > 0 \? `People · \$\{formatCount\(unseatedComing\)\} to seat`/, 'the phone lost its people door');
-  // List mode: each table a foldable header with its faces and one blank per free seat.
-  const { SeatFacesList } = await import('../app/dashboard/[eventId]/seating/_components/seat-faces-list');
-  const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, color: '#999' });
+  // List mode (S1c, owner 2026-11-01): the Guests list grouped by table — a foldable header per table, a row per seat.
+  const { SeatList } = await import('../app/dashboard/[eventId]/seating/_components/seat-list');
+  const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, side: 'both' as const });
+  const noop = () => null;
   const list = renderToStaticMarkup(
-    React.createElement(SeatFacesList, {
-      units: [{ key: 't1', label: 'Table 1', sub: 'Round', seated: 2, capacity: 4, slots: [{ kind: 'face', guest: g('a'), tableId: 't1', seat: 0 }, { kind: 'face', guest: g('b'), tableId: 't1', seat: 1 }, { kind: 'blank', tableId: 't1', seat: 2 }, { kind: 'blank', tableId: 't1', seat: 3 }] }],
+    React.createElement(SeatList, {
+      units: [{ key: 't1', label: 'Table 1', seated: 2, capacity: 4, seats: [{ tableId: 't1', seat: 0, guest: g('a') }, { tableId: 't1', seat: 1, guest: g('b') }, { tableId: 't1', seat: 2, guest: null }, { tableId: 't1', seat: 3, guest: null }] }],
       unseated: [g('c')],
       pickedId: null,
-      onFace: () => {},
-      onBlank: () => {},
-      closed: new Set<string>(),
+      canEdit: true,
+      open: new Set(['unseated', 't1']),
       onToggle: () => {},
+      onOpenGuest: () => {},
+      onPick: () => {},
+      onRemove: () => {},
+      onSeatHere: () => {},
+      addMenu: noop,
+      headTools: noop,
+      renaming: noop,
+      tableTools: noop,
+      onDrop: () => {},
       dim: (id: string) => id === 'b',
     }),
   );
-  // ⇅ A face the shared Show / the search leaves out is drawn faint — never hidden (its seat is still taken).
-  assert.match(list, /data-seat-face="b"[^>]*data-seat-dim=""[^>]*opacity-25/, 'a left-out face is not drawn faint');
-  assert.doesNotMatch(list, /data-seat-face="a"[^>]*data-seat-dim/, 'a shown face is dimmed');
-  assert.match(list, /class="sn-acc-head[ "]/, 'the list is not the house foldable header');
-  assert.match(list, />Table 1<[\s\S]*?>2 of 4</);
-  assert.equal((list.match(/data-seat-face="/g) ?? []).length, 3, 'a face is missing');
-  assert.equal((list.match(/data-seat-blank=""/g) ?? []).length, 2, '"2 of 4" does not draw two blanks');
-  assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a face is not named for a screen reader');
+  // ⇅ A guest the shared Show / the search leaves out is drawn faint — never hidden (their seat is still taken).
+  assert.match(list, /data-seat-guest="b"[^>]*data-seat-dim=""[^>]*opacity:0\.3/, 'a left-out guest is not drawn faint');
+  assert.doesNotMatch(list, /data-seat-guest="a"[^>]*data-seat-dim/, 'a shown guest is dimmed');
+  assert.match(list, /class="[^"]*sn-acc-head[ "]/, 'the list is not the house foldable header');
+  assert.match(list, />Table 1<[\s\S]*?· 2 of 4 seats</);
+  assert.equal((list.match(/data-seat-guest="/g) ?? []).length, 3, 'a guest row is missing');
+  assert.equal((list.match(/data-seat-empty=""/g) ?? []).length, 2, '"2 of 4" does not draw two empty seats');
+  assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a guest is not named for a screen reader');
   // A face — on the plan AND in the list — opens the ONE guest card (the shipped sheet), with Remove · Swap.
   assert.match(ed, /else if \(inGuests\) tapFace\(occupant\.guest_id\);/, 'a face on the 2D plan does not open the card');
-  assert.match(ed, /<SeatFacesList\s+units=\{faceUnits\}[^>]*onFace=\{tapFace\}/, 'a face in the list does not open the card');
+  assert.match(ed, /<SeatList\s+units=\{faceUnits\}[^>]*onOpenGuest=\{tapFace\}/, 'a guest in the list does not open the card');
   assert.match(ed, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: faceCard\.id, name: faceCard\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.seats\}/);
   assert.match(ed, /label="Remove"/);
   assert.match(ed, /label=\{faceCard\.seated \? 'Swap' : 'Seat'\}/);

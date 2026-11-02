@@ -190,6 +190,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-invite/[slug]': { none: 'token' },
   '/vendor/fit/[ref]': { none: 'token' },
   '/demo-capture/[slug]': { none: 'token' },
+  // 🎭 The Maria and Jose sample: a sample guest's hub goes back to the sample's landing (its × exit).
+  '/sample/hub/[guestKey]': { home: '/sample' },
   // Full-screen outputs with their own exit.
   '/panood/control/[eventId]': { none: 'own-exit' },
   '/panood/program/[eventId]': { none: 'own-exit' },

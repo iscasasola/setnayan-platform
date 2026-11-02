@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { loadSampleGuestOrNotFound } from '@/lib/sample-event/switch.server';
 import {
   SAMPLE_WORDS,
@@ -17,7 +16,7 @@ import {
 } from '@/lib/sample-event/hub';
 import { samplePassSrc } from '@/lib/sample-event/pass';
 import { guestGreetingOf } from '@/lib/guest-greeting';
-import { ROLE_LABELS } from '@/lib/guests';
+import { guestRoleLabel } from '@/lib/guests';
 import { GuestLookScope } from '@/app/[slug]/_components/guest-look-scope';
 import { InvitationShell } from '@/app/[slug]/_components/invitation-shell';
 import { MeGreeting } from '@/app/[slug]/_components/guest-greeting';
@@ -57,7 +56,8 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
   const comingWith = sampleGuests()
     .filter((g) => g.plus_one_of_guest_id === guest.guest_id)
     .map(sampleGuestName);
-  const roleWord = guest.role === 'guest' ? null : ROLE_LABELS[guest.role];
+  /* The couple's words for roles (`events.role_names`): the sample keeps the usual ones, so it hands none. */
+  const roleWord = guest.role === 'guest' ? null : guestRoleLabel(guest.role, null);
   const greeting = guestGreetingOf({
     name: sampleGuestName(guest),
     roleCode: guest.role,
@@ -152,11 +152,6 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
             </ul>
           </section>
 
-          <p className="text-center">
-            <Link href="/sample" className="inline-flex min-h-11 items-center text-sm font-medium text-ink/70 underline-offset-4 hover:underline">
-              Back to the sample
-            </Link>
-          </p>
         </div>
       </InvitationShell>
     </GuestLookScope>

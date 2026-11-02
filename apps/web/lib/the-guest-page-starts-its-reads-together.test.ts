@@ -120,6 +120,8 @@ test('only these reads are started ahead — each one every path below awaits, n
       // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
       'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
+      // ✉ The invitation's chapters (Step 5, 2026-11-02) — a read beside the schedule, awaited right after it, every path.
+      'readInvitationChapters',
       'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
       // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
       // known to be theirs (the two early returns above them still cost one read).

@@ -1,4 +1,5 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readGuestChapterReplies, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { guestsArriveTime } from '@/lib/guests-arrive';
@@ -1477,6 +1478,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1749,6 +1751,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -2544,11 +2547,17 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  const chapterReplies = invitationChapters && invitationChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, invitationChapters);
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({

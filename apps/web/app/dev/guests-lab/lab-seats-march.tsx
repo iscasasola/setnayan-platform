@@ -1,3 +1,4 @@
+import { sortTables, spreadForDisplay } from '@/lib/table-order';
 import { DEFAULT_FLOOR_PLAN, groupColorFor, type EventTableRow, type FloorBoothRow } from '@/lib/seating';
 import type { SeatingGuest } from '@/app/dashboard/[eventId]/seating/_components/seating-editor';
 import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/seating-lazy';
@@ -31,7 +32,7 @@ const LAB_BOOTHS: FloorBoothRow[] = [
   },
 ];
 
-const LAB_TABLES: EventTableRow[] = [
+const LAB_TABLES_SMALL: EventTableRow[] = [
   ['Sponsors', 'round_10', 30, 30],
   ['Family', 'round_10', 70, 30],
   ['Barkada', 'round_8', 30, 62],
@@ -50,7 +51,34 @@ const LAB_TABLES: EventTableRow[] = [
   removed_seats: [],
 }));
 
-export function LabSeats({ guests, seat, big = false }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean }) {
+/**
+ * 🪑 `&cale=before|after` — a room shaped like the owner's own event (measured read-only 2026-11-01): Table 1…25, Tables
+ * 1–3 tied at sort_order 0 and the rest out of label order, Tables 17 and 18 stored on one spot (100, 100), 13 and 14 on
+ * the bottom edge. `before` = the rows as the database orders them (sort_order, then made); `after` = as the page now
+ * hands them to the plan (`sortTables` + `spreadForDisplay`). Lab data only.
+ */
+function caleShapedTables(after: boolean): EventTableRow[] {
+  const order = [0, 0, 0, ...Array.from({ length: 22 }, (_, i) => ((i * 7) % 22) + 1)];
+  const rows: EventTableRow[] = Array.from({ length: 25 }, (_, i) => ({
+    table_id: `lab-c-${String(i + 1).padStart(2, '0')}`,
+    public_id: `S89T-LABC0000${i}`,
+    event_id: 'lab',
+    table_label: `Table ${i + 1}`,
+    table_type: 'round_10' as EventTableRow['table_type'],
+    capacity: 10,
+    sort_order: order[i]!,
+    x_pos: i === 16 || i === 17 ? 100 : i === 12 || i === 13 ? 30 + (i - 12) * 40 : 12 + (i % 5) * 19,
+    y_pos: i === 16 || i === 17 ? 100 : i === 12 || i === 13 ? 100 : 18 + Math.floor(i / 5) * 17,
+    rotation_deg: 0,
+    removed_seats: [],
+  }));
+  // The database's order: sort_order, then when made (here: Tables 3, 2, 1 were made last-first).
+  const db = [...rows].sort((a, b) => a.sort_order - b.sort_order || b.table_label.localeCompare(a.table_label));
+  return after ? spreadForDisplay(sortTables(db)) : db;
+}
+
+export function LabSeats({ guests, seat, big = false, cale = null }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null }) {
+  const LAB_TABLES = cale ? caleShapedTables(cale === 'after') : LAB_TABLES_SMALL;
   async function labPolicy(formData: FormData) {
     'use server';
     void formData;

@@ -25,6 +25,7 @@
  * 🛑 A FAILED READ IS SAID, NEVER DRAWN AS NO CHAPTERS (`{ measured: false }`).
  * 🔒 app/dashboard/[eventId]/schedule/chapters-live-on-the-schedule.test.ts
  */
+import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
@@ -112,6 +113,8 @@ export type ChaptersInput =
       canEdit: boolean;
       /** May put a chapter on the invitation (a host or the coordinator). */
       mayInvite: boolean;
+      /** ✉ Replies per chapter on the invitation (Step 5); a chapter whose count could not be read is `null`. */
+      replyCounts?: Record<string, ChapterCount | null>;
       /** 👁 The rail's View as ▾ (Step 3c) — its data and whether the event owns it; absent = none drawn. */
       viewAs?: ViewAsInput | null;
     }
@@ -382,6 +385,7 @@ export function ChaptersHost({
           used={chapters.map((c) => c.location).filter((v): v is string => Boolean(v))}
           lastDay={input.lastDay}
           mayInvite={input.mayInvite}
+          replyCount={input.replyCounts?.[current.block_id]}
           doors={doors}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}

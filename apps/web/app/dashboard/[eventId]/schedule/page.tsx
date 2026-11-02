@@ -121,6 +121,7 @@ import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, Sc
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
 import type { ViewMoment } from '@/lib/schedule-view-as';
@@ -657,6 +658,18 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       : [];
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
   const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
+  /* ✉ Who replied to each chapter on the invitation (Step 5) — two exact counts and the first names who said yes, per
+     chapter; read only for chapters on the invitation. A chapter whose count failed is `null`, said on the switch. */
+  const replyCounts =
+    chapterRead?.ok && !isTravel
+      ? Object.fromEntries(
+          await readChapterCounts(
+            supabase,
+            eventId,
+            chapterRead.value.chapters.filter((c) => c.on_invitation).map((c) => c.block_id),
+          ),
+        )
+      : undefined;
   const viewAsExtras = viewAsAhead ? await viewAsAhead : null;
   const chaptersInput: ChaptersInput | null =
     chapterRead === null || isTravel
@@ -703,6 +716,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             // Putting a chapter on the invitation is the hosts' and the coordinator's — the people who edit the day
             // here; the door checks again (`mayShowToGuests`).
             mayInvite: dayRole !== 'view',
+            replyCounts,
             viewAs: viewAsExtras
               ? {
                   pro: viewAsExtras.pro,

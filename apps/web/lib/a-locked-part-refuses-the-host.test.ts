@@ -124,5 +124,6 @@ test('the supplier has Lock my times and Unlock, and they reach supplier_mark_sc
   const act = read('app', 'vendor-dashboard', 'clients', '[eventId]', 'actions.ts');
   assert.match(act, /request === 'lock' \|\| request === 'unlock'/);
   assert.match(act, /if \(isMark\) \{\s*const \{ error \} = await supabase\.rpc\('supplier_mark_schedule'/);
-  assert.match(read('app', 'vendor-dashboard', 'clients', '[eventId]', 'page.tsx'), /select\('seen_at, confirmed_at, locked_at'\)/);
+  // The page reads the marks through the canonical list (which carries locked_at — asserted above), never a hand-typed one.
+  assert.match(read('app', 'vendor-dashboard', 'clients', '[eventId]', 'page.tsx'), /from\('event_supplier_schedule_marks'\)\s*\.select\(SCHEDULE_MARK_COLUMNS\)/);
 });

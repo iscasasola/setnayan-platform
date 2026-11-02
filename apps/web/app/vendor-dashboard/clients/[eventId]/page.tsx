@@ -199,6 +199,7 @@ import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-paymen
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import type { ComponentProps } from 'react';
@@ -727,7 +728,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase.from('event_schedule_tasks').select(TASK_COLUMNS).eq('event_id', eventId),
       supabase
         .from('event_supplier_schedule_marks')
-        .select('seen_at, confirmed_at, locked_at')
+        .select(SCHEDULE_MARK_COLUMNS)
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),

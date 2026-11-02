@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { importGuestsCsv } from './actions';
-import { GuestImportForm } from './import-form';
+import { GuestImportForm, GuestImportWaits } from './import-form';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { guestTemplateFor } from '@/lib/guest-import-file';
+import { guestImportGate } from '@/lib/guest-import-gate.server';
 
 export const metadata = { title: 'Import guests' };
 
@@ -16,6 +17,8 @@ type Props = {
 export default async function ImportGuestsPage({ params }: Props) {
   const { eventId } = await params;
 
+  // 📥 Before December 19 a normal account's import waits — the door says so in place of the upload (the action refuses too).
+  const notYet = await guestImportGate(eventId);
   const action = importGuestsCsv.bind(null, eventId);
   // A wedding gets the file with the Side column; every other type the general one.
   const template = guestTemplateFor(eventHasSides(await resolveRoleSetForEvent(eventId)));
@@ -64,7 +67,11 @@ export default async function ImportGuestsPage({ params }: Props) {
         </div>
       </section>
 
-      <GuestImportForm action={action} />
+      {notYet ? (
+        <GuestImportWaits message={notYet} />
+      ) : (
+        <GuestImportForm action={action} />
+      )}
     </div>
   );
 }

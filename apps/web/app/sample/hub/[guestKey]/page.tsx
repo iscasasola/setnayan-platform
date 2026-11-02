@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BackButton } from '@/app/_components/back-button';
 import { loadSampleGuestOrNotFound } from '@/lib/sample-event/switch.server';
 
 /**
@@ -23,11 +23,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
           {guest.first_name} {guest.last_name}
         </h1>
         <p className="mt-3 text-base text-ink/75">Their Event Hub opens here soon.</p>
-        <p className="mt-10">
-          <Link href="/sample" className="inline-flex min-h-11 items-center text-sm font-medium text-mulberry hover:text-mulberry-600">
-            Back to the sample
-          </Link>
-        </p>
+        <BackButton route="/sample/hub/[guestKey]" className="mt-10" />
       </div>
     </main>
   );

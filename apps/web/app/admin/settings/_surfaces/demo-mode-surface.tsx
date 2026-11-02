@@ -43,6 +43,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { SampleEventSwitch } from '../_components/sample-event-switch';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 type Props = {
   searchParams: Promise<{ toggled?: string }>;
@@ -87,6 +88,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
     .select('sample_event_enabled')
     .eq('id', 1)
     .maybeSingle();
+  if (sampleErr) logQueryError('admin.demoMode.sampleEventSwitch', sampleErr);
   const sampleStored = (sampleRow as { sample_event_enabled?: boolean | null } | null)?.sample_event_enabled;
   const sampleMode = sampleStored === true ? 'on' : sampleStored === false ? 'off' : 'default';
 

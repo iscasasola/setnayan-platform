@@ -13618,12 +13618,10 @@
       "files": [
         "sample/hub/[guestKey]/page.tsx"
       ],
-      "destinations": [
-        "/sample"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link"
+        "BackButton"
       ]
     },
     "/signup": {

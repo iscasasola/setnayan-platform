@@ -87,40 +87,25 @@ const RESERVED_SUBDOMAINS = new Set([
   'preview', // reserved
 ]);
 
-// Native-app login-first entry (0052 design addition · owner-locked
-// 2026-06-10). The native shells — Capacitor (iOS/Android) and the Tauri
-// desktop wrapper (macOS/Windows) — omit the marketing brochure: someone
-// who installed the app has already converted. App-originated requests to
-// any bucket-① marketing route bounce to /login (or /dashboard when a
-// session exists) so the app boots straight into the product. Bucket-③
-// shareable surfaces (guest invites, day-of, /vendors browse, /v/[slug],
-// /realstories showcase, /help) stay reachable in-app; legal pages (/privacy,
-// /terms) stay reachable because store review requires them.
-const APP_EXCLUDED_MARKETING_PATHS = new Set([
-  '/',
-  '/features',
-  '/for-suppliers',
-  '/creators',
-  '/pricing',
-  '/how-it-works',
-  '/waitlist',
-  '/download',
-]);
-
-// Two detection signals, either suffices:
-//   1. `setnayan-client-type=capacitor` cookie — set by ClientTypeDetector
-//      after the first render inside the shell's WebView.
-//   2. `SetnayanApp` user-agent marker — set by the Capacitor shell via
-//      `appendUserAgent` in apps/mobile/capacitor.config.ts and by the Tauri
-//      desktop shell via `app.windows[].userAgent` in src-tauri/tauri.conf.json.
-//      Covers the very first request of a fresh install, before the cookie
-//      exists (desktop relies on this marker; it sets no client-type cookie).
-function isCapacitorClient(request: NextRequest): boolean {
-  return (
-    request.cookies.get('setnayan-client-type')?.value === 'capacitor' ||
-    (request.headers.get('user-agent') ?? '').includes('SetnayanApp')
-  );
-}
+// 📲 THE APP OPENS EVERY PAGE THE WEBSITE OPENS (owner 2026-11-02, DECISION_LOG
+// "EVERY PAGE HELD BACK FROM THE APP FOR APPLE GOES LIVE IN THE APP TOO" —
+// verbatim: "let everything go live"). Until then a native-shell request (the
+// `SetnayanApp` user agent or the capacitor cookie — phone and desktop app
+// alike) for a brochure page — `/` (Discover), /features, /for-suppliers,
+// /creators, /pricing, /how-it-works, /waitlist, /download — was sent to
+// /dashboard or /login while Apple reviewed 1.0. That bounce is gone, not
+// emptied: the app opens those pages exactly as the website does. Risk accepted
+// by the owner the same day ("okay to be rejected by apple again").
+//
+// ⚠ What still applies in the app is the STORE-SHELL paid-feature gate further
+// down (`isStoreShellWebOnlyPath` — the iPhone build only, never the desktop
+// app), which is Apple's in-app-purchase rule, not this bounce. It is unchanged.
+//
+// Guards that encoded the bounce now assert it stays gone:
+// the-account-bar-is-the-ruling · every-tab-keeps-the-bar ·
+// the-app-login-has-no-dead-close · every-signed-in-menu-reaches-the-policies ·
+// store-shell · the-app-never-steers-to-the-web ·
+// the-welcome-price-never-reaches-the-app.
 
 function detectVendorSubdomain(hostname: string): string | null {
   const m = hostname.match(VENDOR_SUBDOMAIN_RE);
@@ -551,17 +536,6 @@ async function middlewareCore(request: NextRequest) {
     return redirect;
   }
 
-  // Native shell skips the brochure: marketing routes redirect to the
-  // product. 307 — the routes themselves stay live on the web, and the
-  // redirect target depends on session state, so nothing should cache it
-  // as permanent.
-  if (isCapacitorClient(request) && APP_EXCLUDED_MARKETING_PATHS.has(pathname)) {
-    return NextResponse.redirect(
-      new URL(user ? '/dashboard' : '/login', request.url),
-      307,
-    );
-  }
-
   // 🔒 STORE SHELL SHOWS NO PAID DIGITAL FEATURE. App Review 2026-06-30
   // rejected build 1.0 (1) under Guideline 3.1.1 / 3.1.3(b) even though the
   // in-app checkout was already hidden on native: a feature bought on the web
@@ -571,8 +545,8 @@ async function middlewareCore(request: NextRequest) {
   // by the predicate — is sent to a plain "not in the app" page whenever it
   // reaches a paid feature's home or a purchase route. The Studio hub filters
   // its own grid; this catches deep links, notifications and dashboard tiles.
-  // 307, same reasoning as the marketing bounce above. Held by
-  // lib/store-shell.test.ts.
+  // 307 — the route stays live on the web and the target is not permanent, so
+  // nothing should cache it. Held by lib/store-shell.test.ts.
   // 🍎 Version 1.1: where Apple sells in this app (`iapAvailable` — the store
   // shell, a StoreKit build announcing `SetnayanIAP/2`+ (1.1 — never build 5's `/1`), the owner's switch),
   // the Papic and Live Watch control pages open (`IAP_OPENED_ROUTE` in

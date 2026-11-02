@@ -25,6 +25,7 @@ import {
   STORE_SHELL_WEB_ONLY_STUDIO_SEGMENTS,
 } from './store-shell';
 import { EVERY_ADD_ON } from './add-ons-catalog';
+import { stripComments as stripCode } from './strip-comments';
 
 const CAPACITOR_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SetnayanApp';
@@ -606,10 +607,19 @@ test('A1 — every /features page that sells is refused in the store shell, foun
   // No phantom slugs: every hand-listed slug is a real, selling registry page.
   const selling = new Set(sells.map((f) => f.slug as string));
   for (const s of STORE_SHELL_WEB_ONLY_FEATURE_SLUGS) assert.ok(selling.has(s), `"${s}" is not a selling feature page`);
-  // Both hubs list every price. /features is bounced by the native brochure
-  // rule in middleware; its Tagalog twin is a doorway here.
+  // Both hubs list every price. The Tagalog twin is a doorway here. The English
+  // hub WAS kept out of the app by middleware's native brochure bounce until the
+  // owner opened every bounced page on 2026-11-02 (DECISION_LOG "EVERY PAGE HELD
+  // BACK FROM THE APP FOR APPLE GOES LIVE IN THE APP TOO", "let everything go
+  // live" — Apple 3.1.1 risk accepted). So /features now opens in the app, and
+  // that is a RULING, not an accident: refusing it again reverses the owner.
   assert.equal(isStoreShellWebOnlyPath('/tl/features'), true, '/tl/features lists prices');
-  assert.match(src('middleware.ts'), /APP_EXCLUDED_MARKETING_PATHS = new Set\(\[[^\]]*'\/features',/, '/features must stay in the brochure bounce');
+  assert.doesNotMatch(
+    stripCode(src('middleware.ts')),
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware bounces the app again — the owner opened /features (and every brochure page) in the app on 2026-11-02',
+  );
+  assert.equal(isStoreShellWebOnlyPath('/features'), false, '/features is refused in the app — the owner opened it on 2026-11-02');
   // And the link guard hides a "Works with" link to one from a free page.
   const { storeShellHidesHref } = require('./store-shell') as typeof import('./store-shell');
   assert.equal(storeShellHidesHref('/features/live-watch', 'https://www.setnayan.com/features/budget'), true);
@@ -862,11 +872,15 @@ test('🍎 #14 — /web-only, where every refused route in the app lands, names 
 test('🍎 #5/#14 — nothing that sells or names Android renders on a route the app can open (every route walked)', () => {
   // A PROPERTY of the tree. Every .tsx under app/ is walked; a file is skipped
   // only when the app can never render it: admin and API routes, the dev labs
-  // (404 in production — the-lab-never-ships.test.ts), routes middleware
-  // refuses (`isStoreShellWebOnlyPath`), and route files of the brochure pages
-  // middleware bounces to /login (`APP_EXCLUDED_MARKETING_PATHS`, read from
-  // middleware.ts). Shared components (`_*` folders) are never skipped — they
-  // render everywhere.
+  // (404 in production — the-lab-never-ships.test.ts) and routes middleware
+  // refuses (`isStoreShellWebOnlyPath`). Shared components (`_*` folders) are
+  // never skipped — they render everywhere.
+  //
+  // 📲 The brochure pages middleware used to bounce out of the app (`/`,
+  // /features, /creators, /how-it-works, /waitlist, /download — and /pricing,
+  // /for-suppliers, which the store shell still refuses) are NO LONGER skipped:
+  // the owner opened them in the app on 2026-11-02 ("let everything go live"),
+  // so they are read like every other page the app can open.
   //
   // A hit — "Buy …", "Upgrade …", "Unlock Pro / Setnayan AI / Event Hub /
   // Animation / with …" (the selling uses; a layer's Lock/Unlock or "Unlock
@@ -907,10 +921,13 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     ['app/vendor-dashboard/shop/_components/voice-match-card.tsx', { why: 'drawn only by voice-match-section, which returns null in the store shell', gate: { file: 'app/vendor-dashboard/shop/_components/voice-match-section.tsx', re: /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/ } }],
   ]);
 
-  const exclMatch = src('middleware.ts').match(/APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([^\]]*)\]/);
-  assert.ok(exclMatch, 'APP_EXCLUDED_MARKETING_PATHS moved out of middleware.ts');
-  const bounced = new Set([...exclMatch![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!));
-  assert.ok(bounced.has('/') && bounced.size >= 5, 'the brochure bounce list looks wrong');
+  // No page is skipped for being "bounced out of the app" any more — and if middleware starts bouncing the app
+  // again, this scan must be taught which pages, rather than silently keep reading pages the app cannot open.
+  assert.doesNotMatch(
+    stripCode(src('middleware.ts')),
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware bounces the app again — the owner opened every brochure page in the app on 2026-11-02',
+  );
 
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -949,9 +966,8 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     if (/^app\/(admin|api|dev)\//.test(rel)) continue;
     const text = readFileSync(abs, 'utf8');
     if (!FILE_SELLS.test(text)) continue;
-    const { route, shared } = placeOf(abs);
+    const { route } = placeOf(abs);
     if (isStoreShellWebOnlyPath(route)) continue;
-    if (!shared && bounced.has(route)) continue;
     scanned++;
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const attrNamed = (attrs: import('typescript').JsxAttributes, name: string) =>

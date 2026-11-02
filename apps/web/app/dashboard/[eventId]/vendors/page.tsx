@@ -21,7 +21,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
@@ -179,10 +179,7 @@ import {
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { PillarPartPicker } from '../_components/pillar-part-picker';
-import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, bookedParts, yourTeamParts } from '@/lib/pillar-parts';
-import { BookedPartPage } from './_components/booked-part-page';
-import CoupleSchedulePage from '../schedule/page';
+import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
 
 // The browser tab says what the screen says ("supplier", never "vendor", in UI).
@@ -199,8 +196,8 @@ type Props = {
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
   // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
-  // part = which Booked part is showing — absent is the team itself, `schedule` the shipped Schedule page. `budget`
-  // (2026-09-29 → 2026-11-01) drew the Budget page here; it now FORWARDS to the Budget page (lib/pillar-parts.ts).
+  // part = an OLD address only: `budget` (2026-09-29 → 2026-11-01) and `schedule` (2026-10-29 → 2026-11-02) drew those
+  // pages here; each now FORWARDS to its own page with its query (lib/pillar-parts.ts). Booked is just the team.
   // pay (2026-10-24) = one payment's line item — carried to the Budget page, which opens its Pay sheet.
   searchParams: Promise<{
     status?: string;
@@ -210,13 +207,15 @@ type Props = {
     part?: string;
     pay?: string;
     settings?: string;
-    /** Booked › Schedule carries the Schedule page's own query (a view, a lens, a save's flash). */
+    /** The old Booked › Schedule address carries the Schedule page's own query (a view, a lens, a save's flash). */
     view?: string;
     ros?: string;
     note?: string;
     host_answers?: string;
-    /** `requests` — Booked › Schedule opens its supplier requests sheet (Home's "N to approve", owner 2026-11-01). */
+    /** Carried to the Schedule page by the old `?part=schedule` forward (its requests sheet, its To do filter). */
     sheet?: string;
+    filter?: string;
+    announce?: string;
   }>;
 };
 
@@ -278,6 +277,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // `?part=budget` from 2026-09-29; that address now forwards to the one Budget page, carrying `?pay=`, so an old
   // link, bookmark or notification still lands on the payment it named. Nothing in the app links it any more.
   if (sp.part === YOUR_TEAM_BUDGET_PART) redirect(budgetPageHref(eventId, { pay: sp.pay }));
+  // 📅 …AND THE SCHEDULE (owner 2026-11-02, "BOOKED IS JUST THE TEAM": *"no just schedule"*). Drawn here under Booked
+  // at `?part=schedule` from 2026-10-29; that address now forwards to the Schedule page with every param it carried.
+  if (sp.part === BOOKED_SCHEDULE_PART) {
+    redirect(
+      schedulePageHref(eventId, { view: sp.view, ros: sp.ros, note: sp.note, host_answers: sp.host_answers, sheet: sp.sheet, filter: sp.filter, announce: sp.announce }),
+    );
+  }
   // Read by the review-badge read, a function declaration that is STARTED early
   // (see "STARTS AT ONCE") — TypeScript does not carry the narrowing above into it.
   const viewerId = user.id;
@@ -305,34 +311,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
 
-  // The Suppliers part picker: the team, and a door to the Budget page (its own page since 2026-11-01).
-  const teamParts = yourTeamParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
-  // 📅 SUPPLIERS › BOOKED = TEAM · BUDGET · SCHEDULE (owner 2026-10-29; the approved final Suppliers design,
-  // 2026-10-30). Schedule is the whole shipped page, drawn inside the Suppliers shell under Booked — and it returns
-  // HERE, before the team's reads: the bench's fan-out would be fetched and thrown away. Budget is a DOOR in the same
-  // dropdown, to the Budget page itself (Home's, since 2026-11-01) — never drawn here, so never two places.
-  const bookedPartList = bookedParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
-  if (sp.part === BOOKED_SCHEDULE_PART) {
-    return (
-      <BookedPartPage eventId={eventId} userId={viewerId} part="schedule" parts={bookedPartList}>
-        <CoupleSchedulePage
-          params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({
-            booked: '1',
-            view: sp.view,
-            ros: sp.ros,
-            note: sp.note,
-            host_answers: sp.host_answers,
-            // 📅 Home's "N to approve" opens the supplier requests sheet with the page (owner 2026-11-01).
-            sheet: sp.sheet,
-          })}
-        />
-      </BookedPartPage>
-    );
-  }
-  const teamPartPicker = (
-    <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
-  );
   const supabase = await createClient();
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
@@ -414,7 +392,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
         />
-        {teamPartPicker}
       </section>
     );
   }
@@ -1641,7 +1618,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // taxonomy browser below instead.
   const services = (
     <>
-      {teamPartPicker}
       {aiOfferBanner}
       <PlanBudgetAccordion
         model={model}
@@ -2299,8 +2275,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       eventId={eventId}
       rows={teamRowList}
       facts={bookedFacts}
-      // Booked = Team · Budget · Schedule (owner 2026-10-29) — the body's first-row dropdown.
-      parts={bookedPartList}
       // A delegate the host kept out of the Schedule reads no moments — their rows draw no call-time line.
       scheduleShared={!isDelegateWithoutArea(viewer, 'schedule')}
     />
@@ -3013,7 +2987,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           bookedCount={teamCountsLine(teamRowList).booked}
           premium={aiActive}
           bookedSlot={teamSlot}
-          bookedParts={bookedPartList}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
           // Suppliers PR3 — on the one-screen page the Build body is drawn

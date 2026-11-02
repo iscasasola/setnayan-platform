@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
-import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
+import { ScheduleOneLine } from '@/app/dashboard/[eventId]/schedule/_components/schedule-one-line';
 
 // The components are compiled with the classic JSX runtime here (as every rendering guard in lib/ does).
 (globalThis as unknown as { React: unknown }).React = React;
@@ -52,7 +52,7 @@ function topLevelChildren(html: string, rootMark: string): string[] {
 
 test('1 · the frame draws the line and the date line — and nothing else — before the moments', () => {
   const html = renderToStaticMarkup(
-    React.createElement(BookedScheduleFrame, {
+    React.createElement(ScheduleOneLine, {
       initial: 'event-day',
       views: [
         { key: 'event-day', label: 'Event Day', count: 7 },
@@ -70,11 +70,11 @@ test('1 · the frame draws the line and the date line — and nothing else — b
   );
   const before = html.slice(0, html.indexOf('data-first-moment'));
   // The frame's own top-level children, in order: the line, the date line, the views.
-  const root = before.slice(before.indexOf('data-booked-schedule='));
+  const root = before.slice(before.indexOf('data-schedule-one-line='));
   const marks = [...root.matchAll(/data-(schedule-line|schedule-date-line|schedule-panel)=/g)].map((m) => m[1]);
   assert.deepEqual(marks.slice(0, 3), ['schedule-line', 'schedule-date-line', 'schedule-panel'], 'a row was added above the moments');
   // …and nothing unnamed either: the frame's root has exactly three children — the line, the date line, the views.
-  assert.deepEqual(topLevelChildren(html, 'data-booked-schedule="event-day"'), ['div', 'div', 'div'], 'a row was added to the frame');
+  assert.deepEqual(topLevelChildren(html, 'data-schedule-one-line="event-day"'), ['div', 'div', 'div'], 'a row was added to the frame');
   assert.match(before, /data-schedule-view=/, 'the line lost the view dropdown');
   assert.match(before, /data-announce-door="round"/, 'Announce is not on the line');
   assert.match(before, /Friday 18 December 2026 · 48 days to go/, 'the date line is gone');
@@ -83,12 +83,12 @@ test('1 · the frame draws the line and the date line — and nothing else — b
 
 test('2 · under Booked the page draws the frame and none of the old chrome rows', () => {
   const page = read('page.tsx');
-  const start = page.search(/\{inBooked \? \(\s*<BookedScheduleFrame\b/);
+  const start = page.search(/\{inBooked \? \(\s*<ScheduleOneLine\b/);
   const rest = start < 0 ? '' : page.slice(start);
   const end = rest.search(/\)\s*:\s*\(\s*<>[\s{}]*<header\b/);
   const booked = end < 0 ? '' : rest.slice(0, end);
   assert.ok(booked.length > 100, 'the Booked branch is gone');
-  assert.match(booked, /<BookedScheduleFrame\b/);
+  assert.match(booked, /<ScheduleOneLine\b/);
   assert.doesNotMatch(booked, /<ScheduleModeToggle\b|roleLabel\}\s*<Tip|<PageMasthead\b/, 'an old chrome row is drawn under Booked');
   assert.match(booked, /<AnnounceButton\b[^>]*\bround\b/, 'Announce is not the line’s round');
   const prep = read('_components', 'preparation-agenda.tsx');
@@ -100,7 +100,7 @@ test('2 · under Booked the page draws the frame and none of the old chrome rows
 });
 
 test('3 · a view switch asks the server nothing — every view is drawn once, a pick swaps what shows', () => {
-  const frame = stripComments(readFileSync(join(S, '_components', 'booked-schedule-frame.tsx'), 'utf8'));
+  const frame = stripComments(readFileSync(join(S, '_components', 'schedule-one-line.tsx'), 'utf8'));
   assert.doesNotMatch(frame, /router\.(push|replace|refresh)|useRouter|<Link\b|fetch\(/, 'a view switch goes to the server');
   assert.match(frame, /window\.history\.replaceState\(/, 'the view is not written to `?view=` (a reload would lose it)');
   assert.match(frame, /<div key=\{k\} hidden=\{k !== view\} data-schedule-panel=\{k\}>/, 'the views are not all kept');

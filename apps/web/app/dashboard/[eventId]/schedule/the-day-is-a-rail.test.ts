@@ -232,7 +232,7 @@ test('5b · the rail writes only through the existing actions the page hands it'
   // …and (2026-10-31, Suppliers › Booked) its frame word and the line's slot id — placement, never a write path.
   assert.match(
     page,
-    /<ScheduleDay\s+inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}\s+frame=\{inBooked \? 'booked' : 'page'\}\s+toolsSlot=\{inBooked \? BOOKED_SCHEDULE_TOOLS_SLOT : null\}\s+actions=\{\{/,
+    /<ScheduleDay\s+inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}\s+frame=\{inBooked \? 'booked' : 'page'\}\s+toolsSlot=\{inBooked \? SCHEDULE_TOOLS_SLOT : null\}\s+actions=\{\{/,
     'the rail is handed something besides its slots and its actions',
   );
   assert.ok(mount, 'the page hands the rail its actions');

@@ -5904,8 +5904,6 @@
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/website/editor?open=music",
@@ -6386,14 +6384,12 @@
         "/dashboard/[seg]/messages"
       ],
       "actions": [
-        "fileActions",
         "formAction"
       ],
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
-        "BookedPartRow",
         "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
@@ -8714,6 +8710,7 @@
         "TellTheHost",
         "TemplatePicker",
         "TickerPill",
+        "TimeLine",
         "TimeRow",
         "TimeSpan",
         "TimeTicker",
@@ -10020,7 +10017,6 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget",
         "/dashboard/[seg]/vendors?tab=budget&team=[seg]"
       ],
       "actions": [
@@ -10069,7 +10065,6 @@
         "BookedWhere",
         "BookedWhereLine",
         "BudgetBuildTab",
-        "BudgetPage",
         "BudgetWords",
         "BuildActionResult",
         "BuildAdded",
@@ -12059,6 +12054,24 @@
         "Wordmark"
       ]
     },
+    "/dev/shop-page-lab": {
+      "files": [
+        "dev/shop-page-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/v/sampaguita-table/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "ShopSinceLine",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-plan-lab": {
       "files": [
         "dev/shop-plan-lab/page.tsx"
@@ -12354,7 +12367,6 @@
       ],
       "destinations": [
         "/dev/suppliers-lab?mode=booked",
-        "/dev/suppliers-lab?mode=booked&part=budget",
         "/dev/suppliers-lab?mode=booked&part=schedule"
       ],
       "actions": [],
@@ -12371,7 +12383,6 @@
         "BookedScheduleFrame",
         "BookedStandInCtx.Provider",
         "BottomDock",
-        "BudgetScreen",
         "BuildBody",
         "BuildSnapshotPick",
         "BuildWrites",
@@ -13822,6 +13833,8 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
+        "v/[slug]/_components/check-a-date-link.tsx",
+        "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
@@ -13831,6 +13844,7 @@
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/shop-reach.tsx",
+        "v/[slug]/_components/shop-since-line.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13846,7 +13860,8 @@
         "/explore",
         "/login",
         "/signup",
-        "/v/[seg]/booth"
+        "/v/[seg]/booth",
+        "/v/[seg]/dates"
       ],
       "actions": [
         "joinVendorWaitlist"
@@ -13858,9 +13873,11 @@
         "AutoCarryState",
         "AxisStat",
         "CardRecordSection",
+        "CheckADateLink",
         "ComingSoonBanner",
         "DemoVendorBanner",
         "DirectionsMenu",
+        "EventsByKindButton",
         "FilterChip",
         "HTMLDivElement",
         "Image",
@@ -13889,11 +13906,13 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "Sheet",
         "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
         "ShopReachLine",
         "ShopReachMap",
+        "ShopSinceLine",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",

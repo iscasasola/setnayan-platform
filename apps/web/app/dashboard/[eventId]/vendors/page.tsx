@@ -180,11 +180,8 @@ import {
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { PillarPartPicker } from '../_components/pillar-part-picker';
-import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, bookedParts, yourTeamParts } from '@/lib/pillar-parts';
+import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, bookedParts, yourTeamParts } from '@/lib/pillar-parts';
 import { BookedPartPage } from './_components/booked-part-page';
-// Your Team's Budget part IS the shipped Budget page, rendered whole — never a
-// second copy of it (owner 2026-09-29).
-import BudgetPage from '../budget/page';
 import CoupleSchedulePage from '../schedule/page';
 import { openDashboardEventRow } from '@/lib/event-row-once';
 
@@ -202,9 +199,9 @@ type Props = {
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
   // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
-  // part (2026-09-29) = which of Your Team's parts is showing — absent is the
-  // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
-  // pay (2026-10-24) = one payment's line item — the Budget part opens its Pay sheet (Home's Budget widget).
+  // part = which Booked part is showing — absent is the team itself, `schedule` the shipped Schedule page. `budget`
+  // (2026-09-29 → 2026-11-01) drew the Budget page here; it now FORWARDS to the Budget page (lib/pillar-parts.ts).
+  // pay (2026-10-24) = one payment's line item — carried to the Budget page, which opens its Pay sheet.
   searchParams: Promise<{
     status?: string;
     tab?: string;
@@ -279,6 +276,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 💰 THE BUDGET IS ITS OWN PAGE, OPENED FROM HOME (owner 2026-11-01, *"Okay place it in home"*). It was drawn here at
+  // `?part=budget` from 2026-09-29; that address now forwards to the one Budget page, carrying `?pay=`, so an old
+  // link, bookmark or notification still lands on the payment it named. Nothing in the app links it any more.
+  if (sp.part === YOUR_TEAM_BUDGET_PART) redirect(budgetPageHref(eventId, { pay: sp.pay }));
   // Read by the review-badge read, a function declaration that is STARTED early
   // (see "STARTS AT ONCE") — TypeScript does not carry the narrowing above into it.
   const viewerId = user.id;
@@ -306,28 +307,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
 
-  // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
-  // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget
-  // placed inside Your Team. It is the SHIPPED Budget page, rendered whole
-  // under the part picker; `/budget` now lands here. It returns before the
-  // team's reads: the budget page reads what it needs itself, and the bench's
-  // fan-out would be fetched and thrown away.
+  // The Suppliers part picker: the team, and a door to the Budget page (its own page since 2026-11-01).
   const teamParts = yourTeamParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
   // 📅 SUPPLIERS › BOOKED = TEAM · BUDGET · SCHEDULE (owner 2026-10-29; the approved final Suppliers design,
-  // 2026-10-30). Budget and Schedule are each a whole shipped page, drawn inside the Suppliers shell under Booked —
-  // and they return HERE, before the team's reads, for the same reason the Budget part always has: the bench's
-  // fan-out would be fetched and thrown away.
+  // 2026-10-30). Schedule is the whole shipped page, drawn inside the Suppliers shell under Booked — and it returns
+  // HERE, before the team's reads: the bench's fan-out would be fetched and thrown away. Budget is a DOOR in the same
+  // dropdown, to the Budget page itself (Home's, since 2026-11-01) — never drawn here, so never two places.
   const bookedPartList = bookedParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
-  if (sp.part === YOUR_TEAM_BUDGET_PART) {
-    return (
-      <BookedPartPage eventId={eventId} userId={viewerId} part="budget" parts={bookedPartList}>
-        <BudgetPage
-          params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay })}
-        />
-      </BookedPartPage>
-    );
-  }
   if (sp.part === BOOKED_SCHEDULE_PART) {
     return (
       <BookedPartPage eventId={eventId} userId={viewerId} part="schedule" parts={bookedPartList}>

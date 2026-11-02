@@ -360,6 +360,8 @@ export function buildEventMenuSections(
     matchPrefix: '__home__',
     alsoMatch: [
       `${base}/studio`,
+      // 💰 The Budget is Home's page since 2026-11-01 (owner: *"Okay place it in home"*): Home › Budget opens it.
+      `${base}/budget`,
       ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
     ],
   });
@@ -376,15 +378,13 @@ export function buildEventMenuSections(
     alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`, ...seatPages],
   });
 
-  // SUPPLIERS — suppliers + Budget (`yourTeamParts`). "Your Team" until
-  // 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). The old
-  // /budget page lands on the part; its standalone address still lights this row.
+  // SUPPLIERS — "Your Team" until 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). It lit /budget
+  // while the Budget was drawn inside it (2026-09-29 → 2026-11-01); the Budget is Home's page now, so Home lights it.
   put({
     key: 'explore',
     label: 'Suppliers',
     href: `${base}/vendors`,
     icon: PILLAR_TAB_ICON.explore,
-    alsoMatch: [`${base}/budget`],
   });
 
   // HUB — the Event Hub Maker, one row, one word, every phase (key `launch`,

@@ -30,7 +30,8 @@ import { upNext } from '../app/dashboard/[eventId]/_components/day-of-mode/live-
 import { blockTime } from './print-pieces';
 import { blocksWithDraftedCeremony, ceremonyTimeBox } from './ceremony-time';
 import { computeRetimePatches } from './schedule-ros';
-import { groupIntoChapters } from './alaala-chapters';
+// The ONE chapter engine's day split (lib/papic-chapters.ts, 2026-11-01 "groupIntoChapters (two copies → one)").
+import { chapterDays as groupIntoChapters } from './papic-chapters';
 import { guestsArriveSource, guestsMoments } from './guests-arrive';
 
 /* `server-only` shim (the pattern of a-dark-look-keeps-its-words.test.ts) — so the REAL Maker ceremony door is measured. */

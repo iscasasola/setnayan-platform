@@ -1,4 +1,3 @@
-import { onlyTimedBlocks } from '@/lib/schedule';
 import Link from 'next/link';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -199,7 +198,7 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
-import { buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import type { ComponentProps } from 'react';
@@ -694,17 +693,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
-      // ⏰ A Time-TBA chapter is left out of the supplier's timeline (its file lists it all-day, "· Time TBA") — its
-      // stored 00:00 is only its day and must never be drawn as 12:00 AM. The chapter fields feed their Schedule view
-      // (Step 4b) — never `notes`, which stay couple-side.
-      onlyTimedBlocks(
-        supabase
-          .from('event_schedule_blocks')
-          .select(
-            'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
-          )
-          .eq('event_id', eventId),
-      )
+      // ⏰ EVERY block, Time-TBA chapters included (owner 2026-11-02, "TEN OWNER YESES" item 4: a TBA chapter shows
+      // suppliers "Time TBA", never hidden) — their Schedule view (Step 4b) keeps it; the timeline, run of show and
+      // call time below are fenced in code (`timedBlocks`), since a TBA chapter's stored 00:00 is only its day and is
+      // never drawn as 12:00 AM. The chapter fields — never `notes`, which stay couple-side.
+      supabase
+        .from('event_schedule_blocks')
+        .select(
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
+        )
+        .eq('event_id', eventId)
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
       supabase
@@ -1253,7 +1251,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     author_label: n.author_user_id === user.id ? 'You' : authorLabels.get(n.author_user_id) ?? null,
   }));
 
-  const allBlocks = (liveBlocks ?? []) as LiveBlock[];
+  const everyBlock = (liveBlocks ?? []) as LiveBlock[];
+  // The timeline, run of show and call time: blocks with a clock only — a Time-TBA chapter (and every moment in it)
+  // has no clock to draw or call from. Their Schedule view below keeps it, "Time TBA".
+  const allBlocks = blocksWithAClock(everyBlock);
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
@@ -1262,7 +1263,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
   const supplierDay = liveBlocks
     ? buildSupplierDay({
-        blocks: allBlocks.map((b) => ({
+        blocks: everyBlock.map((b) => ({
           block_id: b.block_id,
           parent_block_id: b.parent_block_id ?? null,
           label: b.label,

@@ -9,10 +9,10 @@
  *       → Suppliers · Budget → Budget · To do → Planning Stage (its To do filter, since 2026-11-01).
  *   2 · THE TABLE ("A face opens the EXACT item"): each face's href, as the notes list it.
  *   3 · THE OTHER CALLERS STILL WORK: the params Home leans on are read by their pages as before (`?q=` by the
- *       Guests search, `?inspect=v:` and `?open=` by Suppliers, `?part=budget`, `?tab=`, the Maker's `?stage=`).
+ *       Guests search, `?inspect=v:` and `?open=` by Suppliers, the Budget page's `?pay=`, `?tab=`, the Maker's `?stage=`).
  *
  * SABOTAGE (seen red): point the Guests "no reply" face at `/vendors` (1 red) · give Suppliers' tile door
- * `/vendors?part=budget` (1 red: two widgets on one page) · drop `?q=declined` from the can't-come face (2 red).
+ * `/budget` (1 red: two widgets on one page) · drop `?q=declined` from the can't-come face (2 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,7 +45,8 @@ function pageOf(href: string): string {
   if (/^\?date=find$/.test(path)) return 'Date Finder';
   if (/^\/guests\b/.test(path)) return 'Guests';
   if (/^\/launch\b/.test(path)) return 'Event Hub';
-  if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';
+  // 💰 The Budget is its own page under Home since 2026-11-01 (owner: *"Okay place it in home"*).
+  if (/^\/budget\b/.test(path)) return 'Budget';
   if (/^\/vendors\b/.test(path)) return 'Suppliers';
   // ✅ To do opens Planning Stage's To do filter since the Checklist merged into it (owner 2026-11-01).
   if (/^\/schedule\?view=preparation&filter=todo\b/.test(path)) return 'Planning Stage';
@@ -97,9 +98,9 @@ test('2 · each face opens the exact item the notes name', () => {
     // PR-E: the exact quote — that supplier's workspace on its Quote tab.
     ['sup', 'sup-decide', '/dashboard/e1/vendors/v-lumiere/workspace?tab=quote'],
     ['sup', 'sup-replied', '/dashboard/e1/vendors?tab=shortlist'],
-    ['budget', 'budget-summary', '/dashboard/e1/vendors?part=budget'],
+    ['budget', 'budget-summary', '/dashboard/e1/budget'],
     // PR-E: the exact payment (its Pay sheet opens) and the exact task.
-    ['budget', 'pay-li-1', '/dashboard/e1/vendors?part=budget&pay=li-1'],
+    ['budget', 'pay-li-1', '/dashboard/e1/budget?pay=li-1'],
     ['plan', 'plan-open', '/dashboard/e1/schedule?view=preparation&filter=todo#task-t1'],
     ['plan', 'plan-pct', '/dashboard/e1/schedule?view=preparation&filter=todo'],
   ];
@@ -132,9 +133,9 @@ test('3 · the params Home leans on still answer for every caller', () => {
   const vendors = src('vendors/page.tsx');
   assert.match(vendors, /sp\.inspect\.startsWith\('v:'\)/, 'Suppliers no longer reads ?inspect=v:');
   assert.match(vendors, /initialOpenTile=\{sp\.open \?\? null\}/, 'Suppliers no longer reads ?open=');
-  // ?part=budget — the Budget part.
+  // ?pay= — the Budget page opens that payment's sheet; an old `?part=budget` Suppliers link forwards there.
   assert.equal(YOUR_TEAM_BUDGET_PART, 'budget');
-  assert.match(vendors, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)/, 'Suppliers no longer opens its Budget part from ?part=');
+  assert.match(vendors, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\);/, 'an old ?part=budget link no longer reaches the Budget page');
   // ?stage= — the Maker opens the named stage.
   assert.equal(resolveHubStageSelection({ param: 'event', live: 'rsvp' }), 'event');
 });

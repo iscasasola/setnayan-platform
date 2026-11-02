@@ -21,6 +21,9 @@ const BLOCKS: SupplierBlockRow[] = [
   { block_id: 'c1', parent_block_id: 'cer', label: 'Processional', start_at: T('15:00'), end_at: T('15:15'), location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: [], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
   { block_id: 'c2', parent_block_id: 'cer', label: 'Family photos at the altar', start_at: T('16:00'), end_at: T('16:15'), location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: [ME], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
   { block_id: 'rec', parent_block_id: null, label: 'Reception', start_at: T('18:00'), end_at: T('22:00'), location: 'Seda Vertis North', spot: 'Ballroom', time_tba: false, is_optional: false, responsible_vendor_ids: ['ev-band'], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
+  // A Time-TBA chapter Lumina is on: listed "Time TBA", never hidden, no call time (owner 2026-11-02). Stored at 00:00 = its day only.
+  { block_id: 'send', parent_block_id: null, label: 'Send-off', start_at: T('00:00'), end_at: null, location: null, spot: null, time_tba: true, is_optional: false, responsible_vendor_ids: [ME], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
+  { block_id: 's1', parent_block_id: 'send', label: 'Sparkler exit photos', start_at: T('00:00'), end_at: null, location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: [ME], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
   { block_id: 'r1', parent_block_id: 'rec', label: 'First dance', start_at: T('19:30'), end_at: T('19:40'), location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: ['ev-band'], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') },
 ];
 

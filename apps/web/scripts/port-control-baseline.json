@@ -4252,6 +4252,7 @@
         "admin/settings/_components/loader-appearance-card.tsx",
         "admin/settings/_components/morning-digest-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
+        "admin/settings/_components/sample-event-switch.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
         "admin/settings/_surfaces/compliance-surface.tsx",
@@ -4268,7 +4269,8 @@
         "/admin/settings?tab=[seg]",
         "/admin/settings?tab=notifications",
         "/admin/ugat?tab=onboarding",
-        "/explore"
+        "/explore",
+        "/sample"
       ],
       "actions": [
         "markAllNotificationsRead",
@@ -4301,13 +4303,16 @@
         "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
+        "Mode",
         "MorningDigestCard",
         "NotificationsSurface",
         "PageMasthead",
+        "PickMenu",
         "PreviewSwatch",
         "ProcessStatus",
         "PushToggle",
         "SDLoader",
+        "SampleEventSwitch",
         "SentrySmokeTestButton",
         "SettingsSurface",
         "SubmitButton",
@@ -8783,6 +8788,7 @@
         "dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts",
         "dashboard/[eventId]/seating/_components/use-seating-lock.ts",
         "dashboard/[eventId]/seating/_components/use-seating-presence.ts",
+        "dashboard/[eventId]/seating/_components/vip-mark.tsx",
         "dashboard/[eventId]/seating/actions.ts",
         "dashboard/[eventId]/seating/error.tsx",
         "dashboard/[eventId]/seating/loading.tsx",
@@ -8896,7 +8902,9 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow"
+        "TypedRow",
+        "VipMark",
+        "VipPlusOneSeating"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {
@@ -8988,6 +8996,7 @@
         "VenueDecor",
         "VenueFixtures",
         "VenueShell",
+        "VipTableMark",
         "WalkController",
         "WalkInput",
         "WalkStick",
@@ -11557,6 +11566,7 @@
       "blocks": [
         "AccountBottomNav",
         "AddGuestSheet",
+        "AutoSeatGuest",
         "BottomDock",
         "DecideForm",
         "DecideRow",
@@ -13598,6 +13608,46 @@
         "InviteDoor",
         "Link",
         "SubmitButton"
+      ]
+    },
+    "/sample": {
+      "files": [
+        "sample/layout.tsx",
+        "sample/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
+    },
+    "/sample/[...rest]": {
+      "files": [
+        "sample/[...rest]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
+    },
+    "/sample/hub/[guestKey]": {
+      "files": [
+        "sample/hub/[guestKey]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DressCodeWidget",
+        "EntourageSection",
+        "GuestLookScope",
+        "GuestMeParts",
+        "GuestTicket",
+        "InvitationShell",
+        "MeGreeting",
+        "PaidMark",
+        "ScheduleWidget",
+        "YourSeatBlock"
       ]
     },
     "/signup": {
@@ -16510,6 +16560,8 @@
         "SetnayanMark",
         "ShopBadgePill",
         "ShopSegments",
+        "ShowBeforeVerifiedRow",
+        "ShowPageResult",
         "SupplierThumbRow",
         "SwitchRow",
         "SwitchTrack",

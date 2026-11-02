@@ -7,7 +7,8 @@ import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_comp
  * that write nothing (`lab`). States: `&state=week` (the final week: Confirm my times) · `confirmed` · `auto` (the host
  * chose Auto-agree) · `seen` (nothing new since Seen) · `unlinked` (no chapter linked yet) · `fail` (the read failed) ·
  * `hosttag` (👷 the HOST tagged Lumina's crew member Jubert on Glow's "Hair and make-up" from the moment sheet's Suppliers
- * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert).
+ * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert) · `locked` (🔒 Lumina
+ * locked their times — audit D7; Lock / Unlock write nothing here).
  */
 const ME = 'ev-lumina';
 const T = (hhmm: string, day = '2026-12-18') => `${day}T${hhmm}:00.000Z`;
@@ -57,7 +58,7 @@ export function ScheduleLab({ state }: { state?: string }) {
         lab
         day={state === 'fail' ? null : day}
         autoAgree={state === 'auto'}
-        marks={{ seenAt, confirmedAt: state === 'confirmed' ? T('12:00', '2026-12-12') : null }}
+        marks={{ seenAt, confirmedAt: state === 'confirmed' ? T('12:00', '2026-12-12') : null, lockedAt: state === 'locked' ? T('03:00', '2026-11-02') : null }}
         changed={changedSinceSeen(day.stamps, seenAt)}
         finalWeek={state === 'week' || state === 'confirmed'}
         tasksRead

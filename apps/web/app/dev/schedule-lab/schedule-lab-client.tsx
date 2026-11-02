@@ -11,6 +11,7 @@
  */
 
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
@@ -57,6 +58,21 @@ const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
     ['p-planner', 'The Wedding Planner'],
   ]),
 );
+
+/* 🔒 `?lock=1` (audit D7): Gaia Florals pressed "Lock my times" — the REAL resolver reads the mark ("· Not taking changes"), and
+   a write to a moment Gaia is on is refused the way the database refuses it (the `*_part_lock` triggers). */
+const LOCKED_SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
+  [
+    { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals', status: 'contracted', marketplace_vendor_id: 'p-gaia', manual_vendor_id: null },
+    { vendor_id: 'v-casa', vendor_name: 'Casa Catering', status: 'contracted', marketplace_vendor_id: 'p-casa', manual_vendor_id: null },
+  ],
+  new Map([
+    ['p-gaia', 'Gaia Florals'],
+    ['p-casa', 'Casa Catering'],
+  ]),
+  new Map([['p-gaia', { seenAt: null, confirmedAt: null, lockedAt: '2026-11-02T03:00:00.000Z' }]]),
+);
+const LOCKED_MOMENTS = new Set(['ingress']);
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
@@ -116,7 +132,7 @@ const str = (fd: FormData, k: string): string | null => {
 
 export default function ScheduleLabClient({
   bare = false,
-  suppliers = SUPPLIERS,
+  suppliers: suppliersIn,
   tags,
   frame = 'page',
   toolsSlot = null,
@@ -140,6 +156,8 @@ export default function ScheduleLabClient({
      (the rail must show the edit on its own); each write is recorded on
      `window.__labWrites` with its time, to measure edit → save. */
   const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
+  const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
+  const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
   const venueNow = new Date(venueNowMs());
   const todayKey = wallDateKey(venueNow.toISOString());
@@ -170,6 +188,12 @@ export default function ScheduleLabClient({
       if (refuse) {
         say(`✗ ${name} refused · ${shown}`);
         throw new Error('refused by the lab');
+      }
+      if (locked && name !== 'toggleBlockVisibility' && LOCKED_MOMENTS.has(str(fd, 'block_id') ?? str(fd, 'from_block_id') ?? '')) {
+        // The database's own words for a CHANGE LOCK (audit D7) — the one sentence in lib, never retyped here.
+        const line = lockedLine('Gaia Florals');
+        say(`✗ ${name} refused · ${line}`);
+        throw new Error(line);
       }
       say(`✓ ${name} · ${shown}`);
       const w = window as unknown as { __labWrites?: Array<{ at: number; name: string; shown: string }> };
@@ -293,7 +317,7 @@ export default function ScheduleLabClient({
     };
     return Object.fromEntries(Object.entries(all).map(([k, fn]) => [k, quietly(fn)])) as DayActions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refuse, dateKey, maker]);
+  }, [refuse, dateKey, maker, locked]);
 
   const strip = moments
     .filter((m) => m.parent_block_id === null)

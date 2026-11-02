@@ -62,7 +62,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key';
 
 export type Chapter = {
   block_id: string;
@@ -507,6 +507,8 @@ export type MomentFacts = {
   is_optional: boolean;
   travel_from: string | null;
   travel_to: string | null;
+  /** Which march this moment is (migration 20271301571290): null = not a march · `WHOLE_MARCH` · an own march's key. */
+  march_key: string | null;
 };
 
 /** Every moment's own facts, from the rows the chapter read already holds. */
@@ -521,6 +523,7 @@ export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] 
       is_optional: r.is_optional === true,
       travel_from: blankToNull(r.travel_from),
       travel_to: blankToNull(r.travel_to),
+      march_key: isMarchKey(r.march_key) ? r.march_key : null,
     }));
 }
 
@@ -697,7 +700,7 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
 }
 
 /** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count'] as const;
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new'] as const;
 export type MomentOp = (typeof MOMENT_OPS)[number];
 export function isMomentOp(v: unknown): v is MomentOp {
   return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);
@@ -812,3 +815,61 @@ export function taskFields(w: WhoFields, what: string, callAt: string | null, pl
   };
 }
 
+
+/* ── 🚶 "This is a march" (migration 20271301571290) ─────────────────────────────────────────────────────────────── */
+
+/**
+ * 🚶 A MOMENT PICKS WHICH MARCH (owner 2026-11-01: *"When we say this is a march. It picks which march. So in march we
+ * can create a march similar to schedule"* · *"And pick guests to add to the march."*; plan §3, DECISION_LOG "A MOMENT
+ * PICKS WHICH MARCH"). The marches are the ones Guests › March already makes — the event's Wedding March itself
+ * (`WHOLE_MARCH`) and the couple's own marches (`march_groups`, the 29 Oct custom March groups), each with the guests
+ * picked into it. A moment stores only WHICH (`event_schedule_blocks.march_key`). Two moments may name one march;
+ * "Not a march" clears the link and never deletes the march.
+ *
+ * 🔒 app/dashboard/[eventId]/schedule/a-moment-picks-a-march.test.ts · tests/db/a-moment-picks-a-march.db.test.ts
+ */
+export const WHOLE_MARCH = 'entourage';
+const OWN_MARCH_KEY = /^own_[0-9a-z]{6,24}$/;
+/** The dropdown's two words that are not marches. */
+export const NOT_A_MARCH = 'none';
+export const NEW_MARCH = 'new';
+export const MARCH_NAME_MAX = 64;
+
+/** A value a moment may store as its march (the database's own CHECK, said once for the screen and the door). */
+export function isMarchKey(v: unknown): v is string {
+  return typeof v === 'string' && (v === WHOLE_MARCH || OWN_MARCH_KEY.test(v));
+}
+
+export type MarchChoice = { key: string; label: string };
+/** The event's own marches as the page read them; `ok: false` = the read failed (said, never "no marches"). */
+export type MarchList = { ok: true; marches: MarchChoice[] } | { ok: false };
+
+/** What the event's Wedding March itself is called in the dropdown — the name Guests › March gives it. */
+export function wholeMarchLabel(eventType: string | null | undefined): string {
+  return (eventType ?? 'wedding') === 'wedding' ? 'Wedding March' : 'The entourage march';
+}
+
+/**
+ * The "This is a march" dropdown: Not a march · the Wedding March · every own march · + New march. A moment already
+ * linked to a march this reader cannot list (a coordinator does not read the guest list's marches) keeps its own line,
+ * so the dropdown never claims it is "Not a march".
+ */
+export function marchPickOptions(list: MarchList, wholeLabel: string, current: string | null): { key: string; label: string }[] {
+  const own = list.ok ? list.marches : [];
+  const out = [
+    { key: NOT_A_MARCH, label: 'Not a march' },
+    { key: WHOLE_MARCH, label: wholeLabel },
+    ...own.map((m) => ({ key: m.key, label: m.label })),
+  ];
+  if (current && !out.some((o) => o.key === current)) out.push({ key: current, label: 'A march made in Guests › March' });
+  out.push({ key: NEW_MARCH, label: '+ New march' });
+  return out;
+}
+
+/** A new march's name as typed → as stored, or what is wrong in words. */
+export function marchNameFrom(raw: unknown): { ok: true; name: string } | { ok: false; error: string } {
+  const name = typeof raw === 'string' ? raw.trim() : '';
+  if (!name) return { ok: false, error: 'A march needs a name.' };
+  if (name.length > MARCH_NAME_MAX) return { ok: false, error: `Up to ${MARCH_NAME_MAX} letters.` };
+  return { ok: true, name };
+}

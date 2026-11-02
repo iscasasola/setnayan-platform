@@ -85,9 +85,21 @@ export function scheduleRequestTitle(input: {
   itemLabel: string | null;
   /** adjust only: does it carry a new time, label or place (an edit), or only words? */
   proposesChange: boolean;
+  /** Auto-agree already put it on the schedule (Step 4b): say it is in, never "asked". */
+  applied?: boolean;
 }): string {
   const who = input.supplierName.trim() || 'A supplier';
   const item = input.itemLabel?.trim();
+  if (input.applied) {
+    switch (input.kind) {
+      case 'new':
+        return item ? `${who} added “${item}” to the schedule (Auto-agree)` : `${who} added a moment to the schedule (Auto-agree)`;
+      case 'remove':
+        return item ? `${who} removed “${item}” from the schedule (Auto-agree)` : `${who} removed a moment from the schedule (Auto-agree)`;
+      case 'adjust':
+        return item ? `${who} changed “${item}” (Auto-agree)` : `${who} changed a moment (Auto-agree)`;
+    }
+  }
   switch (input.kind) {
     case 'new':
       return item ? `${who} asked to add “${item}” to the schedule` : `${who} asked to add a moment to the schedule`;

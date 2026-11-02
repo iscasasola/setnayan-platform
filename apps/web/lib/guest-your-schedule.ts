@@ -37,6 +37,7 @@ import {
   type TaskRow,
 } from './schedule-chapters';
 import { isOnTheGuestsSchedule } from './schedule-audience';
+import { guestInvitedTo } from './schedule-view-as';
 
 /** A moment (a chapter's child block) as the card reads it. */
 export type YourMoment = {
@@ -122,10 +123,12 @@ export function isMine(t: Pick<TaskRow, 'guest_id' | 'role' | 'group_id' | 'vend
   return false;
 }
 
-/** 🔒 Is this chapter on every guest's invitation (they reply to it)? Step 5 (invitation per guest) narrows it HERE. */
-export function invitedTo(c: Pick<Chapter, 'on_invitation'>): boolean {
-  return c.on_invitation === true;
-}
+/**
+ * 🔒 Is this chapter on a guest's invitation? ONE rule, shared with the hosts' View as ▾ › A guest
+ * (`guestInvitedTo`, lib/schedule-view-as.ts) — so what a host previews and what a guest is shown cannot disagree.
+ * Step 5 (invitation per guest) narrows it THERE and nowhere else.
+ */
+export const invitedTo = guestInvitedTo;
 
 /** "1 hour before your first task" · "30 minutes before your first task" · "at your first task". */
 export function leadWords(minutes: number): string {

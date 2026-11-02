@@ -118,6 +118,7 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/onboarding-services-orders.ts': 'onboarding sells ONE offer — Full Pro (owner 2026-10-22)',
   'lib/schedule-release.server.ts': "the Schedule's Release — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
   'app/[slug]/_lib/your-schedule.server.ts': "the guest's Your schedule honours Release only on Pro (plan §3b) — not an Event Hub part",
+  'lib/schedule-view-as.server.ts': "the Schedule's View as — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
 };
 
 test('(2) "everything" is asked only where everything is the answer', () => {

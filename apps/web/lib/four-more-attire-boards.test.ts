@@ -348,5 +348,8 @@ test('8 · a tailor is offered the shelf — the supplier’s side of the same s
   assert.ok(!women.includes('groomsmen') && !women.includes('ring_bearer'), 'a dressmaker is offered the men’s shelves');
   assert.ok(men.includes('groomsmen') && men.includes('ring_bearer'), 'a tailor is not offered the Groomsmen and Ring bearer shelves');
   assert.ok(!men.includes('bridesmaids') && !men.includes('flower_girl'), 'a tailor is offered the women’s shelves');
-  assert.deepEqual(shelves(['florist_bouquets_only_not_a_service']).filter((k) => (FOUR as readonly string[]).includes(k)), [], 'a shop with no attire service is offered an attire shelf');
+  // A REAL non-attire trade (a florist's own services). A made-up service supplies no shelf at all and so — since the
+  // owner's 2026-11-02 gate ruling — gets the every-shelf fallback (`libraryUploadVerdict`), which is not this question.
+  const florist = canonicalServicesForSlot('flowers', fallbackInspirationParts());
+  assert.deepEqual(shelves(florist).filter((k) => (FOUR as readonly string[]).includes(k)), [], 'a shop with no attire service is offered an attire shelf');
 });

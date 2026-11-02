@@ -53,6 +53,8 @@ type Props = {
   vendorId: string;
   vendorName: string;
   changeOrders: ChangeOrderRow[];
+  /** 🔌 The change-order read was refused — said, never "No change orders yet." (reads-are-honest, audit #12). */
+  readFailed?: boolean;
 };
 
 function fmtPHP(raw: number | string | null): string {
@@ -104,6 +106,7 @@ export function ChangeOrderTrail({
   vendorId,
   vendorName,
   changeOrders,
+  readFailed = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<'add-on' | 'removal'>('add-on');
@@ -320,7 +323,11 @@ export function ChangeOrderTrail({
         </form>
       ) : null}
 
-      {changeOrders.length === 0 ? (
+      {readFailed ? (
+        <p role="alert" className="text-[13px] text-ink/70">
+          We couldn’t load the change orders. This does not mean there are none — reload in a moment.
+        </p>
+      ) : changeOrders.length === 0 ? (
         <p className="text-[11px] italic text-ink/45">No change orders yet.</p>
       ) : (
         <ul className="space-y-2">

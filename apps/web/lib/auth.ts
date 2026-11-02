@@ -3,7 +3,7 @@ import { cache } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { isSafeNext, safeNext } from '@/lib/safe-next';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { onTheCachedHub } from '@/lib/hub-request';
 
 // Per-request memoization of `supabase.auth.getUser()`. Each dashboard
 // navigation used to call `getUser()` from middleware, the outer layout,
@@ -16,7 +16,7 @@ import { cachedHubViewer } from '@/lib/hub-request';
 // requests get separate caches automatically.
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   // 🗄 The cached Event Hub's viewer is never signed in (lib/hub-request.ts) — answered without the request.
-  if (cachedHubViewer()) return null;
+  if (onTheCachedHub()) return null;
   const supabase = await createClient();
   const {
     data: { user },

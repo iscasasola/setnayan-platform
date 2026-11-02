@@ -10,9 +10,9 @@
  *
  *   1. THE PAGE DOES NOT SEND YOU AWAY. Its only redirects are the two every event page has — signed out → /login, and an
  *      event type without the budget surface → Home. Any other `redirect(` in it fails, whatever it is spelled as.
- *   2. HOME AND BOOKED OPEN THE SAME PLACE. Every href the Home Budget widget's model carries (its door, each Pay face,
- *      the summary, "+N more"), Booked's dropdown door, the Suppliers part picker's door and the drawn Home all resolve
- *      to ONE path — and it is this page's own route, not a second copy somewhere else.
+ *   2. HOME AND SUPPLIERS OPEN THE SAME PLACE. Every href the Home Budget widget's model carries (its door, each Pay
+ *      face, the summary, "+N more"), Suppliers ⚙ Payments and the drawn Home all resolve to ONE path — this page's own
+ *      route, not a second copy somewhere else. (Booked's dropdown door went with Booked's parts on 2026-11-02.)
  *   3. NOTHING LINKS THE OLD ADDRESS. No app or lib code builds `?part=budget` by hand; the one forwarder in Suppliers
  *      reads the constant and sends it here with its `?pay=`.
  *   4. THE PAGE ADDS WHAT HOME ASKED IT TO HOLD: in-app purchases (`orders`) and manual costs (`event_costs`) are groups
@@ -20,7 +20,7 @@
  *
  * Sabotage (2026-11-02, each reverted, each red — 2 failing tests apiece, since 3 sees every hand-built old address):
  * put back a marketplace-gated `redirect(\`/dashboard/${eventId}/vendors?part=budget\`)` in the page (1 + 3) · point the
- * Home Budget summary face at `/vendors?part=budget` (2 + 3) · point `bookedParts`' Budget there (2 + 3).
+ * Home Budget summary face at `/vendors?part=budget` (2 + 3).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,7 +28,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { fixtureControl } from '@/lib/home-control-fixture';
-import { budgetPageHref, bookedParts, yourTeamParts } from '@/lib/pillar-parts';
+import { budgetPageHref } from '@/lib/pillar-parts';
 import { buildBudgetList } from '@/lib/budget-page-view';
 import { unreadEventMoney } from '@/lib/budget-truth';
 import { budgetTile, homeToday } from '../_components/home-control-faces';
@@ -54,7 +54,7 @@ test('1 · the Budget page never sends you to another page (only signed-out → 
   assert.doesNotMatch(page, /\bpermanentRedirect\(|\bNextResponse\.redirect\(/, 'the Budget page sends you away by another verb');
 });
 
-test('2 · Home’s Budget widget, Booked’s dropdown and the Suppliers picker open the SAME page — this one', () => {
+test('2 · Home’s Budget widget and every Suppliers door open the SAME page — this one', () => {
   const route = budgetPageHref(E);
   // It is this page's route (a page file at that path), not a door to a copy.
   assert.equal(route, `/dashboard/${E}/budget`);
@@ -70,10 +70,9 @@ test('2 · Home’s Budget widget, Booked’s dropdown and the Suppliers picker 
   const failed = budgetTile(fixtureControl(E, { budget: 'unread' }), homeToday(control.next, control.guests));
   assert.equal(failed && pathOf(failed.door), route, 'the failed Budget widget opens somewhere else');
 
-  const booked = bookedParts({ eventId: E, budgetEnabled: true }).find((p) => p.key === 'budget');
-  assert.equal(booked?.href, route, 'Booked’s dropdown opens a second Budget place');
-  const team = yourTeamParts({ eventId: E, budgetEnabled: true }).find((p) => p.key === 'budget');
-  assert.equal(team?.href, route, 'the Suppliers part picker opens a second Budget place');
+  // Booked's Budget door went on 2026-11-02 ("BOOKED IS JUST THE TEAM") — the Suppliers ⚙ Payments row is the door there.
+  const settings = stripComments(readFileSync(join(EV, 'vendors', '_components', 'suppliers-settings-rows.tsx'), 'utf8'));
+  assert.match(settings, /href=\{budgetPageHref\(eventId\)\}/, 'Suppliers ⚙ Payments opens a second Budget place');
 
   // As drawn — the phone's tile and the md+ card alike: every budget-ish door on Home is the one page.
   const html = drawHome();

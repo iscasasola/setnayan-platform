@@ -72,6 +72,7 @@ import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
+import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 /**
@@ -996,6 +997,9 @@ export function GuestCardBody({
                     {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
                   </p>
                 ) : null}
+                {/* 🪑 Their seat, the way THEY will see it (owner 2026-11-01): the couple's 2D · 3D · Both, their table lit, tap for
+                    full screen — read when drawn, never with the card. */}
+                {seatTableId ? <GuestSeatPreview eventId={eventId} guestId={guest.guest_id} firstName={typedName.first_name || 'They'} /> : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>

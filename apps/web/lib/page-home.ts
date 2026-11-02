@@ -197,6 +197,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/panood/program/[eventId]': { none: 'own-exit' },
   '/wall/[eventId]': { none: 'own-exit' },
   '/dev/**': { none: 'lab' },
+  // A sample guest's Hub is opened from the sample event's own page (owner 2026-11-02, the sample event).
+  '/sample/hub/[guestKey]': { home: '/sample', label: 'The sample' },
 
   /* ── the supplier ────────────────────────────────────────────────────────────────────────────────── */
   // A booking fee is paid from the plan page (audit ✅).

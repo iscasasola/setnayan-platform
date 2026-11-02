@@ -25,6 +25,7 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
@@ -231,6 +232,9 @@ export type CategorySearchResult = {
    * result shape is unchanged.
    */
   savedPhotoTallyFailed?: boolean;
+  /** 🔌 TRUE when the suppliers could not be READ (the event or the vendor read was refused) — the overlay says
+   *  "Couldn't load suppliers · Try again", never "No … suppliers here yet" (reads-are-honest, audit #22). */
+  unreadable?: boolean;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -428,13 +432,17 @@ export async function searchCategoryVendors(input: {
   } = await supabase.auth.getUser();
   if (!user) return EMPTY;
 
-  const { data: ev } = await supabase
+  const { data: ev, error: evError } = await supabase
     .from('events')
     .select(
       'venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evError) {
+    logQueryError('searchCategoryVendors.event', evError, { event_id: eventId }, 'graceful_degrade');
+    return { ...EMPTY, unreadable: true };
+  }
   if (!ev) return EMPTY; // not a member of this event
 
   // Outer-gate scoping (2026-06-11) — the SAME shared predicates the /vendors
@@ -685,7 +693,11 @@ export async function searchCategoryVendors(input: {
   // ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
   const excludeVendorIds: ReadonlyArray<string> = await demoVendorIdsHiddenFrom(supabase, admin, user.id);
 
+  let recsRefused = false;
   const recs = await fetchWizardVendorRecommendations(admin, {
+    onReadRefused: () => {
+      recsRefused = true;
+    },
     canonicalServices: canonicals,
     excludeVendorIds,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
@@ -714,6 +726,7 @@ export async function searchCategoryVendors(input: {
     searchQuery: input.query,
     limit: input.includeFarther === true ? 100 : 60,
   });
+  if (recsRefused) return { ...EMPTY, unreadable: true };
   if (recs.length === 0)
     return { ...EMPTY, hasReceptionCoords: hasCoords, facets: facetCatalog, facetDefaults };
 

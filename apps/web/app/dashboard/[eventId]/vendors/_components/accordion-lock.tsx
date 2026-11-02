@@ -37,6 +37,7 @@ import type { LockImpact } from '@/lib/lock-impact';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { markCategoryComplete } from '../category-decision-actions';
 import { formatCount } from '@/lib/format-number';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 
 /**
  * AccordionLockButton + ChangePickButton — the Plan + Budget card's lock /
@@ -416,6 +417,10 @@ export function AccordionLockButton({
             confirmDateLock,
             acknowledgeReservationTerms,
           });
+          return;
+        case 'bookings_closed':
+          // 🚪 Bookings closed (owner 2026-11-02, `lib/bookings-open.ts`, door 2).
+          setState({ kind: 'error', message: BOOKINGS_CLOSED_COUPLE_MESSAGE });
           return;
         case 'vendor_not_verified':
           // Booking-requires-verified gate (owner 2026-07-24). The vendor is

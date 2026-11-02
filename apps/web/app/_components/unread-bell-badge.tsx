@@ -66,7 +66,11 @@ const NotificationsList = dynamic(
  * notice is written by the database itself (`set_supplier_where`, 20271300598766), and a supplier already on that
  * client's page sees the chapters they are now on without a reload.
  */
-const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed', 'supplier_where_changed'];
+/*
+ * 🔗 …and so does a couple's answer to a supplier who joined from their link (audit G3): the Today "Waiting for … to
+ * let you in" line goes, and the client appears.
+ */
+const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed', 'supplier_where_changed', 'claim_access_answered'];
 
 type Props = {
   userId: string;

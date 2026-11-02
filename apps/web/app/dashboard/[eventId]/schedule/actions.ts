@@ -12,6 +12,10 @@ import { emitNotification } from '@/lib/notification-emit';
 import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
 // 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
 import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
+// 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
+// the database's `*_part_lock` triggers (20271303409352) whatever door it comes through.
+import { refuseLockedPart } from '@/lib/supplier-part-lock.server';
+import { patchTouchesPart } from '@/lib/supplier-part-lock';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
@@ -276,6 +280,7 @@ export async function deleteScheduleBlock(formData: FormData) {
 
   // 🔔 Read who is on it (and on its children, which cascade) BEFORE it is gone — afterwards nothing names them.
   const part = await partBefore(supabase, eventId, [blockId], { withChildren: true });
+  await refuseLockedPart(supabase, part, { kind: 'delete' });
 
   // ON DELETE CASCADE on parent_block_id self-FK means deleting a parent
   // automatically removes all its child parts · no app-layer cleanup needed.
@@ -638,6 +643,8 @@ export async function updateScheduleBlock(formData: FormData) {
   const withMoments = formData.get('with_moments') === '1' && patch.start_at !== undefined;
   // 🔔 One save, one notice per supplier: the moment — and, on a chapter move, every moment in it — read BEFORE.
   const part = await partBefore(supabase, eventId, [blockId], { withChildren: withMoments });
+  // 🔒 A chapter move carries every moment in it; a field save meets the lock only if it really moves the part.
+  await refuseLockedPart(supabase, part, { kind: 'fields' }, withMoments ? part.before : part.before.filter((m) => patchTouchesPart(m, patch)));
   if (withMoments) {
     const { data: moved, error: moveError } = await supabase.rpc('move_schedule_chapter', {
       p_block_id: blockId,
@@ -970,6 +977,8 @@ export async function setBlockResponsibleParty(formData: FormData) {
 
   // 🔔 Before AND after: a supplier taken off is told as surely as one put on.
   const part = await partBefore(supabase, eventId, [blockId]);
+  // 🔒 Putting a locked supplier on, or taking them off, is their part; another supplier's presence is not.
+  await refuseLockedPart(supabase, part, { kind: 'vendors', after: vendorIds });
   const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update({
@@ -1033,7 +1042,9 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   // 🔔 A drag of one moment (or a span) tells the suppliers on what moved — once each. Running late (`shift_notice`)
   // already tells EVERY booked supplier the day moved, so it is not told twice.
   const shiftNotice = formData.get('shift_notice') === '1';
-  const part = shiftNotice ? null : await partBefore(supabase, eventId, patches.map((p) => p.block_id));
+  const part = await partBefore(supabase, eventId, patches.map((p) => p.block_id));
+  // 🔒 Running late too: a locked supplier's clock is theirs (whether a day-of shift may pass a lock is the owner's call).
+  await refuseLockedPart(supabase, part, { kind: 'fields' });
 
   const now = new Date().toISOString();
   for (const patch of patches) {
@@ -1051,7 +1062,7 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   /* ⏱ A SHIFT OF THE DAY TELLS EVERY BOOKED SUPPLIER — once, after every block landed (owner 2026-10-23). Only the
      Running-late sheet sends `shift_notice`: a drag of one moment rides this same action and is not a shift of the
      day. Best-effort — the shift is written; a failed notice never undoes it. */
-  if (part) await tellPartSuppliers(supabase, part, user.id);
+  if (!shiftNotice) await tellPartSuppliers(supabase, part, user.id);
   if (shiftNotice) {
     const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
     await notifyScheduleShifted({

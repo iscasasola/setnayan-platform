@@ -141,8 +141,8 @@ export function ScheduleDay({
    * Announce) instead of a row of their own, "+ Add a moment" is the pill in the thumb zone, and a tapped moment opens
    * in the Schedule's ONE pop-up at every width (`schedule-sheet.tsx`). `page`: the standalone page, as shipped.
    */
-  frame?: 'page' | 'booked';
-  /** The id of the element the day's tools are drawn into (`frame="booked"`); null: drawn in place. */
+  frame?: 'page' | 'line';
+  /** The id of the element the day's tools are drawn into (`frame="line"`, the Schedule page's one line); null: drawn in place. */
   toolsSlot?: string | null;
   /**
    * 🧩 Inside the Event Hub Maker (Details › Schedule, part 2b — DECISION_LOG "A
@@ -178,7 +178,7 @@ export function ScheduleDay({
   hostPanel: ReactNode | null;
 }) {
   const canEdit = role !== 'view';
-  const booked = frame === 'booked' && inspectorSlot === null;
+  const booked = frame === 'line' && inspectorSlot === null;
   /* ⚡ IN THE MAKER EVERY EDIT IS QUIET (`schedule-live.ts`): written with no
      revalidate — so no whole render of the Maker comes back with it — shown on
      the rail at once, laid on the stage canvases, and a removed moment leaves

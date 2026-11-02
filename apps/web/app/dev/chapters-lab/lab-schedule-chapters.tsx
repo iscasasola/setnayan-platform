@@ -2,7 +2,7 @@
 
 /**
  * 🧪 THE SCHEDULE PAGE'S CHAPTERS on fake data (Step 3a, owner 2026-11-01 "CHAPTERS LIVE ON THE SCHEDULE PAGE"): the REAL
- * `ChaptersHost` around the REAL Booked frame (`BookedScheduleFrame`) and the REAL Event Day rail (`ScheduleDay`, through
+ * `ChaptersHost` around the REAL Booked frame (`ScheduleOneLine`) and the REAL Event Day rail (`ScheduleDay`, through
  * the Schedule lab's client), with the chapter sheets' lab doors — they only answer "saved"; nothing is written.
  *
  *   ?empty=1   no chapters yet        ?fail=1   the chapters read failed (said, never "none")
@@ -11,8 +11,8 @@
  */
 import { useEffect, useState } from 'react';
 import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
-import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
-import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
+import { ScheduleOneLine } from '@/app/dashboard/[eventId]/schedule/_components/schedule-one-line';
+import { SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/schedule-tools-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 import { LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
 import { labViewAs } from './lab-view-as';
@@ -66,7 +66,7 @@ export function LabScheduleChapters({
       lab
       labOpen={openMoment ? { chapter: LAB_CHAPTERS[0]!.block_id, moment: LAB_MOMENT_ROW.block_id } : null}
     >
-      <BookedScheduleFrame
+      <ScheduleOneLine
         initial="event-day"
         views={[
           { key: 'event-day', label: 'Event Day', count: empty ? 0 : 7 },
@@ -77,7 +77,7 @@ export function LabScheduleChapters({
         notes={{}}
         announce={null}
         panels={{
-          'event-day': <ScheduleLabClient bare frame="booked" toolsSlot={BOOKED_SCHEDULE_TOOLS_SLOT} />,
+          'event-day': <ScheduleLabClient bare frame="line" toolsSlot={SCHEDULE_TOOLS_SLOT} />,
           preparation: <PlanningChapters />,
         }}
       />

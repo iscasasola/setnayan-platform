@@ -238,6 +238,9 @@ type Args = {
   /** Exclude already-locked event_vendors so the host doesn't see
    *  recommendations that are already on their plan. */
   excludeVendorIds?: ReadonlyArray<string>;
+  /** 🔌 Called when the vendor read is REFUSED (reads-are-honest, 2026-11-02 audit #22) — the `[]` that follows is then
+   *  "we could not look", never "there are none". A caller that draws an empty state passes this and says so. */
+  onReadRefused?: () => void;
   /** Optional free-text search across business_name + location_city +
    *  tagline. NULL/empty string = no search filter (default rank order
    *  still applies). Used by the grid card's search submit. */
@@ -438,7 +441,10 @@ export async function fetchWizardVendorRecommendations(
     .limit(fetchLimit);
 
   const { data, error } = await query;
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) args.onReadRefused?.();
+    return [];
+  }
 
   // 2026-05-24: enrich with per-vendor service photo + verification state
   // + V1.1 presentation_pattern + services_preview (up to 5 photos per

@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { WayfindingMap } from '@/app/_components/wayfinding-map';
+import { GuestSeatMap } from '@/app/_components/guest-seat-map';
+import { seatViewParts, type GuestSeatView } from '@/lib/guest-seat-view';
+import type { Lab3DBooth } from '@/lib/seating-3d';
 import { formatCount } from '@/lib/format-number';
 import type { EventTableRow } from '@/lib/seating';
 import type { EntrancePos } from '@/lib/indoor-blueprint';
@@ -49,6 +51,10 @@ export type YourSeatProps = {
   /** Two people at the centre (a wedding): "once Indalecio & Claire seat you". */
   plural: boolean;
   pass: DoorPassData | null;
+  /** 🪑 How the couple chose guests see their seat — 2D map · 3D walk · Both (`seatViewParts`, owner 2026-11-01). */
+  seatView?: GuestSeatView;
+  /** 🏪 The booked suppliers' booths on the map (`readGuestBooths`); a tap opens the supplier's card. */
+  booths?: readonly Lab3DBooth[];
 };
 
 export function YourSeat(props: YourSeatProps) {
@@ -75,6 +81,30 @@ function WalkIn3D({ href }: { href: string | null }) {
   );
 }
 
+/** 🪑 "3D walk" chosen: the walk is THE way to the seat — one big door where the map would be. */
+function WalkMain({ href, table }: { href: string; table: string }) {
+  return (
+    <Link
+      href={href}
+      data-seat-walk-main=""
+      className="flex min-h-[9rem] w-full flex-col items-center justify-center gap-2 rounded-[var(--hub-radius,1rem)] border border-ink/25 bg-cream/60 px-6 py-6 text-center text-ink"
+    >
+      <span className="font-serif text-[1.6rem] italic leading-none text-terracotta-700">Walk to your seat</span>
+      <span className="text-[0.84rem] text-ink/75">In 3D, from the entrance to {table}</span>
+    </Link>
+  );
+}
+
+/** The seat's picture, the couple's way (`seatViewParts`): the map (with the 3D link beside it, or not), or the walk. */
+function SeatPicture(p: Seated) {
+  const parts = seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref));
+  if (!parts.map && p.venueHref) return <WalkMain href={p.venueHref} table={p.table.table_label} />;
+  return <GuestSeatMap look="theme" tables={p.tables} entrance={p.entrance} targetTableId={p.table.table_id} booths={p.booths ?? []} />;
+}
+function walkLinkOf(p: YourSeatProps): string | null {
+  return seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref)).walk === 'link' ? p.venueHref : null;
+}
+
 function BeforeTheDay(p: Seated) {
   const seated = p.mates.length;
   return (
@@ -94,14 +124,16 @@ function BeforeTheDay(p: Seated) {
       <Lace className="my-4 lg:order-2 lg:ml-0" />
       <div className="lg:col-start-2 lg:row-span-4 lg:row-start-1">
         <div className="mx-6 lg:mx-0">
-          <WayfindingMap look="theme" tables={p.tables} entrance={p.entrance} targetTableId={p.table.table_id} />
+          <SeatPicture {...p} />
         </div>
-        <p className="mx-[26px] mt-3 flex items-start gap-2.5 text-[0.84rem] leading-normal text-ink/75 lg:mx-0">
-          <DoorGlyph />
-          <span>
-            Walk in from the entrance and follow the dotted path. <WalkIn3D href={p.venueHref} />
-          </span>
-        </p>
+        {seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref)).map ? (
+          <p className="mx-[26px] mt-3 flex items-start gap-2.5 text-[0.84rem] leading-normal text-ink/75 lg:mx-0">
+            <DoorGlyph />
+            <span>
+              Walk in from the entrance and follow the dotted path. <WalkIn3D href={walkLinkOf(p)} />
+            </span>
+          </p>
+        ) : null}
       </div>
       {p.pass ? (
         <div className="mx-6 mt-[18px] lg:order-4 lg:mx-0">
@@ -158,15 +190,15 @@ function OnTheDay(p: Seated) {
       ) : null}
       <Lace className="mb-3 mt-3.5" />
       <div className="mx-6">
-        <WayfindingMap look="theme" tables={p.tables} entrance={p.entrance} targetTableId={p.table.table_id} />
+        <SeatPicture {...p} />
       </div>
-      {others.length > 0 || p.venueHref ? (
+      {others.length > 0 || walkLinkOf(p) ? (
         <p className="mx-[26px] mt-2.5 flex items-start gap-2.5 text-[0.84rem] leading-normal text-ink/75">
           <PersonGlyph />
           <span>
             {others.length > 0 ? <>At your table: {others.join(', ')}</> : null}
-            {others.length > 0 && p.venueHref ? <> &nbsp;·&nbsp; </> : null}
-            <WalkIn3D href={p.venueHref} />
+            {others.length > 0 && walkLinkOf(p) ? <> &nbsp;·&nbsp; </> : null}
+            <WalkIn3D href={walkLinkOf(p)} />
           </span>
         </p>
       ) : null}
@@ -191,7 +223,7 @@ function NotSeatedYet(p: YourSeatProps) {
       <Lace className="my-4" />
       {p.published && p.tables.length > 0 ? (
         <div className="relative mx-6">
-          <WayfindingMap look="theme" faint tables={p.tables} entrance={p.entrance} targetTableId={null} />
+          <GuestSeatMap look="theme" faint tables={p.tables} entrance={p.entrance} targetTableId={null} booths={p.booths ?? []} />
           <span className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[var(--hub-radius,0.375rem)] border border-ink/25 bg-cream/95 px-4 py-2.5 text-[0.8125rem] italic text-ink/75">
             Your table will appear here
           </span>

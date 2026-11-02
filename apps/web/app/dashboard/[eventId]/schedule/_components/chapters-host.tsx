@@ -122,7 +122,7 @@ export type ChaptersInput =
     }
   | { measured: false };
 
-/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`booked-schedule-frame.tsx`). */
+/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`schedule-one-line.tsx`). */
 type BackTo = 'event-day' | 'preparation';
 
 function showScheduleView(view: BackTo) {

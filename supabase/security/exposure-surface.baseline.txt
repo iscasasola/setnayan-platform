@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6984
+# facts: 6986
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     587
-#   col       5097
+#   col       5099
 #   policy    993
 #   view      9
 #   func      294
@@ -1525,6 +1525,7 @@ col	public.event_floor_plan.entrance_y	anon=- authenticated=SIU
 col	public.event_floor_plan.event_id	anon=- authenticated=SIU
 col	public.event_floor_plan.ghost_booths_dismissed	anon=- authenticated=SIU
 col	public.event_floor_plan.ghost_booths_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.guest_seat_view	anon=- authenticated=SIU
 col	public.event_floor_plan.priority_order	anon=- authenticated=SIU
 col	public.event_floor_plan.published_at	anon=- authenticated=SIU
 col	public.event_floor_plan.role_seating	anon=- authenticated=SIU
@@ -3729,6 +3730,7 @@ col	public.platform_settings.booking_fee_minting_live	anon=- authenticated=S
 col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S
+col	public.platform_settings.bookings_open	anon=- authenticated=S
 col	public.platform_settings.brand_apple_touch_url	anon=- authenticated=S
 col	public.platform_settings.brand_favicon_ico_url	anon=- authenticated=S
 col	public.platform_settings.brand_icon_master_url	anon=- authenticated=S

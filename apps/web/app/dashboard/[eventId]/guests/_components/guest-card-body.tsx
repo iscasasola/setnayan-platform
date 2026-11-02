@@ -68,7 +68,7 @@ import { TEMPLATE_KIT } from './guest-card-template-kit';
 import { GuestAccessControl } from './guest-access-control';
 import { GuestSeatDoors } from './guest-seat-doors';
 import { FormRow } from '@/app/_components/form-row';
-import { accessWordFor } from '@/lib/guest-access';
+import { accessWordFor, cardAccessView } from '@/lib/guest-access';
 import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
@@ -423,7 +423,7 @@ export function GuestCardBody({
   const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
-    access ? accessWordFor(access) : null,
+    access && cardAccessView(access, linked, canManageAccess) !== 'none' ? accessWordFor(access) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -1062,7 +1062,7 @@ export function GuestCardBody({
           {linked === null ? null : (
             <FormRow
               name="Account"
-              about={{ words: linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link, it shows here.' }}
+              about={{ words: linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link their Setnayan account, it shows here — and Access opens on this card.' }}
               data="card-account"
               attrs={{ 'data-unlink-account': '' }}
             >

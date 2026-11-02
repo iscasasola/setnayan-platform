@@ -55,9 +55,9 @@ test('one mechanism, two doors: the card’s Access ▾ and People with access c
 
 test('the card line: the dropdown only for a LINKED guest the viewer may manage — the word for everyone else, no link out', async () => {
   const CARD = read('guest-access-control.tsx');
-  // 🔑 2026-11-02 (owner: "simplify access just like the rest of the guest card"): Access ▾ for any guest the viewer may
-  // manage, linked or not yet (a level set ahead starts once they sign in) — never a viewer, never the creator's row.
-  assert.match(CARD, /if \(Pick && linked !== null && canManage && initial\.lock !== 'creator'\) \{/, 'the dropdown is offered to a viewer or the creator’s row');
+  // 🔑 2026-11-02, owner verbatim: "Only for guests with setnayan accounts already" — Access ▾ for a LINKED guest the
+  // viewer may manage, never an unlinked one, a viewer, or the creator's row. The decision is `cardAccessView`.
+  assert.match(CARD, /cardAccessView\(initial, linked, canManage\)/, 'the card line decides the dropdown itself instead of asking cardAccessView');
   assert.doesNotMatch(CARD, /setGuestAccess|<PickMenu\b/, 'the card line sets Access itself — only the handed-in pick may');
   assert.doesNotMatch(CARD, /ChangeAccessLink/, 'the card line links out to People with access again');
   assert.match(CARD, /\baccessWordFor\(/, 'the card line lost its words for the three levels');
@@ -69,9 +69,8 @@ test('the card line: the dropdown only for a LINKED guest the viewer may manage 
   const { GuestAccessControl } = await import('./guest-access-control');
   const Pick = () => React.createElement('span', { 'data-test-pick': '' });
   const base = { eventId: 'e1', guestId: 'g1', firstName: 'Ana', initial: { level: 'none' as const, live: true, lock: null }, canManage: true, Pick };
-  for (const linked of [true, false]) {
-    assert.match(renderToStaticMarkup(React.createElement(GuestAccessControl, { ...base, linked })), /data-test-pick/, `a guest (linked: ${linked}) the host may manage gets no dropdown`);
-  }
+  assert.match(renderToStaticMarkup(React.createElement(GuestAccessControl, { ...base, linked: true })), /data-test-pick/, 'a linked guest the host may manage gets no dropdown');
+  assert.doesNotMatch(renderToStaticMarkup(React.createElement(GuestAccessControl, { ...base, linked: false })), /data-test-pick/, 'an unlinked guest is offered the dropdown');
   const unread = renderToStaticMarkup(React.createElement(GuestAccessControl, { ...base, linked: null }));
   assert.doesNotMatch(unread, /data-test-pick/, 'a viewer who cannot read the link is offered the dropdown');
   assert.match(unread, />None</, 'the word is not on the row');

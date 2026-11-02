@@ -3,7 +3,9 @@
  * just like the rest of the guest card"*). Opened, Access is at most three lines, like the other rows:
  *   1. Access ▾ — ONE dropdown, None · Helper (can view) · Co-host; what it means is the ⓘ, never a paragraph (and the
  *      read-only word, for a viewer, is the same one row);
- *   2. Account — Not linked / Linked — email, on one line; "When they link, it shows here" is the ⓘ;
+ *   1b. ONLY FOR A LINKED GUEST (owner 2026-11-02, verbatim: *"Only for guests with setnayan accounts already"*): an
+ *      unlinked guest gets no dropdown — and with no access at all, no Access row; "Account · Not linked" says it;
+ *   2. Account — Not linked / Linked — email, on one line; what linking opens is the ⓘ;
  *   3. [Give this spot…] [Take this seat back] side by side; Give opens its name field and Give only on a tap, and only
  *      while the guest has not replied; their explanations are the ⓘ.
  * RENDERED where a part renders alone, read from the card's source for the order. The Passed Away row is untouched.
@@ -18,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { createRequire } from 'node:module';
-import { CARD_ACCESS_CHOICES } from '@/lib/guest-access';
+import { CARD_ACCESS_CHOICES, cardAccessView } from '@/lib/guest-access';
 
 /* `server-only` shim — the card's kit reaches a server-only module through its imports (lib/a-locked-deal-reaches-the-budget.test.ts). */
 type CjsModuleCtor = {
@@ -72,7 +74,7 @@ test('1 · Access ▾ is one dropdown in the owner’s order; the word for a vie
 test('2 · Account is one line; its hint is the ⓘ', () => {
   const body = code('guest-card-body.tsx');
   const fold = body.slice(body.indexOf('<K.Fold summary="Access"'), body.indexOf('</K.Fold>', body.indexOf('<K.Fold summary="Access"')));
-  assert.match(fold, /<FormRow\s+name="Account"\s+about=\{\{ words: linked \? 'Unlink account is in the ⋯ menu at the top\.' : 'When they link, it shows here\.' \}\}/, 'Account is not one row with its hint behind the ⓘ');
+  assert.match(fold, /<FormRow\s+name="Account"\s+about=\{\{ words: linked \? '[^']+' : '[^']+' \}\}/, 'Account is not one row with its hint behind the ⓘ');
   assert.doesNotMatch(fold, /<p className="text-xs text-ink\/50">/, 'a hint line is back under Account');
   // The order: Access, (a helper's own pieces), Account, then the two doors — nothing else drawn in the fold.
   const at = (s: string) => fold.indexOf(s);
@@ -96,4 +98,31 @@ test('3 · Give and Take back side by side; Give opens on a tap, only while they
 test('the Passed Away row stays exactly as it was', () => {
   const body = code('guest-card-body.tsx');
   assert.match(body, /<K\.Toggle\s+name="passed_away"\s+form=\{formId\}\s+defaultChecked=\{guest\.passed_away === true\}\s+label="Passed Away"\s+note="Kept on the list as “the late …”\. Not counted, seated or sent an invitation\."\s+soft\s+\/>/);
+});
+
+test('1b · Access ▾ only for a LINKED guest — unlinked means no dropdown (owner 2026-11-02)', () => {
+  const Pick = () => React.createElement('div', { 'data-stub-access-pick': '' });
+  const render = (linked: boolean | null, level: 'none' | 'limited_helper' | 'co_host', lock: 'creator' | 'celebrant' | null = null) =>
+    renderToStaticMarkup(
+      React.createElement(GuestAccessControl, {
+        eventId: 'e1', guestId: 'g1', firstName: 'Ana', initial: { level, live: false, lock }, canManage: true, linked, Pick,
+      }),
+    );
+  // Linked: the one dropdown.
+  assert.match(render(true, 'none'), /data-stub-access-pick/, 'a linked guest lost the Access dropdown');
+  // Unlinked: NEVER the dropdown, whatever they hold.
+  for (const level of ['none', 'limited_helper', 'co_host'] as const) {
+    assert.doesNotMatch(render(false, level), /data-stub-access-pick/, `an unlinked guest (${level}) is offered the Access dropdown`);
+  }
+  // Unlinked with nothing: no Access row at all — the Account line says "Not linked".
+  assert.equal(render(false, 'none'), '', 'an unlinked guest with no access still draws an Access row');
+  // Unlinked but holding something (a level that waits for them, a celebrant, the creator's own row): the word, read-only.
+  assert.match(render(false, 'co_host'), /data-form-row="card-access"/, 'a waiting level was hidden');
+  assert.match(render(false, 'none', 'creator'), /data-form-row="card-access"/, 'the creator’s own unlinked row lost its word');
+  // The fold summary asks the same question, so it never says "None" for a row the card does not draw.
+  assert.equal(cardAccessView({ level: 'none', lock: null }, false, true), 'none');
+  assert.equal(cardAccessView({ level: 'none', lock: null }, true, true), 'pick');
+  assert.equal(cardAccessView({ level: 'none', lock: null }, null, false), 'word');
+  const body = code('guest-card-body.tsx');
+  assert.match(body, /cardAccessView\(access, linked, canManageAccess\)/, 'the Access fold summary does not ask cardAccessView');
 });

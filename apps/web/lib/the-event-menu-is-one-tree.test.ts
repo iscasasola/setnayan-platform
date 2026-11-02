@@ -270,7 +270,7 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
     ['', 'home'],
     ['/guests', 'guests'], ['/guests/checkin', 'guests'], ['/hosts', 'guests'],
     ['/event-qr', 'guests'], ['/people', 'guests'],
-    ['/vendors', 'explore'], ['/budget', 'explore'],
+    ['/vendors', 'explore'], ['/budget', 'home'],
     ['/launch', 'launch'], ['/website/editor', 'launch'], ['/story', 'launch'],
     ['/schedule', 'launch'], ['/studio/mood-board', 'launch'], ['/monogram', 'launch'],
     // `/suite` left 2026-10-02 (owner, tracker d1): the page is gone and its

@@ -33,9 +33,6 @@ import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BudgetFileActions } from './_components/budget-file-actions';
-import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
-import { formatPhp } from '@/lib/php';
-import { BookedPartRow } from '../vendors/_components/booked-part-row';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { Spotlight } from '@/app/_components/spotlight';
@@ -47,9 +44,8 @@ export const metadata = { title: 'Budget' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
+  /** `pay=<line_item_id>` = open that payment's sheet (Home's Budget widget, `budgetPageHref`). */
   searchParams?: Promise<{
-    part?: string;
     pay?: string;
   }>;
 };
@@ -77,17 +73,14 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   const profile = await resolveProfileByEvent(eventId);
   if (!surfaceEnabled(profile, 'budget')) redirect(`/dashboard/${eventId}`);
 
-  // ── YOUR TEAM'S BUDGET PART (owner 2026-09-29) ───────────────────────────
-  // Budget moved into the Your Team pillar (`lib/pillar-parts.ts`): Your Team
-  // renders THIS page whole at `?part=budget`, and passes that same param here
-  // so the two know which one is drawing. Visited on its own, the page lands in
-  // that part — but only where Your Team exists: `marketplace_enabled` is the
-  // column Your Team itself gates on, so an event type without suppliers keeps
-  // this page exactly as it was rather than being sent to a page that would
-  // send it home.
-  if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
-    redirect(yourTeamBudgetHref(eventId));
-  }
+  // ── 💰 THE BUDGET IS ITS OWN PAGE, OPENED FROM HOME (owner 2026-11-01) ─────
+  // DECISION_LOG "SCHEDULE AND BUDGET GO TO HOME": *"Okay place it in home"*.
+  // From 2026-09-29 to 2026-11-01 this address redirected into Suppliers and the
+  // page was drawn there (`?part=budget`). It no longer redirects: Home's Budget
+  // widget opens THIS page, and Suppliers › Booked's menu keeps a door to the
+  // same address (`budgetPageHref`) — one place, never a copy. The old Suppliers
+  // address forwards here (`vendors/page.tsx`). Guarded by
+  // `the-budget-page-is-one-place.test.ts`.
   const supabase = await createClient();
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
@@ -440,31 +433,10 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
      spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
   const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
-  // 📅 Drawn under Suppliers › Booked (owner 2026-10-29): Booked's first row is this page's header — the part's one
-  // dropdown, then its own count ("₱297,500 agreed · ₱120,000 paid"), then Share (the prototype's `.crow`).
-  // `?part=budget` is only ever this page drawn inside Suppliers (its own address redirects there) — so under Booked.
-  const inBooked = (await searchParams)?.part === YOUR_TEAM_BUDGET_PART;
   return (
-    <section className={inBooked ? 'space-y-6' : 'sn-col max-w-3xl space-y-6'} data-budget-in-booked={inBooked ? '' : undefined}>
-      {inBooked ? (
-        <div id="budget-overview" className="scroll-mt-24">
-          <BookedPartRow
-            current="budget"
-            line={
-              <span className="tabular-nums">
-                {summaryFigures.agreedPhp === null ? '—' : formatPhp(summaryFigures.agreedPhp)} agreed ·{' '}
-                {summaryFigures.paidPhp === null ? '—' : formatPhp(summaryFigures.paidPhp)} paid
-              </span>
-            }
-            action={fileActions}
-          />
-        </div>
-      ) : (
-        /* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
-           children: Overview · Allocate · Payments). scroll-mt keeps the section
-           title clear of the top edge on smooth-scroll. */
-        <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" actions={fileActions} />
-      )}
+    <section className="sn-col max-w-3xl space-y-6" data-budget-page="">
+      {/* id target for a `#budget-overview` link. scroll-mt keeps the title clear of the top edge on smooth-scroll. */}
+      <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" actions={fileActions} />
 
       {/* B1 + B2 (2026-10-08) · THE BUDGET SCREEN. The summary as rows — Target ·
        *  Agreed · Paid · Owed two by two, one meter, one "Next" line — then ONE
@@ -497,8 +469,9 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
         initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
-        // Under Booked, a supplier's row opens the Pay sheet their Team row opens — one plan, one door.
-        supplierOpens={inBooked ? 'plan' : 'ledger'}
+        // Where the event has suppliers, a supplier's row opens the Pay sheet their Booked › Team row opens — one
+        // plan, one door (owner 2026-10-29). It is what this page drew inside Booked; moving home did not change it.
+        supplierOpens={profile.marketplaceEnabled === true ? 'plan' : 'ledger'}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

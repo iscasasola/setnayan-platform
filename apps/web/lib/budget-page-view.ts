@@ -386,7 +386,7 @@ export function suggestedPayment(row: Pick<SupplierRow, 'dues' | 'owedPhp'>): {
 
 /**
  * 🔗 ONE PAYMENT'S ADDRESS (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: *"it opens the
- * exact payment and not just the budget page"*). Home's Budget widget links `?part=budget&pay=<line_item_id>`; the page
+ * exact payment and not just the budget page"*). Home's Budget widget links the Budget page with `?pay=<line_item_id>` (`budgetPageHref`); the page
  * opens the Pay sheet of the supplier that payment belongs to — the one sheet a payment is recorded in. Resolved from
  * the page's OWN ledger lines (`resolveEventMoney`), never a second read; a line that is not this event's, not a
  * supplier's, already settled, or whose supplier is not listed here opens nothing (the page as it always was).

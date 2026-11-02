@@ -219,12 +219,11 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
   const base = `/dashboard/${EVENT}`;
   return {
     guests: () => row('guests')?.href === `${base}/guests`,
-    // Stage D: Budget is Your Team's part; Schedule and the Mood Board are
-    // Details items, and their old pages land there for the couple.
+    // 💰 Budget is Home's page since 2026-11-01 (owner: "Okay place it in home"): Home lights /budget, and Suppliers
+    // keeps a door to that same page. Schedule and the Mood Board are Details items, their old pages land there.
     budget: () =>
-      row('explore')?.href === `${base}/vendors` &&
-      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget') &&
-      read(EV, 'budget', 'page.tsx').includes('redirect(yourTeamBudgetHref(eventId))'),
+      Boolean(row('home')?.alsoMatch?.includes(`${base}/budget`)) &&
+      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget' && p.href === `${base}/budget`),
     schedule: () =>
       (DETAILS_ITEM_KEYS as readonly string[]).includes('schedule') &&
       read(EV, 'schedule', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'schedule'"),

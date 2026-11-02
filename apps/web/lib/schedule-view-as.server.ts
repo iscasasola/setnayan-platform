@@ -19,8 +19,9 @@ import type { ViewSupplier } from './schedule-view-as';
  *   · (the moments' tasks and rooms are the page's own reads — `readMomentTasks`, `readChapterBook` — never read twice);
  *   · the guest groups' names (a task may name a group);
  *   · the suppliers by shop name — only when the page has not already read them (the run-of-show switch off);
- *   · 💎 whether the event owns Pro — View as is Pro (owner 2026-11-01, plan §3b: *"chapters Free · View as and
- *     Release Pro"*). It is not an Event Hub part, so the question is the whole of Pro (`eventCoupleWebsiteProActive`,
+ *   · 💎 whether the event owns Pro — View as a guest, a role or a supplier is Pro (owner 2026-11-01, plan §3b:
+ *     *"chapters Free · View as and Release Pro"*); Suppliers by time is FREE (owner 2026-11-02, "TEN OWNER YESES"
+ *     item 3), so a Free event still gets the menu (`lensAllowed`). It is not an Event Hub part, so the question is the whole of Pro (`eventCoupleWebsiteProActive`,
  *     listed in `every-pro-gate-names-its-part.test.ts`), as this viewer is shown it (`asViewed` — the owner's "view
  *     as a free couple" switch takes Pro away, never grants it). A refused read answers Free: at worst it offers the
  *     upgrade to an event that has it, never opens a paid view for free.

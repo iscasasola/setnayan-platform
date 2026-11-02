@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Camera, Play } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
-import { groupIntoChapters, type ChapterBlock } from '@/lib/alaala-chapters';
+import type { ChapterBlock } from '@/lib/alaala-chapters';
+import { chapterDays } from '@/lib/papic-chapters';
 import { lensEmptyLine, selectLens, type AlaalaLensKey, type AlaalaWall, type WallItem } from '@/lib/alaala-wall';
 import { formatCount } from '@/lib/format-number';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
@@ -22,7 +23,7 @@ import { WallOpen, WallViewerRoot } from './memories-wall-viewer';
  *     event including the empty ones (owner 2026-08-19, "show all eight events"), with its Gallery › door (the
  *     shipped `GalleryDoors`, on the heading now) and the event's monogram tile when nothing is kept yet. This
  *     replaces the cover shelf AND the Gallery rows — four shapes before the first photograph became one.
- *   · ONE EVENT — the day's chapters, from the run of show (`lib/alaala-chapters.ts`, the Papic gallery's own),
+ *   · ONE EVENT — the day's chapters, from the run of show (`chapterDays`, the ONE engine in `lib/papic-chapters.ts`),
  *     falling to time-of-day chapters when there is no schedule to read.
  * Owner, 22 Oct: NO counts line at the top ("remove these") — the page starts with the Life-Flash tile; the clip
  * and with-you marks live on the tiles. The foot line stays only where it explains a capped list.
@@ -212,7 +213,7 @@ export async function MemoriesChapters({
         blocks = [];
       }
       const byId = new Map(shown.map((f) => [f.key, f]));
-      const { days, undated } = groupIntoChapters({
+      const { days, undated } = chapterDays({
         frames: shown.map((f) => ({ id: f.key, capturedAt: f.capturedAt })),
         blocks,
         tz: DEFAULT_EVENT_TZ,

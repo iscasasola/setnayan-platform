@@ -5904,8 +5904,6 @@
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/website/editor?open=music",
@@ -6386,14 +6384,12 @@
         "/dashboard/[seg]/messages"
       ],
       "actions": [
-        "fileActions",
         "formAction"
       ],
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
-        "BookedPartRow",
         "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
@@ -10017,8 +10013,7 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
-        "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget"
+        "/dashboard/[seg]/vendors?open=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -10066,7 +10061,6 @@
         "BookedWhere",
         "BookedWhereLine",
         "BudgetBuildTab",
-        "BudgetPage",
         "BudgetWords",
         "BuildActionResult",
         "BuildAdded",
@@ -12371,7 +12365,6 @@
       ],
       "destinations": [
         "/dev/suppliers-lab?mode=booked",
-        "/dev/suppliers-lab?mode=booked&part=budget",
         "/dev/suppliers-lab?mode=booked&part=schedule"
       ],
       "actions": [],
@@ -12388,7 +12381,6 @@
         "BookedScheduleFrame",
         "BookedStandInCtx.Provider",
         "BottomDock",
-        "BudgetScreen",
         "BuildBody",
         "BuildSnapshotPick",
         "BuildWrites",

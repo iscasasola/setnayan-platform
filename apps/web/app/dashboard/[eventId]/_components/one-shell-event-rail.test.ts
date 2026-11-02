@@ -259,13 +259,15 @@ test('the rail reproduces the five rows, from the shipped SSOT (More Services le
   );
 });
 
-test('Budget is never a main room — owner 2026-07-10 (a part of Your Team since Stage D)', () => {
+test('Budget is never a main room — owner 2026-07-10 (Home\'s own page since 2026-11-01)', () => {
   const rows = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true }).flatMap((g) => g.items);
   assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
+  // 💰 Owner 2026-11-01, *"Okay place it in home"*: Home › Budget opens it, so Home lights it — Suppliers no longer.
   assert.ok(
-    rows.find((i) => i.key === 'explore')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`),
-    'the old /budget page must light Your Team, which holds it',
+    rows.find((i) => i.key === 'home')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`),
+    'the /budget page must light Home, which opens it',
   );
+  assert.ok(!rows.find((i) => i.key === 'explore')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`), 'two tabs light /budget');
 });
 
 test('every rail row but More Services is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {

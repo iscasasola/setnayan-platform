@@ -11,15 +11,18 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { isTaggableTable } from '@/lib/memories-viewer';
 import type { PhotoTagInput, PhotoTagResult, PhotoTagState } from '@/lib/memories-photo-tags';
+import { chapterRefusalWords } from '@/lib/memories-chapters';
+import { readMemoriesChapters } from '@/lib/memories-chapters.server';
 
 /**
  * 🏷 WHO IS IN THIS PHOTO — the Memories viewer's Tag (owner 2026-10-30: "Share, Hide, Delete, Tag, Add to Chapter").
  *
- * ONE action, three ops (the server-action budget sits at its ceiling — `lint-server-action-budget.mjs`):
+ * ONE action, four ops (the server-action budget sits at its ceiling — `lint-server-action-budget.mjs`):
  *   read     the photo's live tags (with names) + the event's guests to add from
  *   remove   a wrong tag goes — a SOFT TOMBSTONE (`removed_at` · `removed_by = 'couple'`), the shipped "Not me"
  *            mechanism (migration 20270131081062): a deleted row would be re-added by the next face-match run, the
  *            tombstone is never re-tagged (`autoTagCapture` reads every row, live or not)
+ *   chapter  Add to Chapter (2026-11-01) — hosts and a chapter's people; decided by the database (see the op below)
  *   add      the right person — a `manual_pick` tag; a tag the hosts removed earlier is revived in place (the UNIQUE
  *            pair is reused). 🔒 A tag the GUEST removed ("Not me", RA 10173 — their objection) is NOT re-added here:
  *            only they can take it back.
@@ -44,6 +47,35 @@ export async function memoriesPhotoTags(eventId: string, input: PhotoTagInput): 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  /* 📸 ADD TO CHAPTER (Memories by chapter, owner 2026-11-01: "We can add media files inside other chapters on memories
+     directly"). Not the managers' alone — hosts AND a chapter's people — so it is asked BEFORE the manager check, and
+     decided by the database on the caller's OWN session (`papic_memories_set_chapter` keys on auth.uid(): the target
+     must be a chapter they are in, the photo one they see from a chapter they are in; a shot's own chapter never
+     leaves). Nothing here trusts the browser's word for who they are. */
+  if (input.op === 'chapter') {
+    const blockId = typeof input.blockId === 'string' ? input.blockId : '';
+    if (!blockId || typeof input.on !== 'boolean') return { ok: false, error: 'Pick a chapter first.' };
+    const { data: refusalCode, error } = await supabase.rpc('papic_memories_set_chapter', {
+      p_event_id: clean,
+      p_block_id: blockId,
+      p_guest_capture_id: input.table === 'papic_guest_captures' ? input.photoId : null,
+      p_seat_photo_id: input.table === 'papic_photos' ? input.photoId : null,
+      p_in: input.on,
+    });
+    if (error) {
+      logQueryError('memoriesPhotoTags.chapter', error, { event_id: clean });
+      return { ok: false, error: chapterRefusalWords(null) };
+    }
+    if (refusalCode) return { ok: false, error: chapterRefusalWords(refusalCode as string) };
+    // A chapter decides who sees the photo — every cached copy is stale.
+    await everyCopyIsNowStale(clean);
+    revalidatePath(`/dashboard/${clean}/memories`);
+    const after = await readMemoriesChapters(supabase, clean);
+    const mine = after.ofPhoto.get(input.photoId) ?? { in: [], shotIn: [] };
+    return { ok: true, state: null, chapters: mine };
+  }
+
   const role = await memoriesManagerRole(supabase, clean, user.id);
   if (!role) return { ok: false, error: 'Only the hosts and the coordinator can tag photos.' };
 

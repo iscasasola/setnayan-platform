@@ -28,6 +28,7 @@ import { HomeTile, HubViewLink } from './home-tile';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { HomeLater, HomeReload } from './home-parts';
+import { budgetPageHref } from '@/lib/pillar-parts';
 
 /**
  * 🎛 HOME'S CONTROL ROW — the six upper widgets (owner-approved 2026-10-24, "ok": `home_control_center_2026-10-24_fable
@@ -421,7 +422,7 @@ function DetailCard({
       if (b === null) return null;
       if (b === 'unread') {
         return (
-          <Shell k="budget" door={`/dashboard/${e}/vendors?part=budget`} today={today} failed>
+          <Shell k="budget" door={budgetPageHref(e)} today={today} failed>
             <Failed words="Money couldn’t load · paid and owing are unread, not zero" />
           </Shell>
         );
@@ -435,7 +436,7 @@ function DetailCard({
       return (
         <Shell
           k="budget"
-          door={`/dashboard/${e}/vendors?part=budget`}
+          door={budgetPageHref(e)}
           brand={
             pays === null
               ? 'Payments couldn’t load'
@@ -449,7 +450,7 @@ function DetailCard({
             <div className="hc-pays">
               {listed.map((p) => {
                 const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
-                const href = payFace(p.id)?.action?.href ?? `/dashboard/${e}/vendors?part=budget`;
+                const href = payFace(p.id)?.action?.href ?? budgetPageHref(e);
                 return (
                   <div key={p.id} className={`hc-pay${late ? ' hc-late' : ''}`} data-home-pay={p.id}>
                     <span className="min-w-0 flex-1">
@@ -465,7 +466,7 @@ function DetailCard({
                 );
               })}
               {pays && pays.length > listed.length ? (
-                <Link href={`/dashboard/${e}/vendors?part=budget`} className="hc-pay hc-more">
+                <Link href={budgetPageHref(e)} className="hc-pay hc-more">
                   +{formatCount(pays.length - listed.length)} more to settle
                 </Link>
               ) : null}

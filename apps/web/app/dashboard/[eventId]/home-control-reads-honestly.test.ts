@@ -37,7 +37,9 @@ test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 —
   const html = drawHome({ control: fixtureControlUnread('e1') });
   const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
-  const failing = HOME_CONTROL_KEYS.filter((k) => k !== 'count');
+  // 🎴 The Countdown is the event card's figure and the plan is the To do list under the card (Home redraw 2026-11-02):
+  // neither is a widget, so the To do list is checked on its own below.
+  const failing = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
   for (const key of failing) {
     const tile = slice(compact, `data-home-tile="${key}"`, HOME_CONTROL_KEYS.map((k) => `data-home-tile="${k}"`).filter((m) => m !== `data-home-tile="${key}"`));
     assert.ok(tile.length > 0, `compact: the ${key} tile is not drawn`);
@@ -54,6 +56,11 @@ test('1 · every failed widget says so, offers Reload, and draws no 0 / ₱0 —
     assert.match(card, /aria-label="Reload"/, `detail: the failed ${key} card offers no Reload`);
     assert.doesNotMatch(figures(card), /(^|\s)0(\s|$)|₱0/, `detail: the failed ${key} card prints a zero`);
   }
+  // ✅ The To do list under the card: said, with ⟳ — never an empty list.
+  const todo = slice(html, 'data-home-todo="unread"', ['data-home-your-event']);
+  assert.ok(todo.length > 0, 'a failed plan read is not said on the To do list');
+  assert.match(text(todo), /couldn.t load/i, 'the failed To do does not say it could not load');
+  assert.match(todo, /data-home-todo-reload=""/, 'the failed To do offers no Reload');
   // …and the Today line names the failure, never "on track".
   assert.doesNotMatch(text(html), /Nothing waits on you|on track/i, 'a failed read reads as calm');
 });

@@ -226,6 +226,7 @@ export function HomeFirstScreen({
       <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink}
         countdown={{
           value: c.hasDate ? c.value : '—',
+          days: c.hasDate && /^\d/.test(c.value) ? c.days : null,
           label: c.hasDate ? c.label : 'No date yet',
           line: [c.long, c.placeLine].filter(Boolean).join(' · ') || null,
           href: c.door ?? countdownDoor(eventId),
@@ -277,8 +278,6 @@ export function HomeFirstScreen({
               now, and which guests are viewing the Event Hub. */}
           {whosHere}
 
-          {/* ✨ MEMORIES — one slim line of its own (round 3): everything from the day, in one place. */}
-          {memories ? <HomeMemoriesLine eventId={eventId} line={memories} /> : null}
 
           {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it").
               A row on the page, a divider above it (owner 2026-11-01: frames only where you act). */}
@@ -297,6 +296,9 @@ export function HomeFirstScreen({
             papicSizes={papicSizes}
             cards={serviceCards}
           />
+
+          {/* ✨ MEMORIES — one slim line of its own, after the widgets (round 3): everything from the day, in one place. */}
+          {memories ? <HomeMemoriesLine eventId={eventId} line={memories} /> : null}
 
           {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
               "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in

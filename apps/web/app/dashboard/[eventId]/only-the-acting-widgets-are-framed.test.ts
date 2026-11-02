@@ -73,17 +73,19 @@ function home(): string {
 test('1 · the phone: only the Schedule and the Budget are cards; the glance row is closed by a divider', () => {
   const compact = slice(home(), 'data-home-control="compact"', ['data-home-control="detail"']);
   const tiles = roots(compact, 'data-home-tile');
-  assert.deepEqual(tiles.map((t) => t.key), ['count', 'sched', 'guests', 'hub', 'sup', 'plan', 'budget'], 'the phone order is not the prototype’s');
+  // 🎴 Home redraw 2026-11-02 (round 3): the Countdown is the event card's figure and To do is the list under the card.
+  assert.deepEqual(tiles.map((t) => t.key), ['sched', 'guests', 'hub', 'sup', 'budget'], 'the phone order is not the prototype’s');
   for (const t of tiles) assert.equal(framed(t.cls), ACTING.has(t.key), `phone: the ${t.key} widget is ${framed(t.cls) ? 'framed' : 'unframed'}`);
   const glance = slice(compact, 'data-home-glance=""', ['data-home-tile="budget"']);
-  assert.deepEqual(roots(glance, 'data-home-tile').map((t) => t.key), ['guests', 'hub', 'sup', 'plan'], 'the glance row is not Guests · Event Hub · Suppliers · To do');
+  assert.deepEqual(roots(glance, 'data-home-tile').map((t) => t.key), ['guests', 'hub', 'sup'], 'the glance row is not Guests · Event Hub · Suppliers');
   assert.match(glance, /class="hc-rule"/, 'the glance row is not closed by a divider');
 });
 
 test('2 · from md: the same widgets wear the same frames', () => {
   const detail = slice(home(), 'data-home-control="detail"', ['data-home-services']);
   const cards = roots(detail, 'data-home-card-key');
-  assert.ok(cards.length >= 5, 'the detail cards are not drawn');
+  // Guests · Event Hub · Suppliers · Budget (the Countdown and To do left the grid, Home redraw 2026-11-02).
+  assert.ok(cards.length >= 4, 'the detail cards are not drawn');
   for (const c of cards) assert.equal(framed(c.cls), ACTING.has(c.key), `md: the ${c.key} card is ${framed(c.cls) ? 'framed' : 'unframed'}`);
   const sched = roots(detail, 'data-home-tile').find((t) => t.key === 'sched');
   assert.ok(sched && framed(sched.cls), 'md: the Schedule is not a card');

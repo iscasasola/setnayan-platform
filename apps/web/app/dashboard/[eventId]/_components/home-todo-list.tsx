@@ -39,16 +39,16 @@ export function HomeTodoList({ eventId, checklist, holds = null }: { eventId: st
   );
   if (checklist === 'unread') {
     return (
-      <section aria-label="To do" data-home-todo="unread" className="flex flex-col">
+      <div role="group" aria-label="To do" data-home-todo="unread" className="flex flex-col">
         {head}
         <HomeTodayItem kicker="To do" tone="warn" words="Your plan couldn’t load" tail="not empty — unread · tap to try again" reload dataAttr={['data-home-todo-reload', '']} />
-      </section>
+      </div>
     );
   }
   const rows = checklist.next.filter((t) => t.id !== holds).slice(0, HOME_TODO_ROWS);
   const pct = checklist.total > 0 ? Math.round((checklist.done / checklist.total) * 100) : null;
   return (
-    <section aria-label="To do" data-home-todo="" className="flex flex-col">
+    <div role="group" aria-label="To do" data-home-todo="" className="flex flex-col">
       {head}
       {rows.length > 0 ? (
         <ul className="hc-todo">
@@ -82,7 +82,7 @@ export function HomeTodoList({ eventId, checklist, holds = null }: { eventId: st
         </span>
         <ChevronRight aria-hidden className="hc-todoline-chev" strokeWidth={1.9} />
       </Link>
-    </section>
+    </div>
   );
 }
 

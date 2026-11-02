@@ -6,6 +6,7 @@ import { HomeCoverPin } from './home-cover-pin';
 import { HomeSettingsGear, type HomeSettingsLanded } from './home-settings-gear';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { Count } from '@/components/count';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -49,6 +50,8 @@ export type HomeSettingsLink = {
 export type HomeCardCountdown = {
   /** "163", "Today", "—" — `countdown.value`. */
   value: string;
+  /** The figure as a number, so it COUNTS to its value (owner 2026-10-07, H2 — `Count`); null = a word ("Today", "—"). */
+  days: number | null;
   /** "days to go" — `countdown.label`; empty when the value says it all. */
   label: string;
   /** "Saturday, December 12, 2026" · the place — null when there is no firm day. */
@@ -94,7 +97,7 @@ export function HomeCoverBand({
            lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
            the content area, square-edged, with its words on the page's gutter. The cards
            below keep their column (`data-home-column`). */
-        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 ${card ? 'rounded-b-[22px] pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${card ? 'rounded-b-[22px] pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'bg-mulberry text-cream'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -116,11 +119,11 @@ export function HomeCoverBand({
           </div>
           {countdown ? (
             <Link href={countdown.href} className="hc-ecard-cd" data-home-card-countdown="" aria-label={`${countdown.value}${countdown.label ? ` ${countdown.label}` : ''}${countdown.line ? ` — ${countdown.line}` : ''}`}>
-              <span className={`hc-ecard-n${/^\d/.test(countdown.value) ? '' : ' hc-ecard-word'}`} aria-hidden>
-                {countdown.value}
+              <span className={`hc-ecard-n${countdown.days !== null ? '' : ' hc-ecard-word'}`} aria-hidden>
+                {countdown.days !== null ? <Count value={countdown.days} id="home-count" /> : countdown.value}
               </span>
-              <span aria-hidden className="min-w-0">
-                {countdown.label ? <span className="hc-ecard-w">{countdown.label}</span> : null}
+              <span aria-hidden className="hc-ecard-w">
+                {countdown.label}
                 {countdown.line ? <span className="hc-ecard-d">{countdown.line}</span> : null}
               </span>
             </Link>

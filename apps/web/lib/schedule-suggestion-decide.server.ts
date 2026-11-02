@@ -111,8 +111,13 @@ export async function decideSuggestion(
   if (decision === 'accept') {
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
     if (suggestion.kind === 'adjust' && suggestion.block_id) {
-      const patch: Record<string, string> = {};
-      if (suggestion.proposed_start_at) patch.start_at = suggestion.proposed_start_at;
+      const patch: Record<string, string | boolean | null> = {};
+      if (suggestion.proposed_start_at) {
+        patch.start_at = suggestion.proposed_start_at;
+        // ⏭ A real time ends "Time TBA" / "Right after the one above" (migration 20271302727358) — the row has a clock now.
+        patch.time_tba = false;
+        patch.follows_block_id = null;
+      }
       if (suggestion.proposed_end_at) patch.end_at = suggestion.proposed_end_at;
       if (suggestion.proposed_location) patch.location = suggestion.proposed_location;
       if (suggestion.proposed_label) patch.label = suggestion.proposed_label;

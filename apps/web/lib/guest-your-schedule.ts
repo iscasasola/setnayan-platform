@@ -37,6 +37,7 @@ import {
   type TaskRow,
 } from './schedule-chapters';
 import { isOnTheGuestsSchedule } from './schedule-audience';
+import { RIGHT_AFTER, isRightAfter, runRank } from './moment-order';
 import { guestInvitedTo } from './schedule-view-as';
 
 /** A moment (a chapter's child block) as the card reads it. */
@@ -54,6 +55,10 @@ export type YourMoment = {
   staged: boolean;
   travel_from?: string | null;
   travel_to?: string | null;
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba?: boolean;
+  follows_block_id?: string | null;
+  sort_order?: number;
 };
 
 /** Who is looking: their seat, the roles they hold, the groups they are in. */
@@ -210,29 +215,40 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
   /* ── the chapters, and (after Release) their lines ─────────────────────────────────────────────────────────── */
   const out: YourChapter[] = shown.map((c) => {
     if (stage === 'before') return { id: c.block_id, name: c.label, line: chapterLineOf(c), lines: [] };
-    const lines = new Map<string, YourLine & { at: string }>();
+    const lines = new Map<string, YourLine & { at: string; rank: number }>();
+    // ⏭ The run's own order — a moment "right after the one above" sits under its anchor (same order key).
+    const rank = runRank(i.moments.filter((m) => m.parent_block_id === c.block_id));
+    const rankOf = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+    // A moment's clock in words: "Time TBA" in a TBA chapter, "Right after" for an untimed moment.
+    const timeOf = (m: YourMoment | null, at: string, own: boolean) =>
+      c.time_tba ? TIME_TBA : m && !own && isRightAfter(m) ? RIGHT_AFTER : clockWords(at);
     // Every guest's moments here: shown to guests, for Everyone, not staged — the database's own three questions.
     for (const m of i.moments) {
       if (m.parent_block_id !== c.block_id) continue;
       if (!isOnTheGuestsSchedule({ is_public: m.is_public, audience: m.audience, visibility: m.staged ? 'coordinator_only' : null })) continue;
-      lines.set(m.block_id, { id: m.block_id, at: m.start_at, time: c.time_tba ? TIME_TBA : clockWords(m.start_at), title: m.label, sub: null, mine: false });
+      lines.set(m.block_id, { id: m.block_id, at: m.start_at, rank: rankOf(m.block_id), time: timeOf(m, m.start_at, false), title: m.label, sub: null, mine: false });
     }
     // Mine: on their moment's line (what they do there under it), at their own time when they have one.
     for (const x of mine) {
       if (x.chapter.block_id !== c.block_id) continue;
       const key = x.moment?.block_id ?? `task:${x.task.task_id}`;
       const at = x.task.call_at ?? x.moment?.start_at ?? c.start_at;
+      // A task's own call time is a real clock; otherwise an untimed moment's start is only its order key.
+      const own = Boolean(x.task.call_at);
       const had = lines.get(key);
       const title = x.moment?.label ?? x.task.what;
       const sub = x.moment ? x.task.what : null;
       if (had) {
         const subs = [had.sub, sub].filter((s): s is string => Boolean(s && s !== had.title));
-        lines.set(key, { ...had, at: at < had.at ? at : had.at, time: c.time_tba ? TIME_TBA : clockWords(at < had.at ? at : had.at), sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
+        const earlier = at < had.at;
+        lines.set(key, { ...had, at: earlier ? at : had.at, time: earlier ? timeOf(x.moment, at, own) : had.time, sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
       } else {
-        lines.set(key, { id: key, at, time: c.time_tba ? TIME_TBA : clockWords(at), title, sub: sub && sub !== title ? sub : null, mine: true });
+        lines.set(key, { id: key, at, rank: x.moment ? rankOf(x.moment.block_id) : Number.MAX_SAFE_INTEGER, time: timeOf(x.moment, at, own), title, sub: sub && sub !== title ? sub : null, mine: true });
       }
     }
-    const sorted = [...lines.values()].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map(({ at: _at, ...l }) => l);
+    const sorted = [...lines.values()]
+      .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.rank - b.rank))
+      .map(({ at: _at, rank: _rank, ...l }) => l);
     return { id: c.block_id, name: c.label, line: chapterLineOf(c), lines: sorted };
   });
 

@@ -9,6 +9,7 @@ import { TimeRow } from '@/app/_components/form-row-time';
 import type { PickOption } from '../../website/editor/_components/pick-menu';
 import { normalizeSearchText } from '@/lib/guest-search';
 import { crewLines, forKey, forOptions, forPickOf, forPicked, forWords } from '@/lib/moment-for';
+import { RIGHT_AFTER_LONG, momentAbove } from '@/lib/moment-order';
 import {
   DEFAULT_MOMENT_MINUTES,
   MARCH_NAME_MAX,
@@ -82,7 +83,11 @@ export type TaskOp = 'task_add' | 'task_save' | 'task_remove';
 type Answer<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export type MomentDoors = {
-  create: (blockId: string, chapterId: string, label: string, startIso: string, endIso: string) => Promise<boolean>;
+  /**
+   * ⏭ With `rightAfter`, the moment has no clock of its own — it comes right after `follows` (null = first in the
+   * chapter); `startIso` is then only its order key and no end is sent (migration 20271302727358).
+   */
+  create: (blockId: string, chapterId: string, label: string, startIso: string, endIso: string, rightAfter?: { follows: string | null }) => Promise<boolean>;
   save: (blockId: string, fields: Record<string, string>) => Promise<boolean>;
   remove: (blockId: string) => Promise<boolean>;
   task: (op: TaskOp, blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
@@ -110,7 +115,7 @@ const NOT_SAVED_WORDS = 'It didn’t save — try again.';
 export function realMomentDoors(eventId: string): MomentDoors {
   const ok = (p: Promise<unknown>) => p.then(() => true, () => false);
   return {
-    create: (blockId, chapterId, label, startIso, endIso) =>
+    create: (blockId, chapterId, label, startIso, endIso, rightAfter) =>
       ok(
         createScheduleBlock(
           form(eventId, {
@@ -119,7 +124,9 @@ export function realMomentDoors(eventId: string): MomentDoors {
             label,
             block_type: 'custom',
             start_at: startIso.slice(0, 16),
-            end_at: endIso.slice(0, 16),
+            ...(rightAfter
+              ? { time_tba: '1', ...(rightAfter.follows ? { follows_block_id: rightAfter.follows } : {}) }
+              : { end_at: endIso.slice(0, 16) }),
           }),
         ),
       ),
@@ -221,12 +228,14 @@ export function NewMomentSheet({
   /** The section that was open on the chapter's page — the new moment goes there unless changed. */
   section: ChapterSection;
   onClose: () => void;
-  onCreate: (label: string, startIso: string, minutes: number) => Promise<boolean>;
+  /** `rightAfter`: no clock of its own — it comes right after the last moment of the chapter (4 additions (1)). */
+  onCreate: (label: string, startIso: string, minutes: number, rightAfter: boolean) => Promise<boolean>;
 }) {
   const headingId = useContext(LayerHeading);
   const sections = sectionsFor(c);
   const section0 = sections.includes(firstSection) ? firstSection : 'Event';
   const [label, setLabel] = useState('');
+  const [when, setWhen] = useState<WhenKey>('at');
   const [start, setStart] = useState<string>(sectionStartFor(c, section0) ?? c.start_at);
   const [minutes, setMinutes] = useState(DEFAULT_MOMENT_MINUTES);
   const [state, setState] = useState<'idle' | 'saving' | 'failed'>('idle');
@@ -251,25 +260,30 @@ export function NewMomentSheet({
             }}
             data="moment-name"
           />
-          <TimeRow
-            name="Time"
-            value={wallTime(start)}
-            onKeep={(t) => {
-              const at = momentStartFrom(c, t);
-              if (!at) return NOT_SAVED;
-              setStart(at);
-              return { ok: true };
-            }}
-            data="moment-time"
-          />
-          <MinutesRow
-            minutes={minutes}
-            onKeep={(n) => {
-              setMinutes(n);
-              return { ok: true };
-            }}
-          />
-          {sections.length > 1 ? (
+          <WhenRow value={when} onPick={setWhen} />
+          {when === 'at' ? (
+            <>
+              <TimeRow
+                name="Time"
+                value={wallTime(start)}
+                onKeep={(t) => {
+                  const at = momentStartFrom(c, t);
+                  if (!at) return NOT_SAVED;
+                  setStart(at);
+                  return { ok: true };
+                }}
+                data="moment-time"
+              />
+              <MinutesRow
+                minutes={minutes}
+                onKeep={(n) => {
+                  setMinutes(n);
+                  return { ok: true };
+                }}
+              />
+            </>
+          ) : null}
+          {when === 'at' && sections.length > 1 ? (
             <ChosenRow
               name="Section"
               value={momentSection(start, c)}
@@ -297,12 +311,39 @@ export function NewMomentSheet({
             data-testid="moment-create"
             onClick={async () => {
               setState('saving');
-              const ok = await onCreate(label.trim(), start, minutes);
+              const ok = await onCreate(label.trim(), start, minutes, when === 'after');
               if (!ok) setState('failed');
             }}
           />
         </div>
       </div>
+  );
+}
+
+/* ── when: at a time, or right after the one above ────────────────────────────────────────────────────────────── */
+
+type WhenKey = 'at' | 'after';
+
+const WHEN_OPTIONS: PickOption[] = [
+  { key: 'at', label: 'At a time' },
+  { key: 'after', label: RIGHT_AFTER_LONG },
+];
+
+/**
+ * ⏭ WHEN ▾ (owner 2026-11-02, 4 additions (1)): a coordinator's timeline writes some moments with no clock — "Bouquet
+ * toss" right under "Cake cutting". One dropdown: At a time · Right after the one above. Right after keeps no time of
+ * its own, never a guessed one, and moves with the moment above it.
+ */
+function WhenRow({ value, onPick }: { value: WhenKey; onPick: (k: WhenKey) => void }) {
+  return (
+    <ChosenRow
+      name="When"
+      about={{ words: 'Right after the one above has no time of its own. It happens when the moment above it is done, and moves when that one moves. Guests do not see it until it has a time.' }}
+      value={value}
+      options={WHEN_OPTIONS}
+      onPick={(k) => onPick(k === 'after' ? 'after' : 'at')}
+      data="moment-when"
+    />
   );
 }
 
@@ -378,6 +419,11 @@ export function MomentSheet({
   );
   const minutes = minutesBetween(m.start_at, m.end_at) ?? DEFAULT_MOMENT_MINUTES;
   const section = momentSection(m.start_at, c);
+  // ⏭ "Right after the one above" (no clock) or "At a time". Picking At a time saves nothing until a time is typed —
+  // the order key it holds is its anchor's start, never a time to keep.
+  const [when, setWhen] = useState<WhenKey>(m.time_tba ? 'after' : 'at');
+  useEffect(() => setWhen(m.time_tba ? 'after' : 'at'), [m.time_tba]);
+  const untimed = m.time_tba;
   const sections = sectionsFor(c);
   const roomOf = m.spot ?? (m.location ? null : c.spot);
 
@@ -388,10 +434,25 @@ export function MomentSheet({
     return { ok: true as const };
   };
 
-  /** A new start keeps the moment's length. */
+  /** A new start keeps the moment's length. On a moment with no clock yet, it is now timed and follows nothing. */
   const moveTo = (startIso: string) => {
     const endIso = shiftWall(startIso, minutes);
-    return keep({ start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16) }, { start_at: startIso, end_at: endIso });
+    return untimed
+      ? keep(
+          { start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16), time_tba: '0' },
+          { start_at: startIso, end_at: endIso, time_tba: false, follows_block_id: null },
+        )
+      : keep({ start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16) }, { start_at: startIso, end_at: endIso });
+  };
+
+  /** ⏭ Right after the one above: the moment directly above it in this chapter's run (none = first). */
+  const goRightAfter = async () => {
+    const above = momentAbove(moments.filter((x) => x.parent_block_id === m.parent_block_id), m.block_id);
+    const r = await keep(
+      { time_tba: '1', ...(above ? { follows_block_id: above.block_id } : {}) },
+      { time_tba: true, end_at: null, is_public: false, follows_block_id: above?.block_id ?? null, start_at: above?.start_at ?? c.start_at },
+    );
+    if (!r.ok) setWhen('at');
   };
 
   /** 👷 A supplier's line puts the moment on their day — the door linked them first (`runMomentOp`); the sheet says so. */
@@ -424,23 +485,35 @@ export function MomentSheet({
                 onKeep={(t) => keep({ label: t.trim() }, { label: t.trim() })}
                 data="moment-name"
               />
-              <TimeRow
-                name="Time"
-                value={wallTime(m.start_at)}
-                onKeep={(t) => {
-                  const at = momentStartFrom(c, t);
-                  return at ? moveTo(at) : NOT_SAVED;
-                }}
-                data="moment-time"
-              />
-              <MinutesRow
-                minutes={minutes}
-                onKeep={(n) => {
-                  const end = shiftWall(m.start_at, n);
-                  return keep({ end_at: end.slice(0, 16) }, { end_at: end });
+              <WhenRow
+                value={when}
+                onPick={(k) => {
+                  setWhen(k);
+                  if (k === 'after' && !untimed) void goRightAfter();
                 }}
               />
-              {sections.length > 1 ? (
+              {when === 'at' ? (
+                <TimeRow
+                  name="Time"
+                  value={untimed ? '' : wallTime(m.start_at)}
+                  empty="Set a time"
+                  onKeep={(t) => {
+                    const at = momentStartFrom(c, t);
+                    return at ? moveTo(at) : NOT_SAVED;
+                  }}
+                  data="moment-time"
+                />
+              ) : null}
+              {!untimed ? (
+                <MinutesRow
+                  minutes={minutes}
+                  onKeep={(n) => {
+                    const end = shiftWall(m.start_at, n);
+                    return keep({ end_at: end.slice(0, 16) }, { end_at: end });
+                  }}
+                />
+              ) : null}
+              {!untimed && sections.length > 1 ? (
                 <ChosenRow
                   name="Section"
                   about={{ words: 'Ingress is setting up before the chapter starts, Egress is clearing out after it ends. Picking one moves the moment there.' }}
@@ -467,14 +540,16 @@ export function MomentSheet({
               <SwitchRow
                 name="Visible to guests"
                 line={
-                  section !== 'Event'
+                  untimed
+                    ? 'Give it a time first — guests only see moments with a time.'
+                    : section !== 'Event'
                     ? 'Only Event moments can show to guests.'
                     : mayShowGuests || m.is_public
                       ? 'Guests see it on their schedule.'
                       : 'Only the hosts and the coordinator can show a moment to guests.'
                 }
                 on={m.is_public}
-                disabled={c.time_tba === true || (!m.is_public && (section !== 'Event' || !mayShowGuests))}
+                disabled={c.time_tba === true || untimed || (!m.is_public && (section !== 'Event' || !mayShowGuests))}
                 onChange={(next) => void keep({ is_public: next ? 'true' : 'false' }, { is_public: next })}
                 data="moment-guests"
               />

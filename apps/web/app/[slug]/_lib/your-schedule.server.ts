@@ -30,7 +30,7 @@ export type YourScheduleRead = { kind: 'ok'; schedule: YourSchedule } | { kind: 
 
 /** The block columns the card reads: a chapter's (`CHAPTER_FIELDS`) and a moment's fence and place. */
 export const YOUR_SCHEDULE_BLOCK_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id';
 
 type BlockRow = {
   block_id: string;
@@ -46,6 +46,7 @@ type BlockRow = {
   time_tba: boolean | null;
   travel_from: string | null;
   travel_to: string | null;
+  follows_block_id?: string | null;
 } & Record<string, unknown>;
 
 export async function readYourSchedule(
@@ -92,6 +93,10 @@ export async function readYourSchedule(
             staged: r.visibility === 'coordinator_only',
             travel_from: r.travel_from,
             travel_to: r.travel_to,
+            // ⏭ "Right after the one above" (migration 20271302727358): its start is only an order key.
+            time_tba: r.time_tba === true,
+            follows_block_id: r.follows_block_id ?? null,
+            sort_order: typeof r.sort_order === 'number' ? r.sort_order : 0,
           },
         ]
       : [],

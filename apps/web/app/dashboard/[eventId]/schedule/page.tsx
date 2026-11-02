@@ -673,6 +673,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   march_key: momentFacts.get(m.block_id)?.march_key ?? null,
                   is_public: m.is_public,
                   vendor_ids: momentFacts.get(m.block_id)?.vendor_ids ?? m.responsible_vendor_ids,
+                  // ⏭ "Right after the one above" (migration 20271302727358): no clock of its own.
+                  time_tba: momentFacts.get(m.block_id)?.time_tba ?? false,
+                  follows_block_id: momentFacts.get(m.block_id)?.follows_block_id ?? null,
                   who:
                     m.responsible_vendor_ids
                       .map((id) => supplierName.get(id))
@@ -703,7 +706,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                     moments: dayMoments.flatMap((m): ViewMoment[] => {
                       if (!m.parent_block_id) return [];
                       const at = momentFacts.get(m.block_id);
-                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null }];
+                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null, time_tba: at?.time_tba === true }];
                     }),
                     tasks: taskRead?.ok ? taskRead.value : null,
                     suppliers:

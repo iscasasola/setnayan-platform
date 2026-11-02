@@ -17,7 +17,8 @@
  * Nothing here reads or writes the database: the page reads, `lib/schedule-suggestion-decide.server.ts` applies.
  */
 
-import { TIME_TBA, VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
+import { inRunOrder, isRightAfter, momentClockWords } from './moment-order';
+import { VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -114,6 +115,9 @@ export type SupplierBlockRow = {
   location: string | null;
   spot: string | null;
   time_tba: boolean;
+  /** ⏭ On a moment: the one it comes right after (migration 20271302727358) — its `start_at` is then only an order key. */
+  follows_block_id?: string | null;
+  sort_order?: number | null;
   is_optional: boolean;
   responsible_vendor_ids: string[];
   created_at: string | null;
@@ -145,8 +149,13 @@ export type SupplierMoment = {
   label: string;
   start_at: string | null;
   end_at: string | null;
-  /** The time the supplier reads: "6:30 AM", or "Time TBA" in a Time-TBA chapter — never its placeholder 12:00 AM. */
+  /**
+   * The time the supplier reads: "6:30 AM", "Time TBA" in a Time-TBA chapter, or "Right after" for a moment with no
+   * clock of its own — never a placeholder 12:00 AM, never its anchor's time.
+   */
   clock: string;
+  /** ⏭ No clock of its own — "right after the one above"; its `start_at` is only an order key, never shown. */
+  rightAfter: boolean;
   minutes: number | null;
   section: ChapterSection;
   /** Tagged to one of this supplier's bookings: they may ask to edit or delete it. */
@@ -211,9 +220,6 @@ export function buildSupplierDay(input: {
     crewByBlock.set(t.block_id, list);
   }
 
-  const byStart = (a: { start_at: string | null }, b: { start_at: string | null }) =>
-    (a.start_at ?? '') < (b.start_at ?? '') ? -1 : (a.start_at ?? '') > (b.start_at ?? '') ? 1 : 0;
-
   // A Time-TBA chapter's 00:00 is only its day: it sorts after that day's timed chapters, never first as if at midnight.
   const dayKey = (b: SupplierBlockRow) => (b.time_tba ? `${(b.start_at ?? '').slice(0, 10)}~` : (b.start_at ?? ''));
   const tops = input.blocks
@@ -225,7 +231,8 @@ export function buildSupplierDay(input: {
 
   const chapters: SupplierChapter[] = tops.map((c) => {
     const linked = isMine(c);
-    const kids = input.blocks.filter((b) => b.parent_block_id === c.block_id).slice().sort(byStart);
+    // ⏭ In the run's order: a moment "right after the one above" directly under it (lib/moment-order.ts).
+    const kids = inRunOrder(input.blocks.filter((b) => b.parent_block_id === c.block_id));
     if (linked) {
       for (const s of [c.created_at, c.updated_at]) if (s) stamps.push(s);
     }
@@ -237,7 +244,8 @@ export function buildSupplierDay(input: {
         label: m.label,
         start_at: m.start_at,
         end_at: m.end_at,
-        clock: c.time_tba ? TIME_TBA : m.start_at ? clockWords(m.start_at) : '—',
+        clock: momentClockWords(m, c, clockWords),
+        rightAfter: isRightAfter(m),
         minutes: minutesOf(m.start_at, m.end_at),
         section:
           m.start_at && c.start_at

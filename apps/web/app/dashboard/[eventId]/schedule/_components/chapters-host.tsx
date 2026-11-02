@@ -53,6 +53,7 @@ import {
   type TaskRow,
 } from '@/lib/schedule-chapters';
 import type { ViewAsInput } from '@/lib/schedule-view-as';
+import { inRunOrder, momentAbove, momentClockWords } from '@/lib/moment-order';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
@@ -83,6 +84,10 @@ export type ChapterMoment = {
   who: string;
   /** 👷 The suppliers it is for (`responsible_vendor_ids`) — "yours" on their day; Suppliers and crew ▾ ticks them. */
   vendor_ids: string[];
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba: boolean;
+  /** ⏭ The moment it comes right after; null when timed (or first in its chapter). */
+  follows_block_id: string | null;
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
@@ -294,10 +299,13 @@ export function ChaptersHost({
           chapter={current}
           section={momentSheet.section}
           onClose={() => setMomentSheet(null)}
-          onCreate={async (label, startIso, minutes) => {
+          onCreate={async (label, startIso, minutes, rightAfter) => {
             const blockId = crypto.randomUUID();
+            // ⏭ Right after: no clock of its own — after the chapter's last moment, its start only an order key.
+            const above = rightAfter ? momentAbove(moments.filter((x) => x.parent_block_id === current.block_id), null) : null;
+            const keyIso = rightAfter ? (above?.start_at ?? current.start_at) : startIso;
             const endIso = shiftWall(startIso, minutes);
-            const ok = await momentDoors.create(blockId, current.block_id, label, startIso, endIso);
+            const ok = await momentDoors.create(blockId, current.block_id, label, keyIso, endIso, rightAfter ? { follows: above?.block_id ?? null } : undefined);
             if (!ok) return false;
             setMoments((ms) => [
               ...ms,
@@ -305,8 +313,10 @@ export function ChaptersHost({
                 block_id: blockId,
                 parent_block_id: current.block_id,
                 label,
-                start_at: startIso,
-                end_at: endIso,
+                start_at: keyIso,
+                end_at: rightAfter ? null : endIso,
+                time_tba: rightAfter,
+                follows_block_id: above?.block_id ?? null,
                 location: null,
                 spot: null,
                 notes: null,
@@ -443,7 +453,8 @@ function ChapterPage({
   const ingress = ingressAt(c);
   const egress = egressAt(c);
   const bySection = (k: ChapterSection) =>
-    moments.filter((m) => momentSection(m.start_at, c) === k).sort((a, b) => (a.start_at < b.start_at ? -1 : 1));
+    // ⏭ In the run's order — a moment "right after the one above" sits directly under it (lib/moment-order.ts).
+    inRunOrder(moments.filter((m) => momentSection(m.start_at, c) === k));
   // Ingress and Egress are optional (owner: *"not placing a time means no ingress"*): a section shows when it has a time,
   // or when a line already sits in it — then it says "no time set", so nothing is hidden.
   const sections: { key: ChapterSection; sub: string; rows: ChapterMoment[] }[] = [];
@@ -557,7 +568,9 @@ function ChapterPage({
                       const clash = clashed.has(m.block_id);
                       const inner = (
                         <>
-                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{clockWords(m.start_at)}</span>
+                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
+                            {momentClockWords(m, c, clockWords)}
+                          </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] text-ink">{m.label}</span>
                             {sub ? <span className="block truncate text-[13px] text-ink/60">{sub}</span> : null}

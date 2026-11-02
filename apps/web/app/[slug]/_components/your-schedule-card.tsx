@@ -1,4 +1,4 @@
-import { contactLine, telHref } from '@/lib/task-contact';
+import { contactLine } from '@/lib/task-contact';
 import type { YourScheduleRead } from '../_lib/your-schedule.server';
 import { YOUR_SCHEDULE_WORDS, yourScheduleText } from '@/lib/guest-your-schedule';
 import { ShareYourSchedule } from './share-your-schedule';
@@ -56,11 +56,12 @@ export function YourScheduleCard({ read, eventName }: { read: YourScheduleRead |
                     <span>
                       <span className="block text-ink">{l.title}</span>
                       {l.sub ? <span className="block text-sm text-ink/60">{l.sub}</span> : null}
-                      {/* 📇 How to reach someone on their own moment — the bridal-car driver (4 additions (3)). */}
+                      {/* 📇 How to reach someone on their own moment — the bridal-car driver (4 additions (3)). Plain text, never a
+                          tel: link (owner 2026-09-10: no link that takes anyone outside the app). */}
                       {(l.contacts ?? []).map((c) => (
-                        <a key={`${c.name}|${c.phone}`} href={telHref(c.phone)} data-your-contact="" className="block text-sm text-ink/70 underline-offset-2 hover:underline">
+                        <span key={`${c.name}|${c.phone}`} data-your-contact="" className="block text-sm text-ink/70">
                           {contactLine(c)}
-                        </a>
+                        </span>
                       ))}
                     </span>
                   </li>

@@ -50,12 +50,6 @@ export function contactLine(c: TaskContact): string {
   return `${c.name} · ${c.phone}`;
 }
 
-/** A `tel:` link for the number as typed (spaces and marks dropped, a leading + kept). */
-export function telHref(phone: string): string {
-  const p = phone.trim();
-  return `tel:${p.startsWith('+') ? '+' : ''}${p.replace(/[^0-9]/g, '')}`;
-}
-
 /** Rows read from `event_schedule_task_contacts` → by task, ignoring anything malformed. */
 export function contactsByTask(rows: readonly { task_id?: unknown; name?: unknown; phone?: unknown }[]): Map<string, TaskContact> {
   const out = new Map<string, TaskContact>();

@@ -3,7 +3,7 @@
  * "SCHEDULE FITS THE COORDINATOR'S TIMELINE AS WRITTEN: 4 ADDITIONS" (3); migration 20271303218631, whose RLS is held by
  * tests/db/a-task-can-carry-a-contact.db.test.ts).
  *
- * Shown only to the host and that moment's crew:
+ * Shown only to the host and that moment's crew — as text, never a tel: link (owner 2026-09-10, no way out of the app):
  *   · the host's moment sheet: Contact · Phone on a PERSON's task (a supplier's line carries none), saved as one;
  *   · a supplier's Schedule view: only what RLS handed them (moments they are on) — drawn on that moment;
  *   · a guest's "Your schedule": only on their own moments, never on an everyone line, never in the shared text.
@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { contactFrom, contactLine, phoneProblem, telHref } from '../../../../lib/task-contact';
+import { contactFrom, contactLine, phoneProblem } from '../../../../lib/task-contact';
 import { MOMENT_OPS, type Chapter, type TaskRow } from '../../../../lib/schedule-chapters';
 import { yourSchedule, yourScheduleText, type YourMoment } from '../../../../lib/guest-your-schedule';
 import { buildSupplierDay, type SupplierBlockRow } from '../../../../lib/supplier-schedule';
@@ -22,7 +22,7 @@ const DAY = '2099-12-18';
 const at = (hhmm: string) => `${DAY}T${hhmm}:00.000Z`;
 const CH = 'c0000000-0000-4000-8000-000000000003';
 
-test('the rules: both or neither; a phone as written; the words and the call link', () => {
+test('the rules: both or neither; a phone as written; the words', () => {
   assert.deepEqual(contactFrom('', ''), { ok: true, contact: null });
   assert.deepEqual(contactFrom(' Mang Ben ', ' 0917 123 4567 '), { ok: true, contact: { name: 'Mang Ben', phone: '0917 123 4567' } });
   assert.equal(contactFrom('Mang Ben', '').ok, false);
@@ -31,7 +31,6 @@ test('the rules: both or neither; a phone as written; the words and the call lin
   assert.equal(phoneProblem('12'), 'Type the whole number.');
   assert.equal(phoneProblem('+63 917 123 4567'), null);
   assert.equal(contactLine({ name: 'Mang Ben', phone: '0917 123 4567' }), 'Mang Ben · 0917 123 4567');
-  assert.equal(telHref('+63 (917) 123-4567'), 'tel:+639171234567');
   assert.ok((MOMENT_OPS as readonly string[]).includes('contact_set'), 'the moment sheet has no door to keep a contact');
 });
 

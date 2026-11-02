@@ -57,7 +57,7 @@ test('3 · every old address still lands on the same view', () => {
   assert.match(shell, /new URLSearchParams\(window\.location\.search\)\.get\('tab'\)/, 'a `?tab=` written while loading is no longer adopted');
   assert.match(shell, /window\.addEventListener\(BB_TAB_EVENT, onTab\)/, 'the bus no longer swaps the body');
   const page = read(V, 'page.tsx');
-  assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)/, '`?part=budget` no longer lands');
+  assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\);/, 'an old `?part=budget` no longer lands on the Budget page');
   assert.match(page, /if \(sp\.part === BOOKED_SCHEDULE_PART\)[\s\S]*?view: sp\.view/, '`?part=schedule` lost its `?view=`');
   assert.match(page, /settingsOpenAtFirst=\{/, '`?settings=1` no longer opens the ⚙ sheet');
   const sched = read(V, '..', 'schedule', 'page.tsx');

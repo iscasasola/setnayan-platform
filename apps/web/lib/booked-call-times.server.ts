@@ -68,9 +68,13 @@ export async function readBookedSchedule(
     time_tba: boolean | null;
   }>;
   const chapters = whereChaptersFrom(rows);
-  // `time_tba` travels: a supplier tagged on a Time-TBA chapter has NO call time from it (plan §3), never 12:00 AM.
+  // `time_tba` travels: a supplier tagged on a Time-TBA chapter has NO call time from it (plan §3), never 12:00 AM —
+  // nor from a MOMENT inside one (the flag is the chapter's; its moments sit on the same placeholder day).
+  const tbaChapters = new Set(rows.filter((r) => !r.parent_block_id && r.time_tba === true).map((r) => r.block_id));
   const blocks = rows.flatMap((r) =>
-    r.start_at ? [{ block_id: r.block_id, label: r.label, start_at: r.start_at, time_tba: r.time_tba === true }] : [],
+    r.start_at
+      ? [{ block_id: r.block_id, label: r.label, start_at: r.start_at, time_tba: r.time_tba === true || (r.parent_block_id !== null && tbaChapters.has(r.parent_block_id)) }]
+      : [],
   );
   const meta: RosMetaMap = new Map(
     rows.map((r) => [r.block_id, { responsible_party: null, responsible_vendor_ids: r.responsible_vendor_ids ?? [] }]),

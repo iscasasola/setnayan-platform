@@ -75,7 +75,7 @@ test('3 · a To do task opens itself in Planning Stage’s To do filter', () => 
 
 test('4 · a payment’s Pay opens that payment’s sheet', () => {
   const late = face('budget', 'pay-li-1');
-  assert.equal(late?.href, '/dashboard/e1/vendors?part=budget&pay=li-1');
+  assert.equal(late?.href, '/dashboard/e1/budget?pay=li-1');
   assert.equal(late?.action?.href, late?.href);
   // The page's own ledger decides whose sheet: the line's supplier — only an owed supplier line of this event, listed here.
   const lines = [
@@ -90,8 +90,9 @@ test('4 · a payment’s Pay opens that payment’s sheet', () => {
   assert.equal(payTargetVendor(lines, 'v1', listed), null, 'a vendor id passed as a line opened a sheet');
   assert.equal(payTargetVendor(lines, 'li-1', [{ vendorId: 'v2' }]), null, 'a supplier not listed here opened a sheet');
   assert.equal(payTargetVendor(lines, null, listed), null);
-  // The address reaches the sheet: Suppliers hands `pay` to the Budget part, the page resolves it, the screen opens it.
-  assert.match(src('vendors/page.tsx'), /searchParams=\{Promise\.resolve\(\{ part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay \}\)\}/, 'Suppliers drops ?pay= on the way to its Budget part');
+  // The address reaches the sheet: the Budget page reads `pay`, resolves it, the screen opens it. An OLD Suppliers address
+  // (`?part=budget&pay=`) forwards with its `pay` intact.
+  assert.match(src('vendors/page.tsx'), /redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\)/, 'the old Suppliers address drops ?pay= on the way to the Budget page');
   assert.match(src('budget/page.tsx'), /initialPayVendorId=\{payTargetVendor\(moneyRead\?\.lines \?\? \[\], \(await searchParams\)\?\.pay, list\.suppliers\)\}/);
   const screen = src('budget/_components/budget-screen.tsx');
   assert.match(screen, /useState<BudgetSheetState>\(initialPayVendorId \? \{ kind: 'pay', vendorId: initialPayVendorId \} : null\)/, 'the Pay sheet does not open on arrival');

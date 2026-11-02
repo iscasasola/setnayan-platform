@@ -203,7 +203,7 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.doesNotMatch(PAGE, /MerkadoBudgetLens|budgetSlot=|\bteamSlot=\{/, 'the old lens or a second Booked mount is back on the page');
   assert.equal(takeoverBody().split('{bookedSlot}').length - 1, 1, 'the Booked body is mounted more than once');
   // Booked = Team · Budget · Schedule (owner 2026-10-29): the body is handed Booked's parts, and the Budget is its own
-  // part (`?part=budget`) — the small block no longer sits under the rows.
+  // page (Home's since 2026-11-01) — the small block no longer sits under the rows.
   assert.match(PAGE, /parts=\{bookedPartList\}/);
   assert.match(
     SLOT,

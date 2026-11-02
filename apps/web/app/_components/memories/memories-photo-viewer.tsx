@@ -16,7 +16,9 @@ import {
 } from '@/app/dashboard/[eventId]/studio/papic/moderation/actions';
 import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
 import { memoriesPhotoTags } from '@/app/dashboard/[eventId]/memories/photo-tag-actions';
-import { CHAPTER_NOT_YET, CHAPTER_NOT_YET_TIP, SHARE_HELD_WHY, isTaggableTable, shareSourceOf, viewerButtons, type ViewerButtonKey } from '@/lib/memories-viewer';
+import { CHAPTER_NONE, CHAPTER_NONE_TIP, CHAPTER_NOT_IN, CHAPTER_UNSORTED_HOSTS, SHARE_HELD_WHY, isTaggableTable, shareSourceOf, viewerButtons, type ViewerButtonKey } from '@/lib/memories-viewer';
+import { canAddFrom, chapterTargets, widensTo, type MemoriesChapter, type PhotoChapters } from '@/lib/memories-chapters';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { addCandidates, type PhotoTagState } from '@/lib/memories-photo-tags';
 import { creditLine } from '@/lib/capture-credit-pure';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
@@ -33,7 +35,8 @@ import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
  * `setSeatPhotoHidden`; a screened frame's slot is `approveScreenedCapture`; a supplier's, `setVendorCapturesHidden`),
  * Delete = every copy (`deletePhotoForever`) — each behind its confirm. Report and Stop this guest shooting (Apple
  * 1.2: a report and a block on user content) stay one press away, in ⋯. Tag is `memoriesPhotoTags` (hosts + the
- * coordinator, checked on the server). Add to Chapter has no storage yet — it says so ("Chapters you make arrive soon").
+ * coordinator, checked on the server). Add to Chapter (2026-11-01) is the shared dropdown with checkmarks over the
+ * chapters this viewer may add to — hosts and a chapter's people — each tick checked again by the database.
  */
 type Panel = 'share' | 'tag' | 'chapter' | 'hide' | 'delete' | 'more' | null;
 
@@ -58,6 +61,7 @@ export function MemoriesPhotoViewer({
   onClose,
   host,
   canTag,
+  chapterList = [],
   album,
   challengeOf,
   blockedGuests,
@@ -73,6 +77,8 @@ export function MemoriesPhotoViewer({
   onClose: () => void;
   host: boolean;
   canTag: boolean;
+  /** 📸 The chapters as the server answered for THIS viewer — Add to Chapter's list. */
+  chapterList?: MemoriesChapter[];
   album: string | null;
   challengeOf: (it: MemoriesItem) => MemoriesChallenge | null;
   blockedGuests: string[];
@@ -84,9 +90,29 @@ export function MemoriesPhotoViewer({
   const item = items[at]!;
   const [panel, setPanel] = useState<Panel>(null);
   useEffect(() => setPanel(null), [item.id]);
+  /* The photo's chapters as the last save answered — kept here so a save never resets the screen (the page re-reads
+     behind it). Keyed by photo, so walking ‹ › shows each photo's own. */
+  const [savedChapters, setSavedChapters] = useState<Record<string, PhotoChapters>>({});
+  const itemChapters = savedChapters[item.id] ?? item.chapters ?? null;
+  const chapterItem = { table: item.table, chapters: itemChapters };
+  const targets = chapterTargets(chapterItem, chapterList);
+  const mayMove = canAddFrom(chapterItem, chapterList, host);
+  const addable = targets.options.filter((o) => !o.disabledNote);
+  const chapterWho = !isTaggableTable(item.table)
+    ? null
+    : !mayMove
+      ? { canAdd: false, why: itemChapters?.in.length ? CHAPTER_NOT_IN : CHAPTER_UNSORTED_HOSTS }
+      : addable.length === 0
+        ? { canAdd: false, why: CHAPTER_NONE }
+        : { canAdd: true, why: null };
 
   const supplier = item.vendorProfileId ? (suppliers.find((s) => s.vendorProfileId === item.vendorProfileId) ?? null) : null;
-  const buttons = viewerButtons(item, { host, canTag, supplierHidden: item.memSource === 'suppliers' ? (supplier?.hidden ?? null) : null });
+  const buttons = viewerButtons(item, {
+    host,
+    canTag,
+    supplierHidden: item.memSource === 'suppliers' ? (supplier?.hidden ?? null) : null,
+    chapter: chapterWho,
+  });
   const share = shareSourceOf(item, { host });
   const who = item.memSource === 'hub' ? item.hubUse : item.capturedBy;
   const challenge = challengeOf(item);
@@ -148,9 +174,20 @@ export function MemoriesPhotoViewer({
         <SharePanel source={share} preserved={item.preserved} onDone={() => setPanel(null)} />
       );
   } else if (panel === 'chapter') {
-    body = (
+    const ready = chapterWho?.canAdd === true && isTaggableTable(item.table);
+    body = ready ? (
+      <ChapterPanel
+        eventId={eventId}
+        table={item.table as 'papic_photos' | 'papic_guest_captures'}
+        photoId={item.id}
+        chapters={chapterList}
+        current={itemChapters}
+        onSaved={(pc) => setSavedChapters((m) => ({ ...m, [item.id]: pc }))}
+        onDone={() => setPanel(null)}
+      />
+    ) : (
       <div data-viewer-chapter="">
-        <PanelHead title="Add to a chapter" line={CHAPTER_NOT_YET} tip={CHAPTER_NOT_YET_TIP} />
+        <PanelHead title="Add to a chapter" line={chapterWho?.why ?? CHAPTER_NONE} tip={CHAPTER_NONE_TIP} />
         <button type="button" className={PANEL_BTN} onClick={() => setPanel(null)}>
           Done
         </button>
@@ -499,6 +536,99 @@ function DeleteConfirmRow({ onKeep }: { onKeep: () => void }) {
       <button type="button" className={PANEL_BTN} onClick={onKeep} disabled={pending}>
         Keep it
       </button>
+    </div>
+  );
+}
+
+/**
+ * ➕ ADD TO CHAPTER — the shared dropdown with checkmarks (`PickMenu` `picked`), the prototype's `mediaViewer`: every
+ * chapter this viewer may add to, ✓ where the photo already is, the chapter it was shot in greyed (it stays there). A
+ * tick saves at once; adding it to an "Everybody" chapter asks first, because the whole guest list will then see it
+ * ("More people will see this"). Each tick is checked again by the database — the list is a convenience, not the gate.
+ */
+function ChapterPanel({
+  eventId,
+  table,
+  photoId,
+  chapters,
+  current,
+  onSaved,
+  onDone,
+}: {
+  eventId: string;
+  table: 'papic_photos' | 'papic_guest_captures';
+  photoId: string;
+  chapters: MemoriesChapter[];
+  current: PhotoChapters | null;
+  onSaved: (pc: PhotoChapters) => void;
+  onDone: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [said, setSaid] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<MemoriesChapter | null>(null);
+  const [pending, start] = useTransition();
+  const { options, picked } = chapterTargets({ chapters: current }, chapters);
+  const label = (id: string) => chapters.find((c) => c.id === id)?.label ?? 'that chapter';
+
+  const save = (blockId: string, on: boolean) => {
+    setError(null);
+    setConfirm(null);
+    start(async () => {
+      const r = await memoriesPhotoTags(eventId, { op: 'chapter', table, photoId, blockId, on });
+      if (r.ok && r.state === null) {
+        onSaved(r.chapters);
+        setSaid(on ? `Added to ${label(blockId)}` : `Taken out of ${label(blockId)}`);
+      } else if (!r.ok) setError(r.error);
+    });
+  };
+  const toggle = (blockId: string) => {
+    const on = !picked.includes(blockId);
+    const wider = on ? widensTo({ chapters: current }, blockId, chapters) : null;
+    if (wider) setConfirm(wider);
+    else save(blockId, on);
+  };
+
+  const where = picked.length ? picked.map(label).join(', ') : 'Unsorted';
+  return (
+    <div data-viewer-chapter="" data-viewer-chapter-ready="">
+      <PanelHead
+        title="Add to a chapter"
+        line={said ?? `In: ${where}`}
+        tip="A photo can sit in more than one chapter. Each chapter decides who sees its photos, and when — set in its Chapter details on your Schedule. The chapter a photo was shot in always keeps it."
+      />
+      {error ? (
+        <p role="alert" className="pb-2 text-[13.5px]">
+          {error}
+        </p>
+      ) : null}
+      {confirm ? (
+        <div className="pb-2" data-viewer-chapter-wider="">
+          <p className="pb-2 text-[13.5px]">More people will see this. Everyone in {confirm.label} can open it.</p>
+          <div className={PANEL_ROW}>
+            <button type="button" className={PANEL_BTN} onClick={() => setConfirm(null)}>
+              Not now
+            </button>
+            <button type="button" className={PANEL_MAIN} onClick={() => save(confirm.id, true)} disabled={pending}>
+              Add it
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={PANEL_ROW}>
+          <PickMenu
+            label="Add to Chapter"
+            value={null}
+            buttonText={pending ? 'Saving…' : 'Add to Chapter'}
+            options={options}
+            picked={picked}
+            onPick={toggle}
+            dataAttr="data-viewer-chapter-pick"
+          />
+          <button type="button" className={PANEL_BTN} onClick={onDone}>
+            Done
+          </button>
+        </div>
+      )}
     </div>
   );
 }

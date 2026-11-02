@@ -87,7 +87,7 @@ import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 import { useChapters } from './chapters-context';
 import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
-import { EVERYONE, type ViewLens } from '@/lib/schedule-view-as';
+import { EVERYONE, lensAllowed, type ViewLens } from '@/lib/schedule-view-as';
 import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
 
 type SheetState =
@@ -218,7 +218,8 @@ export function ScheduleDay({
      by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */
   const viewAs = ch?.viewAs ?? null;
   const [asLens, setAsLens] = useState<ViewLens>(EVERYONE);
-  const viewingAs = viewAs !== null && asLens.kind !== 'everyone';
+  // A Free event draws only the free views (Suppliers by time — owner 2026-11-02); `lensAllowed` is the one question.
+  const viewingAs = viewAs !== null && asLens.kind !== 'everyone' && lensAllowed(viewAs.pro, asLens);
   const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [now, setNow] = useState<{ key: string; min: number } | null>(null);
@@ -716,7 +717,11 @@ export function ScheduleDay({
                 setAsLens(l);
               }}
             />
-            {viewAs.pro ? <Tip>See the day as a guest, a role or a supplier. A view only: nothing changes.</Tip> : null}
+            <Tip>
+              {viewAs.pro
+                ? 'See the day as a guest, a role or a supplier, or which suppliers work at once. A view only: nothing changes.'
+                : 'See which suppliers work at the same time. Seeing the day as a guest, a role or a supplier is part of Pro. A view only: nothing changes.'}
+            </Tip>
           </div>
         ) : topLevel.length > 0 ? (
           <div className="flex items-center gap-1">

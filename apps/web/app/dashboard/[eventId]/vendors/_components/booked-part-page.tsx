@@ -1,5 +1,9 @@
 /**
- * A BOOKED PART'S OWN PAGE — Suppliers › Booked › Budget (`?part=budget`) and › Schedule (`?part=schedule`).
+ * A BOOKED PART'S OWN PAGE — Suppliers › Booked › Schedule (`?part=schedule`).
+ *
+ * 💰 Budget USED to be hosted here too (`?part=budget`, 2026-09-29 → 2026-11-01). Since the owner's 1 Nov ruling
+ * (*"Okay place it in home"*) the Budget is its own page under Home, and Booked's dropdown keeps a DOOR to it
+ * (`budgetPageHref`) — this shell never draws it, so the Budget is in one place. The type below says so.
  *
  * Owner 2026-10-29, *"so booked has budget and schedule."*; the approved final Suppliers design (2026-10-30): the
  * Budget and the Schedule sit UNDER Booked, beside the Team, in the same shell — the same Find · Build · Booked row
@@ -47,7 +51,7 @@ export function BookedPartPage({
 }: {
   eventId: string;
   userId: string;
-  part: Exclude<BookedPartKey, 'team'>;
+  part: Extract<BookedPartKey, 'schedule'>;
   parts: readonly PillarPart[];
   /** The shipped page, rendered whole. */
   children: ReactNode;

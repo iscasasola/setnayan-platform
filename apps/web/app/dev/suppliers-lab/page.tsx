@@ -103,11 +103,7 @@ import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked
 import { LabBookedStandIns } from './lab-booked';
 import { LAB_SCHEDULE_TAGS, labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { BookedPartRow } from '@/app/dashboard/[eventId]/vendors/_components/booked-part-row';
-import { BudgetScreen } from '@/app/dashboard/[eventId]/budget/_components/budget-screen';
-import { buildBudgetList, pickNextPayment } from '@/lib/budget-page-view';
-import { knownMoneyTotals } from '@/lib/budget-truth';
-import { costCategoryOptions } from '@/lib/event-costs';
-import type { PillarPart } from '@/lib/pillar-parts';
+import { budgetPageHref, type PillarPart } from '@/lib/pillar-parts';
 import { LabBookedSchedule } from './lab-booked-schedule';
 import { labPrepAgenda } from './schedule-fixtures';
 import { forwardScheduleView } from '@/lib/schedule-view';
@@ -229,17 +225,16 @@ export default async function SuppliersLabPage({
     covers: one('covers') === '1',
   };
   const bookedMoney = labBookedMoney(bookedOpts);
-  /* Booked = Team · Budget · Schedule (owner 2026-10-29): `&part=budget|schedule` draws that part on fixtures — the
-     REAL Budget screen over this lab's money, the REAL Event Day rail over the Schedule lab's day. `&bkopen=<id>`
-     opens one Team row on load. */
-  const bookedPartParam = one('part') === 'budget' || one('part') === 'schedule' ? (one('part') as 'budget' | 'schedule') : 'team';
+  /* Booked = Team · Budget · Schedule (owner 2026-10-29): `&part=schedule` draws that part on fixtures — the REAL Event
+     Day rail over the Schedule lab's day. Budget is a DOOR to the Budget page itself, as in the app since 2026-11-01
+     (owner: "Okay place it in home") — the same `budgetPageHref` Home's widget opens; its screen on fixtures is
+     `/dev/budget-lab`. `&bkopen=<id>` opens one Team row on load. */
+  const bookedPartParam = one('part') === 'schedule' ? 'schedule' : 'team';
   const labBookedParts: PillarPart[] = [
     { key: 'team', label: 'Team', href: '/dev/suppliers-lab?mode=booked' },
-    { key: 'budget', label: 'Budget', href: '/dev/suppliers-lab?mode=booked&part=budget' },
+    { key: 'budget', label: 'Budget', href: budgetPageHref(LAB_EVENT) },
     { key: 'schedule', label: 'Schedule', href: '/dev/suppliers-lab?mode=booked&part=schedule' },
   ];
-  const labList = buildBudgetList(bookedMoney);
-  const labKnown = knownMoneyTotals(bookedMoney);
   const labMoments = SEEDS.filter((x) => !x[6]?.parent_block_id).length;
   // Booked › Schedule › Planning Stage — the real view on fixtures (`schedule-fixtures.ts`).
   const labPrep = labPrepAgenda(labBookedNow(bookedOpts));
@@ -376,30 +371,7 @@ export default async function SuppliersLabPage({
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
             <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} whereFail={one('wherefail') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
-              {bookedPartParam === 'budget' ? (
-                <div className="space-y-6" data-lab-booked-part="budget">
-                  <BookedPartRow
-                    current="budget"
-                    line={`${labKnown.agreedPhp === null ? '—' : formatPhp(labKnown.agreedPhp)} agreed · ${labKnown.paidPhp === null ? '—' : formatPhp(labKnown.paidPhp)} paid`}
-                  />
-                  <BudgetScreen
-                    eventId={LAB_EVENT}
-                    canEdit
-                    summary={{
-                      targetPhp: bookedOpts.target ? 2_250_000 : null,
-                      agreedPhp: labKnown.agreedPhp,
-                      paidPhp: labKnown.paidPhp,
-                      owedPhp: labKnown.partial ? null : labKnown.owedAtLeastPhp,
-                      partial: labKnown.partial,
-                      next: labKnown.partial ? null : pickNextPayment(bookedMoney.lines),
-                    }}
-                    list={labList}
-                    supplierExtras={{}}
-                    categories={costCategoryOptions('wedding')}
-                    supplierOpens="plan"
-                  />
-                </div>
-              ) : bookedPartParam === 'schedule' ? (
+              {bookedPartParam === 'schedule' ? (
                 <div className="space-y-5" data-lab-booked-part="schedule">
                   <BookedPartRow current="schedule" line={`${labMoments} moments`} />
                   <LabBookedSchedule

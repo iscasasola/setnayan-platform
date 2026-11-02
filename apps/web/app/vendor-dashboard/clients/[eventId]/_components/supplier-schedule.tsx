@@ -123,7 +123,7 @@ export function SupplierSchedule({
 
   const shown = view === 'mine' ? linked : day.chapters;
   const others = day.chapters.flatMap((c) =>
-    c.moments.filter((m) => !m.mine).map((m) => ({ key: m.block_id, label: `${c.label} · ${m.label}${m.start_at ? ` · ${clockWords(m.start_at)}` : ''}` })),
+    c.moments.filter((m) => !m.mine).map((m) => ({ key: m.block_id, label: `${c.label} · ${m.label}${m.start_at ? ` · ${m.clock}` : ''}` })),
   );
   const confirmed = confirmedNow || Boolean(marks?.confirmedAt);
 
@@ -328,7 +328,7 @@ function labelOf(day: SupplierDay, blockId: string | null): string | null {
 function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean }) {
   return (
     <>
-      <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.start_at ? clockWords(m.start_at) : '—'}</span>
+      <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.clock}</span>
       <span className="min-w-0 flex-1 text-sm">
         <span className="font-medium">{m.label}</span>
         {m.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">yours</span> : null}
@@ -405,7 +405,8 @@ function MyMomentSheet({
   const [chapterId, setChapterId] = useState(chapter0.block_id);
   const chapter = chapters.find((c) => c.block_id === chapterId) ?? chapter0;
   const [label, setLabel] = useState(moment?.label ?? '');
-  const [time, setTime] = useState(wallTime(moment?.start_at ?? chapter.start_at) || '');
+  // A new moment in a Time-TBA chapter starts blank — its stored 00:00 is only the day, never a 12:00 AM to prefill.
+  const [time, setTime] = useState((moment || !chapter.time_tba ? wallTime(moment?.start_at ?? chapter.start_at) : '') || '');
   const [minutes, setMinutes] = useState(String(moment?.minutes ?? MOMENT_MINUTES_DEFAULT));
   const [section, setSection] = useState<ChapterSection>(moment?.section ?? 'Event');
   const [crew, setCrew] = useState((moment?.crew ?? []).join(', '));

@@ -11,6 +11,7 @@
  */
 
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
@@ -189,8 +190,10 @@ export default function ScheduleLabClient({
         throw new Error('refused by the lab');
       }
       if (locked && name !== 'toggleBlockVisibility' && LOCKED_MOMENTS.has(str(fd, 'block_id') ?? str(fd, 'from_block_id') ?? '')) {
-        say(`✗ ${name} refused · Locked by Gaia Florals`);
-        throw new Error('Locked by Gaia Florals. Send them a request instead.');
+        // The database's own words for a CHANGE LOCK (audit D7) — the one sentence in lib, never retyped here.
+        const line = lockedLine('Gaia Florals');
+        say(`✗ ${name} refused · ${line}`);
+        throw new Error(line);
       }
       say(`✓ ${name} · ${shown}`);
       const w = window as unknown as { __labWrites?: Array<{ at: number; name: string; shown: string }> };

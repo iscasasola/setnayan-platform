@@ -19,7 +19,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { Eye, Footprints, Play, Sparkles, Square, Users } from 'lucide-react';
+import { Eye, Footprints, Navigation, Play, Sparkles, Square, Users } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -37,6 +37,8 @@ export type RoomViewToolsProps = {
   canWalkEveryone: boolean;
   onWalkEveryone: () => void;
   onClearCrowd: () => void;
+  /** 🧭 Guide me — pick a seated guest, watch them walk from the entrance to their seat (`seatApproachPath`). */
+  guide: { options: readonly { key: string; label: string }[]; onPick: (guestId: string) => void; active: string | null };
   dancingCount: number;
   onClearFloor: () => void;
   sayHi: ReactNode;
@@ -76,7 +78,7 @@ export function RoomViewTools(p: RoomViewToolsProps) {
           {p.sayHi}
         </div>
       ) : null}
-      <div className="flex items-end justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -88,6 +90,22 @@ export function RoomViewTools(p: RoomViewToolsProps) {
           >
             {p.playing ? <Square className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" aria-hidden />}
           </button>
+          {/* 🧭 GUIDE ME (owner 2026-11-01): the one test the view-only room runs — a guest's walk to their seat. */}
+          <PickMenu
+            label="Guide me to a seat"
+            value={p.guide.active}
+            options={
+              p.guide.options.length
+                ? p.guide.options.map((o) => ({ key: o.key, label: o.label }))
+                : [{ key: '-', label: 'Nobody is seated yet', disabledNote: 'Seat someone on the List or in 2D' }]
+            }
+            onPick={(k) => {
+              if (k !== '-') p.guide.onPick(k);
+            }}
+            trigger={<Navigation className="h-4 w-4" aria-hidden />}
+            className={TOOL}
+            dataAttr="data-room-guide"
+          />
           {p.playing ? (
             <>
               <button

@@ -9,7 +9,7 @@ export const DAY_OF_SCHEDULE_UNREAD = 'Couldn’t load the schedule.';
 
 export function ScheduleUnread({ tone = 'light' }: { tone?: 'light' | 'dark' }) {
   return (
-    <p role="alert" data-day-of-schedule-unread="" className={`text-sm font-semibold ${tone === 'dark' ? '' : 'text-danger-700'}`} style={tone === 'dark' ? { color: '#F3ECDF' } : undefined}>
+    <p role="alert" data-day-of-schedule-unread="" className={`text-sm font-semibold ${tone === 'dark' ? 'text-cream' : 'text-danger-700'}`}>
       {DAY_OF_SCHEDULE_UNREAD}{' '}
       <button type="button" onClick={() => window.location.reload()} className="min-h-11 underline underline-offset-2">
         Reload

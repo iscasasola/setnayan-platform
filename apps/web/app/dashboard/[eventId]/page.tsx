@@ -243,7 +243,7 @@ export default async function EventHomePage({
   // 🚪 What THIS event needs (Level 1) — started now, its own small read, degrading to "everything on".
   const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
   // 🔑 What access asks wait on the hosts — started now; the Today line and its doorway share the one answer.
-  const accessAsksAhead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
+  const accessAsksRead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
 
   // Lazy expiry sweeps at the top of the dashboard (no-cron architecture per
   // CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures never block the
@@ -1126,7 +1126,7 @@ export default async function EventHomePage({
     `lib/budget-truth.ts` `dueState`). Never invented: an unread read is 'unread' and its widget says so.
   */
   // 🔑 What access asks wait — ONE read, shared by the Today line (`asks`) and its doorway below (audit 2026-11-02 #2).
-  const accessAsks = await accessAsksAhead;
+  const accessAsks = await accessAsksRead;
   const homeControl = composeHomeControl({
     eventId,
     asks: accessAsksWaiting(accessAsks),

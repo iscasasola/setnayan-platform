@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { spreadForDisplay } from '@/lib/table-order';
 import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
@@ -247,7 +248,8 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       roleSetKey={roleSet.key}
       roleSeatingLabels={roleSeatingLabels(roleNames)}
       chineseTradition={chineseTradition}
-      tables={tables}
+      /* 🪑 Two tables stored on one spot are drawn apart (display only — lib/table-order.ts › spreadForDisplay). */
+      tables={spreadForDisplay(tables)}
       guests={seatingGuests}
       groups={groups}
       floorPlan={floorPlan}

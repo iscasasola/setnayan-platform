@@ -179,6 +179,19 @@ export async function createTable(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // 🪑 A new table takes the next sort_order (owner 2026-11-01, lib/table-order.ts): left to the column's default it
+  // was 0 for every table made here, so Tables 1, 2 and 3 tied. Readers order by label first; this keeps the stored
+  // order unique too. A refused read is not "no tables" — it stops here.
+  const { data: last, error: lastErr } = await supabase
+    .from('event_tables')
+    .select('sort_order')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lastErr) throw new Error(lastErr.message);
+  const nextSort = ((last as { sort_order?: number } | null)?.sort_order ?? -1) + 1;
+
   const { data: created, error } = await supabase
     .from('event_tables')
     .insert({
@@ -186,6 +199,7 @@ export async function createTable(formData: FormData) {
       table_label: trimmed,
       table_type: type,
       capacity,
+      sort_order: nextSort,
       ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
     })
     .select('table_id')

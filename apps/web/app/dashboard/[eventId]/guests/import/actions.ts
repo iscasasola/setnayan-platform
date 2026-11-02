@@ -17,6 +17,7 @@ import {
   type ImportPlan,
 } from '@/lib/guest-import-file';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { guestImportGate } from '@/lib/guest-import-gate.server';
 
 /**
  * What the import page shows between the two clicks. `rows` is the whole
@@ -70,6 +71,8 @@ export async function importGuestsCsv(
   await refuseLimitedHelper(eventId, 'guest_list');
   const mode = String(formData.get('mode') ?? 'preview');
   if (mode === 'reset') return { stage: 'idle' };
+  const notYet = await guestImportGate(eventId);
+  if (notYet) return { stage: 'error', message: notYet };
 
   if (mode !== 'add') {
     const file = formData.get('file');

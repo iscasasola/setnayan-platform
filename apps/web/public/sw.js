@@ -334,6 +334,7 @@ function isDayOfGuestNavigation(url) {
     'refunds',
     'reset-password',
     'samahan',
+    'sample',
     'schedule',
     'seat-plan',
     'setnayan-ai',

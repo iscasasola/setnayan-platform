@@ -199,6 +199,7 @@ import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-paymen
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import type { ComponentProps } from 'react';
@@ -727,7 +728,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase.from('event_schedule_tasks').select(TASK_COLUMNS).eq('event_id', eventId),
       supabase
         .from('event_supplier_schedule_marks')
-        .select('seen_at, confirmed_at')
+        .select(SCHEDULE_MARK_COLUMNS)
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .maybeSingle(),
@@ -1287,6 +1288,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     : {
         seenAt: (myMarksRes.data as { seen_at: string | null } | null)?.seen_at ?? null,
         confirmedAt: (myMarksRes.data as { confirmed_at: string | null } | null)?.confirmed_at ?? null,
+        // 🔒 CHANGE LOCK (audit D7): their part is locked — the host's changes are refused until they unlock.
+        lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
       };
   const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
   const supplierPart = {

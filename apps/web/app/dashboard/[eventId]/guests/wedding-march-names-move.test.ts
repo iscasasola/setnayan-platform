@@ -85,8 +85,10 @@ test('every printed entourage follows the couple’s section order', () => {
     // 2026-10-12: a reader may START the order read ahead (`lib/start-ahead.ts`) and hand the call its promise —
     // `await <name>` where `const <name> = startAhead(loadEntourageSectionOrder(…))` in the same file.
     const ahead = [...src.matchAll(/const (\w+) = startAhead\(loadEntourageSectionOrder\(/g)].map((m) => m[1]!);
+    // 🎭 The Maria and Jose sample has no table to read: its couple's order is a fixture fact (`SAMPLE.entourageSectionOrder`).
+    const sampleOrder = file!.startsWith('lib/sample-event/') && /\bSAMPLE\.entourageSectionOrder\b/.test(call);
     assert.ok(
-      /loadEntourageSectionOrder\(/.test(call) || ahead.some((name) => new RegExp(`await ${name}\\b`).test(call)),
+      sampleOrder || /loadEntourageSectionOrder\(/.test(call) || ahead.some((name) => new RegExp(`await ${name}\\b`).test(call)),
       `${file} prints the entourage without the couple's section order`,
     );
   }

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { BOOKED_BY_PAYMENT_EMBED } from '@/lib/booked-by-payment';
 import { scheduleSuppliersFrom, type ScheduleSupplier, type ScheduleSupplierRow } from '@/lib/schedule-suppliers';
-import { marksByShop } from '@/lib/supplier-schedule-marks';
+import { SCHEDULE_MARK_COLUMNS, marksByShop } from '@/lib/supplier-schedule-marks';
 
 /**
  * schedule-suppliers-read.ts — the schedule page's one read of who an item can
@@ -35,13 +35,13 @@ export async function readScheduleSuppliers(
     // ✅ With the names: each booked supplier's Seen / Confirm my times (audit G6) — the moment's supplier line says it.
     const [{ data: shops, error: shopsErr }, marksRes] = await Promise.all([
       supabase.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', shopIds),
-      supabase.from('event_supplier_schedule_marks').select('vendor_profile_id, seen_at, confirmed_at').eq('event_id', eventId),
+      supabase.from('event_supplier_schedule_marks').select(SCHEDULE_MARK_COLUMNS).eq('event_id', eventId),
     ]);
     if (marksRes.error) {
       // The compact line simply says no mark; the Team row (Suppliers › Booked) says the refusal in words.
       console.error('[supabase-error] lib/schedule-suppliers-read.ts · from:event_supplier_schedule_marks.select', marksRes.error.message, { event_id: eventId });
     } else {
-      marks = marksByShop((marksRes.data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null }>);
+      marks = marksByShop((marksRes.data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null; locked_at: string | null }>);
     }
     if (shopsErr) {
       console.error('[supabase-error] lib/schedule-suppliers-read.ts · from:vendor_profiles.select', shopsErr.message, { event_id: eventId });

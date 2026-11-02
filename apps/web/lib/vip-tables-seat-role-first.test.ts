@@ -213,7 +213,7 @@ test('6 · nothing split or dropped silently: everyone is seated or named, and t
   assert.equal(split.tableIds.length, 2);
   // The editor puts it in the Auto arrange toast, from the server's own list.
   const act = read('app/dashboard/[eventId]/seating/actions.ts');
-  assert.match(act, /cannotFit,\s*\n\s*\};/, 'auto arrange does not return what could not fit');
+  assert.match(act, /changedTableIds: [^\n]*\n\s*cannotFit,\n/, 'auto arrange does not return what could not fit');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   assert.match(ed, /cannotFitWords\(res\.cannotFit/, 'the editor does not show what could not fit');
   assert.match(ed, /\+ overflowNote \+ cannotFitNote/, 'the note never reaches the toast');

@@ -368,7 +368,8 @@ test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s fo
   assert.match(march, /key: 'preview',\s*word: play === null \? 'Preview' : 'Stop',/);
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   for (const k of ['seated', 'unseated', 'tables']) assert.match(ed, new RegExp(`'data-seat-count': '${k}'`), `Seats lost its ${k} count`);
-  assert.match(ed, /onClick=\{runAutoArrange\}/);
+  // 🪑 2026-11-02 (owner: *"We ask if we change all seated or just the unseated ones?"*): the ⋯ item asks first — lib/auto-arrange-asks-who-moves.test.ts.
+  assert.match(ed, /onClick=\{askAutoArrange\}/);
   // Auto arrange is the ⋯'s item only — the shared thumb row draws no second one.
   const thumbPart = ed.slice(ed.indexOf('const seatThumb ='), ed.indexOf('const studioPeople ='));
   assert.doesNotMatch(thumbPart, /runAutoArrange|AutoArrange/, 'Auto arrange is drawn twice');

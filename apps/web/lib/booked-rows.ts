@@ -627,7 +627,7 @@ export function timesMarkFor(
   if (marks === undefined || !shopId) return null;
   if (marks === null) return { kind: 'unread' };
   const mark = timesMarkOf(marks.get(shopId));
-  return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word === 'Times confirmed' } : null;
+  return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word !== 'Seen' } : null;
 }
 
 export function callTimeFor(

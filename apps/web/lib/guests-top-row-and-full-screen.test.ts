@@ -191,7 +191,7 @@ test('(6) Seats\' counts ride the one row on every mode, each a door where its t
   assert.match(ed, /\{seatToolRounds\}\s*\{seatCountsSlot\}/);
   // ✨ Auto arrange — the same run, the same refusals — first in the ⋯.
   const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
-  assert.match(more, /inGuests \? \([\s\S]*?<MenuRow\s+icon=\{Sparkles\}[\s\S]*?onClick=\{runAutoArrange\}\s*disabled=\{!canEdit \|\| tables\.length === 0 \|\| isPending\}/, 'Auto arrange is not in the ⋯');
+  assert.match(more, /inGuests \? \([\s\S]*?<MenuRow\s+icon=\{Sparkles\}[\s\S]*?onClick=\{askAutoArrange\}\s*disabled=\{!canEdit \|\| tables\.length === 0 \|\| isPending\}/, 'Auto arrange is not in the ⋯');
   // ONE count door for every view — the List's ✓ ✕ ? are the same component.
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /const pinDoor = [^]*?<PinCountDoor\b/, 'the List draws its own count door again');

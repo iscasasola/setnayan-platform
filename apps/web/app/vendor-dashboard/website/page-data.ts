@@ -5,7 +5,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive } from '@/lib/vendor-visibility';
-import { shopPageGate } from '@/lib/own-shop-preview';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
@@ -36,8 +38,14 @@ export type PageData = {
   businessName: string;
   slug: string | null;
   publicPath: string | null;
-  /** Couples can see it (`isShopLive`) — the badge on the face says so either way. */
+  /** Couples can see it (`isShopLive`, or shown before verification — `selfPublishedLive`) — the badge says so either way. */
   live: boolean;
+  /**
+   * 🏪 Show my page before verification (owner 2026-11-02): `offer` = bookings are closed and the shop is not verified-
+   * live, so the switch is drawn; `shown` = the shop has pressed it. `null` = the read failed (the switch is not drawn —
+   * an unread switch is never shown as off).
+   */
+  showBeforeVerified: { offer: boolean; shown: boolean } | null;
   /** The owner can open it (visible), even before couples can. */
   visible: boolean;
   isVerified: boolean;
@@ -160,6 +168,25 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     logQueryError('VendorPage.domains', err, { vendorId });
     return { measured: false, rows: [] as DomainRow[] };
   });
+  // 🏪 Show my page before verification: the shop's own choice (no session grant on the column — service role, this
+  // shop's row only) and the bookings switch, together.
+  const showRead = Promise.all([
+    createAdminClient().from('vendor_profiles').select('self_published_at, is_demo').eq('vendor_profile_id', vendorId).maybeSingle(),
+    areBookingsOpen(),
+  ]).then(
+    ([r, bookingsOpen]) => {
+      if (r.error) {
+        logQueryError('VendorPage.selfPublished', r.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const row = r.data as { self_published_at?: string | null; is_demo?: boolean | null } | null;
+      return { selfPublishedAt: row?.self_published_at ?? null, isDemo: row?.is_demo === true, bookingsOpen };
+    },
+    (err) => {
+      logQueryError('VendorPage.selfPublished', err, { vendorId });
+      return null;
+    },
+  );
   const vocabRead = fetchVendorServicePickerVocab();
   const portfolioKeys = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioRead = Promise.all(
@@ -218,7 +245,22 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     { public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null },
     { isTeam: true, adminDemoMode: false },
   ).open !== 'nobody';
-  const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const verifiedLive = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const show = await showRead;
+  const gateRow = {
+    public_visibility: profile.public_visibility,
+    verification_state: own?.verification_state ?? null,
+    is_demo: show?.isDemo ?? null,
+    self_published_at: show?.selfPublishedAt ?? null,
+  };
+  const live = verifiedLive || (show !== null && selfPublishedLive(gateRow, show.bookingsOpen));
+  const showBeforeVerified =
+    show === null
+      ? null
+      : {
+          offer: !verifiedLive && !show.bookingsOpen && selfPublishedLive({ ...gateRow, self_published_at: 'offer' }, false),
+          shown: show.selfPublishedAt !== null,
+        };
 
   const saved: PageSaved = pageSavedFrom(
     microsite,
@@ -232,6 +274,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     slug,
     publicPath: slug ? `/${slug}` : null,
     live,
+    showBeforeVerified,
     visible,
     isVerified: profile.public_visibility === 'verified',
     kindWord: services[0]?.label ?? null,

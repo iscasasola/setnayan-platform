@@ -86,6 +86,8 @@ import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 import { useChapters } from './chapters-context';
+import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
 import { EVERYONE, lensAllowed, type ViewLens } from '@/lib/schedule-view-as';
 import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
@@ -356,7 +358,9 @@ export function ScheduleDay({
         for (const [id, patch] of guessed) if (patch) confirm(id, patch);
       } catch {
         revert(ids);
-        setNotice(COULD_NOT_SAVE);
+        // 🔒 A locked supplier's part (audit D7): the calm line, never "check your connection".
+        const shop = lockedShopOnMoments(ids, merged, suppliers);
+        setNotice(shop ? lockedLine(shop) : COULD_NOT_SAVE);
       }
     });
   }

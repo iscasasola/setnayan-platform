@@ -8,8 +8,14 @@
  *
  *   · a florist   — every part with `florist` among its categories, and nothing else;
  *   · a stylist   — every part with `stylist_decorator` among its categories, and nothing else;
- *   · a jeweller  — NOTHING, because no part names Jewelleries & Accessories … until an admin adds one, and then
- *                   exactly that one (the snapshot, not the consts, decides).
+ *   · a jeweller  — no part names Jewelleries & Accessories, so the STRICT trade rule refuses every part … until an
+ *                   admin adds one, and then exactly that one (the snapshot, not the consts, decides).
+ *
+ * ⚖ AMENDED 2026-11-02 (owner, the supplier gate: the inspiration box is for every trade; audit G5): a shop whose
+ * trades dress NO part is no longer offered nothing — `uploadableSlotsForShop` falls back to every supplier shelf
+ * (`libraryUploadVerdict`), so the jeweller's list before the admin adds a part is the fallback. The moment its trade
+ * dresses a part, the list is exactly its own again. `slotUploadVerdict` (the strict rule, still used for a couple's
+ * suggestions) is unchanged and still refuses the jeweller everywhere.
  *
  * The expected sets are computed from the snapshot's categories + the taxonomy's canonical services, not typed
  * in, so the guard holds whatever parts the table holds.
@@ -62,7 +68,9 @@ test('⭐ a jeweller sees nothing — until an admin adds a Jewellery part, and 
   const jeweller = shopOf('jewelleries_accessories');
   assert.ok(jeweller.length > 0, 'the taxonomy holds no jewellery services — the fixture is broken');
   const before = fallbackInspirationParts();
-  assert.deepEqual(listed(jeweller, before), [], 'a jeweller is offered a part no category of theirs fills');
+  // A trade with no part of its own gets the fallback — every supplier shelf (owner 2026-11-02, the gate).
+  const everyShelf = before.parts.filter((p) => partCategories(p).length > 0).map((p) => p.slotKey);
+  assert.deepEqual([...listed(jeweller, before)].sort(), [...new Set(everyShelf)].sort(), 'a jeweller with no part of its own is offered every supplier shelf');
   assert.deepEqual(partsDressedBy(jeweller, before), []);
   for (const p of before.parts) assert.equal(slotUploadVerdict(p.slotKey, jeweller, before).allowed, false, `a jeweller may upload to ${p.slotKey}`);
 
@@ -99,5 +107,8 @@ test('a part the snapshot moves to another category moves with it — the access
   };
   assert.ok(!listed(shopOf('florist'), before).includes('cake'));
   assert.ok(listed(shopOf('florist'), moved).includes('cake'), 'a florist is not offered the part an admin homed on Florist');
-  assert.ok(!listed(shopOf('cake'), moved).includes('cake'), 'a cake shop is still offered the part an admin moved away');
+  // The cake shop lost its only part, so it falls to the fallback (every shelf) — but the STRICT rule, the one a couple's
+  // suggestion uses, no longer lets it at the part an admin moved away.
+  assert.equal(slotUploadVerdict('cake', shopOf('cake'), moved).allowed, false, 'the strict rule still offers the cake shop the part an admin moved away');
+  assert.equal(slotUploadVerdict('cake', shopOf('cake'), before).allowed, true);
 });

@@ -35,6 +35,7 @@ import {
   type Chapter,
 } from '@/lib/schedule-chapters';
 import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
+import { chapterCountLine, joinChapterNames, type ChapterCount } from '@/lib/invitation-chapters';
 
 /**
  * 📖 THE SCHEDULE'S CHAPTER SHEETS — make, change and delete a chapter (owner 2026-11-01, DECISION_LOG "CHAPTERS LIVE ON
@@ -226,6 +227,7 @@ export function ChapterSheet({
   onPatch,
   onClose,
   onDeleted,
+  replyCount,
 }: {
   chapter: Chapter;
   venues: string[];
@@ -233,12 +235,18 @@ export function ChapterSheet({
   lastDay: string | null;
   mayInvite: boolean;
   doors: ChapterDoors;
+  /**
+   * ✉ Who replied to this chapter (Step 5, `readChapterCounts`) — only for a chapter on the invitation. `null` = the
+   * count could not be read (said, never 0). Taking a chapter off the invitation that guests said yes to shows them
+   * first (ruled 1 Nov: *"removed = hosts first see who said yes, then guests are notified"*).
+   */
+  replyCount?: ChapterCount | null;
   onPatch: (next: Partial<Chapter>) => void;
   onClose: () => void;
   onDeleted: () => void;
 }) {
   const headingId = useId();
-  const [stage, setStage] = useState<'details' | 'ask' | 'deleting' | 'failed'>('details');
+  const [stage, setStage] = useState<'details' | 'ask' | 'deleting' | 'failed' | 'uninvite'>('details');
   const [note, setNote] = useState<string | null>(null);
   const [other, setOther] = useState(false);
 
@@ -297,7 +305,12 @@ export function ChapterSheet({
   const flags = chapterWindowFlags(c);
 
   return (
-    <Sheet open onClose={onClose} labelledById={headingId} title={stage === 'details' ? 'Chapter details' : 'Delete chapter'}>
+    <Sheet
+      open
+      onClose={onClose}
+      labelledById={headingId}
+      title={stage === 'details' ? 'Chapter details' : stage === 'uninvite' ? 'Take it off the invitation?' : 'Delete chapter'}
+    >
       <div data-chapter-sheet={c.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
         <h3 id={headingId} className="sr-only">
           {c.label}
@@ -444,12 +457,21 @@ export function ChapterSheet({
                 name="On the invitation"
                 line={
                   mayInvite || c.on_invitation
-                    ? 'Guests reply to this chapter. A TBA venue still sends as “Venue TBA”.'
+                    ? `Guests reply to this chapter. A TBA venue still sends as “Venue TBA”.${
+                        c.on_invitation && replyCount !== undefined ? ` ${chapterCountLine(replyCount)}.` : ''
+                      }`
                     : 'Only the hosts and the coordinator can put a chapter on the invitation.'
                 }
                 on={c.on_invitation}
                 disabled={!mayInvite && !c.on_invitation}
-                onChange={(next) => void keep({ on_invitation: next ? 'true' : 'false' }, { on_invitation: next })}
+                onChange={(next) => {
+                  // ✉ Off, with guests who said yes (or a count that could not be read): show them first.
+                  if (!next && c.on_invitation && (replyCount === null || (replyCount?.yes ?? 0) > 0)) {
+                    setStage('uninvite');
+                    return;
+                  }
+                  void keep({ on_invitation: next ? 'true' : 'false' }, { on_invitation: next });
+                }}
                 data="chapter-invite"
               />
               <TypedRow
@@ -471,6 +493,44 @@ export function ChapterSheet({
               <ActionButton tone="danger" icon={Trash2} label="Delete chapter" onClick={() => setStage('ask')} data-testid="chapter-delete" />
             </div>
           </>
+        ) : stage === 'uninvite' ? (
+          <div data-chapter-uninvite="" className="flex flex-col gap-3">
+            <p className="text-[15px] text-ink">
+              {replyCount ? (
+                <>
+                  <span className="font-semibold">
+                    {replyCount.yes} {replyCount.yes === 1 ? 'guest' : 'guests'} said yes to {c.label}
+                  </span>
+                  {replyCount.yesNames.length > 0
+                    ? `: ${joinChapterNames(
+                        replyCount.yes > replyCount.yesNames.length
+                          ? [...replyCount.yesNames, `${replyCount.yes - replyCount.yesNames.length} more`]
+                          : replyCount.yesNames,
+                      )}.`
+                    : '.'}
+                </>
+              ) : (
+                <span className="font-semibold">Who said yes to {c.label} could not be read just now.</span>
+              )}{' '}
+              If you take it off, everyone who said yes sees that {c.label} is no longer part of their invitation. Their
+              replies are kept.
+            </p>
+            <div className="flex justify-end gap-2">
+              <ActionButton tone="neutral" icon={X} label="Not now" quiet onClick={() => setStage('details')} />
+              <ActionButton
+                tone="danger"
+                main
+                icon={X}
+                label="Take it off"
+                data-testid="chapter-uninvite-continue"
+                onClick={async () => {
+                  const answer = await keep({ on_invitation: 'false' }, { on_invitation: false });
+                  setStage('details');
+                  setNote(answer.ok ? `${c.label} is off the invitation. Guests who said yes will see it when they open their invitation.` : `${c.label} is still on the invitation — that didn’t save. Try again.`);
+                }}
+              />
+            </div>
+          </div>
         ) : (
           <div data-chapter-delete={stage} className="flex flex-col gap-3">
             <p className="text-[15px] text-ink">

@@ -28,14 +28,21 @@ const EVENT = '044f7e64-95aa-4dcb-84c1-7263bf494eaa';
 
 type Answer = { data: unknown; error: unknown };
 
-/** A client that answers like the database: `is_limited_helper`, then `moderator_area_level` per area. */
-function client(helper: Answer, levels: Partial<Record<string, Answer>> = {}) {
+/**
+ * A client that answers like the database: `is_limited_helper`, then `moderator_area_level` per area — and the level
+ * the hosts recorded on the caller's own seat (`ownSeatLevel`, null = none / never asked).
+ */
+function client(helper: Answer, levels: Partial<Record<string, Answer>> = {}, seat: Answer = { data: null, error: null }) {
   const calls: Array<{ fn: string; args: { p_event_id: string; p_area?: string } }> = [];
   const c: LimitedHelperRpcClient = {
     rpc: (fn, args) => {
       calls.push({ fn, args });
       if (fn === 'is_limited_helper') return Promise.resolve(helper);
       return Promise.resolve(levels[args.p_area ?? ''] ?? { data: null, error: null });
+    },
+    ownSeatLevel: (eventId) => {
+      calls.push({ fn: 'ownSeatLevel', args: { p_event_id: eventId } });
+      return Promise.resolve(seat);
     },
   };
   return { c, calls };
@@ -62,7 +69,7 @@ test('owner 2026-10-26: a helper the host set to guest list = Edit edits guests 
   assert.equal(await limitedHelperRefusalWith(c, EVENT, 'seat_plan'), 'You can view the seat plan but not change it.');
   assert.equal(await limitedHelperRefusalWith(c, EVENT, null), LIMITED_HELPER_REFUSAL, 'Edit on one area opens no area-less action');
   // The questions are asked of the ONE definition each, about THIS event and THIS area.
-  assert.deepEqual(calls.slice(0, 2), [
+  assert.deepEqual(calls.filter((x) => x.fn !== 'ownSeatLevel').slice(0, 2), [
     { fn: 'is_limited_helper', args: { p_event_id: EVENT } },
     { fn: 'moderator_area_level', args: { p_event_id: EVENT, p_area: 'guest_list' } },
   ]);

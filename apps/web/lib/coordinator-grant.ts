@@ -88,7 +88,11 @@ export async function autoInviteCoordinator(
     invitation_token: generateInvitationToken(),
     accepted_at: null,
   }).select('invitation_token').maybeSingle();
-  if (error || !made) return { created: false };
+  if (error || !made) {
+    // Said, never silent: the booking-status write goes on, but a refused invite is logged with its reason.
+    console.error('[autoInviteCoordinator] invite not written:', error?.message ?? 'no row', { event_id: params.eventId });
+    return { created: false };
+  }
   const token = (made as { invitation_token: string | null }).invitation_token;
   const told = token ? await tellTheCoordinator(admin, { eventId: params.eventId, email, shopProfileId: params.shopProfileId ?? null, token }) : false;
   return { created: true, told };

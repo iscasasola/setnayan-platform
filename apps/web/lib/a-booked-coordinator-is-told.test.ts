@@ -48,7 +48,7 @@ test('the grant tells the coordinator on a NEW invite, with the written token, i
   const tell = src.indexOf('tellTheCoordinator(admin');
   assert.ok(insert > 0 && tell > insert, 'the coordinator must be told after the invite is written');
   assert.match(src.slice(insert, tell), /\.select\('invitation_token'\)/, 'the notice must carry the token the database wrote');
-  assert.match(src.slice(insert, tell), /if \(error \|\| !made\) return \{ created: false \}/, 'a refused write must tell nobody');
+  assert.match(src.slice(insert, tell), /if \(error \|\| !made\) \{[\s\S]{0,300}return \{ created: false \}/, 'a refused write must tell nobody');
   // The dedupe return (an invite already there) comes before the insert — so a re-marked payment tells nobody again.
   assert.ok(src.indexOf('if (already) return') < insert);
   assert.match(src, /type: 'coordinator_invited'/);

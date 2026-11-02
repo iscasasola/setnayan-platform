@@ -118,8 +118,11 @@ async function dismissRecommendation(formData: FormData) {
  * addon_key; both are couple-readable under RLS, so trusting them here only
  * scopes the UPDATE — it can never reach another couple's event (the UPDATE
  * policy's USING/WITH CHECK still bounds it to current_couple_event_ids()).
+ *
+ * Un-exported 2026-11-02 (server-action route budget, `lint-server-action-budget.mjs`): nothing imports it — no
+ * surface draws a dismiss for a supplier's suggestion today. Export it again with the surface that calls it.
  */
-export async function dismissVendorRecommendation(formData: FormData) {
+async function dismissVendorRecommendation(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = str(formData, 'event_id');
   const vendorProfileId = str(formData, 'vendor_profile_id');

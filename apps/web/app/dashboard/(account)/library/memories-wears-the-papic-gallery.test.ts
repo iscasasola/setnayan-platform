@@ -103,7 +103,7 @@ const SEATS: Array<[string, string, RegExp]> = [
   //  "Event" button — `memories-wall-viewer.tsx`, owner: "the same template will show but no need for tagging".)
   ['A frame opens the photo in the viewer (WallOpen)', CH, /<WallOpen item=\{item\}/],
   ['…and your own event’s Memories from it (owned)', WALL, /item\.role === 'couple'\) \{[\s\S]{0,200}router\.push\(`\/dashboard\/\$\{item\.eventId\}\/memories`\)/],
-  ['The day’s chapters come from the run of show', CH, /groupIntoChapters\(\{/],
+  ['The day’s chapters come from the run of show (the one engine’s day split)', CH, /chapterDays\(\{/],
 ];
 for (const [what, src, re] of SEATS) {
   test(`🔒 still reachable: ${what}`, () => assert.match(src, re, `"${what}" lost its seat`));

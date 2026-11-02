@@ -105,7 +105,9 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   const papicItems = items.filter((i) => i.memSource !== 'hub');
   const hubCount = items.length - papicItems.length;
   const vendorShown = papicItems.filter((p) => p.source === 'vendor').length;
-  const papicTotal = seesAll ? (count === null ? null : count + vendorShown) : papicItems.length;
+  // 📸 The measured count less what a chapter holds back from this viewer (Memories by chapter) — never a frame the grid
+  // will not draw.
+  const papicTotal = seesAll ? (count === null ? null : Math.max(0, count - read.withheldCount) + vendorShown) : papicItems.length;
   const unreadable = read.refused.photos || (memoriesUnreadable(papicItems.length, papicTotal) && hubCount === 0);
   if (read.refused.photos) {
     // The reads themselves swallow their errors into [] — say so here, so the refusal reaches Sentry too.
@@ -241,6 +243,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       host={host}
       challenges={read.challenges}
       chapters={read.chapters}
+      chapterList={read.chapterList}
       totals={{ all: papicTotal === null ? null : papicTotal + hubCount, papic: papicTotal === null ? null : papicTotal - vendorShown - papicItems.filter((p) => p.uploads).length }}
       footLine={win ? memoriesCameraWords({ startIso: win.startIso, endIso: win.endIso, now: Date.now() }) : null}
       cappedLine={

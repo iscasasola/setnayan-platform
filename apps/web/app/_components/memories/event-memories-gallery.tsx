@@ -10,7 +10,9 @@
  *   · THE COLUMNS FOLLOW THE ZOOM, LIKE APPLE PHOTOS: phone 3 ↔ 5 ↔ 7 ↔ 1 by pinch, desktop 6 · 9 · 12 · 16 with
  *     − / + (and a trackpad pinch) — ONE step per gesture (`use-grid-pinch.ts`), remembered on this device.
  *   · TOP ROW: Albums ▾ (All · Papic · Challenges · Event Hub · Suppliers · Your uploads — `lib/event-memories.ts`)
- *     · the album's count · "Needs a look N" (the filter, lit when on) · ⚙ Gallery settings (a sheet).
+ *     · Chapter ▾ (Memories by chapter, owner 2026-11-01: "All chapters", ONLY the chapters this viewer may see — the
+ *     server's list — and Unsorted; `lib/memories-chapters.ts`) · the album's count · "Needs a look N" (the filter, lit
+ *     when on) · ⚙ Gallery settings (a sheet).
  *   · CHALLENGES: grouped by challenge in the board's order, each headed "title · count"; a supplier's challenge
  *     names its supplier in the ⓘ. In All, a challenge frame wears a small tag.
  *   · A TAP opens the photo itself in the shared viewer template (`MemoriesPhotoViewer` → `PhotoViewer`, owner
@@ -38,6 +40,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { MemoriesPhotoViewer } from './memories-photo-viewer';
+import { ALL_CHAPTERS, chapterFilterOptions, inChapterFilter, validFilter, type MemoriesChapter as ChapterOption } from '@/lib/memories-chapters';
 import type { PhotoTagState } from '@/lib/memories-photo-tags';
 import {
   MEMORIES_ALBUMS,
@@ -67,6 +70,8 @@ import { useGridPinch } from './use-grid-pinch';
 /** "Follow the moments in order" — a way of LOOKING, remembered on this device like the zoom (no shared state). */
 const MOMENTS_KEY = 'sn-memories-moments';
 const ALBUM_KEY = 'sn-memories-album';
+/** The picked chapter — per event (a chapter id means nothing on another event), remembered on this device. */
+const CHAPTER_KEY = 'sn-memories-chapter:';
 
 function useScale(): ZoomScale {
   const [scale, setScale] = useState<ZoomScale>('phone');
@@ -119,6 +124,7 @@ export function EventMemoriesGallery({
   host,
   challenges = [],
   chapters = null,
+  chapterList = [],
   totals,
   footLine,
   cappedLine,
@@ -142,6 +148,9 @@ export function EventMemoriesGallery({
   challenges?: MemoriesChallenge[];
   /** The day's moments, from the run of show — null when there is no schedule to follow. */
   chapters?: MemoriesChapter[] | null;
+  /** 📸 The event's chapters as the SERVER answered for this viewer (`papic_memories_chapters`) — only what they may see
+   *  is `listed`; the dropdown never offers anything else. */
+  chapterList?: ChapterOption[];
   /** Measured counts beyond what the page holds (`All`, `Papic`) — null when not measured. */
   totals: { all: number | null; papic: number | null };
   footLine: string | null;
@@ -175,6 +184,7 @@ export function EventMemoriesGallery({
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [album, setAlbumState] = useState<MemoriesAlbumKey>('all');
+  const [chapterPick, setChapterPickState] = useState<string>(ALL_CHAPTERS);
   const [needsLook, setNeedsLook] = useState(false);
   const [moments, setMomentsState] = useState(false);
   const [gearOpen, setGearOpen] = useState(false);
@@ -187,7 +197,12 @@ export function EventMemoriesGallery({
     const a = readLocal(ALBUM_KEY);
     if (isMemoriesAlbum(a)) setAlbumState(a);
     setMomentsState(readLocal(MOMENTS_KEY) === '1');
-  }, []);
+    setChapterPickState(readLocal(CHAPTER_KEY + eventId) ?? ALL_CHAPTERS);
+  }, [eventId]);
+  const setChapterPick = (k: string) => {
+    setChapterPickState(k);
+    writeLocal(CHAPTER_KEY + eventId, k);
+  };
   const setAlbum = (a: MemoriesAlbumKey) => {
     setAlbumState(a);
     writeLocal(ALBUM_KEY, a);
@@ -200,9 +215,13 @@ export function EventMemoriesGallery({
   const challengeById = useMemo(() => new Map(challenges.map((c) => [c.id, c])), [challenges]);
   const challengeOf = (it: MemoriesItem) => (it.challengeId ? challengeById.get(it.challengeId) ?? null : null);
 
+  // 🔽 CHAPTER ▾ — only the chapters the server listed for this viewer, plus Unsorted (`chapterFilterOptions`). A
+  // remembered chapter that is no longer offered falls back to All chapters, never to an empty grid.
+  const chapterOptions = useMemo(() => chapterFilterOptions(chapterList, items), [chapterList, items]);
+  const chapter = validFilter(chapterPick, chapterOptions);
   const inThisAlbum = useMemo(
-    () => items.filter((it) => inAlbum({ source: it.memSource, challengeId: it.challengeId }, album)),
-    [items, album],
+    () => items.filter((it) => inAlbum({ source: it.memSource, challengeId: it.challengeId }, album) && inChapterFilter(it, chapter)),
+    [items, album, chapter],
   );
   const needsCount = host ? inThisAlbum.filter(needsALook).length : 0;
   const shown = useMemo(() => {
@@ -230,7 +249,13 @@ export function EventMemoriesGallery({
   // The count is the album's: measured where it can be (All · Papic), what the page holds otherwise.
   const albumRefused = refusedParts.includes(album);
   const countN =
-    album === 'all' && totals.all !== null ? totals.all : album === 'papic' && totals.papic !== null ? totals.papic : inThisAlbum.length;
+    chapter !== ALL_CHAPTERS
+      ? inThisAlbum.length
+      : album === 'all' && totals.all !== null
+        ? totals.all
+        : album === 'papic' && totals.papic !== null
+          ? totals.papic
+          : inThisAlbum.length;
   const countLine = unreadable || albumRefused ? null : albumCountWords(countN, album, formatCount);
 
   const tile = (it: MemoriesItem, tagged: boolean) => (
@@ -265,7 +290,15 @@ export function EventMemoriesGallery({
       <>
         {addTile ? <div className={gridClass}>{addTile}</div> : null}
         <p className="px-4 py-10 text-center text-[14px] text-ink/60" data-memories-empty="">
-          {q.trim() ? `Nothing here matches “${q.trim()}”.` : needsLook ? 'Nothing needs a look.' : album === 'all' ? emptyLine : 'Nothing in this album yet.'}
+          {q.trim()
+            ? `Nothing here matches “${q.trim()}”.`
+            : needsLook
+              ? 'Nothing needs a look.'
+              : chapter !== ALL_CHAPTERS
+                ? 'Nothing for you in this chapter yet.'
+                : album === 'all'
+                  ? emptyLine
+                  : 'Nothing in this album yet.'}
         </p>
       </>
     );
@@ -335,6 +368,11 @@ export function EventMemoriesGallery({
         <span data-memories-albums="" data-tour="memories-albums" className="shrink-0">
           <PickMenu label="Albums" value={album} options={albumOptions} onPick={(k) => isMemoriesAlbum(k) && setAlbum(k)} compact />
         </span>
+        {chapterOptions.length > 1 ? (
+          <span data-memories-chapters="" data-tour="memories-chapters" className="min-w-0 shrink">
+            <PickMenu label="Chapter" value={chapter} options={chapterOptions} onPick={setChapterPick} compact dataAttr="data-memories-chapter-pick" />
+          </span>
+        ) : null}
         <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="">
           {unreadable || albumRefused ? 'couldn’t load' : <span className="font-medium text-ink">{countLine}</span>}
           {host && (needsCount > 0 || needsLook) ? (
@@ -439,6 +477,7 @@ export function EventMemoriesGallery({
           onClose={() => setViewingId(null)}
           host={host}
           canTag={canTag}
+          chapterList={chapterList}
           album={albumLabel}
           challengeOf={challengeOf}
           blockedGuests={blockedGuests}

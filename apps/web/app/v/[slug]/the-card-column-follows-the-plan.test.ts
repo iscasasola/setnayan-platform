@@ -17,7 +17,7 @@ test('reach comes from shopReach over the effective tier and the shop\'s own rin
   assert.match(PAGE, /<ShopReachLine reach=\{reach\}/);
   assert.match(PAGE, /<ShopReachMap\s+reach=\{reach\}/);
   assert.doesNotMatch(PAGE, /serviceRadiusKm/, 'the page reads a radius cap itself — use lib/shop-page-plan.ts');
-  assert.match(PAGE, /,outer_radius_km,created_at(,self_published_at)?';/, 'the shop\'s own ring is not fetched');
+  assert.match(PAGE, /,outer_radius_km,(self_published_at,)?created_at';/, 'the shop\'s own ring is not fetched');
 });
 
 test('the own address is read only on Pro+ and the pinned quote only where review words show', () => {

@@ -39,7 +39,7 @@ test('2 · a verified, listed shop is public whatever the switch says', () => {
 
 test('3 · the shop page asks the switch at its gate calls and selects the column', () => {
   const page = read('app/v/[slug]/page.tsx');
-  assert.match(page, /created_at,self_published_at'/, 'the page must select self_published_at');
+  assert.match(page, /outer_radius_km,self_published_at,created_at'/, 'the page must select self_published_at');
   const calls = page.match(/shopPageGate\(vendor, \{[^}]*\}\)/g) ?? [];
   assert.ok(calls.length >= 3, `expected the page's gate calls, found ${calls.length}`);
   for (const c of calls) assert.match(c, /bookingsOpen:/, `a shop-page gate call ignores the switch: ${c}`);

@@ -98,7 +98,7 @@ function vipLabRoom(mode: VipLab) {
   ['bride_parents', 'bride_parents', 'groom_parents', 'groom_parents', 'bride_immediate_family', 'groom_immediate_family'].forEach((role, i) =>
     add({ role, group_category: 'family', group_id: i % 2 ? 'lab-g-groomfam' : 'lab-g-bridefam' }),
   );
-  ['maid_of_honor', 'best_man', 'bridesmaid', 'bridesmaid', 'groomsman', 'groomsman'].forEach((role, i) => add({ role, group_id: i % 2 ? 'lab-g-work' : 'lab-g-college' }));
+  ['maid_of_honor', 'best_man', 'bridesmaid', 'bridesmaid', 'groomsman', 'best_woman'].forEach((role, i) => add({ role, group_id: i % 2 ? 'lab-g-work' : 'lab-g-college' }));
   const sponsors = Array.from({ length: 8 }, (_, i) => add({ role: i % 2 ? 'principal_sponsor_ninang' : 'principal_sponsor_ninong', group_id: `lab-g-${i % 4}` }));
   sponsors.forEach((sp) => add({ group_id: sp.group_id, plus_one_of_guest_id: sp.guest_id, last_name: sp.last_name }));
   for (let grp = 0; grp < 20; grp++) {

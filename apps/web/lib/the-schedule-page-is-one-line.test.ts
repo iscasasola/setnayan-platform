@@ -1,18 +1,19 @@
 /**
- * the-schedule-under-booked-is-one-line.test.ts — 📅 SUPPLIERS › BOOKED › SCHEDULE: ONE ROW, ONE LINE, THE DATE LINE,
- * THEN THE MOMENTS.
+ * the-schedule-page-is-one-line.test.ts — 📅 THE SCHEDULE PAGE: ONE LINE, THE DATE LINE, THEN THE MOMENTS.
+ * (Was `the-schedule-under-booked-is-one-line.test.ts` — the frame lived under Suppliers › Booked until the owner's
+ * 2026-11-02 "BOOKED IS JUST THE TEAM"; it is the Schedule page's own look now, `schedule-one-line.tsx`.)
  *
  * Owner 2026-10-31, live iPhone, verbatim: *"so many design error on schedule. the pop up. design template. how the
  * space is strategically used. so many upper space not used."* — at rest the Schedule stacked SEVEN rows before its
  * first moment. The approved frames (19 · 20) draw: the page's one row, then `[Event Day ▾] … 🔊`, then the date line
  * (everything else in its ⓘ), then the items. Held, each as a PROPERTY:
  *   1. The frame draws EXACTLY two things before the views — the line and the date line (executed: rendered).
- *   2. Under Booked the page draws the frame and none of the old chrome rows (the role pill, the segmented view switch,
+ *   2. The page (outside the Maker) draws the frame and none of the old chrome rows (the role pill, the segmented view switch,
  *      the "fills in automatically" band, the "+ Add to schedule" button, the day's own date heading).
  *   3. A view switch asks the server nothing: every view is drawn once and a pick only swaps what shows.
  *
  * Sabotage (2026-10-31, each reverted, each red): a third `<p>` added above the views in the frame · `<ScheduleModeToggle`
- * drawn under Booked · the rail's day heading made visible under Booked · the pick switched to `router.push`.
+ * drawn on the page · the rail's day heading made visible under the line · the pick switched to `router.push`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -81,22 +82,23 @@ test('1 · the frame draws the line and the date line — and nothing else — b
   assert.doesNotMatch(before, /Ana &amp; Paolo/, 'the couple’s names are printed above the moments — they belong in the ⓘ');
 });
 
-test('2 · under Booked the page draws the frame and none of the old chrome rows', () => {
+test('2 · the page draws the one line and none of the old chrome rows (the Maker keeps its own header)', () => {
   const page = read('page.tsx');
-  const start = page.search(/\{inBooked \? \(\s*<ScheduleOneLine\b/);
+  const start = page.search(/\{oneLine \? \(\s*<ScheduleOneLine\b/);
   const rest = start < 0 ? '' : page.slice(start);
   const end = rest.search(/\)\s*:\s*\(\s*<>[\s{}]*<header\b/);
   const booked = end < 0 ? '' : rest.slice(0, end);
-  assert.ok(booked.length > 100, 'the Booked branch is gone');
+  assert.ok(booked.length > 100, 'the page’s one-line branch is gone');
+  assert.match(page, /const oneLine = !inMaker;/, 'the one line is not the page’s look everywhere but the Maker');
   assert.match(booked, /<ScheduleOneLine\b/);
-  assert.doesNotMatch(booked, /<ScheduleModeToggle\b|roleLabel\}\s*<Tip|<PageMasthead\b/, 'an old chrome row is drawn under Booked');
+  assert.doesNotMatch(booked, /<ScheduleModeToggle\b|roleLabel\}\s*<Tip|<PageMasthead\b/, 'an old chrome row is drawn on the page');
   assert.match(booked, /<AnnounceButton\b[^>]*\bround\b/, 'Announce is not the line’s round');
   const prep = read('_components', 'preparation-agenda.tsx');
-  assert.match(prep, /\{booked \? \(\s*<AddPreparationItem eventId=\{eventId\} door="pill" \/>/, 'Preparation’s add is not the thumb-zone pill under Booked');
+  assert.match(prep, /\{line \? \(\s*<AddPreparationItem eventId=\{eventId\} door="pill" \/>/, 'Preparation’s add is not the thumb-zone pill under the line');
   const rail = read('_components', 'day-rail.tsx');
   assert.match(rail, /className=\{booked && rails\.length === 1 \? 'sr-only'/, 'the day’s own heading is drawn again under the date line');
   assert.match(rail, /<InSlot id=\{booked \? toolsSlot : null\}>/, 'the day’s tools are a row of their own again');
-  assert.match(rail, /\{canEdit && !booked \? \(\s*<button/, 'a second Add button is drawn up top under Booked');
+  assert.match(rail, /\{canEdit && !booked \? \(\s*<button/, 'a second Add button is drawn up top under the line');
 });
 
 test('3 · a view switch asks the server nothing — every view is drawn once, a pick swaps what shows', () => {

@@ -1866,6 +1866,7 @@
       "destinations": [
         "/[seg]",
         "/[seg]/find-my-table",
+        "/[seg]/hub",
         "/papic/me/[seg]"
       ],
       "actions": [],
@@ -2624,6 +2625,7 @@
     "/admin/booking-fees": {
       "files": [
         "admin/booking-fees/actions.ts",
+        "admin/booking-fees/bookings-open-form.tsx",
         "admin/booking-fees/page.tsx",
         "admin/booking-fees/review-min-form.tsx"
       ],
@@ -2634,6 +2636,8 @@
         "formAction"
       ],
       "blocks": [
+        "BookingsOpenForm",
+        "BookingsOpenState",
         "Link",
         "PageMasthead",
         "ReviewMinForm",
@@ -4248,6 +4252,7 @@
         "admin/settings/_components/loader-appearance-card.tsx",
         "admin/settings/_components/morning-digest-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
+        "admin/settings/_components/sample-event-switch.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
         "admin/settings/_surfaces/compliance-surface.tsx",
@@ -4297,13 +4302,16 @@
         "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
+        "Mode",
         "MorningDigestCard",
         "NotificationsSurface",
         "PageMasthead",
+        "PickMenu",
         "PreviewSwatch",
         "ProcessStatus",
         "PushToggle",
         "SDLoader",
+        "SampleEventSwitch",
         "SentrySmokeTestButton",
         "SettingsSurface",
         "SubmitButton",
@@ -6303,6 +6311,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadRefusedNotice",
         "RequestCard"
       ]
     },
@@ -6390,6 +6399,7 @@
         "/api/budget/[seg]/export?format=csv",
         "/api/budget/[seg]/export?format=pdf",
         "/api/budget/[seg]/ics",
+        "/dashboard/[seg]/budget",
         "/dashboard/[seg]/messages"
       ],
       "actions": [
@@ -7418,6 +7428,7 @@
         "PageMasthead",
         "PaidMark",
         "QrActions",
+        "ReadRefusedNotice",
         "ReissueQrButton",
         "SlugField",
         "StatusBadge",
@@ -7433,7 +7444,9 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "ReadRefusedNotice"
+      ]
     },
     "/dashboard/[eventId]/launch": {
       "files": [
@@ -8687,6 +8700,7 @@
         "PreparationEmptyState",
         "PreparationLegend",
         "PreparationRow",
+        "ReadRefusedNotice",
         "ReleaseRow",
         "RequestsSheet",
         "ResponsiblePartyEditor",
@@ -8846,6 +8860,7 @@
         "Pop",
         "PresenceMeta",
         "PriorityOrder",
+        "ReadRefusedNotice",
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
@@ -9631,6 +9646,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadRefusedNotice",
         "RecapDriveNudge",
         "RecapSocialFeatureToggle",
         "ShareButtons",
@@ -10057,6 +10073,7 @@
         "BarButtons",
         "BenchLocal",
         "BenchLocalCtx.Provider",
+        "BenchMarketSearch",
         "BenchRollUp",
         "BenchSort",
         "BenchUnread",
@@ -10474,7 +10491,8 @@
       ],
       "destinations": [
         "/dashboard/[seg]/messages",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors/categories?q=[seg]"
       ],
       "actions": [
         "base"
@@ -13575,6 +13593,39 @@
         "SubmitButton"
       ]
     },
+    "/sample": {
+      "files": [
+        "sample/layout.tsx",
+        "sample/page.tsx"
+      ],
+      "destinations": [
+        "/onboarding/wedding"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
+    },
+    "/sample/[...rest]": {
+      "files": [
+        "sample/[...rest]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
+    },
+    "/sample/hub/[guestKey]": {
+      "files": [
+        "sample/hub/[guestKey]/page.tsx"
+      ],
+      "destinations": [
+        "/sample"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link"
+      ]
+    },
     "/signup": {
       "files": [
         "signup/actions.ts",
@@ -13999,6 +14050,7 @@
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
+        "vendor-dashboard/_components/claim-wait-lines.tsx",
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-lines.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
@@ -14120,6 +14172,7 @@
         "BranchPlace",
         "BranchRow",
         "CardShell",
+        "ClaimWaitLines",
         "Collapsible",
         "ComingSoon",
         "Connected",

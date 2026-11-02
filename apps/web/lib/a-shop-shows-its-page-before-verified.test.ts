@@ -6,7 +6,8 @@
  *   2 · a verified, listed shop is public whatever the switch says (nothing taken away);
  *   3 · the shop page asks the switch at both of its gate calls and selects the column;
  *   4 · the press: only a manager, never while bookings are open, written by the service role;
- *   5 · the privacy fence is untouched — the migration adds a column and nothing else (no grant, no policy).
+ *   5 · the privacy fence is untouched — no policy, nothing for anon; the only grant is this column to the signed-in
+ *       role (house rule: `lint-vendor-profiles-column-grants`), and the shop's own view keeps its owner/member rows.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,9 +54,21 @@ test('4 · the press: a manager only, never while bookings are open, by the serv
   assert.match(fn, /createAdminClient\(\)\s*\.from\('vendor_profiles'\)\s*\.update\(\{ self_published_at:/);
 });
 
-test('5 · the privacy fence is untouched: the migration adds the column and nothing else', () => {
+test('5 · the privacy fence is untouched: no policy, nothing for anon, one column for the signed-in role', () => {
   const sql = readFileSync(join(WEB, '../../supabase/migrations/20271303245624_shop_publishes_before_verified.sql'), 'utf8')
     .replace(/--[^\n]*/g, '');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS self_published_at TIMESTAMPTZ/);
-  assert.doesNotMatch(sql, /\bGRANT\b|\bPOLICY\b|\bVIEW\b/i, 'showing a page must never widen a database door');
+  assert.doesNotMatch(sql, /\bPOLICY\b/i, 'showing a page must never touch a row policy');
+  const grants = [...sql.matchAll(/\bGRANT\b[^;]*;/gi)].map((m) => m[0].replace(/\s+/g, ' ').trim());
+  for (const g of grants) {
+    assert.doesNotMatch(g, /\banon\b/i, `nothing is granted to anon: ${g}`);
+    assert.ok(
+      g === 'GRANT SELECT (self_published_at) ON public.vendor_profiles TO authenticated;' ||
+        g === 'GRANT SELECT ON public.vendor_profiles_self TO authenticated, service_role;',
+      `only this column, and the shop's own view, are granted: ${g}`,
+    );
+  }
+  assert.match(sql, /REVOKE SELECT \(self_published_at\) ON public\.vendor_profiles FROM anon;/, 'anon is refused the column by name');
+  // The rebuilt definer view still returns only the caller's OWN shops — never a stranger's row.
+  assert.match(sql, /WHERE vp\.user_id = auth\.uid\(\)\s+OR vp\.vendor_profile_id IN \(SELECT public\.current_vendor_ids\('viewer'\)\)/);
 });

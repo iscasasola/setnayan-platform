@@ -68,7 +68,6 @@ async function readGuestSeatPreview(eventId: string, guestId: string): Promise<G
 // guests are shown, not the plan). Upsert, like publishSeating (the singleton row may not exist yet), and the written
 // row is read back: zero rows is a refusal, never a quiet success.
 async function writeGuestSeatView(eventId: string, view: string): Promise<GuestSeatViewSaved> {
-  await refuseLimitedHelper(eventId, null);
   if (view !== '2d' && view !== '3d' && view !== 'both') return { ok: false, error: 'That is not a way guests can see their seat.' };
   const supabase = await createClient();
   const {
@@ -94,6 +93,8 @@ export type GuestSeatViewSaved = { ok: true; view: GuestSeatView } | { ok: false
  * it (`preview`). One export, not two: every exported server action is a Vercel route (lint-server-action-budget.mjs).
  */
 export async function guestSeatView<Op extends GuestSeatViewOp>(eventId: string, op: Op): Promise<GuestSeatViewAnswer<Op>> {
+  // How guests are shown their seat is the hosts' — like publishing the plan, never a helper's (the preview only reads).
+  if (op.kind === 'set') await refuseLimitedHelper(eventId, null);
   return (await answer(eventId, op)) as GuestSeatViewAnswer<Op>;
 }
 export type GuestSeatViewOp = { kind: 'set'; view: string } | { kind: 'preview'; guestId: string };

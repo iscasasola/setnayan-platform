@@ -52,9 +52,9 @@ export type YourSeatProps = {
   plural: boolean;
   pass: DoorPassData | null;
   /** 🪑 How the couple chose guests see their seat — 2D map · 3D walk · Both (`seatViewParts`, owner 2026-11-01). */
-  seatView: GuestSeatView;
+  seatView?: GuestSeatView;
   /** 🏪 The booked suppliers' booths on the map (`readGuestBooths`); a tap opens the supplier's card. */
-  booths: readonly Lab3DBooth[];
+  booths?: readonly Lab3DBooth[];
 };
 
 export function YourSeat(props: YourSeatProps) {
@@ -97,12 +97,12 @@ function WalkMain({ href, table }: { href: string; table: string }) {
 
 /** The seat's picture, the couple's way (`seatViewParts`): the map (with the 3D link beside it, or not), or the walk. */
 function SeatPicture(p: Seated) {
-  const parts = seatViewParts(p.seatView, Boolean(p.venueHref));
+  const parts = seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref));
   if (!parts.map && p.venueHref) return <WalkMain href={p.venueHref} table={p.table.table_label} />;
-  return <GuestSeatMap look="theme" tables={p.tables} entrance={p.entrance} targetTableId={p.table.table_id} booths={p.booths} />;
+  return <GuestSeatMap look="theme" tables={p.tables} entrance={p.entrance} targetTableId={p.table.table_id} booths={p.booths ?? []} />;
 }
 function walkLinkOf(p: YourSeatProps): string | null {
-  return seatViewParts(p.seatView, Boolean(p.venueHref)).walk === 'link' ? p.venueHref : null;
+  return seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref)).walk === 'link' ? p.venueHref : null;
 }
 
 function BeforeTheDay(p: Seated) {
@@ -126,7 +126,7 @@ function BeforeTheDay(p: Seated) {
         <div className="mx-6 lg:mx-0">
           <SeatPicture {...p} />
         </div>
-        {seatViewParts(p.seatView, Boolean(p.venueHref)).map ? (
+        {seatViewParts(p.seatView ?? 'both', Boolean(p.venueHref)).map ? (
           <p className="mx-[26px] mt-3 flex items-start gap-2.5 text-[0.84rem] leading-normal text-ink/75 lg:mx-0">
             <DoorGlyph />
             <span>
@@ -223,7 +223,7 @@ function NotSeatedYet(p: YourSeatProps) {
       <Lace className="my-4" />
       {p.published && p.tables.length > 0 ? (
         <div className="relative mx-6">
-          <GuestSeatMap look="theme" faint tables={p.tables} entrance={p.entrance} targetTableId={null} booths={p.booths} />
+          <GuestSeatMap look="theme" faint tables={p.tables} entrance={p.entrance} targetTableId={null} booths={p.booths ?? []} />
           <span className="absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-[var(--hub-radius,0.375rem)] border border-ink/25 bg-cream/95 px-4 py-2.5 text-[0.8125rem] italic text-ink/75">
             Your table will appear here
           </span>

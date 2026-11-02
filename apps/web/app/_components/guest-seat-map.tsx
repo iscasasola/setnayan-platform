@@ -14,7 +14,7 @@ import type { Lab3DBooth } from '@/lib/seating-3d';
  * vendor" where the supplier takes bookings). The booths come from `readGuestBooths` — public business identity only.
  */
 export function GuestSeatMap({
-  booths,
+  booths = [],
   ...map
 }: {
   tables: EventTableRow[];
@@ -22,7 +22,7 @@ export function GuestSeatMap({
   targetTableId: string | null;
   look?: 'plain' | 'theme';
   faint?: boolean;
-  booths: readonly Lab3DBooth[];
+  booths?: readonly Lab3DBooth[];
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const booth = open ? booths.find((b) => b.id === open) ?? null : null;

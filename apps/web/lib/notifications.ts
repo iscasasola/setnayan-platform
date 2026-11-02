@@ -517,6 +517,12 @@ export type NotificationType =
      Sent by `answerClaimAccess` (app/dashboard/[eventId]/access-requests/actions.ts) after
      `answer_claim_access_request`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302590530. */
   | 'claim_access_answered'
+  /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting
+     notifications if they are changed by user"*). → each booked supplier named on the moment (`responsible_vendor_ids`,
+     before AND after the edit), ONE notice per save however many moments it touched — retimed, edited, re-assigned or
+     removed. Sent by `lib/supplier-part-notify.server.ts` from the host schedule actions. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302920811. */
+  | 'supplier_part_changed'
   /* 📣 A host or coordinator pressed Release (owner 2026-11-01, plan §3 "Basic, then full"): every guest account on the
      event is told their own full schedule and call time are on Me. Written by the DATABASE (`release_full_schedule`,
      20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
@@ -657,6 +663,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   claim_access_answered: 'A couple answered your link',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
+  supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
 
@@ -888,6 +895,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
   schedule_ask_answered: 'bg-sky-100 text-sky-800',
+  supplier_part_changed: 'bg-sky-100 text-sky-800',
   // News a guest plans their day around, not a yes or no → the informational sky.
   schedule_released: 'bg-sky-100 text-sky-800',
 };
@@ -1169,6 +1177,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_shifted: 'calendar',
   mood_board_changed: 'image',
   supplier_where_changed: 'calendar',
+  supplier_part_changed: 'calendar',
   schedule_released: 'calendar',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',

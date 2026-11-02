@@ -456,6 +456,8 @@ export async function deleteClientNote(formData: FormData) {
  *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
  *   'answer'          — Accept / Decline what a HOST or the COORDINATOR asked of them (D2, owner 2026-11-02;
  *                       `answerScheduleAsk`, lib/schedule-ask.server.ts): `decision` accept | decline, `reason` on a No.
+ *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
+ *                       by the database until they unlock. Their own requests still go through.
  *
  * Every write is the database's to allow (`schedule_suggestions_vendor_insert`, 20271263061583 + 20271300619930): own
  * items only for an edit or a delete, own linked chapters only for an add, words only on anybody else's. After an ask
@@ -476,7 +478,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const quiet = formData.get('quiet') === '1';
   const request = formData.get('request');
   const note = formData.get('note');
-  const sheetAsk = request === 'take_back' || request === 'seen' || request === 'confirm' || request === 'times' || request === 'answer';
+  const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
+  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -519,7 +522,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     if (r.value === 'gone') return { ok: false, error: 'That ask was already answered or taken back.' };
     return done({ ok: true, outcome: decision === 'accept' ? 'applied' : 'done' });
   }
-  if (request === 'seen' || request === 'confirm') {
+  if (isMark) {
     const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });
     if (error) {
       return {

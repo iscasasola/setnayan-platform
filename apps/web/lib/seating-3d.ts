@@ -86,6 +86,8 @@ export type Lab3DTable = {
   yPct: number;
   rotationDeg: number;
   linkGroupId: string | null;
+  /** 🪑 Host-marked VIP table (owner 2026-11-02) — drawn with a small VIP mark. Optional: render-only literals omit it. */
+  vip?: boolean;
 };
 
 export type Lab3DFloor = {

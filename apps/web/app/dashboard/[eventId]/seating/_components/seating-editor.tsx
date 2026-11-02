@@ -154,6 +154,10 @@ import {
   type OracleZone,
   type DropHit,
   DRAFT_ROUND_TYPE,
+  VIP_PLUS_ONE_OPTIONS,
+  cannotFitWords,
+  parseVipPlusOneSeating,
+  type VipPlusOneSeating,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
@@ -231,6 +235,8 @@ import {
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
 import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
+import { VipMark } from './vip-mark';
+import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
 import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
@@ -521,10 +527,15 @@ export function SeatingEditor({
   });
   const [tables, applyTableOpt] = useOptimistic(
     tablesProp,
-    (state: EventTableRow[], op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean }) =>
+    (
+      state: EventTableRow[],
+      op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean } | { type: 'vip'; id: string; vip: boolean },
+    ) =>
       op.type === 'delete'
         ? state.filter((t) => t.table_id !== op.id)
-        : state.map((t) => {
+        : op.type === 'vip'
+          ? state.map((t) => (t.table_id === op.id ? { ...t, is_vip: op.vip } : t))
+          : state.map((t) => {
             if (t.table_id !== op.id) return t;
             const next = removedSeatSet(t.removed_seats, t.capacity);
             if (op.removed) next.add(op.seat);
@@ -1001,7 +1012,10 @@ export function SeatingEditor({
       addedTableIds: string[];
       seatedGuestIds: string[];
       positions: Record<string, { x: number; y: number } | null>;
-      booths: FloorBoothRow[];
+      /** null = this run moved no booth (Clear all seats) — Undo leaves the booths alone. */
+      booths: FloorBoothRow[] | null;
+      /** 🪑 Seats this run took off — Undo puts exactly these back (lib/seat-plan-scope.ts). */
+      restore?: RestoreSeat[];
     } | null;
     changed: ReadonlySet<string>;
   } | null>(null);
@@ -1375,8 +1389,9 @@ export function SeatingEditor({
   // walls), (3) the server's role-tier auto-seat fills guests into the layout.
   // Optimistic: the new geometry paints immediately; the server action then
   // persists positions + booths and seats guests in one round-trip.
-  const runAutoArrange = () => {
+  const runAutoArrange = (scope: SeatScope = 'unseated') => {
     setConfirmAuto(false);
+    setAskArrange(false);
     if (!canEdit) return; // view-only: someone else holds the editor lock.
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
@@ -1490,6 +1505,7 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', boothsPayload(nextBooths));
+    fd.set('scope', scope);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
@@ -1515,6 +1531,9 @@ export function SeatingEditor({
               solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
             }. Try a narrower walkway, fewer tables, or a bigger room.`
           : '';
+      // 🪑 What auto arrange could not keep together, or seat at all — SHOWN, never silent (owner 2026-11-02).
+      const fitWords = cannotFitWords(res.cannotFit ?? [], (id) => guests.find((g) => g.guest_id === id)?.name ?? '');
+      const cannotFitNote = fitWords ? ` ⚠ ${fitWords}.` : '';
       // The counts come from the SERVER (tables it added, guests it could not
       // seat) — never from this client's guess — so the toast cannot claim
       // "everyone has a seat" while anyone is still without one.
@@ -1522,10 +1541,10 @@ export function SeatingEditor({
       // the counts are the server's; the tables whose people changed (or that
       // are new) wear a gold ring until the line is dismissed or undone.
       setAutoRun({
-        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote,
+        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote + cannotFitNote,
         undo:
-          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0
-            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore }
+          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0 || (res.restoreSeats?.length ?? 0) > 0
+            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore, restore: res.restoreSeats ?? [] }
             : null,
         changed: new Set(res.changedTableIds),
       });
@@ -1542,10 +1561,11 @@ export function SeatingEditor({
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('intent', 'undo');
-    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions }));
-    fd.set('booths', boothsPayload(run.undo.booths));
+    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions, restore: run.undo.restore ?? [] }));
+    const boothsBack = run.undo.booths;
+    if (boothsBack) fd.set('booths', boothsPayload(boothsBack));
     setAutoRun(null);
-    setBooths(run.undo.booths);
+    if (boothsBack) setBooths(boothsBack);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return;
@@ -1553,7 +1573,43 @@ export function SeatingEditor({
       for (const [id, p] of Object.entries(run.undo!.positions)) if (p) back[id] = p;
       setPositions((p) => ({ ...p, ...back }));
       setDirty(new Set());
-      setNotice('Put back — the seat plan is as it was before Auto arrange.');
+      setNotice(boothsBack ? 'Put back — the seat plan is as it was before Auto arrange.' : 'Put back — every seat is where it was.');
+    });
+  };
+
+  /* 🪑 WHO MOVES (owner 2026-11-02, live on his own event: *"When we click auto seat. We ask if we change all seated or
+     just the unseated ones?"*). With anybody seated, Auto arrange first asks in the house sheet: "Only the unseated (N)"
+     (the default) or "Seat everyone again" (locked seats never move). Nobody seated → nothing to ask, it just runs.
+     🔒 lib/auto-arrange-asks-who-moves.test.ts */
+  const [askArrange, setAskArrange] = useState(false);
+  const seatedNow = guests.filter((g) => Boolean(g.seated_table_id)).length;
+  const askAutoArrange = () => {
+    if (!canEdit || tables.length === 0) return;
+    if (seatedNow === 0) return runAutoArrange('unseated');
+    setAskArrange(true);
+  };
+
+  /* 🧹 CLEAR ALL SEATS (owner 2026-11-02, *"We want to be able to remove all seated"*) — asks first; locked seats stay
+     unless the host picks otherwise; Undo puts every seat back (the same Undo as Auto arrange). */
+  const [askClear, setAskClear] = useState(false);
+  const [clearLocked, setClearLocked] = useState<'keep' | 'clear'>('keep');
+  const runClearAll = () => {
+    setAskClear(false);
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('intent', 'clear');
+    fd.set('keep_locked', clearLocked === 'keep' ? 'true' : 'false');
+    startTransition(async () => {
+      const res = await runGated(() => autoArrange(fd));
+      if (!res) return;
+      const n = res.restoreSeats?.length ?? 0;
+      setAutoRun({
+        text: n > 0 ? `Cleared ${formatCount(n)} ${n === 1 ? 'seat' : 'seats'}` : 'No seats to clear',
+        undo: n > 0 ? { addedTableIds: [], seatedGuestIds: [], positions: {}, booths: null, restore: res.restoreSeats ?? [] } : null,
+        changed: new Set(res.changedTableIds),
+      });
     });
   };
 
@@ -1680,7 +1736,44 @@ export function SeatingEditor({
     { key: 'together', label: 'Sit together' },
     { key: 'group', label: 'Sit with their group' },
   ] as const;
-  const roleRulesList =
+  /* 🪑 "+1s of VIP guests" (owner 2026-11-02, FINAL SEATING PRECEDENCE): ONE dropdown in the seating rules — beside
+     them at the VIP table (default), or all of them together at the table(s) nearest the VIP tables. Optimistic; saved
+     with the rules through savePriorityOrder (its `vip_plus_ones` field). */
+  const [vipPlusOnes, setVipPlusOnes] = useState<VipPlusOneSeating>(() => floorPlan.vip_plus_ones ?? 'beside');
+  const pickVipPlusOnes = (next: VipPlusOneSeating) => {
+    if (!canEdit || next === vipPlusOnes) return;
+    const before = vipPlusOnes;
+    setVipPlusOnes(next);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('vip_plus_ones', next);
+    startTransition(async () => {
+      /* ↩ Not saved (said by runGated): the pick goes back. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setVipPlusOnes(before);
+    });
+  };
+  const vipTableCount = tables.filter((t) => t.is_vip === true).length;
+  const vipPlusOnesRow = (
+    <div data-vip-plus-ones-row="" className="flex min-h-11 items-center gap-2 px-1">
+      <span className="min-w-0 flex-1 text-sm text-ink">
+        +1s of VIP guests{' '}
+        <span className="font-mono text-[11px] text-ink/45">
+          {vipTableCount > 0 ? `${formatCount(vipTableCount)} VIP ${vipTableCount === 1 ? 'table' : 'tables'}` : 'no VIP table yet'}
+        </span>
+      </span>
+      <PickMenu
+        label="+1s of VIP guests"
+        value={vipPlusOnes}
+        options={VIP_PLUS_ONE_OPTIONS}
+        onPick={(k) => pickVipPlusOnes(parseVipPlusOneSeating(k))}
+        dataAttr="data-vip-plus-ones"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    </div>
+  );
+  const roleRulesOnly =
     roleSeatingRows.length === 0 ? (
       <p className="px-1 py-1 text-xs text-ink/55">
         No sponsors, family or entourage on the guest list yet — everyone sits with their group.
@@ -1705,6 +1798,12 @@ export function SeatingEditor({
         ))}
       </ul>
     );
+  const roleRulesList = (
+    <div className="space-y-1">
+      {roleRulesOnly}
+      {vipPlusOnesRow}
+    </div>
+  );
 
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs the
   // solver separates onto different tables (group-aware). Optimistic local list
@@ -1887,6 +1986,35 @@ export function SeatingEditor({
       await runGated(() => updateTableLabel(fd));
     });
   };
+  /* 🪑 VIP TABLE (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting. Optimistic; a refused
+     save puts the mark back (useOptimistic falls back to the server's rows). */
+  const setTableVip = (t: EventTableRow, vip: boolean) => {
+    if (!canEdit || (t.is_vip === true) === vip) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', t.table_id);
+    fd.set('is_vip', vip ? 'true' : 'false');
+    startTransition(async () => {
+      applyTableOpt({ type: 'vip', id: t.table_id, vip });
+      await runGated(() => updateTableLabel(fd)); // the VIP form (no table_label) — updateTableVip on the label's route
+    });
+  };
+  const VIP_TABLE_OPTIONS = [
+    { key: 'no', label: 'Not VIP' },
+    { key: 'vip', label: 'VIP table' },
+  ] as const;
+  const vipPick = (t: EventTableRow, dataAttr: string) => (
+    <PickMenu
+      label={`${t.table_label}: VIP table`}
+      value={t.is_vip === true ? 'vip' : 'no'}
+      options={VIP_TABLE_OPTIONS.map((o) => ({ ...o, disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+      onPick={(k) => setTableVip(t, k === 'vip')}
+      dataAttr={dataAttr}
+      compact
+      className="shrink-0 border border-ink/15"
+    />
+  );
 
   // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
   // and we surface a notice on overflow). Used by the pick-then-tap flow AND
@@ -6784,7 +6912,7 @@ export function SeatingEditor({
           const removed = removedSeatSet(m.removed_seats, m.capacity);
           return occupantsFor(m).flatMap((g, i) => (removed.has(i) ? [] : [{ tableId: m.table_id, seat: i, guest: g ? faceOf(g) : null }]));
         });
-        return { key: u.key, label: u.label, seated: seats.filter((x) => x.guest).length, capacity: seats.length, seats };
+        return { key: u.key, label: u.label, seated: seats.filter((x) => x.guest).length, capacity: seats.length, seats, vip: u.members.some((m) => m.is_vip === true) };
       })
     : [];
   /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
@@ -6890,6 +7018,7 @@ export function SeatingEditor({
           className="shrink-0 border border-ink/15"
         />
         {dockSeatsStepper(m)}
+        {vipPick(m, 'data-seat-list-vip')}
       </span>
     ));
   };
@@ -6998,9 +7127,19 @@ export function SeatingEditor({
             icon={Sparkles}
             label={isPending ? 'Arranging…' : 'Auto arrange'}
             hint={canEdit ? 'Seats everyone by the seating rules · Undo after' : 'Tap Edit first — only one person arranges at a time'}
-            onClick={runAutoArrange}
+            onClick={askAutoArrange}
             disabled={!canEdit || tables.length === 0 || isPending}
             emphasized
+          />
+          <MenuRow
+            icon={UserMinus}
+            label="Clear all seats"
+            hint={canEdit ? 'Everyone comes off their seat · Undo after' : 'Tap Edit first'}
+            onClick={() => {
+              setClearLocked('keep');
+              setAskClear(true);
+            }}
+            disabled={!canEdit || seatedNow === 0 || isPending}
           />
           <MenuDivider />
         </>
@@ -7039,7 +7178,7 @@ export function SeatingEditor({
       status={headline.status}
       unseated={unseatedComing}
       onUnseated={openUnseated}
-      onAutoArrange={runAutoArrange}
+      onAutoArrange={askAutoArrange}
       autoDisabled={!canEdit || tables.length === 0}
       autoBusy={isPending}
       rules={phoneRules}
@@ -7193,6 +7332,8 @@ export function SeatingEditor({
         const armed = linkFrom === st.table_id || swapFrom === st.table_id;
         const more: PickOption[] = [
           { key: 'name', label: 'Name…' },
+          // 🪑 The table's own VIP setting (owner 2026-11-02) — in the ⋯ so the slim row keeps one line at 390.
+          st.is_vip ? { key: 'vip-off', label: 'Not a VIP table' } : { key: 'vip-on', label: 'Make it a VIP table' },
           { key: 'swap', label: swapFrom === st.table_id ? 'Stop swapping' : 'Swap with another table…' },
           st.link_group_id ? { key: 'unlink', label: 'Unlink' } : { key: 'link', label: linkFrom === st.table_id ? 'Stop linking' : 'Link…' },
           { key: 'delete', label: 'Delete this table' },
@@ -7200,6 +7341,7 @@ export function SeatingEditor({
         const onMore = (k: string) => {
           if (!canEdit) return;
           if (k === 'name') setRenamingTable(st.table_id);
+          else if (k === 'vip-on' || k === 'vip-off') setTableVip(st, k === 'vip-on');
           else if (k === 'swap') armSwap(st);
           else if (k === 'unlink') doUnlink(st.table_id);
           else if (k === 'link') {
@@ -7443,6 +7585,56 @@ export function SeatingEditor({
     <>
       {faceCardSheet}
       {askMoveSheet}
+      {askArrange ? (
+        <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
+            <h2 id="seat-arrange-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Auto arrange — who moves?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(seatedNow)} {seatedNow === 1 ? 'guest has' : 'guests have'} a seat.
+              {lockedCount > 0 ? ` ${formatCount(lockedCount)} locked ${lockedCount === 1 ? 'seat stays' : 'seats stay'} either way.` : ''} Undo after.
+            </p>
+            <div className="flex flex-col gap-2">
+              <ActionButton tone="brand" main icon={Sparkles} label={`Only the unseated (${formatCount(unseatedComing)})`} onClick={() => runAutoArrange('unseated')} data-seat-arrange-scope="unseated" className="w-full" />
+              <ActionButton tone="neutral" icon={RotateCcw} label="Seat everyone again" onClick={() => runAutoArrange('all')} data-seat-arrange-scope="all" className="w-full" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+      {askClear ? (
+        <Sheet open onClose={() => setAskClear(false)} labelledById="seat-clear-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-clear-ask="">
+            <h2 id="seat-clear-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Clear all seats?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(clearLocked === 'keep' ? seatedNow - lockedCount : seatedNow)} {seatedNow === 1 ? 'guest comes' : 'guests come'} off their seat. Undo puts every seat back.
+            </p>
+            {lockedCount > 0 ? (
+              <div className="flex min-h-11 items-center gap-2">
+                <span className="min-w-0 flex-1 text-sm text-ink">Locked seats <span className="font-mono text-[11px] text-ink/45">{formatCount(lockedCount)}</span></span>
+                <PickMenu
+                  label="Locked seats"
+                  value={clearLocked}
+                  options={[
+                    { key: 'keep', label: 'Keep them' },
+                    { key: 'clear', label: 'Clear them too' },
+                  ]}
+                  onPick={(k) => setClearLocked(k === 'clear' ? 'clear' : 'keep')}
+                  dataAttr="data-seat-clear-locked"
+                  compact
+                  className="shrink-0 border border-ink/15"
+                />
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskClear(false)} />
+              <ActionButton tone="danger" main icon={UserMinus} label="Clear seats" onClick={runClearAll} data-seat-clear-go="" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
       {boothCard}
       {seatThumb}
       {peopleInSheet ? (
@@ -7480,7 +7672,7 @@ export function SeatingEditor({
         }}
         tools={
           <StudioSeatPlanTools
-            onAutoArrange={runAutoArrange}
+            onAutoArrange={askAutoArrange}
             autoDisabled={!canEdit || tables.length === 0}
             autoBusy={isPending}
             rules={phoneRules}
@@ -8765,6 +8957,7 @@ export function SeatingEditor({
                     we show only a centred number/count badge here instead. */}
                 {showRibbon ? (
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
+                    {t.is_vip ? <VipMark /> : null}
                     <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                     <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                       {formatCount(filled)}/{formatCount(effCap)}
@@ -8792,6 +8985,7 @@ export function SeatingEditor({
                       className="flex flex-col items-center"
                       style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
                     >
+                      {t.is_vip ? <VipMark /> : null}
                       <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                       <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                         {formatCount(filled)}/{formatCount(effCap)}
@@ -9285,7 +9479,7 @@ export function SeatingEditor({
                 confirm later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
               </li>
             </ol>
-            {roleSeatingRows.length > 0 ? (
+            {roleSeatingRows.length > 0 || vipTableCount > 0 ? (
               <div className="mt-3 border-t border-ink/10 pt-3">
                 <p className="text-sm font-semibold text-ink/85">Who sits together</p>
                 <p className="mt-0.5 text-xs text-ink/55">
@@ -9308,7 +9502,10 @@ export function SeatingEditor({
               </button>
               <button
                 type="button"
-                onClick={runAutoArrange}
+                onClick={() => {
+                  setConfirmAuto(false);
+                  askAutoArrange();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 <Sparkles className="h-4 w-4" /> Auto Arrange

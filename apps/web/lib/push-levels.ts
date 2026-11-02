@@ -44,6 +44,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   // ── NORMAL ── RSVPs · chat · inquiries and quotes · bookings · what somebody is waiting on
   rsvp_received: 'normal',
   supplier_where_changed: 'normal', // the host changed which chapters a booked supplier works
+  supplier_part_changed: 'normal', // a host or coordinator changed a moment this supplier is on (one per save)
   claim_access_answered: 'normal', // the couple let in (or declined) a supplier who joined from their link
   schedule_ask: 'normal', // a host or the coordinator asks a booked supplier to change their times (D2)
   schedule_ask_answered: 'normal', // the supplier said yes or no to that ask

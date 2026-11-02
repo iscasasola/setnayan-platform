@@ -1,7 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, guestRoleLabel, printedCardName } from '@/lib/guests';
+import { fetchGuestsByEventMeasured, guestRoleLabel, printedCardName } from '@/lib/guests';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
@@ -35,7 +36,16 @@ export default async function PrintSheetPage({ params }: Props) {
 
   const slug = event.slug ?? eventId;
   const nameStyle = nameStyleOfPrintDetails((event as { print_details?: unknown }).print_details);
-  const guests = await fetchGuestsByEvent(supabase, eventId);
+  const guestsRead = await fetchGuestsByEventMeasured(supabase, eventId);
+  // 🔌 A refused guest read is never a page of nobody (reads-are-honest, 2026-11-02 audit #14).
+  if (!guestsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your guest list" />
+      </section>
+    );
+  }
+  const guests = guestsRead.rows;
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const admin = createAdminClient();

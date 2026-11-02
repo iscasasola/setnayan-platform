@@ -415,12 +415,6 @@ export type ReplayOrderOptions = {
    * sound, not for ordinary runs.
    */
   auditSkips?: boolean;
-  /**
-   * 🚪 Keep `platform_settings.bookings_open` exactly as the migrations leave it — CLOSED, the launch default
-   * (owner 2026-11-02, 20271302310560_bookings_closed_switch.sql). Omit for every ordinary run: see the note at
-   * the end of `createReplayedDb` for why the replay opens bookings by default.
-   */
-  bookingsAsMigrated?: boolean;
 };
 
 /**
@@ -682,6 +676,12 @@ export type ReplayOptions = {
    * ordinary runs.
    */
   auditSkips?: boolean;
+  /**
+   * 🚪 Keep `platform_settings.bookings_open` exactly as the migrations leave it — CLOSED, the launch default
+   * (owner 2026-11-02, 20271302310560_bookings_closed_switch.sql). Omit for every ordinary run: see the note at
+   * the end of `createReplayedDb` for why the replay opens bookings by default.
+   */
+  bookingsAsMigrated?: boolean;
 };
 
 /** The leading numeric field of a migration filename, e.g. `20271011120000`. */

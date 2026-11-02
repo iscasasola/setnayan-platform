@@ -28,6 +28,7 @@ import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
 import { planningTodoHref } from '@/lib/checklist-anchor';
 import { dateFinderHref } from '@/lib/home-date-finder';
+import { budgetPageHref } from '@/lib/pillar-parts';
 import { releaseOpen, type HomeScheduleFacts } from '@/lib/home-schedule';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
@@ -598,7 +599,7 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   const b = input.budget;
   const isToday = today.target === 'budget';
   if (b === null) return null;
-  if (b === 'unread') return failedTile('budget', 'Budget', 'Money couldn’t load', 'paid and owing are unread, not ₱0', `/dashboard/${e}/vendors?part=budget`, isToday, true);
+  if (b === 'unread') return failedTile('budget', 'Budget', 'Money couldn’t load', 'paid and owing are unread, not ₱0', budgetPageHref(e), isToday, true);
   const agreed = b.paidPhp + b.owingPhp;
   const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
   const faces: HomeFace[] = [];
@@ -607,8 +608,8 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
     const shown = pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays;
     shown.forEach((p, i) => {
       const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
-      // The exact payment: the Budget part opens this line's Pay sheet (`?pay=<line_item_id>`, `payTargetVendor`).
-      const thisPayment = { href: `/dashboard/${e}/vendors?part=budget&pay=${encodeURIComponent(p.id)}` };
+      // The exact payment: the Budget page opens this line's Pay sheet (`?pay=<line_item_id>`, `payTargetVendor`).
+      const thisPayment = { href: budgetPageHref(e, { pay: p.id }) };
       faces.push({
         id: `pay-${p.id}`,
         big: formatPhpRounded(p.owedPhp),
@@ -622,7 +623,7 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
     });
     if (pays.length > BUDGET_MAX_PAY_FACES) {
       const more = pays.length - (BUDGET_MAX_PAY_FACES - 1);
-      faces.push({ id: 'pay-more', big: `+${n(more)}`, unit: 'more to settle', sm: 'see them all in Budget', href: `/dashboard/${e}/vendors?part=budget` });
+      faces.push({ id: 'pay-more', big: `+${n(more)}`, unit: 'more to settle', sm: 'see them all in Budget', href: budgetPageHref(e) });
     }
   }
   faces.push({
@@ -636,10 +637,10 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
         : pct !== null
           ? `${n(pct)}% paid · ${formatPhpRounded(b.paidPhp)} of ${formatPhpRounded(agreed)}`
           : 'nothing agreed yet',
-    href: `/dashboard/${e}/vendors?part=budget`,
+    href: budgetPageHref(e),
     meter: pct,
   });
-  return { key: 'budget', label: null, door: `/dashboard/${e}/vendors?part=budget`, failed: false, span: true, today: isToday, faces };
+  return { key: 'budget', label: null, door: budgetPageHref(e), failed: false, span: true, today: isToday, faces };
 }
 
 /** What the Schedule card's ⓘ says (the approved prototype's words). */

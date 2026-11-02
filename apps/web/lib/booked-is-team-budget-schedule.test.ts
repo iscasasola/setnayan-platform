@@ -7,14 +7,15 @@
  * (`carry-2026-10-29/suppliers-final-proto/`, its `renderTeam` / `teamFold` / `renderBudget` / `renderSchedule`).
  *
  * What is held here, each as a PROPERTY, executed where it can be:
- *   1. Booked's parts are ONE dropdown — Team · Budget · Schedule — and Budget/Schedule are the SHIPPED pages,
- *      rendered whole under Booked (never a second editor); the old /schedule address forwards there.
+ *   1. Booked's parts are ONE dropdown — Team · Budget · Schedule. Schedule is the SHIPPED page rendered whole under
+ *      Booked; Budget is a DOOR to the Budget page itself, Home's page since 2026-11-01 (owner: *"Okay place it in
+ *      home"*) — never drawn here. The old /schedule address forwards to Booked › Schedule.
  *   2. A Team row's CALL TIME is the Schedule's moment — the ONE rule (`earliestTaggedBlock`) the call-time emails
  *      use too — and a refused Schedule read is said, never drawn as "no call time".
  *   3. A Team row's PAYMENT PLAN is the Pay sheet's own rows (`readBookedPlans`), the next instalment marked; a
  *      refused read is said, never drawn as "nothing to pay".
  *   4. ONE row open at a time, and the opened row's verbs are ONE row of equal tiles.
- *   5. Booked › Budget's supplier row opens the SAME Pay sheet the Team row's Pay opens.
+ *   5. The Budget page's supplier row opens the SAME Pay sheet the Team row's Pay opens.
  *   6. Only the hosts and the coordinator show a moment to guests (owner 2026-10-29).
  *
  * Sabotage (2026-10-30, each reverted, each red — 1 failing test apiece): `earliestTaggedBlock` keeping the LATEST
@@ -41,7 +42,7 @@ test('1 · Booked is Team · Budget · Schedule — ONE dropdown, each part its 
     parts.map((p) => [p.key, p.label, p.href]),
     [
       ['team', 'Team', '/dashboard/E/vendors?tab=budget'],
-      ['budget', 'Budget', '/dashboard/E/vendors?part=budget'],
+      ['budget', 'Budget', '/dashboard/E/budget'],
       ['schedule', 'Schedule', '/dashboard/E/vendors?part=schedule'],
     ],
   );
@@ -56,12 +57,12 @@ test('1 · Booked is Team · Budget · Schedule — ONE dropdown, each part its 
   assert.doesNotMatch(row, /<PickMenu\b|<ISegmented\b|<nav\b/, 'Booked’s part draws a second selector of its own again');
   assert.match(row, /createPortal\(/, 'Booked’s count is not drawn into the one row');
 
-  // The parts are the SHIPPED pages, whole, inside the Suppliers shell.
+  // Schedule is the SHIPPED page, whole, inside the Suppliers shell. Budget is not (Home's page, a door from here).
   const page = read('vendors', 'page.tsx');
   assert.match(page, /if \(sp\.part === BOOKED_SCHEDULE_PART\)[\s\S]*?<BookedPartPage[\s\S]*?<CoupleSchedulePage[\s\S]*?booked: '1'/);
   assert.match(page, /import CoupleSchedulePage from '\.\.\/schedule\/page'/, 'Booked › Schedule is not the shipped Schedule page');
   // Each hosted page hands the row its count — it holds the numbers.
-  assert.match(read('budget', 'page.tsx'), /inBooked \? \([\s\S]*?<BookedPartRow[\s\S]*?current="budget"/);
+  assert.doesNotMatch(read('budget', 'page.tsx'), /<BookedPartRow\b/, 'the Budget page draws Booked’s row again — it is Home’s page');
   assert.match(read('schedule', 'page.tsx'), /inBooked \? \([\s\S]*?<BookedPartRow[\s\S]*?current="schedule"/);
   assert.match(read('vendors', '_components', 'booked-body.tsx'), /<BookedPartRow current="team"/);
 
@@ -167,9 +168,10 @@ test('4 · ONE row open at a time; the opened row’s verbs are ONE row of equal
   assert.match(row, /label: tiles && v\.tile \? v\.tile : v\.label,\s*name: v\.label,/, 'a tile lost its full accessible name');
 });
 
-test('5 · Booked › Budget’s supplier row opens the SAME Pay sheet the Team row opens', () => {
+test('5 · the Budget page’s supplier row opens the SAME Pay sheet the Team row opens', () => {
   const budget = read('budget', 'page.tsx');
-  assert.match(budget, /supplierOpens=\{inBooked \? 'plan' : 'ledger'\}/);
+  // Wherever the event has suppliers (a Booked › Team to open it from), the one plan, one door.
+  assert.match(budget, /supplierOpens=\{profile\.marketplaceEnabled === true \? 'plan' : 'ledger'\}/);
   const screen = read('budget', '_components', 'budget-screen.tsx');
   assert.match(screen, /import\('\.\.\/\.\.\/vendors\/_components\/pay-sheet'\)\.then\(\(m\) => m\.PaySheet\)/, 'not the Booked Pay sheet');
   assert.match(screen, /const paying = planDoor && sheet\?\.kind === 'pay' \? sheet\.vendorId : null;/);

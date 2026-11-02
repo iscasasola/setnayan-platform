@@ -34,6 +34,7 @@
  * Pure: no React, no I/O, no clock of its own (`now` is a parameter).
  */
 import { priceToday } from './price-summary';
+import { timesMarkLine, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
 import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
@@ -170,6 +171,11 @@ export type BookedRow = {
   dateAsk: DateAsk | null;
   /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
   callTime: BookedCallTime | null;
+  /**
+   * ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`, audit G6). `null` = not asked or
+   * nothing pressed (no line); `unread` = the read was refused (said, never "not confirmed").
+   */
+  timesMark?: { kind: 'mark'; line: string; confirmed: boolean } | { kind: 'unread' } | null;
   /** The payment plan's rows, as the Pay sheet holds them (one source) — drawn when the row opens. */
   plan: BookedPlan;
   /**
@@ -319,6 +325,7 @@ function bookedRowOf(
     dateChange: DateChangeView | null;
     now: Date | undefined;
     callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
+    marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined;
     plansKnown: boolean;
     chapters: readonly WhereChapter[] | null | undefined;
     venues: ReadonlyMap<string, string>;
@@ -345,6 +352,7 @@ function bookedRowOf(
     room: roomLineFor(f, extra.rooms),
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
+    timesMark: timesMarkFor(extra.marks, f.shopId),
     plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
     where:
       extra.chapters === undefined
@@ -472,6 +480,10 @@ export function bookedView(args: {
    */
   callTimes?: ReadonlyMap<string, TaggedMoment> | null;
   /**
+   * ✅ Seen / Confirm my times by shop (`readScheduleMarks`). `null` = refused; `undefined` = nobody asked (no line).
+   */
+  marks?: ReadonlyMap<string, ScheduleMarkFacts> | null;
+  /**
    * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
    * `undefined` = nobody asked (no Where is drawn).
    */
@@ -510,6 +522,7 @@ export function bookedView(args: {
           dateChange: args.dateChange ?? null,
           now: args.now,
           callTimes: args.callTimes,
+          marks: args.marks,
           plansKnown: args.plans !== null,
           chapters: args.chapters,
           venues,
@@ -604,6 +617,17 @@ export function bookedClock(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' ');
+}
+
+/** ✅ The Team row's "Times confirmed · Nov 2" / "Seen · Nov 2" — keyed by the booking's SHOP (marks are per shop). */
+export function timesMarkFor(
+  marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined,
+  shopId: string | null,
+): NonNullable<BookedRow['timesMark']> | null {
+  if (marks === undefined || !shopId) return null;
+  if (marks === null) return { kind: 'unread' };
+  const mark = timesMarkOf(marks.get(shopId));
+  return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word === 'Times confirmed' } : null;
 }
 
 export function callTimeFor(

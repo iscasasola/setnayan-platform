@@ -86,7 +86,9 @@ export async function claimLockedQr(formData: FormData): Promise<void> {
     p_token: token,
     p_event_id: eventId,
   });
-  if (error) backToLock(token, 'error');
+  // ✅ A shop that is not verified cannot be booked (`enforce_booking_requires_verified_vendor` raises
+  // `vendor_not_verified`) — said by name, not as "something went wrong" (audit G8).
+  if (error) backToLock(token, /vendor_not_verified/.test(error.message ?? '') ? 'not_verified' : 'error');
 
   const result = data as { status?: string; event_vendor_id?: string } | null;
   const verdict = result?.status ?? 'error';

@@ -464,6 +464,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           owedPhp: summaryFigures.owedPhp,
           owedAtLeast: summaryFigures.owedAtLeast,
           partial: ledgerRefused,
+          // 🔌 A refused target read is not "no target" (reads-are-honest, 2026-11-02 audit #44).
+          targetUnread: eventData === null && Boolean(eventRes.error),
           next: nextPayment,
         }}
         list={list}

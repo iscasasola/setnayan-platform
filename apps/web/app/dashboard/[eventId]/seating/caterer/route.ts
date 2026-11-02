@@ -1,7 +1,8 @@
 import { bytesStream } from '@/lib/stream-file';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { fetchGuestsByEvent, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
+import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
+import { fetchGuestsByEventMeasured, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
@@ -56,11 +57,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
-  const [tables, assignments, guests] = await Promise.all([
+  const [tables, assignments, guestsRead] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
   ]);
+  // 🔌 A refused guest read is never a caterer's sheet of 0 guests (audit #14).
+  if (!guestsRead.measured) return guestListUnreadResponse();
+  const guests = guestsRead.rows;
 
   // The caterer counts ATTENDING guests only; unseated attendees still eat, so
   // they land in an explicit "Not seated yet" bucket rather than vanishing.

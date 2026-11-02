@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { ensureChecklistSeeded } from '../checklist-actions';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
@@ -376,6 +377,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const rosEnabled = await isDataPrivacyControlActive('coordinator_run_of_show');
   let rosMeta: RosMetaMap = EMPTY_ROS_META;
   let rosVendors: EventVendorOption[] = [];
+  /** 🔌 The suppliers could not be read (audit #16) — the page says so; tasks never read as "A supplier" unnoticed. */
+  let suppliersUnread = false;
   if (rosEnabled) {
     // 🗓 The suppliers an item can be given to — by their SHOP name, each
     // "Booked" or "Shortlisted" (owner 2026-10-20; lib/schedule-suppliers.ts,
@@ -385,7 +388,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       readScheduleSuppliers(supabase, eventId),
     ]);
     rosMeta = metaRes;
-    rosVendors = suppliersRes;
+    rosVendors = suppliersRes ?? [];
+    if (suppliersRes === null) suppliersUnread = true;
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
   /* 👁 VIEW AS (Step 3c): the tasks, rooms, groups and Pro the rail's View as ▾ reads — started now, awaited where the
@@ -641,7 +645,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // A task names a BOOKED supplier (plan §2 "Booked suppliers only"): the page's supplier read when it made one, else its own.
   const taskSuppliers =
     chapterRead?.ok && !isTravel
-      ? (rosEnabled ? rosVendors : await readScheduleSuppliers(supabase, eventId))
+      ? (rosEnabled
+          ? rosVendors
+          : await readScheduleSuppliers(supabase, eventId).then((r) => {
+              if (r === null) suppliersUnread = true;
+              return r ?? [];
+            })
+        )
           .filter((v) => v.standing === 'Booked')
           .map((v) => ({ id: v.vendor_id, name: v.vendor_name }))
       : [];
@@ -1045,6 +1055,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         <PageMasthead title="Schedule" />
       )}
 
+      {suppliersUnread ? <ReadRefusedNotice what="your suppliers" partial className="mb-3" /> : null}
       {/* 📖 The chapters (owner 2026-11-01): a tapped chapter opens its page over the views — one place, this page. */}
       <ChaptersFrame eventId={eventId} input={chaptersInput} dateLine={bookedDateLine}>
       {inBooked ? (

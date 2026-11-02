@@ -185,7 +185,10 @@ export async function undoCheckIn(
 export type TicketCheck =
   | { verdict: 'valid'; guestId: string; name: string; checkedAt: string }
   | { verdict: 'pending' | 'declined'; name: string; checkedAt: string }
-  | { verdict: 'unknown'; checkedAt: string };
+  | { verdict: 'unknown'; checkedAt: string }
+  /** 🔌 The list could not be READ (a refused or failed read) — never "not a guest". The desk falls back to the list
+   *  saved on the phone, exactly as with no signal (reads-are-honest, 2026-11-02 audit #5). */
+  | { verdict: 'unreadable'; checkedAt: string };
 
 export async function checkTicketLive(eventId: string, qrToken: string): Promise<TicketCheck> {
   const checkedAt = new Date().toISOString();
@@ -197,11 +200,12 @@ export async function checkTicketLive(eventId: string, qrToken: string): Promise
   const token = String(qrToken ?? '').trim().toLowerCase();
   if (!/^[0-9a-f]{32}$/.test(token)) return { verdict: 'unknown', checkedAt };
   const admin = createAdminClient();
-  const { data: row } = await admin
+  const { data: row, error: rowError } = await admin
     .from('guests')
     .select('guest_id, event_id, first_name, last_name, display_name, entry_source, deleted_at, custom_tags')
     .eq('qr_token', token)
     .maybeSingle();
+  if (rowError) return { verdict: 'unreadable', checkedAt };
   if (!row || row.event_id !== eventId) return { verdict: 'unknown', checkedAt };
   const nameOf = (r: { display_name?: string | null; first_name?: string | null; last_name?: string | null }) =>
     (r.display_name ?? '').trim() || `${r.first_name ?? ''} ${(r.last_name ?? '').replace(/^—$/, '')}`.trim() || 'Guest';
@@ -209,13 +213,14 @@ export async function checkTicketLive(eventId: string, qrToken: string): Promise
   if (v.kind === 'pending' || v.kind === 'declined') return { verdict: v.kind, name: nameOf(row), checkedAt };
   if (v.kind !== 'valid') return { verdict: 'unknown', checkedAt };
   if (v.guestId === row.guest_id) return { verdict: 'valid', guestId: v.guestId, name: nameOf(row), checkedAt };
-  const { data: joined } = await admin
+  const { data: joined, error: joinedError } = await admin
     .from('guests')
     .select('guest_id, first_name, last_name, display_name')
     .eq('guest_id', v.guestId)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
+  if (joinedError) return { verdict: 'unreadable', checkedAt };
   return joined
     ? { verdict: 'valid', guestId: joined.guest_id as string, name: nameOf(joined), checkedAt }
     : { verdict: 'unknown', checkedAt };

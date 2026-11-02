@@ -254,7 +254,7 @@ export default async function BarLab({
     const magazine = { photos: none ? 0 : n, kwentos: none ? 0 : 6 };
     const recap: RecapCoupleSummary = {
       status: 'draft', publishedAt: null, privatePhotos: none ? 0 : n, publicPhotos: 0,
-      approvedKwentos: none ? 0 : 6, publicVoices: 0, guests: 120, slug: null,
+      approvedKwentos: none ? 0 : 6, publicVoices: 0, guests: 120, slug: null, unreadable: false,
     };
     const flash = none ? { moments: 1 } : { moments: 9 };
     const thankYou = { key: 'thank-you', name: 'Thank-You Video', line: 'A short film for everyone who came', href: appStoreDetailHref('thank-you', EVENT) };

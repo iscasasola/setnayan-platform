@@ -84,6 +84,7 @@ export function BudgetSummary({
   owedPhp,
   owedAtLeast = false,
   partial = false,
+  targetUnread = false,
   next,
   payHref,
   onPay,
@@ -108,6 +109,8 @@ export function BudgetSummary({
    * (an empty line would read "nothing due").
    */
   partial?: boolean;
+  /** 🔌 The target could not be READ — said, never "—" (no target) and never an empty field to type over (audit #44). */
+  targetUnread?: boolean;
   next: NextPayment | null;
   /** Where "Pay ›" goes when there is no `onPay`. */
   payHref: string;
@@ -208,7 +211,11 @@ export function BudgetSummary({
               {flash === 'bad' ? 'not saved' : flash === 'saved' ? 'saved' : ''}
             </span>
           </div>
-          {canEdit ? (
+          {targetUnread ? (
+            <div role="alert" className={`${styles.v} ${styles.vMuted}`} data-budget-target-unread="">
+              <a href={`/dashboard/${eventId}/budget`} className="text-[13px] font-semibold">Couldn’t load the target · Reload</a>
+            </div>
+          ) : canEdit ? (
             <div className={`${styles.v} ${styles.target}`}>
               <span className={styles.pencil} aria-hidden="true">
                 ₱

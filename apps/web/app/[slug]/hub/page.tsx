@@ -371,6 +371,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   let galleryPhotos: { id: string; url: string }[] = [];
   let galleryTotal = 0;
   let tableLabel: string | null = null;
+  /** 🔌 The seat read was refused — the tile says so instead of "Not yet assigned". */
+  let seatUnreadable = false;
   let arrived = false;
   let qrSvg = '';
   let invitationUrl = '';
@@ -441,19 +443,23 @@ export default async function EventHubPage({ params, searchParams }: Props) {
 
     // Seat label + door arrival (graceful-degrade — these tables/columns may not
     // exist on every install).
+    // 🔌 A REFUSED seat read is not "Not yet assigned" (reads-are-honest, 2026-11-02 audit #34): the error is bound
+    // and the tile says it could not load the seat. Only a read that ANSWERED with no row is "not yet".
     try {
-      const { data: assignmentRow } = await admin
+      const { data: assignmentRow, error: assignmentErr } = await admin
         .from('event_seat_assignments')
         .select('table_id')
         .eq('event_id', event.event_id)
         .eq('guest_id', guest.guest_id)
         .maybeSingle();
+      if (assignmentErr) seatUnreadable = true;
       if (assignmentRow?.table_id) {
-        const { data: tableRow } = await admin
+        const { data: tableRow, error: tableErr } = await admin
           .from('event_tables')
           .select('table_label, link_group_label')
           .eq('table_id', assignmentRow.table_id)
           .maybeSingle();
+        if (tableErr) seatUnreadable = true;
         if (tableRow) {
           tableLabel =
             (tableRow as { table_label: string; link_group_label?: string | null })
@@ -463,6 +469,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       }
     } catch {
       tableLabel = null;
+      seatUnreadable = true;
     }
     if (isLive || isPost) {
       try {
@@ -740,9 +747,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             {arrived && seatLabel ? 'You’ve arrived' : 'Your seat'}
           </p>
           <h3 className="font-serif text-3xl italic leading-tight tracking-tight text-ink">
-            {seatLabel ?? (seatingPublished ? 'Not yet assigned' : 'On the day')}
+            {seatLabel ?? (seatingPublished ? (seatUnreadable ? 'Couldn’t load your seat' : 'Not yet assigned') : 'On the day')}
           </h3>
-          {arrived && seatLabel ? (
+          {!seatLabel && seatingPublished && seatUnreadable ? (
+            <Link href={`/${event.slug}/hub`} className="inline-flex min-h-11 items-center text-sm text-terracotta underline-offset-2 hover:underline">
+              Reload
+            </Link>
+          ) : arrived && seatLabel ? (
             <p className="text-sm text-ink/70">
               You’re checked in.
             </p>

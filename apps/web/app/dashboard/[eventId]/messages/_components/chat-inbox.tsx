@@ -52,8 +52,11 @@ export function ChatInbox({
   viewerId,
   newMessage,
   empty,
+  unreadMeasured = true,
 }: {
   rows: InboxRow[];
+  /** 🔌 False when the unread read was refused — the Unread filter then says it could not check, never "Nothing unread." */
+  unreadMeasured?: boolean;
   viewerId: string;
   /** The ✎ sheet's body — this event's suppliers. */
   newMessage: ReactNode;
@@ -185,7 +188,9 @@ export function ChatInbox({
           {query.trim()
             ? `No chat matches “${query.trim()}”.`
             : filter === 'unread'
-              ? 'Nothing unread.'
+              ? unreadMeasured
+                ? 'Nothing unread.'
+                : 'We couldn’t check which chats are unread. Reload in a moment.'
               : 'No active chats — everything’s in Archived below.'}
         </p>
       )}

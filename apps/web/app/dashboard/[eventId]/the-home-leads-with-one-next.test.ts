@@ -339,7 +339,7 @@ test('e · compact on the phone, detail from md — one column, no second sectio
   assert.match(html, /<div data-home-column[^>]*class="[^"]*\bmax-w-xl\b[^"]*\bmd:max-w-none\b/, 'the column must fill the body from md');
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
   // 🎴 The event card (Home redraw 2026-11-02): square at the top, its bottom corners rounded — nothing else.
-  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-\[22px\]/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
   // The two versions, each switched by width alone — no Compact/Detail toggle.
   // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
   assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');

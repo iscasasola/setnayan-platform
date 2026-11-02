@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Loader2, UserCheck, X } from 'lucide-react';
 import { dismissVendorLockProposal, finalizeVendor } from '../actions';
 import { capRows, hiddenMoreLabel } from '@/lib/capped-rows';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 
 export type PendingLockProposal = {
   id: number;
@@ -46,6 +47,8 @@ export function PendingLockProposals({
       setBusyId(null);
       if (res.status === 'ok' || res.status === 'already_locked') {
         setItems((prev) => prev.filter((x) => x.id !== p.id));
+      } else if (res.status === 'bookings_closed') {
+        setNote(BOOKINGS_CLOSED_COUPLE_MESSAGE);
       } else if (res.status === 'vendor_not_verified') {
         // Booking-requires-verified gate (owner 2026-07-24).
         setNote(

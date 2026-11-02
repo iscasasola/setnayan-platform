@@ -32,7 +32,7 @@ export default async function ScheduleLabPage({ searchParams }: { searchParams: 
         eventId="lab"
         agenda={labPlanningList()}
         hasEventDate
-        booked
+        line
         eventDateIso={LAB_PLAN_DATE}
         initialFilter={q.filter === 'todo' ? 'todo' : 'all'}
       />

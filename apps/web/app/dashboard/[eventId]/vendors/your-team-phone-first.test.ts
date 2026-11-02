@@ -127,11 +127,9 @@ test('(a) every shipped section has ONE home — Find, Build or Booked', () => {
 test('(a) the row’s dropdown drives the shipped bus, and the bus drives the control', () => {
   const body = takeoverBody();
   // A press dispatches the mode's own tab key on the SHIPPED bus — no second channel.
-  // A press goes through `goToMode` — on the Suppliers page that IS the bus (`goToBuildTab(SUPPLIERS_MODE_TAB[m])`);
-  // only on a Booked part's own page (Budget · Schedule, owner 2026-10-29) does it go home to the Suppliers page.
+  // Every pick — Find · Build · Booked — IS the bus (`goToBuildTab`); there are no part pages since 2026-11-02.
   assert.match(body, /onPick=\{pickFace\}/);
-  assert.match(body, /if \(key === 'find' \|\| key === 'build'\) return goToMode\(key\);/);
-  assert.match(body, /const goToMode = \(m: SuppliersMode\) => \{\s*if \(!partPage\) \{\s*goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);\s*return;/);
+  assert.match(body, /goToBuildTab\(SUPPLIERS_MODE_TAB\[key\]\);/);
   // The listener is unchanged for every caller, and resolves a key to its body.
   assert.match(body, /window\.addEventListener\(BB_TAB_EVENT, onTab\)/);
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
@@ -202,9 +200,9 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.match(PAGE, /bookedSlot=\{teamSlot\}/);
   assert.doesNotMatch(PAGE, /MerkadoBudgetLens|budgetSlot=|\bteamSlot=\{/, 'the old lens or a second Booked mount is back on the page');
   assert.equal(takeoverBody().split('{bookedSlot}').length - 1, 1, 'the Booked body is mounted more than once');
-  // Booked = Team · Budget · Schedule (owner 2026-10-29): the body is handed Booked's parts, and the Budget is its own
-  // page (Home's since 2026-11-01) — the small block no longer sits under the rows.
-  assert.match(PAGE, /parts=\{bookedPartList\}/);
+  // Booked is just the team (owner 2026-11-02): the body is handed no parts, and the Budget is Home's own page — the
+  // small block no longer sits under the rows.
+  assert.doesNotMatch(PAGE, /parts=\{bookedPartList\}|bookedParts\(/, 'Booked is handed its old parts again');
   assert.match(
     SLOT,
     // 📍 the call times and the chapters (Where) come from ONE Schedule read (owner 2026-11-01).

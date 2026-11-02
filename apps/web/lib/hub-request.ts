@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { workAsyncStorage } from 'next/dist/server/app-render/work-async-storage.external';
 import type { HubUaFacts } from './hub-view-key';
 
 /**
@@ -40,5 +41,31 @@ export function cachedHubViewer(): CachedHubViewer | null {
     return slot().viewer;
   } catch {
     return null;
+  }
+}
+
+/** The cached route's id as Next names it in the render's work store (`app/[slug]/cached/[key]/page.tsx`). */
+export const CACHED_HUB_ROUTE = '/[slug]/cached/[key]';
+
+/**
+ * 🛑 IS THIS RENDER THE CACHED EVENT HUB — from its FIRST moment, before the viewer is held (HOTFIX 2026-11-02).
+ *
+ * `cachedHubViewer()` answers only AFTER the route held the viewer, and the route can hold it only after it read the
+ * guest's pass (two database reads). The `[slug]` layout does not wait for that: it renders FIRST and asks the
+ * couple's look (`loadGuestLook` → `websiteProActiveFor` → "view as free" → `cookies()`). For a stranger the
+ * metadata's hold usually won the race; for a GUEST it lost — so every guest's copy read a cookie mid-ISR and died
+ * with "Page changed from static to dynamic at runtime … reason: cookies" (production, 2026-10-28 → 2026-11-02).
+ *
+ * This asks the render's own work store which route it is (a read that marks nothing dynamic — `cookies()` itself
+ * reads the same store first). Every reader whose answer does NOT depend on WHICH guest (the account, the
+ * cookie-scoped client, the platform marks, the "view as free" switch) asks THIS, so it is right however early it
+ * runs. Only the guest pass itself (`readHeldPass`) needs the held viewer.
+ */
+export function onTheCachedHub(): boolean {
+  if (cachedHubViewer()) return true;
+  try {
+    return workAsyncStorage.getStore()?.route === CACHED_HUB_ROUTE;
+  } catch {
+    return false;
   }
 }

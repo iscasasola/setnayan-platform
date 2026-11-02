@@ -50,6 +50,7 @@ import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -804,6 +805,8 @@ export type FinalizeVendorResult =
   // Off-platform / manual vendors carry no verification concept and never hit
   // this. Grandfathered: already-locked rows return 'already_locked' first.
   | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
+  /** 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 2). */
+  | { status: 'bookings_closed'; vendorId: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -1112,6 +1115,8 @@ export async function finalizeVendor(
   // The read uses the admin client (public RLS on vendor_profiles is
   // verified-only; the couple already proved they own this booking above).
   if (targetVendor.marketplace_vendor_id) {
+    // 🚪 DOOR 2 · BOOKINGS CLOSED (owner 2026-11-02). A closed platform books nobody; the trigger is the backstop.
+    if (!(await areBookingsOpen())) return { status: 'bookings_closed', vendorId };
     const bookable = await isMarketplaceVendorBookable(
       createAdminClient(),
       targetVendor.marketplace_vendor_id,

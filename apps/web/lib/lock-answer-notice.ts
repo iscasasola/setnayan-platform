@@ -22,6 +22,8 @@
  * status codes, no table names.
  */
 
+import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE } from './bookings-open';
+
 /** Whether the notice is good news, a refusal, or a nothing-changed. */
 export type LockAnswerTone = 'ok' | 'refused' | 'noop';
 
@@ -128,6 +130,11 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     // ask and the bench search use. No number is printed: the RPC decides it.
     tone: 'refused',
     text: 'That date already has as many bookings for this service as your “Bookings per day” allows, so this one cannot be added. If you can take more, raise “Bookings per day” on this service; if not, turn this one down so the couple can look elsewhere.',
+  }),
+  // 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 6) — said by the app, not the RPC.
+  bookings_closed: () => ({
+    tone: 'refused',
+    text: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
   }),
   not_verified: () => ({
     tone: 'refused',

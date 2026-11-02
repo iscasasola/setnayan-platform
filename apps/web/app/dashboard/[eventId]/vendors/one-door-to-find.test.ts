@@ -162,7 +162,8 @@ test('(d) demo shops: shown only to an admin in demo mode — one rule for every
 
 test('(d) a typed shop name reaches a name search on the Find page too', () => {
   const findPage = code('categories', 'page.tsx');
-  assert.match(findPage, /const shops = q && profile\.marketplaceEnabled \? await searchMarketplaceForBench\(q\) : \[\];/);
+  // 🔌 The name search now says when it could not look (`unreadable`, dashboard-reads-are-honest.test.ts #22).
+  assert.match(findPage, /const shopsRead = q && profile\.marketplaceEnabled \? await searchMarketplaceForBench\(q\) : \{ results: \[\], unreadable: false \};/);
   assert.match(findPage, /\{shops\.length > 0 \? \(/, 'the shops found by name are not drawn');
   const name = code('_actions', 'bench-marketplace-search.ts');
   assert.match(name, /business_name\.ilike\.%\$\{token\}%/, 'the name search no longer matches the shop name');

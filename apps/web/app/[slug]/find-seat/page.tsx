@@ -11,6 +11,9 @@ import { eventWordsFromProfile } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { readGuestViewerForEvent } from '@/lib/guest-one-path.server';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
+import { readGuestBooths } from '@/lib/booth-card-from-row';
+import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
+import type { Lab3DBooth } from '@/lib/seating-3d';
 import type { EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
@@ -146,6 +149,20 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
     // table will appear here" to a seated guest. Throw to the error boundary.
     if (error) throw new Error(`find-seat: could not read the tables: ${error.message}`);
     tables = (data ?? []) as EventTableRow[];
+  }
+  /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
+     once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws
+     no booths — neither ever hides the seat itself. */
+  let seatView: GuestSeatView = 'both';
+  let booths: Lab3DBooth[] = [];
+  if (published) {
+    const [viewRow, boothRows] = await Promise.all([
+      admin.from('event_floor_plan').select('guest_seat_view').eq('event_id', event.event_id).maybeSingle(),
+      readGuestBooths(admin, event.event_id).catch(() => [] as Lab3DBooth[]),
+    ]);
+    if (viewRow.error) console.error('[supabase-error] find-seat: event_floor_plan.guest_seat_view (showing Both)', viewRow.error);
+    seatView = parseGuestSeatView((viewRow.data as { guest_seat_view?: unknown } | null)?.guest_seat_view);
+    booths = boothRows;
   }
 
   // ── B · THE OPEN LINK ────────────────────────────────────────────────────
@@ -349,6 +366,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
           slug={slug}
           plural={words.twoPeople}
           pass={pass}
+          seatView={seatView}
+          booths={booths}
         />
       ) : (
         <NotPostedYet slug={slug} backHref={backHref} eventDate={event.event_date as string | null} />

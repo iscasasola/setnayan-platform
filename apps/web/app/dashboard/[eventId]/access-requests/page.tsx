@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 
@@ -134,7 +135,10 @@ export default async function AccessRequestsPage({
         </ul>
       ) : null}
 
-      {pending.length === 0 && !(claimsRead.measured && claimsRead.asks.length > 0) ? (
+      {/* 🔌 A refused read is never "Nothing waiting on you." (reads-are-honest, 2026-11-02 audit #20). */}
+      {dataError ? (
+        <ReadRefusedNotice what="the access requests" className="mt-6" />
+      ) : pending.length === 0 && !(claimsRead.measured && claimsRead.asks.length > 0) ? (
         <p className="sn-tile mt-6 p-6 text-center text-sm text-ink/55">
           Nothing waiting on you.
         </p>

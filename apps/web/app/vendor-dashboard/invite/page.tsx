@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { isMarketplaceVendorBookable, LOCKED_QR_NEEDS_VERIFIED } from '@/lib/vendor-verification';
@@ -279,9 +280,9 @@ export default async function VendorQrCodesPage({
     generator = (
       <p className="text-sm text-ink/70" data-locked-qr-needs-verified="">
         {LOCKED_QR_NEEDS_VERIFIED}{' '}
-        <a href="/vendor-dashboard/profile#docs" className="font-semibold text-ink underline underline-offset-2">
+        <Link href="/vendor-dashboard/profile#docs" className="font-semibold text-ink underline underline-offset-2">
           Your documents
-        </a>
+        </Link>
       </p>
     );
   } else if (!issued) {

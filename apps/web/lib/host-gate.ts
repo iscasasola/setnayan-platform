@@ -25,8 +25,10 @@ import { createClient } from '@/lib/supabase/server';
 import {
   isEventIdShape,
   limitedHelperRefusalWith,
+  ownSeatLevelReader,
   refuseLimitedHelperWith,
   type LimitedHelperRpcClient,
+  type OwnSeatClient,
 } from '@/lib/limited-helper-gate';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import {
@@ -51,8 +53,7 @@ import {
  */
 export async function refuseLimitedHelper(eventId: unknown, area: DelegateArea | null): Promise<void> {
   if (!isEventIdShape(eventId)) return;
-  const supabase = await createClient();
-  await refuseLimitedHelperWith(supabase as unknown as LimitedHelperRpcClient, eventId, area);
+  await refuseLimitedHelperWith(await gateClient(), eventId, area);
 }
 
 /**
@@ -65,8 +66,14 @@ export async function refuseLimitedHelper(eventId: unknown, area: DelegateArea |
  */
 export async function limitedHelperRefusal(eventId: unknown, area: DelegateArea | null): Promise<string | null> {
   if (!isEventIdShape(eventId)) return null;
+  return limitedHelperRefusalWith(await gateClient(), eventId, area);
+}
+
+/** The session client as the gate reads it: the two SQL questions, and the caller's own seat's recorded level. */
+async function gateClient(): Promise<LimitedHelperRpcClient> {
   const supabase = await createClient();
-  return limitedHelperRefusalWith(supabase as unknown as LimitedHelperRpcClient, eventId, area);
+  const rpc = supabase.rpc.bind(supabase) as unknown as LimitedHelperRpcClient['rpc'];
+  return { rpc, ownSeatLevel: ownSeatLevelReader(supabase as unknown as OwnSeatClient) };
 }
 
 /**

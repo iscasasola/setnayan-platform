@@ -15,6 +15,7 @@ import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { venueNowMs, type ScheduleBlockRow } from '@/lib/schedule';
+import type { InvitationChapter } from '@/lib/invitation-chapters';
 import { dayVenuesNow } from '@/lib/day-venue-now';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow, GuestRow } from '../_lib/types';
@@ -68,6 +69,12 @@ type HideableWidgetProps = {
   /** Null on an event type without sides — no side is rendered at all. */
   sideLabel: string | null;
   scheduleBlocks: ScheduleBlockRow[];
+  /**
+   * ✉ The invitation's chapters (plan §11c, Step 5) — Details › Schedule lists them, each with its time and venue or
+   * "Venue TBA", and only the moments inside them marked Visible to guests. `null`/empty = the public moments as before.
+   * The identified guest's tree only: the anonymous tree (`public-hideable-widget.tsx`) is not a guest's invitation.
+   */
+  invitationChapters?: readonly InvitationChapter[] | null;
   isLive: boolean;
   /** RSVP-season "Estimated program" label on the schedule widget (owner
    *  directive 2026-07-23, NEXT_PUBLIC_GUEST_NOW_TRIGGER-gated upstream). */
@@ -117,6 +124,7 @@ function HideableWidgetBody({
   guest,
   sideLabel,
   scheduleBlocks,
+  invitationChapters = null,
   isLive,
   scheduleEstimated = false,
   isLimitedPlusOne,
@@ -236,9 +244,10 @@ function HideableWidgetBody({
       // Event Hub shows every moment; the truncate-to-3 + "All N moments"
       // toggle stays available in `ScheduleWidget` for surfaces that still
       // want it, this one just no longer asks for it.
-      return !isLive && scheduleBlocks.length > 0 ? (
+      return !isLive && (scheduleBlocks.length > 0 || (invitationChapters?.length ?? 0) > 0) ? (
         <ScheduleWidget
           blocks={scheduleBlocks}
+          chapters={invitationChapters}
           eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           nowTrigger={isGuestNowTriggerEnabled()}
           estimated={scheduleEstimated}

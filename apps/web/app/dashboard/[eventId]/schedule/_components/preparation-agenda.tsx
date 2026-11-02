@@ -96,7 +96,8 @@ export function PreparationAgendaView({
       {unread.length > 0 ? (
         /* 🛑 A refused read says so — never an empty "nothing to do" (house rule). */
         <p role="alert" data-planning-unread={unread.join(' ')} className="rounded-xl bg-danger-50 px-3 py-2.5 text-sm text-danger-700">
-          We couldn’t load {unread.includes('task') ? 'your to-do tasks' : 'the steps you added'}. They’re safe — pull to
+          We couldn’t load{' '}
+          {unread.includes('task') ? 'your to-do tasks' : unread.includes('manual') ? 'the steps you added' : 'your payment steps'}. They’re safe — pull to
           refresh or try again in a moment.
         </p>
       ) : null}

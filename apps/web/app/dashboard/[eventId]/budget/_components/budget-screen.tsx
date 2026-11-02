@@ -136,6 +136,8 @@ export function BudgetScreen({
     owedAtLeast?: boolean;
     /** A source was refused — the summary says part of it couldn't load. */
     partial?: boolean;
+    /** 🔌 The target read was refused (audit #44). */
+    targetUnread?: boolean;
     next: NextPayment | null;
   };
   list: BudgetList;
@@ -194,6 +196,7 @@ export function BudgetScreen({
         owedPhp={summary.owedPhp}
         owedAtLeast={summary.owedAtLeast}
         partial={summary.partial}
+        targetUnread={summary.targetUnread}
         next={summary.next}
         payHref="#budget-payments"
         onPay={nextIsOpenable ? onPay : undefined}

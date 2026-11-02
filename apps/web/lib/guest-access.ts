@@ -31,6 +31,17 @@ export const ACCESS_LEVEL_LABEL: Readonly<Record<GuestAccessLevel, string>> = {
 };
 
 /**
+ * 🔑 THE GUEST CARD'S Access ▾ (owner 2026-11-02: *"simplify access just like the rest of the guest card"*) — ONE
+ * dropdown, in this order and these words; what each means is the row's ⓘ (`accessNote`). The level written is the same
+ * `GuestAccessLevel` every other door writes, so only the card's words differ.
+ */
+export const CARD_ACCESS_CHOICES: ReadonlyArray<{ key: GuestAccessLevel; label: string }> = [
+  { key: 'none', label: 'None' },
+  { key: 'limited_helper', label: 'Helper (can view)' },
+  { key: 'co_host', label: 'Co-host' },
+];
+
+/**
  * THE CREATOR'S WORD — "Host", never "Co-host" (owner 2026-10-04: the account
  * that created the event read "Co-host" on its own row). A co-host is someone
  * the host CHOSE; the person who made the event is the host. Every surface that

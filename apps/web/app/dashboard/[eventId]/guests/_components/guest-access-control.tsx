@@ -10,6 +10,7 @@
  */
 
 import type { ComponentType } from 'react';
+import { FormRow } from '@/app/_components/form-row';
 import { accessNote, accessWordFor, type GuestAccessState } from '@/lib/guest-access';
 import type { GuestAccessPick } from './guest-access-pick';
 
@@ -32,16 +33,16 @@ export function GuestAccessControl({
   /** "Access ▾" (`guest-access-pick.tsx`) — handed in by the Guests pages. */
   Pick?: ComponentType<Parameters<typeof GuestAccessPick>[0]>;
 }) {
-  if (Pick && linked === true && canManage && initial.lock !== 'creator') {
+  /* 🔑 ONE LINE (owner 2026-11-02: *"simplify access just like the rest of the guest card"*): Access ▾ for whoever may
+     change it — linked or not yet (a level set ahead starts once they sign in; `setGuestAccess` keeps the seat waiting) —
+     else the word on the same row. What it means is the ⓘ, never a paragraph under it. Held by
+     `the-access-row-is-three-lines.test.ts`. */
+  if (Pick && linked !== null && canManage && initial.lock !== 'creator') {
     return <Pick eventId={eventId} guestId={guestId} firstName={firstName} initial={initial} />;
   }
   return (
-    <div className="space-y-2" data-guest-access>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-ink">Access</span>
-        <span className="text-sm text-ink/60">{accessWordFor(initial)}</span>
-      </div>
-      <p className="text-xs text-ink/55">{accessNote(initial, firstName)}</p>
-    </div>
+    <FormRow name="Access" about={{ words: accessNote(initial, firstName) }} data="card-access" attrs={{ 'data-guest-access': '' }}>
+      <span className="text-[14px] text-ink/70">{accessWordFor(initial)}</span>
+    </FormRow>
   );
 }

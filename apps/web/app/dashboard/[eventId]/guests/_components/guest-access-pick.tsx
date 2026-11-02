@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { FORM_PICK_CLASS, FormRow, usePillWidth } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { ACCESS_LEVEL_LABEL, accessNote, type GuestAccessLevel, type GuestAccessState } from '@/lib/guest-access';
+import { CARD_ACCESS_CHOICES, accessNote, type GuestAccessLevel, type GuestAccessState } from '@/lib/guest-access';
 import { setGuestAccess } from '../[guestId]/access-actions';
 
 /**
@@ -72,7 +72,7 @@ export function GuestAccessPick({
       <PickMenu
         label={`${firstName}'s access to this event`}
         value={level}
-        options={(['co_host', 'limited_helper', 'none'] as const).map((k) => ({ key: k, label: ACCESS_LEVEL_LABEL[k] }))}
+        options={CARD_ACCESS_CHOICES.map((c) => ({ key: c.key, label: c.label }))}
         onPick={pick}
         dataAttr="data-person-access-pick"
         className={`${FORM_PICK_CLASS} ${width}`}

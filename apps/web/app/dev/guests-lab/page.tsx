@@ -65,6 +65,8 @@
 import { papicHomeHref } from '@/lib/papic-home-href';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
+import { GuestImportWaits } from '@/app/dashboard/[eventId]/guests/import/import-form';
+import { GUEST_IMPORT_OPENS_MESSAGE } from '@/lib/event-date-floor';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
@@ -616,6 +618,15 @@ export default async function GuestsLabPage({
     );
   }
 
+  /* 📥 `?part=import` — the import door before December 19 (DECISION_LOG 2026-11-02): the page's own message component. */
+  if (part === 'import') {
+    return (
+      <main className="mx-auto w-full max-w-2xl space-y-6 bg-cream px-4 py-6 text-ink" data-lab="guest-import">
+        <h1 className="text-3xl font-semibold tracking-tight">Import guests from a file</h1>
+        <GuestImportWaits message={GUEST_IMPORT_OPENS_MESSAGE} />
+      </main>
+    );
+  }
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
     const low = sp.low === '1';
@@ -664,10 +675,15 @@ export default async function GuestsLabPage({
         }
       : {};
     /* 🔗 `&linked=1` — a guest who has linked their account: Access › the level dropdown, and "Linked" under Account. */
+    /* 🔑 `&access=none|helper|cohost` — an unlinked guest whose access was READ (the real card always reads it): the Access
+       row as a couple sees it before the guest links (`helper` / `cohost` = set ahead, starts once they sign in). */
+    const accessLevel = sp.access === 'cohost' ? 'co_host' : sp.access === 'helper' ? 'limited_helper' : sp.access === 'none' ? 'none' : null;
     const linkedData =
       sp.linked === '1'
-        ? { access: { level: 'none', live: true, lock: null }, linkedAccount: { email: 'daniel.ramos@example.com', memberType: 'guest' } }
-        : {};
+        ? { access: { level: accessLevel ?? 'none', live: true, lock: null }, linkedAccount: { email: 'daniel.ramos@example.com', memberType: 'guest' } }
+        : accessLevel
+          ? { access: { level: accessLevel, live: false, lock: null } }
+          : {};
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
@@ -762,7 +778,9 @@ export default async function GuestsLabPage({
           seatedAt: proxyMode === 'holder' ? null : 'Principal Sponsors 1',
         }
       : {};
-    const cardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
+    const baseCardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
+    /* 🔁 `&rsvp=pending` — a guest who has not replied: the Access row's Give this spot… is offered (owner 2026-11-02). */
+    const cardGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
     const labDress = sp.dress === '1'
       ? {
           groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },

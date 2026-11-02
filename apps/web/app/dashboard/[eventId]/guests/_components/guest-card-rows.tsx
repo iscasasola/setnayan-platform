@@ -132,7 +132,7 @@ export function CardFold({ summary, value, emptyValue, open = false, last = fals
  * server's old answer — owner's live iPhone test 2026-10-02), `data-form-pick` so the Undo finds it, `sn-restore` so the Undo
  * reaches the screen, and `input` + `change` raised on a pick because a hidden input raises neither by itself.
  */
-export function CardPick({ name, label, value, options, multi = false, emptyText = 'None', about, unlisted }: CardPickProps) {
+export function CardPick({ name, label, value, options, multi = false, emptyText = 'None', about, unlisted, form }: CardPickProps) {
   const [current, setCurrent] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
   const width = usePillWidth();
@@ -174,7 +174,7 @@ export function CardPick({ name, label, value, options, multi = false, emptyText
   return (
     <FormRow name={label} about={about ? { words: about } : null} data={`card-${name}`} attrs={{ 'data-card-field': name }}>
       <PickMenu label={label} value={multi ? null : current} options={options} onPick={pick} picked={picked} buttonText={multiText ?? (unlisted && current === unlisted.key ? unlisted.text : undefined)} className={`${FORM_PICK_CLASS} ${width}`} />
-      <input ref={ref} type="hidden" id={name} name={name} value={current} data-form-pick="" />
+      <input ref={ref} type="hidden" id={name} name={name} value={current} form={form} data-form-pick="" />
     </FormRow>
   );
 }

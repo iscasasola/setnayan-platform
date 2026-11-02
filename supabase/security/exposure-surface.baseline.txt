@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6984
+# facts: 6992
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     587
-#   col       5097
-#   policy    993
+#   tpriv     588
+#   col       5101
+#   policy    996
 #   view      9
 #   func      294
 #
@@ -234,6 +234,7 @@ tpriv	public.guest_group_memberships|authenticated	SIUD
 tpriv	public.guest_groups|anon	SIUD
 tpriv	public.guest_groups|authenticated	SIUD
 tpriv	public.guest_message_blocks|authenticated	SIUD
+tpriv	public.guest_not_counted_for|authenticated	SID
 tpriv	public.guest_push_subscriptions|authenticated	SIUD
 tpriv	public.guest_qr_rotations|authenticated	SIUD
 tpriv	public.guest_saved_vendors|anon	SIUD
@@ -2552,6 +2553,10 @@ col	public.guest_message_blocks.guest_id	anon=- authenticated=SIU
 col	public.guest_message_blocks.id	anon=- authenticated=SIU
 col	public.guest_message_blocks.reason	anon=- authenticated=SIU
 col	public.guest_message_blocks.revoked_at	anon=- authenticated=SIU
+col	public.guest_not_counted_for.created_at	anon=- authenticated=SI
+col	public.guest_not_counted_for.event_id	anon=- authenticated=SI
+col	public.guest_not_counted_for.event_vendor_id	anon=- authenticated=SI
+col	public.guest_not_counted_for.guest_id	anon=- authenticated=SI
 col	public.guest_push_subscriptions.auth	anon=- authenticated=SIU
 col	public.guest_push_subscriptions.created_at	anon=- authenticated=SIU
 col	public.guest_push_subscriptions.endpoint	anon=- authenticated=SIU
@@ -6111,6 +6116,9 @@ policy	public.guest_message_blocks|guest_message_blocks_manage	mode=PERMISSIVE c
 policy	public.guest_message_blocks|lh_ro_del_guest_message_blocks	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
 policy	public.guest_message_blocks|lh_ro_ins_guest_message_blocks	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT is_limited_helper(event_id))
 policy	public.guest_message_blocks|lh_ro_upd_guest_message_blocks	mode=RESTRICTIVE cmd=UPDATE roles=authenticated using=(NOT is_limited_helper(event_id)) check=NULL
+policy	public.guest_not_counted_for|guest_not_counted_for_couple_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))
+policy	public.guest_not_counted_for|guest_not_counted_for_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
+policy	public.guest_not_counted_for|guest_not_counted_for_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text) check=(moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text)
 policy	public.guest_push_subscriptions|admin_writes_guest_push_subscriptions	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.guest_push_subscriptions|couple_reads_guest_push_subscriptions	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.guest_push_subscriptions|guest_reads_own_push_subscriptions	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((guest_id IN ( SELECT current_user_guest_ids() AS current_user_guest_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

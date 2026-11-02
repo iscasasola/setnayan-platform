@@ -38,6 +38,8 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { isSafeNext } from '@/lib/safe-next';
 import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
+import { NOT_COUNTED_FIELD, NOT_COUNTED_POSTED, parseNotCounted } from '@/lib/guest-not-counted';
+import { syncCardNotCounted } from '@/lib/guest-not-counted.server';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { placedByCouple } from '@/lib/seat-why';
@@ -102,6 +104,17 @@ function baseGroupIds(rawBase: FormDataEntryValue | null): string[] {
     return Array.isArray(values)
       ? values.flatMap((v) => (typeof v === 'string' ? v.split(',') : [])).map((v) => v.trim()).filter(Boolean)
       : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 🍽 The services the card started with, from its posted base (`not_counted_for` in the autosave's spelling). */
+function baseNotCounted(rawBase: FormDataEntryValue | null): string[] {
+  try {
+    const base = JSON.parse(typeof rawBase === 'string' ? rawBase : '{}') as Record<string, unknown>;
+    const values = JSON.parse(typeof base[NOT_COUNTED_FIELD] === 'string' ? (base[NOT_COUNTED_FIELD] as string) : '[]') as unknown;
+    return Array.isArray(values) ? values.flatMap((v) => (typeof v === 'string' ? parseNotCounted(v) : [])) : [];
   } catch {
     return [];
   }
@@ -375,6 +388,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
    */
   const extraRolesPosted = clean(formData.get('extra_roles_posted')) === '1';
   const groupsPosted = clean(formData.get('groups_posted')) === '1';
+  // 🍽 "Not counted for ▾" (owner 2026-11-02) — the same marker rule: no marker, nothing changed (`lib/guest-not-counted.ts`).
+  const notCountedPosted = clean(formData.get(NOT_COUNTED_POSTED)) === '1';
   const tablePosted = clean(formData.get('table_posted')) === '1';
   const postedTableId = clean(formData.get('table_id'));
 
@@ -835,6 +850,17 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
         .map((v) => v.trim())
         .filter(Boolean),
       merge.based ? baseGroupIds(formData.get(MERGE_BASE_FIELD)) : undefined,
+    );
+  }
+  // 🍽 "Not counted for ▾", as ticked on the card — never for the couple (always counted), and with a base only as THIS
+  // screen's change (a tick another host added stays).
+  if (notCountedPosted && role !== 'bride' && role !== 'groom' && (!merge.based || merge.changed.has(NOT_COUNTED_FIELD))) {
+    await syncCardNotCounted(
+      supabase,
+      eventId,
+      guestId,
+      parseNotCounted(clean(formData.get(NOT_COUNTED_FIELD))),
+      merge.based ? baseNotCounted(formData.get(MERGE_BASE_FIELD)) : undefined,
     );
   }
   if (tablePosted && (!merge.based || merge.changed.has('table_id')) && !passed_away && effectiveRsvp !== 'declined') {

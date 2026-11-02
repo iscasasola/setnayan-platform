@@ -253,6 +253,8 @@ export type GuestsScreenProps = {
   tables: { tableId: string; label: string }[];
   /** guest_id → the table they are placed at. */
   tableByGuest: Record<string, string>;
+  /** 🍽 guest_id → "Not counted for Catering" (owner 2026-11-02, `lib/guest-not-counted.ts`). Absent → no notes. */
+  notCountedByGuest?: Record<string, string>;
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
   /** guest_id → a face to draw. */
@@ -394,6 +396,9 @@ function Mark({ mark }: { mark: SectionMark }) {
 const DEFAULT_VIEWS: readonly GuestsView[] = ['list', 'map'];
 
 /** The shell bar's height while it shows — the sticky block sits under it. */
+/** 🍽 No "Not counted for" notes handed in (the labs, an older page) — one stable empty map, so a render never makes a new one. */
+const NO_NOTES: Record<string, string> = {};
+
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
   // Only when the phone holds one for this account + event; otherwise the page's honest "We couldn't load
@@ -427,6 +432,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     groups,
     tables,
     tableByGuest,
+    notCountedByGuest = NO_NOTES,
     songsByGuest,
     faceByGuest,
     requests,
@@ -1974,6 +1980,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       // 🧍 The two sit in ONE seat — the proxy’s (the role’s seat moved to them).
                       table={tableByGuest[g.guest_id] ?? null}
+                      notCounted={notCountedByGuest[g.guest_id] ?? null}
                       verbs={writesOff ? [] : rowVerbsFor(g, { shareable: Boolean(invite?.tokens[g.guest_id]) })}
                       eventId={eventId}
                       invite={invite}
@@ -2425,6 +2432,7 @@ function GuestRowLine({
   picked,
   face,
   table,
+  notCounted = null,
   verbs,
   eventId,
   invite,
@@ -2453,6 +2461,8 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
+  /** 🍽 "Not counted for Catering" — a guest who comes but one booked service does not count (owner 2026-11-02). */
+  notCounted?: string | null;
   /** `rowVerbsFor`: Share · Delete (or Release seat) — nothing else (owner 2026-10-27). */
   verbs: readonly RowVerb[];
   eventId: string;
@@ -2586,6 +2596,8 @@ function GuestRowLine({
               {/* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */}
               {replyMarkedByHost(g) ? <span className={styles.mute} data-reply-marked="">{' · marked'}</span> : null}
               {table ? ` · ${table}` : ''}
+              {/* 🍽 Quiet, like "marked": they come, and one booked service does not count them (owner 2026-11-02). */}
+              {notCounted ? <span className={styles.mute} data-row-not-counted="">{` · ${notCounted}`}</span> : null}
               {notAdded > 0 ? <span data-seat-not-added="">{` · +${notAdded} not added yet`}</span> : null}
               {g.guest_note ? ` · “${g.guest_note}”` : ''}
               {/* 👥 A +1 counted under their OWN role (Ana Reyes, a bridesmaid Antonio brings) — the way back to him. */}

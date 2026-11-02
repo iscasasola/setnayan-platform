@@ -5,6 +5,8 @@ import { eventRowOnce } from '@/lib/event-row-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyMatches, isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readGuestNotCounted } from '@/lib/guest-not-counted.server';
+import type { BookedService } from '@/lib/guest-not-counted';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { guestGroupsFor } from '@/lib/role-sets';
@@ -186,6 +188,12 @@ export type GuestCardData = {
    * offers nothing it did not measure.
    */
   proxy?: GuestProxyCard | null;
+  /**
+   * 🍽 "Not counted for ▾" (owner 2026-11-02, `lib/guest-not-counted.ts`): the event's BOOKED services and the ones this
+   * guest is left out of. Optional: a card drawn from elsewhere (the Maker, the lab) without it shows no such row. Null =
+   * a read was refused — the card then offers nothing, so a refusal can never count a guest the couple left out.
+   */
+  notCounted?: { services: BookedService[]; picked: string[] } | null;
 };
 
 export type GuestProxyCard = {
@@ -221,6 +229,8 @@ export async function loadGuestCard(
     guest row, the linked account needs to know the viewer is a co-host) wait.
     Same queries, same degradations, same log lines.
   */
+  // 🍽 Leaves with the reads below, awaited at the end — it needs no other answer.
+  const notCountedRead = readGuestNotCounted(supabase, eventId, guestId).catch(() => null);
   const [
     stored,
     profileNames,
@@ -401,7 +411,7 @@ export async function loadGuestCard(
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
   const offerProxy = holdsARole(guest) && !guest.plus_one_of_guest_id && !holderRow;
-  const [accessMap, viewerMembership, nameLinked, plusOneOf, proxyRead, choiceRead] = await Promise.all([
+  const [accessMap, viewerMembership, nameLinked, plusOneOf, proxyRead, choiceRead, notCounted] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return null;
@@ -484,6 +494,8 @@ export async function loadGuestCard(
           .neq('guest_id', guestId)
           .order('first_name', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
+    // 🍽 "Not counted for ▾" — started with the first batch above, joined here (no wait of its own).
+    notCountedRead,
   ]);
 
   const canManageAccess = viewerMembership !== null;
@@ -588,6 +600,7 @@ export async function loadGuestCard(
   };
 
   return {
+    notCounted,
     proxy,
     outfit: outfit ? { wear: outfit.wear, from: outfit.from } : null,
     roleNames,

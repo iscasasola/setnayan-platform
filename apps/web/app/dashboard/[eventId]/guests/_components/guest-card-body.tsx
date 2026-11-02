@@ -76,6 +76,7 @@ import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
 import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -106,7 +107,8 @@ import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
  *       dietary, and the guest's own note — it opens by itself when there is one)
  *     5 Papic (their camera + the three face switches, ALWAYS; while the event's is off the camera alone becomes ONE line
  *       "Papic is off · Turn on ›")
- *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 9 Passed Away  · 10 Delete.
+ *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 8b Not counted for ▾ (2026-11-02)
+ *     · 9 Passed Away  · 10 Delete.
  *   One open at a time (a native exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
  *   choice = one dropdown, several = a dropdown with checkmarks. TAGS ARE GONE: their words were the eyebrow and the
  *   summaries again. Delete left the ⋯ for its own group.
@@ -305,6 +307,7 @@ export function GuestCardBody({
     groupChoices,
     outfit,
     proxy = null,
+    notCounted = null,
   } = data;
   /* 🧍‍♀️➡️🧍 THE PROXY, BOTH WAYS (owner 2026-10-27). `representedBy` — this ROLE HOLDER sends someone in their place;
      `standingInFor` — THIS guest is that someone, and wears the role they stand in for (read-only here). */
@@ -1094,6 +1097,27 @@ export function GuestCardBody({
             <GuestSeatDoors name={name} canGive={guest.rsvp_status === 'pending'} releaseAction={releaseAction} />
           )}
         </K.Fold>
+
+        {/* ══ 8b · NOT COUNTED FOR ▾ — a guest who COMES but is left out of one booked service's headcount (owner 2026-11-02:
+            "a dropdown above passed away … it will list all booked services to pick if they are not counted"). Directly ABOVE
+            Passed Away and, like it, outside the autosave form, posting with it by `form=`. Ticks keep the list open; Done
+            closes it (the shared PickMenu). Never for the couple, nor a guest already not counted at all (passed away);
+            not drawn while nothing is booked, nor when the read was refused — no marker then, so nothing is changed. ═══ */}
+        {isCouple || guest.passed_away || !notCounted || notCounted.services.length === 0 ? null : (
+          <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
+            <input type="hidden" name={NOT_COUNTED_POSTED} value="1" form={formId} />
+            <K.Pick
+              name={NOT_COUNTED_FIELD}
+              label="Not counted for"
+              multi
+              form={formId}
+              value={notCounted.picked.join(',')}
+              options={notCounted.services.map((s) => ({ key: s.id, label: s.label, hint: s.shop ?? undefined }))}
+              emptyText={COUNTED_FOR_ALL}
+              about={NOT_COUNTED_ABOUT}
+            />
+          </div>
+        )}
 
         {/* ══ 9 · PASSED AWAY — listed, never counted (owner 2026-09-25; out of Details, 2026-10-23). Never offered for the
             couple — `updateGuest` refuses it for them too. It posts with the autosave form (`form={formId}`). ═════════ */}

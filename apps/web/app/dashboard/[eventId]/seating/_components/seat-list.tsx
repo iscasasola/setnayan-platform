@@ -9,6 +9,7 @@ import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/dr
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
 import { readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
+import { VipMark } from './vip-mark';
 
 /**
  * 🪑 GUESTS › SEATS › LIST IS THE GUESTS LIST, GROUPED BY TABLE (Seats S1c, owner 2026-11-01, DECISION_LOG "SEATS STAYS
@@ -40,7 +41,7 @@ export type SeatListGuest = {
   placed?: string | null;
 };
 export type SeatListSeat = { tableId: string; seat: number; guest: SeatListGuest | null };
-export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[] };
+export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[]; vip?: boolean };
 
 const HOLD_MS = 300;
 /** Where a held guest would land — lit while the finger is over it (set straight on the DOM, no re-render). */
@@ -63,10 +64,13 @@ function Head({
   icon,
   onToggle,
   trailing,
+  vip = false,
 }: {
   sectionKey: string;
   open: boolean;
   label: string;
+  /** 🪑 A VIP table carries the small VIP mark (owner 2026-11-02). */
+  vip?: boolean;
   tally: string;
   icon: 'table' | 'people';
   onToggle: () => void;
@@ -81,6 +85,7 @@ function Head({
         </span>
         {/* ✂ A table's name WRAPS, never cut (owner v15 — names are never ellipsized; up to three lines). */}
         <span className={`${gs.lab} line-clamp-3 !whitespace-normal [overflow-wrap:anywhere]`}>{label}</span>
+        {vip ? <VipMark /> : null}
         <span className={gs.n} data-seat-tally="">
           · {tally}
         </span>
@@ -426,6 +431,7 @@ export function SeatList({
               sectionKey={u.key}
               open={isOpen}
               label={u.label}
+              vip={u.vip === true}
               tally={seatTallyWords(u.seated, u.capacity, formatCount)}
               icon="table"
               onToggle={() => onToggle(u.key)}

@@ -147,6 +147,7 @@ export async function reconcilePass(
     reseatGuestIds: reseat,
     groupAdjacency,
     roleSeating: floorPlan.role_seating,
+    vipPlusOnes: floorPlan.vip_plus_ones,
   });
 
   // Delete stale rows first (a displaced guest whose seat got reused), then

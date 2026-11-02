@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6971
+# facts: 6973
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     586
-#   col       5088
+#   col       5089
 #   policy    991
 #   view      9
-#   func      293
+#   func      294
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2336,6 +2336,7 @@ col	public.events.role_palette	anon=SIU authenticated=SIU
 col	public.events.rsvp_ask_config	anon=- authenticated=SU
 col	public.events.rsvp_backdrop	anon=SIU authenticated=SIU
 col	public.events.same_date_count_opt_out	anon=- authenticated=S
+col	public.events.schedule_released_at	anon=- authenticated=S
 col	public.events.scheduled_launch_at	anon=SIU authenticated=SIU
 col	public.events.seating_autoplace_enabled	anon=SIU authenticated=SIU
 col	public.events.seating_group_adjacency	anon=SIU authenticated=SIU
@@ -6881,6 +6882,7 @@ func	public.reject_colour_change(p_change_id uuid)	secdef=yes exec=authenticated
 func	public.reject_vendor_deposit(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.reject_vendor_subscription(p_purchase_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.release_deleted_guest_song_requests(p_event_id uuid, p_guest_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.release_full_schedule(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public

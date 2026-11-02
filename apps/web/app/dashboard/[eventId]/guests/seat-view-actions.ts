@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
 import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
@@ -42,7 +43,8 @@ async function readGuestSeatPreview(eventId: string, guestId: string): Promise<G
     supabase.from('event_tables').select(TABLES_SELECT).eq('event_id', eventId).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
     supabase.from('event_seat_assignments').select('table_id, seat_number').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
     fetchEntrance(supabase, eventId),
-    fetchBooths(supabase, eventId).catch(() => []),
+    // The per-event branding read is service_role-only (`fetchBooths`' own rule for a session client).
+    fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }).catch(() => []),
   ]);
   const failed = view.error ?? tables.error ?? seat.error;
   if (failed) {

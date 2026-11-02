@@ -337,8 +337,6 @@ const FETCH_ALLOWED: Record<string, string> = {
   'app/api/schedule/[eventId]/export/route.ts': 'hands the rows to scheduleDoc, which prints "Time TBA" (tested above)',
   'app/dashboard/[eventId]/details/page.tsx':
     'its Ceremony/Reception rows read blockTime, which says "Time TBA"; Guests arrive reads guestsArriveSource, fenced (both tested above)',
-  'app/dashboard/[eventId]/schedule/page.tsx':
-    "the Schedule page — #7151's own surface, whose chapter views read time_tba; its bulk retime is fenced in selectRetimeSpan (tested above). Its older day/ROS lens views are NOT audited here — flagged in the PR",
   'lib/event-preload.ts':
     'copies whole rows (time_tba included) into the offline event-day cache and draws nothing; the offline readers are NOT audited here — flagged in the PR',
 };

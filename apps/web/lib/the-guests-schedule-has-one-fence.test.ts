@@ -117,6 +117,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
     'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
+  'lib/moment-follow.server.ts':
+    'host — the Schedule’s write doors ask which moment a "right after" moment follows (its siblings’ order keys), on the host’s own session; never a guest',
   'lib/schedule-suggestion-decide.server.ts':
     'host — the ONE accept path of a supplier’s request (Approve · Approve all · Auto-agree, Step 4b); it writes the block a host approved, never reads one for a guest',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',

@@ -234,6 +234,9 @@ export async function createScheduleBlock(formData: FormData) {
   // flag on a moment means no clock of its own. Its `start_at` becomes the start of the moment it follows — an order
   // key, never a guessed time — and the database moves it with that moment.
   if (formData.get('time_tba') === '1') {
+    insertRow.time_tba = true;
+    insertRow.end_at = null;
+    insertRow.is_public = false;
     if (parentBlockId) {
       const place = await rightAfterPlace(supabase, {
         eventId,
@@ -246,9 +249,6 @@ export async function createScheduleBlock(formData: FormData) {
         insertRow.follows_block_id = place.follows_block_id;
       }
     }
-    insertRow.time_tba = true;
-    insertRow.end_at = null;
-    insertRow.is_public = false;
   }
   // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
   // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and

@@ -27,6 +27,7 @@ import {
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
 import { iapAvailable } from '@/lib/iap/iap-gate';
+import { appShellBouncesSample } from '@/lib/sample-event/paths';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
@@ -555,7 +556,12 @@ async function middlewareCore(request: NextRequest) {
   // product. 307 — the routes themselves stay live on the web, and the
   // redirect target depends on session state, so nothing should cache it
   // as permanent.
-  if (isCapacitorClient(request) && APP_EXCLUDED_MARKETING_PATHS.has(pathname)) {
+  // 🎭 The Maria and Jose sample (`/sample/…`) rides the same bounce, by prefix,
+  // for exactly as long as `/` is in the set (lib/sample-event/paths.ts).
+  if (
+    isCapacitorClient(request) &&
+    (APP_EXCLUDED_MARKETING_PATHS.has(pathname) || appShellBouncesSample(pathname, APP_EXCLUDED_MARKETING_PATHS))
+  ) {
     return NextResponse.redirect(
       new URL(user ? '/dashboard' : '/login', request.url),
       307,

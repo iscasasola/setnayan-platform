@@ -30,7 +30,7 @@ export const TaskDateButton = dynamic(() => import(/* webpackChunkName: "maker-s
 export const PlanningFilterFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './planning-todo-controls').then((m) => m.PlanningFilterFrame), { loading: SlotFill });
 export const DeletePreparationItemButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.DeletePreparationItemButton), { loading: SlotButton });
 export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header').then((m) => m.RunOfShowHeader), { loading: SlotRows });
-export const BookedScheduleFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './booked-schedule-frame').then((m) => m.BookedScheduleFrame), { loading: SlotFill });
+export const ScheduleOneLine = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './schedule-one-line').then((m) => m.ScheduleOneLine), { loading: SlotFill });
 // 📤 The Schedule's Share (the shared budget-PDF button) — lazy, so the Maker's first load does not carry it.
 export const SharePdfButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/share-pdf-button').then((m) => m.SharePdfButton), { loading: SlotButton });
 /* 📖 Chapters on the Schedule page (owner 2026-11-01): the page that lays a chapter over the views, and Planning Stage's

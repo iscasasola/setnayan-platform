@@ -57,6 +57,8 @@ export async function GET(req: Request, { params }: Params) {
   if (eventRes.error) return unread();
   if (!event) return new NextResponse('Event not found.', { status: 404 });
   if (!blocks || !meta) return unread();
+  // 🔌 A refused supplier read prints no "A booked supplier" in every Who (reads-are-honest, 2026-11-02 audit #16).
+  if (!suppliers) return unread();
 
   const shopName = new Map(suppliers.map((s) => [s.vendor_id, s.vendor_name]));
   const who = new Map<string, string[]>();

@@ -101,14 +101,7 @@ import {
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
 import { LabBookedStandIns } from './lab-booked';
-import { LAB_SCHEDULE_TAGS, labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
-import { BookedPartRow } from '@/app/dashboard/[eventId]/vendors/_components/booked-part-row';
-import { budgetPageHref, type PillarPart } from '@/lib/pillar-parts';
-import { LabBookedSchedule } from './lab-booked-schedule';
-import { labPrepAgenda } from './schedule-fixtures';
-import { forwardScheduleView } from '@/lib/schedule-view';
-import { PreparationAgendaView, preparationLegendWords } from '@/app/dashboard/[eventId]/schedule/_components/preparation-agenda';
-import { SEEDS } from '../schedule-lab/lab-moments';
+import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { priceToday } from '@/lib/price-summary';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
 import { moneyStageOf } from './money-pair';
@@ -225,19 +218,9 @@ export default async function SuppliersLabPage({
     covers: one('covers') === '1',
   };
   const bookedMoney = labBookedMoney(bookedOpts);
-  /* Booked = Team · Budget · Schedule (owner 2026-10-29): `&part=schedule` draws that part on fixtures — the REAL Event
-     Day rail over the Schedule lab's day. Budget is a DOOR to the Budget page itself, as in the app since 2026-11-01
-     (owner: "Okay place it in home") — the same `budgetPageHref` Home's widget opens; its screen on fixtures is
-     `/dev/budget-lab`. `&bkopen=<id>` opens one Team row on load. */
-  const bookedPartParam = one('part') === 'schedule' ? 'schedule' : 'team';
-  const labBookedParts: PillarPart[] = [
-    { key: 'team', label: 'Team', href: '/dev/suppliers-lab?mode=booked' },
-    { key: 'budget', label: 'Budget', href: budgetPageHref(LAB_EVENT) },
-    { key: 'schedule', label: 'Schedule', href: '/dev/suppliers-lab?mode=booked&part=schedule' },
-  ];
-  const labMoments = SEEDS.filter((x) => !x[6]?.parent_block_id).length;
-  // Booked › Schedule › Planning Stage — the real view on fixtures (`schedule-fixtures.ts`).
-  const labPrep = labPrepAgenda(labBookedNow(bookedOpts));
+  /* 🧹 Booked is just the team (owner 2026-11-02, "BOOKED IS JUST THE TEAM"): no Team · Budget · Schedule parts — the
+     Budget and the Schedule are Home's own pages (`/dev/budget-lab`, `/dev/schedule-lab` on fixtures). `&bkopen=<id>`
+     opens one Team row on load. */
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
   const booked = bookedLabView.booked.length;
   /* The shell's Build N/M and cart peek, counted the page's way from the fixtures — and handed over so a press counts
@@ -335,9 +318,8 @@ export default async function SuppliersLabPage({
           covers={covers}
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
-          // A Booked part's own page has no date · place line (`booked-part-page.tsx` passes none) — nor does the lab's.
           factsSlot={
-            bookedPartParam !== 'team' ? undefined : (
+            (
             <LabFactSheets
               options={factOptions}
               open={sheetParam === 'date' || sheetParam === 'help' || sheetParam === 'place' ? sheetParam : null}
@@ -364,30 +346,11 @@ export default async function SuppliersLabPage({
           // the lab shell's own Build-body view is the count (`lab-build.tsx`), so the live base is not handed over there.
           liveTally={one('tab') === 'build' ? null : liveTally}
           bookedCount={booked}
-          bookedPart={bookedPartParam}
-          partPage={bookedPartParam !== 'team'}
-          homeHref="/dev/suppliers-lab"
-          bookedParts={labBookedParts}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
             <LabBookedStandIns payFail={one('payfail') === '1'} paySlow={one('payslow') === '1'} whereFail={one('wherefail') === '1'} money={bookedOpts.money} today={priceToday(labBookedNow(bookedOpts))}>
-              {bookedPartParam === 'schedule' ? (
-                <div className="space-y-5" data-lab-booked-part="schedule">
-                  <BookedPartRow current="schedule" line={`${labMoments} moments`} />
-                  <LabBookedSchedule
-                    tags={LAB_SCHEDULE_TAGS}
-                    moments={labMoments}
-                    initial={forwardScheduleView(one('view') ?? undefined) === 'preparation' ? 'preparation' : 'event-day'}
-                    prepCount={labPrep.items.length}
-                    prepNote={preparationLegendWords(labPrep.sourceCounts)}
-                    canAnnounce={one('announce') !== '0'}
-                    preparation={<PreparationAgendaView eventId={LAB_EVENT} agenda={labPrep} hasEventDate booked />}
-                  />
-                </div>
-              ) : (
-                <BookedBody
+              <BookedBody
                   eventId={LAB_EVENT}
-                  parts={labBookedParts}
                   firstOpen={one('bkopen') ?? null}
                   state={
                     bookedOpts.fail === 'team'
@@ -399,7 +362,6 @@ export default async function SuppliersLabPage({
                     <BookedBudgetSection eventId={LAB_EVENT} budget={labBookedBudget(bookedOpts, bookedMoney)} />
                   ) : null}
                 </BookedBody>
-              )}
             </LabBookedStandIns>
           }
         />

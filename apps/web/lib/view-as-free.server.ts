@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { onTheCachedHub } from '@/lib/hub-request';
 import {
   VIEW_AS_FREE_COOKIE,
   proAsViewed,
@@ -81,7 +81,7 @@ export const viewerIsInternal = cache(async (): Promise<boolean> => (await viewe
 
 async function readCookie(): Promise<string | null> {
   // 🗄 The cached Event Hub never carries the switch (the middleware keeps that cookie live) — lib/hub-request.ts.
-  if (cachedHubViewer()) return null;
+  if (onTheCachedHub()) return null;
   try {
     return (await cookies()).get(VIEW_AS_FREE_COOKIE)?.value ?? null;
   } catch {

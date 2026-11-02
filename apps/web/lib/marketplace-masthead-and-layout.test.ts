@@ -107,10 +107,8 @@ test('a pick in the row’s ONE dropdown calls the SHIPPED bus — it does not b
   // (2026-10-31: the segmented Find · Build · Booked row became the ONE dropdown, `Page · View ▾` — the bus is the same.)
   const shell = shellBody();
   assert.match(shell, /onPick=\{pickFace\}/, 'the row’s dropdown must dispatch the existing bus');
-  assert.match(shell, /if \(key === 'find' \|\| key === 'build'\) return goToMode\(key\);/, 'Find and Build must go through the bus');
-  // A press goes through `goToMode`, which IS the bus on the Suppliers page (a Booked part's own page — Budget,
-  // Schedule — goes home to the Suppliers page instead, owner 2026-10-29).
-  assert.match(shell, /if \(!partPage\) \{\s*goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);/, 'a pick must dispatch the existing bus');
+  // Every pick — Find · Build · Booked (owner 2026-11-02: Booked is just the team, no part pages) — is the bus.
+  assert.match(shell, /goToBuildTab\(SUPPLIERS_MODE_TAB\[key\]\);/, 'a pick must dispatch the existing bus');
   assert.doesNotMatch(shell, /onPick=\{\(\w*\) => setMode\(/, 'a pick sets the mode behind the bus’s back');
   assert.equal((code(TAKEOVER).match(/new CustomEvent\(/g) ?? []).length, 0, 'the takeover dispatches an event of its own');
 });
@@ -119,7 +117,7 @@ test('the dropdown’s words come from the one module, never authored in the tak
   const shell = shellBody();
   assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.find\b/);
   assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.build\b/);
-  assert.match(shell, /label: `\$\{SUPPLIERS_MODE_LABEL\.booked\} · \$\{p\.label\}`/);
+  assert.match(shell, /label: SUPPLIERS_MODE_LABEL\.booked\b/);
   assert.doesNotMatch(shell, />\s*(Find|Build|Booked)\s*</, 'a mode’s word is typed in the takeover');
   assert.doesNotMatch(shell, /label: '(Find|Build|Booked)/, 'a mode’s word is typed in the takeover');
   // …and that module says Find · Build · Booked.
@@ -128,11 +126,11 @@ test('the dropdown’s words come from the one module, never authored in the tak
 
 test('the dropdown lists every mode, and every mode key is a shipped tab', () => {
   // `suppliers-shell.test.ts` executes that every bus key opens a body and each
-  // body owns one key; here, that the dropdown offers each body (Booked by its parts).
+  // body owns one key; here, that the dropdown offers each body (Booked is just the team since 2026-11-02).
   const shell = shellBody();
   assert.match(shell, /\{ key: 'find', label: SUPPLIERS_MODE_LABEL\.find \}/);
   assert.match(shell, /\{ key: 'build', label: SUPPLIERS_MODE_LABEL\.build,/);
-  assert.match(shell, /bookedParts\.map\(\(p\) => \(\{\s*key: `booked-\$\{p\.key\}`/);
+  assert.match(shell, /\{ key: 'booked', label: SUPPLIERS_MODE_LABEL\.booked,/);
   assert.match(code(SHELL_RULES), /find: 'shortlist',\s*build: 'build',\s*booked: 'budget',/);
 });
 

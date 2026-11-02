@@ -444,7 +444,6 @@
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
 9 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx
@@ -456,7 +455,7 @@
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx
-28 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
+25 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
 8 apps/web/app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/_components/website-pro-lock.tsx

@@ -6807,6 +6807,7 @@
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
+        "dashboard/[eventId]/guests/_components/guest-role-drag.tsx",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
@@ -6892,6 +6893,7 @@
         "AddGuestSheet",
         "AddPicks",
         "AddPreviewLine",
+        "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
         "CaptureBar",
@@ -6985,6 +6987,7 @@
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "Handed",
+        "Held",
         "Icon",
         "InfoTip",
         "InlineResult",
@@ -7039,6 +7042,7 @@
         "PapicGuestAccess",
         "PeekSay",
         "PeekToast",
+        "Pending",
         "PeopleHits",
         "Pick",
         "PickMenu",
@@ -8544,6 +8548,7 @@
         "dashboard/[eventId]/schedule/_components/schedule-live.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-sheet.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-view-as.tsx",
         "dashboard/[eventId]/schedule/_components/studio-day.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -8551,6 +8556,7 @@
         "dashboard/[eventId]/schedule/actions.ts",
         "dashboard/[eventId]/schedule/activity-picks-actions.ts",
         "dashboard/[eventId]/schedule/loading.tsx",
+        "dashboard/[eventId]/schedule/moment-march-step.ts",
         "dashboard/[eventId]/schedule/page.tsx",
         "dashboard/[eventId]/schedule/prep-actions.ts",
         "dashboard/[eventId]/schedule/question-answers-actions.ts",
@@ -8589,6 +8595,7 @@
         "BookedScheduleFrame",
         "BookedScheduleView",
         "BulkRetimePanel",
+        "ByTime",
         "Chapter",
         "ChapterMoment",
         "ChapterPage",
@@ -8602,6 +8609,7 @@
         "ChosenRow",
         "ConfirmForm",
         "DateRow",
+        "Day",
         "DayActions",
         "DayActionsContext.Provider",
         "DayMoment",
@@ -8614,6 +8622,7 @@
         "EventDayView",
         "Eyebrow",
         "FeedPageSkeleton",
+        "ForRow",
         "FormRows",
         "Glance",
         "HTMLDivElement",
@@ -8632,10 +8641,13 @@
         "Lens",
         "LensChip",
         "Link",
+        "MarchList",
+        "MarchRow",
         "MiniTour",
         "MinutesRow",
         "MomentInspector",
         "MomentLayer",
+        "MomentPapic",
         "MomentRow",
         "MomentSheet",
         "NewChapterSheet",
@@ -8645,6 +8657,7 @@
         "NotSharedWithYou",
         "OverlayBackdrop",
         "PageMasthead",
+        "PaidMark",
         "PickMenu",
         "PillThumb",
         "PlanningChapters",
@@ -8670,6 +8683,7 @@
         "ScheduleModeToggle",
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
+        "SearchHead",
         "SentList",
         "SharePdfButton",
         "Sheet",
@@ -8705,6 +8719,9 @@
         "TypedRow",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
+        "ViewAsBody",
+        "ViewAsMenu",
+        "ViewLens",
         "WhoFields"
       ]
     },
@@ -9994,7 +10011,8 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget"
+        "/dashboard/[seg]/vendors?part=budget",
+        "/dashboard/[seg]/vendors?tab=budget&team=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -10074,6 +10092,7 @@
         "Chips",
         "ChosenRow",
         "CityPick",
+        "ClaimDoor",
         "ClearButton",
         "ClusterHead",
         "CompareSheet",
@@ -10344,7 +10363,6 @@
     "/dashboard/[eventId]/vendors/[vendorId]/workspace": {
       "files": [
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
-        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
@@ -10375,7 +10393,6 @@
         "addWorkingNoteAction",
         "coupleConfirmReceived",
         "coupleReportNonDelivery",
-        "createAutoShareInviteAction",
         "deleteWorkingNoteAction",
         "inviteHost",
         "revokeHostInvite",
@@ -10389,7 +10406,6 @@
         "ChangeAccessLink",
         "ChangeOrderTrail",
         "ChosenProofField",
-        "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
         "ConsentGatedInviteForm",
@@ -11311,6 +11327,7 @@
       "files": [
         "dev/chapters-lab/lab-chapters.ts",
         "dev/chapters-lab/lab-schedule-chapters.tsx",
+        "dev/chapters-lab/lab-view-as.ts",
         "dev/chapters-lab/page.tsx"
       ],
       "destinations": [],
@@ -11323,7 +11340,8 @@
         "LabScheduleChapters",
         "PlanningChapters",
         "ScheduleLabClient",
-        "TaskRow"
+        "TaskRow",
+        "ViewMoment"
       ]
     },
     "/dev/chat-lab": {
@@ -14994,6 +15012,8 @@
         "issueLockedQr"
       ],
       "blocks": [
+        "CrewCode",
+        "CrewQr",
         "CustomersPick",
         "DatesRow",
         "Fold",

@@ -9,6 +9,7 @@ import { TimeRow } from '@/app/_components/form-row-time';
 import type { PickOption } from '../../website/editor/_components/pick-menu';
 import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import { normalizeSearchText } from '@/lib/guest-search';
+import { crewLines, forKey, forOptions, forPickOf, forPicked, forWords } from '@/lib/moment-for';
 import {
   DEFAULT_MOMENT_MINUTES,
   MARCH_NAME_MAX,
@@ -90,6 +91,8 @@ export type MomentDoors = {
   papicCount: (momentId: string, chapterId: string) => Promise<Answer<MomentPapic>>;
   /** 🚶 The moment is a march (`march_set`, `march_key`), or a new one is made for it (`march_new`, `march_name`). */
   march: (op: 'march_set' | 'march_new', blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
+  /** 👷 Suppliers and crew ▾: tick (`on` '1') or untick one supplier or crew on the moment (`for_key`, lib/moment-for.ts). */
+  forSet: (blockId: string, fields: { for_key: string; on: '1' | '0' }) => Promise<Answer<string>>;
 };
 
 function form(eventId: string, fields: Record<string, string>): FormData {
@@ -136,6 +139,11 @@ export function realMomentDoors(eventId: string): MomentDoors {
         (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : NOT_SAVED_WORDS }),
         () => ({ ok: false as const, error: NOT_SAVED_WORDS }),
       ),
+    forSet: (blockId, fields) =>
+      updateScheduleBlock(form(eventId, { block_id: blockId, moment_op: 'for_set', ...fields })).then(
+        (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : NOT_SAVED_WORDS }),
+        () => ({ ok: false as const, error: NOT_SAVED_WORDS }),
+      ),
   };
 }
 
@@ -151,6 +159,8 @@ export const LAB_MOMENT_DOORS: MomentDoors = {
     new Promise((r) =>
       setTimeout(() => r({ ok: true, value: op === 'march_new' ? `own_lab${Math.random().toString(36).slice(2, 10)}` : (fields.march_key ?? '') }), 150),
     ),
+  forSet: (_b, fields) =>
+    new Promise((r) => setTimeout(() => r({ ok: true, value: fields.on === '1' && !fields.for_key.startsWith('s:') ? `lab-${Math.random().toString(36).slice(2, 10)}` : '' }), 150)),
 };
 
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };
@@ -383,6 +393,11 @@ export function MomentSheet({
     return keep({ start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16) }, { start_at: startIso, end_at: endIso });
   };
 
+  /** 👷 A supplier's line puts the moment on their day — the door linked them first (`runMomentOp`); the sheet says so. */
+  const linked = (row: TaskRow) => {
+    if (row.vendor_id && !m.vendor_ids.includes(row.vendor_id)) onPatch({ vendor_ids: [...m.vendor_ids, row.vendor_id] });
+  };
+
   const askDelete = () => {
     setStage('ask');
     setPapic(null);
@@ -447,6 +462,7 @@ export function MomentSheet({
                 onKeep={(t) => keep({ spot: t.trim() }, { spot: t.trim() || null })}
                 data="moment-room"
               />
+              <ForRow moment={m} who={who} tasks={tasks} doors={doors} onPatch={onPatch} onTasks={onTasks} />
               <SwitchRow
                 name="Visible to guests"
                 line={
@@ -526,7 +542,10 @@ export function MomentSheet({
                       names={names}
                       clash={clashes.get(t.task_id) ?? null}
                       doors={doors}
-                      onSaved={(row) => onTasks((tasks ?? []).map((x) => (x.task_id === row.task_id ? row : x)))}
+                      onSaved={(row) => {
+                        linked(row);
+                        onTasks((tasks ?? []).map((x) => (x.task_id === row.task_id ? row : x)));
+                      }}
                       onRemoved={() => onTasks((tasks ?? []).filter((x) => x.task_id !== t.task_id))}
                     />
                   ))}
@@ -543,6 +562,7 @@ export function MomentSheet({
                       clash={null}
                       doors={doors}
                       onSaved={(row) => {
+                        linked(row);
                         setDrafts((ds) => ds.filter((x) => x !== d));
                         onTasks([...(tasks ?? []), row]);
                       }}
@@ -600,6 +620,131 @@ export function MomentSheet({
           </div>
         )}
       </div>
+  );
+}
+
+/* ── the search at the top of a who dropdown ──────────────────────────────────────────────────────────────────── */
+
+function SearchHead({
+  query,
+  onQuery,
+  placeholder,
+  label,
+  data,
+  children,
+}: {
+  query: string;
+  onQuery: (q: string) => void;
+  placeholder: string;
+  label: string;
+  data: `data-${string}`;
+  children?: ReactNode;
+}) {
+  return (
+    <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5 dark:bg-raised/95">
+      <div className="relative">
+        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
+        <input
+          className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none dark:bg-raised"
+          type="search"
+          inputMode="search"
+          value={query}
+          onChange={(e) => onQuery(e.target.value)}
+          placeholder={placeholder}
+          aria-label={label}
+          {...{ [data]: '' }}
+        />
+      </div>
+      {children}
+    </li>
+  );
+}
+
+/* ── 👷 Suppliers and crew ▾ — who this moment is for ─────────────────────────────────────────────────────────── */
+
+/**
+ * ONE dropdown with ticks (the house PickMenu via `ChosenRow`'s `picked`), two sections — Suppliers and Crew — and a
+ * search, which also offers a typed name as a new crew of a booked supplier. A tick saves at once (`forSet`); picking a
+ * crew member also links their supplier to the moment and the chapter, so it shows on that supplier's day marked
+ * yours, with the crew member's name. It never touches Visible to guests. What it writes and why: `lib/moment-for.ts`,
+ * `setMomentFor` (lib/schedule-chapters.server.ts). A refused tick keeps the old ticks and says why.
+ */
+function ForRow({
+  moment: m,
+  who,
+  tasks,
+  doors,
+  onPatch,
+  onTasks,
+}: {
+  moment: ChapterMoment;
+  who: TaskWhoList;
+  tasks: TaskRow[] | null;
+  doors: MomentDoors;
+  onPatch: (next: Partial<ChapterMoment>) => void;
+  onTasks: (next: TaskRow[]) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id);
+  const picked = forPicked(m.vendor_ids, mine);
+  // The crews unread = no Crew section (a tick there could not be shown honestly); suppliers still work.
+  const options = forOptions({ suppliers: who.suppliers, crews: tasks === null ? [] : who.crews, query }).filter(
+    (o) => tasks !== null || o.group === 'Suppliers',
+  );
+  if (who.suppliers.length === 0 && m.vendor_ids.length === 0) return null;
+  return (
+    <ChosenRow
+      name="Suppliers and crew"
+      about={{
+        words:
+          'Who this moment is for. A supplier sees it on their day marked yours; picking one of their crew also adds the supplier, with the crew member’s name. Guests see it only when Visible to guests is on.',
+      }}
+      line={tasks === null ? 'Their crew couldn’t be read just now — suppliers still work.' : undefined}
+      value={null}
+      picked={picked}
+      buttonText={busy ? 'Saving…' : forWords(m.vendor_ids, mine, who.suppliers)}
+      options={options}
+      head={
+        <SearchHead query={query} onQuery={setQuery} placeholder="Find a supplier or crew, or type a crew name" label="Find a supplier or crew" data="data-moment-for-search">
+          {query.trim() && options.length === 0 ? <p className="px-3 pt-2 text-[12px] text-ink/55">No supplier matches “{query.trim()}”.</p> : null}
+        </SearchHead>
+      }
+      doneNote="Tick a supplier, or one of their crew."
+      problem={problem ? <span role="alert">{problem}</span> : undefined}
+      onPick={(k) => {
+        const pick = forPickOf(k);
+        if (!pick || busy) return;
+        const key = forKey(pick);
+        const on = k.startsWith('n:') ? true : !picked.includes(key);
+        setProblem(null);
+        setBusy(true);
+        void doors.forSet(m.block_id, { for_key: key, on: on ? '1' : '0' }).then((r) => {
+          setBusy(false);
+          if (!r.ok) {
+            setProblem(r.error);
+            return;
+          }
+          setQuery('');
+          // The chapter's list says who is on each moment by supplier name — kept with the ticks.
+          const patchVendors = (ids: string[]) =>
+            onPatch({ vendor_ids: ids, who: ids.map((v) => who.suppliers.find((s) => s.id === v)?.name).filter(Boolean).join(', ') });
+          if (on && !m.vendor_ids.includes(pick.vendorId)) patchVendors([...m.vendor_ids, pick.vendorId]);
+          if (!on && pick.kind === 'supplier') patchVendors(m.vendor_ids.filter((v) => v !== pick.vendorId));
+          if (pick.kind !== 'crew' || tasks === null) return;
+          if (on) {
+            if (r.value && !tasks.some((t) => t.task_id === r.value)) {
+              onTasks([...tasks, rowOf(r.value, m.block_id, { who_kind: 'supplier', who_ref: pick.vendorId, crew: pick.crew }, m.label, null, null, 0)]);
+            }
+          } else {
+            const gone = new Set(r.value ? r.value.split(',') : crewLines(mine, pick.vendorId, pick.crew).map((t) => t.task_id));
+            onTasks(tasks.filter((t) => !gone.has(t.task_id)));
+          }
+        });
+      }}
+      data="moment-for"
+    />
   );
 }
 
@@ -679,23 +824,10 @@ function TaskEditor({
   const current = whoF ? whoKeyOf(rowOf('', '', whoF, '', null, null, 0)) : null;
   const whoText = whoF ? taskWhoWords(rowOf('', '', whoF, '', null, null, 0), names) : null;
   const head = (
-    <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5 dark:bg-raised/95">
-      <div className="relative">
-        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45" strokeWidth={2} />
-        <input
-          className="min-h-11 w-full rounded-xl border border-ink/15 bg-cream pl-9 pr-3 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none dark:bg-raised"
-          type="search"
-          inputMode="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a supplier, crew, role, group or person"
-          aria-label="Find who does it"
-          data-task-who-search=""
-        />
-      </div>
+    <SearchHead query={query} onQuery={setQuery} placeholder="Find a supplier, crew, role, group or person" label="Find who does it" data="data-task-who-search">
       {who.people === null ? <p className="px-3 pt-2 text-[12px] text-danger-700">Your guests and groups couldn’t be read just now — suppliers and names in words still work.</p> : null}
       {q && options.length === 1 ? <p className="px-3 pt-2 text-[12px] text-ink/55">Nobody matches “{query.trim()}” — add them in words below.</p> : null}
-    </li>
+    </SearchHead>
   );
   const placeShown = taskPlace({ place }, { ...m, block_id: m.block_id }, c);
   const callShown = callAt ? wallTime(callAt) : '';

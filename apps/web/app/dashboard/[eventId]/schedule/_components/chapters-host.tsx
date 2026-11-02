@@ -80,6 +80,8 @@ export type ChapterMoment = {
   is_public: boolean;
   /** "Lumina Studio" · "Bride's family, Alyssa" — the suppliers or party on it; '' for none. */
   who: string;
+  /** 👷 The suppliers it is for (`responsible_vendor_ids`) — "yours" on their day; Suppliers and crew ▾ ticks them. */
+  vendor_ids: string[];
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */

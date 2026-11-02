@@ -126,3 +126,16 @@ export function GuestImportForm({ action }: { action: Action }) {
     </form>
   );
 }
+
+/**
+ * 📥 THE IMPORT DOOR BEFORE DECEMBER 19 — the owner-shaped message in place of the upload (DECISION_LOG 2026-11-02
+ * "GUEST IMPORT OPENS DECEMBER 19"). The page draws it when `guestImportGate` refuses; `/dev/guests-lab?part=import`
+ * draws the same one.
+ */
+export function GuestImportWaits({ message }: { message: string }) {
+  return (
+    <p role="status" data-guest-import-opens="" className="text-[15px] leading-relaxed text-ink/80">
+      {message}
+    </p>
+  );
+}

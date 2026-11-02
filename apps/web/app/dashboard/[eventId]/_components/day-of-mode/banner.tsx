@@ -5,6 +5,7 @@ import { Radio, X } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { venueNowMs } from '@/lib/schedule';
 import { isTimeTba } from '@/lib/schedule-chapters';
+import { DAY_OF_SCHEDULE_UNREAD, ScheduleUnread } from './schedule-unread';
 
 type Block = {
   block_id: string;
@@ -18,6 +19,8 @@ type Block = {
 type Props = {
   eventId: string;
   blocks: Block[];
+  /** 🛑 The schedule read was refused — said, never "everything looks wrapped". */
+  failed?: boolean;
 };
 
 const DISMISS_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -45,7 +48,7 @@ export function locatePosition(blocks: Block[], now: number): Position {
   return { current, next };
 }
 
-export function DayOfModeBanner({ eventId, blocks }: Props) {
+export function DayOfModeBanner({ eventId, blocks, failed = false }: Props) {
   const [dismissed, setDismissed] = useState(false);
   const [tick, setTick] = useState(0);
 
@@ -99,7 +102,9 @@ export function DayOfModeBanner({ eventId, blocks }: Props) {
 
   // Build subdued copy.
   let subdued: string;
-  if (position.current) {
+  if (failed) {
+    subdued = DAY_OF_SCHEDULE_UNREAD;
+  } else if (position.current) {
     if (position.next) {
       const ms = new Date(position.next.start_at).getTime() - now;
       subdued = `Right now: ${position.current.label} · ${position.next.label} ${formatRelativeMs(ms)}`;
@@ -131,7 +136,7 @@ export function DayOfModeBanner({ eventId, blocks }: Props) {
         <p className="text-base font-semibold text-ink sm:text-lg">
           Event day mode is active
         </p>
-        <p className="truncate text-sm text-ink/65">{subdued}</p>
+        {failed ? <ScheduleUnread /> : <p className="truncate text-sm text-ink/65">{subdued}</p>}
       </div>
       <button
         type="button"

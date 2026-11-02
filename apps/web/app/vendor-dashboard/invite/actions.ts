@@ -23,6 +23,7 @@ import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -85,6 +86,11 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   // 🚪 DOOR 7a · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A Locked QR IS a booking the moment it
   // is scanned, so none is made while bookings are closed — a code that can only fail at the couple's scan helps nobody.
   if (!(await areBookingsOpen())) fail('bookings_closed');
+
+  // ✅ A LOCKED QR NEEDS A VERIFIED SHOP (supplier gate audit G8, 2026-11-02). The couple's scan books the shop, and
+  // the database refuses to book an unverified one (`enforce_booking_requires_verified_vendor`) — so a code issued
+  // here only failed later, at the couple's scan, with a generic error. Refused here instead, with what to do.
+  if (!(await isMarketplaceVendorBookable(supabase, vendorProfileId))) fail('not_verified');
 
   // Service picker is the vendor's own leaf offerings (vendor_services,
   // DB-driven, MULTI-select). Each ref is a vendor_service_id, or a

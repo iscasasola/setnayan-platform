@@ -275,7 +275,7 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
   // In Guests (2026-10-30 "ALWAYS FULL SCREEN") the stack sits just above the thumb row via --sn-thumb-room; elsewhere as before.
   assert.match(ed, /\$\{(?:inGuests \? '' : )?studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');
   /* Behaviour kept: the same handlers. */
-  assert.match(ed, /<StudioSeatPlanTools\s*onAutoArrange=\{runAutoArrange\}/);
+  assert.match(ed, /<StudioSeatPlanTools\s*onAutoArrange=\{askAutoArrange\}/);
   assert.match(ed, /onView=\{onSelectView\}/);
   const css = (await import('./studio-details')).studioFullScreenCss();
   assert.ok(css.includes('[data-details-item="seating"]) [data-details-editor-panel]{display:none}'), 'the lower third still takes the map’s space');

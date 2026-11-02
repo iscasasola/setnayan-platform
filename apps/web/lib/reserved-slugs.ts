@@ -214,6 +214,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'refunds',
   'reset-password',
   'samahan',
+  'sample',
   'schedule',
   'seat-plan',
   'setnayan-ai',

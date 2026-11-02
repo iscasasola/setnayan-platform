@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Clock, Eye, MessageSquarePlus, Plus, Trash2, Undo2 } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MessageSquarePlus, Plus, Trash2, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -22,6 +22,7 @@ import {
   type SupplierRequestRow,
 } from '@/lib/supplier-schedule';
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
+import { markDay } from '@/lib/supplier-schedule-marks';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -41,6 +42,8 @@ import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
  * host" · Take back) unless the host chose Auto-agree (ruled 1 Nov: Off by default) — the database holds the own-items
  * and linked-chapter rules (migration 20271300619930), so this screen says what is true, it is not the rule.
  * `Seen` on a change, and a final-week `Confirm my times`.
+ * 🔒 `Lock my times` (audit D7, owner: *"change lock (means the supplier cannot accept changes anymore)"*): while
+ * locked, the database refuses the host's changes to their moments and crew (20271303409352); their own asks still go.
  *
  * `lab` draws the same view with doors that write nothing (`/dev/supplier-lab?s=schedule`).
  */
@@ -66,7 +69,7 @@ function realSend(eventId: string): Send {
 
 const labSend: Send = () => new Promise((r) => setTimeout(() => r({ ok: true, outcome: 'waits' }), 250));
 
-type Marks = { seenAt: string | null; confirmedAt: string | null } | null;
+type Marks = { seenAt: string | null; confirmedAt: string | null; lockedAt?: string | null } | null;
 
 export function SupplierSchedule({
   eventId,
@@ -103,9 +106,11 @@ export function SupplierSchedule({
     | null
   >(null);
   const [said, setSaid] = useState<{ tone: 'ok' | 'bad'; words: string } | null>(null);
-  const [marking, setMarking] = useState<'seen' | 'confirm' | null>(null);
+  const [marking, setMarking] = useState<'seen' | 'confirm' | 'lock' | 'unlock' | null>(null);
   const [seenNow, setSeenNow] = useState(false);
   const [confirmedNow, setConfirmedNow] = useState(false);
+  // 🔒 The lock as THIS screen last set it (undefined = as the page read it) — a save never resets the screen.
+  const [lockedNow, setLockedNow] = useState<string | null | undefined>(undefined);
   const [takingBack, setTakingBack] = useState<string | null>(null);
 
   const after = (r: SupplierScheduleAnswer, okWords: string) => {
@@ -127,14 +132,21 @@ export function SupplierSchedule({
     c.moments.filter((m) => !m.mine).map((m) => ({ key: m.block_id, label: `${c.label} · ${m.label}${m.start_at ? ` · ${m.clock}` : ''}` })),
   );
   const confirmed = confirmedNow || Boolean(marks?.confirmedAt);
+  const lockedAt = lockedNow === undefined ? (marks?.lockedAt ?? null) : lockedNow;
 
-  const mark = async (what: 'seen' | 'confirm') => {
+  const mark = async (what: 'seen' | 'confirm' | 'lock' | 'unlock') => {
     setMarking(what);
     const r = await send({ request: what });
     setMarking(null);
     if (r.ok) {
       if (what === 'seen') setSeenNow(true);
-      else {
+      else if (what === 'lock') {
+        setLockedNow(new Date().toISOString());
+        setSaid({ tone: 'ok', words: 'Locked. The hosts must ask you before changing your part.' });
+      } else if (what === 'unlock') {
+        setLockedNow(null);
+        setSaid({ tone: 'ok', words: 'Unlocked. The hosts can change your part again.' });
+      } else {
         setConfirmedNow(true);
         setSeenNow(true);
         setSaid({ tone: 'ok', words: 'Confirmed. The host sees your times are final.' });
@@ -167,6 +179,24 @@ export function SupplierSchedule({
         </div>
       ) : confirmed ? (
         <p data-times-confirmed="" className="text-xs text-success-900">✓ You confirmed your times.</p>
+      ) : null}
+      {/* 🔒 CHANGE LOCK — one line: what is true now, the one verb, the rest in the ⓘ. */}
+      {marks !== null ? (
+        <div data-times-lock={lockedAt ? 'locked' : 'open'} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <InfoTip
+            label={lockedAt ? `Your times are locked${markDay(lockedAt) ? ` · ${markDay(lockedAt)}` : ''}` : 'Your times are open to changes'}
+            labelClassName={lockedAt ? 'font-semibold text-ink' : 'text-ink/70'}
+          >
+            {lockedAt
+              ? 'The hosts and the coordinator can’t change your moments or your crew while this is on. They send you a request instead. Your own requests still go to them. Unlock any time.'
+              : 'Lock your times when your part is final. After that, the hosts and the coordinator can’t change your moments or your crew — they send you a request instead. You can unlock any time.'}
+          </InfoTip>
+          {lockedAt ? (
+            <ActionButton tone="neutral" icon={LockOpen} label={marking === 'unlock' ? 'Unlocking…' : 'Unlock'} disabled={marking !== null} onClick={() => void mark('unlock')} data-testid="unlock-times" />
+          ) : (
+            <ActionButton tone="neutral" icon={Lock} label={marking === 'lock' ? 'Locking…' : 'Lock my times'} disabled={marking !== null} onClick={() => void mark('lock')} data-testid="lock-times" />
+          )}
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2">

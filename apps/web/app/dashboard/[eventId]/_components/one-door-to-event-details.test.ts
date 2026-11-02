@@ -108,7 +108,7 @@ test('2 · Home draws NO door to the Event Details page — at either width the 
   const card = renderToStaticMarkup(
     React.createElement(HomeCoverBand, {
       cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' },
-      countdown: { value: '51', label: 'days to go', line: null, href: countdownDoor('EVT123') },
+      countdown: { value: '51', days: 51, label: 'days to go', line: null, href: countdownDoor('EVT123') },
     }),
   );
   const doors = [...card.matchAll(/<a\b[^>]*href="([^"]*)"/g)].map((m) => m[1]);

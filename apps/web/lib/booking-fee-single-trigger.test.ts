@@ -88,6 +88,10 @@ const MINT_DOORS: Record<string, string[]> = {
   'lib/deposit-acknowledged-effects.server.ts': ['runDepositAcknowledgedEffects'],
   // The catch-up for handshakes that pre-date the move or whose mint failed.
   'lib/booking-fee-mint.server.ts': ['maybeCatchUpHandshakesWithoutFee'],
+  // The couple's Approve on a supplier who joined from their link (audit G4, 2026-11-02): it books the hand-added row,
+  // and a booked shop with no charge is locked out. Sits in the private `answerClaimAccess`, reached only through the
+  // exported `answerAccessRequest` (the one server action) — the enclosing export is what this scan names.
+  'app/dashboard/[eventId]/access-requests/actions.ts': ['answerAccessRequest'],
 };
 
 /** Strip comments — the three "no fee here any more" notes must not read as calls. */

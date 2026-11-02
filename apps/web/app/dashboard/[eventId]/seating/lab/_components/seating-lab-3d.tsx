@@ -984,6 +984,55 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     setCrowd(agents.length ? agents : null);
   }, [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles, tokenByGuest]);
 
+  /* 🧭 GUIDE ME (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 2 — *"3d only views and tests the guide
+     me to seat plan"*): the host picks a guest and watches them walk from the entrance to their seat — the guest venue's
+     own route (`seatApproachPath`, the same steering and hand-off as the walk-in above), one walker, the sit clip at the
+     chair. A look only: nothing is saved. */
+  const guideTo = useCallback(
+    (gid: string): boolean => {
+      const s = seats.get(gid);
+      const g = guestById.get(gid);
+      const table = s ? tablesById.get(s.tableId) : undefined;
+      if (!s || !g || !table) return false;
+      const chairDiscs = chairObstaclesForWalk(tables, room, { tableId: s.tableId, seatNumber: s.seatNumber });
+      const pose = seatWorld(table, s.seatNumber, room);
+      const handOff = approachPoint(pose, SIT_TIMING.APPROACH_M);
+      const walkAround = buildObstacleGrid([...floorObstacles(floor, tables, room, []), ...fixtureObstacles, ...chairDiscs]);
+      const path = seatApproachPath(entranceWorld, table, s.seatNumber, room, walkAround, 0.2);
+      path[path.length - 1] = handOff;
+      setCrowd(null);
+      setArrived(null);
+      setMode('play');
+      setWalker({ gid, name: g.name, path, tableId: s.tableId, seatNumber: s.seatNumber, seat: pose });
+      return true;
+    },
+    [seats, guestById, tablesById, room, floor, tables, entranceWorld, fixtureObstacles],
+  );
+  /* The guest card's "Watch them walk to it" lands here as `?guide=<guest>` — the walk starts once their seat is known. */
+  const guidedFromUrl = useRef(false);
+  useEffect(() => {
+    if (guidedFromUrl.current || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const gid = url.searchParams.get('guide');
+    if (!gid) {
+      guidedFromUrl.current = true;
+      return;
+    }
+    if (!guideTo(gid)) return;
+    guidedFromUrl.current = true;
+    url.searchParams.delete('guide');
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, [guideTo]);
+  const guideOptions = useMemo(
+    () =>
+      [...seats.keys()]
+        .map((gid) => guestById.get(gid))
+        .filter((g): g is NonNullable<typeof g> => Boolean(g) && seatStatusOf(g!.rsvp) !== 'hidden')
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((g) => ({ key: g.id, label: `${g.name} · ${tablesById.get(seats.get(g.id)!.tableId)?.label ?? 'their table'}` })),
+    [seats, guestById, tablesById],
+  );
+
   // A single walk-in that has finished its SIT CLIP (arrived now means
   // flush-seated — Walker's onArrive fires from the SitController's onSeated)
   // holds the toast beat, then clears the walker: the controller unmounts (its
@@ -1379,6 +1428,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         canWalkEveryone={seatedCount > 0}
         onWalkEveryone={walkEveryone}
         onClearCrowd={() => setCrowd(null)}
+        guide={{ options: guideOptions, onPick: (gid) => void guideTo(gid), active: walker?.gid ?? null }}
         dancingCount={dancers.length}
         onClearFloor={clearFloor}
         sayHi={

@@ -34,6 +34,17 @@ import { areBookingsOpen } from '@/lib/bookings-open.server';
  *                              handshake flag is off) it is the FIRST one.
  *   · `catch_up`             — the render-time sweep below, for a handshake
  *                              made before this shipped, or whose mint failed.
+ *   · `claim_approved`       — the couple's Approve on a supplier who joined from
+ *                              their own link (`answer_claim_access_request`).
+ *                              The approval books their hand-added row and links
+ *                              the shop, and no door used to make a fee for it —
+ *                              so with "no charge" locking a booked shop, the
+ *                              supplier the couple had just let in was locked out
+ *                              of the event (supplier gate audit G4, 2026-11-02).
+ *                              The ordinary rules decide the charge: a supplier the
+ *                              couple brought is `waived_import`; one Setnayan
+ *                              introduced is sourced (first five waived). The
+ *                              sweep below re-makes it too, through this door.
  * `lib/booking-fee-single-trigger.test.ts` keeps the collector to this file and
  * the door set to exactly these.
  *
@@ -60,7 +71,8 @@ export type BookingFeeMintDoor =
   | 'supplier_yes'
   | 'locked_qr_claim'
   | 'deposit_acknowledged'
-  | 'catch_up';
+  | 'catch_up'
+  | 'claim_approved';
 
 /**
  * 🚪 The doors that make NOTHING while bookings are closed (owner 2026-11-02, `lib/bookings-open.ts`) — each is a
@@ -277,10 +289,41 @@ export async function maybeCatchUpHandshakesWithoutFee(userId: string): Promise<
       claimedBooked = ((rows ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id);
     }
 
+    // 🔗 A couple's Approve on a supplier who joined from their link (door `claim_approved`). The approval
+    // stamps the booking it landed on onto the ask (`event_access_requests.event_vendor_id`); a still-booked,
+    // unarchived row with no charge is one whose mint failed, or one approved before this door existed.
+    const { data: asks, error: askErr } = await admin
+      .from('event_access_requests')
+      .select('event_vendor_id')
+      .in('vendor_profile_id', profileIds)
+      .eq('kind', 'claim')
+      .eq('status', 'answered')
+      .eq('decisions->>access', 'granted')
+      .not('event_vendor_id', 'is', null)
+      .limit(CATCH_UP_SCAN_LIMIT);
+    if (askErr) logQueryError('booking-fee-mint.catchUp.claimAsks', askErr);
+    const askIds = ((asks ?? []) as Array<{ event_vendor_id: string | null }>)
+      .map((a) => a.event_vendor_id)
+      .filter((id): id is string => !!id);
+    let approvedBooked: string[] = [];
+    if (askIds.length > 0) {
+      const { data: rows, error } = await admin
+        .from('event_vendors')
+        .select('vendor_id')
+        .in('vendor_id', askIds)
+        .in('marketplace_vendor_id', profileIds)
+        .in('status', [...BOOKED_STATUSES])
+        .is('archived_at', null);
+      if (error) logQueryError('booking-fee-mint.catchUp.claimRows', error);
+      approvedBooked = ((rows ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id);
+    }
+    const approvedSet = new Set(approvedBooked);
+
     const candidates = Array.from(
       new Set([
         ...((agreed ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
         ...claimedBooked,
+        ...approvedBooked,
       ]),
     );
     if (candidates.length === 0) return;
@@ -308,7 +351,10 @@ export async function maybeCatchUpHandshakesWithoutFee(userId: string): Promise<
       if (charged.has(eventVendorId)) continue;
       if (runs >= CATCH_UP_MAX_MINTS) break;
       runs += 1;
-      await mintBookingFeeForBooking(admin, { eventVendorId, door: 'catch_up' });
+      await mintBookingFeeForBooking(admin, {
+        eventVendorId,
+        door: approvedSet.has(eventVendorId) ? 'claim_approved' : 'catch_up',
+      });
     }
   } catch (e) {
     console.error('[booking-fee-mint] catch-up sweep failed:', e);

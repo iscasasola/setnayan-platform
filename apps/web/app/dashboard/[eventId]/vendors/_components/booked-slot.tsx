@@ -28,26 +28,25 @@ import { readOpenDateChange } from '@/lib/date-change.server';
 import { ROOM_SIZE_GROUPS, bookedView, type BookedFacts } from '@/lib/booked-rows';
 import type { TeamRow } from '@/lib/your-team-rows';
 import { BookedBody } from './booked-body';
-import type { PillarPart } from '@/lib/pillar-parts';
 
 export async function BookedSlot({
   eventId,
   rows,
   facts,
   scheduleShared = true,
-  parts,
+  firstOpen = null,
 }: {
   eventId: string;
   /** `teamRows(...)` — every group; the body draws the asked and the booked. */
   rows: readonly TeamRow[];
   facts: readonly BookedFacts[];
-  /** Booked's parts — Team · Budget · Schedule (`bookedParts`), the body's first-row dropdown. */
-  parts: readonly PillarPart[];
   /**
    * The viewer may read the Schedule (a delegate the host set to Off reads no moments). Off → the call-time line is
    * not drawn at all, rather than "No call time yet" over moments they simply cannot see.
    */
   scheduleShared?: boolean;
+  /** 🔗 Open on this supplier's row (`?team=`) — the invite nudge lands on their claim door. */
+  firstOpen?: string | null;
 }) {
   const supabase = await createClient();
   const bookedIds = rows.filter((r) => r.group === 'booked').map((r) => r.vendorId);
@@ -82,5 +81,5 @@ export async function BookedSlot({
   });
   // The Budget is its own page (Team · Budget · Schedule, owner 2026-10-29; Home's page since 2026-11-01), a door in
   // the body's "Team ▾" — so the small block that sat under the rows is not drawn here.
-  return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} parts={parts} />;
+  return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} firstOpen={firstOpen} />;
 }

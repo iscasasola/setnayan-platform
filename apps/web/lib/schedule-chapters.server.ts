@@ -1,4 +1,5 @@
 import 'server-only';
+import { contactFrom, contactsByTask, type TaskContact } from '@/lib/task-contact';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
 import {
@@ -81,6 +82,46 @@ export async function readMomentTasks(supabase: SupabaseClient, eventId: string)
     return { ok: false };
   }
   return { ok: true, value: data as unknown as TaskRow[] };
+}
+
+/**
+ * 📇 Every task contact the caller may read on the event (4 additions (3), migration 20271303218631) — ONE read, by task.
+ * The database decides who sees what: the couple and schedule helpers see all; a booked supplier only those on moments
+ * they are on. A refused read is `{ ok: false }` (the sheet says so), never "no contacts".
+ */
+export async function readTaskContacts(supabase: SupabaseClient, eventId: string): Promise<Read<Record<string, TaskContact>>> {
+  const { data, error } = await supabase.from('event_schedule_task_contacts').select('task_id, name, phone').eq('event_id', eventId);
+  if (error || !data) {
+    if (error) logQueryError('readTaskContacts', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  return { ok: true, value: Object.fromEntries(contactsByTask(data as { task_id: string; name: string; phone: string }[])) };
+}
+
+/**
+ * 📇 Keep or remove one task's contact, on the caller's own client (RLS: the couple, or a helper with Edit on the
+ * Schedule). Both blank removes it. Every write reads back what it changed — a refusal is said, never "saved".
+ */
+export async function setTaskContact(supabase: SupabaseClient, taskId: string, name: string, phone: string, userId: string | null): Promise<Wrote> {
+  const parsed = contactFrom(name, phone);
+  if (!parsed.ok) return parsed;
+  if (!parsed.contact) {
+    const { error } = await supabase.from('event_schedule_task_contacts').delete().eq('task_id', taskId);
+    if (error) {
+      logQueryError('setTaskContact.remove', error, { task_id: taskId }, 'graceful_degrade');
+      return { ok: false, error: NOTHING_CHANGED };
+    }
+    return { ok: true, value: '' };
+  }
+  const { data, error } = await supabase
+    .from('event_schedule_task_contacts')
+    .upsert({ task_id: taskId, name: parsed.contact.name, phone: parsed.contact.phone, created_by: userId }, { onConflict: 'task_id' })
+    .select('task_id');
+  if (error || !data || data.length === 0) {
+    if (error) logQueryError('setTaskContact', error, { task_id: taskId }, 'graceful_degrade');
+    return { ok: false, error: 'The contact didn’t save — this account cannot edit the schedule, or the task is gone.' };
+  }
+  return { ok: true, value: taskId };
 }
 
 /** Add one task to a moment. The database derives its event from the moment and refuses a who on another event. */
@@ -208,6 +249,12 @@ export async function runMomentOp(
     const taskId = fd.get('task_id');
     if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'That task is gone.' };
     return deleteMomentTask(supabase, taskId);
+  }
+  if (op === 'contact_set') {
+    // 📇 A task's contact (4 additions (3)): a name and a phone, or both blank to remove it.
+    const taskId = fd.get('task_id');
+    if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'Save the task first.' };
+    return setTaskContact(supabase, taskId, String(fd.get('contact_name') ?? ''), String(fd.get('contact_phone') ?? ''), userId);
   }
   const eventId = String(fd.get('event_id') ?? '');
   if (op === 'for_set') {

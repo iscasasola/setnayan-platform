@@ -119,7 +119,7 @@ import { formatCount } from '@/lib/format-number';
 import { AnnounceButton, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
-import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, readTaskPeople } from '@/lib/schedule-chapters.server';
 import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
@@ -219,7 +219,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, contactRead] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -258,6 +258,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     /* 🚶 The couple's own marches, for a moment's "This is a march" (migration 20271301571290) — in the same round. A
        refused read is kept as a failure and said on the row, never "no marches". */
     inMaker ? Promise.resolve(null) : readMarchList(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 📇 Each task's contact — a name and a phone (4 additions (3), migration 20271303218631) — in the same round. A
+       refused read is kept as a failure: the task says so, never "no contact". */
+    inMaker ? Promise.resolve(null) : readTaskContacts(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -682,6 +685,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               ),
             venues: [],
             tasks: taskRead?.ok ? taskRead.value : null,
+            contacts: contactRead?.ok ? contactRead.value : null,
             who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
             marches: marchRead ?? { ok: false },
             wholeMarch: wholeMarchLabel(eventRow?.event_type),

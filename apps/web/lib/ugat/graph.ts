@@ -2676,6 +2676,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'event_supplier_schedule_marks' },
       { kind: 'fk', table: 'event_supplier_schedule_marks', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'events', column: 'supplier_requests_auto_agree' },
+      // 📇 A task's contact (20271303218631) — a name and phone for someone who is not a supplier (the bridal-car
+      // driver). Its own table, read only by the host, the coordinator and that moment's crew.
+      { kind: 'table', table: 'event_schedule_task_contacts' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'task_id', references: 'event_schedule_tasks' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'block_id', references: 'event_schedule_blocks' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
@@ -2685,7 +2690,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times in event_supplier_schedule_marks; guest_chapter_replies answers a chapter on the invitation',
     writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER) · a supplier\u2019s request, applied by the host\u2019s one accept path (lib/schedule-suggestion-decide.server.ts) or at once under events.supplier_requests_auto_agree · supplier_mark_schedule / withdraw_schedule_request (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
-    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too (and each task's event_schedule_task_contacts row with it). event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
   {
     /**

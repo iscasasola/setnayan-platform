@@ -17,6 +17,7 @@
  * Nothing here reads or writes the database: the page reads, `lib/schedule-suggestion-decide.server.ts` applies.
  */
 
+import type { TaskContact } from './task-contact';
 import { TIME_TBA, VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -137,6 +138,9 @@ export type SupplierRequestRow = {
   created_at: string;
 };
 
+/** 📇 A task contact the supplier may read (RLS: only on moments they are on) — 4 additions (3). */
+export type SupplierContactRow = { task_id: string; block_id: string; name: string; phone: string };
+
 /** A task row as the supplier reads it — only the who and what of their own crews matter here. */
 export type SupplierTaskRow = { block_id: string; vendor_id: string | null; crew: string | null };
 
@@ -154,6 +158,8 @@ export type SupplierMoment = {
   optional: boolean;
   /** Their crews on it (from the moment's tasks), in the order written. */
   crew: string[];
+  /** 📇 Contacts on this moment's tasks (the bridal-car driver) — only on a moment they are on (the database decides). */
+  contacts: TaskContact[];
   /** Their own request on it still waiting (an edit or a delete), if any. */
   waiting: SupplierRequestRow | null;
 };
@@ -198,7 +204,11 @@ export function buildSupplierDay(input: {
   myBookingIds: readonly string[];
   tasks: readonly SupplierTaskRow[];
   requests: readonly SupplierRequestRow[];
+  /** 📇 Task contacts RLS let them read; absent = none read. */
+  contacts?: readonly SupplierContactRow[];
 }): SupplierDay {
+  const contactsByBlock = new Map<string, TaskContact[]>();
+  for (const c of input.contacts ?? []) contactsByBlock.set(c.block_id, [...(contactsByBlock.get(c.block_id) ?? []), { name: c.name, phone: c.phone }]);
   const mine = new Set(input.myBookingIds);
   const isMine = (b: SupplierBlockRow) => b.responsible_vendor_ids.some((id) => mine.has(id));
   const open = input.requests.filter((r) => r.status === 'open');
@@ -246,6 +256,7 @@ export function buildSupplierDay(input: {
         mine: own,
         optional: m.is_optional,
         crew: crewByBlock.get(m.block_id) ?? [],
+        contacts: contactsByBlock.get(m.block_id) ?? [],
         waiting: own ? (open.find((r) => r.block_id === m.block_id && r.kind !== 'new') ?? null) : null,
       };
     });

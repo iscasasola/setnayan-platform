@@ -53,6 +53,7 @@ import {
   type TaskRow,
 } from '@/lib/schedule-chapters';
 import type { ViewAsInput } from '@/lib/schedule-view-as';
+import type { TaskContact } from '@/lib/task-contact';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
@@ -99,6 +100,8 @@ export type ChaptersInput =
       moments: ChapterMoment[];
       /** Every moment's parallel tasks; null = the read failed (the moment sheet says so, never "no tasks"). */
       tasks: TaskRow[] | null;
+      /** 📇 Each task's contact by task id (4 additions (3)); null = the read failed (said, never "no contact"). */
+      contacts: Record<string, TaskContact> | null;
       /** Who a task can name. */
       who: Omit<TaskWhoList, 'crews'>;
       /** 🚶 The couple's own marches (Guests › March) for "This is a march"; `ok: false` = unread (said). */
@@ -164,6 +167,7 @@ export function ChaptersHost({
   const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
   const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
   const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
+  const [contacts, setContacts] = useState<Record<string, TaskContact> | null>(input.measured ? input.contacts : null);
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
@@ -178,6 +182,7 @@ export function ChaptersHost({
     setChapters(input.chapters);
     setMoments(input.moments);
     setTasks(input.tasks);
+    setContacts(input.contacts);
     setMarches(input.marches);
   }, [input]);
   const who = useMemo<TaskWhoList>(() => {
@@ -333,6 +338,15 @@ export function ChaptersHost({
           chapters={chapters}
           moments={moments}
           tasks={tasks}
+          contacts={contacts}
+          onContact={(taskId, c) =>
+            setContacts((all) => {
+              const next = { ...(all ?? {}) };
+              if (c) next[taskId] = c;
+              else delete next[taskId];
+              return next;
+            })
+          }
           who={who}
           mayShowGuests={input.mayInvite}
           marches={marches}

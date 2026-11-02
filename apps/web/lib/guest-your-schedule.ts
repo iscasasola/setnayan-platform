@@ -25,6 +25,7 @@
  *
  * Pure: no I/O, no React, no clock. The read is `app/[slug]/_lib/your-schedule.server.ts`; the card `app/[slug]/_components/your-schedule-card.tsx`.
  */
+import type { TaskContact } from './task-contact';
 import {
   TIME_TBA,
   chapterWhere,
@@ -78,9 +79,22 @@ export type YourScheduleInput = {
   pro: boolean;
   /** A plain guest's Arrive by — the invitation's own (`guestsArriveTime`), "4:45 PM"; null when none is set. */
   guestsArriveBy: string | null;
+  /**
+   * 📇 Task contacts on the event (4 additions (3)) — shown ONLY on the lines of moments this guest has a task on (they
+   * are that moment's crew); never on an everyone line, never in the shared text.
+   */
+  contacts?: readonly { block_id: string; name: string; phone: string }[];
 };
 
-export type YourLine = { id: string; time: string; title: string; sub: string | null; mine: boolean };
+export type YourLine = {
+  id: string;
+  time: string;
+  title: string;
+  sub: string | null;
+  mine: boolean;
+  /** 📇 How to reach someone on this moment (the bridal-car driver) — only on their own moments. */
+  contacts?: TaskContact[];
+};
 export type YourChapter = { id: string; name: string; line: string; lines: YourLine[] };
 export type YourCall = {
   /** "Your call time" · "Estimated call time" · "Arrive by". */
@@ -217,6 +231,9 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
       if (!isOnTheGuestsSchedule({ is_public: m.is_public, audience: m.audience, visibility: m.staged ? 'coordinator_only' : null })) continue;
       lines.set(m.block_id, { id: m.block_id, at: m.start_at, time: c.time_tba ? TIME_TBA : clockWords(m.start_at), title: m.label, sub: null, mine: false });
     }
+    // 📇 The contacts on a moment this guest is ON (4 additions (3)) — they are that moment's crew.
+    const contactsOn = (blockId: string): TaskContact[] =>
+      (i.contacts ?? []).filter((k) => k.block_id === blockId).map((k) => ({ name: k.name, phone: k.phone }));
     // Mine: on their moment's line (what they do there under it), at their own time when they have one.
     for (const x of mine) {
       if (x.chapter.block_id !== c.block_id) continue;
@@ -227,9 +244,9 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
       const sub = x.moment ? x.task.what : null;
       if (had) {
         const subs = [had.sub, sub].filter((s): s is string => Boolean(s && s !== had.title));
-        lines.set(key, { ...had, at: at < had.at ? at : had.at, time: c.time_tba ? TIME_TBA : clockWords(at < had.at ? at : had.at), sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
+        lines.set(key, { ...had, ...(x.moment ? { contacts: contactsOn(x.moment.block_id) } : {}), at: at < had.at ? at : had.at, time: c.time_tba ? TIME_TBA : clockWords(at < had.at ? at : had.at), sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
       } else {
-        lines.set(key, { id: key, at, time: c.time_tba ? TIME_TBA : clockWords(at), title, sub: sub && sub !== title ? sub : null, mine: true });
+        lines.set(key, { id: key, ...(x.moment ? { contacts: contactsOn(x.moment.block_id) } : {}), at, time: c.time_tba ? TIME_TBA : clockWords(at), title, sub: sub && sub !== title ? sub : null, mine: true });
       }
     }
     const sorted = [...lines.values()].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map(({ at: _at, ...l }) => l);

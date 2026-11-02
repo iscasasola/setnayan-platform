@@ -891,7 +891,7 @@ export type PlanningProgress = {
   /** Open rows due within seven days, the overdue ones included. */
   dueThisWeek: number;
   /** The open rows soonest first (undated last) — `id` is the row's address (`planningRowId`). */
-  next: Array<{ id: string; title: string; dueDate: string | null; daysUntilDue: number | null; tick: { kind: 'task' | 'manual'; id: string } | null }>;
+  next: Array<{ id: string; title: string; dueDate: string | null; daysUntilDue: number | null }>;
 };
 
 function isoOf(d: Date | null): string | null {
@@ -920,14 +920,6 @@ export function planningProgress(items: ReadonlyArray<PreparationItem>, limit = 
       title: t.title,
       dueDate: t.dateIso ?? isoOf(t.date),
       daysUntilDue: t.daysFromNow,
-      // ✅ The row Planning Stage's tick writes (`PlanningTick`): a task's checklist row or a hand-added step — the same
-      // rule as `preparation-agenda.tsx`'s tickId; null = a computed step with no row (Home opens it instead).
-      tick:
-        t.source === 'task' && t.taskItemId
-          ? { kind: 'task' as const, id: t.taskItemId }
-          : t.source === 'manual' && t.itemId
-            ? { kind: 'manual' as const, id: t.itemId }
-            : null,
     })),
   };
 }

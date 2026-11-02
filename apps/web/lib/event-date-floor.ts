@@ -122,3 +122,19 @@ export function eventDateMinFor(today: string, exempt: boolean): string {
   if (exempt) return today;
   return today > FIRST_EVENT_DAY ? today : FIRST_EVENT_DAY;
 }
+
+/* ── 📥 GUEST IMPORT OPENS DECEMBER 19 (owner 2026-11-02, DECISION_LOG "GUEST IMPORT OPENS DECEMBER 19, LIKE EVENT
+   CREATION": *"importing guests will happen on december 19."* · *"just like event creation"*) ─────────────────────
+   The same fixed day and the same message shape as the event floor above — a constant, never a setting. Before it, a
+   normal account's guest import is refused on the server and the import door says so; the founders' accounts
+   (`is_internal`) import now. Held by `guest-import-opens-dec-19.test.ts`. */
+
+/** What the import door says before the day — the event floor's own words, for importing. */
+export const GUEST_IMPORT_OPENS_MESSAGE =
+  "Thank you for planning with Setnayan! Our very first event is our founders' wedding on December 18, 2026 — and we'd love for them to open the doors. Importing guests from a file opens on December 19, 2026. Until then, add your guests one at a time, and your file will be ready for that day.";
+
+/** The one rule: the owner's message when an import must wait, null when it may go ahead. `today` is YYYY-MM-DD (Manila). */
+export function guestImportRefusal(today: string, exempt: boolean): string | null {
+  if (exempt) return null;
+  return today < FIRST_EVENT_DAY ? GUEST_IMPORT_OPENS_MESSAGE : null;
+}

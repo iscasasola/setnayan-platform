@@ -348,12 +348,29 @@ function ExpenseSheet({
   // What the next save will send — a ref, so a debounced save reads the latest keystroke.
   const draft = useRef({ amount, paid });
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+  const mounted = useRef(true);
+  /**
+   * 💾 A typed edit still waiting on its debounce is SENT, never dropped, when the sheet closes (audit 2026-11-02 #7:
+   * closing within 600 ms used to clear the timer and lose the last edit). Held by `the-last-edit-survives-close.test.ts`.
+   */
+  const flush = () => {
+    if (!timer.current) return;
+    clearTimeout(timer.current);
+    timer.current = null;
+    void save();
+  };
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the unmount flush reads refs only
+  }, []);
+  const close = () => {
+    flush();
+    onClose();
+  };
 
   async function save() {
     const amountPhp = parsePesos(draft.current.amount);
@@ -377,6 +394,11 @@ function ExpenseSheet({
       error = 'Could not save that — please try again.';
     }
     if (mine !== seq.current) return; // a newer save owns the verdict
+    // Closed while it saved: the sheet's line is gone, so a refusal is said where it can still be seen.
+    if (!mounted.current) {
+      if (error) toast.error(`${expense.name} not saved — ${error}`);
+      return;
+    }
     if (error) {
       setSaid({ tone: 'bad', text: `Not saved — ${error}` });
       return;
@@ -390,11 +412,15 @@ function ExpenseSheet({
     draft.current = { ...draft.current, [field]: value };
     setSaid(null);
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => void save(), EDIT_DEBOUNCE_MS);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      void save();
+    }, EDIT_DEBOUNCE_MS);
   }
 
   async function remove() {
     if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
     setBusy(true);
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -416,7 +442,7 @@ function ExpenseSheet({
   }
 
   return (
-    <Sheet open onClose={onClose} labelledById={titleId} rise>
+    <Sheet open onClose={close} labelledById={titleId} rise>
       <div className={`${styles.page} ${styles.sheet}`} data-budget-sheet="expense">
         <h3 id={titleId}>{expense.name}</h3>
         <div className={styles.sheetSub}>Edits save as you type.</div>

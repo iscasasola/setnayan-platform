@@ -23,6 +23,7 @@ import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
 import { APPROVE_ALL_MAX, computeRetimePatches } from '@/lib/schedule-ros';
 // ✅ The ONE accept path — Approve, Approve all and Auto-agree all run it (moved to lib in Step 4b).
 import { NOTHING_CHANGED, decideSuggestion } from '@/lib/schedule-suggestion-decide.server';
+import type { ScheduleRequestAnswer } from '@/lib/schedule-request-answer';
 import {
   FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
@@ -141,6 +142,8 @@ function revalidateScheduleUnlessMaker(eventId: string, formData: FormData): voi
   if (makerQuietWrite(formData)) return;
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
+  // Booked › Schedule draws the same page at /vendors?part=schedule.
+  revalidatePath(`/dashboard/${eventId}/vendors`);
 }
 
 export async function createScheduleBlock(formData: FormData) {
@@ -405,8 +408,13 @@ export async function updateScheduleBlock(formData: FormData) {
   if (momentOp !== null) {
     if (!isMomentOp(momentOp)) throw new Error('Invalid input');
     // 🚶 "This is a march" (migration 20271301571290): the moment names a march, or a new one is made for it.
-    if (momentOp === 'march_set' || momentOp === 'march_new') return runMomentMarch(supabase, momentOp, eventId, blockId, formData);
-    return runMomentOp(supabase, momentOp, blockId, formData, user.id);
+    const answer =
+      momentOp === 'march_set' || momentOp === 'march_new'
+        ? await runMomentMarch(supabase, momentOp, eventId, blockId, formData)
+        : await runMomentOp(supabase, momentOp, blockId, formData, user.id);
+    // 🔄 A task or a march that saved refreshes every page that reads the day (a read — the Papic count — does not).
+    if (answer.ok && momentOp !== 'papic_count') revalidateScheduleUnlessMaker(eventId, formData);
+    return answer;
   }
 
   type Patch = {
@@ -771,13 +779,21 @@ export async function generateEmceeScript(
  * sides: the suggestion UPDATE policy + the block write policies admit the
  * couple and delegates holding schedule edit, nobody else.
  */
-/** Approve, Noted or Decline ONE suggestion — the Requests sheet's form action (the path: `decideSuggestion`). */
-export async function resolveScheduleSuggestion(formData: FormData) {
+/**
+ * Approve, Noted or Decline ONE suggestion — the Requests sheet's door (the path: `decideSuggestion`).
+ * 🔁 SAVES IN PLACE (audit 2026-11-02 #15): it ANSWERS (`ScheduleRequestAnswer`) and never redirects — a redirect closed
+ * the sheet after every press and sent a refusal to the error page. Held by `the-requests-sheet-saves-in-place.test.ts`.
+ */
+export async function resolveScheduleSuggestion(formData: FormData): Promise<ScheduleRequestAnswer> {
   // ✅ Approve all rides this one action (decision=accept_all) — no new export: every exported action is a Vercel
   // route, and that budget is full (`scripts/lint-server-action-budget.mjs`).
   if (formData.get('decision') === 'accept_all') return approveAllScheduleSuggestions(formData);
-  // 🤝 Auto-agree (Event Details › Event access) rides this action too — the same budget reason.
-  if (formData.get('decision') === 'auto_agree') return setSupplierAutoAgree(formData);
+  // 🤝 Auto-agree (Event Details › Event access) rides this action too — the same budget reason. It still throws on a
+  // refusal (its row catches that and says so).
+  if (formData.get('decision') === 'auto_agree') {
+    await setSupplierAutoAgree(formData);
+    return { ok: true };
+  }
   await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const suggestionId = formData.get('suggestion_id');
@@ -796,12 +812,24 @@ export async function resolveScheduleSuggestion(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  if ((await decideSuggestion(supabase, user.id, eventId, suggestionId, decision)) === 'gone') {
-    redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+  try {
+    await decideSuggestion(supabase, user.id, eventId, suggestionId, decision);
+  } catch (e) {
+    console.error('[resolveScheduleSuggestion] refused', e instanceof Error ? e.message : e, { event_id: eventId });
+    return { ok: false, error: requestRefusalWords(e, decision) };
   }
+  // Already answered elsewhere (another host, Auto-agree) — the list is refreshed so it leaves the sheet; nothing failed.
+  revalidateScheduleUnlessMaker(eventId, formData);
+  return { ok: true };
+}
 
-  revalidatePath(`/dashboard/${eventId}/schedule`);
-  redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+/** A refusal in words the host can act on — the door's own sentence when it wrote one, else what did not happen. */
+function requestRefusalWords(e: unknown, decision: 'accept' | 'decline'): string {
+  const said = e instanceof Error ? e.message.trim() : '';
+  if (said && said.length <= 200 && !/violates|duplicate key|syntax|relation|column|permission denied|PGRST/i.test(said)) return said;
+  return decision === 'accept'
+    ? 'That change wasn’t approved — nothing on your schedule moved. Try again.'
+    : 'That wasn’t declined — try again.';
 }
 
 /**
@@ -812,7 +840,7 @@ export async function resolveScheduleSuggestion(formData: FormData) {
  * (decision=accept_all). A refused one does not stop the rest; the count of
  * refused ones is said, never the look of success.
  */
-async function approveAllScheduleSuggestions(formData: FormData) {
+async function approveAllScheduleSuggestions(formData: FormData): Promise<ScheduleRequestAnswer> {
   await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const ids = [...new Set(formData.getAll('suggestion_id').filter((v): v is string => typeof v === 'string' && v.length > 0))];
@@ -833,13 +861,14 @@ async function approveAllScheduleSuggestions(formData: FormData) {
       console.error('[approveAllScheduleSuggestions] one change was refused', e instanceof Error ? e.message : e, { event_id: eventId });
     }
   }
-  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidateScheduleUnlessMaker(eventId, formData);
   if (refused > 0) {
-    throw new Error(
-      `${refused} of ${ids.length} change${ids.length === 1 ? '' : 's'} could not be approved — the rest are on your schedule. Open Requests to try those again.`,
-    );
+    return {
+      ok: false,
+      error: `${refused} of ${ids.length} change${ids.length === 1 ? '' : 's'} could not be approved — the rest are on your schedule. Try those again.`,
+    };
   }
-  redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+  return { ok: true };
 }
 
 /**

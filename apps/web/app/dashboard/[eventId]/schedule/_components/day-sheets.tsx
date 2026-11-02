@@ -26,6 +26,8 @@ import {
 } from '@/lib/schedule-rail';
 import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { REQUEST_NOT_SENT, requestAnswerOf } from '@/lib/schedule-request-answer';
+import { RequestDecision } from './request-decision';
 import type { DayMoment, DayRequest } from './day-types';
 import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
 import { ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
@@ -522,6 +524,7 @@ export function RequestsSheet({
   moments: DayMoment[];
 }) {
   const { resolveScheduleSuggestion } = useDayActions();
+  const [allProblem, setAllProblem] = useState<string | null>(null);
   const byId = new Map(moments.map((m) => [m.block_id, m]));
   /* ✅ APPROVE ALL (owner 2026-11-01) — every CHANGE on this sheet, never a suggestion in words; only from 2. */
   const together = approvableTogether(requests);
@@ -587,32 +590,9 @@ export function RequestsSheet({
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
                   {r.proposed_crew?.length ? <p className="mt-1 text-[12.5px] text-ink/60">Their crew: {r.proposed_crew.join(', ')}</p> : null}
                   <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
-                  <div className="mt-3.5 flex justify-end gap-2">
+                  <div className="mt-3.5">
                     {/* A suggestion in WORDS changes nothing to approve or decline — the host says they read it. */}
-                    {isNoteOnlySuggestion(r) ? null : (
-                    <form action={resolveScheduleSuggestion}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
-                      <input type="hidden" name="decision" value="decline" />
-                      <SubmitButton
-                        pendingLabel="Declining…"
-                        className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15"
-                      >
-                        Decline
-                      </SubmitButton>
-                    </form>
-                    )}
-                    <form action={resolveScheduleSuggestion}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
-                      <input type="hidden" name="decision" value="accept" />
-                      <SubmitButton
-                        pendingLabel={isNoteOnlySuggestion(r) ? 'Saving…' : 'Approving…'}
-                        className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
-                      >
-                        {isNoteOnlySuggestion(r) ? 'Noted' : 'Approve'}
-                      </SubmitButton>
-                    </form>
+                    <RequestDecision eventId={eventId} suggestionId={r.suggestion_id} noteOnly={isNoteOnlySuggestion(r)} decide={resolveScheduleSuggestion} />
                   </div>
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
                     {r.kind === 'new'
@@ -638,8 +618,23 @@ export function RequestsSheet({
           className="sticky bottom-0 flex justify-end bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]"
           data-approve-all={together.length}
         >
+          {allProblem ? (
+            <p role="alert" className="mr-3 self-center text-[13px] font-semibold text-danger-700" data-approve-all-problem="">
+              {allProblem}
+            </p>
+          ) : null}
           <ConfirmForm
-            action={resolveScheduleSuggestion}
+            action={async (fd) => {
+              setAllProblem(null);
+              let raw: unknown;
+              try {
+                raw = await resolveScheduleSuggestion(fd);
+              } catch {
+                raw = { ok: false, error: REQUEST_NOT_SENT };
+              }
+              const answer = requestAnswerOf(raw);
+              if (!answer.ok) setAllProblem(answer.error);
+            }}
             title={`Approve all ${formatCount(together.length)}?`}
             confirmLabel={`Approve all ${formatCount(together.length)}`}
             destructive={removals > 0}

@@ -20,7 +20,7 @@ import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
-import { homeToday, type HomeControlInput } from './home-control-faces';
+import { homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
@@ -209,7 +209,7 @@ export function HomeFirstScreen({
   prints = false,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
-  const today = homeToday(next, control.guests);
+  const today = homeToday(next, control.guests, homeWaiting(control));
   return (
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own

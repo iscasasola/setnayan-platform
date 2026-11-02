@@ -66,7 +66,9 @@ import type { ComponentType } from 'react';
 import { AutosaveForm } from './guest-card-autosave';
 import { TEMPLATE_KIT } from './guest-card-template-kit';
 import { GuestAccessControl } from './guest-access-control';
-import { accessWordFor } from '@/lib/guest-access';
+import { GuestSeatDoors } from './guest-seat-doors';
+import { FormRow } from '@/app/_components/form-row';
+import { accessWordFor, cardAccessView } from '@/lib/guest-access';
 import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
@@ -421,7 +423,7 @@ export function GuestCardBody({
   const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
-    access ? accessWordFor(access) : null,
+    access && cardAccessView(access, linked, canManageAccess) !== 'none' ? accessWordFor(access) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -1056,16 +1058,18 @@ export function GuestCardBody({
             />
           ) : null}
           {helperAccess ?? null}
+          {/* 🔑 ACCOUNT, ONE LINE (owner 2026-11-02) — what it means is the ⓘ. */}
           {linked === null ? null : (
-            <div className="space-y-0.5 pt-1" data-unlink-account="">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Account</span>
-              <p className="text-sm text-ink">
+            <FormRow
+              name="Account"
+              about={{ words: linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link their Setnayan account, it shows here — and Access opens on this card.' }}
+              data="card-account"
+              attrs={{ 'data-unlink-account': '' }}
+            >
+              <span className="min-w-0 truncate text-[14px] text-ink/70">
                 {linked ? `Linked${linkedAccount?.email ? ` — ${linkedAccount.email}` : ''}` : 'Not linked'}
-              </p>
-              <p className="text-xs text-ink/50">
-                {linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link, it shows here.'}
-              </p>
-            </div>
+              </span>
+            </FormRow>
           )}
 
           {/* ── The careful actions — explicit, never autosaved, each its own
@@ -1084,44 +1088,10 @@ export function GuestCardBody({
               </div>
             ) : null
           ) : (
-            <div className="space-y-2 border-t border-ink/10 pt-3">
-              {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
-                  guest who has NOT replied. Rides the release door (`swap_name`). */}
-              {guest.rsvp_status === 'pending' ? (
-                <form action={releaseAction} className="space-y-2" data-give-spot="">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                    <K.Tip label="Give this spot to someone else">
-                      The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
-                      {name}&rsquo;s link and QR stop working; they are not notified. Guests who
-                      already replied cannot be swapped.
-                    </K.Tip>
-                  </p>
-                  <label className="block">
-                    <span className="text-xs font-medium text-ink/60">Who takes it?</span>
-                    <input
-                      name="swap_name"
-                      required
-                      autoComplete="off"
-                      placeholder="First and last name"
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  <K.Submit main pendingLabel="Giving the spot…">
-                    Give the spot
-                  </K.Submit>
-                </form>
-              ) : null}
-              {/* Owner ruling 2026-08-06: "the couple has full control of their
-                  guests." Rotation FIRST, then the claim is let go. */}
-              <form action={releaseAction}>
-                <K.Submit ariaLabel={`Take back ${name}'s seat — new QR and unlink their account`} pendingLabel="Taking back…">
-                  Take this seat back
-                </K.Submit>
-              </form>
-              <p className="text-xs text-ink/50">
-                Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
-              </p>
-            </div>
+            /* 🔁 GIVE THIS SPOT (owner 2026-09-26) and TAKE THIS SEAT BACK (owner ruling 2026-08-06: "the couple has full
+               control of their guests") — one line, side by side, Give opening on a tap and only while they have not
+               replied (owner 2026-11-02). Both ride the release door (`swap_name` = give the spot). */
+            <GuestSeatDoors name={name} canGive={guest.rsvp_status === 'pending'} releaseAction={releaseAction} />
           )}
         </K.Fold>
 

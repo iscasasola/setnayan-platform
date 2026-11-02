@@ -1,4 +1,5 @@
 import type { ScheduleBlockType } from '@/lib/schedule';
+import type { TimesMark } from '@/lib/supplier-schedule-marks';
 
 /**
  * The shapes the server page hands the Event Day rail (Schedule rebuild,
@@ -43,11 +44,12 @@ export type DayRequest = {
 };
 
 /** A supplier an item can be given to — shop name + "Booked"/"Shortlisted" (lib/schedule-suppliers.ts). */
-export type DaySupplier = { vendor_id: string; vendor_name: string; standing?: 'Booked' | 'Shortlisted' };
+export type DaySupplier = { vendor_id: string; vendor_name: string; standing?: 'Booked' | 'Shortlisted'; times?: TimesMark };
 
 /** "The Wedding Planner · Booked" — the one way an item names its supplier. */
-export function supplierOnItem(s: { vendor_name: string; standing?: 'Booked' | 'Shortlisted' }): string {
-  return s.standing ? `${s.vendor_name} · ${s.standing}` : s.vendor_name;
+export function supplierOnItem(s: { vendor_name: string; standing?: 'Booked' | 'Shortlisted'; times?: TimesMark }): string {
+  // ✅ "· Times confirmed" / "· Seen" — the supplier's own press (`lib/supplier-schedule-marks.ts`, audit G6).
+  return [s.vendor_name, s.standing, s.times].filter(Boolean).join(' · ');
 }
 
 export type DayTemplate = {
@@ -77,6 +79,6 @@ export type DayActions = {
   setBlockResponsibleParty: (fd: FormData) => Promise<unknown>;
   setBlockPrepVisibility: (fd: FormData) => Promise<unknown>;
   loadScheduleTemplate: (fd: FormData) => Promise<unknown>;
-  /** Used as a `<form action>`, so it keeps the form-action shape. */
-  resolveScheduleSuggestion: (fd: FormData) => Promise<void>;
+  /** 🔁 Answers in words (`ScheduleRequestAnswer`, read through `requestAnswerOf`) — the sheet saves in place. */
+  resolveScheduleSuggestion: (fd: FormData) => Promise<unknown>;
 };

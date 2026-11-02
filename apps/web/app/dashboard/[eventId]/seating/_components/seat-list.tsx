@@ -202,7 +202,7 @@ export function SeatList({
       zIndex: '9999',
       pointerEvents: 'none',
       background: 'var(--gs-paper, rgb(var(--color-cream)))',
-      borderRadius: '14px',
+      borderRadius: 'var(--m-r-md)',
       boxShadow: '0 18px 34px -14px rgba(44,42,41,.55)',
       transform: `translate(${r.left}px,${r.top}px) scale(1.02)`,
       willChange: 'transform',

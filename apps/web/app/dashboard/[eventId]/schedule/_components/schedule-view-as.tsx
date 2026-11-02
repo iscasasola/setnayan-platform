@@ -11,31 +11,36 @@
  *
  * 🔒 A VIEW, NEVER A WRITE: nothing here calls an action. What each view shows is decided by the pure half
  * (`lib/schedule-view-as.ts`); this file only draws it.
- * 💎 PRO (plan §3b): on a Free event the dropdown is a door — it wears the ◆ PRO mark (`PaidMark`, the one mark a paid
- * control wears) and opens the upgrade. Inside a store shell that sells no Pro the door is absent (the shell rule).
+ * 💎 PRO (plan §3b), EXCEPT SUPPLIERS BY TIME (owner 2026-11-02, DECISION_LOG "TEN OWNER YESES" item 3: *"Suppliers by
+ * time is FREE"*). On a Free event the dropdown still opens: Everyone · Suppliers by time work, and one last row —
+ * "A guest, a role or a supplier", wearing the ◆ PRO mark (`PaidMark`, the one mark a paid control wears) — opens the
+ * upgrade. Inside a store shell that sells no Pro that row is absent (the shell rule); the free views stay. Which views
+ * a Free event may draw is ONE question, `lensAllowed` (`lib/schedule-view-as.ts`).
+ * ⏰ Suppliers by time lists a Time-TBA chapter's suppliers "Time TBA" after the timed stretches — never hidden.
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
 import { TIME_TBA, chapterWhen, chapterWhere, type Chapter } from '@/lib/schedule-chapters';
 import {
+  VIEW_AS_PRO_DOOR,
   guestDay,
+  lensAllowed,
   lensFromKey,
   lensKey,
   lensWords,
   roleDay,
   supplierDay,
   suppliersByTime,
-  viewAsOptions,
+  viewAsMenuOptions,
+  type TimeItem,
   type ViewAsInput,
   type ViewDay,
   type ViewLens,
 } from '@/lib/schedule-view-as';
-import { pickButtonClass } from '../../website/editor/_components/pick-menu-place';
 import { PickMenu } from './day-ui';
 
 /** More options than this and the list searches (unlimited guests and suppliers — plan §3 "Unlimited people"). */
@@ -54,24 +59,18 @@ export function ViewAsMenu({
   compact?: boolean;
 }) {
   const [query, setQuery] = useState('');
-  const options = useMemo(() => viewAsOptions(input.data), [input.data]);
-  if (!input.pro) {
-    const mark = paidMarkState({ owns: false, storeShell: input.proHref === null, tryable: true });
-    if (!mark || !input.proHref) return null;
-    return (
-      <Link
-        href={input.proHref}
-        data-schedule-lens="pro"
-        aria-label="View as — part of Pro. Opens the upgrade."
-        className={pickButtonClass(compact)}
-      >
-        View as
-        <PaidMark state={mark} label="Part of Pro" size="xs" />
-      </Link>
-    );
-  }
+  // 💎 The ◆ PRO mark on the Free menu's door row — absent where no Pro is sold here (a store shell), never a lock.
+  const mark = input.pro ? null : paidMarkState({ owns: false, storeShell: input.proHref === null, tryable: true });
+  const proHref = mark ? input.proHref : null;
+  const options = useMemo(
+    () =>
+      viewAsMenuOptions(input.data, input.pro, proHref !== null).map((o) =>
+        o.key === VIEW_AS_PRO_DOOR && mark ? { ...o, hint: 'Part of Pro · opens the upgrade', icon: <PaidMark state={mark} label="Part of Pro" size="xs" /> } : o,
+      ),
+    [input.data, input.pro, proHref, mark],
+  );
   const q = query.trim().toLowerCase();
-  const shown = q ? options.filter((o) => o.key === lensKey(lens) || o.label.toLowerCase().includes(q)) : options;
+  const shown = q ? options.filter((o) => o.key === lensKey(lens) || o.key === VIEW_AS_PRO_DOOR || o.label.toLowerCase().includes(q)) : options;
   return (
     <PickMenu
       label="View as"
@@ -102,7 +101,12 @@ export function ViewAsMenu({
       }
       onPick={(key) => {
         setQuery('');
-        onLens(lensFromKey(key));
+        if (key === VIEW_AS_PRO_DOOR) {
+          if (proHref) window.location.assign(proHref);
+          return;
+        }
+        const next = lensFromKey(key);
+        onLens(lensAllowed(input.pro, next) ? next : { kind: 'everyone' });
       }}
     />
   );
@@ -121,6 +125,8 @@ export function ViewAsBody({
   onLens: (l: ViewLens) => void;
 }) {
   const words = lensWords(input.data, lens);
+  // A Free event never draws a per-person view, whatever asked for it (the menu offers none; this is the fence).
+  if (!lensAllowed(input.pro, lens)) return null;
   return (
     <div data-view-as={lens.kind} className="space-y-3 pb-28">
       <p className="inline-flex items-center gap-2 rounded-full bg-terracotta/15 px-3 py-1.5 text-xs text-ink/75">
@@ -193,7 +199,9 @@ function Day({ lens, input, chapters }: { lens: Exclude<ViewLens, { kind: 'supti
 }
 
 function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: readonly Chapter[]; onLens: (l: ViewLens) => void }) {
-  const { stretches, tasksUnread } = suppliersByTime(chapters, input.data);
+  const { stretches, tba, tasksUnread } = suppliersByTime(chapters, input.data);
+  // Tapping a supplier opens THEIR day — a per-person view, so Pro. On a Free event the lines are read, not pressed.
+  const open = (vendorId: string) => (lensAllowed(input.pro, { kind: 'supplier', vendorId, crew: null }) ? () => onLens({ kind: 'supplier', vendorId, crew: null }) : null);
   return (
     <>
       {tasksUnread ? (
@@ -201,7 +209,7 @@ function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: rea
           The tasks couldn’t be read just now, so this may be missing lines. Try again in a moment.
         </p>
       ) : null}
-      {stretches.length === 0 && !tasksUnread ? <p className="py-3 text-[14px] text-ink/55">No supplier has a line yet.</p> : null}
+      {stretches.length === 0 && tba.length === 0 && !tasksUnread ? <p className="py-3 text-[14px] text-ink/55">No supplier has a line yet.</p> : null}
       {stretches.map((g) => (
         <section key={`${g.from}-${g.items[0]?.id}`} data-view-as-stretch="" className="pt-3">
           <p className="pb-1 text-[13px] text-ink/60">
@@ -212,26 +220,54 @@ function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: rea
           </p>
           <ul className="border-t border-ink/10">
             {g.items.map((i) => (
-              <li key={i.id} className="border-b border-ink/10">
-                <button
-                  type="button"
-                  onClick={() => onLens({ kind: 'supplier', vendorId: i.vendorId, crew: null })}
-                  className="sn-press flex min-h-14 w-full items-start gap-4 py-3 text-left"
-                >
-                  <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{i.time}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold text-ink">{i.who}</span>
-                    <span className="block text-[13px] text-ink/60">
-                      {i.title} · {i.sub} · until {i.until}
-                    </span>
-                    {i.clash ? <span className="block text-[13px] font-semibold text-danger-700">In two places at once</span> : null}
-                  </span>
-                </button>
-              </li>
+              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
+            ))}
+          </ul>
+        </section>
+      ))}
+      {tba.map((g) => (
+        <section key={g.chapter.block_id} data-view-as-stretch="tba" data-view-as-chapter={g.chapter.block_id} className="pt-3">
+          <p className="pb-1 text-[13px] text-ink/60">
+            <b className="font-semibold text-ink">{g.chapter.label}</b> · {TIME_TBA} · {g.where}
+            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers</span> : null}
+          </p>
+          <ul className="border-t border-ink/10">
+            {g.items.map((i) => (
+              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
             ))}
           </ul>
         </section>
       ))}
     </>
+  );
+}
+
+/** One supplier line. A button only where tapping opens their day (Pro); otherwise plain words — a frame only on what you press. */
+function TimeLine({ i, onOpen }: { i: TimeItem; onOpen: (() => void) | null }) {
+  const body = (
+    <>
+      <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-view-as-time={i.time}>
+        {i.time}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold text-ink">{i.who}</span>
+        <span className="block text-[13px] text-ink/60">
+          {i.title} · {i.sub}
+          {i.until ? ` · until ${i.until}` : ''}
+        </span>
+        {i.clash ? <span className="block text-[13px] font-semibold text-danger-700">In two places at once</span> : null}
+      </span>
+    </>
+  );
+  return (
+    <li data-view-as-line={i.id} className="border-b border-ink/10">
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="sn-press flex min-h-14 w-full items-start gap-4 py-3 text-left">
+          {body}
+        </button>
+      ) : (
+        <div className="flex min-h-14 w-full items-start gap-4 py-3">{body}</div>
+      )}
+    </li>
   );
 }

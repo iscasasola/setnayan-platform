@@ -17,7 +17,7 @@
  * Nothing here reads or writes the database: the page reads, `lib/schedule-suggestion-decide.server.ts` applies.
  */
 
-import { VENUE_TBA, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
+import { TIME_TBA, VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -145,6 +145,8 @@ export type SupplierMoment = {
   label: string;
   start_at: string | null;
   end_at: string | null;
+  /** The time the supplier reads: "6:30 AM", or "Time TBA" in a Time-TBA chapter — never its placeholder 12:00 AM. */
+  clock: string;
   minutes: number | null;
   section: ChapterSection;
   /** Tagged to one of this supplier's bookings: they may ask to edit or delete it. */
@@ -186,6 +188,9 @@ function minutesOf(a: string | null, b: string | null): number | null {
 
 /**
  * Every block of the event + this supplier's bookings, tasks and requests → their day. ONE pass, no read per chapter.
+ * ⏰ A TIME-TBA CHAPTER IS KEPT (owner 2026-11-02, DECISION_LOG "TEN OWNER YESES" item 4: suppliers see it "Time TBA",
+ * never hidden): its moments read "Time TBA" (`clock`) and it gives no call time. So `blocks` must be EVERY block — the
+ * caller never fences TBA out of this read (`a-supplier-reader-never-drops-a-tba-chapter.test.ts`).
  * `myBookingIds` are their `event_vendors.vendor_id` rows on the event (a shop booked twice has two).
  */
 export function buildSupplierDay(input: {
@@ -209,7 +214,12 @@ export function buildSupplierDay(input: {
   const byStart = (a: { start_at: string | null }, b: { start_at: string | null }) =>
     (a.start_at ?? '') < (b.start_at ?? '') ? -1 : (a.start_at ?? '') > (b.start_at ?? '') ? 1 : 0;
 
-  const tops = input.blocks.filter((b) => !b.parent_block_id).slice().sort(byStart);
+  // A Time-TBA chapter's 00:00 is only its day: it sorts after that day's timed chapters, never first as if at midnight.
+  const dayKey = (b: SupplierBlockRow) => (b.time_tba ? `${(b.start_at ?? '').slice(0, 10)}~` : (b.start_at ?? ''));
+  const tops = input.blocks
+    .filter((b) => !b.parent_block_id)
+    .slice()
+    .sort((a, b) => (dayKey(a) < dayKey(b) ? -1 : dayKey(a) > dayKey(b) ? 1 : 0));
   const chapterIds = new Set(tops.map((t) => t.block_id));
   const stamps: string[] = [];
 
@@ -227,6 +237,7 @@ export function buildSupplierDay(input: {
         label: m.label,
         start_at: m.start_at,
         end_at: m.end_at,
+        clock: c.time_tba ? TIME_TBA : m.start_at ? clockWords(m.start_at) : '—',
         minutes: minutesOf(m.start_at, m.end_at),
         section:
           m.start_at && c.start_at
@@ -261,6 +272,15 @@ export function buildSupplierDay(input: {
   );
 
   return { chapters, otherWaiting, stamps };
+}
+
+/**
+ * ⏰ The blocks that have a CLOCK — for the supplier's timeline, run of show and call time, never their Schedule view.
+ * A Time-TBA chapter's 00:00 is only its day, and so is every moment inside it (the flag is the chapter's), so both go.
+ */
+export function blocksWithAClock<B extends { block_id: string; parent_block_id?: string | null; time_tba?: boolean | null }>(blocks: readonly B[]): B[] {
+  const tba = new Set(blocks.filter((b) => !b.parent_block_id && b.time_tba === true).map((b) => b.block_id));
+  return blocks.filter((b) => b.time_tba !== true && !(b.parent_block_id && tba.has(b.parent_block_id)));
 }
 
 /** The chapters + + My moment and My times may go into — only the ones they are linked to (plan §3). */

@@ -40,6 +40,7 @@ import { SCHEDULE_TEMPLATES, type ScheduleTemplate } from '@/lib/schedule-templa
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { SupplierStandingWord } from '@/lib/booked-by-payment';
 import { supplierOnItem } from './day-types';
+import type { TimesMark } from '@/lib/supplier-schedule-marks';
 import {
   bulkRetimeScheduleBlocks,
   loadScheduleTemplate,
@@ -52,6 +53,8 @@ export type EventVendorOption = {
   vendor_name: string;
   /** "Booked" · "Shortlisted" — the one booked-if-paid resolver (owner 2026-10-20). */
   standing?: SupplierStandingWord;
+  /** ✅ Seen / Times confirmed — the supplier's own press (`lib/supplier-schedule-marks.ts`). */
+  times?: TimesMark;
 };
 
 /** Parse the `?ros=` search param into a lens. Unknown values → master. */

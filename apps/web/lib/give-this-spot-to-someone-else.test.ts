@@ -67,7 +67,10 @@ test('"Take this seat back" rotates as the couple too (a service-role call is re
 });
 
 test('the card offers the swap only to a guest who has not replied', () => {
-  assert.match(CARD, /guest\.rsvp_status === 'pending' \? \(\s*<form action=\{releaseAction\}[^>]*data-give-spot=""/);
-  assert.match(CARD, /name="swap_name"/);
-  assert.match(CARD, /Give the spot/);
+  // 🔁 One line since 2026-11-02 (`guest-seat-doors.tsx`): Give opens its name field on a tap, only while not replied.
+  assert.match(CARD, /<GuestSeatDoors name=\{name\} canGive=\{guest\.rsvp_status === 'pending'\} releaseAction=\{releaseAction\} \/>/);
+  const DOORS = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/guest-seat-doors.tsx'), 'utf8'));
+  assert.match(DOORS, /\{canGive && giving \? \(\s*<form action=\{releaseAction\}[^>]*data-give-spot=""/);
+  assert.match(DOORS, /name="swap_name"/);
+  assert.match(DOORS, /required/);
 });

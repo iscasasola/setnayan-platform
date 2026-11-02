@@ -217,6 +217,14 @@ export async function DemoModeSurface({ searchParams }: Props) {
         ) : (
           <SampleEventSwitch initial={sampleMode} />
         )}
+        {/* 🚪 The sample's way in from inside the app (Root map: a page with no door is a page nobody reaches). */}
+        <Link
+          href="/sample"
+          className="inline-flex items-center gap-1.5 text-sm text-ink/80 underline-offset-2 hover:underline"
+        >
+          Open the sample
+          <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </Link>
       </section>
 
       <section className="mt-6 space-y-3 sn-tile p-5">

@@ -7,7 +7,6 @@ import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
-import { MAKER_QUIET_FIELD } from '@/lib/maker-live-preview';
 import {
   CALL_LEAD_CHOICES,
   PHOTO_WHEN,
@@ -76,8 +75,10 @@ export type ChapterDoors = {
 function form(eventId: string, fields: Record<string, string>): FormData {
   const fd = new FormData();
   fd.set('event_id', eventId);
-  // The sheet holds the answer: a save renders no page behind it (the Maker's quiet write — cache freshness only).
-  fd.set(MAKER_QUIET_FIELD, '1');
+  // 🔄 NOT the Maker's quiet write: these sheets live only on the Schedule page (the Maker draws no chapters), so every
+  // save revalidates — Home, Planning and Booked › Schedule read the new answer, and the page behind the sheet
+  // re-renders IN PLACE (ChaptersHost takes the fresh rows; the open sheet stays open). Held by
+  // `every-schedule-save-refreshes-the-pages.test.ts`.
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return fd;
 }

@@ -148,7 +148,10 @@ test('the doorway says "Create your shop", not "Open your shop"', () => {
 test('the shop-page redirect is still unreachable, so it is not a doorway', () => {
   const layout = readFileSync(join(WEB, 'app/vendor-dashboard/layout.tsx'), 'utf8');
   assert.ok(
-    layout.includes("redirect('/dashboard')"),
+    // ⚖ 2026-11-02 (audit G7): the bounce now goes to `/open-shop` (shop set-up), not the couple board — still a bounce,
+    // so the shop page's own `no-vendor` redirect is still unreachable.
+    /if \(vendorAccess === 'no-vendor'\) redirect\('\/open-shop'\);/.test(layout) &&
+      /if \(vendorAccess === 'unmeasured'\) redirect\('\/dashboard'\);/.test(layout),
     'The vendor-dashboard layout no longer bounces non-vendors. Re-check ' +
       'whether vendor-dashboard/shop\'s `no-vendor` redirect now reaches ' +
       'people — if it does, this file\'s reasoning needs updating.',

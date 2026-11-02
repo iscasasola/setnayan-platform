@@ -89,8 +89,10 @@ test('4 · read where a seat is shown: Seats › List faces and the guest card',
   assert.match(src('lib/seating.ts'), /\.select\('assignment_id,table_id,guest_id,seat_number,locked,placed_by,placed_at'\)/);
   assert.match(src('app/dashboard/[eventId]/seating/page.tsx'), /seat_placed_by: seatPlacedBy\(seat\?\.placed_by\),/);
   assert.match(src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), /placed: seatPlacedShort\(g\.seat_placed_by\)/);
-  const faces = src('app/dashboard/[eventId]/seating/_components/seat-faces-list.tsx');
-  assert.match(faces, /aria-label=\{`\$\{g\.name\}, \$\{where\}\$\{g\.placed \? `, \$\{g\.placed\}` : ''\}`\}/);
+  // 🪑 S1c: Seats › List is a row per seat — the face speaks it, the row's line shows it ("Seat 4 · placed by you").
+  const faces = src('app/dashboard/[eventId]/seating/_components/seat-list.tsx');
+  assert.match(faces, /\$\{g\.placed \? `, \$\{g\.placed\}` : ''\}`\}/, 'a seat row\'s face no longer says who placed it');
+  assert.match(faces, /`Seat \$\{formatCount\(where\.seat \+ 1\)\}\$\{g\.placed \? ` · \$\{g\.placed\}` : ''\}`/, 'a seat row\'s line no longer says who placed it');
   const data = src('app/dashboard/[eventId]/guests/_components/guest-card-data.ts');
   assert.match(data, /\.select\('table_id, placed_by, placed_at, event_tables\(table_label\)'\)/);
   const body = src('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');

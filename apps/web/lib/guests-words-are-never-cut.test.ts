@@ -18,13 +18,14 @@ function classOf(src: string, content: string): string {
   const at = src.indexOf(content);
   assert.notEqual(at, -1, `${content} moved — re-aim this guard`);
   const open = src.lastIndexOf('<', at);
-  const m = /className="([^"]*)"/.exec(src.slice(open, at));
+  // A plain class list, or a template one (`className={`${gs.lab} line-clamp-3 …`}` — the Guest list's own class + the wrap).
+  const m = /className=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(src.slice(open, at));
   assert.ok(m, `${content} has no className`);
-  return m![1]!;
+  return (m![1] ?? m![2])!;
 }
 
 test('the Seats and March words a person reads wrap, never cut', () => {
-  const faces = read(`${S}/seat-faces-list.tsx`);
+  const faces = read(`${S}/seat-list.tsx`);
   const tiles = read('app/dashboard/[eventId]/guests/_components/view-summary-cards.tsx');
   const phone = read(`${S}/seat-plan-phone.tsx`);
   const spots: [string, string, string][] = [

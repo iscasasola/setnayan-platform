@@ -21,6 +21,7 @@ import {
   callAtFrom,
   clashesForMoment,
   minutesBetween,
+  isMomentPapic,
   momentDeleteWords,
   momentSection,
   momentStartFrom,
@@ -37,6 +38,7 @@ import {
   type Chapter,
   type ChapterSection,
   type ClashMoment,
+  type MomentPapic,
   type TaskNames,
   type TaskRow,
   type WhoFields,
@@ -63,8 +65,10 @@ import type { ChapterMoment, TaskWhoList } from './chapters-host';
  *     room). A new task saves once it has a who and a what.
  *   · ⚠ A CLASH — the same person or crew in two places at once, anywhere on the day — is FLAGGED on the task, never
  *     refused (§3c #5, `clashesForMoment`).
- *   · DELETE MOMENT warns, then Continue, then a deleting state. The warning counts the chapter's Papic photos: Papic
- *     shoots into chapters, never a moment, so nothing Papic is deleted with a moment — and the warning says so.
+ *   · DELETE MOMENT warns, then Continue, then a deleting state. The warning counts the Papic photos and videos taken
+ *     during it (each capture knows its moment, migration 20271302139013) — those are deleted with it, except one also
+ *     in another chapter, which stays there; the warning names both counts. Papic items only: never uploads or
+ *     supplier shots, never a credit.
  *
  * 🚶 THIS IS A MARCH (owner 2026-11-01: *"When we say this is a march. It picks which march."*; migration 20271301571290):
  * one dropdown — Not a march · the Wedding March · the couple's own marches (made in Guests › March, with the guests
@@ -82,7 +86,8 @@ export type MomentDoors = {
   save: (blockId: string, fields: Record<string, string>) => Promise<boolean>;
   remove: (blockId: string) => Promise<boolean>;
   task: (op: TaskOp, blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
-  papicCount: (chapterId: string) => Promise<Answer<number>>;
+  /** 📷 What deleting this moment does to Papic: the items it deletes, and those staying in another chapter. */
+  papicCount: (momentId: string, chapterId: string) => Promise<Answer<MomentPapic>>;
   /** 🚶 The moment is a march (`march_set`, `march_key`), or a new one is made for it (`march_new`, `march_name`). */
   march: (op: 'march_set' | 'march_new', blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
 };
@@ -121,9 +126,9 @@ export function realMomentDoors(eventId: string): MomentDoors {
         (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : NOT_SAVED_WORDS }),
         () => ({ ok: false as const, error: NOT_SAVED_WORDS }),
       ),
-    papicCount: (chapterId) =>
-      updateScheduleBlock(form(eventId, { block_id: chapterId, moment_op: 'papic_count' })).then(
-        (r) => (r && r.ok && typeof r.value === 'number' ? { ok: true as const, value: r.value } : { ok: false as const, error: 'unread' }),
+    papicCount: (momentId, chapterId) =>
+      updateScheduleBlock(form(eventId, { block_id: momentId, chapter_id: chapterId, moment_op: 'papic_count' })).then(
+        (r) => (r && r.ok && isMomentPapic(r.value) ? { ok: true as const, value: r.value } : { ok: false as const, error: 'unread' }),
         () => ({ ok: false as const, error: 'unread' }),
       ),
     march: (op, blockId, fields) =>
@@ -134,14 +139,14 @@ export function realMomentDoors(eventId: string): MomentDoors {
   };
 }
 
-/** 🧪 `/dev/chapters-lab`: the same sheets, doors that write nothing. The lab's chapters each hold 4 Papic photos. */
+/** 🧪 `/dev/chapters-lab`: the same sheets, doors that write nothing. A lab moment had 4 Papic shots: 3 go, 1 is in another chapter. */
 export const LAB_MOMENT_DOORS: MomentDoors = {
   create: () => new Promise((r) => setTimeout(() => r(true), 200)),
   save: () => new Promise((r) => setTimeout(() => r(true), 120)),
   remove: () => new Promise((r) => setTimeout(() => r(true), 700)),
   task: (op, _b, fields) =>
     new Promise((r) => setTimeout(() => r({ ok: true, value: op === 'task_add' ? `lab-${Math.random().toString(36).slice(2, 10)}` : (fields.task_id ?? '') }), 150)),
-  papicCount: () => new Promise((r) => setTimeout(() => r({ ok: true, value: 4 }), 300)),
+  papicCount: () => new Promise((r) => setTimeout(() => r({ ok: true, value: { removed: 3, stays: 1 } }), 300)),
   march: (op, _b, fields) =>
     new Promise((r) =>
       setTimeout(() => r({ ok: true, value: op === 'march_new' ? `own_lab${Math.random().toString(36).slice(2, 10)}` : (fields.march_key ?? '') }), 150),
@@ -352,7 +357,7 @@ export function MomentSheet({
   const headingId = useContext(LayerHeading);
   const [stage, setStage] = useState<'details' | 'ask' | 'deleting' | 'failed'>('details');
   useEffect(() => onStage?.(stage !== 'details'), [stage, onStage]);
-  const [papic, setPapic] = useState<{ ok: true; value: number } | { ok: false } | null>(null);
+  const [papic, setPapic] = useState<{ ok: true; value: MomentPapic } | { ok: false } | null>(null);
   const [drafts, setDrafts] = useState<string[]>([]);
   const names = useMemo(() => taskNamesFrom(who), [who]);
   const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id).sort((a, b) => a.sort_order - b.sort_order);
@@ -381,7 +386,7 @@ export function MomentSheet({
   const askDelete = () => {
     setStage('ask');
     setPapic(null);
-    void doors.papicCount(c.block_id).then((r) => setPapic(r.ok ? r : { ok: false }));
+    void doors.papicCount(m.block_id, c.block_id).then((r) => setPapic(r.ok ? r : { ok: false }));
   };
 
   void onClose;
@@ -571,7 +576,7 @@ export function MomentSheet({
                   {m.label} wasn’t deleted. Nothing was changed — try again.
                 </span>
               ) : (
-                momentDeleteWords({ label: m.label, tasks: mine.length, chapterLabel: c.label, papic })
+                momentDeleteWords({ label: m.label, tasks: mine.length, papic })
               )}
             </p>
             {stage === 'deleting' ? null : (

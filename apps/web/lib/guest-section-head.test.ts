@@ -102,8 +102,11 @@ test('(3) the card has no rename row — it keeps its Role pick', () => {
 });
 
 test('(4) the headers stay in sight under the pinned row: Seats › List tables and March groups', () => {
-  const seats = code('app/dashboard/[eventId]/seating/_components/seat-faces-list.tsx');
-  assert.match(seats, /className="sn-acc-head sticky top-0 [^"]*bg-\[/, 'a Seats table header scrolls away with its seats');
+  // 🪑 S1c: a Seats table is a Guests section (`gs.sec` + `gs.open` — the List's own sticky open header, below), in the
+  // list's own scroll box, so its offset under the pinned row is 0 there.
+  const seats = code('app/dashboard/[eventId]/seating/_components/seat-list.tsx');
+  assert.match(seats, /className=\{`\$\{gs\.sec\} \$\{gs\.accSec\} \$\{isOpen \? gs\.open : ''\}`\}/, 'a Seats table is not a Guests section — its header scrolls away with its seats');
+  assert.match(seats, /\['--gs-top' as string\]: '0px', \['--gs-stick-h' as string\]: '0px'/, 'a Seats table header sticks under a row that is not there');
   const march = code('app/dashboard/[eventId]/launch/_components/details-march.tsx');
   assert.match(march, /guests \? 'sticky top-\[calc\(var\(--gs-top,0px\)\+var\(--gs-stick-h,60px\)\)\][^']*bg-\[/, 'a March group header scrolls away in Guests');
   const css = code('app/dashboard/[eventId]/guests/_components/guests-screen.module.css');

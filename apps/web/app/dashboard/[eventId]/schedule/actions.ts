@@ -1043,20 +1043,34 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   // already tells EVERY booked supplier the day moved, so it is not told twice.
   const shiftNotice = formData.get('shift_notice') === '1';
   const part = await partBefore(supabase, eventId, patches.map((p) => p.block_id));
-  // 🔒 Running late too: a locked supplier's clock is theirs (whether a day-of shift may pass a lock is the owner's call).
-  await refuseLockedPart(supabase, part, { kind: 'fields' });
 
-  const now = new Date().toISOString();
-  for (const patch of patches) {
-    const { data: changed, error } = await supabase
-      .from('event_schedule_blocks')
-      .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
-      .eq('block_id', patch.block_id)
-      .eq('event_id', eventId)
-      .select('block_id');
-    if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
-    // RLS answers a refused UPDATE with zero rows and no error: read it back, never a quiet "moved".
-    if (!changed?.length) throw new Error(NOTHING_CHANGED);
+  if (shiftNotice) {
+    /* 🏃 RUNNING LATE MOVES A LOCKED SUPPLIER'S MOMENTS (owner, DECISION_LOG 2026-11-03 (2): *"A host's RUNNING-LATE
+       shift moves a supplier's moments even when that supplier has locked their times; the supplier still gets the
+       notice."*). So no lock check here — the ONE door the database lets past a lock, and only for a pure shift of
+       exactly these minutes (migration 20271303571970). All or nothing: a refused row undoes the whole shift. */
+    const { data: moved, error } = await supabase.rpc('running_late_shift_schedule', {
+      p_event_id: eventId,
+      p_block_ids: patches.map((p) => p.block_id),
+      p_minutes: deltaMinutes,
+    });
+    if (error) throw new Error(error.code === 'P0002' ? NOTHING_CHANGED : `Retime failed: ${error.message}`);
+    if (moved !== patches.length) throw new Error(NOTHING_CHANGED);
+  } else {
+    // 🔒 A drag of one moment (or a span) is a host edit like any other: a locked supplier's clock is theirs.
+    await refuseLockedPart(supabase, part, { kind: 'fields' });
+    const now = new Date().toISOString();
+    for (const patch of patches) {
+      const { data: changed, error } = await supabase
+        .from('event_schedule_blocks')
+        .update({ start_at: patch.start_at, end_at: patch.end_at, updated_at: now })
+        .eq('block_id', patch.block_id)
+        .eq('event_id', eventId)
+        .select('block_id');
+      if (error) throw new Error(`Retime failed at ${patch.block_id}: ${error.message}`);
+      // RLS answers a refused UPDATE with zero rows and no error: read it back, never a quiet "moved".
+      if (!changed?.length) throw new Error(NOTHING_CHANGED);
+    }
   }
 
   /* ⏱ A SHIFT OF THE DAY TELLS EVERY BOOKED SUPPLIER — once, after every block landed (owner 2026-10-23). Only the

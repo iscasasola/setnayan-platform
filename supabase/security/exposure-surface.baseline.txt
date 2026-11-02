@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7017
+# facts: 7018
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5102
 #   policy    1021
 #   view      9
-#   func      294
+#   func      295
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6945,6 +6945,7 @@ func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.running_late_shift_schedule(p_event_id uuid, p_block_ids uuid[], p_minutes integer)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
 func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authenticated search_path=public, pg_temp
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public

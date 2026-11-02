@@ -65,6 +65,7 @@ import {
 import {
   backCatalogueQuotaVerdict,
   slotUploadVerdict,
+  libraryUploadVerdict,
   libraryPartLabel,
   RIGHTS_WARRANTY_VERSION,
   type GalleryUploadMode,
@@ -429,7 +430,7 @@ export async function uploadStylistAsset(
   let vendorServiceId: string | null = null;
   if (isGallery) {
     const parts = await getInspirationParts();
-    const slot = slotUploadVerdict(assetSubtype ?? '', profile.services, parts);
+    const slot = libraryUploadVerdict(assetSubtype ?? '', profile.services, parts);
     if (!slot.allowed) throw new Error(slot.message);
 
     // 🔗 THE CARD MUST BE ONE OF THIS SHOP'S LIVE CARDS WHOSE SERVICE LINKS THIS PART — read here, never trusted.
@@ -611,7 +612,7 @@ export async function importEditorialMediaToGallery(input: ImportToGalleryInput)
   }
 
   const parts = await getInspirationParts();
-  const slot = slotUploadVerdict(input.slotKey, profile.services, parts);
+  const slot = libraryUploadVerdict(input.slotKey, profile.services, parts);
   if (!slot.allowed) throw new Error(slot.message);
   const card = await verifyCardForPart(admin, {
     vendorProfileId: profile.vendor_profile_id,

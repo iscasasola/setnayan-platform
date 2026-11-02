@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import {
   signedAmount,
@@ -810,6 +811,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     // booked — surface a friendly reason instead of a raw error.
     if (outcome.status === 'not_verified') {
       failBack(VENDOR_NOT_VERIFIED_COUPLE_MESSAGE);
+    }
+    if (outcome.status === 'bookings_closed') {
+      failBack(BOOKINGS_CLOSED_COUPLE_MESSAGE);
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(

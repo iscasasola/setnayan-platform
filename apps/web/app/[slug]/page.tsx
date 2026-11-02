@@ -1,4 +1,5 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readGuestChapterReplies, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { guestsArriveTime } from '@/lib/guests-arrive';
@@ -71,7 +72,7 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -571,7 +572,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
   // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
   // `headers()` read below is the live render's alone.
-  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
+  if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
@@ -1477,6 +1478,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1749,6 +1751,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -2544,11 +2547,17 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  const chapterReplies = invitationChapters && invitationChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, invitationChapters);
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({

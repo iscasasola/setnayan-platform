@@ -227,9 +227,11 @@ export function HomeFirstScreen({
           <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
 
           {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
-              (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
+              (owner 2026-10-08; prototype frame 2, its words). Opens the GUESTS' one link + QR (Guests › Invite,
+              `ShareLinkPanel`) — never `/event-qr`, which is the CREW's device-pairing code (`setnayan://crew-pair`).
+              Held by `lib/dashboard-doors-resolve.test.ts`. */}
           {noList ? (
-            <Link href={`/dashboard/${eventId}/event-qr`} className="home-card flex items-center gap-3" data-home-one-qr="">
+            <Link href={`/dashboard/${eventId}/guests/invite`} className="home-card flex items-center gap-3" data-home-one-qr="">
               <QrCode aria-hidden className="h-12 w-12 shrink-0 text-ink" strokeWidth={1.5} />
               <span className="min-w-0">
                 <span className="block font-semibold">One QR for everyone</span>

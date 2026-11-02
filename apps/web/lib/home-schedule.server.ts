@@ -22,7 +22,8 @@ import { homeScheduleFrom, type HomeScheduleBlock, type HomeScheduleFacts } from
  */
 
 /** The block fields the widget reads — the chapters reader's list plus the suppliers tagged on each. */
-export const HOME_SCHEDULE_FIELDS = `${CHAPTER_FIELDS}, responsible_vendor_ids`;
+// `responsible_vendor_ids` is in CHAPTER_FIELDS itself now (the moment sheet's Suppliers and crew row reads it).
+export const HOME_SCHEDULE_FIELDS = `${CHAPTER_FIELDS}`;
 
 /** The venue's calendar day now ("2026-12-12") — the day a wall clock is compared on. */
 export function venueToday(nowMs: number, tz: string): string {

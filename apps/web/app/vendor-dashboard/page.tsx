@@ -59,6 +59,8 @@ import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
 import { BadgeEarnedLine } from './_components/badge-earned-line';
+import { ClaimWaitLines } from './_components/claim-wait-lines';
+import { readClaimWaits } from '@/lib/claim-access-wait.server';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -299,6 +301,8 @@ export default async function VendorOverviewPage({
   // same cache()d read for the Events tab, so this is free; started here and read at the end, it adds no trip.
   // Fails closed: a refused read draws no section (`lib/events-you-run.server.ts`).
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
+  // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
+  const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   /*
@@ -675,6 +679,7 @@ export default async function VendorOverviewPage({
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
       <BadgeEarnedLine />
+      <ClaimWaitLines read={await claimWaitsP} />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}

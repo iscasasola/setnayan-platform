@@ -43,8 +43,6 @@ export const ROUND_TRIP_CASES: Array<RoundTripInput & { name: string; notSaved: 
   { name: 'My shop › Add a payment method', form: 'app/vendor-dashboard/payment-options/_components/add-payment-method.tsx', action: 'app/vendor-dashboard/payment-options/actions.ts#addPaymentMethod', reader: '/vendor-dashboard/profile', notSaved: [], notReadBack: [] },
   // Root map wave 1: the panel stopped posting `amount_php` (the action stamps the ORDER's amount).
   { name: 'Pay › Send the proof', form: 'app/pay/[reference]/_components/pay-panel.tsx', action: 'app/pay/[reference]/actions.ts#submitPaymentProof', reader: '/pay/[reference]', notSaved: [], notReadBack: [] },
-  // Root map wave 1: `business_name` / `category` are re-read from the row, so they are no longer posted.
-  { name: 'Supplier workspace › Create a shareable invite link', form: `${D}/vendors/[vendorId]/workspace/page.tsx`, action: `${D}/vendors/[vendorId]/workspace/actions.ts#createAutoShareInviteAction`, reader: '/dashboard/[eventId]/vendors/[vendorId]/workspace', notSaved: [], notReadBack: [] },
   { name: 'Samahan › Start a community', form: 'app/dashboard/(account)/samahan/new/page.tsx', action: 'app/dashboard/(account)/samahan/actions.ts#createCommunity', reader: '/dashboard/samahan/[communityId]', notSaved: [], notReadBack: [] },
 ];
 

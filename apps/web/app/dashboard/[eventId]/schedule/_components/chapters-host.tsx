@@ -25,6 +25,7 @@
  * 🛑 A FAILED READ IS SAID, NEVER DRAWN AS NO CHAPTERS (`{ measured: false }`).
  * 🔒 app/dashboard/[eventId]/schedule/chapters-live-on-the-schedule.test.ts
  */
+import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
@@ -80,6 +81,8 @@ export type ChapterMoment = {
   is_public: boolean;
   /** "Lumina Studio" · "Bride's family, Alyssa" — the suppliers or party on it; '' for none. */
   who: string;
+  /** 👷 The suppliers it is for (`responsible_vendor_ids`) — "yours" on their day; Suppliers and crew ▾ ticks them. */
+  vendor_ids: string[];
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
@@ -112,12 +115,14 @@ export type ChaptersInput =
       canEdit: boolean;
       /** May put a chapter on the invitation (a host or the coordinator). */
       mayInvite: boolean;
+      /** ✉ Replies per chapter on the invitation (Step 5); a chapter whose count could not be read is `null`. */
+      replyCounts?: Record<string, ChapterCount | null>;
       /** 👁 The rail's View as ▾ (Step 3c) — its data and whether the event owns it; absent = none drawn. */
       viewAs?: ViewAsInput | null;
     }
   | { measured: false };
 
-/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`booked-schedule-frame.tsx`). */
+/** The views a chapter's page can go back to — the frame follows `?view=` on popstate (`schedule-one-line.tsx`). */
 type BackTo = 'event-day' | 'preparation';
 
 function showScheduleView(view: BackTo) {
@@ -311,6 +316,7 @@ export function ChaptersHost({
                 march_key: null,
                 is_public: false,
                 who: '',
+                vendor_ids: [],
               },
             ]);
             patch(current.block_id, { moments: current.moments + 1 });
@@ -382,6 +388,7 @@ export function ChaptersHost({
           used={chapters.map((c) => c.location).filter((v): v is string => Boolean(v))}
           lastDay={input.lastDay}
           mayInvite={input.mayInvite}
+          replyCount={input.replyCounts?.[current.block_id]}
           doors={doors}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}

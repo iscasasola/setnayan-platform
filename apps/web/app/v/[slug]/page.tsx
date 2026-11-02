@@ -91,6 +91,8 @@ import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
+import { BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import type {
   VendorPackageItemOptionRow,
   VendorPackageItemRow,
@@ -1842,6 +1844,9 @@ export async function renderVendorBySlug({
   // is omitted: the couple can still inquire through the page's own composer,
   // and nothing is mis-filed. Revisit if packages ever gain their own interest
   // kind.
+  // 🚪 BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`): every package still shows its price and
+  // inclusions; only the Book button gives way to a quiet "Bookings open soon". Inquiries stay open.
+  const bookingsOpen = vendorPackages.length > 0 ? await areBookingsOpen() : true;
   const packageAskTargets = new Map<string, PackageAskTarget>();
   if (detailsEnabled && bookable && coupleEventId) {
     for (const pkg of vendorPackages) {
@@ -3122,6 +3127,7 @@ export async function renderVendorBySlug({
             packages={vendorPackages}
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
+            bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
             /* Flag-dark secondary action: send the configured build to the
@@ -4373,6 +4379,7 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  bookingsOpen,
   hidePrices,
   paxCount,
   askTargets,
@@ -4380,6 +4387,8 @@ function VendorPackagesSection({
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
+  bookingsOpen: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
   hidePrices: boolean;
   /** Server-resolved head count, so a per-head upgrade quotes at what it charges. */
@@ -4406,7 +4415,9 @@ function VendorPackagesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         {packages.map((pkg) => {
           let cta: React.ReactNode = null;
-          if (isComingSoon) {
+          if (!bookingsOpen) {
+            cta = <p className="text-xs text-ink/55">{BOOKINGS_OPEN_SOON}</p>;
+          } else if (isComingSoon) {
             cta = (
               <p className="text-xs text-ink/55">
                 Not yet bookable — this supplier is finishing verification.

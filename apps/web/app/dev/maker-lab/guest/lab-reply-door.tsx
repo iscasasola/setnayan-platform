@@ -8,6 +8,9 @@ import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { rsvpScreenLayout, type readRsvpLook } from '@/lib/rsvp-look';
 import { ReplyWindowNote } from '@/app/[slug]/_components/reply-window-note';
 import type { ReplyWindow } from '@/lib/reply-window';
+import { ChapterNotices } from '@/app/[slug]/_components/chapter-notices';
+import { chapterNotices } from '@/lib/invitation-chapters';
+import { LAB_INVITE_CHAPTERS, LAB_REMOVED, labChapterReplies } from './lab-invite-chapters';
 
 /** 📬 The lab's two shut windows — the ruling's own example day for "not yet" (Saturday, 14 November 2026). */
 export function labWindow(v: unknown): ReplyWindow | null {
@@ -50,6 +53,10 @@ export function LabReplyDoor({
 }) {
   const plus = Math.max(0, Math.min(4, Number(sp.plus) || 0));
   const sceneStyle = sp.scene === 'question' || sp.scene === 'ticket' ? sp.scene : null;
+  /* ✉ `&chapters=1|partial` · `&notices=1` — the reply by chapter (Step 5, `lab-invite-chapters.ts`). */
+  const chapters = sp.chapters ? LAB_INVITE_CHAPTERS : null;
+  const chapterReplies = labChapterReplies(sp.chapters);
+  const labGuest = sp.chapters === 'partial' ? { ...guest, rsvp_status: 'attending' as const } : guest;
   return (
     <>
       <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
@@ -71,6 +78,9 @@ export function LabReplyDoor({
             Teresita Aquino
           </p>
         </div>
+        {chapters && sp.notices === '1' ? (
+          <ChapterNotices action={reply} {...chapterNotices(chapters, chapterReplies ?? [], 'attending', LAB_REMOVED)} />
+        ) : null}
         {labWindow(sp.replies) ? (
           <ReplyWindowNote
             window={labWindow(sp.replies)!}
@@ -83,7 +93,7 @@ export function LabReplyDoor({
           /* 🪑 `plus_one_seats` as the REAL loaders pass it (`loadGuestContext`, `invite/reply`): read and empty —
              no seat named yet — so `&plus=2` draws two boxes; `undefined` only for a failed read (`&seats=fail`).
              Without it every `&plus=<n>` walked the failed-read fallback (STEPS.md, 2026-10-25). */
-          guest={{ ...guest, plus_one_allowed: plus > 0, plus_one_count: plus, plus_one_seats: plus > 0 && sp.seats !== 'fail' ? [] : undefined } as GuestRow}
+          guest={{ ...labGuest, plus_one_allowed: plus > 0, plus_one_count: plus, plus_one_seats: plus > 0 && sp.seats !== 'fail' ? [] : undefined } as GuestRow}
           eventId="lab"
           eventPublicId="lab"
           faceMode="mode_b"
@@ -95,6 +105,8 @@ export function LabReplyDoor({
           sceneStyle={sceneStyle}
           answerWords={{ attending: 'Joyfully accepts', declined: 'Sadly can’t make it' }}
           lines={rsvpScreenLayout(look, 'rsvp')}
+          chapters={chapters}
+          chapterReplies={chapterReplies}
         />
         )}
       </DoorShell>

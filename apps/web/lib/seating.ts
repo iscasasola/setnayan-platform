@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseGuestSeatView, type GuestSeatView } from './guest-seat-view';
+import { sortTables } from './table-order';
 import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
 import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
 import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3d-booth-event-pricing';
@@ -172,10 +174,12 @@ export async function fetchTables(
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw new Error(`fetchTables failed: ${error.message}`);
+  // 🪑 ONE ORDER (owner 2026-11-01, lib/table-order.ts): the label read naturally first, then sort_order — so tied or
+  // shuffled sort_orders never reorder the List, the prints or the auto arrange.
   // Defensive defaults so the editor + PDF work even before the rotation/
   // removed-seats migration is applied (the columns just read as 0 / []), plus
   // read-time coord/capacity healing so a malformed row degrades, never crashes.
-  return (data ?? []).map((t) => {
+  return sortTables((data ?? []).map((t) => {
     const r = t as EventTableRow;
     return {
       ...r,
@@ -189,7 +193,7 @@ export async function fetchTables(
       link_group_id: r.link_group_id ?? null,
       link_group_label: r.link_group_label ?? null,
     };
-  });
+  }));
 }
 
 export async function fetchAssignments(
@@ -321,6 +325,8 @@ export type FloorPlanRow = {
   // 'table' (default) = own tablemates only · 'all' = every seated face · 'none'
   // = no photos. Photos are always token-gated in the RPC; this sets the reach.
   venue_photo_visibility: 'table' | 'all' | 'none';
+  /** 🪑 How a guest sees their seat — 2D map · 3D walk · Both (owner 2026-11-01, lib/guest-seat-view.ts). */
+  guest_seat_view: GuestSeatView;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -358,6 +364,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   priority_order: null,
   role_seating: {},
   venue_photo_visibility: 'table',
+  guest_seat_view: 'both',
 };
 
 export async function fetchFloorPlan(
@@ -380,7 +387,7 @@ export async function fetchFloorPlanMeasured(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility,guest_seat_view',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -442,6 +449,7 @@ export async function fetchFloorPlanMeasured(
       const v = (data as { venue_photo_visibility?: unknown }).venue_photo_visibility;
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
+    guest_seat_view: parseGuestSeatView((data as { guest_seat_view?: unknown }).guest_seat_view),
   };
   return { plan, measured: true };
 }
@@ -998,6 +1006,20 @@ function tablePoint(t: EventTableRow, index: number, total: number): { x: number
   };
 }
 
+/**
+ * 🪑 The first RUN of `n` free chairs side by side around a table of `capacity` (chairs wrap: the last sits beside the
+ * first), lowest start first — or null when no run that long is free. `taken` holds occupied and removed chairs.
+ * 🔒 lib/tables-keep-one-order-and-never-stack.test.ts
+ */
+export function consecutiveRun(taken: ReadonlySet<number>, capacity: number, n: number): number[] | null {
+  if (n <= 0 || n > capacity) return null;
+  for (let s = 0; s < capacity; s++) {
+    const run = Array.from({ length: n }, (_, k) => (s + k) % capacity);
+    if (run.every((c) => !taken.has(c))) return run;
+  }
+  return null;
+}
+
 export function computeAutoSeat(
   tables: EventTableRow[],
   guests: AutoSeatGuest[],
@@ -1221,10 +1243,10 @@ export function computeAutoSeat(
   };
 
   const result: AutoSeatRow[] = [];
-  const seatAt = (g: AutoSeatGuest, table: EventTableRow) => {
+  const seatAt = (g: AutoSeatGuest, table: EventTableRow, at?: number) => {
     const occ = occupied.get(table.table_id)!;
-    let seat = 0;
-    while (occ.has(seat)) seat++;
+    let seat = at !== undefined && !occ.has(at) ? at : 0;
+    if (at === undefined || occ.has(at)) while (occ.has(seat)) seat++;
     occ.add(seat);
     freeCount.set(table.table_id, free(table) - 1);
     result.push({ guest_id: g.guest_id, table_id: table.table_id, seat_number: seat });
@@ -1234,7 +1256,17 @@ export function computeAutoSeat(
     if (cluster.length === 0) break; // room is full — the rest stay unseated
     for (const chunk of unit.chunks) {
       // A chunk (guest + plus-ones + pair) shares a table whenever one has room.
-      const home = cluster.find((t) => free(t) >= chunk.length);
+      const runAt = (t: EventTableRow) => (chunk.length > 1 ? consecutiveRun(occupied.get(t.table_id)!, sanitizeCapacity(t.capacity), chunk.length) : null);
+      // The unit's first table with a run of chairs for the whole chunk; else its first with room, as before.
+      const home = cluster.find((t) => free(t) >= chunk.length && (chunk.length === 1 || runAt(t) !== null)) ?? cluster.find((t) => free(t) >= chunk.length);
+      /* 🪑 BESIDE EACH OTHER (owner 2026-11-01, *"makes sure that they get to sit beside each other"*): a chunk takes a RUN
+         of consecutive chairs around the table (`consecutiveRun`), never the scattered lowest-free ones a half-full
+         table would hand out. No run that long → the lowest free chairs, as before. */
+      const run = home ? runAt(home) : null;
+      if (home && run) {
+        chunk.forEach((g, k) => seatAt(g, home, run[k]));
+        continue;
+      }
       for (const g of chunk) {
         const t = home ?? cluster.find((x) => free(x) > 0) ?? around(cluster[0]!, true).find((x) => free(x) > 0);
         if (!t) break;

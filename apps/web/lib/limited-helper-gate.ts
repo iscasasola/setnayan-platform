@@ -25,8 +25,10 @@
  * purchases…) stays the hosts' alone.
  *
  * ── TWO QUESTIONS, ASKED OF THE ONE DEFINITION ─────────────────────────────
- *   1. `public.is_limited_helper(event_id)` — a live seat of kind 'viewer'
- *      (the predicate the RESTRICTIVE `lh_ro_*` policies use);
+ *   1. `public.is_limited_helper(event_id)` — a live seat of kind 'viewer',
+ *      or (migration 20271302707661) a coordinator seat the hosts set to
+ *      Limited (`permissions_json.access_level = 'limited'`) — the predicate
+ *      the RESTRICTIVE `lh_ro_*` policies use;
  *   2. only if so, and only when the action belongs to an area,
  *      `public.moderator_area_level(event_id, area)` — the SAME function the
  *      19 area-gated tables' write policies ask (`= 'edit'`).

@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { marksByShop, type ScheduleMarkFacts } from '@/lib/supplier-schedule-marks';
+import { SCHEDULE_MARK_COLUMNS, marksByShop, type ScheduleMarkFacts } from '@/lib/supplier-schedule-marks';
 
 /**
  * Every booked supplier's Seen / Confirm my times on this event, by shop (`lib/supplier-schedule-marks.ts`). The
@@ -14,11 +14,11 @@ export async function readScheduleMarks(
 ): Promise<Map<string, ScheduleMarkFacts> | null> {
   const { data, error } = await supabase
     .from('event_supplier_schedule_marks')
-    .select('vendor_profile_id, seen_at, confirmed_at')
+    .select(SCHEDULE_MARK_COLUMNS)
     .eq('event_id', eventId);
   if (error) {
     logQueryError('readScheduleMarks', error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  return marksByShop((data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null }>);
+  return marksByShop((data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null; locked_at: string | null }>);
 }

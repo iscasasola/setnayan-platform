@@ -415,6 +415,12 @@ export type ReplayOrderOptions = {
    * sound, not for ordinary runs.
    */
   auditSkips?: boolean;
+  /**
+   * 🚪 Keep `platform_settings.bookings_open` exactly as the migrations leave it — CLOSED, the launch default
+   * (owner 2026-11-02, 20271302310560_bookings_closed_switch.sql). Omit for every ordinary run: see the note at
+   * the end of `createReplayedDb` for why the replay opens bookings by default.
+   */
+  bookingsAsMigrated?: boolean;
 };
 
 /**
@@ -771,6 +777,34 @@ export async function createReplayedDb(opts: ReplayOptions = {}): Promise<Replay
   if (deferred.size > 0) {
     const detail = [...deferred].map(([f, m]) => `  ${f}\n    ${m.split('\n')[0]}`).join('\n');
     throw new Error(`migration replay failed — unapplied files:\n${detail}`);
+  }
+
+  /*
+    🚪 BOOKINGS ARE OPENED HERE, FOR EVERY TEST BUT THE ONE ABOUT THE SWITCH (2026-11-02).
+
+    The migrations leave `platform_settings.bookings_open` NULL — closed, the launch default — and the trigger
+    `event_vendors_require_bookings_open` then refuses every marketplace row moving into a booked status. Roughly
+    ninety db tests book a supplier to test what booking DOES (fees, holds, handshakes, capacity); none of them is
+    about whether bookings are open, and every one would fail on the switch instead of on its own subject.
+
+    So the replay opens bookings — the behaviour those tests were written against — and the switch itself is
+    proven on a replay built with `{ bookingsAsMigrated: true }` (`bookings-closed-switch.db.test.ts`), which also
+    asserts the as-migrated value really is closed. ⚠ This is a TEST default, never evidence of production's
+    value: production keeps whatever the admin last set on /admin/booking-fees.
+    Guarded on the column, so an `only` replay that predates the switch is untouched.
+  */
+  if (!opts.bookingsAsMigrated) {
+    await db.exec(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'platform_settings' AND column_name = 'bookings_open'
+        ) THEN
+          UPDATE public.platform_settings SET bookings_open = TRUE WHERE id = 1;
+        END IF;
+      END $$;
+    `);
   }
 
   // NOTE: there is deliberately NO blanket `GRANT ALL ON ALL TABLES` here.

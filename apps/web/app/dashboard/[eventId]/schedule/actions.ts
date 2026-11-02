@@ -10,6 +10,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+// 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
+import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
 import {
   SCHEDULE_BLOCK_TYPES,
   buildScheduleSeed,
@@ -272,6 +274,9 @@ export async function deleteScheduleBlock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🔔 Read who is on it (and on its children, which cascade) BEFORE it is gone — afterwards nothing names them.
+  const part = await partBefore(supabase, eventId, [blockId], { withChildren: true });
+
   // ON DELETE CASCADE on parent_block_id self-FK means deleting a parent
   // automatically removes all its child parts · no app-layer cleanup needed.
   const { data: gone, error } = await supabase
@@ -283,6 +288,7 @@ export async function deleteScheduleBlock(formData: FormData) {
   if (error) throw new Error(error.message);
   // RLS answers a refused DELETE with zero rows and no error — said, never "deleted" (a chapter's Delete shows it).
   if (!gone || gone.length === 0) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -407,12 +413,18 @@ export async function updateScheduleBlock(formData: FormData) {
   const momentOp = formData.get('moment_op');
   if (momentOp !== null) {
     if (!isMomentOp(momentOp)) throw new Error('Invalid input');
+    // 🔔 A crew line, a supplier ticked on or off, a march: the moment's suppliers (before AND after) are told once.
+    // A crew line or a march changes the moment in a way its fields cannot show (`touched`); ticking a supplier on or
+    // off is seen by the before/after supplier lists themselves.
+    const writes = momentOp !== 'papic_count';
+    const part = writes ? await partBefore(supabase, eventId, [blockId], { touched: momentOp !== 'for_set' }) : null;
     // 🚶 "This is a march" (migration 20271301571290): the moment names a march, or a new one is made for it.
     const answer =
       momentOp === 'march_set' || momentOp === 'march_new'
         ? await runMomentMarch(supabase, momentOp, eventId, blockId, formData)
         : await runMomentOp(supabase, momentOp, blockId, formData, user.id);
     // 🔄 A task or a march that saved refreshes every page that reads the day (a read — the Papic count — does not).
+    if (answer.ok && part) await tellPartSuppliers(supabase, part, user.id);
     if (answer.ok && momentOp !== 'papic_count') revalidateScheduleUnlessMaker(eventId, formData);
     return answer;
   }
@@ -623,7 +635,10 @@ export async function updateScheduleBlock(formData: FormData) {
   // shifts the chapter AND every moment in it by the same amount, in one statement under the caller's own RLS
   // (`move_schedule_chapter`, migration 20271300072429). Its ingress and egress are minutes from the start, so they
   // come along. A move that reached no row is said, never a quiet "saved".
-  if (formData.get('with_moments') === '1' && patch.start_at !== undefined) {
+  const withMoments = formData.get('with_moments') === '1' && patch.start_at !== undefined;
+  // 🔔 One save, one notice per supplier: the moment — and, on a chapter move, every moment in it — read BEFORE.
+  const part = await partBefore(supabase, eventId, [blockId], { withChildren: withMoments });
+  if (withMoments) {
     const { data: moved, error: moveError } = await supabase.rpc('move_schedule_chapter', {
       p_block_id: blockId,
       p_start_at: patch.start_at,
@@ -642,6 +657,7 @@ export async function updateScheduleBlock(formData: FormData) {
   if (error) throw new Error(error.message);
   // RLS answers a refused UPDATE with zero rows and no error — said, never "saved" (a chapter's row says "didn't save").
   if (!changed || changed.length === 0) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -952,6 +968,8 @@ export async function setBlockResponsibleParty(formData: FormData) {
     vendorIds = [...new Set(requestedVendorIds)].filter((id) => valid.has(id));
   }
 
+  // 🔔 Before AND after: a supplier taken off is told as surely as one put on.
+  const part = await partBefore(supabase, eventId, [blockId]);
   const { data: changed, error } = await supabase
     .from('event_schedule_blocks')
     .update({
@@ -965,6 +983,7 @@ export async function setBlockResponsibleParty(formData: FormData) {
   if (error) throw new Error(error.message);
   // An UPDATE that RLS filtered to nothing raises no error — read back what changed, so a refusal is not "saved".
   if (!changed?.length) throw new Error(NOTHING_CHANGED);
+  await tellPartSuppliers(supabase, part, user.id);
 
   revalidateScheduleUnlessMaker(eventId, formData);
 }
@@ -1011,6 +1030,11 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   // Nothing this caller can see to move is not a shift — the sheet must not close as if the day moved.
   if (patches.length === 0) throw new Error(NOTHING_CHANGED);
 
+  // 🔔 A drag of one moment (or a span) tells the suppliers on what moved — once each. Running late (`shift_notice`)
+  // already tells EVERY booked supplier the day moved, so it is not told twice.
+  const shiftNotice = formData.get('shift_notice') === '1';
+  const part = shiftNotice ? null : await partBefore(supabase, eventId, patches.map((p) => p.block_id));
+
   const now = new Date().toISOString();
   for (const patch of patches) {
     const { data: changed, error } = await supabase
@@ -1027,7 +1051,8 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
   /* ⏱ A SHIFT OF THE DAY TELLS EVERY BOOKED SUPPLIER — once, after every block landed (owner 2026-10-23). Only the
      Running-late sheet sends `shift_notice`: a drag of one moment rides this same action and is not a shift of the
      day. Best-effort — the shift is written; a failed notice never undoes it. */
-  if (formData.get('shift_notice') === '1') {
+  if (part) await tellPartSuppliers(supabase, part, user.id);
+  if (shiftNotice) {
     const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
     await notifyScheduleShifted({
       eventId,

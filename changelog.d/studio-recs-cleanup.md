@@ -1,0 +1,13 @@
+## 2026-07-11 · refactor(studio): correct Studio-recs framing, delete the dead roadmap surface, harden
+
+Follow-up cleanup to the Studio "Recommended for you now" work (#3009 / #3016). An audit found the recommendation engine aligned to the **wedding roadmap** whose only surface — `WeddingRoadmapAsync` — was orphaned by the 2026-07-10 "Home IS the dashboard" refactor (the live Home ranks by a different model: progress-stages + today's-one-thing, which don't recommend add-ons at all). So the earlier "shared source of truth so Studio and Home can't disagree" framing referenced dead code. Owner decision (2026-07-11): keep the roadmap *engine* (it phases add-ons far better than the coarse 6-stage model would), delete the dead *surface*, reframe honestly, and harden.
+
+- **Delete dead code:** removed `wedding-roadmap-async.tsx` (`WeddingRoadmapAsync` + `WeddingRoadmapSkeleton`) — rendered nowhere; `/progress` already redirects to Home. Removed its only caller, the `toggleRoadmapItem` server action (+ its now-unused `ROADMAP_ITEM_KEYS` import), leaving a tombstone comment. `events.roadmap_completed` no longer has a writer; Studio still READS it (existing values valid) but now runs on auto-signals only — made explicit in the docs.
+- **Reframe (no over-claim):** `wedding-roadmap-signals.ts` + `studio-recommendations.ts` headers now describe this as Studio's OWN phase-aware heuristic, not a cross-surface contract. `wedding-roadmap.ts` / `-signals.ts` survive as Studio-only libs (its sole legitimate consumer).
+- **Harden #3 (resilience):** the `fetchRoadmapState` read in the Studio `Promise.all` is now `.catch(() => null)` — a hiccup in its five reads degrades the strip (to date-peak, or hidden), never 500s the whole Studio hub for a nice-to-have.
+- **Harden #4 (drift guard):** `STUDIO_ROADMAP_ANCHORS` + `STUDIO_PREREQUISITE` are now exported and drift-guarded — a test asserts every referenced add-on key is a real, peaked catalog key, so a typo can't silently drop an item.
+- **Harden #5 (event type):** `recommendStudioAddOns` takes `followRoadmap` (default true); the Studio page passes `profile.eventType === 'wedding'`. Non-wedding events skip the wedding-canon phase-follow pass and rank by date-peak proximity alone, so they don't inherit a 12-month wedding runway.
+
+Tests: `studio-recommendations.test.ts` grows to 10 (adds the anchor/prereq drift guard + a non-wedding followRoadmap case). Typecheck + lint clean; full lib suite 1390 green (deleting the component + action broke nothing).
+
+SPEC IMPACT: None (in-app Studio UX + internal libs; no SKU, price, schema, or catalog-content change — `roadmap_completed` column left in place, now write-inert).

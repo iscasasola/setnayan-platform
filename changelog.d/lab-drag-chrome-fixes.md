@@ -1,0 +1,28 @@
+## 2026-07-17 · fix(seating): close the zone-drop bypass + universal confirm-on-drop, draggable zones, and lab chrome fixes
+
+Owner reported four issues in the 3D seat-plan lab on a build that ALREADY includes #3362 (which wired `dropAccepted` into the table `commitDrag`). This closes all four plus the owner's confirm-on-drop + universal-draggability expansion (`Seat_Plan_2D3D_Alignment_Directive_2026-07-15.md` → "Lab chrome rules" + "Confirm-on-drop + universal draggability").
+
+**Issue 1 — THE remaining drop bypass (critical). The lab is NOT a second implementation** — the Build panel (Publish / Print pack), "tap a table to select · drag to slide it", and the view segment all live in `seating-lab-3d.tsx`; the table drag (`onTableDown` → `onFloorMove` → `commitDrag`) already routes through `dropAccepted` (#3362). The leak is the **floor-ZONE placement path**, on BOTH projections:
+- 3D lab: `moveZone(stage|dance|entrance, …)` (the "Move stage / dance / entrance" tap-the-floor flow) persisted a new zone position with ZERO collision check — so the stage/dance/entrance could be dropped on top of tables ("objects on top of each other"). #3362 never touched it.
+- 2D editor: `onCanvasPointerUp` routed ONLY `kind === 'table'` through `dropAccepted`; stage/dance/cocktail/entrance/service/booth/sign marker drops committed straight to `setFloorDirty`/`setBoothsDirty` with no validation (the 2D editor already dragged these markers — it just never validated them).
+
+Fix — one shared rule, both projections. New pure, exported, tested helpers in `lib/seating.ts`:
+- `firstDropViolation(moved, others, zones, params)` → the first blocking `{ otherId, zoneId, kind }` (powers the named refusal); `dropAccepted` is now exactly `firstDropViolation(...) === null`.
+- `zoneDropViolation(movedZone, tables, otherZones, params)` — the ZONE mirror of the table drop rule: a moved stage/dance/cocktail footprint must clear every table (a sweetheart is exempt from the sweetheart-exempt stage, symmetric with `checkPlacement`) and every other zone at the walkway gap. `zoneDropAccepted` = `zoneDropViolation(...) === null`.
+- `zoneDisplayName(zoneId)` — a shared human name so both projections word the refusal identically.
+
+3D `placeZoneAt`/`commitZoneDrag` and the 2D marker-release now both route stage/dance/cocktail through `zoneDropViolation` → invalid = named refusal + snap back to the drag-start centre (nothing persisted). Entrance/service/sign carry no table-collision footprint → place-anywhere (booths keep their live perimeter clamp), but every element still confirms-on-drop.
+
+**Confirm-on-drop + universal draggability (owner expansion).** ONE shared bubble component (`drop-confirm-bubble.tsx`) used by BOTH the 3D lab and the 2D editor, for every element type: on a valid release the element is placed optimistically and the bubble asks "Drop here?" (✓ persists, ✗ / Esc snaps back to the drag-start pose); an oracle-rejected release names what it hit ("This area intersects with {name} — please choose a different area", or the walkway variant) with ✗ only — the silent snap-back is superseded by the named refusal, the bounce animation remains. Anchored beside the drop point (occlusion-flip near edges), not a modal, ≥44px targets, motion-safe only. A tap (no real drag) never prompts (2D uses `d.moved`; 3D adds a 0.25% move threshold). Weld-snap serpentine joins stay direct (sanctioned).
+
+Stage / dance floor / entrance are now **directly draggable in 3D** via invisible grip pads + a live gold/red preview ring, committing through the same rule (the panel "Move …" buttons + W/D steppers remain as precision alternatives). 2D already dragged them; it now validates them.
+
+**Issue 2 — accidental fullscreen + explicit control.** There is NO `requestFullscreen` anywhere in the seating tree (grep-verified) — the accidental fullscreen is not seating-code-triggered. Added explicit control only: a bottom-right enter/leave button (Maximize2/Minimize2, ≥44px, kit glass) + double-tap on the OUTSIDE area (raycast beyond the venue rect → the dark surround) toggles fullscreen; a double-tap INSIDE the room does nothing (the guard). `fullscreenchange` (+ webkit) drives the button icon; reduced-motion safe.
+
+**Issue 3 — segment order LIST | 2D | 3D** everywhere the segment renders — reordered the `items` array in the shared `SeatingViewSegment` (`seating-frame.tsx`), so both the 2D frame and the lab's mirrored segment flip together; active-state logic intact.
+
+**Issue 4 — segment overlapping the Build panel.** The page-level `LabViewSegment` overlay (absolute top-left) crowded the lab's own top-left chrome. Moved the mirrored segment INTO the lab chrome (`Hud`), stacked above the Build/Play toggle in one flow column with a gap, and offset the left panel to `top-28` to clear the two-row stack at every viewport. Deleted the now-orphaned `lab-view-segment.tsx` + its page import.
+
+Tests — extended `lib/seating-3d-drop-pipeline.test.ts` (+7: zone-over-table refused & named, sweetheart-exempt stage, dance no-exemption, zone-on-zone, confirm-accept persists / confirm-cancel restores, invalid never persists + names the hit, `zoneDisplayName`) and `lib/seating-2d-drop-pipeline.test.ts` (+1: the 2D marker bypass in pixel space). Full unit suite green (1960), typecheck + lint clean. Local production build skipped (fonts sandbox-blocked; CI gates).
+
+SPEC IMPACT: `Seat_Plan_2D3D_Alignment_Directive_2026-07-15.md` already carries the "Lab chrome rules" (LIST|2D|3D order, explicit-only fullscreen, every move handler routes through `dropAccepted`) and "Confirm-on-drop + universal draggability" sections — this PR implements them; no corpus edit needed.

@@ -1,0 +1,5 @@
+## 2026-07-17 · fix(db): velvet-court music seed — supply NOT NULL category + duration_sec
+
+Migration `20270820688344_seed_owned_reel_music_velvet_court.sql` (PR #3356) omitted the NOT NULL `category` and `duration_sec` columns of `reel_music_tracks`, so it failed against prod (`SQLSTATE 23502`) and, being recorded locally but unapplied remotely, **blocked every subsequent `supabase db push --include-all`**. Fixed in place (the migration had never applied, so no drift): `category='bridgerton'` (matches the `br_*` seed family — Velvet Court is a courtly Bridgerton-feel track), `duration_sec=158` (beat grid's final beat at 157.36s), both added to the UPSERT SET list. Applied to prod and verified: row present with beat grid, re-push idempotent, `schema_migrations` has no duplicate versions (the suspected `20270820100000` collision was two different sessions racing for the same round timestamp — prod's is `fix_sweep_expired_creator_offers_ambiguous_vendor_id`; the life-event-gate migration moved to `20270821100000`).
+
+SPEC IMPACT: None.

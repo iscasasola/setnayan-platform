@@ -1,0 +1,13 @@
+## 2026-09-11 · security(chat): a party to a conversation may change only what their side may change (N4 part 1)
+
+Owner, 2026-09-10: "our goal is to let them integrate their event with the vendor they find. not to let them communicate outside the app."
+
+Measured by N1 (replay, real `authenticated` couple, 1 row each) and re-read in production: `anon` and `authenticated` hold TABLE-level INSERT/UPDATE on `public.chat_threads` and `chat_threads_member_update` has no column filter, so on their own thread a couple could move the conversation into any supplier's inbox (`vendor_profile_id`, and any event via `event_id`), accept their own inquiry (`inquiry_status`/`accepted_at`), and stamp a lock at a price (`locked_at`/`agreed_price_centavos`/`locked_by_user_id`) — and the same through INSERT.
+
+- Migration `20271222263716`: BEFORE INSERT OR UPDATE guard `chat_threads_guard_sides` (a column revoke is inert against a table grant, and `inquiry_status` is legitimately written by BOTH sides, so the rule is per side and per transition). For a browser session: a new thread opens `pending` with no answer and no lock; `event_id`/`vendor_profile_id` never change; the lock columns are server-only; accept/decline (from `pending` only, with its timestamps and reason) is the supplier's; displace/revive is the couple's, along the `displaced_from_status` marker only. Refuses with `CHAT_THREAD_SIDE_REFUSED` (42501). Privilege is read from `current_user` (SECURITY INVOKER on purpose), so the service role and SECURITY DEFINER bodies (message → `updated_at` bump, first-reply stamp) pass.
+- `lockDeal` (the couple's "Lock this deal") now freezes the price on the SERVICE ROLE, pinned to the thread it proved is the couple's and its event, with the error checked — and first binds the accepted Deal to THIS conversation (event, supplier, thread); before, a Deal from another of the couple's threads could be frozen and booked onto this supplier.
+- The supplier's Accept maps the refusal to "This inquiry is no longer waiting for an answer." (a stale page on a thread the couple set aside).
+- Every other legitimate writer is unchanged and proven still working: supplier accept/decline, couple displace/revive (`finalizeVendor`/`revertVendorToConsidering`), opening and resuming a thread (the three upsert paths — the pair is unchanged on conflict), archive, pax snapshots, auto-accept/demo/push/first-reply on the service role.
+- Guards: `tests/db/a-couple-cannot-rewrite-their-conversation.db.test.ts` (15, real `authenticated` roles, neutralised once) and `lib/a-couple-cannot-rewrite-their-conversation.test.ts` (4).
+
+SPEC IMPACT: None — enforces the existing accept-gate and lock rules at the database; no product rule changes.

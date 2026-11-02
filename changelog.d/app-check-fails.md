@@ -1,0 +1,13 @@
+## 2026-10-19 · fix(app-shell): the iPhone app shows no prices, no web-buy pointers, no Android and no dead ✕
+
+Apple readiness check 2026-10-19 (`shots-2026-10-19/apple-check/APPLE-CHECK-2026-10-19.md`), the four FAILs plus two easy RISKs. All web-side except the manifest; the web and the desktop app read exactly as before.
+
+- **#5 / #26 (3.1.1):** the marketing header on `/our-story`, `/monogram`, `/blog`, `/tl/about` no longer shows Prices · Download · Suppliers inside the store shell (`data-web-only`, hidden before first paint by the `data-store-shell` mark), and `HomeOverlays` opens only Sign in there — no Setnayan AI price, no supplier tier ladder, no Mac/Windows/web-app download.
+- **#6 (3.1.1):** help answers that pointed at the web to buy get store-shell wording (`HelpArticle.appBody`, read through `helpBodyFor` / `helpTopicsFor`). Answers whose whole subject is a part the app does not include (ordering a Setnayan service, setting up and topping up Papic) say the `/web-only` sentence and drop out of the app's `/help`, `/about` FAQ and site search. `/help/<slug>` stays prerendered and ships both words under `data-web-only` / `data-app-only`.
+- **#14 (2.3.10):** `/web-only`'s line under the title is "The Setnayan app" (was "Setnayan for iPhone and Android"); in the app, "Does Setnayan have a mobile app?" answers `mobileAppAnswerInApp()` — no Android, no download.
+- **#3 (2.1):** `/login` draws no ✕ inside the phone or desktop app (it opens on `/login`, and middleware bounces `/` straight back); Escape and the backdrop do nothing there. The web keeps its ✕ to `/`.
+- **#22:** `PrivacyInfo.xcprivacy` now declares phone number, user ID, messages, other user content, customer support, purchase history, other financial info (supplier bank proof), sensitive info (religion), health (dietary needs/allergies), other data (birth dates) — all linked — and crash + performance data, not linked. Needs a new app build and matching App Store Connect answers.
+
+Guards: `lib/store-shell.test.ts` (header + overlays wiring; `/web-only` names no platform; a walk of every `.tsx` the app can open for selling words / Android, each gated or with its gate cited), `lib/help-in-the-app-sells-nothing.test.ts`, `app/login/the-app-login-has-no-dead-close.test.ts`, `lib/the-app-declares-what-it-collects.test.ts` (linked vs not-linked), and `public-help-says-what-is-true.test.ts` now also reads the app wording.
+
+SPEC IMPACT: None in the corpus. Owner actions: enter the new App Privacy answers in App Store Connect and ship a new build for the manifest; rule on how a supplier opens a shop from inside the app (the only door, `/for-suppliers`, is refused there); `/privacy` "limited pilot" wording is left for the owner's legal review.

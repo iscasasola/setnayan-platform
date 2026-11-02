@@ -1,0 +1,13 @@
+## 2026-08-09 · docs(vendor-tiers): the per-tier pipeline limits land in the canonical benefits doc — plus three stale token claims corrected
+
+**Why this is a separate change:** PR #4263 shipped the whitelist/waitlist limits and wrote them into the **spec corpus** (`Vendor_Monetization_Model_LOCKED_2026-07-25.md`, a different repo). It did **not** write them into `apps/web/VENDOR_TIERS_AND_BENEFITS.md` — the owner-signed per-tier benefit spec that lives **in this monorepo** and that `lib/vendor-tier-caps.ts` itself cites as the rate card. A vendor-facing limit documented only outside the repo is documented in the place a code reader will not look.
+
+**Added** to Free · Solo · Pro · Enterprise (and a table + note under § 2): live clients per date **1 / 3 / 5 / 10**, waitlist per date **— / 1 / 3 / 5**. The note spells out the vocabulary trap (this "whitelist" is § T1.1's *accepted-but-not-yet-locked* list, **not** the calendar's approve-first DAY STATE), restates that the inbox is still never gated, is honest that Free = 1 does make a second couple on the *same* date wait, and records that it ships switched off.
+
+🔑 **The table says of itself that it is a READING, not a source** — the grid lives in `TIER_CAPS` + `vendor_tier_limit()`, held in step by a db test. If the doc and the code ever disagree, the code is right.
+
+**🚨 AND THREE STALE TOKEN CLAIMS IN THE SAME DOC, CORRECTED.** Its § 1 asserted *"There is no token-free answering tier… every answering tier is `inAppGated=true`… each answer still burns a region-banded token ₱100/200/300"*, and § 2 listed *"token packs · pay-per-lead answering"* as live usage — while § 2's own Solo line claimed *"unlimited answering, no per-lead tokens"* as the Solo linchpin, which § 1 called FALSE. **A doc contradicting itself in two sections, and now wrong in both.**
+
+Verified before touching it, against code and prod rather than memory: the pack sale was retired by `20270910266901` (owner 2026-07-21), the currency was finished off 2026-08-07, **both** accept RPCs force `v_tokens := 0` unconditionally so the debit branch is unreachable, and prod has **0 rows** in `token_redemptions_log` and **0** `vendor_event_unlocks` that ever burned one. So answering is free on every tier — Solo's linchpin is now TRUE, just not as an upgrade lever, since it is true for everybody. Corrections are dated and the superseded sentence is kept inline rather than deleted, matching this doc's own convention, so the history still reads straight.
+
+SPEC IMPACT: None beyond this file — the corpus already carries the same grid from #4263, and the token retirement was already recorded there.

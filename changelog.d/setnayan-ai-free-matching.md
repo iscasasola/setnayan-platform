@@ -1,0 +1,16 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-12 · feat(vendors): Setnayan AI matching is free for every couple + budget/faith now score the % match
+
+Two things shipped together, both under Rule 1 (Setnayan AI is 100% deterministic + free):
+
+**1. The % match + match-based sort are no longer paywalled.** On the dashboard Services grid (`category-search.ts`) the per-vendor "% match" pill and the reception-proximity sort were computed only when Setnayan AI was active (`assistOff = !aiActive`). Basic matching is table stakes (a free PH rival gives AI matching away), so both are now computed for **every** couple. `aiActive` still governs the paid concierge perks (last-minute vendor visibility); it no longer governs the match score. The primary vendor-discovery grid is un-gated in this PR; the budget-planner inline cards (`plan-budget-accordion.tsx`, gated on `personalizationEnabled`) and the guided tour still gate the pill — fast-follow for full parity.
+
+**2. The scorer now uses budget + faith — the two dims the buy page always promised but the engine ignored.**
+- `lib/compat-score.ts`: added **`budgetFit` (.20)** and **`faithFit` (.07)** dimensions and generalised the refinement dim to accept a `preferenceMatchRatio` alongside `songOverlapRatio`. Weights rebalanced to sum to 1 (refinement .30→.22, distance .25→.18, reviews .20→.18, dateHeadroom .15→.08, trust .10→.07). New `explainCompatScore` reasons "Fits your budget" / "Fits your ceremony". Every new dim is admit-unknown (missing input → neutral, never a penalty). +4 unit tests (18 total, all green).
+- `category-search.ts`: builds the deterministic **Event Brief** (`buildEventBrief`, previously unconsumed) to read the couple's faith list, and per vendor now feeds `computeCompatScore`: `budgetFitRatio` (`priceFitScore` of the vendor's pax-adjusted floor vs the couple's per-category budget), `faithMatch` (vendor's `compatible_ceremony_types` explicitly lists a couple faith), and `songOverlapRatio` + `preferenceMatchRatio` (both already computed by the recommender — used only for badges until now, now feeding the displayed %). The price/budget reads that back budget-fit were hoisted out of the `smartSort` gate to run for every search (each still fails open → neutral; the smart-sort SOFT re-rank + "raise your budget" pressure stay flag-gated).
+- `lib/wizard-recommendations.ts`: surfaced `compatible_ceremony_types` on `WizardVendorRec` (already fetched in the base select for the gate; now typed + read for faithFit).
+
+No migration — every column read already exists in prod. Verified: `tsc --noEmit` clean, compat-score 18/18 + event-brief 7/7 unit tests pass, entitlement-gates lint clean.
+
+SPEC IMPACT: Moves the couple-side free/paid line — vendor **% match + match-sort go from Setnayan-AI-gated to FREE**, and the score now matches on budget + faith. Aligns with the 2026-07-12 competitive finding (basic AI matching is market-standard free; a free PH rival "Eve" gives it away) and the "wow, not responsibility / easier not more complex" AI posture. The paid tier's differentiation is the concierge/depth layer, not the match score. Recommend a `DECISION_LOG.md` row. See memory `project_setnayan_ai_free_paid_strategy` + `project_setnayan_ai_deterministic_free`.

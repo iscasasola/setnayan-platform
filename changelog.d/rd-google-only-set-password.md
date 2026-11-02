@@ -1,0 +1,5 @@
+## 2026-10-03 · fix(login): a Google-only account that types a password can email itself a set-a-password link
+
+A Google-only account that typed a password was told "This account signs in with Google." and, in the phone app, "Open setnayan.com in Safari or Chrome and use the Google button there." — a dead end inside the app. After that refusal (and only then) the card now shows one button, "Email me a link to set a password", which sends the existing recovery email for the address already typed and says "Check your email. We sent a link to set a password." (or truthfully why it could not: bot check, rate limit). The Safari/Chrome line is removed; "Use the Google button above." stays where the button is visible. No new exported server action: it is `intent=reset` on `signInInPlace`, using the shipped `sendPasswordRecoveryLink` with the forgot-password captcha check and rate-limit buckets; the result is not branched on (anti-enumeration). The typed address crosses the /login route's redirect in sessionStorage, never the URL.
+
+SPEC IMPACT: None

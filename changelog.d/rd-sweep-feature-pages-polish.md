@@ -1,0 +1,8 @@
+## 2026-10-19 · fix(features): one header across /features, 44 px breadcrumb presses, desktop-sized feature shots (sweep batch 7)
+
+- **C5 — one header.** `/features` and `/tl/features` wore the older floating glass nav ("Prices · Download · Suppliers") while every `/features/<slug>` page under them wore the front-door bar and rail. Both hub pages moved into `app/(shell)/features/(hub)/` and `app/(shell)/tl/features/(hub)/` and left `NAV_ROUTES` / `UNFIXED_ROUTES` in `site-chrome.tsx`. The `(hub)` route group gives the hub its own `loading.tsx` (rail press commits at once) without wrapping `/features/[slug]`, which calls `notFound()`. Their `revalidate = 3600` is gone: the group layout is force-dynamic.
+- **C2 — 44 px presses.** The breadcrumb "Features", the foot row's "All prices" / "Features" and "Find suppliers near you" now carry `inline-flex min-h-[44px] -my-3 items-center` (the locale switch's own pattern) — 44 px to press, no visual change. Guide links use `py-3 -my-3` so a two-line title cannot overlap.
+- **C4 (layout only) — feature shots at desktop.** Phone shots step 150 → 200 (sm) → 240 px (lg), same 460:972 frame, `sizes` updated. Retaking the pictures stays with the feature-shots PR.
+- Guards: new `app/features/features-wear-one-bar.test.ts` (every /features page under `app/(shell)/`, none a NAV_ROUTE, no second header import; every `<Link>` in the renderer measured ≥ 44 px from its classes). `lint-no-stacked-pinned-bars.mjs` now also reads `app/(shell)/<route>` — it had been reading nothing for `/explore` and `/alaala` — and checks `/features`. Baselines regenerated (port-control, ugat screens).
+
+SPEC IMPACT: None.

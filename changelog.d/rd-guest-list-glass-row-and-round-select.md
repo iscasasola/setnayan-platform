@@ -1,0 +1,11 @@
+## 2026-10-09 · fix(guests): the guest list's floating row is real glass, its buttons are not second panes, and the select circles are round
+
+Owner, on the live guest list: "the glass row has a transparent background, the buttons is not the frosted glass style" and "not round on select guests". Both were measured in a real browser (the dev lab `/dev/guests-lab?part=screen` at 375 and 750 wide) and both predate the 2026-10-09 batch (the row's CSS dates from 2026-10-07, the page's view-transition name from 2026-06-21; the batch changed neither).
+
+THE GLASS. (1) The row's `backdrop-filter` never painted: it sits inside `<main class="sn-vt-page">`, and while that element carries a `view-transition-name` a backdrop blur on anything inside it blurs nothing — the "glass" was a 62 % wash over crisp text. The name is only needed while the bottom-nav slide runs, so on the guest list it is now off at rest (`globals.css`: `html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb])`, with `isolation: isolate` keeping the stacking context the name implied); other glass rows inside the page have the same exposure and were not measured. (2) Every button on the row (and the search field) carried a 62 % fill and a backdrop blur of its own inside the row's backdrop-filter — a nested backdrop root that blurs nothing, so each was a flat white disc and the toned ones lost their colour. The row now paints the glass once (`sn-glass-row`); a neutral button is the shared transparent one, a toned one keeps its tone, the Sort / Set… pick is transparent, and the search field is solid.
+
+THE CIRCLES. `globals.css` gives every `<button>` `min-height: 44px`, which stretched every 40-px select circle (the group's `.ico`, the guest's `.ava`) into a 40 × 44 oval. Each is now a 44 × 44 button with a 40 × 40 disc drawn by `::before` (the layout unchanged, the picked ring on the disc), and the icon-only buttons of the thumb row and of a guest row are 40 × 40 circles with a halo (`.acts` leaves it room).
+
+Held by `guests-glass-row-and-round-select.test.ts` and the extended `a-44px-tap-target-is-not-a-44px-ring.test.ts` (parsed CSS; sabotage seen red). CSS only: no request, no server action, no migration, no client file.
+
+SPEC IMPACT: None

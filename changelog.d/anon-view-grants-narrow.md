@@ -1,0 +1,28 @@
+## 2026-08-11 · fix(security): the unredacted twin was public — and a fraud void only reached half the shop page
+
+Two defects on the vendor shop page, found by auditing view grants against **prod** (`njrupjnvkjkitfctetvi`) rather than against a document. Migration `20271132024116`.
+
+**The audit method mattered more than the audit.** The first pass ran through `information_schema.role_table_grants` and reported four exposed objects. That was wrong: **`information_schema` does not report MATERIALIZED VIEWS at all.** Half the surface was invisible to the query, and the omission looks exactly like a clean result. Re-reading `pg_class.relacl` — the authoritative catalog — found **eight** anon-reachable objects, four of them matviews. Same disease as the phantom column, the phantom enum value, the phantom RPC argument and the blocked iframe: **the read is declined or incomplete, and the only symptom is an absence.** Add "audited through the wrong catalog" to that family.
+
+**1 · `vendor_full_completed_events_stats` was granted to `anon`.** It exists precisely as the deliberately-UNREDACTED twin of `vendor_public_completed_events_stats`, which filters out team, internal, self-comp and fraud-voided bookings. `lib/vendor-profile.ts:333` states the intent: *"`full_completed_count` is the unfiltered sibling. Only the vendor's own backend card reads this when their toggle is ON."* Both were anon-readable, so a signed-out stranger could fetch the two counts and subtract — deriving **how many of a vendor's bookings Setnayan had judged self-dealt or fraudulent**, i.e. publishing our own integrity findings about that vendor. A matview can never carry RLS, so the GRANT was the entire control. Revoked from `anon`; `authenticated` keeps SELECT because that is the documented consumer.
+
+Fixing it costs nothing observable: its only reader in the repo, `fetchVendorCompletedEventStats()`, has **zero callers** (verified repo-wide, not just under `apps/web`).
+
+**RESIDUAL, deliberately left and named:** a matview cannot honour RLS, so any *signed-in* user can still read any vendor's full count. Closing that needs an RLS-capable wrapper (a security-invoker view or a function keyed to the caller's `vendor_profile_id`) — a design change, not a grant flip, and not something to smuggle into a grants PR.
+
+**2 · A fraud void did not reach the dated list.** `executeFraudWipeBan()` (`app/admin/fraud/actions.ts:311`) asserts the invariant in its own comment: *"Soft-delete via `voided_by_fraud` so the evidence trail survives (the vetted views already exclude voided rows)."* `vendor_public_completed_events_stats` honours it. `vendor_completed_events` — the dated track record rendered on the **same page, directly beside that count** — never has. So the count said N while the list under it showed N+1 entries.
+
+Reported as **LATENT, not live**: today the flag's only writer is the fraud wipe, which hides the vendor in the same transaction, so the public page is unreachable afterwards. It still reaches the vendor's own track-record panel, and it becomes wrong the moment the flag gets a second writer or a banned vendor is un-hidden on appeal.
+
+**3 · Every anon grant here was `arwdDxtm` (ALL PRIVILEGES), not SELECT.** Inert today — verified `information_schema.views.is_updatable = 'NO'` for all four views, so Postgres refuses the write regardless — but it is the default-ACL footgun: the day someone adds a simple single-table view here it becomes auto-updatable and the inherited write bits go live. Tightened to SELECT across all seven anon/authenticated-reachable vendor views.
+
+**DELIBERATELY NOT CHANGED — two things that look like defects and are not:**
+
+- **`events_host`** is a view over all ~190 columns of `events` (love stories, partner birth dates and times, budgets, venue addresses), `security_invoker=false`, granted to `authenticated`. It is **correct**: it re-implements the scoping in its own `WHERE` (`current_couple_event_ids()` / `current_moderator_event_ids()` / `service_role`), which is how a security-definer view is supposed to be written. Reading the definition before reporting is the only reason this is not filed as a critical leak; revoking it would break every couple's dashboard.
+- **`security_invoker` on the public vendor views.** Turning it on would make RLS apply to the caller, and `anon` would then read nothing — breaking the public shop page's track record on data built to be public. These are intentional security-definer aggregates.
+
+**Guard:** `apps/web/tests/db/vendor-public-view-grants.db.test.ts` — 11 tests. Anti-vacuity META checks (the objects exist and are the kinds asserted; `voided_by_fraud` still exists; `service_role` keeps its grant), a BEHAVIOURAL check that an `anon` session is actually refused rather than merely un-granted, and **two NEUTRALISATION tests** that prove the guards can fire: re-granting SELECT re-opens the read, and re-creating the view without the fraud filter makes the voided booking reappear. The parity test asserts the row is VISIBLE before it is voided, so "it disappeared" cannot pass vacuously.
+
+`supabase/security/exposure-surface.baseline.txt` regenerated in the same commit via the PGlite replay (1099/1099 migrations applied). Exactly one line changes, and it is a narrowing: `vendor_full_completed_events_stats … select=anon,authenticated` → `select=authenticated`.
+
+SPEC IMPACT: None — no product decision changes. The vendor shop page renders the same public count and the same dated list; only the unredacted twin stops being anonymously readable, and a fraud void now reaches both halves of the page instead of one.

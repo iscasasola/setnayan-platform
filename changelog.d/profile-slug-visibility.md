@@ -1,0 +1,11 @@
+## 2026-07-16 · feat(profile): vanity-slug editor + per-account public/hidden toggle + empty-state name-oracle fix
+
+Social-sharing follow-through **item #7 (7a + 7b)** — the public-profile foundation for `/u/[slug]`. (7c — report path + share doorway + personal OG — is a separate later PR.)
+
+**7a — vanity slug editor.** New "URL & handle" section on `app/dashboard/(account)/profile` with a `updateUserSlug(newSlug)` server action: validates 3–32 chars / lowercase-alnum-hyphen (mirrors the `users_slug_format` DB constraint), rejects reserved slugs, enforces case-insensitive uniqueness across accounts, and self-sets under the caller's own session (RLS `user_owns_row` already permits it — migration `20270424889744`). Renames append an `entity_type='user'` row to `slug_change_log` (90-day redirect ledger; 'user' entity supported since `20270424889744`) and are rate-limited to 5/24h counted durably from that ledger.
+
+**7b — per-account public/hidden toggle + empty-state name-oracle fix.** New migration adds `users.public_profile_enabled boolean not null default false` (dormant-by-default; per-ACCOUNT gate, distinct from per-event `landing_page_visibility`). `app/u/[userSlug]/page.tsx` now: `notFound()`s for strangers when the gate is off (the signed-in holder still gets a labeled preview); when on but with zero public events, renders a NEUTRAL brand state that no longer prints `display_name` (kills the name/existence oracle) — the empty-state copy and the `generateMetadata` `<title>` are both name-free unless the profile is opted-in AND has ≥1 public event; `robots: noindex` unless enabled + ≥1 public event. The per-event public filter is unchanged (the page still only ever lists effectively-public, website-enabled events). A toggle (off by default) with explanatory copy lands in the same profile section.
+
+No new RLS policy: the public page reads `public_profile_enabled` via the service-role admin client (RLS-bypassing), and the owner reads/writes it through the existing `user_owns_row` policy — stays within the 8 canonical patterns.
+
+SPEC IMPACT: Social_Sharing_Followthrough_Build_Plan_2026-07-16.md item #7 (7a + 7b). DECISION_LOG.md row appended in the spec corpus. No SKU/schema-rename/branding locks touched.

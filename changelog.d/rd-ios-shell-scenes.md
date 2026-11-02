@@ -1,0 +1,10 @@
+## 2026-10-19 · fix(ios-shell): the app runs on the UIScene life cycle; the launch is light
+
+Duo/iPad audit 2026-10-19, batch B2 — rows N1 (P0) and N3.
+
+- **N1 · UIScene life cycle (Apple TN3187).** The shell was the stock Capacitor template: `AppDelegate` owned `var window` and `Info.plist` had no `UIApplicationSceneManifest`. The Xcode 27.1 build of it, run on the iOS 26.5 simulator, logs the fault "`UIScene` lifecycle will soon be required. Failure to adopt will result in an assert in the future"; TN3187 says the next major release will not launch such an app. Now: `Info.plist` declares one window scene (`$(PRODUCT_MODULE_NAME).SceneDelegate` + `Main.storyboard`, multiple scenes off — one Capacitor bridge), `UIMainStoryboardFile` is gone, and the new `SceneDelegate.swift` forwards `scene(_:openURLContexts:)`, `scene(_:continue:)` and the launch URL/activity in `connectionOptions` to `ApplicationDelegateProxy` (after `loadViewIfNeeded()`, so the App plugin is listening). `AppDelegate` keeps only process hooks. `SetnayanBridgeViewController` (offline fallback, 12 s watchdog, SetnayanAuth, SetnayanStore), NFC, Camera, entitlements and the privacy manifest are untouched.
+- **N3 · light launch.** The web is forced light (`DARK_READY` empty), but the launch storyboard used `systemBackgroundColor` and the splash shipped `-dark` variants, so a dark-mode phone launched black. Now: `UIUserInterfaceStyle = Light`, the launch background and the splash are Warm Alabaster `#FBFBFA` (`THEME_COLOR.light`), the dark splash variants are deleted, and `capacitor.config.ts` `ios.backgroundColor` is `#FBFBFA` so the web view no longer flashes white/black before the page paints.
+- Guard: `apps/web/lib/the-app-runs-on-scenes.test.ts` (8 tests, sabotaged per its docblock).
+- Not changed: the bundle id, the build number, signing, teams, provisioning.
+
+SPEC IMPACT: None — implements the 2026-10-19 "THE APP IS SUBMITTED COMPATIBLE WITH IPAD AND IPHONE DUO" ruling; no product decision changed.

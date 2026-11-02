@@ -1,0 +1,10 @@
+## 2026-06-22 · feat(studio): a coordinator can recommend a paid add-on to the couple
+
+Third + final coordinator delta (owner 2026-06-22). A booked coordinator (event delegate) browses the Studio hub and taps "Recommend" on any buyable add-on; the couple sees a "Your coordinator suggests" strip at the top of Studio with **View** + **Dismiss**.
+
+- **Migration `20270215220130`** — new `coordinator_feature_recommendations` table (event_id FK CASCADE, recommended_by_user_id, addon_key, note, status pending/dismissed/purchased, `UNIQUE(event_id, addon_key)`). RLS at create time: coordinator (an `event_moderator`, role wedding_planner_external) INSERT+SELECT via `current_moderator_event_ids()`; couple SELECT+UPDATE via `current_couple_event_ids()`; admin observe. **No coordinator UPDATE/DELETE path** — status mutation is couple-only. No payment data on the table; the coordinator has no buy path (money stays walled off).
+- **`studio/recommend-actions.ts`** — `recommendFeature` (idempotent upsert `ON CONFLICT DO NOTHING`, so a dismissed suggestion can't be re-nagged; validates `addon_key` against the buyable catalog) + `dismissRecommendation` (couple-only, pending→dismissed). RLS-bound client, never the admin client.
+- **`studio/page.tsx`** — role detection mirrors the layout's couple-vs-accepted-moderator test; the coordinator sees per-feature **Recommend / Suggested ✓ / Dismissed** controls (list rows + featured hero); the couple sees the suggestions strip.
+- **`studio-app-row.tsx`** — optional `trailing` slot renders the control *beside* (never inside) the single-tap row link.
+
+Adversarial security review verdict: **SHIP** — no blockers; cross-event isolation, insert-spoofing prevention, and dismissed-permanence are all DB-enforced (RLS `WITH CHECK` + `ON CONFLICT DO NOTHING` + no-DELETE). Migration **applied to prod** (RLS + all 5 policies verified). Typecheck + lint clean. SPEC IMPACT: iter 0048/0021 — coordinator→couple feature suggestions. Logged in corpus DECISION_LOG.

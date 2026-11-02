@@ -1,0 +1,7 @@
+## 2026-07-12 · feat(checklist): non-wedding deadlines anchor on the best-known date
+
+Non-wedding events now seed candidate/window dates at creation (PR #3162/#3164), but the couple checklist only anchored deadlines on `events.event_date` — which stays NULL until locked (date-as-output) — so their checklist was dateless. Now, for non-wedding events, the checklist page anchors task due-dates on the best-known date: `event_date → earliest date_candidate → date_window_start`. So the tentative dates the couple entered light up tentative deadlines.
+
+Scoped + isolated: only the checklist page's local `eventDate` (fed to `groupChecklistByPhase`) changes — `events.event_date` is NOT written, so the layout's day-of/recap mode + `SetDateNudge` (which key on the DB column) are untouched. Weddings + unset event_type are byte-identical (anchor on `event_date` only; the `isWeddingLike` guard mirrors the existing budget gate) — anchoring weddings on tentative candidate dates stays a separate, flagship-affecting decision. Earliest candidate chosen via a defensive chronological sort. Adversarially reviewed (day-of isolation · phase grouping · overdue UX · wedding regression · query safety) — sound, no defects.
+
+SPEC IMPACT: None (behaviour — non-wedding checklists gain tentative deadlines from captured dates; no schema/pricing/roster change). Resolves the deferred deadline-anchoring follow-up from the create-event capture work, scoped to non-wedding.

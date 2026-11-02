@@ -1,0 +1,15 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-05 · feat(admin): NPC compliance facts page
+
+New admin-only **Compliance** surface (`/admin/compliance`) that stores the RA 10173 / NPC (National Privacy Commission) registration facts in the database, so the owner enters them once and they feed the NPC filing — replacing a plaintext file as the home for the sensitive identifiers.
+
+- **Migration `20270519648420_platform_compliance_facts.sql`**: singleton table (`id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1)`) holding PIC identity, DPO designation, team scale, breach response, a `sub_processors JSONB` array, and processing declarations. RLS enabled at create time, **deny-by-default** with a single admin-only `FOR ALL USING/ WITH CHECK (public.is_admin())` policy. Idempotent (`CREATE TABLE IF NOT EXISTS` + `ON CONFLICT (id) DO NOTHING`). Validated in a rolled-back prod transaction (RLS on · 1 row · 9 sub-processors · 1 policy) — nothing persisted.
+- **Seed = NON-sensitive facts only.** The migration seeds the row with values that already appear in public docs (legal name, proprietor, DTI number, DPO name/title/email, headcount, sub-processor roster, processing notes). The **sensitive identifiers — BIR TIN, registered office address, DPO phone — are NEVER seeded**; they are entered at runtime through the admin form and stored only in the DB. `npc_registration_no`, `dpo_designation_date`, `staff_controls`, and `dpia_adoption_dates` are also left blank for the owner to fill.
+- **`app/admin/compliance/page.tsx`**: server component; re-checks the admin gate (defense in depth), reads the singleton row via the admin client, and computes **live scale counts** server-side (`users`, `vendor_profiles`, `guests`, `events`, active `guest_face_enrollments`). Counts render read-only at top; the editable form follows.
+- **`_components/compliance-form.tsx`**: `'use client'` form binding every field (text / date / number inputs + a repeatable sub-processors row editor). Submits via `useTransition` to the save action with saved / error state.
+- **`actions.ts`**: `'use server'` `saveComplianceFacts` — hard admin re-check, upserts the singleton (id = 1), sets `updated_at` / `updated_by`, `revalidatePath`. Non-admins rejected.
+- **`data-sheet/page.tsx`**: read-only, print-friendly rendering of the stored facts laid out as the NPC registration fields (mirrors `NPC_Compliance/03_DPO_Designation_and_NPC_Registration_Sheet`) so the owner can copy/print to file. Empty fields show `[TO CONFIRM]`.
+- **Nav registered** the existing way: a `compliance` item in the Money group's settings tail in `admin-sidebar.tsx` (ShieldCheck icon), its copy in `admin-nav-descriptions.ts`, and an `admin.sidebar.compliance` slot in `lib/nav-registry-defaults.ts` (satisfies the nav-registry integrity test).
+
+SPEC IMPACT: None — additive admin surface + one new admin-only RLS table; no pricing / SKU change. (The NPC compliance corpus draft in `NPC_Compliance/` remains the reference sheet; this surface is where the live values are entered and stored.)

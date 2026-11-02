@@ -1,0 +1,7 @@
+## 2026-10-02 · feat(guests): one QR for everyone adds a signed-in guest; "How guests get in" is one dropdown in Your info
+
+- **One-QR events let a signed-in person straight in.** On an event set to "No reply · one QR for everyone", a person who scans the event's QR and signs in sees **"Come on in" · Join as a guest**; one press adds them to that event as a guest (never a host) and opens their Event Hub. "I approve each one" (new `rsvp_ask_config.approveEach`) keeps today's request flow. The add is `public.join_open_event_as_guest` (migration `20271259992581`, service-role only), called from the existing `joinEventAction` — it re-checks the setting, refuses a finalized list (`guest_count_locked_at`) and a 1000-join ceiling, and writes one guest row + one guest membership for that account only.
+- **"How guests get in" is ONE dropdown in Your info › RSVP** (Only people on my list · Anyone, I approve · No reply · a personal QR for each guest · No reply · one QR for everyone · No reply · one QR, I approve each one), replacing the two-pill "Who can RSVP?" — the same `rsvp_ask_config` keys onboarding writes. The Guest list's Invite panel and Event Details show it in the same words; neither sets it.
+- Tests: `tests/db/one-qr-lets-a-signed-in-guest-in.db.test.ts` (open vs approve-each vs list choices, locked list refuses, idempotent, client cannot call), `lib/one-qr-joins.test.ts`.
+
+SPEC IMPACT: None

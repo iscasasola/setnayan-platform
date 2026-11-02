@@ -1,0 +1,129 @@
+## 2026-09-09 · feat(story): the public page stops being a list of sections and becomes the event's clock
+
+Ports `Design_Editorial_By_The_Minute_2026-09-07/prototypes/story.html` — `08` step 2.1,
+session S9. The story now runs on one axis: **the road · one segment per calendar day ·
+after**, with everything filed under the moment it happened.
+
+- **The cover** replaces the centred masthead and the lead headline (it does not sit on top
+  of them): the mark, the volume, the names very large, one sentence, and four facts.
+  **The edition number appears only at publish** — before that the masthead reads `Vol. I`
+  alone, because `editionNo` is recomputed on every render and a number shown under "theirs
+  forever" that can still change is a false claim. A curated sample carries its
+  *Sample story — not a real ⟨host⟩* pill **on the cover**, not buried in the colophon.
+- **The dial.** Bar heights come from the `story_dial_bucket_counts` aggregate, routed
+  through `drawnBins()`; the whole strip is one hit area and the nearest bin wins (a 1.3px
+  bar is not a tap target); labels are HTML positioned in percent, never SVG text inside a
+  stretched viewBox; the dial is focusable, ←/→ walk the bins and Enter opens one; the
+  needle moves by transform. Every bar opens, written-up or not (owner lock 4).
+- **The road, the days, and after.** Road entries are real dated facts only — the date being
+  set, the saved theme, the first booking, the first pre-day captures, the broadcasts before
+  the day — never a filler row. Each day carries its own clock and its own width,
+  proportional to the hours that actually happened, and the gaps between minutes are drawn
+  **as gaps** so the day keeps its real proportions.
+- **A minute's layers**: Said · Asked · Made by · In the film · In the room. Said and Asked
+  belong to a minute by the SHUTTER of the capture they anchor to, not by when the words
+  were typed. **In the room** is derived from the schedule block in use, never from a clock
+  threshold — assigned seats exist only while the reception venue is in use (owner lock 6).
+- **Films: one card per broadcast session, not one film.** A minute's timecode is its clock
+  time minus *that session's* `went_live_at`. The shipped page reads one embed URL, so a
+  timecode measured against it put the money dance at hour seven of a three-hour video.
+- **Motion**: entries RISE, never fade — the page is fully legible at rest, in a screenshot
+  and with JS off (the offset is applied only once the script has run).
+  `prefers-reduced-motion` is honoured by the script as well as the stylesheet.
+
+### The defect S9 inherited, and fixed
+
+`story_dial_bucket_counts` excludes hidden and unscreened captures — but **a consent-vetoed
+capture still added to a bar's height.** A bar height is data about the guests' layer exactly
+as a photograph is. The subtraction is exact, not blanket: a vetoed capture with a baked
+blurred stand-in IS on the page and keeps its height; only the ones `publicKeyForCapture`
+resolves to null come off. An unresolvable veto flattens the whole dial.
+
+### Two smaller ones found on the way
+
+- `events.event_end_date` was being READ by the story loader and thrown away, so nothing
+  downstream could know how many days the celebration covers without asking the database a
+  second question that could disagree. It is on the payload now.
+- A backgrounded tab left the needle dead **and it stayed dead after the reader came back**:
+  `requestAnimationFrame` does not fire while a tab is hidden, and the coalescing guard was
+  only cleared inside the frame that never arrived, so every later scroll was refused.
+
+### Not in this PR, named so nobody looks for it here
+
+The six-stage light from the mood board and the floor-plan lens are S10; the eleven index
+tabs, find-in-this-day and Relive are S11; the locked close, print and share are S12. The
+shipped sections still render below the clock, in the couple's own order, until S11 folds
+them into the index — nothing a host switched on has stopped appearing.
+
+⚠ **A known delta from the prototype, and it is a font-asset decision, not a design one:**
+the prototype sets every time stamp in Big Shoulders Display. No condensed face ships in
+this repo (the v2.1 marketing quartet was retired 2026-07-12 and `globals.css` aliases
+`--font-condensed` to Hanken Grotesk). The spine points at that existing slot rather than
+hard-coding a family, so a condensed face can be added later in one line.
+
+⏭ **Still not built, named:** the per-bin presign route (`08` step 0.2's last clause). The
+minute sheet names the minute, its count, where the celebration was and the nearest written
+moment — it does not show that minute's photographs, because no per-bin API route exists and
+the page is ISR.
+
+SPEC IMPACT: None. `08` step 2.1 and `03` §2.5 are already written this way; the only
+correction worth carrying is that `03` §2.5's line about the consent veto having "landed in
+PR #5331" is optimistic — `drawnBins()` applies the layer and the future check, not the
+veto, which is why S9 had to.
+
+### Follow-up in the same PR — the legibility floor, and a hole in the guard that protects it
+
+`lint-guest-legibility` failed the first push, and it was right to: the port had carried the
+prototype's 9–11px eyebrows onto a guest-facing page. Fine on a 1000px desktop mock, illegible
+to the guest the 2026-06-20 "Lola Remedios" audit was named after. Every size is at or above
+the 12px floor now, and the two controls (the sheet's Close, the film link) are at 14px.
+
+The dial adapted to the larger type rather than the type shrinking back to the dial: hour
+stamps are thinned to at most four per day, and the road's date marks are hidden below `sm`
+— that band is about 103px on a phone and five legible stamps cannot share it. Nothing is
+lost: the strip is one hit area and the sheet a tap opens names the entry and links to it.
+
+🪤 **AND THE GUARD ITSELF HAD A HOLE.** Its pattern was `text-\[(\d+)px\]` — integers only —
+so `text-[9.5px]` walked straight past it, which is exactly the value you get copying a
+prototype's type scale. Measured on a deliberate sabotage: **0 → 1** occurrence of
+`text-[9.5px]`; the widened pattern fails (exit 1), the pattern as it shipped passes (exit 0)
+on the same file. Widening it reports **zero new offenders across all 222 guest-facing
+files**, so nothing was grandfathered in to make it go green.
+
+SPEC IMPACT: None.
+
+### One stale sentence corrected, in the code and in the corpus
+
+`COUNTS_ARE_THE_GUESTS_LAYER`'s docblock said **"⛔ NOT ANSWERED as of 2026-09-09"** about
+owner gate Q1 — and `03` §2.5 said the same. Q1 **was** ruled that day (*no counts, no bar
+heights, to a stranger before publish*). The VALUE was right in both places; only the
+sentence beside it was stale. A stale "unanswered" on an owner gate is precisely how a
+settled question gets asked a second time, and the house rule is never to ask the owner a
+question the corpus answers.
+
+SPEC IMPACT: `03_Data_Requirements.md` §2.5 — applied directly in the corpus.
+
+### The port guard fired, and it was right to
+
+`lint-port-no-lost-controls` failed on `/[slug]`: **`<EditionLine>` is no longer rendered.** True
+— the cover took over all three of its jobs, and each was checked before the baseline was
+regenerated rather than after:
+
+| `EditionLine` rendered | now on the cover |
+|---|---|
+| `Vol. N · No. N` (left) | `mastheadEdition(...)` under the SETNAYAN mark |
+| city · date (centre) | the kicker above the names |
+| Share + Save story card (right) | the same two components, passed in as `actions` |
+
+The baseline is regenerated **in this PR**, which is the guard's own escape hatch, and the diff
+was read line by line rather than skimmed: **exactly one removal** (`EditionLine`) against 12
+additions on `/[slug]`. ⚠ It also absorbs one addition on
+`/vendor-dashboard/messages/[threadId]` (`HTMLDetailsElement`) that is **not this PR's** — it
+landed on `main` after the baseline was last generated at `81cf19175`, and regenerating
+necessarily picks it up. Zero removals anywhere else.
+
+🔑 **Regenerating a baseline is how a real mistake gets recorded as intended.** The only thing
+that makes it safe here is that the removed control's three jobs were located on the new surface
+FIRST.
+
+SPEC IMPACT: None.

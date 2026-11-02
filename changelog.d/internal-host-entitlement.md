@@ -1,0 +1,7 @@
+## 2026-07-13 · fix(entitlements): §10a internal-hosted events own every SKU on the render
+
+Internal (§10a) Setnayan team/owner accounts host showcase & demo events (e.g. "Cale & Ice"), and the admin comp form blocks per-SKU comps on them because they "already carry a permanent grant" — but nothing conferred that grant on the render. Every couple-SKU gate reads `lib/entitlements.ts` `eventSkuActive`, which only checked `orders` + comp_grants, so an internal host who never placed an order rendered as owning nothing. Concretely, the owner's own Save-the-Date (`/cale-ice`) stripped its uploaded music, closing video, and photo gallery because `ownsStdReveal = eventStdOpeningsActive = eventSkuActive('STD_PREMIUM_OPENINGS')` was false.
+
+Adds `public.event_host_is_internal(event_id)` — a STABLE SECURITY DEFINER function mirroring `event_has_comp_for_sku`'s safe host-scoping (couple member OR accepted primary-host moderator) — and ORs `eventHostIsInternal()` into `eventSkuActive` (checked last, graceful-degrade to false on any RPC error). Internal-hosted events now resolve as owning any SKU on the public page and every feature gate, with no per-event order or comp. External couples are unaffected (guarded by a new inverse test).
+
+SPEC IMPACT: None. Formalizes the already-stated "§10a internal accounts carry a permanent grant" behavior on the render path; no SKU, price, or catalog change.

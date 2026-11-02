@@ -1,0 +1,57 @@
+## 2026-09-17 · fix(search): no source file hides from search
+
+A single NUL byte in a source file makes that whole file **invisible to the
+project's default search tool**, silently.
+
+`grep` in a Claude Code session is not `/usr/bin/grep` — `type grep` resolves to a
+shell function that execs the claude binary as **ugrep** with `-I` (ignore binary
+files), and ugrep calls a file binary if it contains one NUL. Measured on
+`app/[slug]/_components/editorial/data.ts` before this landed:
+
+| call | output | exit |
+|---|---|---|
+| `grep -c export <file>` | *(nothing)* | **1** |
+| `grep -ac export <file>` (force text) | `45` | 0 |
+| `/usr/bin/grep -c export <file>` | `45` | 0 |
+| `grep -rc <its directory>` | every sibling listed, **this file absent** | 0 |
+
+No warning, no "Binary file matches" line. It reads exactly like *0 matches*.
+
+🔑 **The cost is not the search — it is every absence ever concluded from one.** That
+file is the editorial resolver for the guest page: timeline, gallery, photo wall,
+Pakanta song, vendor media. Any "nothing reads X" or "nothing writes X" claim reached
+with a bare sweep had never looked at it, and this repo decides things on exactly that
+kind of claim.
+
+**Five files carried one, all deliberate** — two sort sentinels (`editorial/data.ts`,
+`scripts/gen-ugat-code-map.ts`) and three test fixtures asserting NUL input is rejected
+(`std-media`, `content-disposition`, `std-seal`). Each is now written as the `U+0000`
+escape instead of as a raw byte: the identical runtime string in a literal and in a
+template literal, so behaviour, sorting and every assertion are unchanged. Only the
+file's classification moves.
+
+Guarded by `apps/web/lib/no-source-file-hides-from-search.test.ts`, which walks the
+**repository root** with `readdirSync`. ⚠ **Deliberately not `grep`** — a grep-based
+version of this test could never fail, because the tool cannot see the files it is
+looking for.
+
+⚠ **Its first version walked `apps/web` only, and went GREEN on the branch that
+introduced it** — because this very fragment, at the repo root, carried a raw byte
+typed while describing the escape. The guard could not see its own PR, and neither
+could it see `supabase/migrations/`, root `scripts/` or any workflow. Widening it was
+then wrong twice: two levels up from `lib` lands back on `apps/web`, so the walk stayed
+at 5,982 files and looked done. It needs three. The floor now sits at 8,000 rather than
+3,000 — **a floor only earns its place if it fails the mistake actually made.**
+It also asserts the escape really is U+0000 and still sorts ahead of every printable
+character, since the whole repair rests on that.
+
+⚠ Two things caught during the work, both recorded in the guard's docblock: the first
+repair script walked without an extension filter and rewrote **944 `.woff2` fonts**
+before git restored them (a destructive edit takes named targets, never a traversal);
+and the guard's own docblock contained a raw NUL on its first run — it failed on its
+author, which is the behaviour wanted.
+
+Sabotage-checked both ways with counts printed: a raw NUL restored in a real source
+file → red; the escape degraded to six literal characters → red.
+
+SPEC IMPACT: None.

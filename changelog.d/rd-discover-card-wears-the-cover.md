@@ -1,0 +1,131 @@
+## 2026-10-03 · fix(discover): a Discover event card wears the event's cover, not only its monogram
+
+Owner, on the cale-ice card on Discover: *"why is the cover like this? it should
+have adjusted."* Discover's event card (`app/_components/frontdoor/front-door-discover.tsx`)
+drew `card.cover` (the monogram, or initials) and nothing else, while the
+dashboard's card for the same event wore its hero.
+
+**No second resolver.** The loader (`lib/discover-events.ts` → `dressCards`) now
+asks the dashboard card's own resolver, `resolveEventPoster`
+(`lib/event-poster.server.ts`, commit 9585ed04c): hero photo → Save-the-Date
+background (Pro-gated by the hub's `resolveHubLook`) → the theme's still. It
+narrows the result with `sceneCoverFor`, the form a card wears when its words
+sit beside the picture rather than on it (the Overview band and the board's
+glass cards already use it). A wake (`quiet`) keeps the monogram.
+
+**No picture → the dashboard's paper invitation card (owner ruling A,
+2026-10-03).** Measured in production, cale-ice and maria-and-jose (the only two
+upcoming public events) are both Classic with no hero photo. Classic never shows a
+photo (`heroMayBePageGround`), so their poster is `invitation`, `sceneCoverFor` is
+null, and the picture-only cover still drew the bare monogram. Asked to choose,
+the owner picked "Paper invitation card". An `invitation` poster now draws the
+same card its dashboard card draws: `<EventPoster>` from the same poster facts,
+with the mark read through `resolveEventMonogramSvg` and `logoPlaysFor`. That card
+is a 3:4 poster whose words do not fit a 16:9 strip, so the Discover event cover
+is now 3:4, the dashboard poster's shape, for every event card so a shelf's rows
+stay even.
+
+**What the couple customised (owner amendment, 2026-10-03: *"if they
+customized it and changed its main background, it should also adjust"*).** The
+card wears what the guest's Event Hub draws behind the event, from the hub's own
+answers:
+- **Main background:** the couple's Main background (Pro media, never on Classic)
+  becomes the card's picture, a video as its still. The gated resolution
+  (`heroMayBePageGround` ? `resolveMainGround(…)`) was lifted out of
+  `app/[slug]/_lib/main-ground-layer.tsx` into `lib/guest-main-ground.ts`
+  (`guestMainGround`). The page and Discover both ask it, and the guards that
+  pinned it (`page-ground`, `free-themes-are-free`,
+  `the-main-background-moves-for-guests`) now pin the lifted module plus the
+  page's call.
+- **Colour:** their background colour or ombré (free) becomes the paper card's
+  ground, through the hub's `guestLookFrom` → `paperGroundOf` (`--color-cream` /
+  `--color-ink`, the poster's `--m-paper` made transparent).
+- **No theme loop:** where the hub draws no theme loop (an ombré, or "None — just
+  the colour"), a theme-still card becomes the invitation card.
+- **Published values only:** the event's columns and the live hero row in
+  `invitation_widgets`. An unapplied Maker draft is never read.
+- **In production today:** neither listed event has a custom colour or main
+  background (cale-ice's is "None — just the colour"), so both draw the plain
+  paper card.
+
+**Only listed public events.** The pure core (`lib/discover-events-core.ts`)
+leaves `scene: null`. The loader fills it in only for the ≤ 20 cards
+`selectDiscoverShelves` already let through, so no hero is read or presigned for
+an event that is not public and listed. A refused cover read costs only the
+picture: the card keeps its mark, and the failure is logged as
+`discover-events.covers`.
+
+**Render.** The card moved to `discover-event-card.tsx` and its cover to
+`discover-event-cover.tsx`, both server components. The paper card brings
+`event-poster.module.css` and the `CoupleLogo` island onto `/` (sizes are in the
+PR body). The mark is always drawn under the picture. A photo that fails to
+load is an `alt=""` image, which draws nothing, so the mark shows through without
+a client `onError`. Nothing is printed on the picture (the date plate is its own
+chip), so a photo gets no veil. A theme's still keeps the hub's `--hub-scrim`.
+
+**Held by** `apps/web/lib/the-discover-card-wears-the-cover.test.ts`. It renders
+the real card and checks that a hero photo appears on it, and that a Classic
+public event with no hero draws the paper invitation card (names, mark, date)
+but never in place of a picture. It also checks the customised cases through the
+hub's real `guestLookFrom` and `guestMainGround`: nothing customised gives the
+plain paper; a colour or ombré becomes the card's ground; a Pro main-background
+image becomes the picture (never on Classic, never for a free couple); and an
+unapplied draft is never read. It also checks that the mark is the fallback, that a wake gets no photo, that the theme still gets its
+scrim, that the cover goes through the one resolver, and that only shelved cards
+are dressed. Each check was confirmed to fail when its rule was broken.
+
+SPEC IMPACT: None. This reverses an implementation note in `front-door.css`,
+"no hero image is read: a public event's photo is the host's to show on their
+own page", on the owner's 2026-10-03 instruction. Photos still appear only for
+events the host made public and listed.
+
+**2026-10-04 · perf(logo): the logo player loads only when a logo plays.** `CoupleLogo` now
+imports `LayeredLogoPlayer` with `next/dynamic` (`ssr: false`). The player only ever mounted in the
+`play` phase (set by an effect after mount), so the server HTML and the still are unchanged; a page
+whose logos are stills — every Discover card without a moving mark — no longer ships the player. This
+removes the bulk of the `/` route JS growth this PR's `<EventPoster>` import brought in.
+
+**2026-10-04 · perf(logo): "does this logo move" is asked by the surface, so `CoupleLogo` ships no
+`logo-layers`.** Lazy-loading the player was not enough: `CoupleLogo` still imported
+`lib/couple-logo-plays.ts` to ask `coupleLogoPlays(svg, plays)`, and that file imports
+`logoHasMotion` from `lib/logo-layers.ts` (with its print-mark and font modules), so every page that
+drew a still logo, including `/` through Discover's `<EventPoster>`, shipped it to decide "no". Now:
+- `plays` on `CoupleLogo` means the whole rule, "the logo moves AND the animation is on", and every
+  caller hands it `plays={coupleLogoPlays(svg, animationOn)}` with the same svg it passes. The rule
+  is still the one function in `lib/couple-logo-plays.ts`; only where it is called moved. The callers
+  are `EventPoster` (twice), `EventMonogram`, `SealMark`, `HeroMonogram`, the venue screen, the
+  save-the-date film and the supplier's client page. `EventPoster` is a server component, so on `/`
+  the question is answered on the server.
+- `CoupleLogo` returns the still when `!plays || !svg`, and imports its client half
+  (`coupleLogoPlayKey`, `logoPhaseOnMount`, `logoArrivals`, `arrivalMotion`) from a new
+  `lib/couple-logo-arrival.ts`, which imports nothing. The player imports `arrivalMotion` from there.
+- Behaviour is unchanged: each surface computes exactly what `CoupleLogo` used to compute, over the
+  same svg. The SSR still, `data-couple-logo="pending"`, `motion-safe:invisible`, plays-once,
+  offscreen-waits and reduced motion all live in `CoupleLogo` and did not change.
+
+**Guards moved, not weakened.** `lib/every-logo-plays.test.ts` gains a test that (a) walks every
+`.tsx` in `app/` and fails if any `<CoupleLogo` is not handed `plays={coupleLogoPlays(<its own svg>, …)}`
+(with a floor of 8 calls and a self-check that a bare `plays`, a bare `plays={plays}` and a different
+svg are each caught), and (b) walks `couple-logo.tsx`'s static import graph and fails if it reaches
+`logo-layers`, `couple-logo-plays` or the player. Test 6 now also renders the door seal, the event
+chip, the hero and the event poster with a layered logo that does NOT move and the animation on, and
+asserts each stays still. The page-level wiring pins for the venue screen, the save-the-date film and
+the supplier's client page, and `the-logo-is-layers.test.ts`'s hero pin, now match
+`coupleLogoPlays(<svg>, …)` instead of the bare value, because that is where the decision now lives.
+Sabotaged: restoring `plays={plays}` on the seal turns the new test and test 6 red; adding a
+`logo-layers` import to `couple-logo-arrival.ts` turns the graph check red.
+
+**2026-10-04 · perf(logo): the player is a bare `React.lazy`, not `next/dynamic`.** With
+`logo-layers` gone, `/` measured 213 kB; the rest was `next/dynamic`'s app runtime, which the page's
+chunk group carried as its own copy (chunk `94321`, ~2.4 kB gzipped, also present in the layout's
+group). The player never renders on the server (it mounts only in the `play` phase, set by an
+effect), so `CoupleLogo` now uses `React.lazy` + `<Suspense fallback={null}>`, which draws the same
+nothing while the chunk arrives. `/` First Load JS: **211 kB** (local `pnpm build`).
+- The Maker's warm still works: `lib/warm-dynamic.ts` now also warms an exported bare `React.lazy`
+  (`isLazyComponent`, the same `_init`, and a failed load is put back), so `maker:logo-player`
+  keeps `import('@/app/_components/couple-logo').then(warmDynamicExports)` and
+  `maker-tools-are-all-preloaded.test.ts` is unchanged. `warm-dynamic.test.ts` test 5 holds it
+  (cold suspends, warmed draws, failure retried); dropping the lazy case from `warmDynamicExports`
+  turns it red.
+- `s13-is-finished.test.ts` gets one LINE-keyed pardon for the seal's new
+  `from '@/lib/couple-logo-plays'` import: the word is in a module name, and nothing is rendered from it.

@@ -1,0 +1,11 @@
+## 2026-07-12 · feat(anti-fraud): Phase C — vendor report → token refund + cluster
+
+Third slice of fake-inquiry protection (corpus: `Vendor_Fake_Inquiry_Protection_Build_Plan_2026-07-11.md`). The generic "Report user" already exists for vendors (`reportUser` → `user_reports`, reviewed at `/admin/user-reports`) — this wires a VENDOR's report into the token economy so reporting a fake actually returns the held token (Phase B), and a coordinated cross-vendor attack refunds the whole blast radius.
+
+- **`supabase/migrations/20270727924018_handle_vendor_lead_report.sql`** — `handle_vendor_lead_report(vendor, event, reported_user, reason, threshold=3)` (SECURITY DEFINER, service-role). (1) **Self no-reply refund**: if the reporting vendor holds a token for this lead and the couple never replied *after accept* (`chat_messages` where `sender_role='couple' AND created_at > accepted_at` = 0), releases the hold — the report-abuse guard keys on the objective no-reply signal, not the vendor's word; an engaged lead gets no auto-refund and still goes to the admin queue. (2) **Cluster blast-radius refund**: when ≥3 DISTINCT users have reported this couple, releases every outstanding hold across the couple's events + drops the never-charged unlock rows. Suspension stays a human decision (never auto-ban — presumption-of-a-real-couple).
+- **`apps/web/lib/lead-token-holds.ts`** — `runVendorLeadReportBackstop()` (best-effort, off-request wrapper).
+- **`apps/web/lib/chat-actions.ts`** — `reportUser` fires the backstop in `after()` when the reporter is a vendor and the hold feature is live. The report row + admin review are unchanged; this only returns money.
+
+No new UI (the report button already renders on the vendor thread + client pages). Dormant unless `NEXT_PUBLIC_LEAD_TOKEN_HOLD_ENABLED` is on (nothing to refund otherwise). Follow-ups: vendor "token returned" notify; report-accuracy weighting; Phase D trust badge; Phase E fingerprint/cluster into the merged fraud engine.
+
+SPEC IMPACT: None (flag-gated additive backstop; no schema change to `user_reports`, no pricing/SKU change; extends the existing report flow). Logged in DECISION_LOG 2026-07-12 + the corpus build-plan Build-progress table.

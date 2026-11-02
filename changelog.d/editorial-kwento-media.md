@@ -1,0 +1,2 @@
+## 2026-07-04 · fix(editorial): Kwento renders its media — every whispered message shows its photo or living 5s clip beside the words (owner: "kwento are messages with videos or photos")
+SPEC IMPACT: Wedding_Website_Effects_and_Editing_Spec_2026-06-11.md §7.5 Kwento row — anchor media (photo OR clip) now renders in the editorial block; guest-capture anchors honored under the consent+couple-approval gate.

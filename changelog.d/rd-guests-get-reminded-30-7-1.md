@@ -1,0 +1,15 @@
+## 2026-09-28 · feat(guests): reminder emails at 30 · 7 · 1 days before the event, listing only what each guest has not ticked
+
+Owner 2026-09-26 (DECISION_LOG "THE LAST 30 DAYS: EACH GUEST GETS YOUR CHECKLIST" and "THE GUEST CHECKLIST IS INTERACTIVE"), scheduled before the Apple check by the 2026-09-28 row.
+
+**What a guest gets.** Every identified guest with an email gets three short emails — 30 days, 7 days and the day before — each listing ONLY the checklist items they have not ticked (the shipped `guestChecklistItems` facts, the shipped `guest_checklist_ticks`), with a button to their own page (the ONE speller, `buildInvitationUrl`, on their invite key). A guest who has not replied is asked to "Reply by <date>" first (`resolveReplyBy`), unless the guest list is already final. Nobody is emailed who has no email, no key, declined, is marked Passed away, or has everything ticked. Directions reach the email only for a guest who has replied — the page's own venue rule. Same List-Unsubscribe header and "reply unsubscribe" line as the save-the-date. No SMS.
+
+**The couple's switch.** ONE switch, "Reminder emails", on the Maker's RSVP page beside Reply by — `rsvp_ask_config.guestReminders`, absent = On (a flag in the existing config, no new column). Takes effect on Apply like every setting there. First open of the RSVP page after the Maker welcome shows a two-slide MiniTour (`customer_guest_reminders_v1`).
+
+**Mechanism.** Cron-free like every periodic job: `guest-reminder-emails` in `PERIODIC_JOBS`, claimed every 6 hours (`GUEST_REMINDER_GAP_MS`) from `runDailyEmailJobs` on public traffic. One indexed `event_date IN (…)` lookup for the seven dates that could owe a reminder today; the milestone is re-decided per event in the event's OWN calendar (`events.timezone` → venue coordinates → Manila), with a two-day catch-up for 30 and 7 (a quiet site may skip a day) and none for the day-before. A late-created event never back-sends. Idempotent per guest × milestone × event date: a row is INSERTED into the new `guest_reminder_email_log` BEFORE the send (PK is the lock — two racing windows, one winner), released only when Resend refuses. No Resend key → nothing is sent and no lock is claimed.
+
+**Also.** `renderBrandedEmail` takes an optional `footer`, so a guest is told the true reason they got the mail instead of "you started a Papic gallery" (the shared-chrome defect `anniversary-emails.test.ts` had reported).
+
+Migration `20271250747828_guest_reminder_email_log.sql` (RLS at CREATE TABLE, admin-only policy, anon revoked). Tests: `lib/guest-reminder-emails-core.test.ts` (milestone math in Manila time, no back-send, unticked-only, reply-by first, the switch), `lib/guests-are-reminded-30-7-1.test.ts` (registered + called, lock-before-send, switch read live, one switch on the page, migration shape), `tests/db/guest-reminder-email-log.db.test.ts` (the PK refuses a duplicate, CHECK, RLS, anon closed).
+
+SPEC IMPACT: None beyond the DECISION_LOG rows already recorded (2026-09-26 · 2026-09-28); the corpus already states the 30/7/1 reminders, the switch and the unticked-only rule.

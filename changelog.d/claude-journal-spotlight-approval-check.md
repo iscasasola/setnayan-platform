@@ -1,0 +1,8 @@
+## 2026-09-18 · fix(journal): a sponsored spotlight can open its two-admin approval again (LAU-20)
+
+- **The live bug.** Migration `20270518682623_fraud_enforcement_state_and_audit` rebuilt `admin_approval_requests_action_type_check` from an older list and dropped `'approve_journal_spotlight'`. Confirmed read-only against prod on 2026-09-18: the live CHECK allows five values and not that one. So every `initiateSponsored()` in `app/admin/journal-spotlights/actions.ts` was refused at INSERT, and a sponsored journal spotlight could never reach a second admin or publish.
+- **Fix:** `20271233105616_journal_spotlight_approval_is_back_in_the_vocabulary.sql` rebuilds the CHECK from the **live** five-value vocabulary plus the missing value. It removes nothing, and prod has 0 rows in the table, so no existing row can be refused.
+- `ApprovalActionType` in `lib/admin-approvals.ts` now includes `approve_journal_spotlight`, and `/admin/approvals` gives those rows a readable label instead of the raw key.
+- **Guard:** `tests/db/every-approval-type-the-code-writes-is-allowed.db.test.ts` finds every `.from('admin_approval_requests').insert({...})` in `app/` and `lib/` (currently 3 writers). It reads each writer's `action_type` from the code, and fails on any shape it cannot read. It requires each value to be a member of the union, then INSERTs every value into the replayed schema. Tested against the bug: with the new migration moved aside, it fails on exactly `approve_journal_spotlight` with the prod error.
+
+SPEC IMPACT: None. This restores behaviour that was already specified; no decision changes.

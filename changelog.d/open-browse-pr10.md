@@ -1,0 +1,14 @@
+# Changelog fragment — collected into CHANGELOG.md by scripts/changelog-collect.mjs
+
+## 2026-07-24 · refactor(guest-site): open-browse PR10 — writer dedup + site-chrome clobber hardening
+
+Open-browse PR10 of 11 (council verdict `Guest_Event_Website_Open_Browse_Council_Verdict_2026-07-22.md` §1.4, build-plan row 10 — "writer dedup + gates"; independent, lands any time after PR1). Removes the duplicated host-membership gate + revalidation calls the council named as a drift hazard, and fixes the site-chrome hero-video/music null-clobber.
+
+- **`lib/host-gate.ts`** (new) — the ONE `requireHostMembership` definition. Before, five website-editor action files each carried a byte-for-byte copy of the same `event_moderators`-OR-legacy-`couple` check. The one real difference between the copies — the forbidden action — is **surfaced, not silently resolved** (§4/§5.6): the shared auth CORE is `getHostUserId` (returns the host user id or `null`, redirects to `/login` when there's no session), and each caller keeps its behavior via the redirect wrapper `requireHostMembership` (→ `/dashboard`) or the throwing wrapper `requireHostMembershipOrThrow(eventId, message)`.
+- **`lib/revalidate-site.ts`** (new) — `revalidateGuestSite(slug)` (no-op on a falsy slug) + `revalidateWebsiteEditor(eventId, subroute?)`, the single home for the guest-site + board revalidation paths.
+- **Adopted in four editors:** `site-chrome`, `our-photos` (redirect variant), `hero-photo` (redirect variant — auth only; its route-level `revalidatePath('/[slug]', 'page')` is a different, deliberately-preserved semantic), and `widgets` (throw variant, message preserved). Each drops its inline copy. **`privacy/actions.ts` is deliberately LEFT with its own gate** — its variant carries an extra anon-draft `secured` branch (`user.is_anonymous` → `/signup`) that the canonical helper does not, so folding it in would drop a security check; this is exactly the inconsistency the council says to surface, not resolve.
+- **`site-chrome` hero-video/music clobber hardening** (§1.4): `updateSiteChrome` unconditionally wrote `landing_page_hero_video_r2_key` + the music keys from the form, nulling them whenever a field was absent (stale-tab / partial-post data loss). Now **omit-when-untouched** — a column is written only when the form carried its control (`formData.has(...)`). This editor always renders both controls, so normal saves are byte-unchanged; only a malformed post is spared. Falls back to a plain slug SELECT when nothing was written, so revalidate/redirect still fire.
+
+Deferred (noted, not in this PR): deleting `/site-editor/[eventId]`'s duplicate `saveHeroPhoto`/`clearHeroPhoto` (council row 10) needs walking every form that posts to them — a distinct, higher-risk sweep left for a follow-up. No migration.
+
+SPEC IMPACT: None — behavior-preserving dedup + a contained data-loss hardening; no product surface, pricing, or schema change.

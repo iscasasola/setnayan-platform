@@ -1,0 +1,14 @@
+## 2026-10-14 · feat(egifts): E-Gifts on the Welcome page is the content itself, not a door
+
+Owner, verbatim: *"on the invitation. the e-gifts is only a button that opens the rest of egift. can't we just have it there instead of a button?"*
+
+- The Welcome page's E-Gifts block now draws what `/[slug]/pabuya` shows below its title: the couple's words, the registry link, the wish list, the ways to give, "Sent a gift?" and the trust note. It uses the SAME reader and the SAME component as the gift page. Nothing was copied: the page's content moved into one reader (`app/[slug]/pabuya/_lib/gift-page.server.ts` · `loadGiftPage`), one pure rule (`_lib/gift-cards.ts` · `giftCardsFor`: who sees a number or a QR) and one body (`_components/gift-page-body.tsx` · `GiftPageBody`). The gift page uses all three, unchanged for a guest.
+- The same people see the same things, never more. The block is drawn only where the door was: `resolveGuestDoorways(...).pabuya`, which asks what the gift page itself asks, on a Welcome that carries E-Gifts (`welcomeCarriesGifts`; a part the couple hid is never drawn). A reader the event does not recognise still gets the ways to give without numbers or QR codes, plus the sentence that says why.
+- The long-content cut: all the ways to give are shown, because they are what a guest came for. The wish list shows its first 3 open wishes, then "See all N wishes", which opens the rest in place (`WishList` `limit`). The gift page still shows every wish.
+- A failed read does not leave an empty space: the door stands where the content would be, and the error is logged.
+- Speed: nothing is read for a guest whose Welcome has no E-Gifts. For a guest whose Welcome has it, the read starts beside the body's other reads, and the list of ways to give is fetched once per render (`fetchEgiftMethods` goes through `askedOnce`) instead of a second time.
+- E-Gifts' four looks now style the door only (`[data-gift-door]`). Inline, the look reaches the wish list's shape and the centred lines, and the cards keep the gift page's own drawing. The block background (`lib/block-looks.ts`) now reaches each way-to-give card.
+- The Maker canvas: with gift methods on, it shows the real block. Without any, the grey sample now has the inline shape (a line, two way-to-give cards and a short wish strip). The dev lab draws the real block (`/dev/maker-lab/guest?wish=welcome`, `&known=0`, `&blocked=1`, `&look=…`).
+- Guards: `an-account-number-is-not-public.test.ts` now runs the withholding rule for real and holds the Welcome to the gift page's gate and reader, through source pins and a drawn render for an unrecognised reader. The pins that said "E-Gifts on Welcome is a door" now pin the new shape.
+
+SPEC IMPACT: the controller writes the DECISION_LOG row (E-Gifts on Welcome is the content, not a door · wish list cut at 3 with "See all" in place).

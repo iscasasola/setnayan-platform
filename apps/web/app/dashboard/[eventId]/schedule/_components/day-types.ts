@@ -37,6 +37,8 @@ export type DayRequest = {
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  /** Their crew on it — "Team A, Second shooter" (Step 4b, the supplier's Who on our side). */
+  proposed_crew?: string[] | null;
   note: string;
 };
 

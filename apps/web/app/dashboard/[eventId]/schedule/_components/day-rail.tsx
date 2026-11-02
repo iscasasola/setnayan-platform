@@ -87,6 +87,8 @@ import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 import { useChapters } from './chapters-context';
 import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
+import { EVERYONE, type ViewLens } from '@/lib/schedule-view-as';
+import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
 
 type SheetState =
   | { kind: 'add'; dateKey: string | null; startMin: number }
@@ -212,6 +214,11 @@ export function ScheduleDay({
   const suppressClick = useRef(false);
   const [sheet, setSheet] = useState<SheetState>(openRequests && requests.length > 0 ? { kind: 'requests' } : null);
   const [lens, setLens] = useState<Lens>({ kind: 'all' });
+  /* 👁 VIEW AS on the Schedule page (Step 3c, `schedule-view-as.tsx`): a guest · a role · a supplier or crew · Suppliers
+     by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */
+  const viewAs = ch?.viewAs ?? null;
+  const [asLens, setAsLens] = useState<ViewLens>(EVERYONE);
+  const viewingAs = viewAs !== null && asLens.kind !== 'everyone';
   const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [now, setNow] = useState<{ key: string; min: number } | null>(null);
@@ -698,7 +705,20 @@ export function ScheduleDay({
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
       <InSlot id={booked ? toolsSlot : null}>
       <div className={booked ? 'relative flex items-center gap-0.5' : 'relative flex flex-wrap items-center gap-1'} data-schedule-day-tools={frame}>
-        {topLevel.length > 0 ? (
+        {viewAs && topLevel.length > 0 ? (
+          <div className="flex items-center gap-1">
+            <ViewAsMenu
+              input={viewAs}
+              lens={asLens}
+              compact={booked}
+              onLens={(l) => {
+                setSelectedId(null);
+                setAsLens(l);
+              }}
+            />
+            {viewAs.pro ? <Tip>See the day as a guest, a role or a supplier. A view only: nothing changes.</Tip> : null}
+          </div>
+        ) : topLevel.length > 0 ? (
           <div className="flex items-center gap-1">
             {/* VIEW AS — one dropdown (the shared PickMenu), never a chip row.
                 Every view is a live filter over this one timeline. */}
@@ -794,7 +814,9 @@ export function ScheduleDay({
         </p>
       ) : null}
 
-      <div className="lg:flex lg:items-start lg:gap-6">
+      {viewingAs && viewAs && ch ? <ViewAsBody input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} /> : null}
+
+      <div className={viewingAs ? 'hidden' : 'lg:flex lg:items-start lg:gap-6'}>
         <div className="min-w-0 flex-1 space-y-8">
           {rails.length === 0 ? (
             <NoDateYet canEdit={canEdit} onAdd={() => openAdd(null, 14 * 60)} />

@@ -63,7 +63,10 @@ type Row = Record<string, unknown>;
 type Write = { table: string; op: 'update' | 'insert' | 'delete'; payload: unknown };
 
 function fakeEvent(blocks: Row[], tasks: Row[] = []) {
-  const tables: Record<string, Row[]> = { event_schedule_blocks: blocks, event_schedule_tasks: tasks };
+  const tables: { event_schedule_blocks: Row[]; event_schedule_tasks: Row[] } & Record<string, Row[]> = {
+    event_schedule_blocks: blocks,
+    event_schedule_tasks: tasks,
+  };
   const writes: Write[] = [];
   let next = 1;
   const from = (table: string) => {
@@ -138,7 +141,7 @@ const freshEvent = (tasks: Row[] = []) =>
   fakeEvent([block(CHAPTER, null, 'Preparation', '06:00'), block(MOMENT, CHAPTER, 'Hair and make-up starts', '06:30')], tasks);
 
 /** What the supplier's own page builds from the same rows — their bookings on the event are `[HMUA]`. */
-function theirDay(tables: Record<string, Row[]>) {
+function theirDay(tables: { event_schedule_blocks: Row[]; event_schedule_tasks: Row[] }) {
   return buildSupplierDay({
     blocks: tables.event_schedule_blocks as unknown as SupplierBlockRow[],
     myBookingIds: [HMUA],

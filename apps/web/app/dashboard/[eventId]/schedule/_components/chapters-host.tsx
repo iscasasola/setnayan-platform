@@ -313,6 +313,7 @@ export function ChaptersHost({
                 march_key: null,
                 is_public: false,
                 who: '',
+                vendor_ids: [],
               },
             ]);
             patch(current.block_id, { moments: current.moments + 1 });

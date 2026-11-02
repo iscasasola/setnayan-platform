@@ -45,7 +45,7 @@ test('2 · the Schedule page forwards the view before any door carries it on', (
 test('3 · no view offers Journey, and nothing links to it', () => {
   const toggle = read(join(S, '_components', 'schedule-mode-toggle.tsx'));
   assert.doesNotMatch(toggle, /mode:\s*'journey'/, 'the segmented control still offers Journey');
-  const frame = read(join(S, '_components', 'booked-schedule-frame.tsx'));
+  const frame = read(join(S, '_components', 'schedule-one-line.tsx'));
   assert.doesNotMatch(frame, /'journey'/, 'Booked › Schedule still knows a Journey view');
   const page = read(join(S, 'page.tsx'));
   assert.doesNotMatch(page, /key:\s*'journey'|JourneyView|buildJourneyTimeline/, 'the page still draws Journey');

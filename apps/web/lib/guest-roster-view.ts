@@ -42,6 +42,7 @@ import {
   mostImportantRole,
   roleGroupLabel,
   roleGroupOf,
+  ROSTER_ROLE_ORDER,
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
@@ -405,18 +406,7 @@ export type RosterSection<G> = {
 export type RosterRoleBucket = RoleGroup | 'guest' | 'honour_attendants';
 
 /** The roster's curated role hierarchy (the shipped `SECTION_CONFIG` order). */
-const ROLE_ORDER: readonly RosterRoleBucket[] = [
-  'vip_family',
-  'muslim_principals',
-  'honour_attendants',
-  'groomsmen',
-  'bridesmaids',
-  'principal_sponsors',
-  'secondary_sponsors',
-  'bearers_flower_girl',
-  'officiants',
-  'guest',
-];
+const ROLE_ORDER: readonly RosterRoleBucket[] = ROSTER_ROLE_ORDER;
 
 const ROLE_ICON: Partial<Record<RosterRoleBucket, SectionIcon>> = {
   vip_family: 'star',

@@ -32,6 +32,8 @@ import {
   wallDateKey,
 } from '@/lib/schedule-rail';
 import { supplierOnItem, type DayMoment, type DayRequest, type DaySupplier } from './day-types';
+import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
 import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
 import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
@@ -116,6 +118,8 @@ export function MomentInspector({
 
   /** What did not save, in the couple's words — said, and put back. */
   const [failed, setFailed] = useState<string | null>(null);
+  /** 🔒 The refused change met a supplier's lock (audit D7) — the calm line, not "try again". */
+  const [lockedBy, setLockedBy] = useState<string | null>(null);
   const labelBox = useRef<HTMLInputElement>(null);
   const locationBox = useRef<HTMLInputElement>(null);
   const notesBox = useRef<HTMLTextAreaElement>(null);
@@ -135,6 +139,7 @@ export function MomentInspector({
   ) {
     setSave('saving');
     setFailed(null);
+    setLockedBy(null);
     startTransition(async () => {
       try {
         const out = await action();
@@ -146,6 +151,7 @@ export function MomentInspector({
       } catch {
         onRevert(ids);
         setFailed(what);
+        setLockedBy(lockedShopOnMoments([m.block_id], [m], suppliers));
         setSave('error');
       }
     });
@@ -665,7 +671,7 @@ export function MomentInspector({
             'Saving…'
           ) : save === 'error' ? (
             <span className="font-medium text-danger-700">
-              {failed ?? 'That change'} did not save, so it is back as it was. Try again.
+              {lockedBy ? lockedLine(lockedBy) : `${failed ?? 'That change'} did not save, so it is back as it was. Try again.`}
             </span>
           ) : save === 'saved' ? (
             <>

@@ -118,7 +118,11 @@ test('the rows that hand off to Your page land on their part', () => {
 });
 
 test('Your page says "Couples can see it" only when couples can', () => {
-  assert.match(src('app/vendor-dashboard/website/page-data.ts'), /const live = isShopLive\(/, 'live is not decided by isShopLive');
+  // 🏪 2026-11-02: couples can also see a page its shop chose to show before verification while bookings are closed —
+  // the SAME rule the shop page's gate asks (`selfPublishedLive`, lib/own-shop-preview.ts), never a re-typed one.
+  const pageData = src('app/vendor-dashboard/website/page-data.ts');
+  assert.match(pageData, /const verifiedLive = isShopLive\(/, 'live is not decided by isShopLive');
+  assert.match(pageData, /const live = verifiedLive \|\| \(show !== null && selfPublishedLive\(gateRow, show\.bookingsOpen\)\);/, 'live is not the shop page gate’s own rule');
   assert.match(
     src('app/vendor-dashboard/website/_components/page-parts.tsx'),
     /\{d\.live \? 'Couples can see it' : 'Not shown yet'\}/,

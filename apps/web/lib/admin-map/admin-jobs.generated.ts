@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 325 jobs, 208 of them form-driven, as of c2fc408f45.
+// that performs it. 326 jobs, 208 of them form-driven, as of f3c8ef33b8.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -3130,6 +3130,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "referral_program_enabled"
     ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "setSampleEventSwitch",
+    "phrase": "set sample event switch",
+    "ownerPath": "/admin/settings",
+    "resolvedPath": "/admin/settings",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
   },

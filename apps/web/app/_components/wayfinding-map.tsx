@@ -198,6 +198,8 @@ export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain',
       {/* 🏪 The booked suppliers' booths — a small labelled stall, a 44 px tap target when it opens a card. */}
       {booths.map((b) => {
         const q = tf(b.x, b.y);
+        /* Near a side the stall hangs inward, so its words are never cut by the map's edge. */
+        const hang = q.x < 18 ? 'translate-x-0' : q.x > 82 ? '-translate-x-full' : '-translate-x-1/2';
         const inner = (
           <span
             className={`flex max-w-[7rem] items-center gap-1 rounded-full border px-2 py-1 text-[0.6875rem] leading-tight shadow-sm ${
@@ -215,13 +217,13 @@ export function WayfindingMap({ tables, entrance, targetTableId, look = 'plain',
             onClick={() => onBooth(b.id)}
             aria-label={`${b.label} — the supplier’s card`}
             data-way-booth={b.id}
-            className="absolute z-30 flex min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-            style={{ left: `${q.x}%`, top: `${q.y}%` }}
+            className={`absolute z-30 flex min-h-11 min-w-11 ${hang} -translate-y-1/2 items-center justify-center`}
+            style={{ left: `${Math.max(1, Math.min(99, q.x))}%`, top: `${q.y}%` }}
           >
             {inner}
           </button>
         ) : (
-          <div key={b.id} data-way-booth={b.id} className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: `${q.x}%`, top: `${q.y}%` }}>
+          <div key={b.id} data-way-booth={b.id} className={`absolute z-10 ${hang} -translate-y-1/2`} style={{ left: `${q.x}%`, top: `${q.y}%` }}>
             {inner}
           </div>
         );

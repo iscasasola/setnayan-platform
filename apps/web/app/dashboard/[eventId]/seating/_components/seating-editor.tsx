@@ -91,7 +91,7 @@ import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { guestSeatView } from '../../guests/seat-view-actions';
-import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
+import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
@@ -6134,7 +6134,7 @@ export function SeatingEditor({
      (`flipDoor`: `publishSeating` / `unpublishSeating`, live, never drafted). */
   const doorStrip = details ? (
     <div data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'} className="shrink-0 border-b border-ink/10 bg-cream px-3">
-      <FormRows data="seat-plan-door">
+      <FormRows data="seat-plan-door" width="auto">
         <SwitchRow
           name="Show guests their seats early"
           about={{
@@ -6162,6 +6162,7 @@ export function SeatingEditor({
           value={seatView}
           options={GUEST_SEAT_VIEWS.map((k) => ({ key: k, label: GUEST_SEAT_VIEW_LABEL[k] }))}
           onPick={pickSeatView}
+          buttonText={GUEST_SEAT_VIEW_SHORT[seatView]}
           dataAttr="data-seat-plan-guest-view"
           problem={seatViewNote}
           attrs={{ 'data-seat-plan-guest-view-row': '' }}

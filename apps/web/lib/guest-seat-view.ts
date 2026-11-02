@@ -20,6 +20,9 @@ export const GUEST_SEAT_VIEW_LABEL: Record<GuestSeatView, string> = {
   '3d': '3D walk',
 };
 
+/** The pill's word — short, so the row's name keeps its line at 390 (the full words are the dropdown's). */
+export const GUEST_SEAT_VIEW_SHORT: Record<GuestSeatView, string> = { both: 'Both', '2d': '2D map', '3d': '3D walk' };
+
 /** Anything unknown (an unread row, an old value) is today's behaviour: Both. */
 export function parseGuestSeatView(v: unknown): GuestSeatView {
   return v === '2d' || v === '3d' || v === 'both' ? v : 'both';

@@ -78,7 +78,7 @@ export function RoomViewTools(p: RoomViewToolsProps) {
           {p.sayHi}
         </div>
       ) : null}
-      <div className="flex items-end justify-between gap-2">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -102,12 +102,7 @@ export function RoomViewTools(p: RoomViewToolsProps) {
             onPick={(k) => {
               if (k !== '-') p.guide.onPick(k);
             }}
-            trigger={
-              <>
-                <Navigation className="h-4 w-4" aria-hidden />
-                <span>Guide me</span>
-              </>
-            }
+            trigger={<Navigation className="h-4 w-4" aria-hidden />}
             className={TOOL}
             dataAttr="data-room-guide"
           />

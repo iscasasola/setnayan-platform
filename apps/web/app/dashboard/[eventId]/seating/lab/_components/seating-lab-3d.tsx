@@ -71,6 +71,7 @@ import {
   fabricBumpMap,
 } from '@/app/_components/plan3d/scene-lighting';
 import { InstancedChairs, chairPlacements } from '@/app/_components/plan3d/instanced-chairs';
+import { VipTableMark } from '@/app/_components/plan3d/vip-table-mark';
 import {
   VenueShell,
   VenueDecor,
@@ -2101,6 +2102,8 @@ function TableMesh({
         <InstancedSeatedCrowd seats={seatedInstances} quality={crowdLow || far ? 'low' : 'high'} />
       ) : null}
 
+      {/* 🪑 A VIP table carries the small VIP mark (owner 2026-11-02 — List, 2D and 3D). */}
+      {table.vip ? <VipTableMark /> : null}
     </group>
   );
 }

@@ -357,6 +357,34 @@ export const HONOUR_ATTENDANT_ROLES: readonly GuestRole[] = ['best_man', 'best_w
 export const HONOUR_ATTENDANTS_LABEL = 'Honour attendants';
 export const isHonourAttendant = (role: GuestRole): boolean => HONOUR_ATTENDANT_ROLES.includes(role);
 
+/**
+ * The Guests list's ROLE ORDER — the roster's Role-view sections, top to bottom (moved here from
+ * lib/guest-roster-view.ts so the seater reads the very same list: owner 2026-11-02, "tables fill in the Guests list's
+ * role order"). 👯 Honour attendants are one section above both crews.
+ */
+export const ROSTER_ROLE_ORDER: readonly (RoleGroup | 'guest' | 'honour_attendants')[] = [
+  'vip_family',
+  'muslim_principals',
+  'honour_attendants',
+  'groomsmen',
+  'bridesmaids',
+  'principal_sponsors',
+  'secondary_sponsors',
+  'bearers_flower_girl',
+  'officiants',
+  'guest',
+];
+
+/**
+ * 🪑 Where one role sits in the Guests list's role order — lower first: its section (above), then its row order inside
+ * the section (`roleImportanceRank`). A role with no section of its own ranks with plain guests, after every section.
+ */
+export function rosterRoleRank(role: GuestRole): number {
+  const bucket = isHonourAttendant(role) ? 'honour_attendants' : roleGroupOf(role);
+  const at = ROSTER_ROLE_ORDER.indexOf(bucket as (typeof ROSTER_ROLE_ORDER)[number]);
+  return (at < 0 ? ROSTER_ROLE_ORDER.length : at) * 1000 + roleImportanceRank(role);
+}
+
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
   // Deliberately the COUPLE'S tint, not a new one. It is the same standing at

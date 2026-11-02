@@ -42,7 +42,9 @@ import {
   tableGeometry,
   tablesToAddForAutoSeat,
   validateChainJointM,
+  type AutoSeatCannotFit,
   type AutoSeatGuest,
+  type VipPlusOneSeating,
   type BoothType,
   type PriorityOrder,
   type TableType,
@@ -568,6 +570,7 @@ export async function autoSeatGuests(formData: FormData) {
     roleSet,
     groupAdjacency,
     floorPlan.role_seating,
+    { vipPlusOnes: floorPlan.vip_plus_ones },
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -882,15 +885,23 @@ export async function savePriorityOrder(formData: FormData) {
     throw new Error('Invalid input');
   }
   const writesRoleSeating = formData.has('role_seating');
-  // A form without either field keeps the historical meaning: reset the order.
-  const writesPriority = formData.has('priority_order') || !writesRoleSeating;
+  const writesVipPlusOnes = formData.has('vip_plus_ones');
+  // A form without any field keeps the historical meaning: reset the order.
+  const writesPriority = formData.has('priority_order') || (!writesRoleSeating && !writesVipPlusOnes);
 
   const row: {
     event_id: string;
     updated_at: string;
     priority_order?: PriorityOrder | null;
     role_seating?: RoleSeating;
+    vip_plus_ones?: VipPlusOneSeating;
   } = { event_id: eventId, updated_at: new Date().toISOString() };
+  // 🪑 "+1s of VIP guests" (owner 2026-11-02): one of the two picks; anything else is refused, never repaired.
+  if (writesVipPlusOnes) {
+    const raw = formData.get('vip_plus_ones');
+    if (raw !== 'beside' && raw !== 'nearest') throw new Error('Invalid input');
+    row.vip_plus_ones = raw;
+  }
 
   if (writesPriority) {
     const raw = formData.get('priority_order');
@@ -1113,6 +1124,7 @@ export async function lockAndFill(
     roleSet: await resolveRoleSetForEvent(eventId),
     groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
     roleSeating: floorPlan.role_seating,
+    autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones },
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1539,6 +1551,38 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
   revalidatePath(`/dashboard/${eventId}/seating`);
   revalidatePath(`/dashboard/${eventId}/seating/print`);
   return { wasPublished: (cleared?.length ?? 0) > 0 };
+}
+
+// 🪑 Mark a table VIP, or not (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting on Seats.
+// One guarded UPDATE under the couple's RLS; a refused or zero-row write throws so the switch goes back.
+export async function updateTableVip(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const vipRaw = formData.get('is_vip');
+  if (typeof eventId !== 'string' || typeof tableId !== 'string' || (vipRaw !== 'true' && vipRaw !== 'false')) {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+
+  const { data, error } = await supabase
+    .from('event_tables')
+    .update({ is_vip: vipRaw === 'true', updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('That table was not saved — it may have been removed.');
+
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
 // Rename a table (the per-table popup's inline rename). Mirrors
@@ -2384,6 +2428,8 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   // keep-apart separation. No rules → identical to the priority-only path.
   const stage = { x: floorPlan.stage_x, y: floorPlan.stage_y };
   const groupAdjacency = await fetchGroupAdjacency(supabase, eventId);
+  // 🪑 What could not be seated as the rules say — returned so the editor SHOWS it (owner 2026-11-02, never silently).
+  const cannotFit: AutoSeatCannotFit[] = [];
   const solved =
     constraints.length > 0
       ? solveSeatPlan({
@@ -2397,11 +2443,15 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
           roleSet,
           groupAdjacency,
           roleSeating: floorPlan.role_seating,
+          autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones, cannotFit },
         })
       : null;
   const rows =
     solved?.assignments ??
-    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating);
+    computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating, {
+      vipPlusOnes: floorPlan.vip_plus_ones,
+      cannotFit,
+    });
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -2433,6 +2483,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     addedTableIds,
     seatedGuestIds: rows.map((r) => r.guest_id),
     changedTableIds: [...new Set([...rows.map((r) => r.table_id), ...addedTableIds])],
+    cannotFit,
   };
 }
 

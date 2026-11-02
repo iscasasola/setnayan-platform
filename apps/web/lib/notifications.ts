@@ -511,7 +511,12 @@ export type NotificationType =
      in-app notice (no email), and the price never changes by itself"). → the booked shop's owner, one notice per change,
      opening their client page. Written by the DATABASE (`set_supplier_where`, 20271300598766) in the same statement
      that changes the set — never emitNotification. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
-  | 'supplier_where_changed';
+  | 'supplier_where_changed'
+  /* 📣 A host or coordinator pressed Release (owner 2026-11-01, plan §3 "Basic, then full"): every guest account on the
+     event is told their own full schedule and call time are on Me. Written by the DATABASE (`release_full_schedule`,
+     20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
+     on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301956127. */
+  | 'schedule_released';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -636,6 +641,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_changed: 'Mood Board changed',
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
+  schedule_released: 'Your full schedule is ready',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -861,6 +867,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   access_more_asked: 'bg-warn-100 text-warn-900',
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
+  // News a guest plans their day around, not a yes or no → the informational sky.
+  schedule_released: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1140,6 +1148,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_shifted: 'calendar',
   mood_board_changed: 'image',
   supplier_where_changed: 'calendar',
+  schedule_released: 'calendar',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

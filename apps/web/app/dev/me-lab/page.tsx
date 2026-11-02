@@ -5,6 +5,7 @@ import { appleWalletDevice, type AppleWalletLink } from '@/lib/wallet-pass';
 import { mightBeIpadSafari } from '@/lib/apple-device';
 import { MeKeepInvitation } from '@/app/[slug]/_components/me-keep-invitation';
 import { MeStageLab } from './me-stage-lab';
+import { labYourSchedule } from './lab-your-schedule';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { GuestMeParts } from '@/app/[slug]/_components/guest-me-parts';
 import { GuestTicket } from '@/app/[slug]/_components/guest-ticket';
@@ -20,6 +21,7 @@ import { ProxyLab } from './proxy-lab';
  * 👤 THE ME LAB — Invitation › Me's own parts (Your role · What to wear · Arrive by) and the digital ticket under them,
  * for the four people of `lab-people.ts`, through the guest page's OWN components (`GuestMeParts`, `GuestTicket`) and
  * resolvers. No database: the ticket is drawn by `./ticket` from the same facts. `?who=woman|man|unknown|guest` draws one.
+ * `?stage=1&schedule=bridesmaid|guest` adds 📅 Your schedule, before Release, or after with `&released=1` (`./lab-your-schedule`).
  * `?stage=1` draws Me AS A STAGE over a photo (`./me-stage-lab` — the Hub's cards, cased names, a +1 as their ticket;
  * guest_page_fixes_2_4), `&dark=1` under Candlelight, `&guests=2` with a second plus-one.
  * `?note=1` gives each person the hosts' note to them (💌 owner 2026-10-20) — drawn under Your role by the same gate.
@@ -31,7 +33,7 @@ import { ProxyLab } from './proxy-lab';
 export default async function MeLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
-  if (sp.stage === '1') return <MeStageLab dark={sp.dark === '1'} two={sp.guests === '2'} />;
+  if (sp.stage === '1') return <MeStageLab dark={sp.dark === '1'} two={sp.guests === '2'} schedule={labYourSchedule(sp)} />;
   if (sp.connect === '1') return <ConnectHostsLab />;
   if (sp.save === '1') return <SaveOfferLab sp={sp} />;
   if (sp.host === '1') return <HostViewsGuestLab only={typeof sp.only === 'string' ? sp.only : null} />;

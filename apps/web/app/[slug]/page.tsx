@@ -1,4 +1,7 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
+import { YourScheduleCard } from './_components/your-schedule-card';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -2136,6 +2139,23 @@ async function invitationBody({
     eventVendorCredits,
   } = guestContext;
 
+  /* 📅 YOUR SCHEDULE on Me (owner 2026-11-01, plan §3 · §3b · §11b): the chapters this guest is invited to, and after
+     Release (Pro) their own lines and exact call time. Started here, awaited where Me is drawn; never in the Maker's
+     canvas. A refused read is said on the card (`unread`), never drawn as no schedule. Nothing live: guests hold no
+     connection — this renders into the cached Event Hub copy. */
+  const yourScheduleAhead = isEditorCanvas
+    ? null
+    : startAhead(
+        readYourSchedule(admin, {
+          eventId: event.event_id,
+          guestId: guest.guest_id,
+          roles: [guest.role as string | null, ...(((guest as { extra_roles?: string[] | null }).extra_roles) ?? [])].filter(
+            (r): r is string => typeof r === 'string' && r.trim().length > 0,
+          ),
+          guestsArriveBy: guestsArriveTime(scheduleBlocks),
+        }).catch((): YourScheduleRead => ({ kind: 'unread' })),
+      );
+
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
@@ -2390,6 +2410,7 @@ async function invitationBody({
       ticketNames={event.display_name}
     />
   );
+  const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
@@ -2456,6 +2477,7 @@ async function invitationBody({
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
       profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
+      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} />}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={

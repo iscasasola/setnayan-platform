@@ -69,15 +69,18 @@ export async function bookVendorAtChatLock(
     /** The couple-negotiated total in PESOS (the thread's frozen agreed price). */
     agreedTotalPhp: number;
   },
+  /** 🚪 The bookings switch — injectable so a test can run both sides; production reads the one switch. */
+  deps: { bookingsOpen: () => Promise<boolean> } = { bookingsOpen: areBookingsOpen },
 ): Promise<ChatLockBookingOutcome> {
   const { eventId, eventVendorId, marketplaceVendorId, agreedTotalPhp } = args;
 
   // Off-platform / no marketplace link → nothing to verify or charge.
   if (!marketplaceVendorId) return { status: 'no_marketplace_link' };
 
-  // 🚪 DOOR 4 · BOOKINGS CLOSED (owner 2026-11-02). Before the verified read: a closed
-  // platform books nobody, verified or not. The trigger `event_vendors_require_bookings_open` is the backstop.
-  if (!(await areBookingsOpen())) return { status: 'bookings_closed' };
+  // 🚪 DOOR 4 · BOOKINGS CLOSED (owner 2026-11-02). Read before the verified read; ACTED ON once the press is planned
+  // (below): a closed platform neither books nor asks, but a new price on a supplier ALREADY booked (`refresh_fee_only`,
+  // recorded beside the agreed total) is not a booking and stays open. The trigger is the backstop.
+  const bookingsOpen = await deps.bookingsOpen();
 
   // Friendly verified pre-check (the DB trigger is the hard backstop below).
   const verified = await isMarketplaceVendorBookable(admin, marketplaceVendorId);
@@ -105,6 +108,7 @@ export async function bookVendorAtChatLock(
   });
 
   if (action === 'skip_no_link') return { status: 'no_marketplace_link' };
+  if (!bookingsOpen && (action === 'book' || action === 'request')) return { status: 'bookings_closed' };
   if (action === 'blocked_not_verified') return { status: 'not_verified' };
   if (action === 'already_requested') return { status: 'already_requested' };
 

@@ -52,8 +52,12 @@ for (const door of DOORS) {
     assert.ok(body, `${door.fn} not found in ${door.file} — the door moved; point this guard at it`);
     const books = body.indexOf(door.books);
     assert.ok(books >= 0, `${door.fn} no longer calls ${door.books} — re-anchor this door on what it books with now`);
-    const gate = body.indexOf('areBookingsOpen(');
+    // The switch itself, or its injected seam (`deps.bookingsOpen()`, door 4) whose default is `areBookingsOpen`.
+    const gate = body.search(/areBookingsOpen\(|deps\.bookingsOpen\(\)/);
     assert.ok(gate >= 0, `${door.fn} (${door.file}) never asks areBookingsOpen() — it would book while bookings are closed`);
+    if (body.includes('deps.bookingsOpen()')) {
+      assert.match(source, /deps: \{ bookingsOpen: \(\) => Promise<boolean> \} = \{ bookingsOpen: areBookingsOpen \}/, 'the seam must default to the one switch');
+    }
     assert.ok(gate < books, `${door.fn} asks areBookingsOpen() only AFTER ${door.books} — the booking happens first`);
   });
 }

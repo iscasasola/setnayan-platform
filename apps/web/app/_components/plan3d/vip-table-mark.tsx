@@ -19,11 +19,11 @@ function vipTexture(): THREE.CanvasTexture {
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = 'rgba(92,37,66,0.92)'; // brand mulberry #5C2542
+  ctx.fillStyle = 'rgba(92,37,66,0.92)'; // brand mulberry
   ctx.beginPath();
   ctx.roundRect(4, 4, W - 8, H - 8, 18);
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = 'white';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = '700 32px system-ui, -apple-system, sans-serif';

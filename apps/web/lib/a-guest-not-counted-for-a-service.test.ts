@@ -95,7 +95,9 @@ test('2 · the card: ONE tick dropdown, directly ABOVE Passed Away, posting with
   // The card's data reads the booked services and this guest's ticks — measured.
   const data = read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts');
   assert.match(data, /readGuestNotCounted\(supabase, eventId, guestId\)/);
-  assert.match(data, /notCounted: await notCountedRead,/);
+  // Joined into the card's second batch — no wait of its own (`the-live-iphone-test-holds.test.ts` counts the waits).
+  assert.match(data, /, notCounted\] = await Promise\.all\(\[/);
+  assert.match(data, /\n\s*notCountedRead,\n\s*\]\);/);
 });
 
 test('2 · the reads offer only BOOKED services, and a refused read offers nothing', () => {

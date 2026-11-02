@@ -5897,8 +5897,6 @@
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/website/editor?open=music",
@@ -6378,14 +6376,12 @@
         "/dashboard/[seg]/messages"
       ],
       "actions": [
-        "fileActions",
         "formAction"
       ],
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
-        "BookedPartRow",
         "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
@@ -8532,6 +8528,7 @@
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
         "dashboard/[eventId]/schedule/_components/host-questions.tsx",
         "dashboard/[eventId]/schedule/_components/moment-inspector.tsx",
+        "dashboard/[eventId]/schedule/_components/moment-sheets.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/planning-todo-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
@@ -8543,6 +8540,7 @@
         "dashboard/[eventId]/schedule/_components/schedule-live.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-sheet.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-view-as.tsx",
         "dashboard/[eventId]/schedule/_components/studio-day.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -8550,6 +8548,7 @@
         "dashboard/[eventId]/schedule/actions.ts",
         "dashboard/[eventId]/schedule/activity-picks-actions.ts",
         "dashboard/[eventId]/schedule/loading.tsx",
+        "dashboard/[eventId]/schedule/moment-march-step.ts",
         "dashboard/[eventId]/schedule/page.tsx",
         "dashboard/[eventId]/schedule/prep-actions.ts",
         "dashboard/[eventId]/schedule/question-answers-actions.ts",
@@ -8588,7 +8587,9 @@
         "BookedScheduleFrame",
         "BookedScheduleView",
         "BulkRetimePanel",
+        "ByTime",
         "Chapter",
+        "ChapterMoment",
         "ChapterPage",
         "ChapterSection",
         "ChapterSheet",
@@ -8600,6 +8601,7 @@
         "ChosenRow",
         "ConfirmForm",
         "DateRow",
+        "Day",
         "DayActions",
         "DayActionsContext.Provider",
         "DayMoment",
@@ -8626,18 +8628,27 @@
         "InfoTip",
         "LastSeenCapture",
         "LastSeenFallback",
+        "LayerHeading.Provider",
         "Lens",
         "LensChip",
         "Link",
+        "MarchList",
+        "MarchRow",
         "MiniTour",
+        "MinutesRow",
         "MomentInspector",
+        "MomentLayer",
+        "MomentPapic",
         "MomentRow",
+        "MomentSheet",
         "NewChapterSheet",
         "NewMomentRow",
+        "NewMomentSheet",
         "NoDateYet",
         "NotSharedWithYou",
         "OverlayBackdrop",
         "PageMasthead",
+        "PaidMark",
         "PickMenu",
         "PillThumb",
         "PlanningChapters",
@@ -8677,7 +8688,10 @@
         "SubmitButton",
         "Switch",
         "SwitchRow",
+        "T",
         "TaskDateButton",
+        "TaskEditor",
+        "TaskWhoList",
         "TellTheHost",
         "TemplatePicker",
         "TickerPill",
@@ -8694,7 +8708,11 @@
         "TravelItineraryView",
         "TypedRow",
         "VendorMeetingsSection",
-        "VendorSuggestionsQueue"
+        "VendorSuggestionsQueue",
+        "ViewAsBody",
+        "ViewAsMenu",
+        "ViewLens",
+        "WhoFields"
       ]
     },
     "/dashboard/[eventId]/seating": {
@@ -9982,8 +10000,7 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
-        "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget"
+        "/dashboard/[seg]/vendors?open=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -10031,7 +10048,6 @@
         "BookedWhere",
         "BookedWhereLine",
         "BudgetBuildTab",
-        "BudgetPage",
         "BudgetWords",
         "BuildActionResult",
         "BuildAdded",
@@ -11300,6 +11316,7 @@
       "files": [
         "dev/chapters-lab/lab-chapters.ts",
         "dev/chapters-lab/lab-schedule-chapters.tsx",
+        "dev/chapters-lab/lab-view-as.ts",
         "dev/chapters-lab/page.tsx"
       ],
       "destinations": [],
@@ -11307,11 +11324,13 @@
       "blocks": [
         "BookedScheduleFrame",
         "Chapter",
+        "ChapterMoment",
         "ChaptersHost",
         "LabScheduleChapters",
         "PlanningChapters",
         "ScheduleLabClient",
-        "TaskRow"
+        "TaskRow",
+        "ViewMoment"
       ]
     },
     "/dev/chat-lab": {
@@ -14982,6 +15001,8 @@
         "issueLockedQr"
       ],
       "blocks": [
+        "CrewCode",
+        "CrewQr",
         "CustomersPick",
         "DatesRow",
         "Fold",

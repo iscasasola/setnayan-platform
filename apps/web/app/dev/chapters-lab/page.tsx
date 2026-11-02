@@ -14,7 +14,8 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
  *      deleting), and Planning Stage's "Final fitting". `?empty=1` none · `?fail=1` the failed read · `?view=1` view only.
  *      Step 3b: Preparation · Bride › "Entourage hair and make-up starts" (8:00) holds three tasks at once in two
  *      places; tap it for the moment sheet (tasks, Who ▾, clash flag, Delete moment's Papic count — the lab answers 4).
- *      `?tasksfail=1` the tasks read failed · `?moment=1` opens straight on that moment's sheet.
+ *      `?tasksfail=1` the tasks read failed · `?marchfail=1` the marches read failed · `?moment=1` opens straight on
+ *      that moment's sheet (it is one of the couple's own marches: "This is a march" shows Grand Entrance).
  *      👁 View as ▾ (Step 3c) on fake tasks: a guest, a role, a supplier or crew, Suppliers by time; `?free=1` a Free event.
  *   2. THE RUN-OF-SHOW SHAPE (§3c): one moment holding three parallel tasks in two places, each place resolved by the
  *      real `taskPlace` (a task with no place follows its moment's room). `?clash=1` adds the planner's Coord A in a
@@ -23,7 +24,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
 export default async function ChaptersLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; moment?: string; free?: string }>;
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -33,7 +34,7 @@ export default async function ChaptersLabPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

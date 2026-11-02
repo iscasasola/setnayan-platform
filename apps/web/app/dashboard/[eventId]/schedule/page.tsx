@@ -119,7 +119,7 @@ import { formatCount } from '@/lib/format-number';
 import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
-import { readChapterBook, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
@@ -136,6 +136,7 @@ import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { wholeMarchLabel } from '@/lib/schedule-chapters';
 
 export const metadata = { title: 'Schedule' };
 
@@ -237,7 +238,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -274,6 +275,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        A refused read is kept as a failure: the moment sheet says so, never "no tasks". */
     inMaker ? Promise.resolve(null) : readMomentTasks(supabase, eventId).catch(() => ({ ok: false as const })),
     inMaker ? Promise.resolve(null) : readTaskPeople(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 🚶 The couple's own marches, for a moment's "This is a march" (migration 20271301571290) — in the same round. A
+       refused read is kept as a failure and said on the row, never "no marches". */
+    inMaker ? Promise.resolve(null) : readMarchList(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -658,6 +662,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   is_optional: momentFacts.get(m.block_id)?.is_optional ?? false,
                   travel_from: momentFacts.get(m.block_id)?.travel_from ?? null,
                   travel_to: momentFacts.get(m.block_id)?.travel_to ?? null,
+                  march_key: momentFacts.get(m.block_id)?.march_key ?? null,
                   is_public: m.is_public,
                   who:
                     m.responsible_vendor_ids
@@ -669,6 +674,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             venues: [],
             tasks: taskRead?.ok ? taskRead.value : null,
             who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
+            marches: marchRead ?? { ok: false },
+            wholeMarch: wholeMarchLabel(eventRow?.event_type),
             eventDay: eventDateKey,
             lastDay:
               eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey

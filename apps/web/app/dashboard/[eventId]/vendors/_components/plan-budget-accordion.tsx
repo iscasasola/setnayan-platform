@@ -75,6 +75,7 @@ import { shopInitials } from '@/lib/shop-initials';
 import { NEW_TO_SETNAYAN_LABEL } from '@/lib/reviews';
 import { eventNoun } from '@/lib/event-noun';
 import { formatCount } from '@/lib/format-number';
+import { budgetPageHref } from '@/lib/pillar-parts';
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
@@ -1234,7 +1235,7 @@ function ChildRail({
           {child.label}: <strong>{formatPhpRounded(child.planned.php)}</strong>
           {child.planned.source === 'saved' ? '' : ' from your budget split'}
           {' · '}
-          <Link href={`/dashboard/${eventId}/vendors?part=budget#budget-allocate`}>Adjust</Link>
+          <Link href={budgetPageHref(eventId)}>Adjust</Link>
         </p>
       ) : null}
 

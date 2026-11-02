@@ -40,12 +40,21 @@ export type PillarPart<K extends string = string> = { key: K; label: string; hre
 
 export type YourTeamPartKey = 'team' | 'budget';
 
-/** The `?part=` value that renders the Budget part in the Your Team page. */
+/**
+ * The OLD `?part=` value that drew the Budget inside Suppliers (2026-09-29 → 2026-11-01). Nothing links it any more;
+ * `vendors/page.tsx` forwards it to the Budget page, carrying `?pay=`, so an old bookmark or notification still lands.
+ */
 export const YOUR_TEAM_BUDGET_PART = 'budget';
 
-/** Your Team's Budget part — the one address every budget doorway uses. */
-export function yourTeamBudgetHref(eventId: string): string {
-  return `/dashboard/${eventId}/vendors?part=${YOUR_TEAM_BUDGET_PART}`;
+/**
+ * 💰 THE BUDGET PAGE — its own page, opened from Home › Budget (owner 2026-11-01, DECISION_LOG "SCHEDULE AND BUDGET GO
+ * TO HOME": *"Okay place it in home"*). ONE address for every budget door: Home's widget (its tile, each Pay face, the
+ * summary), Suppliers › Booked's menu, the Booked Budget block, Event Settings. Never a copy of the page elsewhere.
+ * `pay` = a payment's `line_item_id`: the page opens that payment's Pay sheet on arrival (`payTargetVendor`).
+ */
+export function budgetPageHref(eventId: string, opts: { pay?: string | null } = {}): string {
+  const base = `/dashboard/${eventId}/budget`;
+  return opts.pay ? `${base}?pay=${encodeURIComponent(opts.pay)}` : base;
 }
 
 export function yourTeamParts({
@@ -61,7 +70,7 @@ export function yourTeamParts({
   const parts: PillarPart<YourTeamPartKey>[] = [
     { key: 'team', label: 'Suppliers', href: `/dashboard/${eventId}/vendors` },
   ];
-  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
+  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: budgetPageHref(eventId) });
   return parts;
 }
 
@@ -71,7 +80,8 @@ export function yourTeamParts({
  * Booked body's first row ("Team ▾ · 3 booked"), never a pill row.
  *
  *   Team      the Booked body itself (`?tab=budget` is the Booked mode's own bus key — `SUPPLIERS_MODE_TAB`)
- *   Budget    the shipped Budget page, rendered whole (`?part=budget`, as since 2026-09-29)
+ *   Budget    a door to the Budget page itself (`budgetPageHref`) — since 2026-11-01 the page lives under Home and
+ *             is no longer drawn inside Suppliers (owner: *"Okay place it in home"*); Booked's menu keeps the door
  *   Schedule  the shipped Schedule page, rendered whole (`?part=schedule`) — moved here from Studio (2026-10-27:
  *             "rendered whole the way Budget is"); its old address forwards here (`schedule/page.tsx`)
  *
@@ -100,7 +110,7 @@ export function bookedParts({
   budgetEnabled: boolean;
 }): PillarPart<BookedPartKey>[] {
   const parts: PillarPart<BookedPartKey>[] = [{ key: 'team', label: 'Team', href: bookedTeamHref(eventId) }];
-  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
+  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: budgetPageHref(eventId) });
   parts.push({ key: 'schedule', label: 'Schedule', href: bookedScheduleHref(eventId) });
   return parts;
 }

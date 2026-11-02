@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6971
+# facts: 6974
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5090
 #   policy    991
 #   view      9
-#   func      291
+#   func      294
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6857,6 +6857,9 @@ func	public.papic_create_vendor_challenge(p_event_id uuid, p_prompt text)	secdef
 func	public.papic_event_chapters(p_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.papic_event_has_flat_pass(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_guest_missions(p_guest_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.papic_memories_chapters(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.papic_memories_photo_chapters(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.papic_memories_set_chapter(p_event_id uuid, p_block_id uuid, p_guest_capture_id uuid, p_seat_photo_id uuid, p_in boolean)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.papic_provision_seats(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_record_guest_capture(p_guest_id uuid, p_r2_object_key text, p_consent_to_public boolean, p_media_type text, p_duration_ms integer, p_poster_r2_key text, p_points_cost integer, p_captured_at timestamp with time zone, p_client_capture_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.papic_review_vendor_challenge(p_mission_id uuid, p_approve boolean)	secdef=yes exec=anon,authenticated search_path=public

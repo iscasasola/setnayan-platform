@@ -109,7 +109,7 @@ test('no target: the bar is scaled to what is agreed, and nothing is invented', 
 test('the rows are ONE read, and the Budget is its own part: the slot resolves the money once, the page never', () => {
   const slot = read('app/dashboard/[eventId]/vendors/_components/booked-slot.tsx');
   assert.equal((slot.match(/resolveEventMoney\w*\(/g) ?? []).length, 1, 'the Booked slot resolves the money more than once');
-  // Booked = Team · Budget · Schedule (owner 2026-10-29): the Budget is the whole page at `?part=budget`, so the
+  // Booked = Team · Budget · Schedule (owner 2026-10-29): the Budget is its own page (Home's since 2026-11-01), so the
   // small block no longer sits under the Team's rows (it stays the lab's and its own guard's — below).
   assert.doesNotMatch(slot, /<BookedBudgetSection\b|bookedBudgetBlock\(/, 'the small Budget block is back under the Team — the Budget is its own part');
   assert.match(slot, /buildBudgetList\(money\)/, 'the rows no longer read the same object');

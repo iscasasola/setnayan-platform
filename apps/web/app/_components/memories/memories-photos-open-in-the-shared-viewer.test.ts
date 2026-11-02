@@ -71,10 +71,16 @@ test('2 · who sees which — today’s permissions kept', () => {
   assert.equal(screened.find((b) => b.key === 'hide')?.label, 'Approve');
   assert.equal(screened.find((b) => b.key === 'share')?.enabled, false);
   assert.equal(viewerButtons(item({ look: 'hidden' }), HOST).find((b) => b.key === 'hide')?.label, 'Show');
-  // Chapter is drawn but never acts — there is no storage for a photo's chapter yet.
+  // Add to Chapter (Memories by chapter, 2026-11-01): it ACTS only when the server's chapter read says this viewer may
+  // move this photo and has somewhere to put it — without that read it is drawn and says why.
   assert.equal(viewerButtons(item(), HOST).find((b) => b.key === 'chapter')?.enabled, false);
-  // A supplier's file: no Tag (photo_tags cannot name it), no Delete, Hide = the whole delivery, no Share (no save route).
-  assert.deepEqual(keys(item({ memSource: 'suppliers', table: 'vendor_papic_captures', source: 'vendor', saveUrl: null }), { ...HOST, supplierHidden: false }), ['chapter', 'hide']);
+  assert.equal(viewerButtons(item(), { ...HOST, chapter: { canAdd: true, why: null } }).find((b) => b.key === 'chapter')?.enabled, true);
+  assert.equal(viewerButtons(item(), { ...HOST, chapter: { canAdd: false, why: 'x' } }).find((b) => b.key === 'chapter')?.why, 'x');
+  // A chapter's person who manages nothing still gets it — and nobody else does.
+  assert.deepEqual(keys(item(), { ...NOBODY, chapter: { canAdd: true, why: null } }), ['chapter']);
+  // A supplier's file: no Tag (photo_tags cannot name it), no Chapter (a chapter link cannot name it either), no Delete,
+  // Hide = the whole delivery, no Share (no save route).
+  assert.deepEqual(keys(item({ memSource: 'suppliers', table: 'vendor_papic_captures', source: 'vendor', saveUrl: null }), { ...HOST, supplierHidden: false }), ['hide']);
   // An Event Hub file: shown and shared, never managed here.
   assert.deepEqual(keys(item({ memSource: 'hub', table: 'hub', saveUrl: null, downloadUrl: 'U-HUBFILE' }), HOST), ['share']);
   // The coordinator: Tag + Chapter, never Hide/Delete, and no photo Share (the save route answers the hosts only).

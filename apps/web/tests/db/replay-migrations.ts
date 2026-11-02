@@ -77,7 +77,18 @@ export const ALLOWED_SKIP: ReadonlyMap<string, string> = new Map([
   ],
 ]);
 
+/*
+  📏 max_stack_depth 6MB (2026-11-02, measured). PGlite (WebAssembly) does not hand back all of its stack after an
+  ERROR — the replay raises ~1,600 of them on purpose (deferred files, and every skip `auditSkips` re-attempts), and
+  the room left shrinks with each one. At the stock 2MB the AUDITED replay ran out exactly when the corpus grew by one
+  file: the next two migrations failed with "stack depth limit exceeded" — and a one-line placeholder migration in
+  their place reproduced it, so it was the COUNT, not any file's SQL. Measured: a runaway recursion still ends the same
+  way at 2MB and at 6MB (PGlite stops either way), so this guards nothing less; it only stops an error budget from
+  reading as a broken migration. Held by replay-order-is-honest.db.test.ts ("every skip the drain took …"), which fails
+  at 2MB on today's corpus.
+*/
 const BOOTSTRAP = `
+SET max_stack_depth = '6MB';
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;

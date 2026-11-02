@@ -1,6 +1,6 @@
 import type { TaskRow } from '@/lib/schedule-chapters';
 import type { ViewAsInput, ViewMoment } from '@/lib/schedule-view-as';
-import { LAB_CHAPTER_MOMENTS, LAB_CHAPTERS, LAB_EVENT_DAY } from './lab-chapters';
+import { LAB_CHAPTER_MOMENTS, LAB_CHAPTERS, LAB_EVENT_DAY, LAB_TBA_CHAPTER } from './lab-chapters';
 
 /**
  * 🧪 FAKE DATA FOR VIEW AS (Step 3c, `/dev/chapters-lab`): the lab's chapter moments with the fields a view filters on,
@@ -32,6 +32,8 @@ const extra: ViewMoment[] = [
   { block_id: 'lab-m-bm', parent_block_id: BRIDESMAIDS, label: 'Bridesmaids get ready', start_at: at('08:00'), end_at: at('10:00'), is_public: false, staged: false, audience: 'entourage', responsible_vendor_ids: [], location: null, spot: null, travel_from: null, travel_to: null },
   { block_id: 'lab-m-gr', parent_block_id: GROOM, label: 'Groom’s grooming', start_at: at('10:30'), end_at: at('11:30'), is_public: false, staged: false, audience: null, responsible_vendor_ids: [], location: null, spot: null, travel_from: null, travel_to: null },
   // A coordinator's staged moment that IS marked shown to guests — still never on the guests' schedule until released.
+  // The Send-off chapter is Time TBA: its suppliers are listed "Time TBA" in Suppliers by time, never hidden (2 Nov).
+  { block_id: 'lab-m-tba', parent_block_id: LAB_TBA_CHAPTER.block_id, label: 'Sparkler send-off', start_at: LAB_TBA_CHAPTER.start_at, end_at: null, is_public: false, staged: false, audience: null, responsible_vendor_ids: ['v-coord', 'v-photo'], location: null, spot: null, travel_from: null, travel_to: null },
   { block_id: 'lab-m-staged', parent_block_id: LAB_CHAPTERS[3]!.block_id, label: 'Ring bearer rehearsal', start_at: at('15:05'), end_at: at('15:15'), is_public: true, staged: true, audience: null, responsible_vendor_ids: [], location: null, spot: null, travel_from: null, travel_to: null },
 ];
 

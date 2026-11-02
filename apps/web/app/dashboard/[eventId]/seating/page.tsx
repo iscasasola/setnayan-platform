@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
-import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';

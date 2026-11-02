@@ -142,7 +142,6 @@ const NOT_GUEST_FACING: Record<string, string> = {
   // ✉ "Invited to ▾" by chapter (owner 2026-11-02): which chapters are on the invitation, for the hosts' own tools.
   'lib/guest-chapter-invites.ts':
     'host — the Guest list’s "After party only" tags and the seat plan’s "who needs a seat" (the couple’s session, or a Guest-list / seat-plan helper’s); ids, names and kinds of chapters on the invitation, no row to a guest',
-  'app/dashboard/[eventId]/guests/_components/guest-card-data.ts': 'host — the guest card’s "Invited to ▾" (the chapters on the invitation, by name), on the host’s own session',
   'app/dashboard/[eventId]/guests/[guestId]/actions.ts': 'host — the guest card’s save checks a ticked chapter is on THIS event’s invitation before writing the exception',
 
   // ── a booked supplier's desk ──

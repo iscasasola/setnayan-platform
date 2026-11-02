@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
-import { INVITATION_CHAPTER_FIELDS, invitationChapters, needsNoSeat, partialInviteTag, seatedChapterIds } from './invitation-chapters';
+import { INVITATION_CHAPTER_FIELDS, invitationChapters, needsNoSeat, partialInviteTag, seatedChapterIds, type InvitationChapter } from './invitation-chapters';
+import { askedOnce } from './request-once';
 
 /**
  * ✉ PER-GUEST "INVITED TO" CHAPTERS — the event-wide reads (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO"
@@ -23,6 +24,22 @@ function invitationChapterQuery(client: Client, eventId: string, columns: string
     .eq('on_invitation', true)
     .is('parent_block_id', null)
     .neq('visibility', 'coordinator_only');
+}
+
+/**
+ * ✉ The event's chapters on the invitation, in the day's order — asked ONCE per render for this client (the Guests page's
+ * tags and the open guest card's "Invited to ▾" ask the same question; `askedOnce`, lib/request-once.ts). `null` = the read
+ * failed.
+ */
+export function readInvitationChapterList(client: Client, eventId: string): Promise<InvitationChapter[] | null> {
+  return askedOnce(client, 'event_schedule_blocks.invitation_chapters', [eventId], async () => {
+    const { data, error } = await invitationChapterQuery(client, eventId, INVITATION_CHAPTER_FIELDS).order('start_at', { ascending: true });
+    if (error || !data) {
+      if (error) logQueryError('readInvitationChapterList', error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return invitationChapters((Array.isArray(data) ? data : []) as unknown as Parameters<typeof invitationChapters>[0]);
+  });
 }
 
 const NOT_INVITED_PAGE = 1000;
@@ -85,12 +102,8 @@ export async function readNoSeatGuestIds(client: Client, eventId: string): Promi
  * has chapters. `null` = a read was refused (the list then draws no tag, and logs it — a quiet note, never a count).
  */
 export async function readInviteTagsByGuest(client: Client, eventId: string): Promise<Record<string, string> | null> {
-  const { data, error } = await invitationChapterQuery(client, eventId, INVITATION_CHAPTER_FIELDS).order('start_at', { ascending: true });
-  if (error || !data) {
-    if (error) logQueryError('readInviteTagsByGuest', error, { event_id: eventId }, 'graceful_degrade');
-    return null;
-  }
-  const chapters = invitationChapters((Array.isArray(data) ? data : []) as unknown as Parameters<typeof invitationChapters>[0]);
+  const chapters = await readInvitationChapterList(client, eventId);
+  if (!chapters) return null;
   if (chapters.length === 0) return {};
   const off = await readEventNotInvited(client, eventId);
   if (!off) return null;

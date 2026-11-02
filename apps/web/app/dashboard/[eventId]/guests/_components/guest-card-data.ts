@@ -18,8 +18,8 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
-import { INVITATION_CHAPTER_FIELDS, invitationChapters, partialInviteTag } from '@/lib/invitation-chapters';
-import { onlyInvitationChapters } from '@/lib/invitation-chapters.server';
+import { partialInviteTag } from '@/lib/invitation-chapters';
+import { readInvitationChapterList } from '@/lib/guest-chapter-invites';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
@@ -206,18 +206,16 @@ export type CardInviteChapters = {
 
 /** ✉ The card's two chapter reads, together. NULL when either is refused — never "invited to all" from a failed read. */
 async function readCardInviteChapters(supabase: SupabaseClient, eventId: string, guestId: string): Promise<CardInviteChapters | null> {
-  const [blocks, off] = await Promise.all([
-    onlyInvitationChapters(supabase.from('event_schedule_blocks').select(INVITATION_CHAPTER_FIELDS).eq('event_id', eventId)).order('start_at', {
-      ascending: true,
-    }),
+  // The chapter list is the Guests page's own question (its row tags) — asked once per render (`readInvitationChapterList`).
+  const [list, off] = await Promise.all([
+    readInvitationChapterList(supabase, eventId),
     supabase.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
   ]);
-  if (blocks.error || off.error || !blocks.data || !off.data) {
-    const err = blocks.error ?? off.error;
-    if (err) logQueryError('loadGuestCard.inviteChapters', err, { eventId, guestId }, 'graceful_degrade');
+  if (!list || off.error || !off.data) {
+    if (off.error) logQueryError('loadGuestCard.inviteChapters', off.error, { eventId, guestId }, 'graceful_degrade');
     return null;
   }
-  const chapters = invitationChapters(blocks.data as unknown as Parameters<typeof invitationChapters>[0]).map((c) => ({ block_id: c.block_id, label: c.label }));
+  const chapters = list.map((c) => ({ block_id: c.block_id, label: c.label }));
   const on = new Set(chapters.map((c) => c.block_id));
   const notInvited = (off.data as { block_id: string }[]).map((r) => r.block_id).filter((id) => on.has(id));
   return { chapters, notInvited, tag: partialInviteTag(chapters, new Set(notInvited)) };

@@ -646,6 +646,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_changed: 'Mood Board changed',
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
+  claim_access_answered: 'A couple answered your link',
   schedule_released: 'Your full schedule is ready',
 };
 
@@ -872,6 +873,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   access_more_asked: 'bg-warn-100 text-warn-900',
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
+  claim_access_answered: 'bg-sky-100 text-sky-800',
   // News a guest plans their day around, not a yes or no → the informational sky.
   schedule_released: 'bg-sky-100 text-sky-800',
 };

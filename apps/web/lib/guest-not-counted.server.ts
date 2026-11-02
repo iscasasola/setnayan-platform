@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { askedOnce } from '@/lib/request-once';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { COUNTED_BOOKING_STATUSES, notCountedAfterSave, notCountedWords, type BookedService } from '@/lib/guest-not-counted';
 
@@ -22,12 +23,16 @@ function serviceOf(b: Booking): BookedService {
 
 /** The event's BOOKED services, in a steady order (trade, then shop). Null = refused. */
 export async function readBookedServices(supabase: SupabaseClient, eventId: string): Promise<BookedService[] | null> {
-  const { data, error } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, category, vendor_name')
-    .eq('event_id', eventId)
-    .in('status', [...COUNTED_BOOKING_STATUSES])
-    .is('archived_at', null);
+  // ONE ask per render (`askedOnce`): the Guest list's row notes and the open card both need it
+  // (`the-guests-page-asks-once.test.ts` — nothing is asked twice).
+  const { data, error } = await askedOnce(supabase, 'event_vendors.booked_services', [eventId], async () =>
+    supabase
+      .from('event_vendors')
+      .select('vendor_id, category, vendor_name')
+      .eq('event_id', eventId)
+      .in('status', [...COUNTED_BOOKING_STATUSES])
+      .is('archived_at', null),
+  );
   if (error) {
     logQueryError('guestNotCounted.bookedServices', error, { eventId }, 'graceful_degrade');
     return null;

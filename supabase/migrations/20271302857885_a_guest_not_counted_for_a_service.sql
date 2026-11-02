@@ -97,13 +97,14 @@ CREATE POLICY guest_not_counted_for_couple_all
   USING ((event_id IN (SELECT public.current_couple_event_ids())) OR (SELECT public.is_admin()))
   WITH CHECK ((event_id IN (SELECT public.current_couple_event_ids())) OR (SELECT public.is_admin()));
 
--- A helper with the guest list at EDIT writes (the guests table's own `guests_moderator_write` shape).
+-- A helper with the guest list at EDIT writes — asked ONCE per statement (`policies-ask-once-per-query.db.test.ts`), the
+-- rewritten form of the guests table's `guests_moderator_write`.
 DROP POLICY IF EXISTS guest_not_counted_for_moderator_write ON public.guest_not_counted_for;
 CREATE POLICY guest_not_counted_for_moderator_write
   ON public.guest_not_counted_for FOR ALL
   TO authenticated
-  USING (public.moderator_area_level(event_id, 'guest_list') = 'edit')
-  WITH CHECK (public.moderator_area_level(event_id, 'guest_list') = 'edit');
+  USING (event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels('guest_list') l WHERE l.level = 'edit'))
+  WITH CHECK (event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels('guest_list') l WHERE l.level = 'edit'));
 
 -- A helper with any guest-list level reads (the `guest_chapter_replies_moderator_read` shape).
 DROP POLICY IF EXISTS guest_not_counted_for_moderator_read ON public.guest_not_counted_for;

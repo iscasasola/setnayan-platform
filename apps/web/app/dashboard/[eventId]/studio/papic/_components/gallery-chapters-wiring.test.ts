@@ -1,7 +1,7 @@
 /**
  * gallery-chapters-wiring.test.ts — the chapters are actually reachable.
  *
- * The engine is pure and covered by `lib/alaala-chapters.test.ts`. This is the
+ * The engine is pure and covered by `lib/alaala-chapters.test.ts` (the schedule rule) and `lib/papic-chapters.test.ts`. This is the
  * OTHER half, and it is the half this repo keeps losing: a mechanism that is
  * built, tested, correct — and never mounted, or mounted with a prop nothing
  * fills. `lib/alaala-chapters.ts` typechecks and passes 11 tests whether or not
@@ -25,7 +25,8 @@ const MEMORIES = stripComments(readFileSync(resolve(HERE, '..', '..', '..', 'mem
 // last import (PapicLightbox) replaced by the shared PhotoViewer (#7108). Its heading tests went with it.
 
 test('the studio page actually computes chapters and hands them to the grid', () => {
-  assert.ok(/groupIntoChapters\(/.test(PAGE), 'the engine is never called');
+  // The ONE engine's day split (`chapterDays`, lib/papic-chapters.ts — "groupIntoChapters (two copies → one)", 2026-11-01).
+  assert.ok(/chapterDays\(/.test(PAGE), 'the engine is never called');
   assert.ok(/chapters=\{read\.chapters\}/.test(MEMORIES), 'the result never reaches the gallery');
   assert.ok(/fetchScheduleBlocks\(/.test(PAGE), 'the run of show is never read');
 });

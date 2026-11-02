@@ -18,6 +18,7 @@
  */
 
 import type { GalleryPhoto } from '@/lib/papic-gallery';
+import type { PhotoChapters } from '@/lib/memories-chapters';
 
 /** One file in an event's Memories — a gallery frame plus where it came from and the host's mark on it. */
 export type MemoriesItem = GalleryPhoto & {
@@ -28,6 +29,8 @@ export type MemoriesItem = GalleryPhoto & {
   challengeId: string | null;
   /** An Event Hub file's place on the Hub ("Cover photo", "Background", …). */
   hubUse: string | null;
+  /** The chapters THIS viewer sees it in (`lib/memories-chapters.ts`) — absent / empty = Unsorted. */
+  chapters?: PhotoChapters | null;
 };
 
 export const MEMORIES_ALBUMS = [

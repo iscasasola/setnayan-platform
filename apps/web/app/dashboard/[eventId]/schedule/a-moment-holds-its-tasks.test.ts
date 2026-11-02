@@ -11,9 +11,10 @@
  *   2 · A CLASH IS FLAGGED: the same person or crew in two places at once — in one moment or across two — is found and
  *       said in words naming both places; a supplier split into crews, or two people in one room, is not. The sheet
  *       draws it on the task and the chapter's page marks the moment's row. Never refused: the task write never reads it.
- *   3 · THE DELETE WARNING COUNTS: Delete moment asks the CHAPTER'S Papic count (Papic shoots into chapters —
- *       `papic_chapter_captures` — never a moment) and the warning names that number; a count it could not read is
- *       said, never drawn as 0 or "none". Nothing is removed before Continue.
+ *   3 · THE DELETE WARNING COUNTS: Delete moment asks THIS MOMENT'S Papic count (each capture knows the moment of its
+ *       chapter on at the shutter — `papic_chapter_captures.moment_block_id`, migration 20271302139013) and the warning
+ *       names what it deletes and what stays in another chapter; a count it could not read is said, never drawn as 0 or
+ *       "none". Nothing is removed before Continue. (The removal itself: tests/db/papic-knows-the-moment.db.test.ts.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -187,28 +188,28 @@ test('2 · a clash is flagged', () => {
 });
 
 test('3 · the delete warning counts', () => {
-  const counted = momentDeleteWords({ label: 'Guests arrive', tasks: 3, chapterLabel: 'Ceremony', papic: { ok: true, value: 12 } });
-  assert.match(counted, /\b12 Papic photos and videos\b/, 'the warning does not name the count');
+  // 📷 Since 20271302139013 a capture knows its moment: the warning names what the delete takes, and what stays.
+  const counted = momentDeleteWords({ label: 'Guests arrive', tasks: 3, papic: { ok: true, value: { removed: 12, stays: 0 } } });
+  assert.match(counted, /deletes the 12 Papic photos and videos\b/, 'the warning does not name the count');
   assert.match(counted, /3 tasks/, 'the warning does not say its tasks go too');
   assert.match(counted, /cannot be undone/);
-  assert.match(momentDeleteWords({ label: 'Mass', tasks: 0, chapterLabel: 'Ceremony', papic: { ok: true, value: 1 } }), /\b1 Papic photo or video stays\b/);
-  assert.match(momentDeleteWords({ label: 'Mass', tasks: 0, chapterLabel: 'Ceremony', papic: { ok: true, value: 0 } }), /no Papic photos/);
-  const unread = momentDeleteWords({ label: 'Mass', tasks: 0, chapterLabel: 'Ceremony', papic: { ok: false } });
+  assert.match(momentDeleteWords({ label: 'Mass', tasks: 0, papic: { ok: true, value: { removed: 1, stays: 2 } } }), /deletes the 1 Papic photo or video\b[\s\S]*2 Papic photos and videos also in another chapter stay there/);
+  assert.match(momentDeleteWords({ label: 'Mass', tasks: 0, papic: { ok: true, value: { removed: 0, stays: 0 } } }), /No Papic photos/);
+  const unread = momentDeleteWords({ label: 'Mass', tasks: 0, papic: { ok: false } });
   assert.match(unread, /couldn’t be counted/, 'a failed count is not said');
-  assert.doesNotMatch(unread, /\b0\b|no Papic/, 'a failed count is drawn as none');
-  assert.doesNotMatch(momentDeleteWords({ label: 'Mass', tasks: 0, chapterLabel: 'Ceremony', papic: null }), /\b0\b|no Papic/, 'a count still on its way reads as none');
+  assert.doesNotMatch(unread, /\b0\b|No Papic/, 'a failed count is drawn as none');
+  assert.doesNotMatch(momentDeleteWords({ label: 'Mass', tasks: 0, papic: null }), /\b0\b|No Papic/, 'a count still on its way reads as none');
 
-  // Drawn: Delete moment only ASKS — it fetches the CHAPTER's count and words it; the one removal is behind Continue.
+  // Drawn: Delete moment only ASKS — it fetches THIS MOMENT's count (in its chapter) and words it; the removal is behind Continue.
   const sheet = body(code(SHEET), 'MomentSheet');
   const ask = sheet.slice(sheet.indexOf('const askDelete'), sheet.indexOf('return (', sheet.indexOf('const askDelete')));
-  assert.match(ask, /papicCount\(c\.block_id\)/, 'the warning no longer counts the chapter’s Papic photos');
+  assert.match(ask, /papicCount\(m\.block_id,\s*c\.block_id\)/, 'the warning no longer counts this moment’s Papic items');
   assert.doesNotMatch(ask, /doors\.remove/, 'Delete moment deletes before Continue');
   assert.match(sheet, /momentDeleteWords\(\{[^}]*papic\s*\}/, 'the warning no longer words the count it read');
   const cont = sheet.indexOf("label=\"Continue\"");
   assert.ok(cont >= 0 && sheet.indexOf('doors.remove(', cont) > cont, 'the removal is not behind Continue');
-  // The count is the chapter's Papic links, counted without moving rows.
-  const count = body(code(SERVER), 'countChapterPapic');
-  assert.match(count, /from\('papic_chapter_captures'\)/, 'the count no longer reads the chapter’s Papic links');
-  assert.match(count, /count:\s*'exact'/);
-  assert.match(body(code(SERVER), 'runMomentOp'), /countChapterPapic\(/, 'the papic_count op no longer counts');
+  // The count is the chapter's Papic links tagged with this moment.
+  const count = body(code(SERVER), 'countMomentPapic');
+  assert.match(count, /from\('papic_chapter_captures'\)[\s\S]*\.eq\('moment_block_id',\s*momentId\)/, 'the count no longer reads the moment’s Papic links');
+  assert.match(body(code(SERVER), 'runMomentOp'), /countMomentPapic\(/, 'the papic_count op no longer counts');
 });

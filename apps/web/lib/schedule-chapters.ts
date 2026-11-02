@@ -653,29 +653,37 @@ export function clashesForMoment(
   return out;
 }
 
+/** How many Papic items a moment delete removes, and how many stay because they are also in another chapter. */
+export type MomentPapic = { removed: number; stays: number };
+export function isMomentPapic(v: unknown): v is MomentPapic {
+  const o = v as MomentPapic | null;
+  return typeof o === 'object' && o !== null && Number.isInteger(o.removed) && Number.isInteger(o.stays) && o.removed >= 0 && o.stays >= 0;
+}
+
 /**
- * 🗑 WHAT DELETE MOMENT SAYS BEFORE IT DELETES (owner: *"deleting this moment will also delete the papic photos and
- * videos"* — the warning names the count). Papic shoots into CHAPTERS (`papic_chapter_captures.block_id` is always a
- * chapter — migration 20271300249267 refuses a moment): no capture belongs to a moment yet, so deleting one removes no
- * Papic item, and the warning says exactly that, with the chapter's real count. A count that could not be read is
- * said, never drawn as 0.
+ * 🗑 WHAT DELETE MOMENT SAYS BEFORE IT DELETES (owner 2026-11-01: *"deleting this moment will also delete the papic
+ * photos and videos"* — the warning names the count). Each Papic capture knows the moment of its chapter that was on at
+ * the shutter (`papic_chapter_captures.moment_block_id`, migration 20271302139013); deleting the moment deletes those —
+ * Papic items only, never uploads or supplier shots — except one also in another chapter, which stays there. A count
+ * that could not be read is said, never drawn as 0.
  */
 export function momentDeleteWords(input: {
   label: string;
   tasks: number;
-  chapterLabel: string;
-  papic: { ok: true; value: number } | { ok: false } | null;
+  papic: { ok: true; value: MomentPapic } | { ok: false } | null;
 }): string {
   const tasks = input.tasks > 0 ? `, with its ${input.tasks} task${input.tasks === 1 ? '' : 's'},` : '';
   const head = `${input.label}${tasks} will be deleted. This cannot be undone.`;
-  if (input.papic === null) return `${head} Counting ${input.chapterLabel}’s Papic photos…`;
+  if (input.papic === null) return `${head} Counting the Papic photos and videos taken during it…`;
   if (!input.papic.ok) {
-    return `${head} ${input.chapterLabel}’s Papic photos and videos couldn’t be counted just now. Papic shoots into the chapter, not one moment, so they stay.`;
+    return `${head} The Papic photos and videos taken during it couldn’t be counted just now — any there are will be deleted with it.`;
   }
-  const n = input.papic.value;
-  if (n === 0) return `${head} ${input.chapterLabel} has no Papic photos or videos yet, so none are deleted.`;
-  const what = n === 1 ? '1 Papic photo or video stays' : `${n} Papic photos and videos stay`;
-  return `${head} Papic shoots into the chapter, not one moment, so ${input.chapterLabel}’s ${what}.`;
+  const { removed, stays } = input.papic.value;
+  const items = (n: number) => (n === 1 ? '1 Papic photo or video' : `${n} Papic photos and videos`);
+  const staying = stays > 0 ? ` ${items(stays)} also in another chapter ${stays === 1 ? 'stays' : 'stay'} there.` : '';
+  if (removed === 0 && stays === 0) return `${head} No Papic photos or videos were taken during it.`;
+  if (removed === 0) return `${head}${staying}`;
+  return `${head} This also deletes the ${items(removed)} taken during it.${staying}`;
 }
 
 /**

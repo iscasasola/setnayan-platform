@@ -59,7 +59,7 @@ const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
   ]),
 );
 
-/* 🔒 `?lock=1` (audit D7): Gaia Florals pressed "Lock my times" — the REAL resolver reads the mark ("· Locked"), and
+/* 🔒 `?lock=1` (audit D7): Gaia Florals pressed "Lock my times" — the REAL resolver reads the mark ("· Not taking changes"), and
    a write to a moment Gaia is on is refused the way the database refuses it (the `*_part_lock` triggers). */
 const LOCKED_SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
   [

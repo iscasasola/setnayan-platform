@@ -6,8 +6,9 @@
  * Here, executed or read from the real files:
  *  1 · the rule (`lib/supplier-part-lock.ts`): which change meets a lock, and which does not;
  *  2 · every host schedule action asks it BEFORE writing (remove the call from any one and this fails by name);
- *  3 · the host SEES it: 'Locked' wins on the supplier line, every marks reader selects `locked_at`, and a refused rail
- *      save says "Locked by <shop>…" instead of "check your connection";
+ *  3 · the host SEES it: "Not taking changes" wins on the supplier line, every marks reader selects `locked_at`, and a
+ *      refused rail save says "<shop> isn't taking changes…" instead of "check your connection" — host words, never
+ *      "lock" (a couple reads "book", never "lock"); only the supplier's own button says "Lock my times";
  *  4 · the supplier HAS the button: Lock my times / Unlock reach `supplier_mark_schedule`.
  */
 import { readFileSync } from 'node:fs';
@@ -55,10 +56,13 @@ test('a field save that does not move the part (the inspector posts every field)
   assert.equal(patchTouchesPart(was, { location: 'Garden' }), true, 'a new place');
 });
 
-test("'Locked' wins on the host's supplier line, and the calm line names the shop", () => {
-  assert.equal(timesMarkOf({ seenAt: 'x', confirmedAt: 'y', lockedAt: '2026-11-02T03:00:00Z' })?.word, 'Locked');
+test("the lock wins on the host's supplier line, in host words, and the calm line names the shop", () => {
+  const word = timesMarkOf({ seenAt: 'x', confirmedAt: 'y', lockedAt: '2026-11-02T03:00:00Z' })?.word;
+  assert.equal(word, 'Not taking changes');
+  assert.doesNotMatch(word ?? '', /lock/i, 'a host reads "book", never "lock"');
   assert.equal(timesMarkOf({ seenAt: 'x', confirmedAt: 'y', lockedAt: null })?.word, 'Times confirmed');
-  assert.equal(lockedLine('Kusina ni Lola'), 'Locked by Kusina ni Lola. Send them a request instead.');
+  assert.equal(lockedLine('Kusina ni Lola'), 'Kusina ni Lola isn’t taking changes. Send them a request instead.');
+  assert.doesNotMatch(lockedLine('Kusina ni Lola'), /lock/i, 'a host reads "book", never "lock"');
   assert.match(SCHEDULE_MARK_COLUMNS, /\blocked_at\b/, 'a reader that drops locked_at draws a locked part as open');
 });
 
@@ -67,7 +71,7 @@ test('a refused rail save on a locked moment (or a chapter carrying one) says th
     { block_id: 'ch', parent_block_id: null, responsible_vendor_ids: [] },
     { block_id: 'mo', parent_block_id: 'ch', responsible_vendor_ids: ['evA'] },
   ];
-  const suppliers = [{ vendor_id: 'evA', vendor_name: 'Kusina ni Lola', times: 'Locked' }];
+  const suppliers = [{ vendor_id: 'evA', vendor_name: 'Kusina ni Lola', times: 'Not taking changes' }];
   assert.equal(lockedShopOnMoments(['mo'], moments, suppliers), 'Kusina ni Lola');
   assert.equal(lockedShopOnMoments(['ch'], moments, suppliers), 'Kusina ni Lola', 'a chapter move carries its moments');
   assert.equal(lockedShopOnMoments(['mo'], moments, [{ ...suppliers[0]!, times: 'Times confirmed' }]), null);

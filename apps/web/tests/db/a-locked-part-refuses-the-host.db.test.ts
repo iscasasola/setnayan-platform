@@ -5,7 +5,7 @@
  *
  *   1 · Only the booked supplier locks and unlocks their own part (`supplier_mark_schedule('lock'|'unlock')`).
  *   2 · While locked, the COUPLE's write to that supplier's moment is refused — an edit, a retime, a delete, taking
- *       them off it, their crew line — and the refusal is the calm line "Locked by <shop>…". The row is unchanged.
+ *       them off it, their crew line — and the refusal is the calm line "<shop> isn't taking changes…". The row is unchanged.
  *   3 · What still passes: a guests-only toggle; another supplier put on a shared moment; the supplier's OWN request
  *       applied exactly as asked (and not one field more); the event's date moving; the event being deleted.
  *   4 · Unlock reopens it.
@@ -36,7 +36,7 @@ async function asOwner(): Promise<void> {
 
 const F = { eventId: '', couple: '', supA: '', supB: '', vpA: '', vpB: '', evA: '', evB: '', chapter: '', momentA: '', shared: '', taskA: '' };
 
-const LOCKED = /Locked by Supplier A\. Send them a request instead\./;
+const LOCKED = /Supplier A isn't taking changes\. Send them a request instead\./;
 
 async function row(blockId: string): Promise<{ label: string; start_at: string; rvi: string[]; is_public: boolean } | null> {
   await asOwner();

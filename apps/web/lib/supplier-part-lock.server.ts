@@ -54,7 +54,7 @@ export async function readPartLocks(supabase: SupabaseClient, eventId: string): 
 }
 
 /**
- * Throws the host's calm line ("Locked by <shop>. Send them a request instead.") when this change would touch a
+ * Throws the host's calm line ("<shop> isn’t taking changes. Send them a request instead.") when this change would touch a
  * locked supplier's part; returns quietly otherwise. Called by every host schedule action BEFORE its write.
  */
 export async function refuseLockedPart(

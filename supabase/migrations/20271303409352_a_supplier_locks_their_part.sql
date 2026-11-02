@@ -17,7 +17,8 @@
 -- ── WHERE IT IS ENFORCED: HERE, NOT ONLY IN THE APP ────────────────────────────────────────────────────────────────────
 -- BEFORE UPDATE / DELETE on `event_schedule_blocks`, BEFORE INSERT / UPDATE / DELETE on `event_schedule_tasks` — so no
 -- door (an action, `move_schedule_chapter`, `set_supplier_where`, a raw PostgREST write) can change a locked part. The
--- refusal is the host's calm line itself: "Locked by <shop>. Send them a request instead." (HINT supplier_part_locked).
+-- refusal is the host's calm line itself: "<shop> isn't taking changes. Send them a request instead." (HINT
+-- supplier_part_locked) — host words, never "lock" (a couple reads "book", never "lock").
 -- What still passes — each by a DATA signature, never a session flag a caller could set:
 --   · a change that does not touch the supplier's part: shown to guests (`is_public`), the order, the invitation, the
 --     prep visibility; and adding or removing a DIFFERENT supplier on a shared moment (only the locked shop's own
@@ -214,7 +215,7 @@ BEGIN
         AND NEW.start_at IS NOT DISTINCT FROM OLD.start_at + make_interval(hours => 24 * v_days)
         AND NEW.end_at   IS NOT DISTINCT FROM OLD.end_at   + make_interval(hours => 24 * v_days);
     END IF;
-    RAISE EXCEPTION 'Locked by %. Send them a request instead.', v_shop.shop
+    RAISE EXCEPTION '% isn''t taking changes. Send them a request instead.', v_shop.shop
       USING ERRCODE = 'P0001', HINT = 'supplier_part_locked';
   END LOOP;
 
@@ -273,7 +274,7 @@ BEGIN
        WHERE s.vendor_profile_id = v_shop.vendor_profile_id AND s.status = 'open'
          AND s.proposed_crew IS NOT NULL
          AND (s.block_id = v_block OR (s.kind = 'new' AND s.event_id = v_event)));
-    RAISE EXCEPTION 'Locked by %. Send them a request instead.', v_shop.shop
+    RAISE EXCEPTION '% isn''t taking changes. Send them a request instead.', v_shop.shop
       USING ERRCODE = 'P0001', HINT = 'supplier_part_locked';
   END LOOP;
 

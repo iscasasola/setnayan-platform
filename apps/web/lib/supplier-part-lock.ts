@@ -12,6 +12,7 @@
  * not the locked shop's part); `is_public`, the order and the guests' settings are nobody's part.
  */
 import { PART_FIELDS, type PartMoment } from '@/lib/supplier-part-notice';
+import { NOT_TAKING_CHANGES } from '@/lib/supplier-schedule-marks';
 
 /** This event's supplier rows (`event_vendors.vendor_id`) whose shop is locked → the shop's name. */
 export type PartLocks = ReadonlyMap<string, string>;
@@ -69,14 +70,14 @@ export function patchTouchesPart(was: PartMoment, patch: Readonly<Record<string,
 /**
  * The host's screen, after a refused save: which locked supplier is on these moments? The server's own words do not
  * survive the trip to the browser (a thrown action error is redacted in production), so the rail reads the lock it
- * already draws (`times: 'Locked'` on the supplier line) and says the calm line itself. null = none locked here.
+ * already draws (`times: NOT_TAKING_CHANGES` on the supplier line) and says the calm line itself. null = none locked here.
  */
 export function lockedShopOnMoments(
   ids: readonly string[],
   moments: ReadonlyArray<{ block_id: string; parent_block_id?: string | null; responsible_vendor_ids: readonly string[] }>,
   suppliers: ReadonlyArray<{ vendor_id: string; vendor_name: string; times?: string }>,
 ): string | null {
-  const locked = new Map(suppliers.filter((s) => s.times === 'Locked').map((s) => [s.vendor_id, s.vendor_name]));
+  const locked = new Map(suppliers.filter((s) => s.times === NOT_TAKING_CHANGES).map((s) => [s.vendor_id, s.vendor_name]));
   if (locked.size === 0) return null;
   const want = new Set(ids);
   for (const m of moments) {

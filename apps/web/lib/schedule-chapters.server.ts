@@ -284,14 +284,14 @@ export async function setMomentFor(
   const { vendorId } = pick;
   const { data: lines, error: linesErr } = await supabase
     .from('event_schedule_tasks')
-    .select('task_id, vendor_id, crew')
+    .select(TASK_COLUMNS)
     .eq('block_id', momentId)
     .eq('vendor_id', vendorId);
   if (linesErr || !lines) {
     if (linesErr) logQueryError('setMomentFor.lines', linesErr, { block_id: momentId }, 'graceful_degrade');
     return { ok: false, error: 'Their lines on this moment couldn’t be read just now — try again.' };
   }
-  const theirs = lines as Array<{ task_id: string; vendor_id: string | null; crew: string | null }>;
+  const theirs = lines as unknown as TaskRow[];
 
   if (!on && pick.kind === 'supplier') {
     if (theirs.length > 0) {

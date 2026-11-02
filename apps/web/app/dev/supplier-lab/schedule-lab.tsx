@@ -5,7 +5,9 @@ import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_comp
  * 🤝 `/dev/supplier-lab?s=schedule` — the supplier's part of the schedule (Step 4b) on a lab wedding: Lumina Studio
  * (photo + video), booked for Preparation · Bride and the Ceremony; the Reception is another supplier's. Fake data, doors
  * that write nothing (`lab`). States: `&state=week` (the final week: Confirm my times) · `confirmed` · `auto` (the host
- * chose Auto-agree) · `seen` (nothing new since Seen) · `unlinked` (no chapter linked yet) · `fail` (the read failed).
+ * chose Auto-agree) · `seen` (nothing new since Seen) · `unlinked` (no chapter linked yet) · `fail` (the read failed) ·
+ * `hosttag` (👷 the HOST tagged Lumina's crew member Jubert on Glow's "Hair and make-up" from the moment sheet's Suppliers
+ * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert).
  */
 const ME = 'ev-lumina';
 const T = (hhmm: string, day = '2026-12-18') => `${day}T${hhmm}:00.000Z`;
@@ -30,13 +32,16 @@ const REQUESTS: SupplierRequestRow[] = [
 
 export function ScheduleLab({ state }: { state?: string }) {
   const unlinked = state === 'unlinked';
+  const hostTag = state === 'hosttag';
+  const blocks = hostTag ? BLOCKS.map((b) => (b.block_id === 'p2' ? { ...b, responsible_vendor_ids: [...b.responsible_vendor_ids, ME] } : b)) : BLOCKS;
   const day = buildSupplierDay({
-    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : BLOCKS,
+    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : blocks,
     myBookingIds: [ME],
     tasks: [
       { block_id: 'p1', vendor_id: ME, crew: 'Team A' },
       { block_id: 'c2', vendor_id: ME, crew: 'Team A' },
       { block_id: 'c2', vendor_id: ME, crew: 'Second shooter' },
+      ...(hostTag ? [{ block_id: 'p2', vendor_id: ME, crew: 'Jubert' }] : []),
     ],
     requests: unlinked ? [] : REQUESTS,
   });

@@ -311,9 +311,16 @@ export function isNoteOnlySuggestion(s: {
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  /** A crew on the request is a change to the supplier's own moment (Step 4b), never words only. */
+  proposed_crew?: readonly string[] | null;
 }): boolean {
   return (
-    s.kind === 'adjust' && !s.proposed_label && !s.proposed_start_at && !s.proposed_end_at && !s.proposed_location
+    s.kind === 'adjust' &&
+    !s.proposed_label &&
+    !s.proposed_start_at &&
+    !s.proposed_end_at &&
+    !s.proposed_location &&
+    !(Array.isArray(s.proposed_crew) && s.proposed_crew.length > 0)
   );
 }
 

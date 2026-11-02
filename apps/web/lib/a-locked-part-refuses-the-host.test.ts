@@ -107,6 +107,10 @@ test("the host's readers and the rail carry the lock", () => {
     read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'day-rail.tsx'),
     /const (\w+) = lockedShopOnMoments\(ids,[\s\S]{0,200}?setNotice\(\1 \? lockedLine\(\1\)/,
   );
+  // The moment's own sheet (its steppers save through its own `run`, not the rail's) says it too.
+  const sheet = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'moment-inspector.tsx');
+  assert.match(sheet, /setLockedBy\(lockedShopOnMoments\(/);
+  assert.match(sheet, /lockedBy \? lockedLine\(lockedBy\)/);
 });
 
 test('the supplier has Lock my times and Unlock, and they reach supplier_mark_schedule', () => {

@@ -169,6 +169,7 @@ import { GuestMapCanvas } from './guest-map-canvas';
 import { companionNamesByBringer, plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
 import type { GuestMutation } from '@/lib/guest-optimistic';
 import { pushUndo, guestToast } from './undo-store';
+import { useGuestRoleDrag } from './guest-role-drag';
 import { plainRefusal } from './plain-refusal';
 import styles from './guests-screen.module.css';
 import { GuestInviteCell } from './guest-invite-cell';
@@ -1543,6 +1544,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* 🏷 The roles THIS event offers (absent = the wedding set, as the Add card reads it) — a typed "+Groomsmen" is the
      role only when it is one of these, else a group (owner 2026-11-01). */
   const offeredRoles = useMemo(() => resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles, [roleSetKey]);
+  /* ✋ DRAG TO CHANGE ROLE (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE ROLE"): in Role grouping, press
+     and hold a guest and drag them into another section — or hold, let go, and tap the section. `guest-role-drag.tsx`. */
+  const roleDragOn = gview === 'list' && view === 'role' && !selectMode && !writesOff && !asking;
+  const { bar: roleDragBar } = useGuestRoleDrag({
+    on: roleDragOn,
+    eventId,
+    listRef,
+    roster,
+    offeredRoles,
+    roleNames: roleNames ?? null,
+    nameOf: guestNameForDrag,
+  });
   /* 💡 The box's rotating examples (owner 2026-11-01) — this event's roles and real group names, never a person. */
   const hintLines = useMemo(
     () => quickAddTips({ hasSides, offeredRoles, groupNames: groups.map((g) => g.label), roleNames }).examples.map((l) => `e.g. ${l}`),
@@ -2101,6 +2114,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
+      {roleDragBar}
       <div
         ref={rootRef}
         className={styles.screen}
@@ -2369,6 +2383,11 @@ function PinnedSummary({ menu, doors, countsRef }: { menu: ReactNode; doors: Rea
       </span>
     </div>
   );
+}
+
+/** ✋ A guest's name in the drag's words ("Ana Reyes moved to Bridesmaids") — the row's own name, cased. */
+function guestNameForDrag(g: GuestRow): string {
+  return displayPersonName(guestDisplayName(g));
 }
 
 function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean {

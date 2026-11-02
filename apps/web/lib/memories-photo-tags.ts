@@ -6,10 +6,14 @@
 import type { TaggableTable } from '@/lib/memories-viewer';
 
 export type PhotoTagInput = {
-  op: 'read' | 'add' | 'remove';
+  /** 'chapter' = Add to Chapter (Memories by chapter, 2026-11-01) — the same action, so the server-action budget holds. */
+  op: 'read' | 'add' | 'remove' | 'chapter';
   table: TaggableTable;
   photoId: string;
   guestId?: string;
+  /** op 'chapter': the chapter, and whether the photo goes in (true) or an added link comes out (false). */
+  blockId?: string;
+  on?: boolean;
 };
 
 export type PhotoTagPerson = {
@@ -30,7 +34,11 @@ export type PhotoTagState = {
   complete: boolean;
 };
 
-export type PhotoTagResult = { ok: true; state: PhotoTagState } | { ok: false; error: string };
+export type PhotoTagResult =
+  | { ok: true; state: PhotoTagState }
+  /** op 'chapter': the chapters this viewer now sees the photo in (and the ones it was shot in). */
+  | { ok: true; state: null; chapters: { in: string[]; shotIn: string[] } }
+  | { ok: false; error: string };
 
 /** The people the Add list offers for a search: not already tagged, not a "Not me", matching the words. Capped. */
 export function addCandidates(state: PhotoTagState, query: string, cap = 30): { guestId: string; name: string }[] {

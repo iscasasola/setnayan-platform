@@ -7,15 +7,19 @@
  *       staged prep (even marked shown), and never a chapter that is off the invitation, and never a task;
  *   2 · a SUPPLIER view shows only their tasks (and moments they are tagged on) — never another supplier's task, never
  *       a guest's or a role's; a CREW view narrows to that crew;
- *   3 · on a FREE event View as wears the ◆ PRO mark and opens the upgrade — no menu, no view; on a Pro event the menu
- *       is the shared PickMenu; in a store shell that sells no Pro the door is absent;
- *   4 · a Time TBA chapter reads "Time TBA" in every view — never the 12:00 AM its day is stored at;
+ *   3 · on a FREE event the menu still opens with Everyone · SUPPLIERS BY TIME (FREE — owner 2026-11-02, DECISION_LOG
+ *       "TEN OWNER YESES" item 3) and one ◆ PRO row that opens the upgrade; no guest, role or supplier view is ever
+ *       pickable or drawn there, and a supplier line is not pressable; Pro gets every view; a store shell that sells
+ *       no Pro keeps the free views without the door;
+ *   4 · a Time TBA chapter reads "Time TBA" in every view — never the 12:00 AM its day is stored at — and Suppliers by
+ *       time lists its suppliers "Time TBA", never hidden (item 4);
  *   5 · Suppliers by time groups overlapping supplier work and counts SUPPLIERS at once (not crews);
  *   6 · a refused task read is SAID, never drawn as an empty day;
  *   7 · it is a VIEW: the files never call a write.
  *
  * Sabotage (recorded in the PR): drop `guestSeesMoment` from `guestDay` → (1) red; drop the `t.vendor_id === vendorId`
- * test in `supplierDay` → (2) red; make `ViewAsMenu` skip its `!input.pro` door → (3) red.
+ * test in `supplierDay` → (2) red; put back the Free menu's old early return (a lone ◆ PRO link, no menu) → (3) red; drop `tba` from
+ * `suppliersByTime` → (4) red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,8 +31,8 @@ import { stripComments } from '@/lib/strip-comments';
 import { LAB_SCHEDULE_CHAPTERS, LAB_TBA_CHAPTER } from '@/app/dev/chapters-lab/lab-chapters';
 import { labViewAs } from '@/app/dev/chapters-lab/lab-view-as';
 import type { Chapter, TaskRow } from '@/lib/schedule-chapters';
-import { guestDay, lensFromKey, lensKey, roleDay, supplierDay, suppliersByTime, viewAsOptions, type ViewAsData, type ViewMoment } from '@/lib/schedule-view-as';
-import { ViewAsMenu } from './_components/schedule-view-as';
+import { guestDay, lensAllowed, lensFromKey, lensKey, roleDay, supplierDay, suppliersByTime, viewAsMenuOptions, viewAsOptions, type ViewAsData, type ViewMoment } from '@/lib/schedule-view-as';
+import { ViewAsBody, ViewAsMenu } from './_components/schedule-view-as';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -103,21 +107,39 @@ test('2 · a supplier view shows only their tasks; a crew view only that crew', 
   assert.equal(supplierDay(CHAPTERS, DATA, 'v-hmua', null).call?.time, '6:15 AM');
 });
 
-test('3 · Free wears the ◆ PRO mark and opens the upgrade; Pro is the shared dropdown; a shell with no Pro shows none', () => {
+test('3 · Free opens Everyone · Suppliers by time and a ◆ PRO door; never a per-person view; Pro gets every view', () => {
   const draw = (pro: boolean, proHref: string | null) =>
     renderToStaticMarkup(
       React.createElement(ViewAsMenu, { input: { ...labViewAs(pro), proHref }, lens: { kind: 'everyone' }, onLens: () => undefined }),
     );
   const free = draw(false, '/dashboard/e/studio/website-pro');
   console.log('[view-as] free:', free);
-  assert.match(free, /data-paid-mark="try"/, 'a Free event’s View as wears no Pro mark');
-  assert.match(free, />PRO</, 'the ◆ PRO mark says PRO');
-  assert.match(free, /<a [^>]*href="\/dashboard\/e\/studio\/website-pro"/, 'a Free event’s View as does not open the upgrade');
-  assert.doesNotMatch(free, /data-schedule-lens=""/, 'a Free event got the working menu');
-  const pro = draw(true, '/dashboard/e/studio/website-pro');
-  assert.match(pro, /data-schedule-lens=""/, 'a Pro event lost the menu');
-  assert.doesNotMatch(pro, /data-paid-mark/);
-  assert.equal(draw(false, null), '', 'a store shell that sells no Pro shows a Pro door');
+  assert.match(free, /data-schedule-lens=""/, 'a Free event got no View as menu — Suppliers by time is Free');
+  assert.doesNotMatch(free, /<a [^>]*href=/, 'a Free event’s View as is a lone upgrade link again');
+  // The list a Free event is shown: the free views, then the one door.
+  const keys = viewAsMenuOptions(DATA, false, true).map((o) => o.key);
+  assert.deepEqual(keys, ['everyone', 'suptime', 'pro']);
+  assert.deepEqual(viewAsMenuOptions(DATA, false, false).map((o) => o.key), ['everyone', 'suptime'], 'a store shell with no Pro got a door');
+  assert.notEqual(draw(false, null), '', 'a store shell lost the free views');
+  // Pro: every view, no door.
+  const proKeys = viewAsMenuOptions(DATA, true, true).map((o) => o.key);
+  assert.ok(proKeys.includes('guest') && proKeys.some((k) => k.startsWith('sup=')) && proKeys.some((k) => k.startsWith('role=')));
+  assert.ok(!proKeys.includes('pro'));
+  assert.doesNotMatch(draw(true, '/dashboard/e/studio/website-pro'), /data-paid-mark/);
+  // The fence: a Free event draws only the free views, whatever asks.
+  assert.equal(lensAllowed(false, { kind: 'suptime' }), true);
+  for (const l of [{ kind: 'guest' }, { kind: 'role', key: 'role:bridesmaid' }, { kind: 'supplier', vendorId: 'v-hmua', crew: null }] as const) {
+    assert.equal(lensAllowed(false, l), false, `a Free event may draw ${l.kind}`);
+    const body = renderToStaticMarkup(React.createElement(ViewAsBody, { input: labViewAs(false), chapters: CHAPTERS, lens: l, onLens: () => undefined }));
+    assert.equal(body, '', `a Free event drew the ${l.kind} view`);
+  }
+  // Suppliers by time draws on Free — its lines are read, not pressed (tapping one opens a supplier's day: Pro).
+  const byTime = (pro: boolean) =>
+    renderToStaticMarkup(React.createElement(ViewAsBody, { input: labViewAs(pro), chapters: CHAPTERS, lens: { kind: 'suptime' }, onLens: () => undefined }));
+  const freeBody = byTime(false);
+  assert.match(freeBody, /data-view-as-stretch=""/, 'Suppliers by time drew nothing on a Free event');
+  assert.doesNotMatch(freeBody, /<li data-view-as-line="[^"]*"[^>]*><button/, 'a Free supplier line opens a Pro view');
+  assert.match(byTime(true), /<li data-view-as-line="[^"]*"[^>]*><button/, 'a Pro supplier line no longer opens their day');
 });
 
 test('4 · a Time TBA chapter reads "Time TBA" in a view, never 12:00 AM', () => {
@@ -133,7 +155,13 @@ test('4 · a Time TBA chapter reads "Time TBA" in a view, never 12:00 AM', () =>
     for (const r of rows) assert.equal(r.time, 'Time TBA');
   }
   assert.equal(supplierDay([tba], data, 'v-x', null).call, null, 'a TBA chapter gave a call time');
-  assert.equal(suppliersByTime([tba], data).stretches.length, 0, 'a TBA chapter has no time to overlap');
+  const byTime = suppliersByTime([tba], data);
+  assert.equal(byTime.stretches.length, 0, 'a TBA chapter has no time to overlap');
+  // …but its suppliers are listed "Time TBA", never hidden (owner 2026-11-02).
+  assert.deepEqual(byTime.tba.flatMap((g) => g.items.map((i) => [i.vendorId, i.time])), [['v-x', 'Time TBA']], 'a TBA chapter’s supplier was hidden');
+  const lab = renderToStaticMarkup(React.createElement(ViewAsBody, { input: labViewAs(false), chapters: CHAPTERS, lens: { kind: 'suptime' }, onLens: () => undefined }));
+  assert.match(lab, /data-view-as-stretch="tba"/, 'the lab’s Send-off (Time TBA) is not drawn in Suppliers by time');
+  assert.doesNotMatch(lab, /12:00 AM/);
 });
 
 test('5 · Suppliers by time groups overlapping work and counts suppliers, not crews', () => {

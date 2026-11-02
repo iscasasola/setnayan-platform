@@ -19,6 +19,7 @@
  * empty over tasks it merely failed to read.
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
+import { guestInvitedTo } from './invitation-chapters';
 import {
   TIME_TBA,
   chapterWhere,
@@ -127,6 +128,35 @@ export function roleWords(data: Pick<ViewAsData, 'groups' | 'roleNames'>, key: s
     return data.roleNames[word] ?? (word.charAt(0).toUpperCase() + word.slice(1)).replace(/_/g, ' ');
   }
   return key;
+}
+
+/**
+ * 🆓 WHICH VIEWS ARE FREE (owner 2026-11-02, DECISION_LOG "TEN OWNER YESES" item 3: *"Suppliers by time is FREE"*).
+ * Everyone (the rail itself) and Suppliers by time — the host's own clash check — are every event's. Seeing the day AS
+ * a guest, a role, a supplier or a crew stays Pro (plan §3b). The menu, the body and the rail all ask THIS.
+ */
+export function lensIsFree(l: ViewLens): boolean {
+  return l.kind === 'everyone' || l.kind === 'suptime';
+}
+
+/** May this event draw this view? A Pro event every view; a Free one only the free ones (never guessed wider). */
+export function lensAllowed(pro: boolean, l: ViewLens): boolean {
+  return pro || lensIsFree(l);
+}
+
+/** The key of the Free menu's one door to the upgrade (never a lens: `lensFromKey('pro')` is Everyone). */
+export const VIEW_AS_PRO_DOOR = 'pro';
+
+/**
+ * The View as ▾ list THIS event is shown. Pro: every view (`viewAsOptions`). Free: the free views, then — only where
+ * Pro is sold here (`proDoor`) — one row that opens the upgrade for the per-person views. No guest, role or supplier
+ * is ever listed as pickable on a Free event.
+ */
+export function viewAsMenuOptions(data: ViewAsData, pro: boolean, proDoor: boolean): ViewOption[] {
+  const all = viewAsOptions(data);
+  if (pro) return all;
+  const free = all.filter((o) => lensIsFree(lensFromKey(o.key)));
+  return proDoor ? [...free, { key: VIEW_AS_PRO_DOOR, label: 'A guest, a role or a supplier', group: 'Part of Pro' }] : free;
 }
 
 /** The words the button and the "back to Everyone" line say for a lens. */
@@ -239,12 +269,12 @@ function withChapter(chapters: readonly Chapter[], moments: readonly ViewMoment[
 }
 
 /**
- * 🔒 Is this chapter on a guest's schedule? Today: on the invitation (`on_invitation` — every guest replies to it).
- * Step 5 (invitation by chapter, per guest) narrows it HERE and nowhere else.
+ * 🔒 Is this chapter on a guest's schedule? On the invitation (`on_invitation` on a top-level block — every guest
+ * replies to it). ✉ ONE SOURCE (Step 5): the rule lives in `lib/invitation-chapters.ts`, and the reply card, the reply's
+ * write, the notices, the hosts' counts and Details › Schedule ask the same function View as does. A per-guest
+ * narrowing belongs there and nowhere else.
  */
-export function guestInvitedTo(c: Pick<Chapter, 'on_invitation'>): boolean {
-  return c.on_invitation === true;
-}
+export { guestInvitedTo };
 
 /** 🔒 Is this moment on the guests' schedule — the database's own three questions (`isOnTheGuestsSchedule`). */
 export function guestSeesMoment(m: Pick<ViewMoment, 'is_public' | 'audience' | 'staged'>): boolean {
@@ -348,15 +378,18 @@ const OPEN_ENDED_MS = 30 * 60_000;
 
 export type TimeItem = { id: string; vendorId: string; who: string; time: string; title: string; sub: string; until: string; clash?: boolean };
 export type TimeStretch = { from: string; to: string; suppliers: number; items: TimeItem[] };
+/** A Time-TBA chapter's supplier lines — listed "Time TBA", never hidden (owner 2026-11-02, "TEN OWNER YESES" item 4). */
+export type TbaStretch = { chapter: Chapter; where: string; suppliers: number; items: TimeItem[] };
 
 /**
  * SUPPLIERS BY TIME (owner: *"I want to see when there are multiple suppliers having same schedules with other
  * schedules"*): every supplier line on timed chapters — their tasks, and moments they are tagged on with no task of
  * theirs — grouped into stretches of overlapping work, each with "N suppliers at once" (N counts suppliers, not
- * crews). A list, not columns: suppliers are unlimited and columns crush on a phone. A TBA chapter has no time to
- * overlap and is left out.
+ * crews). A list, not columns: suppliers are unlimited and columns crush on a phone.
+ * ⏰ A TIME-TBA CHAPTER IS NEVER HIDDEN (owner 2026-11-02, "TEN OWNER YESES" item 4): it has no time to overlap, so its
+ * supplier lines are listed after the timed stretches, one group per chapter, each line "Time TBA" with no until.
  */
-export function suppliersByTime(chapters: readonly Chapter[], data: ViewAsData): { stretches: TimeStretch[]; tasksUnread: boolean } {
+export function suppliersByTime(chapters: readonly Chapter[], data: ViewAsData): { stretches: TimeStretch[]; tba: TbaStretch[]; tasksUnread: boolean } {
   const at = withChapter(chapters.filter((c) => !c.time_tba), data.moments);
   const clashed = clashIds(data, at);
   const raw: Array<TimeItem & { s: number; e: number }> = [];
@@ -399,6 +432,34 @@ export function suppliersByTime(chapters: readonly Chapter[], data: ViewAsData):
       suppliers: new Set(g.items.map((i) => i.vendorId)).size,
       items: g.items.map((i): TimeItem => ({ id: i.id, vendorId: i.vendorId, who: i.who, time: i.time, title: i.title, sub: i.sub, until: i.until, ...(i.clash ? { clash: true } : {}) })),
     })),
+    tba: tbaStretches(chapters, data),
     tasksUnread: data.tasks === null,
   };
+}
+
+/** The supplier lines on each Time-TBA chapter: their tasks, and moments they are tagged on with no task of theirs. */
+function tbaStretches(chapters: readonly Chapter[], data: ViewAsData): TbaStretch[] {
+  const tbaChapters = chapters.filter((c) => c.time_tba);
+  const at = withChapter(tbaChapters, data.moments);
+  const by = new Map<string, TimeItem[]>();
+  const add = (c: Chapter, it: TimeItem) => by.set(c.block_id, [...(by.get(c.block_id) ?? []), it]);
+  const withTask = new Set<string>();
+  for (const t of data.tasks ?? []) {
+    const hit = at.get(t.block_id);
+    if (!t.vendor_id || !hit) continue;
+    withTask.add(`${t.vendor_id}|${t.block_id}`);
+    const place = taskPlace(t, momentLike(hit.m), hit.c) ?? chapterWhere(hit.c);
+    const who = t.crew?.trim() ? `${supplierName(data, t.vendor_id)} · ${t.crew.trim()}` : supplierName(data, t.vendor_id);
+    add(hit.c, { id: t.task_id, vendorId: t.vendor_id, who, time: TIME_TBA, title: t.what, sub: `${hit.m.label} · ${place}`, until: '' });
+  }
+  for (const { m, c } of at.values()) {
+    for (const v of m.responsible_vendor_ids) {
+      if (withTask.has(`${v}|${m.block_id}`)) continue;
+      add(c, { id: `${m.block_id}:${v}`, vendorId: v, who: supplierName(data, v), time: TIME_TBA, title: m.label, sub: placeOf(m, c), until: '' });
+    }
+  }
+  return tbaChapters.flatMap((c) => {
+    const items = by.get(c.block_id);
+    return items?.length ? [{ chapter: c, where: chapterWhere(c), suppliers: new Set(items.map((i) => i.vendorId)).size, items }] : [];
+  });
 }

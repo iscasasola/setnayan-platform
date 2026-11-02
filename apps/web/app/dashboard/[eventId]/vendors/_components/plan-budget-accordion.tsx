@@ -1814,11 +1814,12 @@ function VendorCardAtom({
           yet. Before this, that CTA only surfaced if the couple happened to
           open the vendor's workspace page; 44 of 45 booked suppliers in prod
           never got invited this way (DECISION_LOG.md 2026-08-30). This is a
-          LINK, not a duplicate write path — it sends the couple to the exact
-          section (#invite-vendor) that already does the invite. */}
+          LINK, not a duplicate write path — it opens the supplier's own row on
+          Booked › Team (`?team=`), where the claim link's ONE door is (2026-11-02,
+          `ClaimDoor` in booked-row.tsx). */}
       {locked && pick.needs_setnayan_invite && (
         <Link
-          href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace#invite-vendor`}
+          href={`/dashboard/${eventId}/vendors?tab=budget&team=${pick.vendor_id}`}
           className="invite-cta"
           onClick={(e) => e.stopPropagation()}
         >

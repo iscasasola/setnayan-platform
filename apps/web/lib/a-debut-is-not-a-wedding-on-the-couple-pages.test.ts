@@ -97,7 +97,9 @@ test('the guests page derives eventWord from the event type, not a constant', ()
 });
 
 test('the invite share text is built from the event type', () => {
-  const src = read(`${D}/vendors/[vendorId]/workspace/page.tsx`);
-  assert.match(src, /eventNoun\(\(await resolveProfileByEvent\(eventId\)\)\.eventType\)/);
-  assert.match(src, /for our \$\{inviteEventWord\}/);
+  // Re-pointed 2026-11-02: the claim link's one door is the Booked Team row's Share, whose message is built from the
+  // event's own profile (`supplierSharePayload`), not the workspace page's old copy box.
+  const src = read('lib/supplier-share.server.ts');
+  assert.match(src, /resolveProfile\(e\.event_type \?\? 'wedding'\)/);
+  assert.match(src, /eventWord: profile\.terminology\.eventWord/);
 });

@@ -216,6 +216,8 @@ type Props = {
     sheet?: string;
     filter?: string;
     announce?: string;
+    /** 🔗 Booked › Team opens on this supplier's row (`event_vendors.vendor_id`) — "Not on Setnayan yet — invite them". */
+    team?: string;
   }>;
 };
 
@@ -2275,6 +2277,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       eventId={eventId}
       rows={teamRowList}
       facts={bookedFacts}
+      firstOpen={typeof sp.team === 'string' && sp.team ? sp.team : null}
       // A delegate the host kept out of the Schedule reads no moments — their rows draw no call-time line.
       scheduleShared={!isDelegateWithoutArea(viewer, 'schedule')}
     />

@@ -77,8 +77,11 @@ export async function recommendFeature(formData: FormData) {
  * Couple → dismiss a coordinator's suggestion. Only the couple can resolve a
  * recommendation (RLS UPDATE policy); flips a pending row to dismissed so the
  * badge clears and it can't reappear.
+ *
+ * Un-exported 2026-11-02 (server-action route budget, `lint-server-action-budget.mjs`): nothing imports it — no
+ * surface draws a dismiss for a coordinator's suggestion today. Export it again with the surface that calls it.
  */
-export async function dismissRecommendation(formData: FormData) {
+async function dismissRecommendation(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = str(formData, 'event_id');
   const addonKey = str(formData, 'addon_key');

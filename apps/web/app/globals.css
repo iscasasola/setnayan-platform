@@ -8013,6 +8013,12 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-now-w { font-weight: 400; opacity: 0.8; }
 .hc-now > :last-child:not(.hc-now-t) { flex: none; }
 .hc-now.hc-calm { padding-right: 14px; }
+/* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
+   the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
+.hc-ecard-plain { background: linear-gradient(180deg, #201d1b 0%, #3a3230 100%); color: #f6efe7; }
+html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
+.hc-ecard-plain .hc-ecard-name { color: #e7c9b6; }
+.hc-ecard-plain .hc-now-k { color: #f0b490; opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }
 /* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
 .hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }

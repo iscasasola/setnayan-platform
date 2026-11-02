@@ -97,7 +97,7 @@ export function HomeCoverBand({
            lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
            the content area, square-edged, with its words on the page's gutter. The cards
            below keep their column (`data-home-column`). */
-        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${card ? 'rounded-b-[22px] pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'bg-mulberry text-cream'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${card ? 'rounded-b-[22px] pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -113,8 +113,8 @@ export function HomeCoverBand({
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
           <div className={card && gear ? 'min-h-[44px] pr-[54px]' : ''}>
-            <p className={`truncate text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
-            <p aria-hidden className={`${card ? 'text-[24px]' : 'text-[26px]'} font-semibold leading-[1.1] tracking-[-0.01em]`}>{cover.name}</p>
+            <p className="truncate text-[12px] uppercase tracking-[0.12em] opacity-85">{cover.eyebrow}</p>
+            <p aria-hidden className={`hc-ecard-name ${card ? 'text-[24px]' : 'text-[26px]'} font-semibold leading-[1.1] tracking-[-0.01em]`}>{cover.name}</p>
             {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
           </div>
           {countdown ? (

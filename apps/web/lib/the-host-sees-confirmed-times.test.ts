@@ -14,15 +14,15 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { TIMES_MARK_UNREAD, timesMarkOf } from './supplier-schedule-marks';
+import { TIMES_MARK_UNREAD, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
 import { scheduleSuppliersFrom, type ScheduleSupplierRow } from './schedule-suppliers';
 import { timesMarkFor } from './booked-rows';
 import { supplierOnItem } from '../app/dashboard/[eventId]/schedule/_components/day-types';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const CONFIRMED = { seenAt: '2026-11-01T02:00:00Z', confirmedAt: '2026-11-02T02:00:00Z' };
-const SEEN = { seenAt: '2026-11-01T02:00:00Z', confirmedAt: null };
+const CONFIRMED: ScheduleMarkFacts = { seenAt: '2026-11-01T02:00:00Z', confirmedAt: '2026-11-02T02:00:00Z' };
+const SEEN: ScheduleMarkFacts = { seenAt: '2026-11-01T02:00:00Z', confirmedAt: null };
 
 test('1 · Confirmed wins over Seen; nothing pressed says nothing', () => {
   assert.equal(timesMarkOf(CONFIRMED)?.word, 'Times confirmed');
@@ -37,7 +37,7 @@ test('2 · the Schedule’s supplier line says what the supplier pressed', () =>
     { vendor_id: 'ev-2', vendor_name: 'Lights', status: 'contracted', marketplace_vendor_id: 'shop-2', manual_vendor_id: null },
     { vendor_id: 'ev-3', vendor_name: 'Tita', status: 'considering', marketplace_vendor_id: null, manual_vendor_id: 'm-1' },
   ];
-  const marks = new Map([['shop-1', CONFIRMED], ['shop-2', SEEN]]);
+  const marks = new Map<string, ScheduleMarkFacts>([['shop-1', CONFIRMED], ['shop-2', SEEN]]);
   const out = new Map(scheduleSuppliersFrom(rows, new Map(), marks).map((s) => [s.vendor_id, supplierOnItem(s)]));
   assert.equal(out.get('ev-1'), 'Kusina · Booked · Times confirmed');
   assert.equal(out.get('ev-2'), 'Lights · Booked · Seen');
@@ -49,7 +49,7 @@ test('2 · the Schedule’s supplier line says what the supplier pressed', () =>
 });
 
 test('3 · Suppliers › Booked: the Team row’s mark, by shop; a refused read is said', () => {
-  const marks = new Map([['shop-1', CONFIRMED]]);
+  const marks = new Map<string, ScheduleMarkFacts>([['shop-1', CONFIRMED]]);
   assert.deepEqual(timesMarkFor(marks, 'shop-1'), { kind: 'mark', line: 'Times confirmed · Nov 2', confirmed: true });
   assert.equal(timesMarkFor(marks, 'shop-9'), null);
   assert.equal(timesMarkFor(marks, null), null, 'a supplier not on Setnayan has no shop to press anything');

@@ -1063,7 +1063,7 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
      Running-late sheet sends `shift_notice`: a drag of one moment rides this same action and is not a shift of the
      day. Best-effort — the shift is written; a failed notice never undoes it. */
   if (!shiftNotice) await tellPartSuppliers(supabase, part, user.id);
-  if (shiftNotice) {
+  if (formData.get('shift_notice') === '1') {
     const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
     await notifyScheduleShifted({
       eventId,

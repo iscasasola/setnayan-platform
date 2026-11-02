@@ -135,10 +135,14 @@ test('(2b) all three pages say it through that one function — never the raw va
 test('(3) the card’s small forms’ buttons are a kit leaf — no hand-classed SubmitButton left in the body', () => {
   const body = read('guest-card-body.tsx');
   const uses = body.match(/<K\.Submit\b/g) ?? [];
-  assert.equal(uses.length, 4, 'This is me · Send sign-in link · Give the spot · Take the seat back');
+  assert.equal(uses.length, 2, 'This is me · Send sign-in link');
+  // 🔁 Give · Take back moved to ONE line (owner 2026-11-02, `guest-seat-doors.tsx`) — the same kit leaf (`CardSubmit`).
+  const doors = read('guest-seat-doors.tsx');
+  assert.equal((doors.match(/<CardSubmit\b/g) ?? []).length, 2, 'Give the spot · Take the seat back');
+  assert.doesNotMatch(doors, /<SubmitButton\b/, 'a SubmitButton is drawn in the seat doors');
   const real = body.slice(0, body.indexOf('function Field('));
   assert.doesNotMatch(real, /<SubmitButton\b/, 'a SubmitButton is drawn in the card’s body');
-  assert.match(body, /<K\.Submit main pendingLabel="Giving the spot…">/, 'Give the spot is not the one filled step of its form');
+  assert.match(doors, /<CardSubmit main pendingLabel="Giving…">/, 'Give the spot is not the one filled step of its form');
   const rows = read('guest-card-rows.tsx');
   assert.match(rows, /actionButtonClass\(main \? 'brand' : 'neutral', \{ main, extra: 'w-full min-h-11' \}\)/);
   assert.match(rows, /<Explain title=\{label\}>/, 'the Give-this-spot ⓘ is not the approved Explain on the Guests pages');

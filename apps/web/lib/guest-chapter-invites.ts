@@ -46,12 +46,13 @@ export async function readEventNotInvited(client: Client, eventId: string): Prom
       if (error) logQueryError('readEventNotInvited', error, { event_id: eventId }, 'graceful_degrade');
       return null;
     }
-    for (const r of data as { guest_id: string; block_id: string }[]) {
+    const rows = Array.isArray(data) ? (data as { guest_id: string; block_id: string }[]) : [];
+    for (const r of rows) {
       const set = out.get(r.guest_id) ?? new Set<string>();
       set.add(r.block_id);
       out.set(r.guest_id, set);
     }
-    if (data.length < NOT_INVITED_PAGE) return out;
+    if (rows.length < NOT_INVITED_PAGE) return out;
   }
 }
 
@@ -67,7 +68,9 @@ export async function readNoSeatGuestIds(client: Client, eventId: string): Promi
     if (error) logQueryError('readNoSeatGuestIds', error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  const seated = seatedChapterIds(data as unknown as { block_id: string; label: string; block_type: string | null }[]);
+  // A list read always answers a list; anything else (a stand-in client) is read as "no chapter", never thrown on.
+  const rows = Array.isArray(data) ? (data as unknown as { block_id: string; label: string; block_type: string | null }[]) : [];
+  const seated = seatedChapterIds(rows);
   if (seated.size === 0) return new Set();
   const off = await readEventNotInvited(client, eventId);
   if (!off) return null;
@@ -87,7 +90,7 @@ export async function readInviteTagsByGuest(client: Client, eventId: string): Pr
     if (error) logQueryError('readInviteTagsByGuest', error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  const chapters = invitationChapters(data as unknown as Parameters<typeof invitationChapters>[0]);
+  const chapters = invitationChapters((Array.isArray(data) ? data : []) as unknown as Parameters<typeof invitationChapters>[0]);
   if (chapters.length === 0) return {};
   const off = await readEventNotInvited(client, eventId);
   if (!off) return null;

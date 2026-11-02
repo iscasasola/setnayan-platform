@@ -8,6 +8,7 @@ import {
   type CollectBookingFeeResult,
 } from '@/lib/booking-fee-lock.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 
 /**
  * THE ONE PLACE A BOOKING FEE IS MADE.
@@ -61,6 +62,18 @@ export type BookingFeeMintDoor =
   | 'deposit_acknowledged'
   | 'catch_up';
 
+/**
+ * 🚪 The doors that make NOTHING while bookings are closed (owner 2026-11-02, `lib/bookings-open.ts`) — each is a
+ * booking a closed platform does not take. A door that is not a new booking (a couple approving a supplier they
+ * added themselves, the founders' event) is deliberately absent and keeps minting while closed.
+ */
+export const CLOSES_WITH_BOOKINGS: ReadonlySet<BookingFeeMintDoor> = new Set<BookingFeeMintDoor>([
+  'supplier_yes',
+  'locked_qr_claim',
+  'deposit_acknowledged',
+  'catch_up',
+]);
+
 export type BookingFeeMintOutcome = {
   door: BookingFeeMintDoor;
   eventVendorId: string;
@@ -69,6 +82,8 @@ export type BookingFeeMintOutcome = {
   /** Set only when `anchorId` is NULL because a read was REFUSED. */
   anchorUnreadable: string | null;
   feeEnabled: boolean;
+  /** 🚪 FALSE ⇒ bookings are closed (owner 2026-11-02): nothing was minted at all. */
+  bookingsOpen: boolean;
   fee: CollectBookingFeeResult | null;
   /** The date-hold answer for a waived (settled) charge, or null. */
   hold: string | null;
@@ -91,11 +106,21 @@ export async function mintBookingFeeForBooking(
     anchorId: null,
     anchorUnreadable: null,
     feeEnabled: isBookingFeeEnabled(),
+    bookingsOpen: true,
     fee: null,
     hold: null,
     thrown: null,
   };
   try {
+    // 🚪 BOOKINGS CLOSED ⇒ NO FEE, FROM ANY DOOR (owner 2026-11-02, `lib/bookings-open.ts`). Every booking door is
+    // shut while closed, so a mint reaching here is a row booked before the switch closed (or one the trigger
+    // grandfathers, like a claim approval's hand-added row). Nothing is made for it until bookings open; the
+    // render-time catch-up mints it then. Read first, before any money read.
+    outcome.bookingsOpen = !CLOSES_WITH_BOOKINGS.has(args.door) || (await areBookingsOpen());
+    if (!outcome.bookingsOpen) {
+      recordMint(outcome);
+      return outcome;
+    }
     // The MONEY ROW first. A package's cascade rows can reach a door, and
     // billing one would freeze a ledger ordinal on a row that never carries
     // money. NULL ⇒ bill nothing.
@@ -142,9 +167,11 @@ function recordMint(o: BookingFeeMintOutcome): void {
       ? 'reason' in o.fee && o.fee.reason
         ? `${o.fee.status}:${o.fee.reason}`
         : o.fee.status
-      : o.feeEnabled
-        ? 'not-attempted'
-        : 'off';
+      : !o.bookingsOpen
+        ? 'bookings-closed'
+        : o.feeEnabled
+          ? 'not-attempted'
+          : 'off';
     const line =
       `[booking-fee-mint] door=${o.door} event_vendor=${o.eventVendorId} ` +
       `anchor=${o.anchorId ?? 'none'} fee=${fee} hold=${o.hold ?? 'n/a'}`;

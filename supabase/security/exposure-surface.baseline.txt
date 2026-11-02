@@ -3728,6 +3728,7 @@ col	public.platform_settings.booking_fee_minting_live	anon=- authenticated=S
 col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S
+col	public.platform_settings.bookings_open	anon=- authenticated=S
 col	public.platform_settings.brand_apple_touch_url	anon=- authenticated=S
 col	public.platform_settings.brand_favicon_ico_url	anon=- authenticated=S
 col	public.platform_settings.brand_icon_master_url	anon=- authenticated=S

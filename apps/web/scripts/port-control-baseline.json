@@ -1029,6 +1029,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/share-your-schedule.tsx",
         "[slug]/_components/sign-in-back-here.tsx",
         "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
@@ -1083,6 +1084,7 @@
         "[slug]/_components/when-yes-celebration.tsx",
         "[slug]/_components/your-guests.tsx",
         "[slug]/_components/your-photos-widget.tsx",
+        "[slug]/_components/your-schedule-card.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_components/your-seat-styles.tsx",
         "[slug]/_components/your-shot-tile.tsx",
@@ -1136,6 +1138,7 @@
         "[slug]/_lib/top-corner.ts",
         "[slug]/_lib/types.ts",
         "[slug]/_lib/your-own-day.server.ts",
+        "[slug]/_lib/your-schedule.server.ts",
         "[slug]/actions.ts",
         "[slug]/avatar-actions.ts",
         "[slug]/error.tsx",
@@ -1610,6 +1613,7 @@
         "SendTheirInvite",
         "SetnayanExperience",
         "ShareButtons",
+        "ShareYourSchedule",
         "Sheet",
         "SheetClip",
         "SheetEntry",
@@ -1714,6 +1718,8 @@
         "YourOwnDay",
         "YourPhotosWidget",
         "YourPlaceLine",
+        "YourScheduleCard",
+        "YourScheduleRead",
         "YourSeatBlock",
         "YourShotTile",
         "YourShotsGallery"
@@ -5890,6 +5896,7 @@
         "/dashboard/[seg]/nikah",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
+        "/dashboard/[seg]/schedule?announce=1",
         "/dashboard/[seg]/schedule?sheet=requests",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/mood-board",
@@ -6189,6 +6196,7 @@
         "ReadyForNoSignal",
         "RecordCardFolds",
         "RecordLinkBlock",
+        "ReleaseScheduleResult",
         "Remaining",
         "RepliesWindowRows",
         "ReplyBy",
@@ -6807,6 +6815,7 @@
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
+        "dashboard/[eventId]/guests/_components/guest-role-drag.tsx",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
@@ -6892,6 +6901,7 @@
         "AddGuestSheet",
         "AddPicks",
         "AddPreviewLine",
+        "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
         "CaptureBar",
@@ -6985,6 +6995,7 @@
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "Handed",
+        "Held",
         "Icon",
         "InfoTip",
         "InlineResult",
@@ -7039,6 +7050,7 @@
         "PapicGuestAccess",
         "PeekSay",
         "PeekToast",
+        "Pending",
         "PeopleHits",
         "Pick",
         "PickMenu",
@@ -8544,6 +8556,7 @@
         "dashboard/[eventId]/schedule/_components/schedule-live.ts",
         "dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-sheet.tsx",
+        "dashboard/[eventId]/schedule/_components/schedule-view-as.tsx",
         "dashboard/[eventId]/schedule/_components/studio-day.tsx",
         "dashboard/[eventId]/schedule/_components/tell-the-host.tsx",
         "dashboard/[eventId]/schedule/_components/travel-itinerary.tsx",
@@ -8551,6 +8564,7 @@
         "dashboard/[eventId]/schedule/actions.ts",
         "dashboard/[eventId]/schedule/activity-picks-actions.ts",
         "dashboard/[eventId]/schedule/loading.tsx",
+        "dashboard/[eventId]/schedule/moment-march-step.ts",
         "dashboard/[eventId]/schedule/page.tsx",
         "dashboard/[eventId]/schedule/prep-actions.ts",
         "dashboard/[eventId]/schedule/question-answers-actions.ts",
@@ -8589,6 +8603,7 @@
         "BookedScheduleFrame",
         "BookedScheduleView",
         "BulkRetimePanel",
+        "ByTime",
         "Chapter",
         "ChapterMoment",
         "ChapterPage",
@@ -8602,6 +8617,7 @@
         "ChosenRow",
         "ConfirmForm",
         "DateRow",
+        "Day",
         "DayActions",
         "DayActionsContext.Provider",
         "DayMoment",
@@ -8632,10 +8648,13 @@
         "Lens",
         "LensChip",
         "Link",
+        "MarchList",
+        "MarchRow",
         "MiniTour",
         "MinutesRow",
         "MomentInspector",
         "MomentLayer",
+        "MomentPapic",
         "MomentRow",
         "MomentSheet",
         "NewChapterSheet",
@@ -8645,6 +8664,7 @@
         "NotSharedWithYou",
         "OverlayBackdrop",
         "PageMasthead",
+        "PaidMark",
         "PickMenu",
         "PillThumb",
         "PlanningChapters",
@@ -8656,6 +8676,7 @@
         "PreparationEmptyState",
         "PreparationLegend",
         "PreparationRow",
+        "ReleaseRow",
         "RequestsSheet",
         "ResponsiblePartyEditor",
         "Rolled",
@@ -8705,6 +8726,9 @@
         "TypedRow",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
+        "ViewAsBody",
+        "ViewAsMenu",
+        "ViewLens",
         "WhoFields"
       ]
     },
@@ -11311,6 +11335,7 @@
       "files": [
         "dev/chapters-lab/lab-chapters.ts",
         "dev/chapters-lab/lab-schedule-chapters.tsx",
+        "dev/chapters-lab/lab-view-as.ts",
         "dev/chapters-lab/page.tsx"
       ],
       "destinations": [],
@@ -11323,7 +11348,8 @@
         "LabScheduleChapters",
         "PlanningChapters",
         "ScheduleLabClient",
-        "TaskRow"
+        "TaskRow",
+        "ViewMoment"
       ]
     },
     "/dev/chat-lab": {
@@ -11761,6 +11787,7 @@
         "dev/me-lab/connect-hosts-lab.tsx",
         "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
+        "dev/me-lab/lab-your-schedule.ts",
         "dev/me-lab/me-stage-lab.tsx",
         "dev/me-lab/page.tsx",
         "dev/me-lab/proxy-lab.tsx",
@@ -11798,7 +11825,9 @@
         "SaveToAccount",
         "ScanTrailForm",
         "SubmitButton",
-        "TicketPicture"
+        "TaskRow",
+        "TicketPicture",
+        "YourScheduleCard"
       ]
     },
     "/dev/memories-lab": {
@@ -12026,6 +12055,24 @@
         "Link",
         "ShareButton",
         "ShopBadgePill",
+        "Wordmark"
+      ]
+    },
+    "/dev/shop-page-lab": {
+      "files": [
+        "dev/shop-page-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/v/sampaguita-table/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "ShopSinceLine",
         "Wordmark"
       ]
     },
@@ -13792,6 +13839,8 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
+        "v/[slug]/_components/check-a-date-link.tsx",
+        "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
@@ -13801,6 +13850,7 @@
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/shop-reach.tsx",
+        "v/[slug]/_components/shop-since-line.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13816,7 +13866,8 @@
         "/explore",
         "/login",
         "/signup",
-        "/v/[seg]/booth"
+        "/v/[seg]/booth",
+        "/v/[seg]/dates"
       ],
       "actions": [
         "joinVendorWaitlist"
@@ -13828,9 +13879,11 @@
         "AutoCarryState",
         "AxisStat",
         "CardRecordSection",
+        "CheckADateLink",
         "ComingSoonBanner",
         "DemoVendorBanner",
         "DirectionsMenu",
+        "EventsByKindButton",
         "FilterChip",
         "HTMLDivElement",
         "Image",
@@ -13859,11 +13912,13 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "Sheet",
         "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
         "ShopReachLine",
         "ShopReachMap",
+        "ShopSinceLine",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
@@ -14994,6 +15049,8 @@
         "issueLockedQr"
       ],
       "blocks": [
+        "CrewCode",
+        "CrewQr",
         "CustomersPick",
         "DatesRow",
         "Fold",

@@ -22,6 +22,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
 import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
@@ -81,6 +82,10 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+
+  // 🚪 DOOR 7a · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). A Locked QR IS a booking the moment it
+  // is scanned, so none is made while bookings are closed — a code that can only fail at the couple's scan helps nobody.
+  if (!(await areBookingsOpen())) fail('bookings_closed');
 
   // ✅ A LOCKED QR NEEDS A VERIFIED SHOP (supplier gate audit G8, 2026-11-02). The couple's scan books the shop, and
   // the database refuses to book an unverified one (`enforce_booking_requires_verified_vendor`) — so a code issued

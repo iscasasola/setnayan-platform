@@ -41,7 +41,7 @@ export type KeepsakeReads = {
   /** `readMagazineCard` — the card renders once there is a photo. */
   magazine: { photos: number };
   /** `loadRecapCoupleSummary` — the card renders once there is a photo or an approved message. */
-  recap: { privatePhotos: number; approvedKwentos: number };
+  recap: { privatePhotos: number; approvedKwentos: number; unreadable?: boolean };
   /** `readLifeFlashCard` — null = the card says nothing here; `moments: null` = not measured. */
   flash: { moments: number | null } | null;
   /** The flash's threshold — `SCOPE_MIN_MOMENTS.event`, passed in so this file copies no number. */
@@ -67,7 +67,9 @@ export function keepsakeDoors(r: KeepsakeReads): KeepsakeDoor[] {
       'recap',
       r.recap.privatePhotos > 0 || r.recap.approvedKwentos > 0
         ? null
-        : 'Your Recap is put together from your photos and your guests’ messages — it opens once the first one arrives.',
+        : r.recap.unreadable
+          ? 'We couldn’t count this event’s photos and messages just now. Nothing has changed — refresh to try again.'
+          : 'Your Recap is put together from your photos and your guests’ messages — it opens once the first one arrives.',
     ),
   );
   if (r.flash) {

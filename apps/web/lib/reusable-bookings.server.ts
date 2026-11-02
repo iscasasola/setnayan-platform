@@ -10,6 +10,7 @@ import {
   type ScopeLine,
 } from '@/lib/reusable-bookings';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { emitNotification } from '@/lib/notification-emit';
 
 /**
@@ -120,6 +121,10 @@ export async function createReuseRequest(
 
   // The vendor must still be bookable (verified) — a retired/unverified vendor
   // can't be re-offered. (The vendor can also decline later.)
+  // 🚪 DOOR 5 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`): no reuse request while closed.
+  if (!(await areBookingsOpen())) {
+    return { status: 'error', reason: 'bookings_closed' };
+  }
   if (!(await isMarketplaceVendorBookable(admin, vendorProfileId))) {
     return { status: 'error', reason: 'vendor_not_bookable' };
   }

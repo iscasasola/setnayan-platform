@@ -1,5 +1,7 @@
 /**
- * booked-is-team-budget-schedule.test.ts — 📅 SUPPLIERS › BOOKED = TEAM · BUDGET · SCHEDULE, CONNECTED.
+ * booked-is-the-team.test.ts — 📅 SUPPLIERS › BOOKED IS THE TEAM, CONNECTED TO THE SCHEDULE AND THE BUDGET.
+ * (Was `booked-is-team-budget-schedule.test.ts`. Owner 2026-11-02, "BOOKED IS JUST THE TEAM": *"no just schedule"* ·
+ * *"and booked-team will just be booked."* — the Team · Budget · Schedule parts went; the connections below stayed.)
  *
  * Owner 2026-10-29, *"so booked has budget and schedule."* · 2026-10-30, live on the iPhone app: *"Booked does not
  * collapse and i still do not see schedule and budget properly connected to each other here."* · *"i was hoping this
@@ -7,9 +9,8 @@
  * (`carry-2026-10-29/suppliers-final-proto/`, its `renderTeam` / `teamFold` / `renderBudget` / `renderSchedule`).
  *
  * What is held here, each as a PROPERTY, executed where it can be:
- *   1. Booked's parts are ONE dropdown — Team · Budget · Schedule. Schedule is the SHIPPED page rendered whole under
- *      Booked; Budget is a DOOR to the Budget page itself, Home's page since 2026-11-01 (owner: *"Okay place it in
- *      home"*) — never drawn here. The old /schedule address forwards to Booked › Schedule.
+ *   1. Booked is the team: no parts, no part row, Schedule and Budget never drawn inside Suppliers — their old
+ *      `?part=` addresses forward to their own pages.
  *   2. A Team row's CALL TIME is the Schedule's moment — the ONE rule (`earliestTaggedBlock`) the call-time emails
  *      use too — and a refused Schedule read is said, never drawn as "no call time".
  *   3. A Team row's PAYMENT PLAN is the Pay sheet's own rows (`readBookedPlans`), the next instalment marked; a
@@ -24,55 +25,29 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { earliestTaggedBlock } from './coordinator-broadcasts';
 import { bookedClock, callTimeFor, planFor } from './booked-rows';
-import { bookedParts } from './pillar-parts';
 import type { RosMetaMap } from './schedule-ros';
 import type { SupplierRow } from './budget-page-view';
 
 const APP = join(process.cwd(), 'app', 'dashboard', '[eventId]');
 const read = (...p: string[]) => stripComments(readFileSync(join(APP, ...p), 'utf8'));
 
-test('1 · Booked is Team · Budget · Schedule — ONE dropdown, each part its own address', () => {
-  const parts = bookedParts({ eventId: 'E', budgetEnabled: true });
-  assert.deepEqual(
-    parts.map((p) => [p.key, p.label, p.href]),
-    [
-      ['team', 'Team', '/dashboard/E/vendors?tab=budget'],
-      ['budget', 'Budget', '/dashboard/E/budget'],
-      ['schedule', 'Schedule', '/dashboard/E/vendors?part=schedule'],
-    ],
-  );
-  // Budget keeps its condition — the event type's budget surface.
-  assert.deepEqual(bookedParts({ eventId: 'E', budgetEnabled: false }).map((p) => p.key), ['team', 'schedule']);
-
-  // ONE dropdown: Booked's parts are listed in the page's one row (owner 2026-10-31, *"Booked has the 3 drop down Team,
-  // Budget, and Schedule"*) — the part's own row is gone; it only hands the row its count.
-  const shell = read('vendors', '_components', 'services-takeover.tsx');
-  assert.match(shell, /bookedParts\.map\(\(p\) => \(\{\s*key: `booked-\$\{p\.key\}`/, 'Booked’s parts are not in the row’s ONE dropdown');
-  const row = read('vendors', '_components', 'booked-part-row.tsx');
-  assert.doesNotMatch(row, /<PickMenu\b|<ISegmented\b|<nav\b/, 'Booked’s part draws a second selector of its own again');
-  assert.match(row, /createPortal\(/, 'Booked’s count is not drawn into the one row');
-
-  // Schedule is the SHIPPED page, whole, inside the Suppliers shell. Budget is not (Home's page, a door from here).
+test('1 · Booked is the team — no parts, and Schedule and Budget are never drawn inside Suppliers', () => {
+  for (const gone of ['booked-part-row.tsx', 'booked-part-page.tsx']) {
+    assert.ok(!existsSync(join(APP, 'vendors', '_components', gone)), `${gone} is back`);
+  }
   const page = read('vendors', 'page.tsx');
-  assert.match(page, /if \(sp\.part === BOOKED_SCHEDULE_PART\)[\s\S]*?<BookedPartPage[\s\S]*?<CoupleSchedulePage[\s\S]*?booked: '1'/);
-  assert.match(page, /import CoupleSchedulePage from '\.\.\/schedule\/page'/, 'Booked › Schedule is not the shipped Schedule page');
-  // Each hosted page hands the row its count — it holds the numbers.
-  assert.doesNotMatch(read('budget', 'page.tsx'), /<BookedPartRow\b/, 'the Budget page draws Booked’s row again — it is Home’s page');
-  assert.match(read('schedule', 'page.tsx'), /inBooked \? \([\s\S]*?<BookedPartRow[\s\S]*?current="schedule"/);
-  assert.match(read('vendors', '_components', 'booked-body.tsx'), /<BookedPartRow current="team"/);
-
-  // The old address forwards, with its own query, for anyone who can open Suppliers.
-  const sched = read('schedule', 'page.tsx');
-  assert.match(
-    sched,
-    /if \(!inMaker && !inBooked\) \{[\s\S]*?marketplaceEnabled === true && !isDelegateWithoutArea\(viewer, 'vendors'\)[\s\S]*?redirect\(`\/dashboard\/\$\{eventId\}\/vendors\?\$\{q\.toString\(\)\}`\)/,
-    '/schedule no longer forwards to Suppliers › Booked › Schedule',
-  );
+  assert.doesNotMatch(page, /<CoupleSchedulePage\b|<BudgetPage\b|<BookedPartPage\b/, 'Suppliers draws a Home page inside itself again');
+  assert.doesNotMatch(read('vendors', '_components', 'booked-body.tsx'), /BookedPartRow|parts\?:/, 'the Booked body grew a part row again');
+  // Each old address forwards to its own page.
+  assert.match(page, /if \(sp\.part === BOOKED_SCHEDULE_PART\) \{\s*redirect\(\s*schedulePageHref\(eventId,/);
+  assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId,/);
+  // …and the Schedule page asks for no Suppliers frame.
+  assert.doesNotMatch(read('schedule', 'page.tsx'), /inBooked|BookedPartRow|booked\?: string/, 'the Schedule page knows a Booked frame again');
 });
 
 test('2 · the call time is the Schedule’s earliest tagged moment — one rule, honest when unread', () => {

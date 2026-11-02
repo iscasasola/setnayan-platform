@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { mintLeftAnUnpaidBill } from '@/lib/couple-booked-and-settled';
 import { emitNotification } from '@/lib/notification-emit';
@@ -1196,6 +1197,13 @@ export async function vendorAgreeToLock(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // 🚪 DOOR 6 · BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`). The yes is what books, so a closed
+  // platform refuses it here, before the RPC — nothing booked, no fee minted. The trigger
+  // `event_vendors_require_bookings_open` refuses the same flip if anything reaches the RPC anyway.
+  if (!(await areBookingsOpen())) {
+    redirect(`${lockAnswerReturnTo(formData.get('return_to'))}?lock_agree=bookings_closed`);
+  }
 
   // 🏛 A JOINED HALL IS CHECKED BEFORE THE YES (owner 2026-10-14, "A + B asked, A taken"): the yes never took a pool
   // seat, so a card using Hall A + B over a taken Hall A would book a wedding the venue cannot hold. Refused with the

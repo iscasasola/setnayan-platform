@@ -1,4 +1,5 @@
-import type { FloorBoothRow } from '@/lib/seating';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchBooths, type FloorBoothRow } from '@/lib/seating';
 import type { Lab3DBooth } from '@/lib/seating-3d';
 
 /**
@@ -37,4 +38,17 @@ export function boothCardFromRow(b: FloorBoothRow): Lab3DBooth {
 /** Only a booth a booked supplier runs has a supplier card to open. */
 export function boothHasSupplier(b: Pick<FloorBoothRow, 'vendor'>): boolean {
   return Boolean(b.vendor);
+}
+
+/**
+ * 🏪 THE GUEST-SAFE BOOTH READ (Seats S1d, owner 2026-11-01 item 5 — guest seat pages drew no booths before). Called by a
+ * guest page only AFTER its seat gate let the guest see the room (`guestsMaySeeSeatsFor`), with the admin client the
+ * page already reads seats with. What leaves: booths a BOOKED supplier runs, each with its place on the grid, its label,
+ * its offerings line and the supplier's PUBLIC business identity (`boothCardFromRow` — name, category, tier, public slug;
+ * the raw logo ref is dropped). No guest, no price, no contact. A failed read draws no booths (`fetchBooths` degrades to
+ * the plain rows, which carry no supplier and so are not drawn) — the seat itself never depends on it.
+ */
+export async function readGuestBooths(admin: SupabaseClient, eventId: string): Promise<Lab3DBooth[]> {
+  const rows = await fetchBooths(admin, eventId, { brandedReader: admin });
+  return rows.filter(boothHasSupplier).map(boothCardFromRow);
 }

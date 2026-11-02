@@ -124,7 +124,7 @@ export function SheetFoot({ children }: { children: ReactNode }) {
 }
 
 /**
- * The view on screen under Booked › Schedule (`booked-schedule-frame.tsx`) — every view is drawn and kept, so a pill
+ * The view on screen under Booked › Schedule (`schedule-one-line.tsx`) — every view is drawn and kept, so a pill
  * drawn into <body> by a view that is not on screen must step aside. Null: no frame (the pill shows).
  */
 export const ScheduleViewOnScreen = createContext<string | null>(null);

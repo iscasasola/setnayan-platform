@@ -1,3 +1,4 @@
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -37,6 +38,8 @@ const STATUS_COPY: Record<string, string> = {
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
+  // 🚪 owner 2026-11-02 — bookings closed (`lib/bookings-open.ts`, door 7b). The code stays unused.
+  bookings_closed: BOOKINGS_CLOSED_COUPLE_MESSAGE,
   not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,
   error: 'Something went wrong locking the supplier. Please try again.',
 };

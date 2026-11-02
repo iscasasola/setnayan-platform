@@ -250,7 +250,10 @@ test('a repeat press (the agreed total already IS the new number) still counts a
 
 test('a FIRST lock still books at the negotiated total and reports the landing', async () => {
   const sink: { last: Captured } = { last: null };
-  const outcome = await bookVendorAtChatLock(stubAuthed('considering', 1, sink), stubAdmin(true), ARGS);
+  // 🚪 With bookings OPEN (owner 2026-11-02, `lib/bookings-open.ts`) — the behaviour this test was written for.
+  const outcome = await bookVendorAtChatLock(stubAuthed('considering', 1, sink), stubAdmin(true), ARGS, {
+    bookingsOpen: async () => true,
+  });
 
   assert.equal(outcome.status, 'booked');
   assert.equal('priceLanded' in outcome && outcome.priceLanded, true);
@@ -260,6 +263,17 @@ test('a FIRST lock still books at the negotiated total and reports the landing',
     'contracted',
     'The unbooked path must still BOOK — repricing must not have swallowed it.',
   );
+});
+
+test('🚪 bookings CLOSED: a first lock books nothing and writes nothing; a booked supplier’s reprice still lands', async () => {
+  const sink: { last: Captured } = { last: null };
+  const closed = { bookingsOpen: async () => false };
+  const first = await bookVendorAtChatLock(stubAuthed('considering', 1, sink), stubAdmin(true), ARGS, closed);
+  assert.equal(first.status, 'bookings_closed');
+  assert.equal(sink.last, null, 'a closed platform must not write the booking row');
+  const rpc: { calls: RpcCall[] } = { calls: [] };
+  const reprice = await bookVendorAtChatLock(stubAuthed('deposit_paid', 1, sink), stubAdmin(true, 'changed', rpc), ARGS, closed);
+  assert.notEqual(reprice.status, 'bookings_closed', 'a new price on an already-booked supplier is not a booking');
 });
 
 test('lockDeal refuses to stamp a Deal whose price did not land', () => {

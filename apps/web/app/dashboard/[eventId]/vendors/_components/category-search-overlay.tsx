@@ -207,6 +207,8 @@ export function CategorySearchOverlay({
   // the group is fully in its last-minute zone and Setnayan AI is off, so generic
   // search is empty — swap the bare copy for a capability-framed unlock CTA.
   const [lastMinuteLocked, setLastMinuteLocked] = useState(false);
+  /** 🔌 The suppliers could not be read — "Couldn't load suppliers · Try again", never "none here" (audit #22). */
+  const [unreadable, setUnreadable] = useState(false);
   // 📱 Setnayan AI is a web-only paid feature (lib/store-shell.ts); inside the
   // app its "Unlock" door is not offered and the plain empty line shows instead.
   const storeShell = useIsStoreShell();
@@ -279,6 +281,7 @@ export function CategorySearchOverlay({
         setHasCoords(res.hasReceptionCoords);
         setSavedTallyFailed(res.savedPhotoTallyFailed === true);
         setLastMinuteLocked(res.isLastMinuteLocked === true);
+        setUnreadable(res.unreadable === true);
         setBudgetRaise(res.budgetPressure === true);
         setBudgetEstimate(res.budgetEstimate ?? null);
         setFacetCatalog(res.facets);
@@ -619,6 +622,17 @@ export function CategorySearchOverlay({
       <div className="results">
         {loading && results.length === 0 ? (
           <div className="loading">Finding {label.toLowerCase()} suppliers…</div>
+        ) : results.length === 0 && unreadable ? (
+          <div className="empty" role="alert" data-search-unreadable="">
+            Couldn&rsquo;t load {label.toLowerCase()} suppliers. This does not mean there are none.{' '}
+            <button
+              type="button"
+              className="min-h-11 font-semibold text-sn-accent underline-offset-2 hover:underline"
+              onClick={() => void run(query.trim(), verifiedOnly, maxKm, appliedFacets, facetHardFilter)}
+            >
+              Try again
+            </button>
+          </div>
         ) : results.length === 0 && lastMinuteLocked && !storeShell ? (
           // §4 edge-#2: the date is close and generic search is empty, but
           // last-minute vendors could still take it with Setnayan AI on. Calm,

@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
+import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE, BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { isMarketplaceVendorBookable, LOCKED_QR_NEEDS_VERIFIED } from '@/lib/vendor-verification';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -54,6 +56,7 @@ const BOOKED_ERRORS: Record<string, string> = {
   description: 'Describe what the couple availed.',
   event_date: 'Set the agreed event date.',
   event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
+  bookings_closed: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
   not_verified: LOCKED_QR_NEEDS_VERIFIED,
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
@@ -274,9 +277,17 @@ export default async function VendorQrCodesPage({
 
   // The deal form's choices: the shop's own live services (a coverage fallback when none are published) + contracts.
   let generator: ReactNode = null;
+  // 🚪 BOOKINGS CLOSED (owner 2026-11-02): no deal form while closed — one quiet line where it was.
+  const bookingsOpen = !issued ? await areBookingsOpen() : true;
   // ✅ An unverified shop is told BEFORE it fills the deal form (audit G8) — the code could only fail at the scan.
-  const verified = !issued ? await isMarketplaceVendorBookable(supabase, vendorProfileId) : true;
-  if (!issued && !verified) {
+  const verified = !issued && bookingsOpen ? await isMarketplaceVendorBookable(supabase, vendorProfileId) : true;
+  if (!issued && !bookingsOpen) {
+    generator = (
+      <p className="text-sm text-ink/70">
+        <span className="font-semibold text-ink">{BOOKINGS_OPEN_SOON}.</span> {BOOKINGS_CLOSED_SUPPLIER_MESSAGE}
+      </p>
+    );
+  } else if (!issued && !verified) {
     generator = (
       <p className="text-sm text-ink/70" data-locked-qr-needs-verified="">
         {LOCKED_QR_NEEDS_VERIFIED}{' '}

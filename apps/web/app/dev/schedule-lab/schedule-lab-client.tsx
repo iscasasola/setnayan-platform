@@ -122,7 +122,7 @@ export default function ScheduleLabClient({
   toolsSlot = null,
 }: {
   /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
-  frame?: 'page' | 'booked';
+  frame?: 'page' | 'line';
   toolsSlot?: string | null;
   /** Only the day — no lab header, no write log (the Suppliers lab draws it under Booked › Schedule). */
   bare?: boolean;

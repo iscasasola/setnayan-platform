@@ -54,7 +54,8 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
         },
         () => null,
       ),
-    opts.readSuppliers ? readScheduleSuppliers(supabase, eventId).catch(() => []) : Promise.resolve(null),
+    // 🔌 A refused read is `null` (unknown), never `[]` (none) — the page then says so (audit #16).
+    opts.readSuppliers ? readScheduleSuppliers(supabase, eventId).catch(() => null) : Promise.resolve(null),
     asViewed((async () => eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId))().catch(() => false)),
     getIapGate().catch(() => ({ storeShell: false, iap: false })),
     // The couple's own word for a role (Bridesmaid → "Bride's Crew") — the word every screen shows.

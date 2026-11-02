@@ -26,6 +26,7 @@
  * surface is never a crawl/SEO target, and this fail-safes the private case.
  */
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -452,14 +453,20 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         .eq('event_id', event.event_id)
         .eq('guest_id', guest.guest_id)
         .maybeSingle();
-      if (assignmentErr) seatUnreadable = true;
+      if (assignmentErr) {
+        seatUnreadable = true;
+        logQueryError('HubPage.seatAssignment', assignmentErr, { event_id: event.event_id }, 'graceful_degrade');
+      }
       if (assignmentRow?.table_id) {
         const { data: tableRow, error: tableErr } = await admin
           .from('event_tables')
           .select('table_label, link_group_label')
           .eq('table_id', assignmentRow.table_id)
           .maybeSingle();
-        if (tableErr) seatUnreadable = true;
+        if (tableErr) {
+          seatUnreadable = true;
+          logQueryError('HubPage.seatTable', tableErr, { event_id: event.event_id }, 'graceful_degrade');
+        }
         if (tableRow) {
           tableLabel =
             (tableRow as { table_label: string; link_group_label?: string | null })

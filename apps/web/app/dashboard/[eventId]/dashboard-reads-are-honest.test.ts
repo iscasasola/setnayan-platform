@@ -51,8 +51,8 @@ test('#13 · the invite and join doors: a refused read throws to the error page,
 
 test('#34 · the Hub seat tile: a refused seat read says "Couldn’t load your seat", never "Not yet assigned"', () => {
   const hub = src('app/[slug]/hub/page.tsx');
-  assert.match(hub, /if \(assignmentErr\) seatUnreadable = true;/);
-  assert.match(hub, /if \(tableErr\) seatUnreadable = true;/);
+  assert.match(hub, /if \(assignmentErr\) \{\s*seatUnreadable = true;/);
+  assert.match(hub, /if \(tableErr\) \{\s*seatUnreadable = true;/);
   assert.match(hub, /seatUnreadable \? 'Couldn’t load your seat' : 'Not yet assigned'/);
 });
 
@@ -80,7 +80,7 @@ test('#12 · a supplier’s change orders: a refused read is said, never "No cha
 
 test('#22 · Find: a refused category or name search says "Couldn’t load", never "none here" or "nothing matches"', () => {
   const cat = src(`${D}vendors/_actions/category-search.ts`);
-  assert.match(cat, /if \(evError\) return \{ \.\.\.EMPTY, unreadable: true \};/);
+  assert.match(cat, /if \(evError\) \{[\s\S]{0,160}return \{ \.\.\.EMPTY, unreadable: true \};/);
   assert.match(cat, /onReadRefused: \(\) => \{\s*recsRefused = true;/);
   assert.match(cat, /if \(recsRefused\) return \{ \.\.\.EMPTY, unreadable: true \};/);
   assert.match(src('lib/wizard-recommendations.ts'), /if \(error \|\| !data\) \{\s*if \(error\) args\.onReadRefused\?\.\(\);/);

@@ -25,6 +25,7 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
@@ -438,7 +439,10 @@ export async function searchCategoryVendors(input: {
     )
     .eq('event_id', eventId)
     .maybeSingle();
-  if (evError) return { ...EMPTY, unreadable: true };
+  if (evError) {
+    logQueryError('searchCategoryVendors.event', evError, { event_id: eventId }, 'graceful_degrade');
+    return { ...EMPTY, unreadable: true };
+  }
   if (!ev) return EMPTY; // not a member of this event
 
   // Outer-gate scoping (2026-06-11) — the SAME shared predicates the /vendors

@@ -19,6 +19,7 @@
  * empty over tasks it merely failed to read.
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
+import { guestInvitedTo } from './invitation-chapters';
 import {
   TIME_TBA,
   chapterWhere,
@@ -268,12 +269,12 @@ function withChapter(chapters: readonly Chapter[], moments: readonly ViewMoment[
 }
 
 /**
- * 🔒 Is this chapter on a guest's schedule? Today: on the invitation (`on_invitation` — every guest replies to it).
- * Step 5 (invitation by chapter, per guest) narrows it HERE and nowhere else.
+ * 🔒 Is this chapter on a guest's schedule? On the invitation (`on_invitation` on a top-level block — every guest
+ * replies to it). ✉ ONE SOURCE (Step 5): the rule lives in `lib/invitation-chapters.ts`, and the reply card, the reply's
+ * write, the notices, the hosts' counts and Details › Schedule ask the same function View as does. A per-guest
+ * narrowing belongs there and nowhere else.
  */
-export function guestInvitedTo(c: Pick<Chapter, 'on_invitation'>): boolean {
-  return c.on_invitation === true;
-}
+export { guestInvitedTo };
 
 /** 🔒 Is this moment on the guests' schedule — the database's own three questions (`isOnTheGuestsSchedule`). */
 export function guestSeesMoment(m: Pick<ViewMoment, 'is_public' | 'audience' | 'staged'>): boolean {

@@ -62,6 +62,18 @@ export type BookingFeeMintDoor =
   | 'deposit_acknowledged'
   | 'catch_up';
 
+/**
+ * 🚪 The doors that make NOTHING while bookings are closed (owner 2026-11-02, `lib/bookings-open.ts`) — each is a
+ * booking a closed platform does not take. A door that is not a new booking (a couple approving a supplier they
+ * added themselves, the founders' event) is deliberately absent and keeps minting while closed.
+ */
+export const CLOSES_WITH_BOOKINGS: ReadonlySet<BookingFeeMintDoor> = new Set<BookingFeeMintDoor>([
+  'supplier_yes',
+  'locked_qr_claim',
+  'deposit_acknowledged',
+  'catch_up',
+]);
+
 export type BookingFeeMintOutcome = {
   door: BookingFeeMintDoor;
   eventVendorId: string;
@@ -104,7 +116,7 @@ export async function mintBookingFeeForBooking(
     // shut while closed, so a mint reaching here is a row booked before the switch closed (or one the trigger
     // grandfathers, like a claim approval's hand-added row). Nothing is made for it until bookings open; the
     // render-time catch-up mints it then. Read first, before any money read.
-    outcome.bookingsOpen = await areBookingsOpen();
+    outcome.bookingsOpen = !CLOSES_WITH_BOOKINGS.has(args.door) || (await areBookingsOpen());
     if (!outcome.bookingsOpen) {
       recordMint(outcome);
       return outcome;
@@ -211,8 +223,6 @@ const LIVE_CHARGE_STATUSES = [
 export async function maybeCatchUpHandshakesWithoutFee(userId: string): Promise<void> {
   if (!isBookingFeeEnabled()) return;
   try {
-    // 🚪 Closed ⇒ the sweep makes nothing (owner 2026-11-02); it picks these rows up the first render after opening.
-    if (!(await areBookingsOpen())) return;
     const admin = createAdminClient();
     const { data: profiles, error: pErr } = await admin
       .from('vendor_profiles')

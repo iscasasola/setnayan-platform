@@ -34,7 +34,6 @@ const DOORS: ReadonlyArray<Door> = [
   // 8 · a payment acknowledgement books nothing new the trigger would allow, but it is a fee door: the one
   // place a fee is made refuses while closed, and so does the render-time sweep that re-makes missed fees.
   { n: '8 · the fee (every door)', file: 'lib/booking-fee-mint.server.ts', fn: 'mintBookingFeeForBooking', books: 'collectBookingFeeAtLock(' },
-  { n: '8 · the fee catch-up', file: 'lib/booking-fee-mint.server.ts', fn: 'maybeCatchUpHandshakesWithoutFee', books: 'mintBookingFeeForBooking(' },
 ];
 
 /** The body of one top-level function: from its declaration to the next top-level declaration. */
@@ -58,6 +57,18 @@ for (const door of DOORS) {
     assert.ok(gate < books, `${door.fn} asks areBookingsOpen() only AFTER ${door.books} — the booking happens first`);
   });
 }
+
+test('door 8: the four booking doors of the fee close with bookings (the catch-up sweep mints through catch_up)', async () => {
+  const source = stripComments(readFileSync(join(WEB, 'lib/booking-fee-mint.server.ts'), 'utf8'));
+  const set = source.slice(source.indexOf('CLOSES_WITH_BOOKINGS'), source.indexOf(']);', source.indexOf('CLOSES_WITH_BOOKINGS')));
+  for (const door of ['supplier_yes', 'locked_qr_claim', 'deposit_acknowledged', 'catch_up']) {
+    assert.ok(set.includes(`'${door}'`), `the ${door} fee door must make nothing while bookings are closed`);
+  }
+  const body = functionBody(source, 'mintBookingFeeForBooking') ?? '';
+  assert.match(body, /CLOSES_WITH_BOOKINGS\.has\(args\.door\)/, 'the mint must ask the set with its own door');
+  const sweep = functionBody(source, 'maybeCatchUpHandshakesWithoutFee') ?? '';
+  assert.match(sweep, /door: 'catch_up'/, 'the sweep mints through the catch_up door, which closes with bookings');
+});
 
 test('the switch opens only on an explicit TRUE — NULL (the launch default), FALSE and junk are closed', () => {
   assert.equal(bookingsOpenFromSetting(true), true);

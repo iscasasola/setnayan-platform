@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { formatCount } from '@/lib/format-number';
+import { papicCrewPosterHref } from '@/lib/papic-home-href';
 import { InfoTip } from '@/app/_components/info-tip';
 import { CopyButton } from '../crew/_components/copy-button';
 import { SupplierWayInRow } from './supplier-way-in-row';
@@ -84,7 +85,7 @@ export async function OneCodeUnderGetIn({ eventId }: { eventId: string }) {
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <CopyButton value={code.url} />
               <Link
-                href={`/dashboard/${eventId}/studio/papic/crew/poster`}
+                href={papicCrewPosterHref(eventId)}
                 target="_blank"
                 rel="noopener"
                 className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5"

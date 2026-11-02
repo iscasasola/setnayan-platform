@@ -62,7 +62,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids';
 
 export type Chapter = {
   block_id: string;
@@ -509,6 +509,8 @@ export type MomentFacts = {
   travel_to: string | null;
   /** Which march this moment is (migration 20271301571290): null = not a march · `WHOLE_MARCH` · an own march's key. */
   march_key: string | null;
+  /** 👷 The suppliers it is for (`responsible_vendor_ids`) — the "yours" on their day; the Suppliers and crew row ticks them. */
+  vendor_ids: string[];
 };
 
 /** Every moment's own facts, from the rows the chapter read already holds. */
@@ -524,6 +526,7 @@ export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] 
       travel_from: blankToNull(r.travel_from),
       travel_to: blankToNull(r.travel_to),
       march_key: isMarchKey(r.march_key) ? r.march_key : null,
+      vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
     }));
 }
 
@@ -708,7 +711,7 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
 }
 
 /** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new'] as const;
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set'] as const;
 export type MomentOp = (typeof MOMENT_OPS)[number];
 export function isMomentOp(v: unknown): v is MomentOp {
   return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);

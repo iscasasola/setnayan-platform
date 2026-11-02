@@ -39,6 +39,7 @@ import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
 import type { PlanProgress } from './vendor-service-payment-schedules';
 import type { TeamRow, TeamRowTone } from './your-team-rows';
+import { canInviteSupplier } from './supplier-invite-eligibility';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
 import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
 
@@ -178,6 +179,11 @@ export type BookedRow = {
   where: SupplierWhere | null;
   verbs: BookedVerb[];
   threadId: string | null;
+  /**
+   * 🔗 Not on Setnayan yet (`canInviteSupplier`: no shop, `marketplace_vendor_id` null) — the Team row is the ONE door to
+   * their claim link (plan "Sync: … Move its door to the Team row. Until they join, the host enters their times.").
+   */
+  invite: boolean;
 };
 
 /**
@@ -353,6 +359,7 @@ function bookedRowOf(
             coveredWhere: f.coveredWhere,
           }),
     threadId: f.threadId,
+    invite: canInviteSupplier({ marketplace_vendor_id: f.shopId }),
   };
   const withVerbs = (next: BookedNext, main: BookedVerb): BookedRow => ({
     ...base,

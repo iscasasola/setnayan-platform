@@ -75,6 +75,7 @@ const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean
   march_key: null,
   is_public: pub,
   who,
+  vendor_ids: [],
   ...more,
 });
 
@@ -152,6 +153,8 @@ export const LAB_MOMENT_ROW: ChapterMoment = {
   march_key: 'own_labentr001',
   is_public: false,
   who: '',
+  // 👷 Its supplier lines put it on those suppliers' days (`setMomentFor` links them first).
+  vendor_ids: ['v-hmua', 'v-coord'],
   end_at: LAB_MOMENT.end_at,
 };
 

@@ -7,7 +7,7 @@
  *
  *   1 · ONE answer for what a seat view draws (`seatViewParts`) — and both the guest page and the card ask it.
  *   2 · the column is ALTER-only (prod refused ALTER-after-write, SQLSTATE 55006), default 'both', checked.
- *   3 · the ⚙ row sits right after the switch, writes through `setGuestSeatView`, and a refusal puts the choice back.
+ *   3 · the ⚙ row sits right after the switch, writes through `guestSeatView` › set, and a refusal puts the choice back.
  *   4 · the guest page draws what the choice says (rendered): 2D → map, no walk · 3D → the walk, no map · Both → both.
  *   5 · booths: drawn and pressable on the guest's map, read only behind the seat gate, public identity only.
  *   6 · the card's preview is read when drawn (never with the card), a refused read says so.
@@ -65,10 +65,10 @@ test('3 · the ⚙ row sits beside "Show guests their seats early" and a refusal
   assert.match(ed, /name="Show guests their seats early"[\s\S]{0,1400}?attrs=\{\{ 'data-seat-plan-door-switch': '' \}\}\s*\/>\s*<ChosenRow\s+name="How guests see their seat"/, 'the row is not beside the switch');
   assert.match(ed, /\/>\s*<ChosenRow\s+name="How guests see their seat"[\s\S]{0,700}?onPick=\{pickSeatView\}/);
   const pick = ed.slice(ed.indexOf('const pickSeatView = '), ed.indexOf('const flipDoor = '));
-  assert.match(pick, /await setGuestSeatView\(eventId, v\)/);
+  assert.match(pick, /await guestSeatView\(eventId, \{ kind: 'set', view: v \}\)/);
   assert.match(pick, /if \(!res\.ok\) \{\s*setSeatView\(was\);\s*setSeatViewNote\(res\.error\);/, 'a refused save keeps showing the new choice');
-  const act = read('app/dashboard/[eventId]/seating/actions.ts');
-  const fn = act.slice(act.indexOf('export async function setGuestSeatView('), act.indexOf('export async function updateTableLabel('));
+  const act = read('app/dashboard/[eventId]/guests/seat-view-actions.ts');
+  const fn = act.slice(act.indexOf('async function writeGuestSeatView('), act.indexOf('export type GuestSeatViewSaved'));
   assert.match(fn, /\.select\('guest_seat_view'\)/);
   assert.match(fn, /if \(error \|\| !data \|\| data\.length === 0\)/, 'zero rows written reads as a save');
 });
@@ -125,7 +125,7 @@ test('5 · booths: drawn and pressable on the guest map, read behind the seat ga
   const gate = page.indexOf('const published = await guestsMaySeeSeatsFor(');
   const boothRead = page.indexOf('readGuestBooths(admin, event.event_id)');
   assert.ok(gate > 0 && boothRead > gate, 'the booths are read before the seat gate');
-  assert.match(page.slice(page.lastIndexOf('if (published) {', boothRead), boothRead), /^if \(published\) \{/, 'the booths are read for a guest the gate kept out');
+  assert.match(page, /let booths: Lab3DBooth\[\] = \[\];\s*if \(published\) \{\s*const \[viewRow, boothRows\] = await Promise\.all\(\[[\s\S]{0,200}?readGuestBooths\(admin, event\.event_id\)/, 'the booths are read for a guest the gate kept out');
   const lib = read('lib/booth-card-from-row.ts');
   assert.match(lib, /return rows\.filter\(boothHasSupplier\)\.map\(boothCardFromRow\);/);
   assert.match(lib, /logoUrl: null,/, 'a raw stored logo ref reaches a guest');
@@ -141,7 +141,7 @@ test('6 · the card’s preview: read when drawn, only for a seated guest, a ref
   assert.match(pv, /dynamic\(\(\) => import\('@\/app\/_components\/guest-seat-map'\)/, 'the map rides the card’s first load');
   assert.match(pv, /<Sheet open=\{full\}[\s\S]{0,120}? full rise/, 'no full screen');
   assert.match(pv, /&guide=\$\{encodeURIComponent\(guestId\)\}/, 'the 3D way in is not the host’s Guide me');
-  const act = read('app/dashboard/[eventId]/guests/seat-preview-actions.ts');
+  const act = read('app/dashboard/[eventId]/guests/seat-view-actions.ts');
   assert.match(act, /if \(failed\) \{[\s\S]*?return \{ ok: false \};/);
 });
 

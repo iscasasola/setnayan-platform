@@ -50,7 +50,6 @@ import {
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
-import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -1526,31 +1525,6 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
   revalidatePath(`/dashboard/${eventId}/seating`);
   revalidatePath(`/dashboard/${eventId}/seating/print`);
   return { wasPublished: (cleared?.length ?? 0) > 0 };
-}
-
-// 🪑 HOW GUESTS SEE THEIR SEAT — 2D map · 3D walk · Both (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES",
-// item 3; lib/guest-seat-view.ts). The Seats ⚙ row beside "Show guests their seats early" writes it — live, like that
-// switch (no seat-plan lock: it changes what guests are shown, not the plan). Upsert, like publishSeating (the
-// singleton row may not exist yet), and the written row is read back: zero rows is a refusal, never a quiet success.
-export async function setGuestSeatView(eventId: string, view: string): Promise<{ ok: true; view: GuestSeatView } | { ok: false; error: string }> {
-  await refuseLimitedHelper(eventId, null);
-  if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, error: 'That did not save — nothing changed.' };
-  if (view !== '2d' && view !== '3d' && view !== 'both') return { ok: false, error: 'That is not a way guests can see their seat.' };
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  const { data, error } = await supabase
-    .from('event_floor_plan')
-    .upsert({ event_id: eventId, guest_seat_view: view, updated_at: new Date().toISOString() }, { onConflict: 'event_id' })
-    .select('guest_seat_view');
-  if (error || !data || data.length === 0) {
-    if (error) logQueryError('setGuestSeatView', error, { eventId }, 'graceful_degrade');
-    return { ok: false, error: 'That did not save — nothing changed. Please try again.' };
-  }
-  revalidatePath(`/dashboard/${eventId}/seating`);
-  return { ok: true, view: parseGuestSeatView((data[0] as { guest_seat_view?: unknown }).guest_seat_view) };
 }
 
 // Rename a table (the per-table popup's inline rename). Mirrors

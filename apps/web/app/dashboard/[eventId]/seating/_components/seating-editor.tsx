@@ -90,6 +90,7 @@ import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble'
 import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { guestSeatView } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
@@ -188,7 +189,6 @@ import {
   commitWeld,
   saveSigns,
   saveVenuePhotoVisibility,
-  setGuestSeatView,
   seatRoleAtTable,
   setGuestSeatingPriority,
   setTableSeat,
@@ -6103,7 +6103,7 @@ export function SeatingEditor({
     setSeatViewNote(null);
     startTransition(async () => {
       try {
-        const res = await setGuestSeatView(eventId, v);
+        const res = await guestSeatView(eventId, { kind: 'set', view: v });
         if (!res.ok) {
           setSeatView(was);
           setSeatViewNote(res.error);

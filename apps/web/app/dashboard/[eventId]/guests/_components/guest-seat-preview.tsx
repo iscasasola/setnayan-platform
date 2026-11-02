@@ -9,7 +9,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { guestsViewHref } from '@/lib/guests-views';
 import { GUEST_SEAT_VIEW_LABEL, seatViewParts } from '@/lib/guest-seat-view';
 import { formatCount } from '@/lib/format-number';
-import { readGuestSeatPreview, type GuestSeatPreview as Preview } from '../seat-preview-actions';
+import { guestSeatView, type GuestSeatPreview as Preview } from '../seat-view-actions';
 
 /* The map and the supplier card load only when a seated guest's card draws this — never with the card itself. */
 const GuestSeatMap = dynamic(() => import('@/app/_components/guest-seat-map').then((m) => m.GuestSeatMap), { ssr: false });
@@ -21,19 +21,30 @@ const WayfindingMap = dynamic(() => import('@/app/_components/wayfinding-map').t
  * setting), their seat lit, tap for full screen."* The SAME picture the guest's seat page draws (`seatViewParts` over
  * the couple's Seats ⚙ choice, the theme-look map with their table lit and the booked suppliers' booths); a tap opens
  * it full screen, where the booths open their supplier's card. With the 3D walk chosen, the way in is the host's own
- * 3D test of it (Guests › Seats › 3D · Guide me, `?guide=`). Read when drawn (`readGuestSeatPreview`); a refused read
+ * 3D test of it (Guests › Seats › 3D · Guide me, `?guide=`). Read when drawn (`guestSeatView` › preview); a refused read
  * says so with Retry — never an empty room.
  */
-export function GuestSeatPreview({ eventId, guestId, firstName }: { eventId: string; guestId: string; firstName: string }) {
+export function GuestSeatPreview({
+  eventId,
+  guestId,
+  firstName,
+  read: readStandIn,
+}: {
+  eventId: string;
+  guestId: string;
+  firstName: string;
+  /** 🧪 The dev lab's stand-in reader (no database); absent = the shipped `guestSeatView` › preview. */
+  read?: () => Promise<Preview>;
+}) {
   const [p, setP] = useState<Preview | null>(null);
   const [full, setFull] = useState(false);
   const headId = useId();
   const read = useCallback(() => {
     setP(null);
-    readGuestSeatPreview(eventId, guestId)
+    (readStandIn ? readStandIn() : guestSeatView(eventId, { kind: 'preview', guestId }))
       .then(setP)
       .catch(() => setP({ ok: false }));
-  }, [eventId, guestId]);
+  }, [eventId, guestId, readStandIn]);
   useEffect(() => {
     read();
   }, [read]);

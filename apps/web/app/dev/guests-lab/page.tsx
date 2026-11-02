@@ -13,6 +13,7 @@
  * `pb-28` <main> and its thumb bar), so a stacking or clearance bug shows here
  * the way it shows on a phone.
  *
+ *   ?part=seatview  Seats S1d — the guest's seat page for `&view=both|2d|3d` + the guest card's preview of each
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1;
@@ -65,6 +66,8 @@
 import { papicHomeHref } from '@/lib/papic-home-href';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
+import { YourSeat } from '@/app/[slug]/find-seat/_components/your-seat';
+import { LAB_SEAT_BOOTHS, LAB_SEAT_TABLES, LabSeatViewCards } from './lab-seat-view';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
@@ -595,6 +598,40 @@ export default async function GuestsLabPage({
     return labRefuses ? { ok: false, error: 'They could not be added just now — nothing was changed.' } : { ok: true };
   }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
+
+  if (part === 'seatview') {
+    /* 🪑 Seats S1d — the guest's seat page (`YourSeat`) for the Seats ⚙ choice in `&view=` (both · 2d · 3d), and the
+       host's guest-card preview of each choice. Fake data, no database. */
+    const v = sp.view === '2d' || sp.view === '3d' ? sp.view : 'both';
+    return (
+      <main className="mx-auto flex max-w-md flex-col gap-4 bg-cream px-4 py-4" data-lab-seatview={v}>
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">Guest’s seat page · {v}</p>
+        <div className="-mx-4">
+          <YourSeat
+            firstName="Ana"
+            names="Maria & Jose"
+            occasionLine={null}
+            dayOf={false}
+            doorsOpenLabel={null}
+            published
+            tables={LAB_SEAT_TABLES}
+            entrance={{ x: 50, y: 96 }}
+            table={{ table_id: 'lab-t-1', table_label: 'Family', capacity: 10 }}
+            mates={[]}
+            seatsOpen={0}
+            venueHref="/dev/guests-lab?part=seatview"
+            inviteHref="/dev/guests-lab"
+            slug="lab"
+            plural
+            pass={null}
+            seatView={v}
+            booths={LAB_SEAT_BOOTHS}
+          />
+        </div>
+        <LabSeatViewCards />
+      </main>
+    );
+  }
 
   if (part === 'notices') {
     // The account layout's wrappers, as `app/dashboard/(account)/layout.tsx` draws them.

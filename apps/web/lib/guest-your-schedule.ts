@@ -37,7 +37,7 @@ import {
   type TaskRow,
 } from './schedule-chapters';
 import { isOnTheGuestsSchedule } from './schedule-audience';
-import { RIGHT_AFTER, isRightAfter, runRank } from './moment-order';
+import { momentClockWords, runRank } from './moment-order';
 import { guestInvitedTo } from './schedule-view-as';
 
 /** A moment (a chapter's child block) as the card reads it. */
@@ -59,6 +59,9 @@ export type YourMoment = {
   time_tba?: boolean;
   follows_block_id?: string | null;
   sort_order?: number;
+  /** 🕑 How its clock is meant — "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
 };
 
 /** Who is looking: their seat, the roles they hold, the groups they are in. */
@@ -220,8 +223,9 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
     const rank = runRank(i.moments.filter((m) => m.parent_block_id === c.block_id));
     const rankOf = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
     // A moment's clock in words: "Time TBA" in a TBA chapter, "Right after" for an untimed moment.
+    // 🕑 …and "About 3:15 PM" / "2:15/2:30 PM" as the coordinator wrote it (lib/time-shape.ts).
     const timeOf = (m: YourMoment | null, at: string, own: boolean) =>
-      c.time_tba ? TIME_TBA : m && !own && isRightAfter(m) ? RIGHT_AFTER : clockWords(at);
+      c.time_tba ? TIME_TBA : m && !own ? momentClockWords(m, null, clockWords) : clockWords(at);
     // Every guest's moments here: shown to guests, for Everyone, not staged — the database's own three questions.
     for (const m of i.moments) {
       if (m.parent_block_id !== c.block_id) continue;

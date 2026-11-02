@@ -54,6 +54,7 @@ import {
 } from '@/lib/schedule-chapters';
 import type { ViewAsInput } from '@/lib/schedule-view-as';
 import { inRunOrder, momentAbove, momentClockWords } from '@/lib/moment-order';
+import type { TimeShape } from '@/lib/time-shape';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
@@ -88,6 +89,10 @@ export type ChapterMoment = {
   time_tba: boolean;
   /** ⏭ The moment it comes right after; null when timed (or first in its chapter). */
   follows_block_id: string | null;
+  /** 🕑 "About 3:15 PM" · "2:15/2:30 PM" — how its clock is meant (migration 20271303051692). */
+  time_shape: TimeShape;
+  /** 🕑 On 'or': the second time, minutes after its start. */
+  time_or_minutes: number | null;
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
@@ -299,13 +304,13 @@ export function ChaptersHost({
           chapter={current}
           section={momentSheet.section}
           onClose={() => setMomentSheet(null)}
-          onCreate={async (label, startIso, minutes, rightAfter) => {
+          onCreate={async (label, startIso, minutes, rightAfter, shape) => {
             const blockId = crypto.randomUUID();
             // ⏭ Right after: no clock of its own — after the chapter's last moment, its start only an order key.
             const above = rightAfter ? momentAbove(moments.filter((x) => x.parent_block_id === current.block_id), null) : null;
             const keyIso = rightAfter ? (above?.start_at ?? current.start_at) : startIso;
             const endIso = shiftWall(startIso, minutes);
-            const ok = await momentDoors.create(blockId, current.block_id, label, keyIso, endIso, rightAfter ? { follows: above?.block_id ?? null } : undefined);
+            const ok = await momentDoors.create(blockId, current.block_id, label, keyIso, endIso, rightAfter ? { follows: above?.block_id ?? null } : undefined, rightAfter ? undefined : shape);
             if (!ok) return false;
             setMoments((ms) => [
               ...ms,
@@ -317,6 +322,8 @@ export function ChaptersHost({
                 end_at: rightAfter ? null : endIso,
                 time_tba: rightAfter,
                 follows_block_id: above?.block_id ?? null,
+                time_shape: rightAfter ? 'at' : shape.shape,
+                time_or_minutes: rightAfter ? null : shape.orMinutes,
                 location: null,
                 spot: null,
                 notes: null,

@@ -9,6 +9,7 @@
  * Leaf module (no imports beyond the TBA leaf), so a client bundle that only needs the words carries nothing else.
  */
 import { TIME_TBA } from './time-tba';
+import { timeAsWritten } from './time-shape';
 
 export const RIGHT_AFTER = 'Right after';
 /** The longer form, where there is room to say what it is after. */
@@ -33,13 +34,20 @@ export function isRightAfter(m: { parent_block_id?: string | null; time_tba?: bo
  * the supplier's Schedule — so the three can never disagree.
  */
 export function momentClockWords(
-  m: { parent_block_id?: string | null; time_tba?: boolean | null; start_at: string | null },
+  m: {
+    parent_block_id?: string | null;
+    time_tba?: boolean | null;
+    start_at: string | null;
+    /** 🕑 "About 3:15 PM" · "2:15/2:30 PM" (4 additions (2), lib/time-shape.ts). */
+    time_shape?: string | null;
+    time_or_minutes?: number | null;
+  },
   chapter: { time_tba?: boolean | null } | null,
   clock: (iso: string) => string,
 ): string {
   if (chapter?.time_tba === true) return TIME_TBA;
   if (isRightAfter(m)) return RIGHT_AFTER;
-  return m.start_at ? clock(m.start_at) : '—';
+  return m.start_at ? timeAsWritten({ ...m, start_at: m.start_at }, clock) : '—';
 }
 
 function byKey(a: Orderable, b: Orderable): number {

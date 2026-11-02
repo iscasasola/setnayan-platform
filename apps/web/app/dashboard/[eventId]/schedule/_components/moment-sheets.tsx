@@ -10,6 +10,7 @@ import type { PickOption } from '../../website/editor/_components/pick-menu';
 import { normalizeSearchText } from '@/lib/guest-search';
 import { crewLines, forKey, forOptions, forPickOf, forPicked, forWords } from '@/lib/moment-for';
 import { RIGHT_AFTER_LONG, momentAbove } from '@/lib/moment-order';
+import { orAt, orMinutesBetween, type TimeShape } from '@/lib/time-shape';
 import {
   DEFAULT_MOMENT_MINUTES,
   MARCH_NAME_MAX,
@@ -87,7 +88,16 @@ export type MomentDoors = {
    * ⏭ With `rightAfter`, the moment has no clock of its own — it comes right after `follows` (null = first in the
    * chapter); `startIso` is then only its order key and no end is sent (migration 20271302727358).
    */
-  create: (blockId: string, chapterId: string, label: string, startIso: string, endIso: string, rightAfter?: { follows: string | null }) => Promise<boolean>;
+  create: (
+    blockId: string,
+    chapterId: string,
+    label: string,
+    startIso: string,
+    endIso: string,
+    rightAfter?: { follows: string | null },
+    /** 🕑 How the clock is meant — "About 3:15" · "2:15/2:30" (4 additions (2)); absent = exactly. */
+    shape?: MomentShape,
+  ) => Promise<boolean>;
   save: (blockId: string, fields: Record<string, string>) => Promise<boolean>;
   remove: (blockId: string) => Promise<boolean>;
   task: (op: TaskOp, blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
@@ -115,7 +125,7 @@ const NOT_SAVED_WORDS = 'It didn’t save — try again.';
 export function realMomentDoors(eventId: string): MomentDoors {
   const ok = (p: Promise<unknown>) => p.then(() => true, () => false);
   return {
-    create: (blockId, chapterId, label, startIso, endIso, rightAfter) =>
+    create: (blockId, chapterId, label, startIso, endIso, rightAfter, shape) =>
       ok(
         createScheduleBlock(
           form(eventId, {
@@ -126,7 +136,7 @@ export function realMomentDoors(eventId: string): MomentDoors {
             start_at: startIso.slice(0, 16),
             ...(rightAfter
               ? { time_tba: '1', ...(rightAfter.follows ? { follows_block_id: rightAfter.follows } : {}) }
-              : { end_at: endIso.slice(0, 16) }),
+              : { end_at: endIso.slice(0, 16), ...shapeFields(shape) }),
           }),
         ),
       ),
@@ -229,17 +239,19 @@ export function NewMomentSheet({
   section: ChapterSection;
   onClose: () => void;
   /** `rightAfter`: no clock of its own — it comes right after the last moment of the chapter (4 additions (1)). */
-  onCreate: (label: string, startIso: string, minutes: number, rightAfter: boolean) => Promise<boolean>;
+  onCreate: (label: string, startIso: string, minutes: number, rightAfter: boolean, shape: MomentShape) => Promise<boolean>;
 }) {
   const headingId = useContext(LayerHeading);
   const sections = sectionsFor(c);
   const section0 = sections.includes(firstSection) ? firstSection : 'Event';
   const [label, setLabel] = useState('');
   const [when, setWhen] = useState<WhenKey>('at');
+  // 🕑 One of two times: the second, as minutes after the first (null = not typed yet).
+  const [orMinutes, setOrMinutes] = useState<number | null>(null);
   const [start, setStart] = useState<string>(sectionStartFor(c, section0) ?? c.start_at);
   const [minutes, setMinutes] = useState(DEFAULT_MOMENT_MINUTES);
   const [state, setState] = useState<'idle' | 'saving' | 'failed'>('idle');
-  const ready = label.trim().length > 0;
+  const ready = label.trim().length > 0 && (when !== 'or' || orMinutes !== null);
   void onClose;
   return (
       <div data-new-moment="" className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
@@ -261,7 +273,7 @@ export function NewMomentSheet({
             data="moment-name"
           />
           <WhenRow value={when} onPick={setWhen} />
-          {when === 'at' ? (
+          {when !== 'after' ? (
             <>
               <TimeRow
                 name="Time"
@@ -274,6 +286,21 @@ export function NewMomentSheet({
                 }}
                 data="moment-time"
               />
+              {when === 'or' ? (
+                <TimeRow
+                  name="Or at"
+                  value={orMinutes ? wallTime(orAt(start, orMinutes)) : ''}
+                  empty="Second time"
+                  onKeep={(t) => {
+                    const second = momentStartFrom(c, t);
+                    const n = second ? orMinutesBetween(start, second) : null;
+                    if (!n) return { ok: false, error: SECOND_TIME_PROBLEM };
+                    setOrMinutes(n);
+                    return { ok: true };
+                  }}
+                  data="moment-time-or"
+                />
+              ) : null}
               <MinutesRow
                 minutes={minutes}
                 onKeep={(n) => {
@@ -283,7 +310,7 @@ export function NewMomentSheet({
               />
             </>
           ) : null}
-          {when === 'at' && sections.length > 1 ? (
+          {when !== 'after' && sections.length > 1 ? (
             <ChosenRow
               name="Section"
               value={momentSection(start, c)}
@@ -311,7 +338,8 @@ export function NewMomentSheet({
             data-testid="moment-create"
             onClick={async () => {
               setState('saving');
-              const ok = await onCreate(label.trim(), start, minutes, when === 'after');
+              const shape: MomentShape = when === 'about' ? { shape: 'about', orMinutes: null } : when === 'or' ? { shape: 'or', orMinutes } : { shape: 'at', orMinutes: null };
+              const ok = await onCreate(label.trim(), start, minutes, when === 'after', shape);
               if (!ok) setState('failed');
             }}
           />
@@ -322,12 +350,30 @@ export function NewMomentSheet({
 
 /* ── when: at a time, or right after the one above ────────────────────────────────────────────────────────────── */
 
-type WhenKey = 'at' | 'after';
+type WhenKey = 'at' | 'about' | 'or' | 'after';
+
+/** 🕑 How a moment's clock is meant, as the create door posts it (4 additions (2), migration 20271303051692). */
+export type MomentShape = { shape: TimeShape; orMinutes: number | null };
 
 const WHEN_OPTIONS: PickOption[] = [
   { key: 'at', label: 'At a time' },
+  { key: 'about', label: 'About a time' },
+  { key: 'or', label: 'One of two times' },
   { key: 'after', label: RIGHT_AFTER_LONG },
 ];
+
+function whenKeyOf(k: string): WhenKey {
+  return k === 'about' || k === 'or' || k === 'after' ? k : 'at';
+}
+
+function shapeFields(shape: MomentShape | undefined): Record<string, string> {
+  if (!shape || shape.shape === 'at') return {};
+  return shape.shape === 'or' && shape.orMinutes
+    ? { time_shape: 'or', time_or_minutes: String(shape.orMinutes) }
+    : { time_shape: 'about' };
+}
+
+const SECOND_TIME_PROBLEM = 'Pick a time after the first one, within 4 hours of it.';
 
 /**
  * ⏭ WHEN ▾ (owner 2026-11-02, 4 additions (1)): a coordinator's timeline writes some moments with no clock — "Bouquet
@@ -338,10 +384,13 @@ function WhenRow({ value, onPick }: { value: WhenKey; onPick: (k: WhenKey) => vo
   return (
     <ChosenRow
       name="When"
-      about={{ words: 'Right after the one above has no time of its own. It happens when the moment above it is done, and moves when that one moves. Guests do not see it until it has a time.' }}
+      about={{
+        words:
+          'About a time shows “About 3:15 PM”. One of two times shows both, like “2:15/2:30 PM”, when it is decided on the day. Right after the one above has no time of its own: it happens when the moment above it is done, and moves when that one moves. Guests do not see it until it has a time.',
+      }}
       value={value}
       options={WHEN_OPTIONS}
-      onPick={(k) => onPick(k === 'after' ? 'after' : 'at')}
+      onPick={(k) => onPick(whenKeyOf(k))}
       data="moment-when"
     />
   );
@@ -421,9 +470,12 @@ export function MomentSheet({
   const section = momentSection(m.start_at, c);
   // ⏭ "Right after the one above" (no clock) or "At a time". Picking At a time saves nothing until a time is typed —
   // the order key it holds is its anchor's start, never a time to keep.
-  const [when, setWhen] = useState<WhenKey>(m.time_tba ? 'after' : 'at');
-  useEffect(() => setWhen(m.time_tba ? 'after' : 'at'), [m.time_tba]);
+  const savedWhen: WhenKey = m.time_tba ? 'after' : m.time_shape;
+  const [when, setWhen] = useState<WhenKey>(savedWhen);
+  useEffect(() => setWhen(savedWhen), [savedWhen]);
   const untimed = m.time_tba;
+  // 🕑 The second of "2:15/2:30" as a clock (null when not one of two).
+  const secondIso = m.time_shape === 'or' && m.time_or_minutes ? orAt(m.start_at, m.time_or_minutes) : null;
   const sections = sectionsFor(c);
   const roomOf = m.spot ?? (m.location ? null : c.spot);
 
@@ -437,22 +489,37 @@ export function MomentSheet({
   /** A new start keeps the moment's length. On a moment with no clock yet, it is now timed and follows nothing. */
   const moveTo = (startIso: string) => {
     const endIso = shiftWall(startIso, minutes);
-    return untimed
-      ? keep(
-          { start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16), time_tba: '0' },
-          { start_at: startIso, end_at: endIso, time_tba: false, follows_block_id: null },
-        )
-      : keep({ start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16) }, { start_at: startIso, end_at: endIso });
+    // 🕑 "2:15/2:30": moving the first time keeps the second where it was written — refused if it would come first.
+    const orN = secondIso ? orMinutesBetween(startIso, secondIso) : null;
+    if (secondIso && !orN) return { ok: false as const, error: 'Make the first time earlier than the second.' };
+    const shaped: Record<string, string> = secondIso ? { time_shape: 'or', time_or_minutes: String(orN) } : {};
+    const shapedNext: Partial<ChapterMoment> = secondIso ? { time_or_minutes: orN } : {};
+    if (untimed) {
+      // A time typed on a moment with none: it is timed now, as the When ▾ says (exactly, or about).
+      const shape: TimeShape = when === 'about' ? 'about' : 'at';
+      return keep(
+        { start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16), time_tba: '0', time_shape: shape },
+        { start_at: startIso, end_at: endIso, time_tba: false, follows_block_id: null, time_shape: shape, time_or_minutes: null },
+      );
+    }
+    return keep({ start_at: startIso.slice(0, 16), end_at: endIso.slice(0, 16), ...shaped }, { start_at: startIso, end_at: endIso, ...shapedNext });
   };
+
+  /** 🕑 Exactly · About: saved at once. One of two waits for its second time. */
+  const reshape = (k: 'at' | 'about') =>
+    keep({ time_shape: k }, { time_shape: k, time_or_minutes: null }).then((r) => {
+      if (!r.ok) setWhen(savedWhen);
+      return r;
+    });
 
   /** ⏭ Right after the one above: the moment directly above it in this chapter's run (none = first). */
   const goRightAfter = async () => {
     const above = momentAbove(moments.filter((x) => x.parent_block_id === m.parent_block_id), m.block_id);
     const r = await keep(
       { time_tba: '1', ...(above ? { follows_block_id: above.block_id } : {}) },
-      { time_tba: true, end_at: null, is_public: false, follows_block_id: above?.block_id ?? null, start_at: above?.start_at ?? c.start_at },
+      { time_tba: true, end_at: null, is_public: false, follows_block_id: above?.block_id ?? null, start_at: above?.start_at ?? c.start_at, time_shape: 'at', time_or_minutes: null },
     );
-    if (!r.ok) setWhen('at');
+    if (!r.ok) setWhen(savedWhen);
   };
 
   /** 👷 A supplier's line puts the moment on their day — the door linked them first (`runMomentOp`); the sheet says so. */
@@ -490,9 +557,10 @@ export function MomentSheet({
                 onPick={(k) => {
                   setWhen(k);
                   if (k === 'after' && !untimed) void goRightAfter();
+                  else if ((k === 'at' || k === 'about') && !untimed && k !== m.time_shape) void reshape(k);
                 }}
               />
-              {when === 'at' ? (
+              {when !== 'after' ? (
                 <TimeRow
                   name="Time"
                   value={untimed ? '' : wallTime(m.start_at)}
@@ -502,6 +570,20 @@ export function MomentSheet({
                     return at ? moveTo(at) : NOT_SAVED;
                   }}
                   data="moment-time"
+                />
+              ) : null}
+              {when === 'or' && !untimed ? (
+                <TimeRow
+                  name="Or at"
+                  value={secondIso ? wallTime(secondIso) : ''}
+                  empty="Second time"
+                  onKeep={(t) => {
+                    const second = momentStartFrom(c, t);
+                    const n = second ? orMinutesBetween(m.start_at, second) : null;
+                    if (!n) return { ok: false, error: SECOND_TIME_PROBLEM };
+                    return keep({ time_shape: 'or', time_or_minutes: String(n) }, { time_shape: 'or', time_or_minutes: n });
+                  }}
+                  data="moment-time-or"
                 />
               ) : null}
               {!untimed ? (

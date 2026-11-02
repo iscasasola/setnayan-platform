@@ -30,7 +30,7 @@ export type YourScheduleRead = { kind: 'ok'; schedule: YourSchedule } | { kind: 
 
 /** The block columns the card reads: a chapter's (`CHAPTER_FIELDS`) and a moment's fence and place. */
 export const YOUR_SCHEDULE_BLOCK_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id, time_shape, time_or_minutes';
 
 type BlockRow = {
   block_id: string;
@@ -47,6 +47,8 @@ type BlockRow = {
   travel_from: string | null;
   travel_to: string | null;
   follows_block_id?: string | null;
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
 } & Record<string, unknown>;
 
 export async function readYourSchedule(
@@ -97,6 +99,9 @@ export async function readYourSchedule(
             time_tba: r.time_tba === true,
             follows_block_id: r.follows_block_id ?? null,
             sort_order: typeof r.sort_order === 'number' ? r.sort_order : 0,
+            // 🕑 "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692).
+            time_shape: r.time_shape ?? 'at',
+            time_or_minutes: r.time_or_minutes ?? null,
           },
         ]
       : [],

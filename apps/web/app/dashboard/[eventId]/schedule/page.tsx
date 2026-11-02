@@ -120,6 +120,7 @@ import { AnnounceButton, BookedScheduleFrame, ChaptersHost, PlanningChapters, Sc
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
@@ -573,9 +574,16 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const canAnnounce = authority.canSend && announceEnabled;
   // `null` = the read was refused — the sheet says so rather than "nothing yet".
   let recentAnnouncements: CoordinatorBroadcastItem[] | null = [];
+  /* 📣 RELEASE lives in the same 🔊 sheet (plan §4 "Release + announce · Schedule's 🔊 round"; Home's Release door
+     opens it with `?announce=1`). The same two people may press it; never offered inside the Maker. */
+  let scheduleRelease: ScheduleReleaseFacts | null = null;
   if (canAnnounce) {
-    const read = await fetchLatestBroadcasts(supabase, eventId);
+    const [read, release] = await Promise.all([
+      fetchLatestBroadcasts(supabase, eventId),
+      inMaker ? Promise.resolve(null) : readScheduleRelease(supabase, eventId),
+    ]);
     recentAnnouncements = read === BROADCASTS_UNREADABLE ? null : read;
+    scheduleRelease = release;
   }
 
   // The live run-of-show strip is drawn ON THE DAY only (prototype: "one live
@@ -1067,7 +1075,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           }}
           announce={
             canAnnounce ? (
-              <AnnounceButton eventId={eventId} isEventDay={isEventDay} recent={recentAnnouncements} round />
+              <AnnounceButton eventId={eventId} isEventDay={isEventDay} recent={recentAnnouncements} round release={scheduleRelease} />
             ) : null
           }
           share={shareSchedule}
@@ -1125,6 +1133,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                     eventId={eventId}
                     isEventDay={isEventDay}
                     recent={recentAnnouncements}
+                    release={scheduleRelease}
                   />
                 </InSlot>
               ) : null}

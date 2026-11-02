@@ -15068,7 +15068,9 @@
         "vendor-dashboard/invite/date-status-actions.ts",
         "vendor-dashboard/invite/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/profile"
+      ],
       "actions": [
         "issueLockedQr"
       ],

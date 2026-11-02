@@ -140,9 +140,9 @@ export function sampleChapters(now: Date): InvitationChapter[] {
   );
 }
 
-/** When the doors open for a guest — the first moment of the first chapter, as the programme writes it. */
+/** When guests arrive, as the programme writes it ("2:30 PM") — a role's own call time wins over it. */
 export function sampleGuestsArrive(): string {
-  return formatHhmm(SAMPLE.chapters[0]!.moments[0]!.at);
+  return formatHhmm(SAMPLE.guestsArrive);
 }
 
 /** "2:30 PM". */

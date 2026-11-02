@@ -151,6 +151,8 @@ export type SampleEventSnapshot = {
   /** `events.entourage_section_order` — the march as a Filipino church wedding walks it. */
   entourageSectionOrder: readonly string[];
   chapters: readonly SampleChapter[];
+  /** When guests are asked to arrive (`HH:MM`) — half an hour before the march; a role's own call time wins over it. */
+  guestsArrive: string;
   /**
    * 🪑 THE SAMPLE'S "SEATS PUBLISHED" OVERRIDE (brief item 4). A real event shows a guest
    * their table only on the day (`guestsMaySeeSeatsFor`). The sample is never on the day,
@@ -351,7 +353,6 @@ const CHAPTERS: readonly SampleChapter[] = [
     location: 'Kapilya ng Liwanag, Tagaytay',
     spot: 'Garden chapel',
     moments: [
-      { key: 'arrive', label: 'Guests arrive and are seated', at: '14:30', until: '14:55', spot: 'Chapel doors' },
       { key: 'march', label: 'The Wedding March begins', at: '15:00', until: '15:12', spot: 'Centre aisle' },
       { key: 'welcome', label: 'Welcome and opening prayer', at: '15:12', until: '15:20', spot: null },
       { key: 'readings', label: 'Readings and homily', at: '15:20', until: '15:40', spot: null },
@@ -365,7 +366,7 @@ const CHAPTERS: readonly SampleChapter[] = [
   {
     key: 'reception',
     label: 'Reception',
-    at: '18:00',
+    at: '17:00',
     until: '22:30',
     location: 'The Glasshouse at Hacienda Alon, Tagaytay',
     spot: 'Main hall',
@@ -454,6 +455,7 @@ const SNAPSHOT: SampleEventSnapshot = Object.freeze({
   tables: Object.freeze(TABLES.map((t) => Object.freeze({ ...t }))),
   entourageSectionOrder: Object.freeze([...ENTOURAGE_SECTION_ORDER]),
   chapters: Object.freeze(CHAPTERS.map((c) => Object.freeze({ ...c, moments: Object.freeze(c.moments.map((m) => Object.freeze({ ...m }))) }))),
+  guestsArrive: '14:30',
   seatsPublished: true,
 });
 

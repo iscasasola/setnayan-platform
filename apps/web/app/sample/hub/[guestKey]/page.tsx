@@ -134,7 +134,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
 
           <section data-sample-part="day-only" className="space-y-4">
             <p className="pahina-eyebrow">
-              <span>On the day</span>
+              <span>The Day</span>
             </p>
             <ul className="divide-y divide-ink/10 border-y border-ink/10">
               {SAMPLE_DAY_ONLY.map((d) => (

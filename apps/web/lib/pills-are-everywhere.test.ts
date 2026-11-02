@@ -85,7 +85,10 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'shared', what: 'A thread’s views (Chat | Decisions | Files)', file: 'app/_components/chat-thread-views.tsx', anchor: 'aria-label="Show"', via: 'classes', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-lg border border-ink/15' },
   { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
   /* ── area 2 · the supplier's dashboard ── */
-  { area: 'supplier', what: 'Momentum window (Daily | Monthly | Annual)', file: `${V}/performance/_components/momentum-window-toggle.tsx`, anchor: 'aria-label="Momentum window"', via: 'track', thumb: 'slides', gone: "background: 'var(--m-ink)', color: 'var(--m-paper)'" },
+  // 2026-11-01 (owner 2026-10-30 "ONE SELECTOR FOR EVERY PAGE", Q1 "the segmented rows become the same ▾"; house rule
+  // "every choice is one dropdown"): My Performance's Momentum window (Daily | Monthly | Annual) is RETIRED as a pill —
+  // it is the shared PickMenu now, so it leaves this table on purpose, as Guests' rows did.
+  // 🔒 app/vendor-dashboard/performance/the-pickers-are-one-dropdown.test.ts
   /* "Billing cycle (Monthly | Annual)" left this list 2026-10-14: the simpler supplier dashboard (owner-APPROVED,
      prototype SCREENS.plan "Cycle ▾") draws the plan and its cycle as ONE dropdown each, in rows. The toggle file is
      deleted; the dropdowns are held by `app/vendor-dashboard/subscription/the-plan-is-rows.test.ts`. */
@@ -199,7 +202,9 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // iPhone app — every Guests view wears the ONE dropdown row; see its note in CONVERTED).
   // 26, not 27: the supplier Services manager's Coverage | Service cards track was RETIRED on purpose (2026-10-31, #7120,
   // ONE SELECTOR — it is `Your services · Coverage ▾` now; see its note in CONVERTED).
-  assert.ok(CONVERTED.length >= 26, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 25, not 26: My Performance's Momentum window track was RETIRED on purpose (2026-11-01, ONE SELECTOR — it is the
+  // shared PickMenu now; see its note in CONVERTED).
+  assert.ok(CONVERTED.length >= 25, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

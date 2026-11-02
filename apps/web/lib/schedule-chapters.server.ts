@@ -11,6 +11,8 @@ import {
   type MomentOp,
   type Chapter,
   type MomentFacts,
+  type MomentPapic,
+  type MarchList,
   type TaskInput,
   type TaskPeople,
   type TaskRow,
@@ -143,19 +145,43 @@ export async function readTaskPeople(supabase: SupabaseClient, eventId: string):
 }
 
 /**
- * How many Papic photos and videos were shot into a chapter (`papic_chapter_captures`, migration 20271300249267 — a
- * capture links to a CHAPTER, never a moment). A head count: no rows travel. A refused read is `{ ok: false }`.
+ * 📷 What deleting a moment does to Papic (migration 20271302139013): the captures of its chapter tagged with it
+ * (`moment_block_id`), split into the ones it deletes and the ones that stay because they are also in another chapter
+ * — the same split the database's delete trigger makes. Two head-free reads on the caller's own client (RLS: the
+ * couple, or a helper with the Schedule). A refused read is `{ ok: false }`, never 0.
  */
-export async function countChapterPapic(supabase: SupabaseClient, chapterId: string): Promise<Read<number>> {
-  const { count, error } = await supabase
+export async function countMomentPapic(supabase: SupabaseClient, momentId: string, chapterId: string): Promise<Read<MomentPapic>> {
+  const { data, error } = await supabase
     .from('papic_chapter_captures')
-    .select('link_id', { count: 'exact', head: true })
-    .eq('block_id', chapterId);
-  if (error || typeof count !== 'number') {
-    if (error) logQueryError('countChapterPapic', error, { block_id: chapterId }, 'graceful_degrade');
+    .select('guest_capture_id, seat_photo_id')
+    .eq('block_id', chapterId)
+    .eq('moment_block_id', momentId);
+  if (error || !data) {
+    if (error) logQueryError('countMomentPapic', error, { block_id: momentId }, 'graceful_degrade');
     return { ok: false };
   }
-  return { ok: true, value: count };
+  const rows = data as Array<{ guest_capture_id: string | null; seat_photo_id: string | null }>;
+  if (rows.length === 0) return { ok: true, value: { removed: 0, stays: 0 } };
+  const guests = rows.map((r) => r.guest_capture_id).filter((v): v is string => Boolean(v));
+  const seats = rows.map((r) => r.seat_photo_id).filter((v): v is string => Boolean(v));
+  const ors = [
+    ...(guests.length ? [`guest_capture_id.in.(${guests.join(',')})`] : []),
+    ...(seats.length ? [`seat_photo_id.in.(${seats.join(',')})`] : []),
+  ];
+  const { data: elsewhere, error: e2 } = await supabase
+    .from('papic_chapter_captures')
+    .select('guest_capture_id, seat_photo_id')
+    .neq('block_id', chapterId)
+    .or(ors.join(','));
+  if (e2 || !elsewhere) {
+    if (e2) logQueryError('countMomentPapic.elsewhere', e2, { block_id: momentId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  const away = new Set(
+    (elsewhere as Array<{ guest_capture_id: string | null; seat_photo_id: string | null }>).map((r) => r.guest_capture_id ?? r.seat_photo_id),
+  );
+  const stays = rows.filter((r) => away.has(r.guest_capture_id ?? r.seat_photo_id)).length;
+  return { ok: true, value: { removed: rows.length - stays, stays } };
 }
 
 /**
@@ -165,13 +191,16 @@ export async function countChapterPapic(supabase: SupabaseClient, chapterId: str
  */
 export async function runMomentOp(
   supabase: SupabaseClient,
-  op: MomentOp,
+  op: Exclude<MomentOp, 'march_set' | 'march_new'>,
   blockId: string,
   fd: FormData,
   userId: string,
-): Promise<Wrote<string | number>> {
+): Promise<Wrote<string | number | MomentPapic>> {
   if (op === 'papic_count') {
-    const n = await countChapterPapic(supabase, blockId);
+    // `block_id` is the MOMENT; its chapter rides along — the count is that chapter's captures tagged with it.
+    const chapterId = fd.get('chapter_id');
+    if (typeof chapterId !== 'string' || !chapterId) return { ok: false, error: 'The Papic photos couldn’t be counted just now.' };
+    const n = await countMomentPapic(supabase, blockId, chapterId);
     return n.ok ? n : { ok: false, error: 'The Papic photos couldn’t be counted just now.' };
   }
   if (op === 'task_remove') {
@@ -185,4 +214,50 @@ export async function runMomentOp(
   const taskId = fd.get('task_id');
   if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'That task is gone.' };
   return updateMomentTask(supabase, taskId, blockId, parsed.input);
+}
+
+/* ── 🚶 "This is a march": the marches a moment can pick (migration 20271301571290) ────────────────────────────────── */
+
+/**
+ * The couple's own marches (`march_groups`, made in Guests › March) for the moment sheet's "This is a march" dropdown —
+ * ONE read, on the caller's own client. A refused read is `{ ok: false }`: the sheet says so, never "no marches".
+ * (A coordinator who may not read the guest list gets no rows — not an error; a moment already linked keeps its line,
+ * `marchPickOptions`.)
+ */
+export async function readMarchList(supabase: SupabaseClient, eventId: string): Promise<MarchList> {
+  const { data, error } = await supabase
+    .from('march_groups')
+    .select('group_key, label')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  if (error || !data) {
+    if (error) logQueryError('readMarchList', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    marches: (data as Array<{ group_key: string; label: string }>).map((r) => ({ key: r.group_key, label: r.label })),
+  };
+}
+
+/**
+ * A moment becomes one march, or none (`key` null) — the moment's own row and nothing else: clearing the link never
+ * touches the march. The database refuses a march of another event or one that is gone (`march_not_found`). Counted:
+ * a zero-row UPDATE is success-shaped.
+ */
+export async function linkMomentMarch(supabase: SupabaseClient, eventId: string, momentId: string, key: string | null): Promise<Wrote<string>> {
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .update({ march_key: key })
+    .eq('block_id', momentId)
+    .eq('event_id', eventId)
+    .not('parent_block_id', 'is', null)
+    .select('block_id');
+  if (error) {
+    if (/march_not_found/.test(error.message ?? '')) return { ok: false, error: 'That march is gone — pick another.' };
+    logQueryError('linkMomentMarch', error, { block_id: momentId }, 'graceful_degrade');
+    return { ok: false, error: 'It didn’t save — try again.' };
+  }
+  if (!data || data.length === 0) return { ok: false, error: NOTHING_CHANGED };
+  return { ok: true, value: key ?? '' };
 }

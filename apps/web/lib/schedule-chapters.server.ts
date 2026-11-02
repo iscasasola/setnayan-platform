@@ -18,6 +18,7 @@ import {
   type TaskRow,
 } from './schedule-chapters';
 import { fetchGuestGroupsByEventMeasured, fetchGuestsByEventMeasured, guestDisplayName, guestRoleLabel } from './guests';
+import { crewLines, forPickOf, type ForPick } from './moment-for';
 
 /**
  * 📖 CHAPTERS AND TASKS — the server half (migration 20271300072429; the pure half is lib/schedule-chapters.ts).
@@ -208,12 +209,130 @@ export async function runMomentOp(
     if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'That task is gone.' };
     return deleteMomentTask(supabase, taskId);
   }
+  const eventId = String(fd.get('event_id') ?? '');
+  if (op === 'for_set') {
+    // 👷 Suppliers and crew ▾ — tick or untick one supplier, or one of their crew, on this moment.
+    const pick = forPickOf(String(fd.get('for_key') ?? ''));
+    if (!pick || !eventId) return { ok: false, error: 'Pick a supplier or one of their crew.' };
+    return setMomentFor(supabase, eventId, blockId, pick, fd.get('on') === '1', userId);
+  }
   const parsed = taskInputFromForm(fd);
   if (!parsed.ok) return parsed;
+  // 👷 A line for a supplier (or their crew) puts the moment on that supplier's day — linked FIRST, so a line is never
+  // written that their day cannot see.
+  if (parsed.input.who.kind === 'supplier' && eventId) {
+    const linked = await setMomentFor(supabase, eventId, blockId, { kind: 'supplier', vendorId: parsed.input.who.vendorId }, true, userId);
+    if (!linked.ok) return linked;
+  }
   if (op === 'task_add') return addMomentTask(supabase, blockId, parsed.input, userId);
   const taskId = fd.get('task_id');
   if (typeof taskId !== 'string' || !taskId) return { ok: false, error: 'That task is gone.' };
   return updateMomentTask(supabase, taskId, blockId, parsed.input);
+}
+
+/* ── 👷 Suppliers and crew ▾: who a moment is for ────────────────────────────────────────────────────────────────── */
+
+type ForBlock = { block_id: string; parent_block_id: string | null; label: string; responsible_vendor_ids: string[] | null };
+
+/** One block's supplier list, with `vendorId` added or taken out. Only `responsible_vendor_ids` — never `is_public`. */
+async function writeBlockVendors(supabase: SupabaseClient, eventId: string, b: ForBlock, vendorId: string, on: boolean): Promise<boolean> {
+  const was = b.responsible_vendor_ids ?? [];
+  if (was.includes(vendorId) === on) return true;
+  const next = on ? [...was, vendorId] : was.filter((v) => v !== vendorId);
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .update({ responsible_vendor_ids: next, updated_at: new Date().toISOString() })
+    .eq('block_id', b.block_id)
+    .eq('event_id', eventId)
+    .select('block_id');
+  if (error) logQueryError('setMomentFor.block', error, { block_id: b.block_id }, 'graceful_degrade');
+  // RLS answers a refused UPDATE with ZERO rows and no error — counted, never "saved".
+  return !error && Array.isArray(data) && data.length > 0;
+}
+
+/**
+ * 👷 A HOST'S MOMENT FOR ONE SUPPLIER OR ONE OF THEIR CREW (corpus SCHEDULE_CHAPTERS_BUILD_PLAN "A host's moment for one
+ * supplier, coordinator or crew"; the pure half and its reasons are `lib/moment-for.ts`).
+ *   · a SUPPLIER ticked → their booking joins the moment's `responsible_vendor_ids` AND its chapter's, so the moment is
+ *     "yours" on their day (Customer › Schedule) inside a chapter they are linked to. Unticked → off the moment only
+ *     (the chapter may hold their other moments); refused, in words, while they still have lines on it.
+ *   · a CREW member ticked → the same link, then ONE line on the moment for them (`vendor_id` + `crew`, `what` = the
+ *     moment's name — the shape the supplier's own "Who on our side" writes). Unticked → that crew's lines on it go.
+ * Visible to guests is NOT touched: guests read a moment only through `onlyWhatGuestsMaySee` (`is_public` + Everyone),
+ * and neither table write here names it. Every write runs on the caller's own client (RLS decides) and is read back.
+ * Answers: the supplier's booking · the crew's line id · the removed line ids, comma-separated.
+ */
+export async function setMomentFor(
+  supabase: SupabaseClient,
+  eventId: string,
+  momentId: string,
+  pick: ForPick,
+  on: boolean,
+  userId: string | null,
+): Promise<Wrote<string>> {
+  const { data: moment, error } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id, parent_block_id, label, responsible_vendor_ids')
+    .eq('block_id', momentId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error || !moment) {
+    if (error) logQueryError('setMomentFor.moment', error, { block_id: momentId }, 'graceful_degrade');
+    return { ok: false, error: NOTHING_CHANGED };
+  }
+  const m = moment as ForBlock;
+  const { vendorId } = pick;
+  const { data: lines, error: linesErr } = await supabase
+    .from('event_schedule_tasks')
+    .select(TASK_COLUMNS)
+    .eq('block_id', momentId)
+    .eq('vendor_id', vendorId);
+  if (linesErr || !lines) {
+    if (linesErr) logQueryError('setMomentFor.lines', linesErr, { block_id: momentId }, 'graceful_degrade');
+    return { ok: false, error: 'Their lines on this moment couldn’t be read just now — try again.' };
+  }
+  const theirs = lines as unknown as TaskRow[];
+
+  if (!on && pick.kind === 'supplier') {
+    if (theirs.length > 0) {
+      return {
+        ok: false,
+        error: `They still have ${theirs.length === 1 ? 'a line' : `${theirs.length} lines`} on this moment — untick their crew or remove those tasks first.`,
+      };
+    }
+    return (await writeBlockVendors(supabase, eventId, m, vendorId, false)) ? { ok: true, value: vendorId } : { ok: false, error: NOTHING_CHANGED };
+  }
+
+  if (!on && pick.kind === 'crew') {
+    const ids = crewLines(theirs, vendorId, pick.crew).map((t) => t.task_id);
+    if (ids.length === 0) return { ok: true, value: '' };
+    const { data: gone, error: delErr } = await supabase.from('event_schedule_tasks').delete().in('task_id', ids).select('task_id');
+    if (delErr || !gone || gone.length === 0) {
+      if (delErr) logQueryError('setMomentFor.crewOff', delErr, { block_id: momentId }, 'graceful_degrade');
+      return { ok: false, error: NOTHING_CHANGED };
+    }
+    return { ok: true, value: (gone as Array<{ task_id: string }>).map((t) => t.task_id).join(',') };
+  }
+
+  // On: the moment, then its chapter — a moment of theirs inside a chapter they are not linked to would sit under
+  // "All chapters" on their day, never under "My chapters".
+  if (!(await writeBlockVendors(supabase, eventId, m, vendorId, true))) return { ok: false, error: NOTHING_CHANGED };
+  if (m.parent_block_id) {
+    const { data: chapter } = await supabase
+      .from('event_schedule_blocks')
+      .select('block_id, parent_block_id, label, responsible_vendor_ids')
+      .eq('block_id', m.parent_block_id)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!chapter || !(await writeBlockVendors(supabase, eventId, chapter as ForBlock, vendorId, true))) {
+      return { ok: false, error: 'The moment is theirs now, but its chapter didn’t link — try again.' };
+    }
+  }
+  if (pick.kind === 'supplier') return { ok: true, value: vendorId };
+
+  const already = crewLines(theirs, vendorId, pick.crew)[0];
+  if (already) return { ok: true, value: already.task_id };
+  return addMomentTask(supabase, momentId, { who: { kind: 'supplier', vendorId, crew: pick.crew }, what: m.label || 'Their part', sortOrder: 0 }, userId);
 }
 
 /* ── 🚶 "This is a march": the marches a moment can pick (migration 20271301571290) ────────────────────────────────── */

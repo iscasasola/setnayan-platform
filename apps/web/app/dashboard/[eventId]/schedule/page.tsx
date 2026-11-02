@@ -695,6 +695,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   travel_to: momentFacts.get(m.block_id)?.travel_to ?? null,
                   march_key: momentFacts.get(m.block_id)?.march_key ?? null,
                   is_public: m.is_public,
+                  vendor_ids: momentFacts.get(m.block_id)?.vendor_ids ?? m.responsible_vendor_ids,
                   who:
                     m.responsible_vendor_ids
                       .map((id) => supplierName.get(id))

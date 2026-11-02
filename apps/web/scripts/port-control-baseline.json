@@ -8626,6 +8626,7 @@
         "EventDayView",
         "Eyebrow",
         "FeedPageSkeleton",
+        "ForRow",
         "FormRows",
         "Glance",
         "HTMLDivElement",
@@ -8687,6 +8688,7 @@
         "ScheduleModeToggle",
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
+        "SearchHead",
         "SentList",
         "SharePdfButton",
         "Sheet",
@@ -8708,6 +8710,7 @@
         "TellTheHost",
         "TemplatePicker",
         "TickerPill",
+        "TimeLine",
         "TimeRow",
         "TimeSpan",
         "TimeTicker",
@@ -10013,7 +10016,8 @@
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
-        "/dashboard/[seg]/vendors?open=[seg]"
+        "/dashboard/[seg]/vendors?open=[seg]",
+        "/dashboard/[seg]/vendors?tab=budget&team=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -10092,6 +10096,7 @@
         "Chips",
         "ChosenRow",
         "CityPick",
+        "ClaimDoor",
         "ClearButton",
         "ClusterHead",
         "CompareSheet",
@@ -10362,7 +10367,6 @@
     "/dashboard/[eventId]/vendors/[vendorId]/workspace": {
       "files": [
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
-        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
@@ -10393,7 +10397,6 @@
         "addWorkingNoteAction",
         "coupleConfirmReceived",
         "coupleReportNonDelivery",
-        "createAutoShareInviteAction",
         "deleteWorkingNoteAction",
         "inviteHost",
         "revokeHostInvite",
@@ -10407,7 +10410,6 @@
         "ChangeAccessLink",
         "ChangeOrderTrail",
         "ChosenProofField",
-        "ClaimLinkShare",
         "ColourAccessCard",
         "ColourChangeRowView",
         "ConsentGatedInviteForm",

@@ -339,6 +339,8 @@ export type PublicVendorRow = {
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
   user_id?: string | null;
+  /** 🏪 Show my page before verification (migration 20271303245624). Absent on the legacy select. */
+  self_published_at?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -448,7 +450,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,created_at,self_published_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -459,7 +461,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at)/i.test(
       error.message,
     )
   ) {
@@ -503,7 +505,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // A page a stranger cannot open (lib/own-shop-preview.ts — not live, a demo shop, closed) gets the generic title
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
-  if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false }).open !== 'public') {
+  if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
     return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
@@ -895,11 +897,13 @@ export async function renderVendorBySlug({
   // The membership read runs ONLY when the page is not public, so a stranger's view costs no extra query.
   const isDemoVendor = vendor.is_demo === true;
   const inDemoMode = await isAdminInDemoMode();
-  const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode });
+  // 🏪 While bookings are closed a shop that chose Show my page opens before it is verified (`selfPublishedLive`).
+  const gateBookingsOpen = await areBookingsOpen();
+  const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   const gate =
     publicGate.open === 'public'
       ? publicGate
-      : shopPageGate(vendor, { isTeam: await viewerIsShopTeam(vendor), adminDemoMode: inDemoMode });
+      : shopPageGate(vendor, { isTeam: await viewerIsShopTeam(vendor), adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   if (gate.open === 'nobody') notFound();
   /** Non-null = the owner or a helper is looking at a page couples cannot see yet; the banner says why. */
   const teamPreview = gate.open === 'team' ? gate.reason : null;

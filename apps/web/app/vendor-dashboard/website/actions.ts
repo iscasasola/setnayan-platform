@@ -16,6 +16,8 @@ import { isSetnayanHost } from '@/lib/custom-domain-resolve';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 
 /** Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ Pro item. */
 const OWN_ADDRESS_ASKS_FOR_PRO = 'Your own web address is part of Pro. Pick Pro on the Plan page to add one.';
@@ -205,4 +207,35 @@ export async function removeVendorDomain(domainId: string): Promise<DomainAction
 
   revalidatePath('/vendor-dashboard/website');
   return { ok: true };
+}
+
+// ── 🏪 Show my page before verification (owner 2026-11-02; `selfPublishedLive`, lib/own-shop-preview.ts) ──────────
+export type ShowPageResult = { ok: true; shown: boolean } | { ok: false; error: string };
+
+/**
+ * The shop's manager shows (or hides) its page before Setnayan verifies it — only while bookings are closed, so
+ * nothing on the page can be booked; the Verified badge still comes only from the documents. Written with the service
+ * role after the manager check: `self_published_at` carries no session grant (migration 20271303245624).
+ */
+export async function setShopPublished(show: boolean): Promise<ShowPageResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  const owner = await ownVendorId();
+  if ('error' in owner) return { ok: false, error: owner.error };
+  const role = await resolveVendorRoleForProfile(supabase, user.id, owner.vendorId);
+  if (!canManageVendor(role)) return { ok: false, error: 'Only the shop’s owner or an admin can show or hide the page.' };
+  if (show && (await areBookingsOpen())) {
+    return { ok: false, error: 'Your page shows once Setnayan verifies your shop — send your documents in Your details.' };
+  }
+  const { error } = await createAdminClient()
+    .from('vendor_profiles')
+    .update({ self_published_at: show ? new Date().toISOString() : null })
+    .eq('vendor_profile_id', owner.vendorId);
+  if (error) {
+    console.error('[supabase-error] app/vendor-dashboard/website/actions.ts · setShopPublished', error.message);
+    return { ok: false, error: 'That did not save. Nothing changed — please try again.' };
+  }
+  revalidatePath('/vendor-dashboard/website');
+  return { ok: true, shown: show };
 }

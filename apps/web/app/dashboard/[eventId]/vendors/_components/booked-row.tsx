@@ -72,6 +72,7 @@ import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions';
 import { BookedRoomLine } from './booked-room-line';
+import { TIMES_MARK_UNREAD } from '@/lib/supplier-schedule-marks';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SupplierShareButton } from '../../_components/supplier-share-button';
 import { CancelBookingButton } from './cancel-booking-button';
@@ -391,6 +392,24 @@ export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: st
   );
 }
 
+/**
+ * ✅ "Times confirmed · Nov 2" / "Seen · Nov 2" — the supplier's own press of Confirm my times / Seen on their day
+ * (`lib/supplier-schedule-marks.ts`, audit G6). Until this line the supplier was told "the host sees your times are
+ * final" and no host screen read it.
+ */
+function TimesMarkLine({ mark }: { mark: NonNullable<BookedRow['timesMark']> }) {
+  return (
+    <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-times-mark={mark.kind === 'mark' ? (mark.confirmed ? 'confirmed' : 'seen') : 'unread'}>
+      <Check aria-hidden strokeWidth={1.9} className={`mt-px h-4 w-4 shrink-0 ${mark.kind === 'mark' && mark.confirmed ? 'text-success-700' : 'text-ink/55'}`} />
+      {mark.kind === 'mark' ? (
+        <span className={mark.confirmed ? 'font-semibold text-ink' : 'text-ink/70'}>{mark.line}</span>
+      ) : (
+        <span className="text-[12.5px] text-ink/55">{TIMES_MARK_UNREAD}</span>
+      )}
+    </p>
+  );
+}
+
 /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
 function CallTimeLine({ line }: { line: BookedCallTime }) {
   return (
@@ -601,6 +620,7 @@ function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
     <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
       {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
       {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.timesMark ? <TimesMarkLine mark={row.timesMark} /> : null}
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}

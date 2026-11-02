@@ -4269,7 +4269,8 @@
         "/admin/settings?tab=[seg]",
         "/admin/settings?tab=notifications",
         "/admin/ugat?tab=onboarding",
-        "/explore"
+        "/explore",
+        "/sample"
       ],
       "actions": [
         "markAllNotificationsRead",
@@ -5797,6 +5798,7 @@
         "dashboard/[eventId]/_components/day-of-mode/grid.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-photo-wall-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/live-schedule-card.tsx",
+        "dashboard/[eventId]/_components/day-of-mode/schedule-unread.tsx",
         "dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
         "dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx",
         "dashboard/[eventId]/_components/details-guide-home-card.tsx",
@@ -5949,6 +5951,7 @@
         "updatePaxSettings"
       ],
       "blocks": [
+        "AccessAsksRead",
         "AccessRequestsDoorway",
         "AccountSwitcher",
         "ActionButton",
@@ -6235,6 +6238,7 @@
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "ScheduleDoors",
+        "ScheduleUnread",
         "Screen",
         "SearchHead",
         "SendBroadcastResult",
@@ -6831,6 +6835,7 @@
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
         "dashboard/[eventId]/guests/_components/guest-role-drag.tsx",
+        "dashboard/[eventId]/guests/_components/guest-seat-doors.tsx",
         "dashboard/[eventId]/guests/_components/guest-seat-preview.tsx",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
@@ -6932,6 +6937,7 @@
         "CardLockedProps",
         "CardPickProps",
         "CardRolesProps",
+        "CardSubmit",
         "CardSubmitProps",
         "CardTipProps",
         "CardTitleProps",
@@ -6995,6 +7001,7 @@
         "GuestRole",
         "GuestRow",
         "GuestRowLine",
+        "GuestSeatDoors",
         "GuestSeatMap",
         "GuestSeatPreview",
         "GuestSeatViewSaved",
@@ -7041,7 +7048,6 @@
         "K.Roles",
         "K.SaveState",
         "K.Submit",
-        "K.Tip",
         "K.Title",
         "K.Toggle",
         "KeptGuestList",
@@ -7225,6 +7231,7 @@
         "FormPageSkeleton",
         "GuestImportForm",
         "GuestImportState",
+        "GuestImportWaits",
         "Link",
         "SaveFileLink",
         "Submit"
@@ -8574,6 +8581,7 @@
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
+        "dashboard/[eventId]/schedule/_components/request-decision.tsx",
         "dashboard/[eventId]/schedule/_components/ros-p2.tsx",
         "dashboard/[eventId]/schedule/_components/schedule-focus.ts",
         "dashboard/[eventId]/schedule/_components/schedule-lazy.tsx",
@@ -8608,7 +8616,6 @@
         "createScheduleBlock",
         "deleteScheduleBlock",
         "loadScheduleTemplate",
-        "resolveScheduleSuggestion",
         "saveHostAnswers",
         "sendStageNoteFromEvent",
         "setBlockPrepVisibility",
@@ -8702,6 +8709,7 @@
         "PreparationRow",
         "ReadRefusedNotice",
         "ReleaseRow",
+        "RequestDecision",
         "RequestsSheet",
         "ResponsiblePartyEditor",
         "Rolled",
@@ -8716,6 +8724,7 @@
         "ScheduleLineView",
         "ScheduleModeToggle",
         "ScheduleOneLine",
+        "ScheduleRequestAnswer",
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
@@ -10319,6 +10328,7 @@
         "TeamSavePlan",
         "ThumbRow",
         "TickBox",
+        "TimesMarkLine",
         "Toast",
         "ToastState",
         "TypedRow",
@@ -11559,6 +11569,7 @@
         "GuestActionsProvider",
         "GuestCard",
         "GuestCardResult",
+        "GuestImportWaits",
         "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSeatPreview",
@@ -15106,7 +15117,9 @@
         "vendor-dashboard/invite/date-status-actions.ts",
         "vendor-dashboard/invite/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/profile"
+      ],
       "actions": [
         "issueLockedQr"
       ],

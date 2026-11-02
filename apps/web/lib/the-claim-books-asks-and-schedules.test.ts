@@ -79,7 +79,7 @@ const LOADERS: Array<[string, string, RegExp]> = [
   ['Budget · the money resolver', 'lib/budget-truth.ts', /vendorRows = withBookedByPayment\(vendorRows, paymentRows\)/],
   ['Home · EventDashboard', 'app/dashboard/[eventId]/_components/event-dashboard.tsx', /const eventVendors = withEmbeddedPayments\(/],
   ['Schedule · scheduleSuppliersFrom', 'lib/schedule-suppliers.ts', /supplierStandingWord\(r, paid\)/],
-  ['Schedule · readScheduleSuppliers', 'lib/schedule-suppliers-read.ts', /return scheduleSuppliersFrom\(rows, names\)/],
+  ['Schedule · readScheduleSuppliers', 'lib/schedule-suppliers-read.ts', /return scheduleSuppliersFrom\(rows, names(, marks)?\)/],
 ];
 
 test('A6 · every couple read that draws a supplier\'s standing goes through the resolver', () => {

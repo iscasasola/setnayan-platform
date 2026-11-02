@@ -37,7 +37,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import type { HomeFirstScreenProps } from './_components/home-first-screen';
-import { homeToday } from './_components/home-control-faces';
+import { homeToday, homeWaiting } from './_components/home-control-faces';
 import { fixtureControl, fixtureControlUnread } from '@/lib/home-control-fixture';
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
 
@@ -98,12 +98,25 @@ const EVERY_STATE: HomeNextInput[] = [
   NOTHING,
 ];
 
-function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = NOTHING): string {
-  const next = pickHomeNext(input);
-  const control = fixtureControl('e1', {
-    next,
+/** The control row a state draws with — the one `draw` uses, so a test can ask the same Today the screen drew. */
+function controlFor(input: HomeNextInput) {
+  return fixtureControl('e1', {
+    next: pickHomeNext(input),
     guests: input.guests === null ? 'unread' : { coming: 96, noReply: 35, toInvite: input.guests.unsent, declined: 4, total: input.guests.total },
   });
+}
+
+/** ☀ Nothing waits on the hosts: no overdue payment, no quote to answer (audit 2026-11-02 #2 — only then is Today calm). */
+function calmControl(input: HomeNextInput) {
+  const c = controlFor(input);
+  const budget = c.budget && c.budget !== 'unread' && c.budget.pays !== 'unread' ? { ...c.budget, pays: c.budget.pays.filter((p) => p.state !== 'overdue') } : c.budget;
+  const suppliers = c.suppliers && c.suppliers !== 'unread' ? { ...c.suppliers, toDecide: [] } : c.suppliers;
+  return { ...c, budget, suppliers };
+}
+
+function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = NOTHING): string {
+  const next = pickHomeNext(input);
+  const control = controlFor(input);
   const props: HomeFirstScreenProps = {
     eventId: 'e1',
     cover: { eyebrow: 'Wedding · March 13, 2027', name: 'Ana & Miguel' },
@@ -140,7 +153,9 @@ test('a · exactly ONE Today line, naming the picker’s choice, pointing at a w
   for (const state of EVERY_STATE) {
     const html = draw({}, state);
     const next = pickHomeNext(state);
-    const t = homeToday(next, null);
+    const control = controlFor(state);
+    // ☀ The picker's choice — unless something waits on the hosts and the choice was only an offer or the calm line.
+    const t = homeToday(next, control.guests, homeWaiting(control));
     assert.equal(count(html, 'data-home-today='), 1, `${next.kind}: the first screen must carry exactly one Today line`);
     const line = todayLine(html);
     assert.match(line, /^<button type="button"/, `${next.kind}: the Today line is a pointer (a button), never a link`);
@@ -340,7 +355,7 @@ const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'))
 test('e · a calm Today points at the To do tile — the plan, step by step — and it opens Planning Stage’s To do', () => {
   // The Checklist merged into Planning Stage (owner 2026-11-01); its old address forwards there.
   assert.ok(exists('checklist'), 'the old checklist address still exists (it forwards)');
-  const html = draw({}, NOTHING);
+  const html = draw({ control: calmControl(NOTHING) }, NOTHING);
   assert.match(todayLine(html), /data-home-today="plan"/, 'the calm Today does not point at the Checklist');
   assert.match(todayLine(html), /Nothing waits on you/);
   assert.match(html, /data-home-tile="plan"[\s\S]*?href="\/dashboard\/e1\/schedule\?view=preparation&amp;filter=todo"/, 'the To do widget does not open Planning Stage’s To do filter');

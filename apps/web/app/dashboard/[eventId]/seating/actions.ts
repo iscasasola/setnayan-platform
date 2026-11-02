@@ -1555,8 +1555,9 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
 
 // 🪑 Mark a table VIP, or not (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting on Seats.
 // One guarded UPDATE under the couple's RLS; a refused or zero-row write throws so the switch goes back.
-export async function updateTableVip(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+// NOT exported: it rides `updateTableLabel`'s route (a form with `is_vip` and no `table_label`) — every exported
+// server action is a Vercel route and the budget (scripts/lint-server-action-budget.mjs) is full.
+async function updateTableVip(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const vipRaw = formData.get('is_vip');
@@ -1591,6 +1592,8 @@ export async function updateTableVip(formData: FormData) {
 // createTable's validation.
 export async function updateTableLabel(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+  // 🪑 The table's other own setting — VIP or not — shares this route (see updateTableVip).
+  if (formData.has('is_vip') && !formData.has('table_label')) return updateTableVip(formData);
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const labelRaw = formData.get('table_label');
@@ -2215,6 +2218,8 @@ export type AutoArrangeResult = {
   seatedGuestIds: string[];
   /** Tables whose people changed (or that are new) — the plan rings them gold. */
   changedTableIds: string[];
+  /** 🪑 What could not be seated as the rules say — the editor SHOWS it (owner 2026-11-02, never silently). */
+  cannotFit?: AutoSeatCannotFit[];
 };
 
 /**

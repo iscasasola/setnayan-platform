@@ -198,7 +198,6 @@ import {
   linkTables,
   unlinkTable,
   updateTableLabel,
-  updateTableVip,
   updateTablePosition,
   updateTableRotation,
   updateTableType,
@@ -1953,7 +1952,7 @@ export function SeatingEditor({
     fd.set('is_vip', vip ? 'true' : 'false');
     startTransition(async () => {
       applyTableOpt({ type: 'vip', id: t.table_id, vip });
-      await runGated(() => updateTableVip(fd));
+      await runGated(() => updateTableLabel(fd)); // the VIP form (no table_label) — updateTableVip on the label's route
     });
   };
   const VIP_TABLE_OPTIONS = [

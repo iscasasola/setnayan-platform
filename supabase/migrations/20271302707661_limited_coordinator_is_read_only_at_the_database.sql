@@ -45,6 +45,9 @@
 -- (member_type = 'couple') never admitted a Limited coordinator.
 --
 -- A co-host (Full access → 'couple') and a seat never asked are unchanged.
+-- A refusal is written only for a verb `authenticated` is GRANTED on the table (event_gift_records holds UPDATE
+-- only — its rows are inserted and removed by the server); a policy on an ungranted verb can never be reached, and
+-- tests/db/a-samahan-lives-while-one-stays.db.test.ts refuses one.
 -- Idempotent: CREATE OR REPLACE, DROP POLICY IF EXISTS + CREATE POLICY, then a
 -- self-check that refuses to commit unless every listed table carries its trio.
 -- Held by tests/db/limited-coordinator-is-read-only.db.test.ts.
@@ -117,13 +120,13 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'lh_ro_ins_' || short, r.t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'lh_ro_upd_' || short, r.t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'lh_ro_del_' || short, r.t);
-    IF r.ins THEN
+    IF r.ins AND has_table_privilege('authenticated', 'public.' || r.t, 'INSERT') THEN
       EXECUTE format('CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (%s)', 'lh_ro_ins_' || short, r.t, cond);
     END IF;
-    IF r.upd THEN
+    IF r.upd AND has_table_privilege('authenticated', 'public.' || r.t, 'UPDATE') THEN
       EXECUTE format('CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR UPDATE TO authenticated USING (%s)', 'lh_ro_upd_' || short, r.t, cond);
     END IF;
-    IF r.del THEN
+    IF r.del AND has_table_privilege('authenticated', 'public.' || r.t, 'DELETE') THEN
       EXECUTE format('CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR DELETE TO authenticated USING (%s)', 'lh_ro_del_' || short, r.t, cond);
     END IF;
   END LOOP;
@@ -167,6 +170,7 @@ BEGIN
       ('proposal_amendment_items', 'INSERT'), ('proposal_amendment_items', 'UPDATE')
     ) AS v(t, cmd)
    WHERE to_regclass('public.' || v.t) IS NOT NULL
+     AND has_table_privilege('authenticated', 'public.' || v.t, v.cmd)
      AND NOT EXISTS (
        SELECT 1 FROM pg_policies p
         WHERE p.schemaname = 'public' AND p.tablename = v.t

@@ -77,8 +77,8 @@ test('4 · beside each other: a guest and their +1s take consecutive chairs (cal
   assert.deepEqual(consecutiveRun(new Set([1, 2, 3, 4, 5, 6, 7]), 10, 3), [8, 9, 0], 'the run does not wrap past the last chair');
   assert.equal(consecutiveRun(new Set([0, 2, 4, 6, 8]), 10, 2), null);
   const tables = room();
-  // Table 1 is half full already, every other chair taken — the old seater split a pair across the gaps.
-  const assignments: SeatAssignmentRow[] = [0, 2, 4, 6, 8].map((s) => ({ assignment_id: `a${s}`, table_id: 't01', guest_id: `pre${s}`, seat_number: s }));
+  // Every table already has chairs 0 and 2 taken (seated by hand) — the old seater handed a pair chairs 1 and 3.
+  const assignments: SeatAssignmentRow[] = tables.flatMap((t) => [0, 2].map((s) => ({ assignment_id: `a${t.table_id}${s}`, table_id: t.table_id, guest_id: `pre${t.table_id}${s}`, seat_number: s })));
   const guests: AutoSeatGuest[] = [];
   let n = 0;
   const add = (over: Partial<AutoSeatGuest>) => {
@@ -94,7 +94,7 @@ test('4 · beside each other: a guest and their +1s take consecutive chairs (cal
   }
   for (const p of assignments) guests.push({ guest_id: p.guest_id, role: 'guest', group_category: 'friends', rsvp_status: 'attending', plus_one_of_guest_id: null, last_name: 'Pre', first_name: 'P', group_id: null } as AutoSeatGuest);
   const rows = computeAutoSeat(tables, guests, assignments);
-  assert.ok(rows.length > 200, `only ${rows.length} seated — the fixture is not cale-ice-shaped`);
+  assert.ok(rows.length > 180, `only ${rows.length} seated — the fixture is not cale-ice-shaped`);
   const seat = new Map(rows.map((r) => [r.guest_id, r]));
   let pairs = 0;
   for (const g of guests) {

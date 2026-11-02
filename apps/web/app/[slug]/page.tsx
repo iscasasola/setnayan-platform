@@ -72,7 +72,7 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -572,7 +572,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
   // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
   // `headers()` read below is the live render's alone.
-  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
+  if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();

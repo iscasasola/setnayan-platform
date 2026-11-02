@@ -8782,6 +8782,7 @@
         "dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts",
         "dashboard/[eventId]/seating/_components/use-seating-lock.ts",
         "dashboard/[eventId]/seating/_components/use-seating-presence.ts",
+        "dashboard/[eventId]/seating/_components/vip-mark.tsx",
         "dashboard/[eventId]/seating/actions.ts",
         "dashboard/[eventId]/seating/error.tsx",
         "dashboard/[eventId]/seating/loading.tsx",
@@ -8895,7 +8896,9 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow"
+        "TypedRow",
+        "VipMark",
+        "VipPlusOneSeating"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {
@@ -8987,6 +8990,7 @@
         "VenueDecor",
         "VenueFixtures",
         "VenueShell",
+        "VipTableMark",
         "WalkController",
         "WalkInput",
         "WalkStick",
@@ -11556,6 +11560,7 @@
       "blocks": [
         "AccountBottomNav",
         "AddGuestSheet",
+        "AutoSeatGuest",
         "BottomDock",
         "DecideForm",
         "DecideRow",

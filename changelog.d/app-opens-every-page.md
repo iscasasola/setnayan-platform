@@ -10,6 +10,11 @@ verbatim: *"let everything go live"* — risk of another Apple rejection accepte
 - **Discover is a door in the app.** `discoverOpensHere()` answers yes everywhere, so the account bar draws
   Events · Discover · Memories · People (+ Shop) in the app as on the web, and the rail's Discover row shows.
   The seam itself stays: a shell that ever refuses `/` again drops both doors in the same change.
+- **The Maria and Jose sample (`/sample/…`) follows `/` into the app**, as its author designed (*"the day `/` leaves
+  the set, the sample follows it out"*). Middleware's by-prefix sample bounce (`appShellBouncesSample`, merged from
+  `main` the same day) is removed with the rest; the sample still opens only under its own switch, and its "is this a
+  browser?" fact is `discoverOpensHere()`. The sample's two bounce checks (`the-sample-is-sealed` (e) and
+  `sample-event` (e)) are re-pointed to that rule.
 - **The /login ✕ goes to Discover in the app too.** It was hidden there because `/` bounced straight back to
   `/login`; now it is a real way out everywhere.
 - **`/download`'s two "use it on the web" lines are hidden in the iPhone app** (`data-web-only`) — the page opens

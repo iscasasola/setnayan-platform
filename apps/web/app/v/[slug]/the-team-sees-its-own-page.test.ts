@@ -38,8 +38,8 @@ test('the renderer\'s only refusals are "no such shop" and the one rule saying n
     ['if (!vendor) notFound();', "if (gate.open === 'nobody') notFound();"],
     'a second 404 placed ahead of the gate is exactly how the owner lost his own page',
   );
-  assert.match(RENDER, /shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: inDemoMode \}\)/);
-  assert.match(RENDER, /shopPageGate\(vendor, \{ isTeam: await viewerIsShopTeam\(vendor\), adminDemoMode: inDemoMode \}\)/);
+  assert.match(RENDER, /shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: inDemoMode(, bookingsOpen: gateBookingsOpen)? \}\)/);
+  assert.match(RENDER, /shopPageGate\(vendor, \{ isTeam: await viewerIsShopTeam\(vendor\), adminDemoMode: inDemoMode(, bookingsOpen: gateBookingsOpen)? \}\)/);
   // The visibility rule is asked, never re-typed here.
   assert.doesNotMatch(RENDER, /isPubliclyVisible\(/);
 });
@@ -73,7 +73,7 @@ test('a page a stranger cannot open is never indexed and never names the shop in
   const meta = between(PAGE, 'export async function vendorMetadataBySlug(', 'const displayLabel');
   assert.match(
     meta,
-    /if \(!vendor \|\| shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: false \}\)\.open !== 'public'\) \{\s*return \{ title: 'Setnayan supplier', robots: \{ index: false, follow: false \} \};/,
+    /if \(!vendor \|\| shopPageGate\(vendor, \{ isTeam: false, adminDemoMode: false(, bookingsOpen: await areBookingsOpen\(\))? \}\)\.open !== 'public'\) \{\s*return \{ title: 'Setnayan supplier', robots: \{ index: false, follow: false \} \};/,
   );
 });
 

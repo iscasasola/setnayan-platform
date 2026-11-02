@@ -92,9 +92,11 @@ const RESERVED_SUBDOMAINS = new Set([
 // verbatim: "let everything go live"). Until then a native-shell request (the
 // `SetnayanApp` user agent or the capacitor cookie — phone and desktop app
 // alike) for a brochure page — `/` (Discover), /features, /for-suppliers,
-// /creators, /pricing, /how-it-works, /waitlist, /download — was sent to
-// /dashboard or /login while Apple reviewed 1.0. That bounce is gone, not
-// emptied: the app opens those pages exactly as the website does. Risk accepted
+// /creators, /pricing, /how-it-works, /waitlist, /download, and the Maria and
+// Jose sample under /sample by prefix — was sent to /dashboard or /login while
+// Apple reviewed 1.0. That bounce is gone, not emptied: the app opens those
+// pages exactly as the website does (the sample still answers to its own
+// switch, `sampleOpensHere()`). Risk accepted
 // by the owner the same day ("okay to be rejected by apple again").
 //
 // ⚠ What still applies in the app is the STORE-SHELL paid-feature gate further
@@ -105,7 +107,7 @@ const RESERVED_SUBDOMAINS = new Set([
 // the-account-bar-is-the-ruling · every-tab-keeps-the-bar ·
 // the-app-login-has-no-dead-close · every-signed-in-menu-reaches-the-policies ·
 // store-shell · the-app-never-steers-to-the-web ·
-// the-welcome-price-never-reaches-the-app.
+// the-welcome-price-never-reaches-the-app · the-sample-is-sealed · sample-event.
 
 function detectVendorSubdomain(hostname: string): string | null {
   const m = hostname.match(VENDOR_SUBDOMAIN_RE);

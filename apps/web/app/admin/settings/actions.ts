@@ -1151,3 +1151,37 @@ export async function removeBrandIcon() {
   revalidatePath('/favicon.ico');
   redirect('/admin/settings?tab=settings&brand_icon_removed=1');
 }
+
+/**
+ * 🎭 The Maria and Jose sample's switch — `platform_settings.sample_event_enabled`
+ * (migration 20271302376604; read by lib/sample-event/switch.server.ts).
+ *
+ * Tri-state: 'default' clears the column (NULL → the SAMPLE_EVENT_ENABLED env
+ * var, unset = off), 'on' opens /sample for everyone, 'off' closes it to all but
+ * internal accounts. Saves IN PLACE — returns, never redirects — so the screen
+ * the owner flipped it on stays where it was. Clears the remembered settings read
+ * so the next request already sees the flip.
+ *
+ * Takes a MODE, never an event id: the sample's id is known to no server action
+ * (`app/sample/the-sample-is-sealed.test.ts`).
+ */
+export async function setSampleEventSwitch(
+  mode: string,
+): Promise<{ ok: true; mode: 'default' | 'on' | 'off' } | { ok: false; message: string }> {
+  await requireAdmin();
+  if (mode !== 'default' && mode !== 'on' && mode !== 'off') {
+    return { ok: false, message: 'Pick Default, On or Off.' };
+  }
+  const value = mode === 'on' ? true : mode === 'off' ? false : null;
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ sample_event_enabled: value, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) {
+    logQueryError('admin/settings: setSampleEventSwitch', error);
+    return { ok: false, message: 'Couldn’t save the sample switch. Try again.' };
+  }
+  return { ok: true, mode };
+}

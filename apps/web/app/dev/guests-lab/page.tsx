@@ -1020,7 +1020,7 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} vip={sp.vip === 'none' || sp.vip === 'beside' || sp.vip === 'nearest' ? sp.vip : null} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}

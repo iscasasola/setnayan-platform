@@ -175,6 +175,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       yPct: pos.y,
       rotationDeg: t.rotation_deg ?? 0,
       linkGroupId: t.link_group_id ?? null,
+      vip: t.is_vip === true,
     };
   });
 

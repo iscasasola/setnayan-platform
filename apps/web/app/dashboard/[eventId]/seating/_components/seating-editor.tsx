@@ -88,6 +88,10 @@ import {
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
+import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { guestSeatView } from '../../guests/seat-view-actions';
@@ -497,7 +501,22 @@ export function SeatingEditor({
   const roleSet = useMemo(() => resolveRoleSet(roleSetKey), [roleSetKey]);
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
   // server action revalidates and these reconcile to the authoritative data.
-  const [guests, applyGuestOpt] = useOptimistic(guestsProp, (state: SeatingGuest[], op: GuestSeatOp) => {
+  /* ↩ Tables deleted by a swipe (or a Delete), waiting out the Undo window (owner 2026-11-03, "SWIPE LEFT TO DELETE ON
+     EVERY LIST ROW"): gone from the plan at once, and everyone at them shown unseated — exactly what the delete's
+     ON DELETE CASCADE will do when it is written. Undo brings them back with nothing written. */
+  const [heldTables, setHeldTables] = useState<ReadonlySet<string>>(() => new Set());
+  const guestsBase = useMemo(
+    () =>
+      heldTables.size === 0
+        ? guestsProp
+        : guestsProp.map((g) => (g.seated_table_id && heldTables.has(g.seated_table_id) ? { ...g, seated_table_id: null, seat_number: null } : g)),
+    [guestsProp, heldTables],
+  );
+  const tablesBase = useMemo(
+    () => (heldTables.size === 0 ? tablesProp : tablesProp.filter((t) => !heldTables.has(t.table_id))),
+    [tablesProp, heldTables],
+  );
+  const [guests, applyGuestOpt] = useOptimistic(guestsBase, (state: SeatingGuest[], op: GuestSeatOp) => {
     switch (op.type) {
       case 'seat':
         return state.map((g) =>
@@ -526,7 +545,7 @@ export function SeatingEditor({
     }
   });
   const [tables, applyTableOpt] = useOptimistic(
-    tablesProp,
+    tablesBase,
     (
       state: EventTableRow[],
       op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean } | { type: 'vip'; id: string; vip: boolean },
@@ -1337,6 +1356,7 @@ export function SeatingEditor({
 
   const unseat = (guestId: string) => {
     if (!canEdit) return;
+    const was = guests.find((g) => g.guest_id === guestId);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -1344,22 +1364,61 @@ export function SeatingEditor({
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      await runGated(() => unassignGuest(fd));
+      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id) return;
+      /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
+         shipped seat write (`assignGuest`) — the place it was taken from. */
+      const tableId = was.seated_table_id;
+      const seat = was.seat_number;
+      pushUndo({
+        label: `${was.name} is off the seat`,
+        undo: async () => {
+          const back = new FormData();
+          back.set('event_id', eventId);
+          back.set('lock_id', lock.lockId ?? '');
+          back.set('table_id', tableId);
+          back.set('guest_id', guestId);
+          if (seat !== null) back.set('seat_number', String(seat));
+          startTransition(async () => {
+            applyGuestOpt({ type: 'seat', guestId, tableId, seat });
+            await runGated(() => assignGuest(back));
+          });
+        },
+      });
     });
   };
 
-  const removeTable = (tableId: string) => {
-    if (!canEdit) return;
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('lock_id', lock.lockId ?? '');
-    fd.set('table_id', tableId);
-    if (highlightId === tableId) setHighlightId(null);
-    startTransition(async () => {
-      applyTableOpt({ type: 'delete', id: tableId });
-      await runGated(() => deleteTable(fd));
+  /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
+  const removeTables = (tableIds: readonly string[], label: string) => {
+    if (!canEdit || tableIds.length === 0) return;
+    if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
+    const hold = (on: boolean) =>
+      setHeldTables((h) => {
+        const next = new Set(h);
+        for (const id of tableIds) {
+          if (on) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      });
+    deleteWithUndo({
+      label: `${label} deleted`,
+      hide: () => hold(true),
+      restore: () => hold(false),
+      commit: async () => {
+        for (const tableId of tableIds) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lock.lockId ?? '');
+          fd.set('table_id', tableId);
+          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+        }
+        return { ok: true };
+      },
+      failed: `Couldn’t delete ${label}. It’s back — try again.`,
     });
   };
+  const removeTable = (tableId: string) =>
+    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.label ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with
@@ -1373,7 +1432,7 @@ export function SeatingEditor({
   // joined unit removes every member (each cascades its own seat assignments).
   const requestRemoveUnit = (u: TableDisplayUnit) => {
     const seated = u.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
-    if (seated === 0) u.members.forEach((m) => removeTable(m.table_id));
+    if (seated === 0) removeTables(u.members.map((m) => m.table_id), u.label);
     else setConfirmDelete({ label: u.label, members: u.members });
   };
 
@@ -1829,17 +1888,20 @@ export function SeatingEditor({
   };
   const removeKeepApart = (rule: KeepApartRule) => {
     if (!canEdit) return;
-    setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id)));
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_a_id', rule.guest_a_id);
     fd.set('guest_b_id', rule.guest_b_id);
-    startTransition(async () => {
-      /* ↩ Not saved (said by runGated): the rule is put back — it still stands. */
-      if ((await runGated(() => removeSeatingConstraint(fd))) === null) {
-        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule]));
-      }
+    /* 👈 The rule's row is its swipe (owner 2026-11-03), with Undo: off at once, written after the window. Not saved
+       (said by runGated): the rule is put back — it still stands. */
+    deleteWithUndo({
+      label: 'Keep-apart rule removed',
+      hide: () => setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id))),
+      restore: () =>
+        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule])),
+      commit: async () => ((await runGated(() => removeSeatingConstraint(fd))) === null ? { ok: false } : { ok: true }),
+      failed: 'Couldn’t remove that rule. It’s back — try again.',
     });
   };
 
@@ -5024,9 +5086,20 @@ export function SeatingEditor({
               const cap = u.capacity;
               const full = filled >= cap;
               return (
-                <li
+                /* 👈 A table's Delete is its row's swipe (owner 2026-11-03) — the same ask when people sit at it, then Undo. */
+                <SwipeToDelete
                   key={u.key}
-                  className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                  as="li"
+                  label={`Delete ${u.label}`}
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={(close) => {
+                    close();
+                    requestRemoveUnit(u);
+                  }}
+                >
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     pickedGroupId
                       ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
                       : highlightId === u.lead.table_id
@@ -5071,15 +5144,8 @@ export function SeatingEditor({
                       {full ? 'Filled' : 'Open'}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => requestRemoveUnit(u)}
-                    aria-label={`Delete ${u.label}`}
-                    className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -5157,8 +5223,17 @@ export function SeatingEditor({
             {keepApart.map((r) => {
               const violated = isRuleViolated(r);
               return (
-                <li
+                /* 👈 A rule's Remove is its row's swipe (owner 2026-11-03), with Undo. */
+                <SwipeToDelete
                   key={`${r.guest_a_id}|${r.guest_b_id}`}
+                  as="li"
+                  label={`Remove the rule ${guestsById.get(r.guest_a_id)?.name ?? 'Guest'} and ${guestsById.get(r.guest_b_id)?.name ?? 'Guest'}`}
+                  word="Remove"
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={() => removeKeepApart(r)}
+                >
+                <div
                   className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
                   }`}
@@ -5182,16 +5257,8 @@ export function SeatingEditor({
                       </span>
                     ) : null}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeKeepApart(r)}
-                    disabled={!canEdit}
-                    aria-label="Remove keep-apart rule"
-                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -9234,6 +9301,16 @@ export function SeatingEditor({
                   const open = cap - seated.length;
                   return (
                     <li key={u.key} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                      {/* 👈 The table's Delete is its head's swipe (owner 2026-11-03) — the same ask, then Undo. */}
+                      <SwipeToDelete
+                        label={`Delete ${u.label}`}
+                        radiusClass=""
+                        disabled={!canEdit}
+                        onDelete={(close) => {
+                          close();
+                          requestRemoveUnit(u);
+                        }}
+                      >
                       <div className="flex items-center gap-2 p-3">
                         <span
                           className="h-3 w-3 shrink-0 rounded-full"
@@ -9276,15 +9353,8 @@ export function SeatingEditor({
                           </span>
                           <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => requestRemoveUnit(u)}
-                          aria-label={`Delete ${u.label}`}
-                          className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
+                      </SwipeToDelete>
 
                       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
                         {seated.length === 0 ? (
@@ -9576,6 +9646,8 @@ export function SeatingEditor({
           })()}
         </GuestPopup>
       ) : null}
+      {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
+      <UndoToastHost />
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {
@@ -9600,7 +9672,7 @@ export function SeatingEditor({
                         icon={Trash2}
                         label={joined ? 'Delete unit' : 'Delete table'}
                         onClick={() => {
-                          confirmDelete.members.forEach((m) => removeTable(m.table_id));
+                          removeTables(confirmDelete.members.map((m) => m.table_id), confirmDelete.label);
                           setConfirmDelete(null);
                         }}
                       />

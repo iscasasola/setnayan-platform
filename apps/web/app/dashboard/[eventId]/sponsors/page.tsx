@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Sparkles,
-  Trash2,
   Users,
   XCircle,
 } from 'lucide-react';
@@ -30,12 +29,12 @@ import { AddSponsorModal } from './_components/add-sponsor-modal';
 import { EditSponsorModal } from './_components/edit-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SponsorSwipe } from './_components/sponsor-swipe';
 import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   addSponsor,
   markResponse,
-  removeSponsor,
   sendInvitation,
   updateSponsor,
 } from './actions';
@@ -571,7 +570,7 @@ function SponsorCard({
   });
   const honorific = sponsorRoleHonorific(sponsor.sponsor_tier, sponsor.side);
 
-  return (
+  const card = (
     <article className="sn-row p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-0.5">
@@ -598,17 +597,7 @@ function SponsorCard({
             phone={sponsor.phone}
             formAction={updateSponsor}
           />
-          <form action={removeSponsor}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="sponsor_id" value={sponsor.id} />
-            <SubmitButton
-              pendingLabel="Removing…"
-              aria-label={`Remove ${sponsor.full_name}`}
-              className="rounded-md p-1 text-ink/45 hover:bg-terracotta/10 hover:text-terracotta-700"
-            >
-              <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            </SubmitButton>
-          </form>
+          {/* 👈 Remove is the card's swipe (owner 2026-11-03) — `SponsorSwipe`, around the card, with Undo. */}
         </div>
       </div>
 
@@ -677,6 +666,11 @@ function SponsorCard({
         ) : null}
       </div>
     </article>
+  );
+  return (
+    <SponsorSwipe eventId={eventId} sponsorId={sponsor.id} name={sponsor.full_name}>
+      {card}
+    </SponsorSwipe>
   );
 }
 

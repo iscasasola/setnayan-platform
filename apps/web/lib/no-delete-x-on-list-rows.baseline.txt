@@ -37,7 +37,6 @@ app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx 1
 app/dashboard/[eventId]/seating/_components/seating-editor.tsx 6
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
 app/dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx 1
-app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/editorial-editor.tsx 2
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 8
 app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx 2

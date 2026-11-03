@@ -1696,7 +1696,7 @@ export function MakeItYours({
                   label={`Remove ${name}`}
                   word="Remove"
                   onDelete={() => onRemoveMoment(m.id, !!listRef.current?.contains(document.activeElement))}
-                  radiusClass={s.chapRound}
+                  radiusClass=""
                   surfaceClass={s.chapGround}
                 >
                   {row}

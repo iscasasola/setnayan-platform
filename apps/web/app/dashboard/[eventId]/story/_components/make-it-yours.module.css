@@ -255,12 +255,10 @@
 /* 👈 THE ROW'S DELETE IS ITS SWIPE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON
    ROWS"): the row's × (ST-11's 44px `.cx` with its 28px dot) left the row for the shared `SwipeToDelete`, whose phone
    Delete is the row's full height × 84 px and whose computer trash is 44 × 44 — still a finger's width, still no halo.
-   The swipe's front wears the moments box's own paper, so a closed row covers the red behind it. */
+   The swipe's front wears the moments box's own paper and is square (the row draws its own rounding inside it): a
+   rounded front let the red behind show as a hairline at its corners (measured on /dev/memories-lab?story=1). */
 .chapGround {
   background: var(--paper);
-}
-.chapRound {
-  border-radius: var(--m-r-sm);
 }
 
 /* mode switch */

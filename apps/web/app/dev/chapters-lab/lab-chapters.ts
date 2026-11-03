@@ -77,6 +77,8 @@ const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean
   is_public: pub,
   who,
   vendor_ids: [],
+  time_tba: false,
+  follows_block_id: null,
   ...more,
 });
 
@@ -157,6 +159,8 @@ export const LAB_MOMENT_ROW: ChapterMoment = {
   // 👷 Its supplier lines put it on those suppliers' days (`setMomentFor` links them first).
   vendor_ids: ['v-hmua', 'v-coord'],
   end_at: LAB_MOMENT.end_at,
+  time_tba: false,
+  follows_block_id: null,
 };
 
 /** 🚶 The couple's own marches (Guests › March) — made-up names only. */

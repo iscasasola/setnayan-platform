@@ -232,6 +232,43 @@ test('unlock reopens the part to the host', async () => {
   await mark(F.supA, 'lock');
 });
 
+test('⏭ the lock knows "right after" (20271303690499): re-anchoring is refused; the supplier\'s own new time ends it', async () => {
+  // An untimed moment of the locked shop, right after "Grand entrance" (both theirs).
+  await asOwner();
+  const after = (
+    await db.query<{ block_id: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, label, start_at, responsible_vendor_ids, parent_block_id, time_tba, is_public, follows_block_id)
+       SELECT event_id, 'Sparklers', start_at, $2::uuid[], parent_block_id, TRUE, FALSE, block_id FROM public.event_schedule_blocks WHERE block_id=$1
+       RETURNING block_id`,
+      [F.shared, [F.evA]],
+    )
+  ).rows[0]!.block_id;
+  await refusedAsCouple(
+    `UPDATE public.event_schedule_blocks SET follows_block_id = $2 WHERE block_id=$1`,
+    [after, F.momentA],
+    after,
+    're-anchoring a locked shop\'s right-after moment',
+  );
+  // Their own request for a real time: the host's accept path writes the time AND ends "right after" in one update.
+  await asUser(F.supA);
+  const sid = (
+    await db.query<{ suggestion_id: string }>(
+      `INSERT INTO public.event_schedule_suggestions (event_id, block_id, vendor_profile_id, suggested_by_user_id, kind, proposed_start_at, note, status)
+       VALUES ($1,$2,$3,$4,'adjust', TIMESTAMPTZ '2099-12-12 16:00:00+00','at four','open') RETURNING suggestion_id`,
+      [F.eventId, after, F.vpA, F.supA],
+    )
+  ).rows[0]!.suggestion_id;
+  await asUser(F.couple);
+  await db.query(
+    `UPDATE public.event_schedule_blocks SET start_at = TIMESTAMPTZ '2099-12-12 16:00:00+00', time_tba = FALSE, follows_block_id = NULL WHERE block_id=$1`,
+    [after],
+  );
+  assert.equal((await row(after))?.start_at, '2099-12-12 16:00:00');
+  await asOwner();
+  await db.query(`UPDATE public.event_schedule_suggestions SET status='accepted' WHERE suggestion_id=$1`, [sid]);
+  await db.query(`DELETE FROM public.event_schedule_blocks WHERE block_id=$1`, [after]).catch(() => {});
+});
+
 test("the event's date moving carries a locked moment with it; deleting the event is never refused", async () => {
   await asOwner();
   await db.query(`INSERT INTO public.event_schedule_day_anchor (event_id, anchor_day) VALUES ($1, DATE '2099-12-12') ON CONFLICT (event_id) DO UPDATE SET anchor_day = EXCLUDED.anchor_day`, [F.eventId]);

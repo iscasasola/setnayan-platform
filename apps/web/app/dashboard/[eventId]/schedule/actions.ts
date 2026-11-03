@@ -10,6 +10,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+// ⏭ Where a moment "right after the one above" goes (4 additions (1), migration 20271302727358).
+import { rightAfterPlace } from '@/lib/moment-follow.server';
 // 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
 import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
 // 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
@@ -235,11 +237,25 @@ export async function createScheduleBlock(formData: FormData) {
   // 📖 A CHAPTER WITH NO TIME YET (owner 2026-11-01, "Time TBA", migration 20271300482585): `start_at` carries its DAY
   // at 00:00 and `time_tba` says the clock is not known. Only a chapter may be TBA, it has no end, and it is never
   // shown to guests — so a reader that does not know the flag can never put a guessed midnight on the Event Hub.
+  // ⏭ A MOMENT "RIGHT AFTER THE ONE ABOVE" (owner 2026-11-02, 4 additions (1); migration 20271302727358): the same
+  // flag on a moment means no clock of its own. Its `start_at` becomes the start of the moment it follows — an order
+  // key, never a guessed time — and the database moves it with that moment.
   if (formData.get('time_tba') === '1') {
-    if (parentBlockId) throw new Error('Only a chapter can have its time TBA');
     insertRow.time_tba = true;
     insertRow.end_at = null;
     insertRow.is_public = false;
+    if (parentBlockId) {
+      const place = await rightAfterPlace(supabase, {
+        eventId,
+        blockId: null,
+        parentBlockId,
+        followsRaw: formData.get('follows_block_id'),
+      });
+      if (place) {
+        insertRow.start_at = place.start_at;
+        insertRow.follows_block_id = place.follows_block_id;
+      }
+    }
   }
   // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
   // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and
@@ -458,6 +474,7 @@ export async function updateScheduleBlock(formData: FormData) {
     travel_from?: string | null;
     travel_to?: string | null;
     time_tba?: boolean;
+    follows_block_id?: string | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -599,9 +616,20 @@ export async function updateScheduleBlock(formData: FormData) {
     patch.time_tba = tbaRaw === '1' || tbaRaw === 'true';
     if (patch.time_tba) {
       patch.end_at = null;
-      patch.ingress_minutes_before = null;
-      patch.egress_minutes_after = null;
       patch.is_public = false;
+      // ⏭ A MOMENT goes "right after the one above" (migration 20271302727358): it takes that moment's start as its
+      // order key; a chapter keeps its day as before and drops its ingress and egress.
+      const place = await rightAfterPlace(supabase, { eventId, blockId, parentBlockId: null, followsRaw: formData.get('follows_block_id') });
+      if (place) {
+        patch.start_at = place.start_at;
+        patch.follows_block_id = place.follows_block_id;
+      } else {
+        patch.ingress_minutes_before = null;
+        patch.egress_minutes_after = null;
+      }
+    } else {
+      // A time of its own: it follows nothing any more (the database refuses an anchor on a timed row).
+      patch.follows_block_id = null;
     }
   }
 

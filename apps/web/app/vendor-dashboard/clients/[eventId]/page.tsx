@@ -407,6 +407,9 @@ type LiveBlock = {
   parent_block_id?: string | null;
   spot?: string | null;
   time_tba?: boolean | null;
+  /** ⏭ An untimed moment's anchor — "right after the one above" (migration 20271302727358). */
+  follows_block_id?: string | null;
+  sort_order?: number | null;
   is_optional?: boolean | null;
   responsible_vendor_ids?: string[] | null;
   created_at?: string | null;
@@ -707,7 +710,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_blocks')
         .select(
-          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, follows_block_id, sort_order, is_optional, responsible_vendor_ids, created_at, updated_at',
         )
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
@@ -1297,6 +1300,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           location: b.location,
           spot: b.spot ?? null,
           time_tba: b.time_tba === true,
+          follows_block_id: b.follows_block_id ?? null,
+          sort_order: b.sort_order ?? 0,
           is_optional: b.is_optional === true,
           responsible_vendor_ids: b.responsible_vendor_ids ?? [],
           created_at: b.created_at ?? null,

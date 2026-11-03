@@ -130,7 +130,7 @@ export async function decideSuggestion(
   if (decision === 'accept') {
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
     if (suggestion.kind === 'adjust' && suggestion.block_id) {
-      const patch: Record<string, string | boolean | null> = { ...proposedPatch(suggestion) };
+      const patch = proposedPatch(suggestion);
       if (suggestion.proposed_start_at) {
         // ⏭ A real time ends "Time TBA" / "Right after the one above" (migration 20271302727358) — the row has a clock now.
         patch.time_tba = false;

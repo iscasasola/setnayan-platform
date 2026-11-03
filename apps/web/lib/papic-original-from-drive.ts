@@ -34,7 +34,11 @@ export async function fetchOriginalFromHostDrive(
       .not('drive_file_id', 'is', null)
       .limit(1)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      console.error('[supabase-error] lib/papic-original-from-drive.ts · drive_copy_artifacts', error);
+      return null;
+    }
+    if (!data) return null;
     if (!isDriveCopyConfirmed(data as DriveArtifactRow)) return null;
     const fileId = String((data as { drive_file_id: string }).drive_file_id);
 

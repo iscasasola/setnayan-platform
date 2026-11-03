@@ -30,16 +30,21 @@ const MAX_EVENTS_PER_RUN = 300;
 const KEEP_FULL_RES_SKU = 'HIGH_RES_ARCHIVE';
 
 async function eventHasKeptOriginals(admin: ReturnType<typeof createAdminClient>, eventId: string): Promise<boolean> {
-  for (const table of ['papic_photos', 'papic_guest_captures'] as const) {
-    const { count, error } = await admin
-      .from(table)
-      .select('event_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('full_res_dropped_at', null);
-    if (error) throw error;
-    if ((count ?? 0) > 0) return true;
-  }
-  return false;
+  // Two literal reads (never `.from(table)` — the select-column scan cannot check a table held in a variable).
+  const seat = await admin
+    .from('papic_photos')
+    .select('event_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('full_res_dropped_at', null);
+  if (seat.error) throw seat.error;
+  if ((seat.count ?? 0) > 0) return true;
+  const guest = await admin
+    .from('papic_guest_captures')
+    .select('event_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('full_res_dropped_at', null);
+  if (guest.error) throw guest.error;
+  return (guest.count ?? 0) > 0;
 }
 
 export async function runPapicOriginalsReminders(nowMs: number = Date.now()): Promise<{ events: number; sent: number }> {

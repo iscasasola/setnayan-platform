@@ -70,9 +70,7 @@ app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx 2
 app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx 1
 app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
 app/vendor-dashboard/invite/_components/locked-qr-generator.tsx 2
-app/vendor-dashboard/on-the-day/_components/issues-log.tsx 1
-app/vendor-dashboard/on-the-day/_components/shot-list.tsx 1
-app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 2
+app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1
 app/vendor-dashboard/packages/_components/package-editor.tsx 2
 app/vendor-dashboard/proposals/surface.tsx 1
 app/vendor-dashboard/repertoire/page.tsx 1

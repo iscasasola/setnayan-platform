@@ -24,6 +24,34 @@ import { createPortal } from 'react-dom';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { clearUndoToast, getUndoToast, runUndo, subscribeUndo } from './undo-store';
 
+/* 🧷 ONE TOAST, HOWEVER MANY HOSTS (2026-11-03, swipe-to-delete on every row): a row list that deletes with Undo
+   mounts a host where it is drawn, and a page may already have one (the guest pages, the guest card sheet). Only the
+   FIRST mounted host draws — so two hosts never show the same toast twice. When it unmounts, the next one draws. */
+const hosts: symbol[] = [];
+const hostListeners = new Set<() => void>();
+function useFirstHost(): boolean {
+  const [me] = useState(() => Symbol('undo-host'));
+  useEffect(() => {
+    hosts.push(me);
+    for (const l of hostListeners) l();
+    return () => {
+      const at = hosts.indexOf(me);
+      if (at >= 0) hosts.splice(at, 1);
+      for (const l of hostListeners) l();
+    };
+  }, [me]);
+  return useSyncExternalStore(
+    (l) => {
+      hostListeners.add(l);
+      return () => {
+        hostListeners.delete(l);
+      };
+    },
+    () => hosts[0] === me,
+    () => false,
+  );
+}
+
 /**
  * The single toast host. Mount ONCE (page.tsx). Renders nothing when idle.
  * The approved toast (`PeekToast`) peeks down from the top, stays the undo
@@ -36,7 +64,8 @@ export function UndoToastHost() {
   const toast = useSyncExternalStore(subscribeUndo, getUndoToast, () => null);
   const [body, setBody] = useState<HTMLElement | null>(null);
   useEffect(() => setBody(document.body), []);
-  if (!toast || !body) return null;
+  const first = useFirstHost();
+  if (!toast || !body || !first) return null;
   return createPortal(
     toast.kind === 'undo' ? (
       <PeekToast

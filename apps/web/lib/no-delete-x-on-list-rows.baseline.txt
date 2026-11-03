@@ -47,11 +47,8 @@ app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx 2
 app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx 1
 app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx 1
 app/dashboard/[eventId]/studio/playlist/_components/playlist-pick-row.tsx 1
-app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx 1
 app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
-app/dashboard/[eventId]/vendors/_components/build-compare.tsx 2
-app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx 4
-app/dashboard/[eventId]/vendors/_components/team-controls.tsx 1
+app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1
 app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx 2
 app/dashboard/[eventId]/website/editor/_components/background-colour-wells.tsx 1
 app/dashboard/[eventId]/website/our-story/milestones-field.tsx 1

@@ -47,7 +47,7 @@ import { GoToFind } from './go-to-find';
 import {
   TeamClearCandidates,
   TeamDecisionDoorway,
-  TeamRemoveCandidate,
+  TeamCandidateSwipe,
   TeamSavePlan,
 } from './team-controls';
 import type { BlockedLockReason } from '@/lib/bench-card-actions';
@@ -343,11 +343,9 @@ export function BuildLocked({
               {subtotalLabel(toLockTotal, money.inBuildUnpriced)} in your build
             </span>
           </div>
-          {readyRows.map((r) => (
-            <div
-              key={`${r.groupId}-${r.vendorId}`}
-              className="border-b border-ink/15 py-3"
-            >
+          {readyRows.map((r) => {
+            const line = (
+            <div className="border-b border-ink/15 py-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-ink">{r.name}</span>
@@ -366,13 +364,6 @@ export function BuildLocked({
                     Right-alignment alone does not fix that; the FIGURES have to
                     be equal-width. */}
                     <RowPrice cost={r.cost} />
-                    {/* One candidate off the build. Vendor-scoped, never a lock. */}
-                    <TeamRemoveCandidate
-                      eventId={eventId}
-                      groupId={r.groupId as string}
-                      vendorId={r.vendorId}
-                      vendorName={r.name}
-                    />
                   </span>
                 ) : (
                   <RowPrice cost={r.cost} shrink />
@@ -396,37 +387,45 @@ export function BuildLocked({
                 isVerified={r.isVerified}
               />
             </div>
-          ))}
+            );
+            /* 👈 One candidate off the build is the row's swipe (owner 2026-11-03) — vendor-scoped, never a lock. */
+            return replan ? (
+              <TeamCandidateSwipe key={`${r.groupId}-${r.vendorId}`} eventId={eventId} groupId={r.groupId as string} vendorId={r.vendorId} vendorName={r.name}>
+                {line}
+              </TeamCandidateSwipe>
+            ) : (
+              <div key={`${r.groupId}-${r.vendorId}`}>{line}</div>
+            );
+          })}
           {/* Owner 2026-09-11 — in the build, but NOT lockable: not available on
               the date, or the supplier declined. Listed, never dropped (they are
               still in the couple's build and its total), with the one control
-              that fixes it — Remove — and no "Lock to confirm". */}
+              that fixes it — Remove (the row's swipe) — and no "Lock to confirm". */}
           {blockedRows.length > 0 ? (
             <div className="space-y-2 pt-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
                 {CANT_LOCK_YET_HEADING}
               </p>
-              {blockedRows.map((r) => (
-                <div
-                  key={`${r.groupId}-${r.vendorId}-blocked`}
-                  className="flex items-center justify-between gap-3 border-b border-ink/15 py-3"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
-                    <span className="block text-xs text-ink/60">
-                      {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
+              {blockedRows.map((r) => {
+                const line = (
+                  <div className="flex items-center justify-between gap-3 border-b border-ink/15 py-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink/75">{r.name}</span>
+                      <span className="block text-xs text-ink/60">
+                        {BLOCKED_LOCK_ROW[r.blocked]} · {r.group}
+                      </span>
                     </span>
-                  </span>
-                  {replan ? (
-                    <TeamRemoveCandidate
-                      eventId={eventId}
-                      groupId={r.groupId as string}
-                      vendorId={r.vendorId}
-                      vendorName={r.name}
-                    />
-                  ) : null}
-                </div>
-              ))}
+                  </div>
+                );
+                /* 👈 Its one fix — Remove — is the row's swipe (owner 2026-11-03). */
+                return replan ? (
+                  <TeamCandidateSwipe key={`${r.groupId}-${r.vendorId}-blocked`} eventId={eventId} groupId={r.groupId as string} vendorId={r.vendorId} vendorName={r.name}>
+                    {line}
+                  </TeamCandidateSwipe>
+                ) : (
+                  <div key={`${r.groupId}-${r.vendorId}-blocked`}>{line}</div>
+                );
+              })}
             </div>
           ) : null}
           {replan ? (

@@ -195,6 +195,73 @@ test("the supplier's OWN request applies exactly as asked — and a host cannot 
   await db.query(`UPDATE public.event_schedule_suggestions SET status='accepted' WHERE suggestion_id=$1`, [sid]);
 });
 
+test('🏃 RUNNING LATE moves a locked part (owner 2026-11-03) — through its one door, all of it, and nothing more', async () => {
+  // momentA stands at 15:15 here (the request case above); every write below is undone so the date-move case still holds.
+  const was = (await row(F.momentA))!;
+  assert.equal(was.start_at, '2099-12-12 15:15:00');
+  await asUser(F.couple);
+  const moved = await db.query<{ n: number }>(`SELECT public.running_late_shift_schedule($1, ARRAY[$2]::uuid[], 10) AS n`, [F.eventId, F.momentA]);
+  assert.equal(moved.rows[0]!.n, 1);
+  assert.equal((await row(F.momentA))?.start_at, '2099-12-12 15:25:00', 'the running-late shift did not move the locked moment');
+  // …and back, through the same door.
+  await asUser(F.couple);
+  await db.query(`SELECT public.running_late_shift_schedule($1, ARRAY[$2]::uuid[], -10)`, [F.eventId, F.momentA]);
+  assert.deepEqual(await row(F.momentA), was);
+});
+
+test('🔒 every OTHER host edit still meets the lock: a plain shift, a rename riding a running-late shift, a wrong size', async () => {
+  // A drag (the same pure shift, outside the running-late door) is still refused.
+  await refusedAsCouple(
+    `UPDATE public.event_schedule_blocks SET start_at = start_at + interval '10 minutes', end_at = end_at + interval '10 minutes' WHERE block_id=$1`,
+    [F.momentA],
+    F.momentA,
+    'a drag of a locked moment (no running-late door)',
+  );
+  // Inside a running-late transaction, anything beyond exactly that shift is still refused.
+  const was = await row(F.momentA);
+  await asOwner();
+  for (const [sql, why] of [
+    [`UPDATE public.event_schedule_blocks SET start_at = start_at + interval '10 minutes', end_at = end_at + interval '10 minutes', label = 'Sneaky' WHERE block_id=$1`, 'a rename riding the shift'],
+    [`UPDATE public.event_schedule_blocks SET start_at = start_at + interval '20 minutes', end_at = end_at + interval '20 minutes' WHERE block_id=$1`, 'a shift of a different size'],
+    [`UPDATE public.event_schedule_blocks SET start_at = start_at + interval '10 minutes' WHERE block_id=$1`, 'a start moved without its end'],
+  ] as const) {
+    await assert.rejects(
+      () =>
+        db.transaction(async (tx) => {
+          await tx.query(`SELECT set_config('app.running_late_minutes', '10', true)`);
+          await tx.query(sql, [F.momentA]);
+        }),
+      LOCKED,
+      why,
+    );
+  }
+  assert.deepEqual(await row(F.momentA), was, 'a refused edit changed the moment anyway');
+  // The marker never outlives the door: right after a running-late call, a plain shift is refused again.
+  await asUser(F.couple);
+  await db.query(`SELECT public.running_late_shift_schedule($1, ARRAY[$2]::uuid[], 10)`, [F.eventId, F.momentA]);
+  await db.query(`SELECT public.running_late_shift_schedule($1, ARRAY[$2]::uuid[], -10)`, [F.eventId, F.momentA]);
+  await refusedAsCouple(
+    `UPDATE public.event_schedule_blocks SET start_at = start_at + interval '10 minutes', end_at = end_at + interval '10 minutes' WHERE block_id=$1`,
+    [F.momentA],
+    F.momentA,
+    'a drag right after a running-late shift (the marker leaked)',
+  );
+});
+
+test('the running-late door is the caller’s: a supplier, a stranger, or a span with a refused row moves nothing', async () => {
+  const was = await row(F.momentA);
+  await asUser(F.supB);
+  await assert.rejects(() => db.query(`SELECT public.running_late_shift_schedule($1, ARRAY[$2]::uuid[], 10)`, [F.eventId, F.momentA]), /nothing_changed/);
+  assert.deepEqual(await row(F.momentA), was);
+  await asUser(F.couple);
+  await assert.rejects(
+    () => db.query(`SELECT public.running_late_shift_schedule($1, ARRAY[$2, gen_random_uuid()]::uuid[], 10)`, [F.eventId, F.momentA]),
+    /nothing_changed/,
+    'half a day moved — a span with one missing row must undo the whole shift',
+  );
+  assert.deepEqual(await row(F.momentA), was);
+});
+
 test("a HOST'S ask (#7197), accepted by the locked supplier, moves the moment — and nothing more rides on it", async () => {
   // The lock's own words send the host to "a request instead": the host's ask IS that request. It is an open
   // 'adjust' row for this shop, so Accept (decideSuggestion, the service role) writes exactly the asked fields.

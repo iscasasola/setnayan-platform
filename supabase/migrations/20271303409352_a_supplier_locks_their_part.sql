@@ -29,8 +29,8 @@
 --   · the event's DATE moving (`move_event_schedule_with_date`): every block shifts by exactly (live date − the day the
 --     schedule stands on) whole days, nothing else — the day itself moved, not their part (audit note 8's default);
 --   · the event being deleted (a cascade): there is nothing left to protect.
--- Running late (`bulkRetimeScheduleBlocks` with the shift notice) is NOT exempt: it changes their clock. Owner call
--- (audit D7 note 8) — flagged in the PR, not decided here.
+-- Running late (`bulkRetimeScheduleBlocks` with the shift notice): the owner ruled it DOES pass a lock (DECISION_LOG
+-- 2026-11-03 (2)) — added by 20271303571970 through one door, `running_late_shift_schedule`, a pure shift only.
 --
 -- ── WHO LOCKS AND UNLOCKS ──────────────────────────────────────────────────────────────────────────────────────────────
 -- Only the supplier (`supplier_mark_schedule`, booked on the event, own org) — any time, not only the final week (owner

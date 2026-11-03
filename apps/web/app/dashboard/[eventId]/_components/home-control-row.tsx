@@ -169,6 +169,8 @@ function Shell({
       /* 🧱 Frames only where you act (owner 2026-11-01) — the same list the phone's tiles read. */
       className={`sg-row hc-card${homeWidgetFramed(k) ? '' : ' hc-plain'}${failed ? ' hc-card-bad' : ''}`}
       data-home-card-key={k}
+      /* 🎴 What Now names — marked, not chipped: Now rides the event card and is never repeated (Home redraw 2026-11-02). */
+      data-home-now={today ? '' : undefined}
       data-mood={failed ? 'gone' : 'plain'}
       /* 💾 Money is never kept as last-seen data (lib/last-seen) — the Budget card is dropped from the snapshot. */
       data-money={k === 'budget' ? '' : undefined}
@@ -190,7 +192,6 @@ function Shell({
             <InfoTip label={NAME[k]} labelClassName="sg-name" align="start">
               {INFO[k]}
             </InfoTip>
-            {today ? <span className="hc-chip hc-chip-inline">Today</span> : null}
           </span>
           {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
         </span>

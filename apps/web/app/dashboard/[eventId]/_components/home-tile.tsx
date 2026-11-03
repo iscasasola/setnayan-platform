@@ -383,7 +383,6 @@ export function HomeTile({
   if (model.key === 'count') {
     return (
       <div className={`hc-tile hc-count${model.span ? ' hc-span' : ''}${frame}`} data-home-tile="count" data-home-tile-face={face.id} ref={root}>
-        {model.today ? <span className="hc-chip">Today</span> : null}
         <span className="hc-cd" aria-hidden>
           <span className={`hc-cd-n${face.count ? '' : ' hc-cd-word'}`}>
             <FaceFigure face={face} />
@@ -427,7 +426,7 @@ export function HomeTile({
       ) : model.label ? (
         <span className="hc-lab">{model.label}</span>
       ) : null}
-      {model.today ? <span className="hc-chip">Today</span> : null}
+      {/* 🎴 No "Today" chip: Now rides the event card and is never repeated below (Home redraw 2026-11-02). */}
       <div className="hc-faces">
         <div className="hc-track" ref={track} style={{ transform: `translateX(${-index * 100}%)` }} role="list" aria-label={`${model.label ?? model.key} — swipe for more`}>
           {faces.map((f, i) => (

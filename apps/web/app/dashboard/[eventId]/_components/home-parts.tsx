@@ -21,10 +21,12 @@
  *   (The Next card, its fold and the What's next row were REMOVED 2026-10-24 — the verb now sits on the widget it is
  *    about, and the Checklist widget holds only the plan.)
  */
-import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useState, useTransition, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import Link from 'next/link';
-import { ArrowDown, CalendarDays, ChevronRight, RotateCw } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, ChevronRight, Eye, Mail, PenLine, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
+import type { FaceIcon, HomeNowAction } from './home-control-faces';
+import { planningRowAction } from '../checklist-actions';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 
@@ -80,18 +82,40 @@ function visibleTarget(target: string): HTMLElement | null {
 }
 
 /**
- * ☀ THE TODAY LINE — one line high, on top. A pointer: it scrolls to and spotlights the widget it names (1.8 s ring),
- * never opens another page. Calm (green) when nothing waits.
+ * ☀ NOW — THE EVENT CARD'S ONE THING TO DO (owner-approved Home redraw 2026-11-02, round 3,
+ * `prototypes/home_controller_2026-11-02/` `.ecard .now`): the Today line moved INTO the card, under the countdown — the
+ * kicker "Now", the words, and ONE filled button with its verb that opens the one place that settles it (Pay → that
+ * payment, Answer → the request, Done → ticks the overdue task in place). Papic and Setnayan AI keep their controls on
+ * Home, so their button points at the widget (scroll + a 1.8 s ring). Calm (nothing waits): the words alone, no button.
+ * `data-home-today` keeps the target, so a walk still reads what Now names.
  */
-export function HomeToday({ target, words, tail, calm }: { target: string; words: string; tail: string; calm: boolean }) {
+export function HomeToday({
+  target,
+  words,
+  tail,
+  calm,
+  action = null,
+  eventId,
+}: {
+  target: string;
+  words: string;
+  tail: string;
+  calm: boolean;
+  action?: HomeNowAction | null;
+  eventId?: string;
+}) {
   const f = useContext(TodayFold);
+  const router = useContext(AppRouterContext);
+  const [ticked, setTicked] = useState(false);
+  const [refused, setRefused] = useState<string | null>(null);
+  const [pending, start] = useTransition();
   if (f?.folded) {
     return (
-      <p className="hc-today-later" data-home-today="later" role="status">
+      <p className="hc-now hc-today-later" data-home-today="later" role="status">
         <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         <span>Back tomorrow</span>
         <span aria-hidden>·</span>
-        <button type="button" onClick={f.undo} className="font-medium text-mulberry" data-testid="home-today-undo">
+        <button type="button" onClick={f.undo} className="font-medium" data-testid="home-today-undo">
           Undo
         </button>
       </p>
@@ -110,26 +134,70 @@ export function HomeToday({ target, words, tail, calm }: { target: string; words
     el.setAttribute('data-home-spot', '');
     window.setTimeout(() => el.removeAttribute('data-home-spot'), 1800);
   };
+  // ✅ Done on the overdue task — Planning Stage's own write (`planningRowAction`, op tick-*); a refusal is said.
+  const tick = () => {
+    const t = action?.tick;
+    if (!t || !eventId) return;
+    setRefused(null);
+    setTicked(true);
+    const fd = new FormData();
+    fd.set('op', t.kind === 'task' ? 'tick-task' : 'tick-step');
+    fd.set('event_id', eventId);
+    fd.set('item_id', t.id);
+    fd.set('desired', 'done');
+    start(async () => {
+      const r = await planningRowAction(fd).catch(() => ({ ok: false as const, error: 'This did not save. Try again.' }));
+      if (!r.ok) {
+        setTicked(false);
+        setRefused(r.error);
+      }
+    });
+  };
+  const Icon = action ? NOW_ICONS[action.icon] : null;
+  const button =
+    action && Icon ? (
+      action.tick ? (
+        <ActionButton tone="brand" main icon={Icon} label={ticked ? 'Done ✓' : action.verb} name={`${words} — ${action.verb}`} onClick={tick} disabled={pending || ticked} data-testid="home-now-tick" />
+      ) : action.point ? (
+        <ActionButton tone="brand" main icon={Icon} label={action.verb} name={`${words} — show it`} onClick={point} data-testid="home-now-point" />
+      ) : action.href ? (
+        <ActionButton tone="brand" main icon={Icon} label={action.verb} name={`${words} — ${action.verb}`} href={action.href} data-testid="home-now-door" />
+      ) : (
+        <ActionButton
+          tone="brand"
+          main
+          icon={Icon}
+          label={action.verb}
+          name={`${words} — ${action.verb}`}
+          // one-render: keep (retry) — Now says a read failed; the person asks for the reads again. No write came before it.
+          onClick={() => (router ? router.refresh() : window.location.reload())}
+          data-testid="home-now-reload"
+        />
+      )
+    ) : null;
   return (
-    <button
-      type="button"
-      className={`hc-today${calm ? ' hc-calm' : ''}`}
-      data-home-today={target}
-      data-tour="home-today"
-      onClick={point}
-      aria-label={`Today: ${words}${tail ? ` · ${tail}` : ''} — show it`}
-    >
-      <span className="hc-today-k">Today</span>
-      <span className="hc-today-t">
-        {words}
-        {tail ? <span className="hc-today-w"> · {tail}</span> : null}
+    <div className={`hc-now${calm ? ' hc-calm' : ''}`} data-home-today={target} data-tour="home-today" role="group" aria-label={`Now: ${words}${tail ? ` · ${tail}` : ''}`}>
+      <span className="hc-now-k">Now</span>
+      <span className="hc-now-t">
+        {refused ? <span role="alert">{refused}</span> : words}
+        {!refused && tail ? <span className="hc-now-w"> · {tail}</span> : null}
       </span>
-      <span className="hc-today-arrow" aria-hidden>
-        <ArrowDown strokeWidth={1.9} />
-      </span>
-    </button>
+      {button}
+    </div>
   );
 }
+
+const NOW_ICONS: Record<FaceIcon, typeof ArrowRight> = {
+  mail: Mail,
+  plus: Plus,
+  check: Check,
+  pay: ArrowRight,
+  reload: RotateCw,
+  pen: PenLine,
+  eye: Eye,
+  cal: CalendarDays,
+  sliders: SlidersHorizontal,
+};
 
 /**
  * ☀ A TODAY ITEM — the Today line's pill, for a prompt that waits on the hosts (owner 2026-10-29). Unlike the Today line

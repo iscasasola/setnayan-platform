@@ -184,8 +184,10 @@ export type HomeChecklistFacts = {
   total: number;
   /** Open (pending) tasks, all of them. */
   open: number;
-  /** The open tasks the plan ranks first (`rankUrgentChecklistItems`), soonest first — at most three. */
-  next: Array<{ id: string; title: string; dueDate: string | null; daysUntilDue: number | null }>;
+  /** The open tasks the plan ranks first (`rankUrgentChecklistItems`), soonest first — at most four (Home's To do shows
+   *  three; the fourth fills in when Now holds one). `tick` = the row Planning Stage's own tick writes (`PlanningTick`);
+   *  absent/null = a row with no table row to tick (the To do line opens it instead). */
+  next: Array<{ id: string; title: string; dueDate: string | null; daysUntilDue: number | null; tick?: { kind: 'task' | 'manual'; id: string } | null }>;
   /** Open tasks due within the next seven days (overdue ones included). */
   dueThisWeek: number;
 };
@@ -304,7 +306,20 @@ export const BUDGET_MAX_PAY_FACES = 5;
 /* ─── Today — the one pointer (notes: option A, "a pointer, not a door") ───── */
 
 export type HomeTodayTarget = HomeControlKey | 'sched' | 'papic' | 'ai' | 'asks';
-export type HomeToday = { target: HomeTodayTarget; words: string; tail: string; calm: boolean };
+export type HomeToday = {
+  target: HomeTodayTarget;
+  words: string;
+  tail: string;
+  calm: boolean;
+  /**
+   * 🔁 NOW NEVER REPEATS BELOW (owner-approved Home redraw 2026-11-02, round 3, `prototypes/home_controller_2026-11-02/`:
+   * "Now … is never repeated in To do, Requests or Budget below"). The one payment or task Now holds — its widget leaves
+   * it out.
+   */
+  holds?: { pay?: string; task?: string };
+  /** ✅ The overdue task Now holds, ticked in place (`PlanningTick`'s write) — null when the task has no row to tick. */
+  task?: HomeChecklistFacts['next'][number] | null;
+};
 
 /**
  * ☀ WHAT WAITS ON THE HOSTS, FROM THE WIDGETS' OWN FACTS (audit 2026-11-02 #2: the Today line said "Nothing waits on
@@ -317,6 +332,8 @@ export type HomeWaiting = {
   overdue: HomePayLine[];
   toApprove: number;
   toDecide: Array<{ name: string }>;
+  /** The plan's soonest task whose date has passed — Now's last pick (round 3: "then an overdue task"). */
+  overdueTask?: HomeChecklistFacts['next'][number] | null;
   unread: boolean;
 };
 
@@ -330,6 +347,8 @@ export function homeWaiting(input: Pick<HomeControlInput, 'guests' | 'hub' | 'su
     overdue: paymentsToSettle(pays).filter((p) => p.state === 'overdue' || (p.days !== null && p.days < 0)),
     toApprove: sched?.toApprove ?? 0,
     toDecide: sup?.toDecide ?? [],
+    overdueTask:
+      input.checklist && input.checklist !== 'unread' ? (input.checklist.next.find((t) => t.daysUntilDue !== null && t.daysUntilDue < 0) ?? null) : null,
     unread:
       input.guests === 'unread' ||
       input.hub === 'unread' ||
@@ -342,16 +361,19 @@ export function homeWaiting(input: Pick<HomeControlInput, 'guests' | 'hub' | 'su
   };
 }
 
-/** The first thing that waits, in the order it costs the hosts most to miss — or null when nothing does. */
+/**
+ * The first thing that waits, in the order the approved Home redraw ranks it (owner 2026-11-02, round 3: *"Now is the
+ * single most urgent item across everything — a late payment, then the oldest request waiting, then a setup step, then
+ * an overdue task"*) — or null when nothing does. A late payment is named on its own (the soonest late one, Pay opens
+ * it); the Budget card leaves that one out (`holds.pay`).
+ */
 function waitingToday(w: HomeWaiting): HomeToday | null {
-  if (w.asks > 0) {
-    return { target: 'asks', words: w.asks === 1 ? 'An access request waits on you' : `${n(w.asks)} access requests wait on you`, tail: 'answer above', calm: false };
-  }
   if (w.overdue.length > 0) {
     const first = w.overdue[0]!;
-    return w.overdue.length === 1
-      ? { target: 'budget', words: `Pay ${first.who}`, tail: dueWords(first), calm: false }
-      : { target: 'budget', words: `${n(w.overdue.length)} payments are overdue`, tail: `${first.who} first`, calm: false };
+    return { target: 'budget', words: `${formatPhpRounded(first.owedPhp)} to ${first.who}`, tail: dueWords(first), calm: false, holds: { pay: first.id } };
+  }
+  if (w.asks > 0) {
+    return { target: 'asks', words: w.asks === 1 ? 'An access request waits on you' : `${n(w.asks)} access requests wait on you`, tail: 'answer it', calm: false };
   }
   if (w.toApprove > 0) {
     return { target: 'sched', words: `${n(w.toApprove)} supplier ${plural(w.toApprove, 'change', 'changes')} to approve`, tail: 'in Schedule', calm: false };
@@ -370,9 +392,14 @@ function waitingToday(w: HomeWaiting): HomeToday | null {
  */
 export function homeToday(next: HomeNext, guests: HomeControlInput['guests'], waiting: HomeWaiting | null = null): HomeToday {
   const counts = guests && guests !== 'unread' ? guests : null;
-  // What waits on the hosts outranks an offer (the AI) and the calm line — never the picker's own firsts.
+  // 🔁 Round 3's order (owner 2026-11-02): a read that failed first (said, never calm) · a late payment · the oldest
+  // request · then the picker's setup step · then an overdue task. What waits now outranks the setup step too.
   const waits = waiting ? waitingToday(waiting) : null;
-  if (waits && (next.kind === 'ai' || next.kind === 'plan')) return waits;
+  if (waits && next.kind !== 'unread') return waits;
+  const late = waiting?.overdueTask ?? null;
+  if (late && (next.kind === 'ai' || next.kind === 'plan')) {
+    return { target: 'plan', words: late.title, tail: ['due', shortDay(late.dueDate), '· overdue'].filter(Boolean).join(' '), calm: false, holds: { task: late.id }, task: late };
+  }
   switch (next.kind) {
     case 'guide':
       return { target: 'hub', words: 'Finish your Event Hub', tail: next.title.replace(/^Finish your Event Hub — /, ''), calm: false };
@@ -392,6 +419,57 @@ export function homeToday(next: HomeNext, guests: HomeControlInput['guests'], wa
       // A widget that could not be read means "nothing waits" is not known — said, never calm.
       if (waiting?.unread) return { target: 'plan', words: 'Part of Home couldn’t load', tail: 'reload to check what waits', calm: false };
       return { target: 'plan', words: 'Nothing waits on you', tail: 'the plan has the rest', calm: true };
+  }
+}
+
+/**
+ * ☀ NOW'S ONE BUTTON (owner-approved Home redraw 2026-11-02, round 3 — the event card's `.now` row: *"the ONE thing to
+ * do now"* with its verb). The Today line was a pointer that scrolled to the widget; on the card it is a door with a
+ * verb, to the one place that settles it. `href: null` = ⟳ Reload; `tick` = the overdue task, ticked in place; `point`
+ * = the widget on Home that holds the control (Papic, Setnayan AI) — scroll to it. null = nothing to press (calm).
+ */
+export type HomeNowAction = {
+  verb: string;
+  icon: FaceIcon;
+  href: string | null;
+  tick?: { kind: 'task' | 'manual'; id: string; title: string } | null;
+  point?: boolean;
+};
+
+export function homeNowAction(today: HomeToday, input: HomeControlInput): HomeNowAction | null {
+  const e = input.eventId;
+  if (today.calm) return null;
+  if (input.next.kind === 'unread' && today.target === 'guests') return { verb: 'Reload', icon: 'reload', href: null };
+  switch (today.target) {
+    case 'budget':
+      return { verb: 'Pay', icon: 'pay', href: today.holds?.pay ? budgetPageHref(e, { pay: today.holds.pay }) : budgetPageHref(e) };
+    case 'asks':
+      return { verb: 'Answer', icon: 'check', href: `/dashboard/${e}/access-requests` };
+    case 'sched':
+      return { verb: 'Answer', icon: 'check', href: schedulePageHref(e, { sheet: 'requests' }) };
+    case 'sup':
+      return { verb: 'Answer', icon: 'check', href: `/dashboard/${e}/vendors?tab=shortlist` };
+    case 'hub':
+      return { verb: 'Continue', icon: 'pay', href: `/dashboard/${e}/launch?tool=details&guide=1` };
+    case 'count':
+      return { verb: 'Pick', icon: 'cal', href: input.countdown.door ?? countdownDoor(e) };
+    case 'guests':
+      return input.next.kind === 'invite'
+        ? { verb: 'Send', icon: 'mail', href: `/dashboard/${e}/guests/send` }
+        : { verb: 'Add', icon: 'plus', href: `/dashboard/${e}/guests` };
+    case 'plan':
+      if (today.task) {
+        return today.task.tick
+          ? { verb: 'Done', icon: 'check', href: planningTodoHref(e, today.task.id), tick: { ...today.task.tick, title: today.task.title } }
+          : { verb: 'Open', icon: 'pay', href: planningTodoHref(e, today.task.id) };
+      }
+      // "Part of Home couldn't load" — the reads run again.
+      return { verb: 'Reload', icon: 'reload', href: null };
+    case 'papic':
+    case 'ai':
+      return { verb: 'Show', icon: 'pay', href: null, point: true };
+    default:
+      return null;
   }
 }
 
@@ -669,7 +747,8 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
   const faces: HomeFace[] = [];
   if (b.pays !== 'unread') {
-    const pays = paymentsToSettle(b.pays);
+    // 🔁 The payment Now holds is not repeated here (round 3, "Now never repeats below").
+    const pays = paymentsToSettle(b.pays).filter((p) => p.id !== today.holds?.pay);
     const shown = pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays;
     shown.forEach((p, i) => {
       const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
@@ -758,14 +837,14 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
  */
 export function homeControlTiles(input: HomeControlInput): { today: HomeToday; tiles: HomeTileModel[] } {
   const today = homeToday(input.next, input.guests, homeWaiting(input));
+  /* 🎴 THE COUNTDOWN AND THE TO DO LEFT THE GRID (owner-approved Home redraw 2026-11-02, round 3): the countdown is the
+     event card's own figure and the plan is the ONE To do list under the card (`home-todo-list.tsx`) — a widget for
+     either would be the same thing twice. `countdownTile` / `checklistTile` stay for the readers that still word them. */
   const built = [
-    countdownTile(input, today),
-    // 📅 Full width, after the Countdown (owner-approved 1 Nov prototype, plan §4).
     scheduleTile(input, today),
     guestsTile(input, today),
     hubTile(input, today),
     suppliersTile(input, today),
-    checklistTile(input, today),
     budgetTile(input, today),
   ].filter((t): t is HomeTileModel => t !== null);
   // Pair the half tiles in reading order; a half tile left without a partner spans the row.

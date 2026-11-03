@@ -52,6 +52,9 @@ function pageOf(href: string): string {
   if (/^\/schedule\?view=preparation&filter=todo\b/.test(path)) return 'Planning Stage';
   return `elsewhere (${h})`;
 }
+/** 🎴 The grid's widgets — the Countdown is the event card's figure and the plan is the To do list under it (Home
+ *  redraw 2026-11-02, round 3); both still open their one page, checked where they are drawn. */
+const GRID_KEYS = HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan');
 const hrefs = (html: string) => [...html.matchAll(/(?:href|data-home-face-href)="([^"]*)"/g)].map((m) => m[1]!);
 
 test('1 · every door inside a widget opens THAT widget’s one page — on the phone and from md up', () => {
@@ -64,7 +67,7 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
     ['detail', detail, 'data-home-card-key="'],
   ] as const) {
     const owners = new Map<string, HomeControlKey>();
-    for (const key of HOME_CONTROL_KEYS) {
+    for (const key of GRID_KEYS) {
       const one = slice(part, `${marker}${key}"`, HOME_CONTROL_KEYS.filter((k) => k !== key).map((k) => `${marker}${k}"`));
       assert.ok(one.length > 0, `${version}: the ${key} widget is not drawn`);
       const doors = hrefs(one);
@@ -77,15 +80,21 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
         owners.set(page, key);
       }
     }
-    assert.equal(owners.size, HOME_CONTROL_KEYS.length, `${version}: six widgets, six pages`);
+    assert.equal(owners.size, GRID_KEYS.length, `${version}: one page per widget`);
   }
+  // The card's countdown opens the Date Finder; the To do list's rows and line open Planning Stage.
+  const card = slice(html, 'data-home-card-countdown', ['data-home-today=']);
+  assert.deepEqual(hrefs(card).map(pageOf), ['Date Finder'], 'the card’s countdown opens another page');
+  const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
+  const todoDoors = hrefs(todo);
+  assert.ok(todoDoors.length > 0, 'the To do list has no door');
+  for (const d of todoDoors) assert.equal(pageOf(d), 'Planning Stage', `the To do list opens ${d}`);
 });
 
 test('2 · each face opens the exact item the notes name', () => {
   const { tiles } = homeControlTiles(fixtureControl('e1'));
   const face = (key: HomeControlKey, id: string) => tiles.find((t) => t.key === key)?.faces.find((f) => f.id === id);
   const table: Array<[HomeControlKey, string, string]> = [
-    ['count', 'count', '/dashboard/e1?date=find'],
     ['guests', 'guests-coming', '/dashboard/e1/guests?q=coming'],
     ['guests', 'guests-noreply', '/dashboard/e1/guests?q=no+reply'],
     ['guests', 'guests-toinvite', '/dashboard/e1/guests/send'],
@@ -100,9 +109,8 @@ test('2 · each face opens the exact item the notes name', () => {
     ['sup', 'sup-replied', '/dashboard/e1/vendors?tab=shortlist'],
     ['budget', 'budget-summary', '/dashboard/e1/budget'],
     // PR-E: the exact payment (its Pay sheet opens) and the exact task.
-    ['budget', 'pay-li-1', '/dashboard/e1/budget?pay=li-1'],
-    ['plan', 'plan-open', '/dashboard/e1/schedule?view=preparation&filter=todo#task-t1'],
-    ['plan', 'plan-pct', '/dashboard/e1/schedule?view=preparation&filter=todo'],
+    // (₱8,000 · li-1 is late, so it is Now's — the card's Pay opens it; the Budget card starts at the next one.)
+    ['budget', 'pay-li-2', '/dashboard/e1/budget?pay=li-2'],
   ];
   for (const [key, id, href] of table) {
     const f = face(key, id);

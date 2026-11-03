@@ -37,8 +37,10 @@ test('1 · each waiting thing replaces the calm line, pointing at its widget', (
   assert.match(today(quiet({ asks: 2 })).words, /2 access requests wait on you/);
   const overdue = today(quiet({ budget: { paidPhp: 1, owingPhp: 1, pays: fixturePays() } }));
   assert.equal(overdue.target, 'budget');
-  assert.match(overdue.words, /^Pay Lumière Catering$/);
+  // 🎴 Now names the late payment itself (Home redraw 2026-11-02): the amount and who; Pay opens it.
+  assert.match(overdue.words, /^₱8,000 to Lumière Catering$/);
   assert.match(overdue.tail, /late/);
+  assert.equal(overdue.holds?.pay, 'li-1', 'Now does not hold the payment it names — Budget would repeat it');
   assert.equal(today(quiet({ schedule: { ...fixtureSchedule('before'), toApprove: 3 } })).target, 'sched');
   const quote = today(quiet({ suppliers: { booked: 2, of: 6, toDecide: [{ name: 'Bloom & Vine', vendorId: 'v' }], replied: 1 } }));
   assert.equal(quote.target, 'sup');
@@ -48,12 +50,28 @@ test('1 · each waiting thing replaces the calm line, pointing at its widget', (
   assert.equal(today(quiet({ budget: { paidPhp: 1, owingPhp: 1, pays: fixturePays() } }), AI).target, 'budget');
 });
 
-test('2 · the picker’s own firsts are never pushed aside', () => {
-  const busy = quiet({ asks: 3, budget: { paidPhp: 1, owingPhp: 1, pays: fixturePays() } });
+/*
+  🎴 THE REDRAW'S ORDER (owner-approved Home redraw 2026-11-02, round 3 — supersedes this file's "the picker's own firsts
+  are never pushed aside"): *"a late payment, then the oldest request waiting, then a setup step, then an overdue task"*.
+  Only a read that failed outranks what waits (it is said first, never calm).
+*/
+test('2 · a late payment, then a request, then the picker’s setup step, then an overdue task', () => {
   const date: HomeNext = { kind: 'date', title: 'Set your wedding date', body: '', action: '' };
   const invite: HomeNext = { kind: 'invite', title: 'Send 5 invitations', body: '', action: '' };
-  assert.equal(today(busy, date).target, 'count');
-  assert.equal(today(busy, invite).target, 'guests');
+  const unread: HomeNext = { kind: 'unread', title: 'We couldn’t read your guest list', body: '', action: '' };
+  const late = { budget: { paidPhp: 1, owingPhp: 1, pays: fixturePays() } };
+  assert.equal(today(quiet({ asks: 3, ...late }), date).target, 'budget', 'a late payment is not first');
+  assert.equal(today(quiet({ asks: 3 }), invite).target, 'asks', 'a request does not outrank the setup step');
+  assert.equal(today(quiet({}), invite).target, 'guests', 'the setup step is pushed aside by nothing');
+  assert.equal(today(quiet({ asks: 3, ...late }), unread).target, 'guests', 'a failed read is not said first');
+  // An overdue task — only once nothing else waits and the picker has no setup step.
+  const task = { id: 't9', title: 'Book the church', dueDate: '2026-01-01', daysUntilDue: -5, tick: { kind: 'task' as const, id: 't9' } };
+  const checklist = { done: 1, total: 3, open: 2, dueThisWeek: 1, next: [task] };
+  const t = today(quiet({ checklist }));
+  assert.equal(t.target, 'plan');
+  assert.equal(t.words, 'Book the church');
+  assert.equal(t.holds?.task, 't9', 'Now does not hold the task it names — To do would repeat it');
+  assert.equal(today(quiet({ checklist }), invite).target, 'guests', 'an overdue task outranks the setup step');
 });
 
 test('3 · an unread widget means "nothing waits" is not known', () => {
@@ -70,6 +88,7 @@ test('4 · calm only when nothing waits and everything was read — and the firs
   assert.equal(t.words, 'Nothing waits on you');
   const screen = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'home-first-screen.tsx'), 'utf8'));
   assert.match(screen, /homeToday\(next, control\.guests, homeWaiting\(control\)\)/, 'the first screen’s Today ignores what waits');
+  assert.match(screen, /holds=\{today\.holds\?\.task \?\? null\}/, 'the To do list repeats the task Now holds');
   const faces = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'home-control-faces.ts'), 'utf8'));
   assert.match(faces, /homeToday\(input\.next, input\.guests, homeWaiting\(input\)\)/, 'the tiles’ Today ignores what waits');
 });

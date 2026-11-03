@@ -64,12 +64,30 @@ export async function deleteTemplate(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-
-  const templateId = String(formData.get('template_id') ?? '');
-  // RLS scopes the delete to the caller's own org.
-  await supabase.from('vendor_proposal_templates').delete().eq('template_id', templateId);
-  revalidatePath(BACK);
+  await dropProposalTemplate(String(formData.get('template_id') ?? ''));
   redirect(BACK);
+}
+
+/**
+ * The same template delete, answered instead of redirected — what the Templates list's SWIPE calls once its Undo
+ * window closes (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). A
+ * redirect from a write landing six seconds later would throw away whatever the supplier was writing.
+ */
+export async function dropProposalTemplate(templateId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  if (!templateId) return { ok: false, error: 'Missing template.' };
+  // RLS scopes the delete to the caller's own org.
+  const { error } = await supabase.from('vendor_proposal_templates').delete().eq('template_id', templateId);
+  if (error) {
+    console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · from:vendor_proposal_templates.delete', error);
+    return { ok: false, error: 'Could not delete that template.' };
+  }
+  revalidatePath(BACK);
+  return { ok: true };
 }
 
 export async function createProposal(formData: FormData) {

@@ -292,7 +292,8 @@
 button.row {
   cursor: pointer;
 }
-.grp + .row {
+.grp + .row,
+.grp + [data-swipe-row] .row {
   border-top: 0;
 }
 .logo {

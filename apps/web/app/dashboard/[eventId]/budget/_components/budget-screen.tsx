@@ -69,6 +69,10 @@ import { formatCount } from '@/lib/format-number';
 import { BudgetSummary, Peso } from './budget-summary';
 import styles from './budget-page.module.css';
 import { useRidingRow } from '@/app/_components/typing-band';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
+import { deleteEventCost } from '../cost-actions';
 
 /** One payment already made to a supplier — a "Paid" row in their sheet. */
 export type SupplierPayment = {
@@ -187,6 +191,8 @@ export function BudgetScreen({
 
   return (
     <div className={styles.page} data-budget-screen="">
+      {/* ↩ The Undo a swiped-away expense leaves (owner 2026-11-03). */}
+      <UndoToastHost />
       <BudgetSummary
         eventId={eventId}
         canEdit={canEdit}
@@ -226,6 +232,7 @@ export function BudgetScreen({
           retrying={retrying}
         />
         <ExpenseGroup
+          eventId={eventId}
           rows={list.expenses}
           shown={shown.expenses}
           why={whyEmpty('expenses', filter, query)}
@@ -594,6 +601,7 @@ function OrderGroup({ rows, shown, why, onRetry, retrying }: GroupProps<OrderRow
 }
 
 function ExpenseGroup({
+  eventId,
   rows,
   shown,
   why,
@@ -602,9 +610,19 @@ function ExpenseGroup({
   onRetry,
   retrying,
 }: GroupProps<ExpenseRow> & {
+  eventId: string;
   canEdit: boolean;
   onOpen: (costId: string) => void;
 }) {
+  /* ↩ Expenses deleted by their swipe, waiting out the Undo window (owner 2026-11-03). */
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const hold = (costId: string, on: boolean) =>
+    setGone((g) => {
+      const next = new Set(g);
+      if (on) next.add(costId);
+      else next.delete(costId);
+      return next;
+    });
   return (
     <>
       <GroupHead title="Your expenses" count={rows === null ? null : rows.length} />
@@ -617,7 +635,7 @@ function ExpenseGroup({
       ) : (shown ?? []).length === 0 && why ? (
         <GroupWhy text={why} />
       ) : (
-        (shown ?? []).map((e) => {
+        (shown ?? []).filter((e) => !gone.has(e.costId)).map((e) => {
           const inner = (
             <>
               <span className={styles.logo} aria-hidden="true">
@@ -651,16 +669,33 @@ function ExpenseGroup({
               </span>
             </>
           );
+          /* 👈 SWIPE LEFT TO DELETE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): an
+             expense's Remove was only inside its sheet; the row gains the one swipe — the same `deleteEventCost`, after
+             the Undo window (`deleteWithUndo`). The sheet keeps its own Remove. */
           return canEdit ? (
-            <button
+            <SwipeToDelete
               key={e.costId}
-              type="button"
-              className={styles.row}
-              onClick={() => onOpen(e.costId)}
-              data-budget-row="expense"
+              label={`Delete ${e.name}`}
+              radiusClass=""
+              onDelete={() =>
+                deleteWithUndo({
+                  label: `${e.name} deleted`,
+                  hide: () => hold(e.costId, true),
+                  restore: () => hold(e.costId, false),
+                  commit: () => {
+                    const fd = new FormData();
+                    fd.set('event_id', eventId);
+                    fd.set('cost_id', e.costId);
+                    return deleteEventCost(fd);
+                  },
+                  failed: `Couldn’t delete ${e.name}. It’s back — try again.`,
+                })
+              }
             >
-              {inner}
-            </button>
+              <button type="button" className={styles.row} onClick={() => onOpen(e.costId)} data-budget-row="expense">
+                {inner}
+              </button>
+            </SwipeToDelete>
           ) : (
             <div key={e.costId} className={styles.row} data-budget-row="expense">
               {inner}

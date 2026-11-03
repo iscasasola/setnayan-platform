@@ -44,7 +44,6 @@
 import Link from 'next/link';
 import {
   Plus,
-  Trash2,
   Calendar,
   ChevronDown,
   Receipt,
@@ -72,7 +71,7 @@ import { ContactShortlistVendorButton } from '../vendors/_components/contact-sho
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { PlanInstance } from '@/lib/vendor-service-payment-schedules';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ConfirmForm } from '@/app/_components/confirm-form';
+import { ConfirmSwipe } from './confirm-swipe';
 import { FileUpload } from '@/app/_components/file-upload';
 import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import { SuggestMilestonesButton } from '@/app/dashboard/[eventId]/budget/_components/suggest-milestones-button';
@@ -707,8 +706,16 @@ function LineItemSection({
           ) : null}
           <ul className="space-y-1.5">
             {manualLines.map((li) => (
-              <li
+              /* 👈 Your own line's Delete is its swipe (owner 2026-11-03) — the same ask, then Undo. */
+              <ConfirmSwipe
                 key={li.line_item_id}
+                action={deleteLineItem}
+                fields={{ event_id: eventId, line_item_id: li.line_item_id }}
+                title="Delete this line item?"
+                message="It’s removed from this supplier’s budget — you can add it back anytime."
+                confirmLabel="Delete"
+                label={`Delete ${li.label}`}
+                undoLabel={`“${li.label}” deleted`}
                 className="flex items-center justify-between gap-2 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
@@ -724,24 +731,8 @@ function LineItemSection({
                   <span className="font-mono text-sm font-semibold text-ink">
                     {formatPhp(li.amount_php)}
                   </span>
-                  <ConfirmForm
-                    action={deleteLineItem}
-                    title="Delete this line item?"
-                    message="It’s removed from this supplier’s budget — you can add it back anytime."
-                    confirmLabel="Delete"
-                  >
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="line_item_id" value={li.line_item_id} />
-                    <SubmitButton
-                      aria-label="Delete line item"
-                      pendingLabel=""
-                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </SubmitButton>
-                  </ConfirmForm>
                 </div>
-              </li>
+              </ConfirmSwipe>
             ))}
           </ul>
         </div>
@@ -951,8 +942,16 @@ function PaymentSection({
             const fallbackLabel =
               !line && p.notes && p.notes.length > 0 ? p.notes : 'Generic payment';
             return (
-              <li
+              /* 👈 A logged payment's Delete is its swipe (owner 2026-11-03) — the same ask, then Undo. */
+              <ConfirmSwipe
                 key={p.payment_id}
+                action={deletePayment}
+                fields={{ event_id: eventId, payment_id: p.payment_id }}
+                title="Remove this logged payment?"
+                message="The running total updates — log it again if you remove it by mistake."
+                confirmLabel="Delete"
+                label={`Delete the payment ${line ? line.label : fallbackLabel}`}
+                undoLabel="Payment removed"
                 className="flex items-start justify-between gap-2 rounded-md bg-success-50/60 px-3 py-2 text-sm"
               >
                 <div className="min-w-0 space-y-0.5">
@@ -969,24 +968,8 @@ function PaymentSection({
                   <span className="font-mono text-sm font-semibold text-success-900">
                     {formatPhp(p.amount_php)}
                   </span>
-                  <ConfirmForm
-                    action={deletePayment}
-                    title="Remove this logged payment?"
-                    message="The running total updates — log it again if you remove it by mistake."
-                    confirmLabel="Delete"
-                  >
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="payment_id" value={p.payment_id} />
-                    <SubmitButton
-                      aria-label="Delete payment"
-                      pendingLabel=""
-                      className="rounded-md p-1 text-success-900/50 hover:bg-success-900/5 hover:text-danger-700 disabled:opacity-60"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </SubmitButton>
-                  </ConfirmForm>
                 </div>
-              </li>
+              </ConfirmSwipe>
             );
           })}
         </ul>

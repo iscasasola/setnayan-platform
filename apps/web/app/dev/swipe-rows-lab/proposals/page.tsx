@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import { TemplateList, type TemplateListRow } from '@/app/vendor-dashboard/proposals/_components/template-list';
 
 const TEMPLATES: TemplateListRow[] = [
-  { template_id: 'lab-t1', template_name: 'Full event catering', body: 'Hi {{couple_names}}, here is our proposal for {{event_date}} at {{venue}}…' },
+  { template_id: 'lab-t1', template_name: 'Full event catering', body: 'Hi {{couple_names}}, here is our quote for {{event_date}} at {{venue}}…' },
   { template_id: 'lab-t2', template_name: 'Cocktail hour only', body: 'Passed canapés and a two-hour bar for {{guest_count}} guests.' },
   { template_id: 'lab-t3', template_name: 'Blank', body: '' },
 ];

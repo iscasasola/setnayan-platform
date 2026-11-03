@@ -161,7 +161,10 @@ export function PlaylistPickRow({
       label={`Remove ${pick.song_label}`}
       word="Remove"
       onDelete={handleDelete}
-      radiusClass="rounded-lg"
+      // The OUTER box rounds the row; the sliding front stays square inside it — a rounded front let the red behind
+      // show as a hairline at its corners (measured on /dev/schedule-lab?view=playlist).
+      radiusClass=""
+      className="overflow-hidden rounded-lg"
       surfaceClass="bg-raised"
     >
     <div

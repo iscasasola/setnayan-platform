@@ -22,6 +22,13 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { setupPricePhp, DEFAULT_ONBOARDING_DISCOUNT_PCT } from './onboarding-discount';
+
+/**
+ * The ARITHMETIC of a 40% dial, kept as a fixture: the dial is 0 since 2026-11-03 (owner, "drop the 40% on all
+ * then"), but the dial still exists and these pins hold the rule's shape (an override is never undercut, Pro is never
+ * re-derived) for whatever number an owner sets next. The live default is pinned below.
+ */
+const AT_40 = 40;
 import { familyForServiceCode } from './onboarding-family-discount';
 
 const MIGRATIONS = join(process.cwd(), '../../supabase/migrations');
@@ -32,17 +39,17 @@ const migration = readdirSync(MIGRATIONS).find((f) =>
 test('the sign-up rule charges Pro its own ₱3,000 — and the one number agrees', () => {
   // The one sign-up number (40%, owner d18) gives ₱3,000 too; the row's own price
   // is never undercut by a shallower number.
-  assert.equal(setupPricePhp(5000, 3000, DEFAULT_ONBOARDING_DISCOUNT_PCT), 3000);
+  assert.equal(setupPricePhp(5000, 3000, AT_40), 3000);
   // …and the saving the card states is the difference, 40% of regular.
-  assert.equal(5000 - setupPricePhp(5000, 3000, DEFAULT_ONBOARDING_DISCOUNT_PCT), 2000);
+  assert.equal(5000 - setupPricePhp(5000, 3000, AT_40), 2000);
   assert.equal(2000 / 5000, 0.4);
 });
 
 test('Papic and Setnayan AI follow the one number; Pro is never re-derived', () => {
   // A Papic rung with no override follows the one sign-up percentage (40%)…
-  assert.equal(setupPricePhp(1000, null, DEFAULT_ONBOARDING_DISCOUNT_PCT), 600);
+  assert.equal(setupPricePhp(1000, null, AT_40), 600);
   // …the planner's own row price (₱1,499 ≈ 40%) is kept, being the cheaper…
-  assert.equal(setupPricePhp(2499, 1499, DEFAULT_ONBOARDING_DISCOUNT_PCT), 1499);
+  assert.equal(setupPricePhp(2499, 1499, AT_40), 1499);
   // Pro is in NEITHER derived family, so the discount save can never re-derive
   // its owner-set ₱3,000.
   assert.equal(familyForServiceCode('COUPLE_WEBSITE_PRO'), null);
@@ -56,4 +63,10 @@ test('the migration moves ONE row and no setting', () => {
   assert.deepEqual(updates, ['UPDATE public.platform_retail_catalog_v2']);
   assert.match(sql, /WHERE\s+service_code = 'COUPLE_WEBSITE_PRO'/);
   assert.doesNotMatch(sql, /platform_settings/, 'no discount percentage is touched');
+});
+
+test('2026-11-03 — at the live default there is no sign-up price: Pro and every rung set up at their regular price', () => {
+  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 0);
+  assert.equal(setupPricePhp(6590, null, DEFAULT_ONBOARDING_DISCOUNT_PCT), 6590);
+  assert.equal(setupPricePhp(990, null, DEFAULT_ONBOARDING_DISCOUNT_PCT), 990);
 });

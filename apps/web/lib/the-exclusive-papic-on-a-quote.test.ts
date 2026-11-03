@@ -144,13 +144,14 @@ test('a read failure says so, and prints no number', () => {
 // `ladder.length > 0`) → RED: an unpriceable catalogue would reach 'available'
 // and be explained to the supplier as "your quote is too small".
 test('a catalogue that cannot price the cap is unreadable, never "too small"', () => {
-  const noCapRung = LADDER.filter((r) => r.credits !== GIFT_CAP_CREDITS);
-  assert.equal(giftLadderIsPriceable(noCapRung), false);
+  // ⚖ 2026-11-03: the cap is the top pack on sale, so only an EMPTY ladder cannot price it (a ladder without the
+  // 50,000 rung now caps at its own top — see setnayan-gift.test.ts).
   assert.equal(giftLadderIsPriceable([]), false);
   assert.equal(giftLadderIsPriceable(LADDER), true);
+  assert.equal(giftLadderIsPriceable(LADDER.filter((r) => r.credits !== GIFT_CAP_CREDITS)), true);
 
-  // The gift itself already refuses such a ladder — this is the rule they share.
-  assert.equal(setnayanGiftForFee(83_750, noCapRung).credits, 0);
+  // The gift itself already refuses an empty ladder — this is the rule they share.
+  assert.equal(setnayanGiftForFee(83_750, []).credits, 0);
 
   // And the server hands `null` for that ladder, which maps to `unreadable`.
   const standing = standingForGiftArm('card_says_no', null);

@@ -16,7 +16,7 @@
  * service they can purchase on top to offer that exclusive deal" already exists
  * and is already priced, owner-locked on 2026-09-09: the SETNAYAN GIFT, free
  * Papic photos for the couple, sized at `GIFT_SHARE_OF_FEE_PCT`% of the booking
- * fee, capped at `GIFT_CAP_CREDITS`, billed to the supplier on top of the fee.
+ * fee, capped at the top pack on sale (never above `GIFT_CAP_CREDITS`), billed to the supplier on top of the fee.
  * `lib/setnayan-gift.ts` is the rule; this file does not re-derive one centavo
  * of it.
  *
@@ -48,7 +48,6 @@
  */
 
 import {
-  GIFT_CAP_CREDITS,
   GIFT_SHARE_OF_FEE_PCT,
   formatGiftPhotos,
   previewGiftForTotal,
@@ -288,7 +287,7 @@ export function papicTopUpForQuote(
         detail:
           `Your exclusive Papic deal is capped at ${sharePct()} of your booking fee` +
           (gift.capped
-            ? `, and this quote is at the ceiling of ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos`
+            ? `, and this quote is at the ceiling of ${formatGiftPhotos(gift.credits)} photos`
             : '') +
           '. The switch above is on, so the photos above are part of this quote ' +
           'and are billed to you with the fee.',
@@ -331,7 +330,7 @@ export function papicTopUpForQuote(
         cta,
         detail:
           `That is the most this booking can carry: ${sharePct()} of your booking fee` +
-          (gift.capped ? `, stopping at ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos` : '') +
+          (gift.capped ? `, stopping at ${formatGiftPhotos(gift.credits)} photos` : '') +
           '. The switch above is off, so this quote carries none — switch it on and ' +
           'the photos reach your couple when your fee bill is paid.',
       };

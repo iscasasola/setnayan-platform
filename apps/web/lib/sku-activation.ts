@@ -23,7 +23,7 @@ import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
-import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
@@ -509,7 +509,8 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
   try {
-    const points = await papicPassPointsForSku(ctx.admin, ctx.serviceKey);
+    // A rung retired after this order was paid still grants what it sold (papicPointsBoughtBySku).
+    const points = await papicPointsBoughtBySku(ctx.admin, ctx.serviceKey);
     if (points === null || points <= 0) return;
 
     // 🚨 SCOPED TO `source`, NOT JUST THE ORDER (fixed 2026-08-11). This used to
@@ -1351,6 +1352,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // someone who has never paid us before. If it were absent from this map it
   // would be the very first order we ever took and silently failed to honour.
   PAPIC_GUEST_100: grantPapicPassPoints,
+  // 📸 THE THREE PACKS (owner 2026-11-03, migration *_papic_is_three_packs_and_no_signup_price.sql): 150 · 1,000
+  // (PAPIC_GUEST_1K) · 3,000 (PAPIC_GUEST). The 150 pack is the only new code. Every other rung below is OFF SALE and
+  // keeps its hook, so an order bought before the retirement still converts on approval.
+  PAPIC_GUEST_150: grantPapicPassPoints,
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,

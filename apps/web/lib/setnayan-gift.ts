@@ -42,7 +42,15 @@ import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
  */
 export const GIFT_SHARE_OF_FEE_PCT = 40;
 
-/** The gift stops at the 50,000-credit rung (owner 2026-09-09). CREDITS, not pesos. */
+/**
+ * The gift never goes above 50,000 credits (owner 2026-09-09). CREDITS, not pesos.
+ *
+ * ⚖ 2026-11-03 — PAPIC IS THREE PACKS (150 · 1,000 · 3,000) and the 50,000 rung is off sale, so the cap the gift
+ * actually reaches is THE TOP PACK ON SALE (`giftCapRung`), priced from that pack — today 3,000 credits for ₱990.
+ * This number stays an upper bound. Pricing a 50,000 cap by extrapolating past the top pack would invent a price
+ * (CLAUDE.md rule 9); requiring the 50,000 rung, as this did, would silently zero every supplier's gift.
+ * The owner is asked to confirm the new top (PR body).
+ */
 export const GIFT_CAP_CREDITS = 50_000;
 
 /** One rung of the live Papic ladder, as the gift reads it. */
@@ -58,7 +66,7 @@ export type SetnayanGift = {
   credits: number;
   /** What the supplier pays for them, in whole centavos, ON TOP of the fee. */
   chargeCentavos: number;
-  /** True when the 50,000-credit cap bound (the charge stopped growing). */
+  /** True when the cap bound (the top pack on sale; the charge stopped growing). `credits` is then that cap. */
   capped: boolean;
 };
 
@@ -138,7 +146,16 @@ export function giftLadderFrom(
  * catalogue is broken would be a false explanation of a real outage.
  */
 export function giftLadderIsPriceable(ladder: readonly GiftRung[]): boolean {
-  return ladder.length > 0 && ladder.some((r) => r.credits === GIFT_CAP_CREDITS);
+  return giftCapRung(ladder) !== null;
+}
+
+/**
+ * The rung the gift stops at: the largest live rung at or below `GIFT_CAP_CREDITS` (`giftLadderFrom` already drops
+ * anything above it). Its credits ARE the cap and its price bounds the charge. Null for an empty ladder.
+ */
+export function giftCapRung(ladder: readonly GiftRung[]): GiftRung | null {
+  const top = ladder.length > 0 ? ladder[ladder.length - 1]! : null;
+  return top && top.credits <= GIFT_CAP_CREDITS ? top : null;
 }
 
 /** Round-half-up of n/d for non-negative integers n and positive integer d. */
@@ -163,7 +180,7 @@ export function setnayanGiftForFee(
   // The cap is a number of CREDITS; its price is read off the live rung. No
   // 50,000 rung on the ladder ⇒ no way to price the cap ⇒ no gift, rather than
   // an uncapped one.
-  const capRung = ladder.find((r) => r.credits === GIFT_CAP_CREDITS);
+  const capRung = giftCapRung(ladder);
   if (!capRung) return NO_GIFT;
 
   const budget = Math.floor((Math.round(feeCentavos) * GIFT_SHARE_OF_FEE_PCT) / 100);
@@ -173,7 +190,7 @@ export function setnayanGiftForFee(
   // THE FLOOR — below the smallest rung the promise would produce nothing.
   const first = ladder[0]!;
   if (charge < first.priceCentavos) return NO_GIFT;
-  if (capped) return { credits: GIFT_CAP_CREDITS, chargeCentavos: charge, capped: true };
+  if (capped) return { credits: capRung.credits, chargeCentavos: charge, capped: true };
 
   for (let i = 0; i < ladder.length; i += 1) {
     const lo = ladder[i]!;

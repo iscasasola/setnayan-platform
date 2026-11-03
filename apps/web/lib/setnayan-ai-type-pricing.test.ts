@@ -29,7 +29,8 @@ import {
 
 test('the locked ladder values', () => {
   assert.deepEqual(AI_TIER_FALLBACK_PHP, { A: 3300, B: 1980, C: 1190, D: 265, E: 0 });
-  assert.deepEqual(AI_TIER_ONBOARDING_FALLBACK_PHP, { A: 1980, B: 1188, C: 714, D: 159, E: 0 });
+  // 2026-11-03: no sign-up price on anything — the set-up fallback IS the regular one.
+  assert.deepEqual(AI_TIER_ONBOARDING_FALLBACK_PHP, AI_TIER_FALLBACK_PHP);
   assert.deepEqual(AI_TIER_SKU, {
     A: 'SETNAYAN_AI',
     B: 'SETNAYAN_AI_B',
@@ -40,23 +41,23 @@ test('the locked ladder values', () => {
 });
 
 test('every canonical event type maps to its locked tier + price', () => {
-  // The third column is the SIGN-UP price (unchanged from the 2026-07-22 lock).
+  // The third column is the SIGN-UP price — the regular price since 2026-11-03 (no sign-up price on anything).
   const cases: Array<[string, string, number]> = [
-    ['wedding', 'A', 1980],
-    ['debut', 'B', 1188],
-    ['corporate', 'B', 1188],
-    ['christening', 'C', 714],
-    ['birthday', 'C', 714],
-    ['celebration', 'C', 714],
-    ['travel', 'C', 714],
-    ['tournament', 'D', 159],
-    ['anniversary', 'C', 714],
-    ['graduation', 'C', 714],
-    ['reunion', 'C', 714],
-    ['gala_night', 'B', 1188],
-    ['gender_reveal', 'D', 159],
-    ['date', 'D', 159],
-    ['hangout', 'D', 159],
+    ['wedding', 'A', 3300],
+    ['debut', 'B', 1980],
+    ['corporate', 'B', 1980],
+    ['christening', 'C', 1190],
+    ['birthday', 'C', 1190],
+    ['celebration', 'C', 1190],
+    ['travel', 'C', 1190],
+    ['tournament', 'D', 265],
+    ['anniversary', 'C', 1190],
+    ['graduation', 'C', 1190],
+    ['reunion', 'C', 1190],
+    ['gala_night', 'B', 1980],
+    ['gender_reveal', 'D', 265],
+    ['date', 'D', 265],
+    ['hangout', 'D', 265],
     ['simple_event', 'E', 0],
   ];
   for (const [type, tier, php] of cases) {
@@ -82,7 +83,8 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
     assert.equal(setnayanAiTierForEventType(t as string | null | undefined), 'C');
     // Regular by default; the sign-up discount only when explicitly asked for.
     assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined), 1190);
-    assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined, 'onboarding'), 714);
+    // 2026-11-03: no sign-up price — set-up costs the regular price.
+    assert.equal(setnayanAiTierFallbackPhp(t as string | null | undefined, 'onboarding'), 1190);
     assert.equal(setnayanAiTierSkuForEventType(t as string | null | undefined), 'SETNAYAN_AI_C');
   }
 });
@@ -97,21 +99,21 @@ test('unknown / null / empty types fall back to the standard tier C, never free 
  * ------------------------------------------------------------------------- */
 test('per-EVENT pricing is UNCHANGED by the per-user retirement (every tier)', () => {
   const expected: Record<string, [string, string | null, number]> = {
-    wedding: ['A', 'SETNAYAN_AI', 1980],
-    debut: ['B', 'SETNAYAN_AI_B', 1188],
-    corporate: ['B', 'SETNAYAN_AI_B', 1188],
-    gala_night: ['B', 'SETNAYAN_AI_B', 1188],
-    christening: ['C', 'SETNAYAN_AI_C', 714],
-    birthday: ['C', 'SETNAYAN_AI_C', 714],
-    celebration: ['C', 'SETNAYAN_AI_C', 714],
-    travel: ['C', 'SETNAYAN_AI_C', 714],
-    anniversary: ['C', 'SETNAYAN_AI_C', 714],
-    graduation: ['C', 'SETNAYAN_AI_C', 714],
-    reunion: ['C', 'SETNAYAN_AI_C', 714],
-    tournament: ['D', 'SETNAYAN_AI_D', 159],
-    gender_reveal: ['D', 'SETNAYAN_AI_D', 159],
-    date: ['D', 'SETNAYAN_AI_D', 159],
-    hangout: ['D', 'SETNAYAN_AI_D', 159],
+    wedding: ['A', 'SETNAYAN_AI', 3300],
+    debut: ['B', 'SETNAYAN_AI_B', 1980],
+    corporate: ['B', 'SETNAYAN_AI_B', 1980],
+    gala_night: ['B', 'SETNAYAN_AI_B', 1980],
+    christening: ['C', 'SETNAYAN_AI_C', 1190],
+    birthday: ['C', 'SETNAYAN_AI_C', 1190],
+    celebration: ['C', 'SETNAYAN_AI_C', 1190],
+    travel: ['C', 'SETNAYAN_AI_C', 1190],
+    anniversary: ['C', 'SETNAYAN_AI_C', 1190],
+    graduation: ['C', 'SETNAYAN_AI_C', 1190],
+    reunion: ['C', 'SETNAYAN_AI_C', 1190],
+    tournament: ['D', 'SETNAYAN_AI_D', 265],
+    gender_reveal: ['D', 'SETNAYAN_AI_D', 265],
+    date: ['D', 'SETNAYAN_AI_D', 265],
+    hangout: ['D', 'SETNAYAN_AI_D', 265],
     simple_event: ['E', null, 0],
   };
 

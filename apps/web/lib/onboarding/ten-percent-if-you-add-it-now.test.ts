@@ -194,10 +194,10 @@ test('🔴 the discount is stated before you choose, on the item, and on the tot
   // those are the three moments a person looks.
   const src = strip(read('app/onboarding/_shared/services-step.tsx'));
 
-  // 1 · before they choose
-  assert.match(src, /Anything you add here is at least 10% off\./, 'the banner states the rule');
-  assert.match(src, /it ends when you finish/, 'and its deadline');
-  assert.match(src, /at the normal price/, 'and what happens if they wait');
+  // 1 · before they choose — ⚖ RETIRED 2026-11-03 (owner, "drop the 40% on all then"): there is no sign-up price,
+  // so the unconditional banner that promised one is gone and must not come back typed. The item and total lines
+  // below are computed from the quote and stay silent when there is no saving.
+  assert.doesNotMatch(src, /Anything you add here is at least/, 'the set-up discount banner is back');
 
   // 2 · on the item
   assert.match(src, /You save \{peso\(saving\)\} by adding it now/, 'each rung states its saving');

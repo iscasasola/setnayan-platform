@@ -32,6 +32,11 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *       Apple's and the catalogue is the admin's — this file types neither.
  *       `appStorePriceMatchesWeb` is the check a sale is held to.
  *   (5) Papic credit packs: 100 · 500 · 1,000 · 5,000 · 10,000.
+ *       ↳ ⚠ SUPERSEDED 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS"): Papic is sold as THREE packs only —
+ *         150 · 1,000 · 3,000 credits (₱90 · ₱490 · ₱990, the same price on web and in the app). The five
+ *         `papic_credits_*` products are RETIRED (`RETIRED_IAP_PRODUCT_IDS`, ids never reused) and three new
+ *         `papic_pack_*` products sell the packs. New ids, not a reprice of `papic_credits_1000`, because the
+ *         owner retired all five by name.
  *
  * 🔑 NO PRICE LIVES HERE. The app shows the price StoreKit returns
  * (`Product.displayPrice`); the web keeps `platform_retail_catalog_v2`. Two
@@ -109,6 +114,19 @@ const RETIRED_HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKe
   ['address', 'COUPLE_HUB_PART_ADDRESS', 'Custom address'],
 ];
 
+/**
+ * 📸 THE THREE PAPIC PACKS (owner 2026-11-03): `[credits, catalogue code]`. Prices are NOT here — App Store Connect
+ * holds Apple's and `platform_retail_catalog_v2` the web's, and they are the same figure (₱90 · ₱490 · ₱990).
+ */
+const PAPIC_PACKS = [
+  [150, 'PAPIC_GUEST_150'],
+  [1_000, 'PAPIC_GUEST_1K'],
+  [3_000, 'PAPIC_GUEST'],
+] as const;
+
+/** 🗑 The five credit products of 2026-10-18, retired 2026-11-03 — ids are forever, never reused. */
+const RETIRED_PAPIC_CREDIT_COUNTS = [100, 500, 1_000, 5_000, 10_000] as const;
+
 export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
   {
     productId: `${PREFIX}event_hub_pro`,
@@ -126,17 +144,9 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     appStoreName: 'Live Watch',
     credits: null,
   },
-  ...(
-    [
-      [100, 'PAPIC_GUEST_100'],
-      [500, 'PAPIC_GUEST_500'],
-      [1_000, 'PAPIC_GUEST_1K'],
-      [5_000, 'PAPIC_GUEST_5K'],
-      [10_000, 'PAPIC_GUEST_10K'],
-    ] as const
-  ).map(
+  ...PAPIC_PACKS.map(
     ([credits, serviceKey]): IapProduct => ({
-      productId: `${PREFIX}papic_credits_${credits}`,
+      productId: `${PREFIX}papic_pack_${credits}`,
       serviceKey,
       kind: 'papic-credits',
       appleType: 'consumable',
@@ -216,7 +226,45 @@ export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
   ...RETIRED_HUB_PART_PRODUCT_IDS,
   // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
   `${PREFIX}papic_thank_you`,
+  // Papic is three packs (owner 2026-11-03) — the five `papic_credits_*` products are retired.
+  ...RETIRED_PAPIC_CREDIT_COUNTS.map((credits) => `${PREFIX}papic_credits_${credits}`),
 ]);
+
+/**
+ * 🗑 The five retired Papic credit products, kept ONLY so an Apple transaction already charged for one still delivers
+ * its credits (an in-flight purchase, a late server notification, a refund). Never in `IAP_PRODUCTS`: StoreKit is
+ * never asked for them and `startAppStorePurchase` refuses them (`iapProductById` answers null), so a NEW sale cannot
+ * start — and a delivery needs the intent row that only a sale started before 2026-11-03 could have written. Their
+ * catalogue codes keep their activation hooks in lib/sku-activation.ts.
+ */
+const RETIRED_PAPIC_CREDIT_PRODUCTS: readonly IapProduct[] = Object.freeze(
+  (
+    [
+      [100, 'PAPIC_GUEST_100'],
+      [500, 'PAPIC_GUEST_500'],
+      [1_000, 'PAPIC_GUEST_1K'],
+      [5_000, 'PAPIC_GUEST_5K'],
+      [10_000, 'PAPIC_GUEST_10K'],
+    ] as const
+  ).map(
+    ([credits, serviceKey]): IapProduct => ({
+      productId: `${PREFIX}papic_credits_${credits}`,
+      serviceKey,
+      kind: 'papic-credits',
+      appleType: 'consumable',
+      appStoreName: `Papic · ${credits.toLocaleString('en-US')} credits`,
+      credits,
+    }),
+  ),
+);
+
+/**
+ * The product an Apple TRANSACTION is delivered as: anything on sale, plus a retired Papic credit product (see
+ * `RETIRED_PAPIC_CREDIT_PRODUCTS`). Only the transaction reader uses this; everything that SELLS uses `iapProductById`.
+ */
+export function iapProductForDelivery(productId: string | null | undefined): IapProduct | null {
+  return iapProductById(productId) ?? RETIRED_PAPIC_CREDIT_PRODUCTS.find((p) => p.productId === productId) ?? null;
+}
 
 /** Every product id, for StoreKit's `Product.products(for:)`. */
 export const IAP_PRODUCT_IDS: readonly string[] = IAP_PRODUCTS.map((p) => p.productId);

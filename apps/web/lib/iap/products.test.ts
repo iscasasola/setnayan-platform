@@ -46,11 +46,10 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
     // 🗑 MOODBOARD_RENDER_PACK left with Mood Board renders (owner 2026-10-26, "can we delete that?").
     'PAKANTA',
     // 🗑 PAPIC_ADDON_THANK_YOU left — the Thank-You Video is free for every event (owner 2026-10-26).
-    'PAPIC_GUEST_100',
-    'PAPIC_GUEST_10K',
+    // 📸 The three Papic packs (owner 2026-11-03): 3,000 · 150 · 1,000. The five credit products are retired.
+    'PAPIC_GUEST',
+    'PAPIC_GUEST_150',
     'PAPIC_GUEST_1K',
-    'PAPIC_GUEST_500',
-    'PAPIC_GUEST_5K',
     'PATIKTOK_COMPILER',
     // ✦ Setnayan AI — FOUR products, one per web tier (owner 2026-10-23), all selling the one SETNAYAN_AI order.
     'SETNAYAN_AI',
@@ -110,11 +109,23 @@ test('ruling 3 — every product is a CONSUMABLE (one purchase for the current e
   for (const p of IAP_PRODUCTS) assert.equal(p.appleType, 'consumable', p.productId);
 });
 
-test('ruling 5 — the Papic packs are 100 · 500 · 1,000 · 5,000 · 10,000, smallest first', () => {
+test('ruling 5, superseded 2026-11-03 — Papic is THREE packs: 150 · 1,000 · 3,000, smallest first', () => {
   assert.deepEqual(
-    IAP_PAPIC_PRODUCTS.map((p) => p.credits),
-    [100, 500, 1_000, 5_000, 10_000],
+    IAP_PAPIC_PRODUCTS.map((p) => [p.productId, p.serviceKey, p.credits]),
+    [
+      ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 150],
+      ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 1_000],
+      ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 3_000],
+    ],
   );
+});
+
+test('2026-11-03 — the five papic_credits_* products are retired: never sold, never asked of StoreKit, never reused', () => {
+  for (const credits of [100, 500, 1_000, 5_000, 10_000]) {
+    const id = `com.setnayan.app.papic_credits_${credits}`;
+    assert.ok(RETIRED_IAP_PRODUCT_IDS.includes(id), `${id} is not on the retired list — it could be reused`);
+    assert.equal(iapProductById(id), null, `${id} is sold again`);
+  }
 });
 
 test('product ids are unique, reverse-DNS under the app bundle, and resolve both ways', () => {
@@ -160,10 +171,10 @@ test('the fulfilment holds a sale to the ONE-price check, never the retired ÷0.
 });
 
 test('a Papic product is on sale only while its tier grants exactly the credits its name promises', () => {
-  const p500 = IAP_PAPIC_PRODUCTS.find((p) => p.credits === 500)!;
-  assert.equal(papicCreditsMatch(p500, 500), true);
-  assert.equal(papicCreditsMatch(p500, 600), false);
-  assert.equal(papicCreditsMatch(p500, null), false);
+  const p1000 = IAP_PAPIC_PRODUCTS.find((p) => p.credits === 1_000)!;
+  assert.equal(papicCreditsMatch(p1000, 1_000), true);
+  assert.equal(papicCreditsMatch(p1000, 1_100), false);
+  assert.equal(papicCreditsMatch(p1000, null), false);
   const pro = iapProductForServiceKey('COUPLE_WEBSITE_PRO')!;
   assert.equal(papicCreditsMatch(pro, null), true);
 });

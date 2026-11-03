@@ -92,6 +92,18 @@ export function signupPriceFor(regularPhp: number, discountPct: number): number 
 }
 
 /**
+ * What a catalog row STORES as its sign-up price (`onboarding_price_php`) for this discount.
+ *
+ * ⚖ 2026-11-03 (owner, "drop the 40% on all then"): at 0% there is NO sign-up price, so the column is NULL — never
+ * a copy of the regular price, which would read as a "sign-up price" that saves nothing. Every admin writer of the
+ * column goes through this, so a Save at 0% cannot quietly put sign-up prices back.
+ */
+export function storedSignupPriceFor(regularPhp: number, discountPct: number): number | null {
+  if (discountPct === 0) return null;
+  return signupPriceFor(regularPhp, discountPct);
+}
+
+/**
  * THE HOUSE ROUNDING RULE, in one place: nearest peso, ties DOWN.
  *
  * `Math.round` rounds .5 UP, so the tie case is handled explicitly rather than
@@ -231,7 +243,7 @@ export function previewFamilySave(
   discountPct: number,
 ): FamilyRowPreview[] {
   return rows.map((r) => {
-    const next = signupPriceFor(r.regularPhp, discountPct);
+    const next = storedSignupPriceFor(r.regularPhp, discountPct);
     return {
       serviceCode: r.serviceCode,
       title: r.title,

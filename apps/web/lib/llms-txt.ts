@@ -224,14 +224,10 @@ const REQUIRED_RETAIL = [
   // Same gitleaks `generic-api-key` false positive as app/pricing/page.tsx —
   // the adjacent PAPIC_GUEST* codes read as a keyword + high-entropy pair. Kept
   // on one line so the inline allow covers the whole match, per that precedent.
-  // 🔑 THE WHOLE LADDER, and it is rendered from these codes rather than typed —
-  // see PAPIC_LADDER below. Seventeen rungs (owner 2026-08-29): naming them all
-  // here is what makes a missing or renamed one throw MissingSkuError instead of
-  // quietly going unquoted while it is on sale.
-  'PAPIC_GUEST_100', 'PAPIC_GUEST_200', 'PAPIC_GUEST_300', 'PAPIC_GUEST_400', 'PAPIC_GUEST_500', // gitleaks:allow — catalog service_codes, not secrets
-  'PAPIC_GUEST_1K', 'PAPIC_GUEST_2K', 'PAPIC_GUEST', 'PAPIC_GUEST_4K', 'PAPIC_GUEST_5K', // gitleaks:allow — catalog service_codes, not secrets
-  'PAPIC_GUEST_6K', 'PAPIC_GUEST_7K', 'PAPIC_GUEST_10K', 'PAPIC_GUEST_20K', // gitleaks:allow — catalog service_codes, not secrets
-  'PAPIC_GUEST_30K', 'PAPIC_GUEST_50K', 'PAPIC_GUEST_100K', // gitleaks:allow — catalog service_codes, not secrets
+  // 🔑 THE THREE PAPIC PACKS (owner 2026-11-03), rendered from these codes rather than typed — see PAPIC_LADDER
+  // below. Naming them here makes a missing or renamed one throw MissingSkuError instead of quietly going unquoted.
+  // The fourteen other rungs left this list the same day, with their prose: they are off sale.
+  'PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', // gitleaks:allow — catalog service_codes, not secrets
   // CUSTOM_QR_GUEST left this list 2026-09-28: the "Custom QR per guest"
   // product folded into Event Hub Pro (owner 2026-09-27) and its row is off
   // sale. A retired code kept here throws MissingSkuError and drops this whole
@@ -253,27 +249,12 @@ const REQUIRED_VENDOR = [
  * they come from the catalog through the price book, because a second typed copy
  * of a price is exactly how this file drifted for three weeks before.
  *
- * ⚖ 40,000 is deliberately absent: it was in the owner's first table at ₱10,000,
- * the same price as 50,000, so nobody could rationally choose it. He removed it.
  */
 const PAPIC_LADDER: readonly (readonly [string, number])[] = [
-  ['PAPIC_GUEST_100', 100],
-  ['PAPIC_GUEST_200', 200],
-  ['PAPIC_GUEST_300', 300],
-  ['PAPIC_GUEST_400', 400],
-  ['PAPIC_GUEST_500', 500],
+  // ⚖ Owner 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS"): only these three, repeatable.
+  ['PAPIC_GUEST_150', 150],
   ['PAPIC_GUEST_1K', 1_000],
-  ['PAPIC_GUEST_2K', 2_000],
   ['PAPIC_GUEST', 3_000],
-  ['PAPIC_GUEST_4K', 4_000],
-  ['PAPIC_GUEST_5K', 5_000],
-  ['PAPIC_GUEST_6K', 6_000],
-  ['PAPIC_GUEST_7K', 7_000],
-  ['PAPIC_GUEST_10K', 10_000],
-  ['PAPIC_GUEST_20K', 20_000],
-  ['PAPIC_GUEST_30K', 30_000],
-  ['PAPIC_GUEST_50K', 50_000],
-  ['PAPIC_GUEST_100K', 100_000],
 ] as const;
 
 /** "₱50 for 100 · ₱100 for 200 · …" — every rung, priced from the catalog. */
@@ -600,7 +581,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.
-- **Papic** — one shared pot of credits every guest's phone can spend from. 50 credits free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderPhrase(R)}, added on top and repeatable — the regular rate is one peso a shot and every rung is a bundle discount off it, 50% at the bottom to 80% at the top. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
+- **Papic** — one shared pot of credits every guest's phone can spend from. 50 credits free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderPhrase(R)}, — three packs, added on top of each other and repeatable, the same price on the website and in the app. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Guest QR codes** — free. Every guest gets their own code (RSVP, seating, photo tagging) with the Setnayan mark in the centre; Event Hub Pro puts the couple's own logo there and adds shape, pattern and colour choices.
 
 ## The mood board is free

@@ -16,7 +16,7 @@ import {
 } from './onboarding-family-discount';
 import { PAPIC_LADDER_EXPECTED } from '../tests/db/papic-ladder.expected';
 
-test('AT 10%, PAPIC MOVES NOTHING — all sixteen rungs land on their stored price', () => {
+test("AT 10%, every Papic pack lands on a whole peso, ties down", () => {
   // Derived from the ladder pin, never retyped. The stored sign-up price is
   // exactly 10% off the regular one on every rung today, so the single-discount
   // shape must reproduce all sixteen or it is a repricing.
@@ -154,7 +154,8 @@ test('there is no per-family default any more — ONE sign-up number (owner d18)
   const mod = await import('./onboarding-family-discount');
   assert.equal('FAMILY_DISCOUNT_DEFAULT_PCT' in mod, false, 'a per-family default is a second number');
   const { DEFAULT_ONBOARDING_DISCOUNT_PCT } = await import('./onboarding-discount');
-  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 40);
+  // ⚖ 2026-11-03: no sign-up price on anything ("drop the 40% on all then") — was 40 (owner d18).
+  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 0);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

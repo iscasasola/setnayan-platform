@@ -56,6 +56,7 @@
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/swipe-rows-lab/on-the-day	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/you-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

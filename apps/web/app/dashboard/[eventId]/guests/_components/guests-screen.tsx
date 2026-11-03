@@ -211,7 +211,7 @@ import {
 } from '@/lib/guests-filter';
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
-import { NO_FOLDS, foldNarrowed, narrowingOf, sectionIsOpen, type NarrowFolds } from './section-fold';
+import { NO_FOLDS, foldNarrowed, foldSet, narrowingOf, sectionIsOpen, type NarrowFolds } from './section-fold';
 import { ReplyPushAsk } from './reply-push-ask';
 
 
@@ -714,21 +714,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const isOpen = (key: string) => sectionIsOpen(key, { narrowing, open, folds: narrowFolds });
   /** Open or shut these headings — in the whole list's `open`, or in the narrowed list's own folds. */
   const foldSections = (keys: Iterable<string>, opening: boolean) => {
-    const ks = [...keys];
-    if (narrowing !== null) {
-      setNarrowFolds((prev) => foldNarrowed(prev, narrowing, ks, opening));
-      // A heading opened under a narrowing stays drawn once the narrowing is gone (`everOpen`), as the whole list's do.
-      if (opening) setEverOpen((prev) => (ks.every((k) => prev.has(k)) ? prev : new Set([...prev, ...ks])));
-      return;
-    }
-    setOpen((prev) => {
-      const next = new Set(prev);
-      for (const k of ks) {
-        if (opening) next.add(k);
-        else next.delete(k);
-      }
-      return next;
-    });
+    if (narrowing !== null) setNarrowFolds((prev) => foldNarrowed(prev, narrowing, keys, opening));
+    else setOpen((prev) => foldSet(prev, keys, opening));
   };
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 

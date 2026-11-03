@@ -39,12 +39,17 @@ export function sectionIsOpen(
   return !(state.folds.at === state.narrowing && state.folds.keys.has(key));
 }
 
+/** A copy of `set` with `keys` added (`add`) or taken out — the one fold step both lists use. */
+export function foldSet(set: Iterable<string>, keys: Iterable<string>, add: boolean): Set<string> {
+  const next = new Set(set);
+  for (const k of keys) {
+    if (add) next.add(k);
+    else next.delete(k);
+  }
+  return next;
+}
+
 /** The folds of a narrowed list after a heading is opened or shut. */
 export function foldNarrowed(folds: NarrowFolds, narrowing: string, keys: Iterable<string>, opening: boolean): NarrowFolds {
-  const next = new Set(folds.at === narrowing ? folds.keys : []);
-  for (const k of keys) {
-    if (opening) next.delete(k);
-    else next.add(k);
-  }
-  return { at: narrowing, keys: next };
+  return { at: narrowing, keys: foldSet(folds.at === narrowing ? folds.keys : [], keys, !opening) };
 }

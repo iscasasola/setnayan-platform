@@ -80,6 +80,7 @@ import type {
 import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
 import { ScheduleAddPill, ScheduleSheet } from './schedule-sheet';
 import type { RetimePatch } from '@/lib/schedule-ros';
@@ -196,6 +197,18 @@ export function ScheduleDay({
   const chaptersApi = useChapters();
   const ch = live ? null : chaptersApi;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  /* 👈 A moment's row swiped to Delete (owner 2026-11-03): its inspector opens at the warning. */
+  const [askDelete, setAskDelete] = useState<{ id: string; n: number } | null>(null);
+  /** ↩ A confirmed delete hides the moment for its Undo window; Undo (or a refusal) shows it again. Its own set, so a
+   *  fresh server answer in the window (which clears `gone`) never brings it back early. */
+  const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
+  const hideMoment = (id: string, hide: boolean) =>
+    setHeld((g) => {
+      const next = new Set(g);
+      if (hide) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   /* ➕ Studio's "Add a moment": a moment added in place is on the timeline at once — no render of the Maker brings
      it (its write is quiet) — and cannot be edited until its add has landed (`pending`). */
   const [added, setAdded] = useState<readonly DayMoment[]>([]);
@@ -210,6 +223,10 @@ export function ScheduleDay({
   const hourPx = isDesktop ? 68 : 64;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* 👈 An ask belongs to the swipe that made it: once the moment closes, ⋯ opens it at its fields again. */
+  useEffect(() => {
+    if (selectedId === null) setAskDelete(null);
+  }, [selectedId]);
   const [overrides, setOverrides] = useState<Record<string, Partial<DayMoment>>>({});
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -279,9 +296,9 @@ export function ScheduleDay({
   const merged = useMemo(
     () =>
       withChapters([...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))], ch?.chapters ?? null)
-        .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
+        .filter((m) => !gone.has(m.block_id) && !held.has(m.block_id) && !(m.parent_block_id && (gone.has(m.parent_block_id) || held.has(m.parent_block_id))))
         .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, added, overrides, gone, ch?.chapters],
+    [moments, added, overrides, gone, held, ch?.chapters],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -596,6 +613,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             ) : (
               <Glance
@@ -635,6 +654,7 @@ export function ScheduleDay({
   if (studio) {
     return (
       <DayActionsContext.Provider value={dayActions}>
+
         <StudioDay
           eventId={eventId}
           dateKey={lastDateKey}
@@ -650,6 +670,14 @@ export function ScheduleDay({
           onCreate={lastDateKey && !canStage ? createInline : null}
           pendingIds={pending}
           onMore={(id) => setSelectedId(id)}
+          onAskDelete={
+            canEdit
+              ? (id) => {
+                  setAskDelete((a) => ({ id, n: (a?.n ?? 0) + 1 }));
+                  setSelectedId(id);
+                }
+              : null
+          }
         />
         {/* ⋯ — the shipped inspector (length, notes, show to guests, suppliers, remove): a desk keeps it in
             Details' right column, as the rail did; a phone opens it from the bottom. */}
@@ -679,6 +707,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             </div>
           ) : null}
@@ -699,12 +729,15 @@ export function ScheduleDay({
           requests={requests}
           moments={merged}
         />
-      </DayActionsContext.Provider>
+        {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
+    </DayActionsContext.Provider>
     );
   }
 
   return (
     <DayActionsContext.Provider value={dayActions}>
+
     <div className="space-y-3" data-schedule-day="">
       {/* THE DAY'S TOOLS — one row; names live in aria-label/title, the
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
@@ -1250,6 +1283,8 @@ export function ScheduleDay({
             onConfirm={confirm}
             live={live}
             inSheet
+            askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+            onGone={hideMoment}
           />
         </ScheduleSheet>
       ) : null}
@@ -1292,6 +1327,8 @@ export function ScheduleDay({
         </Sheet>
       ) : null}
     </div>
+      {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
     </DayActionsContext.Provider>
   );
 }

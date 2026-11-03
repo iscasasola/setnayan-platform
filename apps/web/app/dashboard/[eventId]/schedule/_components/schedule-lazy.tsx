@@ -28,7 +28,8 @@ export const AddPreparationItem = dynamic(() => import(/* webpackChunkName: "mak
 export const PlanningTick = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './planning-todo-controls').then((m) => m.PlanningTick), { loading: SlotButton });
 export const TaskDateButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './planning-todo-controls').then((m) => m.TaskDateButton), { loading: SlotButton });
 export const PlanningFilterFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './planning-todo-controls').then((m) => m.PlanningFilterFrame), { loading: SlotFill });
-export const DeletePreparationItemButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.DeletePreparationItemButton), { loading: SlotButton });
+// 👈 A hand-added step's row, wrapped in its swipe-left Delete (owner 2026-11-03). Its slot while loading is a row's.
+export const PrepItemSwipe = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.PrepItemSwipe), { loading: SlotRows });
 export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header').then((m) => m.RunOfShowHeader), { loading: SlotRows });
 export const ScheduleOneLine = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './schedule-one-line').then((m) => m.ScheduleOneLine), { loading: SlotFill });
 // 📤 The Schedule's Share (the shared budget-PDF button) — lazy, so the Maker's first load does not carry it.

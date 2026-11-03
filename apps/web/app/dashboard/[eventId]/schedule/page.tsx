@@ -9,7 +9,7 @@ import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
-import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
+import { Plus, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 // ⚠ NOT from './actions'. That module is `'use server'`, and the version there
 // ended with `revalidatePath` — which Next.js forbids during a render, so this
@@ -32,6 +32,7 @@ import { SCHEDULE_TOOLS_SLOT } from './_components/schedule-tools-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RequestDecision } from './_components/request-decision';
+import { BlockSwipe } from './_components/block-swipe';
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -1382,7 +1383,8 @@ function EventDayView({
       ) : (
         <ul className="space-y-3">
           {blocks.map((b) => (
-            <li key={b.block_id}>
+            <li key={b.block_id} className="has-[[data-swipe-gone]]:hidden">
+              <BlockSwipe eventId={eventId} blockId={b.block_id} label={b.label}>
               <BlockCard
                 eventId={eventId}
                 block={b}
@@ -1392,6 +1394,7 @@ function EventDayView({
                 rosVendors={rosVendors}
                 eventType={eventType}
               />
+              </BlockSwipe>
             </li>
           ))}
         </ul>
@@ -1636,17 +1639,7 @@ function BlockCard({
             )}
           </SubmitButton>
         </form>
-        <form action={deleteScheduleBlock}>
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="block_id" value={block.block_id} />
-          <SubmitButton
-            aria-label="Delete block"
-            pendingLabel=""
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </SubmitButton>
-        </form>
+        {/* 👈 The block's Delete is the card's swipe (owner 2026-11-03) — `BlockSwipe`, around the card below. */}
       </div>
     </article>
   );

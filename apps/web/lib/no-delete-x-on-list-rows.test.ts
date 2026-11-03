@@ -40,6 +40,11 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx', 'tile — a pinned photo’s ✕ in the board’s image grid'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', 'confirm — the “Remove this photo?” box’s own Remove'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx', 'editor field — a Do / Don’t text input’s ✕ inside the dress-code form'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx', 'editor field + chip — a custom role’s fields and its colour swatches inside the palette editor'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx', 'chip — a read mood / colour / motif chip inside the theme field'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

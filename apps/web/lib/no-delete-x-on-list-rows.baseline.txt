@@ -62,8 +62,6 @@ app/onboarding/wedding/_components/location-step.tsx 1
 app/onboarding/wedding/_components/onboarding-shell.tsx 2
 app/papic/_components/camera-controls.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
-app/vendor-dashboard/_components/video-links-editor.tsx 1
-app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx 2
 app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx 1
 app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx 1
 app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx 2
@@ -73,12 +71,7 @@ app/vendor-dashboard/invite/_components/locked-qr-generator.tsx 2
 app/vendor-dashboard/on-the-day/_components/issues-log.tsx 1
 app/vendor-dashboard/on-the-day/_components/shot-list.tsx 1
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 2
-app/vendor-dashboard/packages/_components/package-editor.tsx 2
 app/vendor-dashboard/proposals/surface.tsx 1
 app/vendor-dashboard/repertoire/page.tsx 1
-app/vendor-dashboard/services/_components/addons-editor.tsx 2
-app/vendor-dashboard/services/_components/coverage-panel.tsx 1
-app/vendor-dashboard/services/_components/customization-step.tsx 2
-app/vendor-dashboard/services/_components/payment-schedule-editor.tsx 1
 app/vendor-dashboard/shop/_components/docs-body.tsx 1
 app/vendor-dashboard/website/_domain-manager.tsx 1

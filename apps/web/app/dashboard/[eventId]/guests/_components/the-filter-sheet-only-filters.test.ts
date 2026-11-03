@@ -64,7 +64,7 @@ test('4 · each action in its new home', () => {
   assert.match(add, /key: 'add:type', label: 'Type a name'/, '＋ Add ▾ has no “Type a name”');
   assert.match(add, /\.\.\.addWays\.map\(/, '＋ Add ▾ lost From your people · Import a file');
   assert.match(SCREEN, /action=\{addMenu\}/, '＋ Add ▾ is not seated on the List row');
-  assert.match(SCREEN, /label="Select" onClick=\{\(\) => setSelectMode\(true\)\} data-guests-select=""/, '☑ Select is not on the top row');
+  assert.match(SCREEN, /label="Select" onClick=\{\(\) => setSelectMode\(true\)\} data-testid="guests-select"/, '☑ Select is not on the top row');
   assert.match(ROWS, /<DownloadExcelRow \/>/, 'Guests ⚙ has no Download as Excel');
 });
 

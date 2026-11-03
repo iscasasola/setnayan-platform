@@ -2170,7 +2170,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             {/* ☑ SELECT, on the top row (owner 3 Nov: Select left the ≡ — the filter only filters). The same select mode and the
                 same bulk bar as before; hidden while selecting (the bar's Done leaves it) and for a viewer who may not write. */}
             {gview === 'list' && !selectMode && !writesOff && !asking ? (
-              <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-guests-select="" />
+              <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="guests-select" />
             ) : null}
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (

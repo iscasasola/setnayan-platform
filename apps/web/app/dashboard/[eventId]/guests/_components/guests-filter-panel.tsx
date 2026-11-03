@@ -5,7 +5,7 @@ import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows } from '@/app/_components/form-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
 import { PLUS_ONE_FILTERS, type PlusOneFilter } from '@/lib/guest-roster-view';
-import { applyGuestsFilterPick, guestsFilterOptions } from '@/lib/guests-filter';
+import { applyGuestsFilterPick, guestsFilterApplied, guestsFilterOptions } from '@/lib/guests-filter';
 import { formatCount } from '@/lib/format-number';
 import { GuestPopup } from './guest-popup';
 import type { GuestsFilterSheetProps } from './guests-filter-sheet';
@@ -47,9 +47,9 @@ export function GuestsFilterPanel({
   asking,
   shown,
   onClearAll,
-  applied,
   onClose,
-}: GuestsFilterSheetProps & { applied: number; onClose: () => void }) {
+}: GuestsFilterSheetProps & { onClose: () => void }) {
+  const applied = guestsFilterApplied(filter, { plus: Boolean(plus?.value), asking: Boolean(asking?.on) });
   const opts = guestsFilterOptions('list', filter, { hasSides });
   const of = (group: string): PickOption[] => opts.filter((o) => o.group === group).map((o) => ({ key: o.key, label: o.label }));
   const on = (group: string) => opts.find((o) => o.group === group && o.on)?.key ?? null;

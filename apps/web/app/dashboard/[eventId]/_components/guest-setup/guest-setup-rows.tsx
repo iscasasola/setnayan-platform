@@ -235,10 +235,9 @@ export function GuestSetupRows({
 function DownloadExcelRow() {
   const excel = useGuestsExcelSave();
   if (!excel) return null;
-  const label = excel.label === 'Preparing Excel…' ? 'Preparing…' : excel.label === 'Tap to save Excel' ? 'Tap to save' : 'Download';
   return (
     <FormRow data="excel" name="Download as Excel" line="Every guest, in one spreadsheet" attrs={{ 'data-setup-row': 'excel' }}>
-      <ActionButton tone="neutral" icon={Share} label={label} onClick={excel.save} data-testid="setup-excel" />
+      <ActionButton tone="neutral" icon={Share} label={excel.label} onClick={excel.save} data-testid="setup-excel" />
     </FormRow>
   );
 }

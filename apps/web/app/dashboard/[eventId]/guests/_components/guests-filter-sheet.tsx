@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { PlusOneFilter } from '@/lib/guest-roster-view';
-import { guestsFilterApplied, type GuestsFilter } from '@/lib/guests-filter';
+import { guestsFilterIsOn, type GuestsFilter } from '@/lib/guests-filter';
 import { FilterFace } from './guests-filter-menu';
 
 /**
@@ -50,7 +50,8 @@ export function GuestsFilterSheet({
   tour?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const applied = guestsFilterApplied(props.filter, { plus: Boolean(props.plus?.value), asking: Boolean(props.asking?.on) });
+  // The dot only — the count ("· N applied") is the panel's, so it loads with it.
+  const on = guestsFilterIsOn(props.filter, 'list') || Boolean(props.plus?.value) || Boolean(props.asking?.on);
   return (
     <>
       <button
@@ -63,9 +64,9 @@ export function GuestsFilterSheet({
         data-tour={tour}
         {...{ [mark]: '' }}
       >
-        <FilterFace on={applied > 0} />
+        <FilterFace on={on} />
       </button>
-      {open ? <GuestsFilterPanel {...props} applied={applied} onClose={() => setOpen(false)} /> : null}
+      {open ? <GuestsFilterPanel {...props} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }

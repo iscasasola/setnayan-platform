@@ -40,6 +40,9 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
+  ['app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx', 'tile — a booth / sign piece on the drag-to-place cocktail floor plan'],
+  ['app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx', 'tile — a staged photo / clip waiting to be submitted'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx', 'editor sheet — the moment sheet’s own “Delete moment” at its foot (an ask the host approves)'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

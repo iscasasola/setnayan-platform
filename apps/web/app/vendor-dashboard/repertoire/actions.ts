@@ -81,20 +81,30 @@ export async function addRepertoireSong(formData: FormData) {
 
 /** Remove a song from the vendor's repertoire (the master record is untouched). */
 export async function removeRepertoireSong(formData: FormData) {
-  const { supabase, profile } = await ensureProfile();
   const q = String(formData.get('q') ?? '').trim();
-  const songId = Number(String(formData.get('song_id') ?? ''));
-  if (!Number.isInteger(songId) || songId <= 0) back({ q, error: 'Missing song.' });
+  const res = await dropRepertoireSong(Number(String(formData.get('song_id') ?? '')));
+  if (!res.ok) back({ q, error: res.error });
+  back({ q, saved: true });
+}
+
+/**
+ * The same delete, answered instead of redirected — what the set list's SWIPE calls once its Undo window closes
+ * (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). A redirect from a
+ * write that lands six seconds later would yank the supplier off whatever they were typing; this one only revalidates.
+ */
+export async function dropRepertoireSong(songId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { supabase, profile } = await ensureProfile();
+  if (!Number.isInteger(songId) || songId <= 0) return { ok: false, error: 'Missing song.' };
 
   const { error } = await supabase
     .from('vendor_songs')
     .delete()
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .eq('song_id', songId);
-  if (error) back({ q, error: error.message });
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath(BASE);
-  back({ q, saved: true });
+  return { ok: true };
 }
 
 /**

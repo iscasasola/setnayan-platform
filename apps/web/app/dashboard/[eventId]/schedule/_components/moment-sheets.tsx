@@ -11,6 +11,7 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import { crewLines, forKey, forOptions, forPickOf, forPicked, forWords } from '@/lib/moment-for';
 import { RIGHT_AFTER_LONG, momentAbove } from '@/lib/moment-order';
 import { orAt, orMinutesBetween, type TimeShape } from '@/lib/time-shape';
+import { CONTACT_NAME_MAX, CONTACT_PHONE_MAX, contactFrom, phoneProblem, type TaskContact } from '@/lib/task-contact';
 import {
   DEFAULT_MOMENT_MINUTES,
   MARCH_NAME_MAX,
@@ -82,7 +83,7 @@ import type { HostAsk } from '@/lib/schedule-ask';
  * 🔒 app/dashboard/[eventId]/schedule/a-moment-holds-its-tasks.test.ts · a-moment-picks-a-march.test.ts
  */
 
-export type TaskOp = 'task_add' | 'task_save' | 'task_remove';
+export type TaskOp = 'task_add' | 'task_save' | 'task_remove' | 'contact_set';
 type Answer<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export type MomentDoors = {
@@ -430,6 +431,8 @@ export function MomentSheet({
   chapters,
   moments,
   tasks,
+  contacts = {},
+  onContact,
   who,
   mayShowGuests,
   marches,
@@ -451,6 +454,10 @@ export function MomentSheet({
   moments: ChapterMoment[];
   /** Every task of the event; null = the tasks could not be read (said, never "none"). */
   tasks: TaskRow[] | null;
+  /** 📇 Each task's contact by task id; null = the contacts could not be read (said on the task, never "none"). */
+  contacts?: Record<string, TaskContact> | null;
+  /** 📇 A contact kept (or removed, null) on a task. */
+  onContact?: (taskId: string, contact: TaskContact | null) => void;
   who: TaskWhoList;
   mayShowGuests: boolean;
   /** 🚶 The couple's own marches (made in Guests › March); `ok: false` = unread, said on the row. */
@@ -725,6 +732,8 @@ export function MomentSheet({
                       names={names}
                       clash={clashes.get(t.task_id) ?? null}
                       doors={doors}
+                      contact={contacts === null ? 'unread' : (contacts[t.task_id] ?? null)}
+                      onContact={(next) => onContact?.(t.task_id, next)}
                       onSaved={(row) => {
                         linked(row);
                         onTasks((tasks ?? []).map((x) => (x.task_id === row.task_id ? row : x)));
@@ -945,9 +954,14 @@ function TaskEditor({
   names,
   clash,
   doors,
+  contact = null,
+  onContact,
   onSaved,
   onRemoved,
 }: {
+  /** 📇 This task's contact (4 additions (3)); 'unread' = the contacts could not be read (said). */
+  contact?: TaskContact | null | 'unread';
+  onContact?: (next: TaskContact | null) => void;
   /** null = a new task, not saved until it has a who and a what. */
   task: TaskRow | null;
   sortOrder?: number;
@@ -1107,6 +1121,11 @@ function TaskEditor({
           }}
           data="task-place"
         />
+        {/* 📇 A CONTACT on a person's task — the bridal-car driver, who is not a supplier (owner 2026-11-02, 4 additions
+            (3)). A supplier is reached through their own shop, so their lines carry none. Saved once the task is. */}
+        {task && whoF && whoF.who_kind !== 'supplier' ? (
+          <ContactRows taskId={task.task_id} blockId={m.block_id} contact={contact} doors={doors} onContact={onContact} />
+        ) : null}
       </FormRows>
       {!task && (!whoF || !what.trim()) ? (
         <p data-task-draft="" className="mt-1 text-[12px] text-ink/55">
@@ -1137,6 +1156,79 @@ function TaskEditor({
         />
       </div>
     </div>
+  );
+}
+
+/* ── 📇 a task's contact ─────────────────────────────────────────────────────────────────────────────────────── */
+
+const CONTACT_ABOUT =
+  'A name and phone for someone who is not a supplier, like the bridal-car driver. Only you, your coordinator and the people on this moment see it. Clear both to remove it.';
+
+/**
+ * 📇 Contact · Phone — two rows, ONE contact. It saves when both are there (a name with no number is not a way to reach
+ * anybody), and clearing both removes it. Shown only to the host, the coordinator and that moment's crew — the
+ * database decides (`event_schedule_task_contacts`, migration 20271303218631).
+ */
+function ContactRows({
+  taskId,
+  blockId,
+  contact,
+  doors,
+  onContact,
+}: {
+  taskId: string;
+  blockId: string;
+  contact: TaskContact | null | 'unread';
+  doors: MomentDoors;
+  onContact?: (next: TaskContact | null) => void;
+}) {
+  const saved = contact === 'unread' ? null : contact;
+  const [name, setName] = useState(saved?.name ?? '');
+  const [phone, setPhone] = useState(saved?.phone ?? '');
+  const waiting = (name.trim() === '') !== (phone.trim() === '');
+
+  const keep = async (nextName: string, nextPhone: string) => {
+    setName(nextName);
+    setPhone(nextPhone);
+    const parsed = contactFrom(nextName, nextPhone);
+    // One without the other is held here, not saved — the line under the rows says what is missing.
+    if (!parsed.ok && (nextName.trim() === '') !== (nextPhone.trim() === '')) return { ok: true as const };
+    if (!parsed.ok) return { ok: false as const, error: parsed.error };
+    const answer = await doors.task('contact_set', blockId, {
+      task_id: taskId,
+      contact_name: parsed.contact?.name ?? '',
+      contact_phone: parsed.contact?.phone ?? '',
+    });
+    if (!answer.ok) return { ok: false as const, error: answer.error };
+    onContact?.(parsed.contact);
+    return { ok: true as const };
+  };
+
+  return (
+    <>
+      <TypedRow
+        name="Contact"
+        about={{ words: CONTACT_ABOUT }}
+        value={name}
+        empty="Mang Ben"
+        maxLength={CONTACT_NAME_MAX}
+        onKeep={(t) => keep(t.trim(), phone)}
+        note={contact === 'unread' ? 'Contacts couldn’t be read just now.' : waiting && !name.trim() ? 'Add their name too — it saves then.' : undefined}
+        data="task-contact-name"
+      />
+      <TypedRow
+        name="Phone"
+        value={phone}
+        empty="0917 123 4567"
+        maxLength={CONTACT_PHONE_MAX}
+        inputMode="tel"
+        autoComplete="tel"
+        check={(t) => (t.trim() ? phoneProblem(t) : null)}
+        onKeep={(t) => keep(name, t.trim())}
+        note={waiting && !phone.trim() ? 'Add their phone too — it saves then.' : undefined}
+        data="task-contact-phone"
+      />
+    </>
   );
 }
 

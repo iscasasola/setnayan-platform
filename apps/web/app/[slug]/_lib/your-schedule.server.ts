@@ -74,6 +74,11 @@ export async function readYourSchedule(
     admin.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
     websiteProActiveFor(eventId).catch(() => false),
   ]);
+  /* 📇 Task contacts (4 additions (3), migration 20271303218631). The service role reads them, so the fence is HERE:
+     `yourSchedule` shows a contact only on a moment this guest has a task on (they are its crew). A refused read
+     shows none — a phone number is never worth failing the whole card for. */
+  const contactsRes = await admin.from('event_schedule_task_contacts').select('block_id, name, phone').eq('event_id', eventId);
+  if (contactsRes.error) logQueryError('readYourSchedule.contacts', contactsRes.error, { event_id: eventId }, 'graceful_degrade');
   const failed = blocksRes.error ?? eventRes.error ?? tasksRes.error ?? groupsRes.error ?? notInvitedRes.error;
   if (failed) {
     logQueryError('readYourSchedule', failed, { event_id: eventId }, 'graceful_degrade');
@@ -125,6 +130,7 @@ export async function readYourSchedule(
       released: pro && releasedAt !== null,
       pro,
       guestsArriveBy: input.guestsArriveBy,
+      contacts: contactsRes.error ? [] : ((contactsRes.data ?? []) as { block_id: string; name: string; phone: string }[]),
     }),
   };
 }

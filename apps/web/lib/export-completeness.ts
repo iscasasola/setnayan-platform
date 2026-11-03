@@ -99,6 +99,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'on one is named by the event, not by their own act.',
   },
   {
+    table: 'event_schedule_task_contacts',
+    decision: 'excluded',
+    why:
+      'A task\'s day-of contact (migration 20271303218631) — the name and phone of someone like the bridal-car driver, ' +
+      'typed by the host onto the event\'s run of show. Keyed to a person only by `created_by`, the host or coordinator ' +
+      'who typed it, exactly like its parent `event_schedule_tasks` above: the row is the EVENT\'s schedule, not the ' +
+      'typist\'s own record. The person it names holds no account, so there is no subject to export it to.',
+  },
+  {
     table: 'app_store_purchases',
     decision: 'excluded',
     why:

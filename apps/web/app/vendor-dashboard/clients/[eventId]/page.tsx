@@ -198,7 +198,7 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
-import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierContactRow, type SupplierTaskRow } from '@/lib/supplier-schedule';
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
@@ -670,6 +670,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myTasksRes,
     myMarksRes,
     myScheduleFacts,
+    myContactsRes,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -753,6 +754,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
       ]),
+      // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
+      // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
+      supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
     ]),
   );
 
@@ -1315,6 +1319,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         myBookingIds,
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
+        contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
       })
     : null;
   const scheduleMarks = myMarksRes.error

@@ -113,7 +113,7 @@ test('6 · the route never sends an empty file for a refused read, and keeps the
   // 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON"). 3 Nov ("so fix their locations" — the filter only filters): it left
   // the List's ≡ for Guests ⚙ as "Download as Excel", the screen handing its save to the ⚙ rows.
   assert.match(screen, /const excel = useGuestsExcel\(eventId, toast\);/, 'the list lost its Excel');
-  assert.match(screen, /<GuestsExcelContext\.Provider value=\{copy\?\.freshness === 'failed' \? null : excel\}>\{setupRows\}/, 'the ⚙ rows are not handed the Excel save (or the failed copy offers one)');
+  assert.match(screen, /<GuestsExcelContext\.Provider value=\{copy\?\.freshness === 'failed' \? null : excel\}>\s*<OpenRequestsContext\.Provider[^>]*>\{setupRows\}/, 'the ⚙ rows are not handed the Excel save (or the failed copy offers one)');
   const rows = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', '_components', 'guest-setup', 'guest-setup-rows.tsx'), 'utf8'));
   const row = rows.slice(rows.indexOf('function DownloadExcelRow('));
   assert.match(row, /name="Download as Excel"/, 'Guests ⚙ has no Download as Excel');

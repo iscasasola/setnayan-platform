@@ -79,8 +79,8 @@ test('4 · the doors are ONE dropdown in ONE row — "Guests · List ▾" listin
   assert.ok(rowAt > -1, 'the one top row is gone');
   assert.match(
     SCREEN.slice(rowAt),
-    // ☑ 3 Nov: the List's small Select (it left the ≡) may sit before the view's rounds — the ⚙ still ends the row.
-    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)*(?:\{gview === 'list' && !selectMode[\s\S]*?data-testid="guests-select" \/>\s*\) : null\}\s*)?(?:\{\s*\}\s*)*<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="" \/>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
+    // ☑ 3 Nov: the view's rounds slot holds the List's ☑ Select (it left the ≡); Seats still portals its rounds into it.
+    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)*<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="">\s*\{gview === 'list' && !selectMode[\s\S]*?data-testid="guests-select" \/>\s*\) : null\}\s*<\/span>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
     'the ⚙ does not end the first row after the menu and the rounds',
   );
 });

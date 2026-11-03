@@ -803,9 +803,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
      (there is no fresh list to write). 🔒 lib/guest-export-file.test.ts */
   const excel = useGuestsExcel(eventId, toast);
   const setup = setupRows ? (
-    <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>
-      <GuestsExcelContext.Provider value={copy?.freshness === 'failed' ? null : excel}>{setupRows}</GuestsExcelContext.Provider>
-    </OpenRequestsContext.Provider>
+    <GuestsExcelContext.Provider value={copy?.freshness === 'failed' ? null : excel}>
+      <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>{setupRows}</OpenRequestsContext.Provider>
+    </GuestsExcelContext.Provider>
   ) : null;
   const pickWho = useCallback(() => {
     openSettings(false);
@@ -1507,6 +1507,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       asking={requestsInPlace ? { label: `Asking to join · ${formatCount(requests)}`, on: asking, onPick: () => (asking ? closeAsking() : openAsking()) } : null}
       shown={shown}
       onClearAll={clearAllFilters}
+      tour="guests-sort"
     />
   );
   /* ＋ ADD ▾ — the row's one main verb (owner 3 Nov: From your people + Import a file move "next to the guests search
@@ -2167,12 +2168,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }
             />
             {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
-            {/* ☑ SELECT, on the top row (owner 3 Nov: Select left the ≡ — the filter only filters). The same select mode and the
-                same bulk bar as before; hidden while selecting (the bar's Done leaves it) and for a viewer who may not write. */}
-            {gview === 'list' && !selectMode && !writesOff && !asking ? (
-              <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="guests-select" />
-            ) : null}
-            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
+            {/* 🎚 The view's own rounds, left of the ⚙ — Seats portals its Edit · ⋯ here (`lens.toolsSlot`); the List's is ☑ SELECT
+                (owner 3 Nov: Select left the ≡ — the filter only filters). The same select mode and the same bulk bar as before;
+                hidden while selecting (the bar's Done leaves it) and for a viewer who may not write. */}
+            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="">
+              {gview === 'list' && !selectMode && !writesOff && !asking ? (
+                <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="guests-select" />
+              ) : null}
+            </span>
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
                 <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>

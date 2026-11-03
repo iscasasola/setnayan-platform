@@ -60,6 +60,7 @@ export function GuestsFilterSheet({
   shown,
   onClearAll,
   mark = 'data-thumb-sort',
+  tour = 'guests-sort',
 }: {
   filter: GuestsFilter;
   /** The next filter — the screen's `pickFilter` (a new Group by clears +1s and opens its first heading). */
@@ -74,6 +75,8 @@ export function GuestsFilterSheet({
   /** ✕ Clear all — every choice back to the plain list. */
   onClearAll: () => void;
   mark?: string;
+  /** 🔦 The spotlight tour's anchor — the shipped ≡'s token, kept. */
+  tour?: string;
 }) {
   const [open, setOpen] = useState(false);
   const opts = guestsFilterOptions('list', filter, { hasSides });
@@ -96,6 +99,7 @@ export function GuestsFilterSheet({
         aria-expanded={open}
         onClick={() => setOpen(true)}
         className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink"
+        data-tour={tour}
         {...{ [mark]: '' }}
       >
         <FilterFace on={applied > 0} />
@@ -112,7 +116,7 @@ export function GuestsFilterSheet({
           <h2 id="guests-filter-sheet-title" className="shrink-0 px-5 pb-1 pt-2 text-[17px] font-semibold text-ink">
             Show &amp; sort
             {applied > 0 ? (
-              <span className="ml-2 text-[13px] font-semibold text-terracotta" data-filter-applied={applied}>
+              <span className="ml-2 text-[13px] font-semibold text-terracotta-700" data-filter-applied={applied}>
                 · {applied} applied
               </span>
             ) : null}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
-import { Check, ChevronRight, Copy, RotateCcw, Share2, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, RotateCcw, Share, Share2, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
 import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
@@ -26,7 +26,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions, useOpenRequests } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, useGuestsExcelSave, useOpenRequests } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -222,8 +222,24 @@ export function GuestSetupRows({
         <RequestsRow eventId={eventId} waiting={requests} />
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[2]} />
         <FinalizeRow eventId={eventId} view={headcount} />
+        <DownloadExcelRow />
       </FormRows>
     </div>
+  );
+}
+
+/**
+ * 📤 DOWNLOAD AS EXCEL — moved here from the List's ≡ (owner 3 Nov: the filter only filters). The Guests screen's shipped
+ * save (`GuestsExcelContext`); not drawn where it is not provided.
+ */
+function DownloadExcelRow() {
+  const excel = useGuestsExcelSave();
+  if (!excel) return null;
+  const label = excel.label === 'Preparing Excel…' ? 'Preparing…' : excel.label === 'Tap to save Excel' ? 'Tap to save' : 'Download';
+  return (
+    <FormRow data="excel" name="Download as Excel" line="Every guest, in one spreadsheet" attrs={{ 'data-setup-row': 'excel' }}>
+      <ActionButton tone="neutral" icon={Share} label={label} onClick={excel.save} data-testid="setup-excel" />
+    </FormRow>
   );
 }
 

@@ -35,6 +35,7 @@
 // ============================================================================
 
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
+import { feedsCrews } from '@/lib/crew-meals';
 import type { ReactNode } from 'react';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -529,7 +530,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     r.crew_size ??
     (r.marketplace_vendor_id ? listingCrewByProfile.get(r.marketplace_vendor_id) ?? null : null);
 
-  const hasCrewMealProvider = crewRows.some((r) => r.category === 'crew_meals');
+  // 🍱 Who feeds the crews (owner 2026-11-02, 4 additions (4)): the crew-meal provider — or the caterer, who plates them
+  // on the day and now sees this count on their production sheet (`get_vendor_crew_meals`, 20271303132255).
+  const hasCrewMealProvider = crewRows.some((r) => feedsCrews(r.category));
+  const feederWords = crewRows.some((r) => r.category === 'crew_meals') ? 'your crew-meal provider' : 'your caterer';
   const coveredCrewMeals = crewRows.reduce(
     (sum, r) => sum + (r.crew_meal_covered ? effectiveCrew(r) ?? 0 : 0),
     0,
@@ -2352,6 +2356,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               derived meal count. On every OTHER vendor: its crew size + a toggle
               to have the provider feed this crew (supersedes its food allowance,
               so the cost is counted once — in the provider's package). */}
+          {/* The caterer's own row says how many crews it feeds (the crew-meal provider's row below already does). */}
+          {ev.category === 'catering' ? (
+            <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70" data-crew-meals-covering="">
+              Feeding{' '}
+              <span className="font-medium text-ink">
+                {coveredCrewMeals} crew meal{coveredCrewMeals === 1 ? '' : 's'}
+              </span>{' '}
+              across the suppliers you&rsquo;ve marked as fed — they see this count on their production sheet.
+            </p>
+          ) : null}
           {ev.category === 'crew_meals' ? (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
               Covering{' '}
@@ -2384,7 +2398,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                     className="mt-0.5 h-4 w-4 accent-mulberry"
                   />
                   <span>
-                    Crew fed by your crew-meal provider
+                    Crew fed by {feederWords}
                     <span className="block text-xs text-ink/50">
                       Covers this crew&rsquo;s meals in that booking — its food allowance
                       above won&rsquo;t be counted again.

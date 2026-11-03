@@ -1,5 +1,6 @@
 import { papicHomeHref } from '@/lib/papic-home-href';
 import { PapicStayForm } from './_components/papic-stay-form';
+import { ChallengeRowSwipe } from './_components/challenge-row-swipe';
 import { ChallengeCardRow } from './_components/challenge-card-row';
 // Papic Games — couple challenge manager (spec §5 / gap #1 + #8). Lets the couple
 // AUTHOR their own generic challenges (so every event has a real game, not just
@@ -9,7 +10,7 @@ import { ChallengeCardRow } from './_components/challenge-card-row';
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -54,7 +55,6 @@ import {
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
   setChallengesPausedAction,
-  deleteCoupleChallengeAction,
   armChallengeAction,
   stopChallengeAction,
 } from './actions';
@@ -64,7 +64,7 @@ import { ACTIVE_CHALLENGE_CAP } from '@/lib/papic-missions';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
-type MissionRow = {
+export type MissionRow = {
   mission_id: string;
   // ⚠ Reuse the shared union — do NOT restate it. This file used to declare its
   // own ('auto' | 'couple' | 'vendor'). When the §9 library added a fourth
@@ -969,7 +969,7 @@ function formatUntil(iso: string, timeZone: string): string {
 /** One row of the couple's list. Extracted so the on-board and not-showing
  *  groups render identically — two copies of this markup is how the two groups
  *  would quietly drift apart. */
-function ChallengeRow({
+export function ChallengeRow({
   m,
   eventId,
   armed,
@@ -992,10 +992,10 @@ function ChallengeRow({
   const badge = SOURCE_BADGE[m.source] ?? { label: 'Challenge', cls: 'bg-ink/10 text-ink/60' };
   const kind = m.capture_kind ? KIND_LABEL[m.capture_kind] : null;
 
-  return (
-    <li
+  const row = (
+    <div
       className={`rounded-xl border border-ink/10 bg-cream/70 p-3 ${
-        m.is_active ? '' : 'opacity-60'
+        m.is_active || m.source === 'couple' ? '' : 'opacity-60'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1119,24 +1119,18 @@ function ChallengeRow({
               )}
             </button>
           </PapicStayForm>
-          {/* Delete — only the couple's own. Since 2026-10-26 a SOFT remove (`deleteCoupleChallengeAction`): photos already
-              taken keep the challenge. (The Papic card has no ✕ — its slots are changed or switched off, owner 2026-10-27.) */}
-          {m.source === 'couple' ? (
-            <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="mission_id" value={m.mission_id} />
-              <button
-                type="submit"
-                title="Delete"
-                aria-label="Delete challenge"
-                className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
-              >
-                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </PapicStayForm>
-          ) : null}
         </div>
       </div>
-    </li>
+    </div>
+  );
+  /* 👈 Delete — only the couple's own, and it is the row's SWIPE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST
+     ROW — NO VISIBLE ✕ ON ROWS"): no trash on the row; `ChallengeRowSwipe` reaches the same soft remove
+     (`deleteCoupleChallengeAction`, since 2026-10-26 — photos already taken keep the challenge) with Undo. Setnayan's
+     and suppliers' challenges are curated with the eye, never deleted, so they stay plain rows. */
+  if (m.source !== 'couple') return <li>{row}</li>;
+  return (
+    <ChallengeRowSwipe eventId={eventId} missionId={m.mission_id} name={displayChallengePrompt(m.prompt)} dim={!m.is_active}>
+      {row}
+    </ChallengeRowSwipe>
   );
 }

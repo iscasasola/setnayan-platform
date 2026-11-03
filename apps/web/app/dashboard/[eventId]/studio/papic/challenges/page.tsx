@@ -36,6 +36,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { CoupleChallengesManager } from '../couple-challenges-manager';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,8 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
+      {/* ↩ The one Undo toast for a swiped-away challenge (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"). */}
+      <UndoToastHost />
       <div className="mt-4">
         <CoupleChallengesManager eventId={eventId} search={search} standalone />
       </div>

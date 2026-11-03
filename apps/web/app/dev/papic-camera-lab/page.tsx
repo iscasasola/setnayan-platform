@@ -15,12 +15,14 @@
  *   ?pro=1          the guest camera on a PRO event (owner 2026-10-24 ruling)
  *   ?lane=seat      the seat camera (`PapicSeatCapture`) on fixture props
  *   &buy=1          the real floating "Add credits" doorway over the camera (one fixture rung)
+ *   ?lane=challenges the REAL Challenges-page rows on fixture missions — a couple's own deletes by its swipe (2026-11-03)
  *   &chapter=1      📷 the camera shoots into a chapter ("Meeting with caterer", owner 2026-11-01) — named on it
  */
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
 import { LabCamera } from './lab-camera';
+import { LabChallenges } from './lab-challenges';
 
 export default async function PapicCameraLabPage({
   searchParams,
@@ -29,6 +31,7 @@ export default async function PapicCameraLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  if (sp.lane === 'challenges') return <LabChallenges />;
   const lane = sp.lane === 'vendor' ? 'vendor' : sp.lane === 'seat' ? 'seat' : 'guest';
   // ?pro=1 — a Pro event's camera: the logo on the shutter, the theme colour, the monogram on the copies.
   // &spot=1 — the camera's first-visit spotlight (guest_papic_camera_v2), first run, nothing recorded.

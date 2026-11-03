@@ -88,3 +88,37 @@ test('the screen draws from section-fold, and its taps write to it', () => {
   assert.match(tap, /foldSections\(\[key\], opening\)/, 'the header tap no longer folds through foldSections');
   assert.match(screen, /onClick: \(\) => foldSections\(sections\.map\(\(s\) => s\.key\), !allOpen\)/, '⇕ no longer folds a narrowed list');
 });
+
+/**
+ * 🧮 EVERY STATE (controller relay of the owner, 3 Nov: "make sure groups can collapse and expand" — no filter, any Show,
+ * any Group by, any Sort, a +1s narrowing, and after "Clear all"). The lists of choices are the shipped ones, read from
+ * `lib/guests-filter.ts` and `lib/guest-roster-view.ts`, so a choice added there is covered here without an edit.
+ */
+test('every Show × Group by × Sort × +1s state: a heading folds and unfolds, and Clear all hands back the whole list', async () => {
+  const { GUESTS_SHOW, GUESTS_SORTS } = await import('@/lib/guests-filter');
+  const { ROSTER_VIEWS, PLUS_ONE_FILTERS } = await import('@/lib/guest-roster-view');
+  const shows = GUESTS_SHOW.map((s) => (s.key === 'all' ? null : s.key));
+  const pluses = [null, ...PLUS_ONE_FILTERS.map((p) => p.key)];
+  let states = 0;
+  for (const group of ROSTER_VIEWS.map((v) => v.key))
+    for (const show of shows)
+      for (const plus of pluses)
+        for (const _sort of GUESTS_SORTS) {
+          // Sort re-orders rows only; it never changes which headings are open (it is not part of the narrowing).
+          const l = list(new Set([KEYS[1]!]));
+          l.narrow({ show, plus, group });
+          const k = KEYS[0]!;
+          const was = l.isOpen(k);
+          l.tap(k);
+          assert.equal(l.isOpen(k), !was, `group=${group} show=${show} plus=${plus}: the first tap did not change the heading`);
+          l.tap(k);
+          assert.equal(l.isOpen(k), was, `group=${group} show=${show} plus=${plus}: the second tap did not change it back`);
+          // ✕ Clear all → the whole list: its own open headings, and its taps still fold.
+          l.narrow({ group });
+          assert.deepEqual(KEYS.map(l.isOpen), [false, true, false], `group=${group} show=${show} plus=${plus}: Clear all lost the list’s own folds`);
+          l.tap(KEYS[1]!);
+          assert.equal(l.isOpen(KEYS[1]!), false, `group=${group}: after Clear all a tap no longer folds`);
+          states++;
+        }
+  assert.equal(states, ROSTER_VIEWS.length * GUESTS_SHOW.length * (PLUS_ONE_FILTERS.length + 1) * GUESTS_SORTS.length);
+});

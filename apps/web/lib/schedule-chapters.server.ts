@@ -192,7 +192,7 @@ export async function countMomentPapic(supabase: SupabaseClient, momentId: strin
  */
 export async function runMomentOp(
   supabase: SupabaseClient,
-  op: Exclude<MomentOp, 'march_set' | 'march_new'>,
+  op: Exclude<MomentOp, 'march_set' | 'march_new' | 'ask_supplier'>,
   blockId: string,
   fd: FormData,
   userId: string,

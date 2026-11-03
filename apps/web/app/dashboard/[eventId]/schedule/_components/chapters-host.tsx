@@ -58,6 +58,7 @@ import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
 import { ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors } from './chapter-sheets';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
+import type { HostAsk } from '@/lib/schedule-ask';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
@@ -119,6 +120,8 @@ export type ChaptersInput =
       replyCounts?: Record<string, ChapterCount | null>;
       /** 👁 The rail's View as ▾ (Step 3c) — its data and whether the event owns it; absent = none drawn. */
       viewAs?: ViewAsInput | null;
+      /** 🗓 The hosts' and the coordinator's asks of suppliers (D2); null = the read failed (said on the moment sheet). */
+      asks?: HostAsk[] | null;
     }
   | { measured: false };
 
@@ -165,6 +168,7 @@ export function ChaptersHost({
   const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
   const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
+  const [asks, setAsks] = useState<HostAsk[] | null | undefined>(input.measured ? input.asks : undefined);
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
@@ -179,6 +183,7 @@ export function ChaptersHost({
     setMoments(input.moments);
     setTasks(input.tasks);
     setMarches(input.marches);
+    setAsks(input.asks);
   }, [input]);
   const who = useMemo<TaskWhoList>(() => {
     const base = input.measured ? input.who : { suppliers: [], people: null };
@@ -343,6 +348,8 @@ export function ChaptersHost({
           onTasks={setTasks}
           onClose={() => setMomentSheet(null)}
           onStage={setMomentDeleting}
+          asks={asks}
+          onAsked={(row) => setAsks((l) => (l ? [row, ...l] : l))}
           onDeleted={() => {
             setMoments((ms) => ms.filter((x) => x.block_id !== openMoment.block_id));
             setTasks((ts) => (ts ? ts.filter((t) => t.block_id !== openMoment.block_id) : ts));

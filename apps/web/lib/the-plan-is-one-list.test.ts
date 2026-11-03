@@ -223,10 +223,11 @@ test('4 · a refused task read says so — never a count of zero', async () => {
   assert.deepEqual(agenda.unread, ['task']);
 });
 
-test('4 · Home’s To do tile, the board and the list’s own filter all count with planningProgress', () => {
+test('4 · Home’s To do list, the board and the list’s own filter all count with planningProgress', () => {
   const home = src('lib/home-control.server.ts');
   assert.match(home, /fetchPreparationAgenda\(/, 'Home reads the one list');
-  assert.match(home, /planningProgress\(agenda\.items\)/, 'Home counts with the one rule');
+  // (Home asks for four rows — its To do shows three, the fourth fills in when Now holds one; the counts are the same.)
+  assert.match(home, /planningProgress\(agenda\.items(, 4)?\)/, 'Home counts with the one rule');
   const board = src('lib/planning-progress.server.ts');
   assert.match(board, /fetchPreparationAgenda\(/);
   assert.match(board, /planningProgress\(agenda\.items\)/);

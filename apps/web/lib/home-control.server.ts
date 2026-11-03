@@ -37,7 +37,7 @@ import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-p
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { standingRollUp } from '@/lib/supplier-standing';
 import type { VendorCategory } from '@/lib/vendors';
-import { fetchPreparationAgenda, planningProgress } from '@/lib/preparation';
+import { fetchPreparationAgenda, planningProgress, planningRowId } from '@/lib/preparation';
 import type { HomeChecklistFacts, HomeHubFacts, HomeSuppliersFacts } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 import { shortDay } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 
@@ -185,7 +185,21 @@ export async function readHomeChecklist(
     only: 'todo',
   }).catch(() => null);
   if (agenda === null || agenda.unread.length > 0) return 'unread';
-  const p = planningProgress(agenda.items);
+  // Four: Home's To do shows three, and the fourth fills in when Now holds one of them (round 3, Now never repeats).
+  const p = planningProgress(agenda.items, 4);
   if (p.total === 0) return null;
-  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+  // ✅ The row each To do line ticks (`PlanningTick`) — a task's checklist row or a hand-added step, the same rule as
+  // `preparation-agenda.tsx`'s tickId; null = a computed step with no row (Home opens it instead). Worked out HERE, on
+  // the server, so the shared `lib/preparation.ts` (in the Maker's first load) carries not one byte more.
+  const next = p.next.map((n) => {
+    const item = agenda.items.find((t) => (planningRowId(t) ?? t.id) === n.id);
+    const tick =
+      item?.source === 'task' && item.taskItemId
+        ? { kind: 'task' as const, id: item.taskItemId }
+        : item?.source === 'manual' && item.itemId
+          ? { kind: 'manual' as const, id: item.itemId }
+          : null;
+    return { ...n, tick };
+  });
+  return { done: p.done, total: p.total, open: p.open, next, dueThisWeek: p.dueThisWeek };
 }

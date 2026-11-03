@@ -15,9 +15,11 @@
  * address (`activeMatchExact`). Every read is React `cache()`d and already paid
  * on this page by `SignedInCluster` (the top bar's bell + account switcher).
  *
- * 🍎 THE APP SHELL IS UNCHANGED. While `/` is in middleware's
- * `APP_EXCLUDED_MARKETING_PATHS` the native shell never renders this page (it
- * is bounced to the board), and `discoverOpensHere()` says the same thing here.
+ * 📲 THE APP DRAWS IT TOO (owner 2026-11-02, "let everything go live"). The
+ * phone and desktop apps open `/` like the website now, so a signed-in person
+ * in the app gets this bar on Discover with the Discover tab lit — the same
+ * four (or five) tabs as on the board. `discoverOpensHere()` is still asked, so
+ * this bar and the board's can never disagree about whether Discover is a door.
  *
  * Rendered by `front-door.tsx` OUTSIDE the shell's <main>: the dock is `fixed`,
  * and a fixed element inside an element that takes a `view-transition-name`

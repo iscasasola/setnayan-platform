@@ -125,12 +125,13 @@ test('3 · Home reads the widget through the chapters, in its one round, and han
   assert.match(page, /schedule:\s*homeSchedule && homeSchedule !== 'unread'/, 'the page does not hand the read to the control row');
 });
 
-test('4 · rendered: the Schedule card stands right after the Countdown, its faces from the chapters, its doors under them', () => {
+test('4 · rendered: the Schedule card is the first widget, its faces from the chapters, its doors under them', () => {
   const f = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 2, bookedVendorIds: [], nowMs: at('2026-12-12T09:45'), tz: TZ, today: '2026-12-12' });
   const html = drawHome({ control: fixtureControl('e1', { schedule: { ...f, pro: false } }) });
   const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   const order = [...compact.matchAll(/data-home-tile="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(order.slice(0, 2), ['count', 'sched'], 'the Schedule is not right after the Countdown');
+  // 🎴 The Countdown rides the event card (Home redraw 2026-11-02, round 3): the Schedule is the first widget.
+  assert.deepEqual(order.slice(0, 1), ['sched'], 'the Schedule is not the first widget');
   const card = slice(compact, 'data-home-tile="sched"', ['data-home-glance']);
   assert.match(text(card), /Happening now Preparation · Bride 9:00 AM · Hair and makeup Preparation · Groom/, 'the faces are not the chapters');
   assert.match(text(card), /What’s next Ceremony/);

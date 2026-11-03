@@ -45,6 +45,8 @@ import {
 } from '@/lib/schedule-chapters';
 import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
 import type { ChapterMoment, TaskWhoList } from './chapters-host';
+import { AskSupplierSection } from './ask-supplier-section';
+import type { HostAsk } from '@/lib/schedule-ask';
 
 /**
  * 📖 THE MOMENT SHEET — a moment and its parallel tasks (owner 2026-11-01, corpus SCHEDULE_CHAPTERS_BUILD_PLAN §3
@@ -92,6 +94,8 @@ export type MomentDoors = {
   march: (op: 'march_set' | 'march_new', blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
   /** 👷 Suppliers and crew ▾: tick (`on` '1') or untick one supplier or crew on the moment (`for_key`, lib/moment-for.ts). */
   forSet: (blockId: string, fields: { for_key: string; on: '1' | '0' }) => Promise<Answer<string>>;
+  /** 🗓 Ask a booked supplier to change their times on the moment (`vendor_id` · `start_at` · `end_at` · `note`; D2). */
+  ask: (blockId: string, fields: Record<string, string>) => Promise<Answer<string>>;
 };
 
 function form(eventId: string, fields: Record<string, string>): FormData {
@@ -145,6 +149,11 @@ export function realMomentDoors(eventId: string): MomentDoors {
         (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : NOT_SAVED_WORDS }),
         () => ({ ok: false as const, error: NOT_SAVED_WORDS }),
       ),
+    ask: (blockId, fields) =>
+      updateScheduleBlock(form(eventId, { block_id: blockId, moment_op: 'ask_supplier', ...fields })).then(
+        (r) => (r && r.ok ? { ok: true as const, value: String(r.value) } : { ok: false as const, error: r && !r.ok ? r.error : 'That ask didn’t send — try again.' }),
+        () => ({ ok: false as const, error: 'That ask didn’t send — try again.' }),
+      ),
   };
 }
 
@@ -162,6 +171,8 @@ export const LAB_MOMENT_DOORS: MomentDoors = {
     ),
   forSet: (_b, fields) =>
     new Promise((r) => setTimeout(() => r({ ok: true, value: fields.on === '1' && !fields.for_key.startsWith('s:') ? `lab-${Math.random().toString(36).slice(2, 10)}` : '' }), 150)),
+  // The lab's shop ids follow the lab bookings (`v-photo` → `shop-photo`), as `LAB_ASKS` writes them.
+  ask: (_b, fields) => new Promise((r) => setTimeout(() => r({ ok: true, value: `lab-ask-${Math.random().toString(36).slice(2, 10)}:${(fields.vendor_id ?? '').replace(/^v-/, 'shop-')}` }), 200)),
 };
 
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };
@@ -340,6 +351,8 @@ export function MomentSheet({
   onClose,
   onDeleted,
   onStage,
+  asks,
+  onAsked,
 }: {
   moment: ChapterMoment;
   chapter: Chapter;
@@ -364,6 +377,9 @@ export function MomentSheet({
   onDeleted: () => void;
   /** The sheet's title follows the stage: "Moment" · "Delete moment". */
   onStage?: (deleting: boolean) => void;
+  /** 🗓 The hosts' asks of suppliers on the event (D2); null = unread (said); undefined = not drawn. */
+  asks?: readonly HostAsk[] | null;
+  onAsked?: (row: HostAsk) => void;
 }) {
   const headingId = useContext(LayerHeading);
   const [stage, setStage] = useState<'details' | 'ask' | 'deleting' | 'failed'>('details');
@@ -520,6 +536,15 @@ export function MomentSheet({
                 data="moment-notes"
               />
             </FormRows>
+
+            <AskSupplierSection
+              moment={m}
+              chapter={c}
+              suppliers={who.suppliers}
+              asks={asks}
+              ask={doors.ask}
+              onAsked={(row) => onAsked?.(row)}
+            />
 
             <section data-moment-tasks={mine.length} aria-label="Tasks" className="mt-2 border-t border-ink/10 pt-3">
               <h4 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Tasks at this moment</h4>

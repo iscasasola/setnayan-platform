@@ -87,7 +87,12 @@ test('3 · Home’s header carries no button — the Countdown is the couple’s
   // RE-AIMED 2026-10-24 (owner-approved control center): the cover's ⚙ Settings opened the same page as the Countdown —
   // "drops the pill so Event Settings has one door". The cover is the name alone; the Countdown widget is the door.
   const cover = code(COVER);
-  assert.equal(cover.match(/<ActionButton\b|<Link\b|<a\b/g)?.length ?? 0, 0, 'the cover carries a door again — a second door to Event Details');
+  // RE-AIMED 2026-11-02 (owner-approved Home redraw, round 3): the Countdown is the event card's own figure, so the card
+  // carries exactly ONE door — the countdown, to the Date Finder it is handed (`countdown.href`) — and never a button.
+  assert.equal(cover.match(/<ActionButton\b|<a\b/g)?.length ?? 0, 0, 'the cover carries a button or a raw link — a second door');
+  const links = cover.match(/<Link\b[^>]*>/g) ?? [];
+  assert.equal(links.length, 1, 'the cover carries a door besides its countdown');
+  assert.match(links[0]!, /href=\{countdown\.href\}[^>]*data-home-card-countdown/, 'the cover’s one door is not the countdown');
   // RE-AIMED 2026-10-30 (owner: *"date finder. because we want them to find the date for their event"*; Event Details is
   // combined into Home's ⚙ Event Settings): the Countdown's door is the Date Finder for the couple (`countdownDoor`).
   const faces = code('app/dashboard/[eventId]/_components/home-control-faces.ts');

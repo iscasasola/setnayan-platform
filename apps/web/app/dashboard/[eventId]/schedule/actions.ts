@@ -52,6 +52,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
 import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
 import { runMomentOp } from '@/lib/schedule-chapters.server';
+import { askSupplierToChange } from '@/lib/schedule-ask.server';
 import { runMomentMarch } from './moment-march-step';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
@@ -424,10 +425,13 @@ export async function updateScheduleBlock(formData: FormData) {
     const writes = momentOp !== 'papic_count';
     const part = writes ? await partBefore(supabase, eventId, [blockId], { touched: momentOp !== 'for_set' }) : null;
     // 🚶 "This is a march" (migration 20271301571290): the moment names a march, or a new one is made for it.
+    // 🗓 "Ask a supplier to change their times" (D2, owner 2026-11-02): the database decides who may ask.
     const answer =
-      momentOp === 'march_set' || momentOp === 'march_new'
-        ? await runMomentMarch(supabase, momentOp, eventId, blockId, formData)
-        : await runMomentOp(supabase, momentOp, blockId, formData, user.id);
+      momentOp === 'ask_supplier'
+        ? await askSupplierToChange(supabase, user.id, eventId, blockId, formData)
+        : momentOp === 'march_set' || momentOp === 'march_new'
+          ? await runMomentMarch(supabase, momentOp, eventId, blockId, formData)
+          : await runMomentOp(supabase, momentOp, blockId, formData, user.id);
     // 🔄 A task or a march that saved refreshes every page that reads the day (a read — the Papic count — does not).
     if (answer.ok && part) await tellPartSuppliers(supabase, part, user.id);
     if (answer.ok && momentOp !== 'papic_count') revalidateScheduleUnlessMaker(eventId, formData);

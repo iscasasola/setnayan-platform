@@ -53,6 +53,8 @@ export async function readHomeSchedule(
       .select('suggestion_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .eq('status', 'open')
+      // 🔁 A supplier's requests only — the hosts' own asks of a supplier (`to_supplier`, D2) are not theirs to approve.
+      .eq('direction', 'to_host')
       // A change or removal whose moment is gone has nothing left to approve (the Schedule page's own filter).
       .or('kind.eq.new,block_id.not.is.null'),
     supabase

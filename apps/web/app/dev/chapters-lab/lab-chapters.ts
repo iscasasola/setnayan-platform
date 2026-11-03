@@ -1,3 +1,4 @@
+import type { HostAsk } from '@/lib/schedule-ask';
 import type { Chapter, MomentLike, TaskRow } from '@/lib/schedule-chapters';
 import type { ChapterMoment } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 
@@ -181,3 +182,35 @@ export const LAB_WHO = {
     ],
   },
 };
+
+/** 🗓 D2 — the hosts' asks of suppliers on the run-of-show moment (`?asks=1`): one waiting, one answered No. */
+export const LAB_ASKS: HostAsk[] = [
+  {
+    suggestion_id: 'lab-ask-1',
+    block_id: LAB_MOMENT.block_id,
+    vendor_profile_id: 'shop-hmua',
+    suggested_by_name: 'Cale',
+    asked_as: 'host',
+    proposed_start_at: '2026-12-18T07:30:00.000Z',
+    proposed_end_at: '2026-12-18T09:30:00.000Z',
+    note: 'The bride wants an extra half hour.',
+    status: 'open',
+    answer_note: null,
+    created_at: '2026-11-02T09:00:00.000Z',
+    shop: { business_name: 'Glow HMUA' },
+  },
+  {
+    suggestion_id: 'lab-ask-2',
+    block_id: LAB_MOMENT.block_id,
+    vendor_profile_id: 'shop-photo',
+    suggested_by_name: 'Ana',
+    asked_as: 'coordinator',
+    proposed_start_at: '2026-12-18T07:45:00.000Z',
+    proposed_end_at: '2026-12-18T08:15:00.000Z',
+    note: 'Could you come for the detail shots first?',
+    status: 'declined',
+    answer_note: 'We have another wedding until 8 AM.',
+    created_at: '2026-11-01T09:00:00.000Z',
+    shop: { business_name: 'Lightbox Studio' },
+  },
+];

@@ -31,6 +31,7 @@ import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
 import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
+import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
 import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
@@ -453,6 +454,8 @@ export async function deleteClientNote(formData: FormData) {
  *   'times'           — My times: an arrive and a done moment per linked chapter, each its own request.
  *   'take_back'       — Take back a request still waiting (`withdraw_schedule_request`).
  *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
+ *   'answer'          — Accept / Decline what a HOST or the COORDINATOR asked of them (D2, owner 2026-11-02;
+ *                       `answerScheduleAsk`, lib/schedule-ask.server.ts): `decision` accept | decline, `reason` on a No.
  *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
  *                       by the database until they unlock. Their own requests still go through.
  *
@@ -476,7 +479,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const request = formData.get('request');
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
-  const sheetAsk = request === 'take_back' || isMark || request === 'times';
+  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -502,6 +505,22 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     });
     if (error || data !== true) return { ok: false, error: 'It was already answered, so it can’t be taken back.' };
     return done({ ok: true, outcome: 'done' });
+  }
+  // ── Answer a host's or the coordinator's ask — the database says whether this supplier was asked ────────────────
+  if (request === 'answer') {
+    const decision = formData.get('decision');
+    if (decision !== 'accept' && decision !== 'decline') return { ok: false, error: NOT_SENT_WORDS };
+    const r = await answerScheduleAsk(
+      supabase,
+      user.id,
+      eventId,
+      String(formData.get('suggestion_id') ?? ''),
+      decision,
+      formData.get('reason'),
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+    if (r.value === 'gone') return { ok: false, error: 'That ask was already answered or taken back.' };
+    return done({ ok: true, outcome: decision === 'accept' ? 'applied' : 'done' });
   }
   if (isMark) {
     const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });

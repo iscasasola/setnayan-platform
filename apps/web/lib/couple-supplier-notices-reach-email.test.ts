@@ -109,6 +109,8 @@ const SCOPE_FILES = [
   'lib/schedule-request-notify.server.ts',
   // The one accept path's "accepted / declined your timeline suggestion" moved here from schedule/actions.ts (Step 4b).
   'lib/schedule-suggestion-decide.server.ts',
+  // 🤝 E1 (2026-11-02): a paid coordinator booking tells the coordinator their invite is waiting — in the app only.
+  'lib/coordinator-grant.ts',
   // 🗓 D2 (2026-11-02): a host's or the coordinator's ask of a booked supplier — `schedule_ask`, in the app only.
   'lib/schedule-ask.server.ts',
   'lib/schedule-shift-notify.server.ts',

@@ -528,6 +528,11 @@ export type NotificationType =
      20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
      on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301956127. */
   | 'schedule_released'
+  /* 🤝 A BOOKED COORDINATOR'S INVITE TO THE EVENT (supplier gate audit 2026-11-02, E1). → the account whose email the
+     invite is for, the moment a planner_coordinator booking is paid (`autoInviteCoordinator`, lib/coordinator-grant.ts),
+     opening `/host/accept/<token>` — so they accept without the couple copying the link. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271303211103. */
+  | 'coordinator_invited'
   /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
      SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
      opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
@@ -661,6 +666,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   access_more_asked: 'A helper asks for more access',
   supplier_where_changed: 'Where you go changed',
   claim_access_answered: 'A couple answered your link',
+  coordinator_invited: 'You’re invited to coordinate',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
   supplier_part_changed: 'Your part changed',
@@ -891,6 +897,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // News the supplier plans around (which chapters), not a yes or no → the informational sky.
   supplier_where_changed: 'bg-sky-100 text-sky-800',
   claim_access_answered: 'bg-sky-100 text-sky-800',
+  // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
+  coordinator_invited: 'bg-warn-100 text-warn-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1179,6 +1187,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   supplier_where_changed: 'calendar',
   supplier_part_changed: 'calendar',
   schedule_released: 'calendar',
+  coordinator_invited: 'user-plus',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',
   appointment_reminder: 'calendar',

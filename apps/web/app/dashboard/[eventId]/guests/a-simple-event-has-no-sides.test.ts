@@ -44,7 +44,7 @@ test('the page derives hasSides from the profile and gates the Side filter, sort
   assert.equal((filter.match(/if \(v\.key === 'side' && !opts\.hasSides\) continue;/g) ?? []).length, 2, 'Group by offers Side on a sideless event');
   // 3 Nov: the List's ⇅ is the Show & sort sheet, handed `hasSides` the same way.
   assert.match(screen, /<GuestsFilterSheet[\s\S]{0,120}hasSides=\{hasSides\}/, 'the List’s ⇅ is not told whether the event has sides');
-  assert.match(src('_components/guests-filter-sheet.tsx'), /guestsFilterOptions\('list', filter, \{ hasSides \}\)/, 'the sheet does not pass hasSides to the options');
+  assert.match(src('_components/guests-filter-panel.tsx'), /guestsFilterOptions\('list', filter, \{ hasSides \}\)/, 'the sheet does not pass hasSides to the options');
   // …and the Map draws Side only where the event has sides, whatever the shared choice says (`mapGroupOf`).
   assert.match(filter, /if \(f\.group && isMapArrange\(f\.group\) && \(hasSides \|\| f\.group !== 'side'\)\) return f\.group;\s*return hasSides \? 'side' : 'role';/, 'the map arranges by side on a sideless event');
   assert.match(screen, /const arrange: MapArrange = mapGroupOf\(filter, hasSides\);/, 'the map does not ask the shared filter with hasSides');

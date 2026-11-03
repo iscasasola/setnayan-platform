@@ -22,12 +22,16 @@ import { GUESTS_SHOW, GUESTS_SORTS, NO_GUESTS_FILTER, guestsFilterApplied, guest
 import { PLUS_ONE_FILTERS, ROSTER_VIEWS } from '@/lib/guest-roster-view';
 
 const read = (f: string) => stripComments(readFileSync(join(__dirname, f), 'utf8'));
-const SHEET = read('guests-filter-sheet.tsx');
+const ROUND = read('guests-filter-sheet.tsx');
+const PANEL = read('guests-filter-panel.tsx');
+const SHEET = ROUND + PANEL;
 const SCREEN = read('guests-screen.tsx');
 const ROWS = stripComments(readFileSync(join(__dirname, '../../_components/guest-setup/guest-setup-rows.tsx'), 'utf8'));
 
-test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dropdowns, the count, Clear all, Show N', () => {
-  assert.match(SHEET, /\{open \? \(\s*<GuestPopup/, 'the sheet is not the shared pop-up, mounted only while open');
+test('1 · the sheet: a GuestPopup mounted only while open, two topics, four dropdowns, the count, Clear all, Show N (its panel loaded on first tap)', () => {
+  assert.match(ROUND, /\{open \? <GuestsFilterPanel /, 'the sheet is not mounted only while open');
+  assert.match(ROUND, /dynamic\(\(\) => import\('\.\/guests-filter-panel'\)/, 'the open sheet ships with the List again (the Maker draws the List — first-load budget)');
+  assert.match(PANEL, /return \(\s*<GuestPopup/, 'the sheet is not the shared pop-up');
   assert.match(SHEET, /absolute inset-x-0 bottom-0/, 'the sheet does not rise from the bottom (thumb reach)');
   assert.match(SHEET, /export const FILTER_SHEET_TOPICS = \['Who you see', 'How it is laid out'\] as const;/);
   for (const name of ['Show', '+1s', 'Group by', 'Sort']) {

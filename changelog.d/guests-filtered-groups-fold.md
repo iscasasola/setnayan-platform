@@ -10,7 +10,7 @@ did nothing.
   words + Show + +1 + Group by). Every hit still arrives open; a tap folds and unfolds it; ⇕ works; a new
   narrowing opens every hit again; the whole list's own open headings are untouched.
 - Header tap, ⇕ and the ↗ jump now go through one `foldSections`.
-- 🔒 `a-filtered-group-folds.test.ts` (5 checks); `sections-pop-then-unfold.test.ts` re-anchored to `foldSections`.
+- 🔒 `a-filtered-group-folds.test.ts` (5 checks); `sections-pop-then-unfold.test.ts` and `lib/guest-section-head.test.ts` re-anchored to `foldSections` (each sabotage-tested red).
 - Measured in `/dev/guests-lab?part=screen` at 390 px, Show = Attending + Group by = Side: before, a header tap left
   `data-open` unchanged and ⇕ stayed "Collapse all"; after, the tap folds and re-opens, ⇕ folds all three headings.
 

@@ -5,7 +5,7 @@
  *
  * 👈 A TEMPLATE'S DELETE IS ITS SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
  * VISIBLE ✕ ON ROWS"): left on a phone, the hover trash on a computer, named "Delete <template>". The row hides at once
- * and the delete is written after the Undo window (`deleteWithUndo`) by `dropProposalTemplate` — the same delete the
+ * and the delete is written after the Undo window (`deleteWithUndo`) by `deleteTemplate` — the same delete the
  * old trash's form posted, answered instead of redirected. A refusal brings it back and says so.
  * Held by proposals/a-template-deletes-by-swipe.test.ts.
  */
@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { dropProposalTemplate } from '../actions';
+import { deleteTemplate } from '../actions';
 
 export type TemplateListRow = { template_id: string; template_name: string; body: string };
 
@@ -32,7 +32,7 @@ export function TemplateList({ templates }: { templates: TemplateListRow[] }) {
           next.delete(t.template_id);
           return next;
         }),
-      commit: () => dropProposalTemplate(t.template_id),
+      commit: () => deleteTemplate(t.template_id),
       failed: `Couldn’t delete ${t.template_name}. It’s back — try again.`,
     });
 

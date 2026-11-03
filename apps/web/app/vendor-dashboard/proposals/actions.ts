@@ -58,22 +58,12 @@ export async function saveTemplate(formData: FormData) {
   redirect(`${BACK}?notice=${error ? 'save_failed' : 'template_saved'}`);
 }
 
-export async function deleteTemplate(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  await dropProposalTemplate(String(formData.get('template_id') ?? ''));
-  redirect(BACK);
-}
-
 /**
- * The same template delete, answered instead of redirected — what the Templates list's SWIPE calls once its Undo
+ * Delete a template — answered instead of redirected — what the Templates list's SWIPE calls once its Undo
  * window closes (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). A
  * redirect from a write landing six seconds later would throw away whatever the supplier was writing.
  */
-export async function dropProposalTemplate(templateId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function deleteTemplate(templateId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
     data: { user },

@@ -74,8 +74,11 @@ test('(2) the List header tap only folds; a ✎ on the row renames in place; ＋
   const tap = screen.slice(screen.indexOf('const tapSection = '), screen.indexOf('// ── The counts'));
   assert.ok(tap.length > 200, 'tapSection moved — this guard is blind');
   assert.doesNotMatch(tap, /setHubSel|selectable|unselectHead/, 'a header tap selects again (the pop-up toolbar is back)');
-  assert.match(tap, /next\.add\(key\)/, 'a header tap no longer opens a group');
-  assert.match(tap, /next\.delete\(key\)/, 'a header tap no longer folds a group');
+  // The open goes through `foldSections` (2026-11-03, so a filtered / searched list folds too — a-filtered-group-folds.test.ts).
+  assert.match(tap, /foldSections\(\[key\], opening\)/, 'a header tap no longer opens a group');
+  const fold = screen.slice(screen.indexOf('const foldSections = '), screen.indexOf('const tapSection = '));
+  assert.match(fold, /if \(opening\) next\.add\(k\)/, 'foldSections no longer opens a group');
+  assert.match(fold, /else next\.delete\(k\)/, 'a header tap no longer folds a group');
   // No toolbar on the List — no SectionHeadTools / SectionHeadToolbar drawn by the screen itself, no "Add to …" box.
   assert.doesNotMatch(screen, /<SectionHeadTools\b|<SectionHeadToolbar\b|data-section-head-tools|Add to \$\{/, 'the List draws the pop-up toolbar again');
   assert.doesNotMatch(screen, /herePicks|setAddHere/, '＋ Add guest here is back');

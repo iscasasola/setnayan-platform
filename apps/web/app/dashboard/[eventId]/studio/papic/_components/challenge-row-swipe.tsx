@@ -51,7 +51,10 @@ export function ChallengeRowSwipe({
           failed: 'Couldn’t delete that challenge. It’s back — try again.',
         })
       }
-      className={dim ? 'opacity-60' : ''}
+      // The OUTER box rounds the row; the sliding front stays square inside it — a rounded front let the red behind
+      // show as a hairline at its corners (measured on /dev/papic-camera-lab?lane=challenges).
+      radiusClass=""
+      className={`overflow-hidden rounded-xl ${dim ? 'opacity-60' : ''}`}
     >
       {children}
     </SwipeToDelete>

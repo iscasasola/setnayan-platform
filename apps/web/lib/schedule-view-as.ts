@@ -286,7 +286,7 @@ export function guestSeesMoment(m: Pick<ViewMoment, 'is_public' | 'audience' | '
  * is still listed (they reply to it), with its time and place. No task, ever.
  */
 export function guestDay(chapters: readonly Chapter[], data: ViewAsData): ViewDay {
-  const invited = chapters.filter(guestInvitedTo);
+  const invited = chapters.filter((c) => guestInvitedTo(c));
   const lines: Line[] = [];
   for (const { m, c } of withChapter(invited, data.moments).values()) {
     if (!guestSeesMoment(m)) continue;

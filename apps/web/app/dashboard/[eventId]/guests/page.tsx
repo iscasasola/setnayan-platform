@@ -105,6 +105,7 @@ import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
+import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
@@ -540,6 +541,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     accountRefByGuest,
     eventPapic,
     storeShell,
+    inviteTagsByGuest,
   ] = await Promise.all([
     userRead,
     roleSetKeyRead,
@@ -554,6 +556,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     accountRefRead,
     eventPapicRead,
     storeShellRead,
+    // 🏷 "After party only" — the rows of guests taken off part of the day (owner 2026-11-02, "Invited to").
+    readInviteTagsByGuest(supabase, eventId),
   ]);
   if (!user) redirect('/login');
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
@@ -1115,6 +1119,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       groups={groups.map((g) => ({ group_id: g.group_id, label: g.label, team_side: g.team_side }))}
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
+      inviteTagByGuest={inviteTagsByGuest ?? {}}
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}

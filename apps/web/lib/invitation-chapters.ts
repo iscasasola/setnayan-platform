@@ -43,9 +43,66 @@ export const INVITATION_CHAPTER_FIELDS = 'block_id, parent_block_id, label, star
 export const VENUE_TBA = 'Venue TBA';
 export const TIME_TBA = 'Time TBA';
 
-/** 🔑 THE ONE RULE: a guest is invited to — and replies to — a top-level block with "On the invitation" on. */
-export function guestInvitedTo(row: { on_invitation?: boolean | null; parent_block_id?: string | null }): boolean {
-  return row.on_invitation === true && (row.parent_block_id ?? null) === null;
+/**
+ * 🔑 THE ONE RULE: a guest is invited to — and replies to — a top-level block with "On the invitation" on, unless the
+ * hosts took THIS guest off it on their card (owner 2026-11-02, "Invited to"; `guest_chapter_not_invited`, migration
+ * 20271302948959). `notInvited` is that guest's set; absent = the invitation as a whole (no guest in view, or a guest
+ * with nothing taken off — "existing guests keep all").
+ */
+export function guestInvitedTo(
+  row: { block_id?: string; on_invitation?: boolean | null; parent_block_id?: string | null },
+  notInvited?: ReadonlySet<string> | null,
+): boolean {
+  if (row.on_invitation !== true || (row.parent_block_id ?? null) !== null) return false;
+  return !(notInvited && row.block_id !== undefined && notInvited.has(row.block_id));
+}
+
+/** One guest's invitation: the event's chapters minus the ones the hosts took them off. Order kept. */
+export function chaptersForGuest<C extends { block_id: string }>(chapters: readonly C[], notInvited: ReadonlySet<string> | null | undefined): C[] {
+  return notInvited && notInvited.size > 0 ? chapters.filter((c) => !notInvited.has(c.block_id)) : [...chapters];
+}
+
+/**
+ * 🏷 THE GUEST LIST ROW'S TAG for a partial invite (31 Oct parts model: "a partial invite shows a tag"). Null when the
+ * guest is invited to every chapter (the usual case — nothing to say). Otherwise the shorter of the two true sentences:
+ * "After party only" · "Ceremony and Reception only" — or, when more are kept than taken off, "Not at Ceremony".
+ */
+export function partialInviteTag(
+  chapters: readonly Pick<InvitationChapter, 'block_id' | 'label'>[],
+  notInvited: ReadonlySet<string> | null | undefined,
+): string | null {
+  if (!notInvited || notInvited.size === 0 || chapters.length === 0) return null;
+  const kept = chapters.filter((c) => !notInvited.has(c.block_id));
+  const off = chapters.filter((c) => notInvited.has(c.block_id));
+  if (off.length === 0) return null;
+  if (kept.length === 0) return 'Not invited to any part';
+  return kept.length <= off.length
+    ? `${joinChapterNames(kept.map((c) => c.label))} only`
+    : `Not at ${joinChapterNames(off.map((c) => c.label))}`;
+}
+
+/**
+ * 🪑 THE SEATED CHAPTER(S) — the seat plan is the reception's room. A chapter is seated when it is a reception or a
+ * dinner (its kind) or is NAMED one ("Reception", "Dinner", "Banquet", "Salu-salo"), since the Schedule's chapters are
+ * made with no kind. None found → nobody is taken out of seating (the seat plan stays exactly as it was).
+ */
+const SEATED_WORDS = /\b(reception|dinner|banquet|salu-?salo)\b/i;
+export function seatedChapterIds(
+  chapters: readonly { block_id: string; label: string; block_type?: string | null }[],
+): Set<string> {
+  return new Set(
+    chapters.filter((c) => c.block_type === 'reception' || c.block_type === 'dinner' || SEATED_WORDS.test(c.label)).map((c) => c.block_id),
+  );
+}
+
+/**
+ * 🪑 Seats follow the invitation: a guest who is off EVERY seated chapter ("after party only") needs no seat — the seat
+ * plan does not offer them, Auto arrange does not seat them, and their chair is given back when they are taken off.
+ */
+export function needsNoSeat(seated: ReadonlySet<string>, notInvited: ReadonlySet<string> | null | undefined): boolean {
+  if (seated.size === 0 || !notInvited || notInvited.size === 0) return false;
+  for (const id of seated) if (!notInvited.has(id)) return false;
+  return true;
 }
 
 type ChapterRowIn = {
@@ -65,10 +122,10 @@ type ChapterRowIn = {
  * The invitation's chapters, in the day's order: timed chapters by their start, a Time-TBA chapter after the timed
  * ones of its day (its 00:00 is a placeholder, never "first"). A blank venue keeps its place — Venue TBA still sends.
  */
-export function invitationChapters(rows: readonly ChapterRowIn[]): InvitationChapter[] {
+export function invitationChapters(rows: readonly ChapterRowIn[], notInvited?: ReadonlySet<string> | null): InvitationChapter[] {
   const day = (iso: string) => iso.slice(0, 10);
   return rows
-    .filter(guestInvitedTo)
+    .filter((r) => guestInvitedTo(r, notInvited))
     .map((r) => ({
       block_id: r.block_id,
       label: r.label,
@@ -196,12 +253,19 @@ export function chapterNotices(
 /* ── the hosts' side ───────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** How many said yes / can't make it to a chapter, and the first names who said yes (read before it comes off). */
-export type ChapterCount = { yes: number; no: number; yesNames: string[] };
+export type ChapterCount = {
+  yes: number;
+  no: number;
+  yesNames: string[];
+  /** ✉ Guests the hosts took off this chapter on their card (owner 2026-11-02, "Invited to"). Absent = not read. */
+  notInvited?: number;
+};
 
 /** "12 said yes · 3 can't make it" — or, for a count that could not be read, says so (never a false 0). */
 export function chapterCountLine(count: ChapterCount | null | undefined): string {
   if (!count) return 'Replies could not be counted just now.';
-  return `${count.yes} said yes · ${count.no} can’t make it`;
+  const line = `${count.yes} said yes · ${count.no} can’t make it`;
+  return count.notInvited ? `${line} · ${count.notInvited} not invited` : line;
 }
 
 /* ── Details › Schedule (§11c) ─────────────────────────────────────────────────────────────────────────────────── */

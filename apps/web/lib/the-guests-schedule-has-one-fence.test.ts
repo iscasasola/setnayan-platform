@@ -141,6 +141,11 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'lib/print-set.server.ts':
     'host — the prints the couple makes and previews in the Maker (ceremony and reception times; the Details card’s programme asks is_public only — reported 2026-10-08, not a page a guest opens)',
   'lib/run-of-show-advance.ts': 'coordinator and host — resolves a block’s event before the advance gate; returns no row to anyone',
+  // ✉ "Invited to ▾" by chapter (owner 2026-11-02): which chapters are on the invitation, for the hosts' own tools.
+  'lib/guest-chapter-invites.ts':
+    'host — the Guest list’s "After party only" tags and the seat plan’s "who needs a seat" (the couple’s session, or a Guest-list / seat-plan helper’s); ids, names and kinds of chapters on the invitation, no row to a guest',
+  'app/dashboard/[eventId]/guests/[guestId]/actions.ts': 'host — the guest card’s save checks a ticked chapter is on THIS event’s invitation before writing the exception',
+
   // ── a booked supplier's desk ──
   'app/vendor-dashboard/clients/[eventId]/calendar.ics/route.ts': 'supplier — their own calendar file',
   'app/vendor-dashboard/clients/[eventId]/script-actions.ts': 'supplier — the emcee script’s writes',

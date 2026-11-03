@@ -62,6 +62,11 @@ export type YourScheduleViewer = {
   /** `guests.role` and `guests.extra_roles` — the role words a task may name. */
   roles: readonly string[];
   groupIds: readonly string[];
+  /**
+   * ✉ The chapters the hosts took THIS guest off on their card (owner 2026-11-02, "Invited to"; `guest_chapter_not_invited`).
+   * Absent or empty = invited to every chapter on the invitation ("existing guests keep all").
+   */
+  notInvited?: readonly string[];
 };
 
 export type YourScheduleInput = {
@@ -126,7 +131,7 @@ export function isMine(t: Pick<TaskRow, 'guest_id' | 'role' | 'group_id' | 'vend
 /**
  * 🔒 Is this chapter on a guest's invitation? ONE rule, shared with the hosts' View as ▾ › A guest
  * (`guestInvitedTo`, lib/schedule-view-as.ts) — so what a host previews and what a guest is shown cannot disagree.
- * Step 5 (invitation per guest) narrows it THERE and nowhere else.
+ * The per-guest narrowing (owner 2026-11-02, "Invited to") is THAT rule's second argument — handed in, never re-decided.
  */
 export const invitedTo = guestInvitedTo;
 
@@ -166,10 +171,11 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
   }
   const myChapterIds = new Set(mine.map((x) => x.chapter.block_id));
   const roleHolder = mine.length > 0;
-  const invited = chapters.filter(invitedTo);
+  const notInvited = new Set(i.viewer.notInvited ?? []);
+  const invited = chapters.filter((c) => invitedTo(c, notInvited));
 
   const stage: 'before' | 'after' = i.released ? 'after' : 'before';
-  const shown = stage === 'after' ? chapters.filter((c) => invitedTo(c) || myChapterIds.has(c.block_id)) : invited;
+  const shown = stage === 'after' ? chapters.filter((c) => invitedTo(c, notInvited) || myChapterIds.has(c.block_id)) : invited;
   if (shown.length === 0) return { kind: 'none' };
 
   /* ── the call time ─────────────────────────────────────────────────────────────────────────────────────────── */

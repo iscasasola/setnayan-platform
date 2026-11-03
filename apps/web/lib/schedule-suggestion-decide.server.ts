@@ -5,6 +5,7 @@ import { emitNotification } from './notification-emit';
 import { logQueryError } from './supabase/error-detect';
 import { isNoteOnlySuggestion } from './schedule-ros';
 import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
+import { directionOf, proposedPatch, sideMayDecide } from './schedule-ask';
 
 /**
  * ✅ THE ONE ACCEPT PATH for a supplier's schedule request (`event_schedule_suggestions`) — shared by the host's Approve,
@@ -17,6 +18,12 @@ import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
  *              booking (`responsible_vendor_ids`, so it is theirs to change later), with one task per crew name;
  *   · remove → the block goes (the request outlives it — ON DELETE SET NULL, 20271263061583).
  * The status flips AFTER the change lands, so a refused write never reads 'accepted' over an unchanged schedule.
+ *
+ * 🔁 BOTH WAYS (owner 2026-11-02, supplier gate audit D2; migration 20271303655108). The same row also carries a HOST'S
+ * ask of a supplier (`direction = 'to_supplier'`). `as` says which side is answering, and a row only the OTHER side may
+ * answer is 'gone' — the host never approves their own ask, a supplier never answers its own request. A supplier's Yes
+ * applies here, through the very same branches (the service role, after `may_answer_schedule_ask` said yes —
+ * `lib/schedule-ask.server.ts`); the asker is told, not the supplier.
  */
 
 type Db = SupabaseClient;
@@ -26,7 +33,7 @@ export type SuggestionOutcome = 'done' | 'gone' | 'words';
 export const NOTHING_CHANGED = 'Nothing on the schedule changed — the moment is gone, or this account cannot edit it.';
 
 const SUGGESTION_COLUMNS =
-  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id';
+  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id, direction, suggested_by_user_id';
 
 type SuggestionRow = {
   suggestion_id: string;
@@ -41,6 +48,8 @@ type SuggestionRow = {
   note: string;
   status: string;
   vendor_profile_id: string | null;
+  direction?: string | null;
+  suggested_by_user_id?: string | null;
 };
 
 /** This supplier's booking rows on the event — admin read, scoped by the event and the supplier on the request. */
@@ -80,7 +89,13 @@ export async function decideSuggestion(
   suggestionId: string,
   decision: 'accept' | 'decline',
   onlyChanges = false,
-  opts: { auto?: boolean } = {},
+  opts: {
+    auto?: boolean;
+    /** Who is answering: the host side (the default — a supplier's request) or the supplier (a host's ask). */
+    as?: 'host' | 'supplier';
+    /** The supplier's reason on a No to a host's ask. */
+    answerNote?: string | null;
+  } = {},
 ): Promise<SuggestionOutcome> {
   const { data } = await db
     .from('event_schedule_suggestions')
@@ -90,6 +105,9 @@ export async function decideSuggestion(
     .maybeSingle();
   const suggestion = (data ?? null) as SuggestionRow | null;
   if (!suggestion || suggestion.status !== 'open') return 'gone';
+  // 🔁 Only the OTHER side answers: a host's ask is the supplier's to answer, a supplier's request the host's.
+  if (!sideMayDecide(suggestion, opts.as ?? 'host')) return 'gone';
+  const toSupplier = directionOf(suggestion) === 'to_supplier';
   // ✅ APPROVE ALL (and Auto-agree) leave a suggestion in words out: it changes nothing by itself, so it is Noted by hand.
   if (onlyChanges && isNoteOnlySuggestion(suggestion)) return 'words';
 
@@ -101,6 +119,7 @@ export async function decideSuggestion(
         resolved_by_user_id: userId,
         resolved_at: new Date().toISOString(),
         ...(opts.auto ? { auto_agreed: true } : {}),
+        ...(toSupplier && decision === 'decline' && opts.answerNote ? { answer_note: opts.answerNote } : {}),
       })
       .eq('suggestion_id', suggestionId)
       .eq('event_id', eventId)
@@ -111,11 +130,7 @@ export async function decideSuggestion(
   if (decision === 'accept') {
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
     if (suggestion.kind === 'adjust' && suggestion.block_id) {
-      const patch: Record<string, string> = {};
-      if (suggestion.proposed_start_at) patch.start_at = suggestion.proposed_start_at;
-      if (suggestion.proposed_end_at) patch.end_at = suggestion.proposed_end_at;
-      if (suggestion.proposed_location) patch.location = suggestion.proposed_location;
-      if (suggestion.proposed_label) patch.label = suggestion.proposed_label;
+      const patch = proposedPatch(suggestion);
       let label = suggestion.proposed_label;
       if (Object.keys(patch).length > 0) {
         const { data: changed, error } = await db
@@ -180,6 +195,12 @@ export async function decideSuggestion(
     await flip();
   }
 
+  // 🔁 A host's ask answered → tell the ASKER (best-effort — the ask is already resolved), in the app only.
+  if (toSupplier) {
+    await tellTheAsker(eventId, suggestion, decision, opts.answerNote ?? null);
+    return 'done';
+  }
+
   // Tell the supplier what the host decided (best-effort — the request is already resolved). Auto-agree needs no
   // notice: the supplier's own sheet said "Saved" the moment it went in.
   if (suggestion.vendor_profile_id && !opts.auto) {
@@ -214,6 +235,32 @@ export async function decideSuggestion(
   }
 
   return 'done';
+}
+
+/** The host or coordinator who asked hears the supplier's Yes or No — `schedule_ask_answered`, in the app only. */
+async function tellTheAsker(eventId: string, s: SuggestionRow, decision: 'accept' | 'decline', reason: string | null): Promise<void> {
+  if (!s.suggested_by_user_id) return;
+  try {
+    const admin = createAdminClient();
+    const [shopRes, blockRes] = await Promise.all([
+      s.vendor_profile_id
+        ? admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', s.vendor_profile_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      s.block_id ? admin.from('event_schedule_blocks').select('label').eq('block_id', s.block_id).maybeSingle() : Promise.resolve({ data: null }),
+    ]);
+    const shop = (shopRes.data as { business_name: string | null } | null)?.business_name?.trim() || 'The supplier';
+    const moment = (blockRes.data as { label: string | null } | null)?.label?.trim() || 'the moment';
+    const yes = decision === 'accept';
+    await emitNotification({
+      userId: s.suggested_by_user_id,
+      type: 'schedule_ask_answered',
+      title: yes ? `${shop} agreed to change “${moment}”` : `${shop} can’t change “${moment}”`,
+      body: yes ? 'The new time is on your schedule.' : reason ? `Their reason: ${reason}` : 'Nothing on your schedule moved.',
+      relatedUrl: `/dashboard/${eventId}/schedule`,
+    });
+  } catch (e) {
+    console.error('[decideSuggestion] asker notify failed:', e);
+  }
 }
 
 /**

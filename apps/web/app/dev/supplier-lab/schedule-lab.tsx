@@ -1,5 +1,6 @@
 import { buildSupplierDay, changedSinceSeen, type SupplierBlockRow, type SupplierRequestRow } from '@/lib/supplier-schedule';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
+import type { ScheduleAsk } from '@/lib/schedule-ask';
 
 /**
  * 🤝 `/dev/supplier-lab?s=schedule` — the supplier's part of the schedule (Step 4b) on a lab wedding: Lumina Studio
@@ -7,7 +8,8 @@ import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_comp
  * that write nothing (`lab`). States: `&state=week` (the final week: Confirm my times) · `confirmed` · `auto` (the host
  * chose Auto-agree) · `seen` (nothing new since Seen) · `unlinked` (no chapter linked yet) · `fail` (the read failed) ·
  * `hosttag` (👷 the HOST tagged Lumina's crew member Jubert on Glow's "Hair and make-up" from the moment sheet's Suppliers
- * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert) · `locked` (🔒 Lumina
+ * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert) · `asked` (🗓 D2: the
+ * host and the coordinator each asked Lumina to change a time — Accept / Decline in place) · `locked` (🔒 Lumina
  * locked their times — audit D7; Lock / Unlock write nothing here).
  */
 const ME = 'ev-lumina';
@@ -32,6 +34,11 @@ const REQUESTS: SupplierRequestRow[] = [
   { suggestion_id: 'w1', block_id: null, kind: 'new', proposed_label: 'Lumina arrives', proposed_start_at: T('14:00'), proposed_end_at: T('14:30'), proposed_parent_block_id: 'cer', proposed_crew: null, note: 'Lumina arrives', status: 'open', created_at: T('09:00', '2026-11-02') },
   { suggestion_id: 'w2', block_id: 'r1', kind: 'adjust', proposed_label: null, proposed_start_at: null, proposed_end_at: null, proposed_parent_block_id: null, proposed_crew: null, note: 'Could the first dance wait 5 minutes for the light?', status: 'open', created_at: T('09:10', '2026-11-02') },
   { suggestion_id: 'a1', block_id: null, kind: 'new', proposed_label: 'Bridal portraits', proposed_start_at: null, proposed_end_at: null, proposed_parent_block_id: 'prep', proposed_crew: null, note: 'x', status: 'accepted', created_at: T('09:00', '2026-11-01') },
+];
+
+const ASKED: ScheduleAsk[] = [
+  { suggestion_id: 'ask1', block_id: 'p1', vendor_profile_id: 'vp-lumina', suggested_by_name: 'Cale', asked_as: 'host', proposed_start_at: T('09:30'), proposed_end_at: T('10:15'), note: 'Hair starts earlier now — could the detail shots too?', status: 'open', answer_note: null, created_at: T('08:00', '2026-11-02') },
+  { suggestion_id: 'ask2', block_id: 'c2', vendor_profile_id: 'vp-lumina', suggested_by_name: 'Ana', asked_as: 'coordinator', proposed_start_at: T('16:10'), proposed_end_at: T('16:25'), note: 'The priest needs ten more minutes.', status: 'open', answer_note: null, created_at: T('08:30', '2026-11-02') },
 ];
 
 export function ScheduleLab({ state }: { state?: string }) {
@@ -63,6 +70,7 @@ export function ScheduleLab({ state }: { state?: string }) {
         finalWeek={state === 'week' || state === 'confirmed'}
         tasksRead
         answered={unlinked ? [] : REQUESTS.filter((r) => r.status !== 'open')}
+        asked={state === 'asked' ? ASKED : state === 'askedfail' ? null : []}
       />
     </main>
   );

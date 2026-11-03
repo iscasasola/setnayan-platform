@@ -202,6 +202,7 @@ import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
+import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 
 export const metadata = { title: 'Customer Card · Supplier' };
@@ -439,6 +440,11 @@ type SuggestionRow = {
   /** Went straight in under the host's Auto-agree — no person decided (Step 4b). */
   auto_agreed?: boolean | null;
   created_at: string;
+  /** 🔁 'to_supplier' = a host's or the coordinator's ask OF this supplier (D2) — theirs to answer, not their request. */
+  direction?: string | null;
+  suggested_by_name?: string | null;
+  asked_as?: string | null;
+  answer_note?: string | null;
 };
 
 type VendorChangeOrderRow = {
@@ -653,7 +659,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     { data: cocktailEdit },
     { data: posterRow },
     { data: liveBlocks },
-    { data: mySuggestions },
+    { data: mySuggestions, error: mySuggestionsError },
     returningFlags,
     myTasksRes,
     myMarksRes,
@@ -709,7 +715,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_suggestions')
         .select(
-          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at',
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -1256,7 +1262,25 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // The timeline, run of show and call time: blocks with a clock only — a Time-TBA chapter (and every moment in it)
   // has no clock to draw or call from. Their Schedule view below keeps it, "Time TBA".
   const allBlocks = blocksWithAClock(everyBlock);
-  const suggestions = (mySuggestions ?? []) as SuggestionRow[];
+  // 🔁 One read, two directions (D2, migration 20271303655108): what THIS supplier asked the host (`to_host` — every
+  // reader below, as before) and what a host or the coordinator asked of THEM (`to_supplier` — "Asked of you").
+  const mineBothWays = (mySuggestions ?? []) as SuggestionRow[];
+  const suggestions = mineBothWays.filter((r) => directionOf(r) === 'to_host');
+  const askedOfThem = mySuggestionsError
+    ? null
+    : askedOfYou(mineBothWays.filter((r) => directionOf(r) === 'to_supplier')).map((r) => ({
+        suggestion_id: r.suggestion_id,
+        block_id: r.block_id,
+        vendor_profile_id: profile.vendor_profile_id,
+        suggested_by_name: r.suggested_by_name ?? null,
+        asked_as: r.asked_as ?? null,
+        proposed_start_at: r.proposed_start_at,
+        proposed_end_at: r.proposed_end_at,
+        note: r.note,
+        status: r.status,
+        answer_note: r.answer_note ?? null,
+        created_at: r.created_at,
+      }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
   const [factsEvent, factsBookings] = myScheduleFacts;
@@ -1300,6 +1324,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     finalWeek: inFinalWeek(factsRow?.event_date ?? null, manilaToday()),
     tasksRead: !myTasksRes.error,
     answered: suggestions.filter((r) => r.status !== 'open').slice(0, 6),
+    asked: askedOfThem,
   };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link

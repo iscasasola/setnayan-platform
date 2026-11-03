@@ -79,6 +79,7 @@ import {
 } from '@/lib/schedule-ros';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { readScheduleSuppliers } from '@/lib/schedule-suppliers-read';
+import { HOST_ASK_COLUMNS, type HostAsk } from '@/lib/schedule-ask';
 import { templatesForEventType } from '@/lib/schedule-templates';
 import {
   BulkRetimePanel,
@@ -219,7 +220,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -243,6 +244,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
+      // 🔁 A supplier's requests only — the hosts' OWN asks of a supplier ride the same table the other way
+      // (`direction = 'to_supplier'`, D2) and are the supplier's to answer, never this queue's.
+      .eq('direction', 'to_host')
       // A change or removal whose moment is already gone (the FK is ON DELETE
       // SET NULL since 20271263061583) has nothing left to approve.
       .or('kind.eq.new,block_id.not.is.null')
@@ -258,6 +262,17 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     /* 🚶 The couple's own marches, for a moment's "This is a march" (migration 20271301571290) — in the same round. A
        refused read is kept as a failure and said on the row, never "no marches". */
     inMaker ? Promise.resolve(null) : readMarchList(supabase, eventId).catch(() => ({ ok: false as const })),
+    /* 🗓 The hosts' and the coordinator's own asks of a supplier (D2, owner 2026-11-02) — the moment sheet shows each
+       one's state. A refused read is said on the sheet (`asks: null`), never drawn as "nothing asked". */
+    inMaker
+      ? Promise.resolve(null)
+      : supabase
+          .from('event_schedule_suggestions')
+          .select(HOST_ASK_COLUMNS)
+          .eq('event_id', eventId)
+          .eq('direction', 'to_supplier')
+          .order('created_at', { ascending: false })
+          .limit(200),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -684,6 +699,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             tasks: taskRead?.ok ? taskRead.value : null,
             who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
             marches: marchRead ?? { ok: false },
+            asks: asksRes && !asksRes.error ? ((asksRes.data ?? []) as unknown as HostAsk[]) : null,
             wholeMarch: wholeMarchLabel(eventRow?.event_type),
             eventDay: eventDateKey,
             lastDay:

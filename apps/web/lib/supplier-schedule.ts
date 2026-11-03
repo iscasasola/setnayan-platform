@@ -118,6 +118,9 @@ export type SupplierBlockRow = {
   /** ⏭ On a moment: the one it comes right after (migration 20271302727358) — its `start_at` is then only an order key. */
   follows_block_id?: string | null;
   sort_order?: number | null;
+  /** 🕑 How its clock is meant — "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
   is_optional: boolean;
   responsible_vendor_ids: string[];
   created_at: string | null;

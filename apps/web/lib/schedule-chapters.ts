@@ -1,3 +1,4 @@
+import { isOrMinutes, isTimeShape, type TimeShape } from './time-shape';
 import { TIME_TBA, isTimeTba } from './time-tba';
 
 /**
@@ -62,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes';
 
 export type Chapter = {
   block_id: string;
@@ -515,6 +516,10 @@ export type MomentFacts = {
   time_tba: boolean;
   /** ⏭ The moment it comes right after (same chapter); null when it is timed, or first. */
   follows_block_id: string | null;
+  /** 🕑 How its clock is meant — 'at' · 'about' · 'or' (migration 20271303051692, lib/time-shape.ts). */
+  time_shape: TimeShape;
+  /** 🕑 On 'or': the second time, minutes after its start. */
+  time_or_minutes: number | null;
 };
 
 /** Every moment's own facts, from the rows the chapter read already holds. */
@@ -533,6 +538,8 @@ export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] 
       vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
       time_tba: r.time_tba === true,
       follows_block_id: typeof r.follows_block_id === 'string' ? r.follows_block_id : null,
+      time_shape: isTimeShape(r.time_shape) ? r.time_shape : 'at',
+      time_or_minutes: isOrMinutes(r.time_or_minutes) ? r.time_or_minutes : null,
     }));
 }
 

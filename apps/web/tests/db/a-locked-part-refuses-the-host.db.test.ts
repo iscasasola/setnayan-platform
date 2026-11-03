@@ -269,6 +269,16 @@ test('⏭ the lock knows "right after" (20271303690499): re-anchoring is refused
   await db.query(`DELETE FROM public.event_schedule_blocks WHERE block_id=$1`, [after]).catch(() => {});
 });
 
+test('🕑 the lock knows "About" and "2:15/2:30" (20271304682748): re-shaping a locked moment\'s time is refused', async () => {
+  await refusedAsCouple(
+    `UPDATE public.event_schedule_blocks SET time_shape = 'or', time_or_minutes = 15 WHERE block_id=$1`,
+    [F.momentA],
+    F.momentA,
+    'turning a locked moment into "one of two times"',
+  );
+  await refusedAsCouple(`UPDATE public.event_schedule_blocks SET time_shape = 'about' WHERE block_id=$1`, [F.momentA], F.momentA, 'making a locked moment "about"');
+});
+
 test("the event's date moving carries a locked moment with it; deleting the event is never refused", async () => {
   await asOwner();
   await db.query(`INSERT INTO public.event_schedule_day_anchor (event_id, anchor_day) VALUES ($1, DATE '2099-12-12') ON CONFLICT (event_id) DO UPDATE SET anchor_day = EXCLUDED.anchor_day`, [F.eventId]);

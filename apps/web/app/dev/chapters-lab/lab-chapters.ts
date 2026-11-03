@@ -79,6 +79,8 @@ const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean
   vendor_ids: [],
   time_tba: false,
   follows_block_id: null,
+  time_shape: 'at',
+  time_or_minutes: null,
   ...more,
 });
 
@@ -161,6 +163,8 @@ export const LAB_MOMENT_ROW: ChapterMoment = {
   end_at: LAB_MOMENT.end_at,
   time_tba: false,
   follows_block_id: null,
+  time_shape: 'at',
+  time_or_minutes: null,
 };
 
 /** 🚶 The couple's own marches (Guests › March) — made-up names only. */

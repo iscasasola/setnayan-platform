@@ -691,6 +691,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   // ⏭ "Right after the one above" (migration 20271302727358): no clock of its own.
                   time_tba: momentFacts.get(m.block_id)?.time_tba ?? false,
                   follows_block_id: momentFacts.get(m.block_id)?.follows_block_id ?? null,
+                  // 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692).
+                  time_shape: momentFacts.get(m.block_id)?.time_shape ?? 'at',
+                  time_or_minutes: momentFacts.get(m.block_id)?.time_or_minutes ?? null,
                   who:
                     m.responsible_vendor_ids
                       .map((id) => supplierName.get(id))

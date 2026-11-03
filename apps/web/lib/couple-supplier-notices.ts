@@ -72,6 +72,16 @@ export const COUPLE_SUPPLIER_NOTICES = {
     reach: 'app_only',
     why: 'owner 2026-10-23: the couple shifted the day — every booked supplier, in the app, one notice per shift; no email',
   },
+  schedule_ask: {
+    to: 'supplier',
+    reach: 'app_only',
+    why: 'owner 2026-11-02: a host or the coordinator asks a booked supplier to change their times; answered on their Schedule; no email',
+  },
+  schedule_ask_answered: {
+    to: 'couple',
+    reach: 'app_only',
+    why: 'the supplier said yes or no to the host’s or coordinator’s ask; no email',
+  },
   chat_message: {
     to: 'either',
     reach: 'email',

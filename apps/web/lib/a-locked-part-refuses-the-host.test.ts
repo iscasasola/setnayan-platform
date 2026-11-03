@@ -97,10 +97,31 @@ for (const name of ['updateScheduleBlock', 'deleteScheduleBlock', 'setBlockRespo
   });
 }
 
-test('Running late is not exempt in the app: the retime asks about the lock whatever the shift notice says', () => {
+/* 🏃 Owner, DECISION_LOG 2026-11-03 (2): *"A host's RUNNING-LATE shift moves a supplier's moments even when that supplier
+   has locked their times; the supplier still gets the notice."* Two directions, one guard each. */
+test('Running late PASSES a lock: the shift-notice path goes through the one running-late door and never asks the lock', () => {
   const body = actionBody('bulkRetimeScheduleBlocks');
-  const line = body.split('\n').find((l) => l.includes('refuseLockedPart(')) ?? '';
-  assert.doesNotMatch(line, /shiftNotice\s*\?|if\s*\(\s*!?shiftNotice/);
+  const late = body.indexOf('if (shiftNotice) {');
+  assert.ok(late >= 0, 'the running-late path is no longer its own branch');
+  const lateBranch = body.slice(late, body.indexOf('} else {', late));
+  assert.match(lateBranch, /\.rpc\('running_late_shift_schedule'/, 'running late no longer writes through the door the lock lets past');
+  assert.doesNotMatch(lateBranch, /refuseLockedPart\(/, 'running late asks the lock again — the owner ruled it moves a locked part');
+  assert.doesNotMatch(lateBranch, /\.update\(/, 'running late writes rows itself, which the database refuses on a locked part');
+});
+
+test('every OTHER retime still refuses a lock: the drag path asks before its first write', () => {
+  const body = actionBody('bulkRetimeScheduleBlocks');
+  const drag = body.slice(body.indexOf('} else {', body.indexOf('if (shiftNotice) {')));
+  const refuse = drag.indexOf('refuseLockedPart(');
+  assert.ok(refuse >= 0, 'a drag of one moment no longer asks whether the supplier locked their part');
+  assert.ok(refuse < drag.indexOf('.update('), 'the drag asks about the lock after it wrote');
+});
+
+test('the locked supplier still hears a running-late shift: the day-moved notice is not filtered by the lock', () => {
+  const body = actionBody('bulkRetimeScheduleBlocks');
+  assert.match(body, /if \(formData\.get\('shift_notice'\) === '1'\) \{\s*const anchor[\s\S]*?await notifyScheduleShifted\(/);
+  const notify = read('lib', 'schedule-shift-notify.server.ts');
+  assert.doesNotMatch(notify, /locked_at|SCHEDULE_MARK_COLUMNS|schedule_locked_shops|readPartLocks/, 'the shift notice skips a locked supplier');
 });
 
 test("the host's readers and the rail carry the lock", () => {

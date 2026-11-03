@@ -460,6 +460,8 @@ async function updateVendorStatus(formData: FormData) {
         email: prevRow.contact_email,
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
+        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
+        shopProfileId: prevRow.marketplace_vendor_id ?? null,
       });
     } catch {
       // best-effort — never block the booking-status write on the auto-invite.

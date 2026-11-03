@@ -194,7 +194,9 @@ export function MomentInspector({
         onDeleted();
       },
       restore: () => onGone(id, false),
-      commit: write,
+      commit: async () => {
+        await write();
+      },
       failed: `Couldn’t delete “${m.label}”. It’s back — try again.`,
     });
   }
@@ -588,7 +590,9 @@ export function MomentInspector({
                           next.delete(p.block_id);
                           return next;
                         }),
-                      commit: () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id })),
+                      commit: async () => {
+                        await deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id }));
+                      },
                       failed: `Couldn’t delete “${p.label}”. It’s back — try again.`,
                     })
                   }

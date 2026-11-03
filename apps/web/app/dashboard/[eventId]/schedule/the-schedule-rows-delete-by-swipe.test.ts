@@ -43,7 +43,7 @@ test('3 · a part inside a moment: no ✕ — its line is the swipe, the same de
   const insp = read('_components/moment-inspector.tsx');
   assert.doesNotMatch(insp, /aria-label=\{`Remove the part/, 'the part still draws its ✕');
   assert.match(insp, /<SwipeToDelete\s+key=\{p\.block_id\}\s+as="li"\s+label=\{`Delete the part \$\{p\.label\}`\}/);
-  assert.match(insp, /commit: \(\) => deleteScheduleBlock\(toFormData\(\{ event_id: eventId, block_id: p\.block_id \}\)\)/);
+  assert.match(insp, /commit: async \(\) => \{\s*await deleteScheduleBlock\(toFormData\(\{ event_id: eventId, block_id: p\.block_id \}\)\);/);
 });
 
 test('4 · a moment on the Studio day gains the swipe — it opens the moment’s own warning, whose Delete keeps an Undo', () => {

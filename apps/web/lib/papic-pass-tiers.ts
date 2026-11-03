@@ -145,7 +145,12 @@ export async function papicPointsBoughtBySku(db: SupabaseClient, serviceCode: st
     .eq('service_code', serviceCode)
     .eq('is_topup', false)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    // Logged, never swallowed: a paid order that grants nothing must leave a trace.
+    console.error('[supabase-error] lib/papic-pass-tiers.ts · papic_pass_tiers (retired rung read)', error);
+    return null;
+  }
+  if (!data) return null;
   return normalise([data as TierRow])[0]?.points ?? null;
 }
 

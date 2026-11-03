@@ -5848,6 +5848,7 @@
         "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
         "dashboard/[eventId]/_components/home-tile.tsx",
+        "dashboard/[eventId]/_components/home-todo-list.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
         "dashboard/[eventId]/_components/mood-board-asks-doorway.tsx",
         "dashboard/[eventId]/_components/mood-board-asks.tsx",
@@ -5899,6 +5900,7 @@
         "/api/tiktok/auth/start?event_id=[seg]",
         "/api/website/qr/[seg]",
         "/dashboard",
+        "/dashboard/[seg]/access-requests",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/guests",
@@ -5945,6 +5947,7 @@
         "guarded",
         "logPayment",
         "markNotificationRead",
+        "nowAction",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "savePatiktokBoothTemplates",
@@ -6090,6 +6093,7 @@
         "HomeLater",
         "HomeLiveCard",
         "HomeLoadingScreen",
+        "HomeMemoriesLine",
         "HomeMusicCard",
         "HomePlannerCard",
         "HomePrintsLine",
@@ -6101,6 +6105,7 @@
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
+        "HomeTodoList",
         "HomeWhosHereCard",
         "HubDraftDock",
         "HubDraftSwitch",
@@ -6144,6 +6149,7 @@
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
         "MatchLogo",
+        "MemoriesMark",
         "MenuSettingsButton",
         "Metadata",
         "MethodCard",
@@ -6200,6 +6206,7 @@
         "PillTrack",
         "PlanMyselfSwitch",
         "PlanningRowResult",
+        "PlanningTick",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -7121,6 +7128,7 @@
         "StatusLine",
         "SubmitButton",
         "Suspense",
+        "SwipeToDelete",
         "SwitchRow",
         "T",
         "ThumbRow",
@@ -8650,6 +8658,7 @@
         "ChaptersHost",
         "ChosenRow",
         "ConfirmForm",
+        "ContactRows",
         "DateRow",
         "Day",
         "DayActions",
@@ -8771,6 +8780,8 @@
         "ViewAsBody",
         "ViewAsMenu",
         "ViewLens",
+        "WhenKey",
+        "WhenRow",
         "WhoFields"
       ]
     },
@@ -12460,6 +12471,16 @@
         "TeamRowFacts"
       ]
     },
+    "/dev/swipe-rows-lab/repertoire": {
+      "files": [
+        "dev/swipe-rows-lab/repertoire/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SetList"
+      ]
+    },
     "/dev/thumb-row-lab": {
       "files": [
         "dev/thumb-row-lab/page.tsx"
@@ -15902,6 +15923,7 @@
     },
     "/vendor-dashboard/repertoire": {
       "files": [
+        "vendor-dashboard/repertoire/_components/set-list.tsx",
         "vendor-dashboard/repertoire/actions.ts",
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
@@ -15909,14 +15931,17 @@
       "destinations": [],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong",
         "setPerformanceLink"
       ],
       "blocks": [
         "GridPageSkeleton",
         "Link",
+        "PerformanceLinkForm",
+        "SetList",
         "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/reviews": {

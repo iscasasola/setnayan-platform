@@ -18,7 +18,17 @@ export default function SwipeRowsRepertoireLab() {
     <div className="mx-auto min-h-screen w-full max-w-xl bg-cream px-4 pb-32 pt-6 text-ink">
       <div className="space-y-3 sn-tile p-4">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Your set list ({SONGS.length})</h2>
-        <SetList songs={SONGS} query="" />
+        <SetList
+          songs={SONGS}
+          links={Object.fromEntries(
+            SONGS.map((s) => [
+              s.song_id,
+              <span key={s.song_id} className="input-field mt-1 flex h-8 w-full basis-full items-center text-xs text-ink/55">
+                {s.performance_url ?? 'Link a video of you playing it (optional)'}
+              </span>,
+            ]),
+          )}
+        />
       </div>
     </div>
   );

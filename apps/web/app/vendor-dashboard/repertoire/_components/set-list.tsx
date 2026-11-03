@@ -5,21 +5,25 @@
  *
  * 👈 A SONG'S DELETE IS ITS SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE
  * ✕ ON ROWS"): left on a phone, the hover trash on a computer, named "Remove <title>". The row hides at once and the
- * removal is written after the Undo window (`deleteWithUndo`) by `dropRepertoireSong` — the same delete the old
- * trash's form posted, answered instead of redirected. A refusal brings the song back and says so.
+ * removal is written after the Undo window (`deleteWithUndo`) by `removeRepertoireSong` — the same delete the old
+ * trash's form posted, now answered instead of redirected. A refusal brings the song back and says so.
  * Held by repertoire/the-set-list-deletes-by-swipe.test.ts.
  */
 
 import { useState } from 'react';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { dropRepertoireSong, setPerformanceLink } from '../actions';
+import type { ReactNode } from 'react';
+import { removeRepertoireSong } from '../actions';
 
 export type SetListSong = { song_id: number; title: string; artist: string | null; performance_url: string | null };
 
-export function SetList({ songs, query }: { songs: SetListSong[]; query: string }) {
+/**
+ * `links` — each song's "link a video of you playing it" form, drawn by the server page (it stays where the Field
+ * template's count for it lives) and placed under the song here.
+ */
+export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonly<Record<number, ReactNode>> }) {
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
   const shown = songs.filter((s) => !hidden.has(s.song_id));
 
@@ -33,7 +37,7 @@ export function SetList({ songs, query }: { songs: SetListSong[]; query: string 
           next.delete(song.song_id);
           return next;
         }),
-      commit: () => dropRepertoireSong(song.song_id),
+      commit: () => removeRepertoireSong(song.song_id),
       failed: `Couldn’t remove ${song.title}. It’s back — try again.`,
     });
 
@@ -55,44 +59,7 @@ export function SetList({ songs, query }: { songs: SetListSong[]; query: string 
                 <span className="block truncate text-sm font-medium text-ink/90">{song.title}</span>
                 {song.artist ? <span className="block truncate text-xs text-ink/55">{song.artist}</span> : null}
               </span>
-              {/*
-                Owner 2026-08-18: a band picks what it can play AND links a
-                video of itself playing it. Saying "I can play this" and not
-                being able to show it leaves a couple choosing between three
-                bands who all claim the same song with nothing to compare.
-
-                Full width on its own row, because a link is long and this is
-                edited on a phone. Empty clears it — taking a video down must
-                be as easy as putting one up.
-              */}
-              <form action={setPerformanceLink} className="mt-1 flex w-full items-center gap-2 basis-full">
-                <input type="hidden" name="song_id" value={song.song_id} />
-                <input type="hidden" name="q" value={query} />
-                <input
-                  type="url"
-                  name="performance_url"
-                  defaultValue={song.performance_url ?? ''}
-                  placeholder="Link a video of you playing it (optional)"
-                  aria-label={`Video of you performing ${song.title}`}
-                  className="input-field h-8 min-w-0 flex-1 text-xs"
-                />
-                <SubmitButton
-                  overlay={false}
-                  className="shrink-0 rounded-full border border-ink/15 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 hover:bg-ink/5 hover:text-ink"
-                >
-                  Save
-                </SubmitButton>
-                {song.performance_url ? (
-                  <a
-                    href={song.performance_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-xs text-link underline underline-offset-2"
-                  >
-                    Watch
-                  </a>
-                ) : null}
-              </form>
+              {links[song.song_id]}
             </div>
           </SwipeToDelete>
         ))}

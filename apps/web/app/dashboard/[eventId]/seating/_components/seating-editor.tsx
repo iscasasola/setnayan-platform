@@ -1418,7 +1418,7 @@ export function SeatingEditor({
     });
   };
   const removeTable = (tableId: string) =>
-    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.label ?? 'The table');
+    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.table_label ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with

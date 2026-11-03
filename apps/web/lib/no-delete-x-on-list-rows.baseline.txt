@@ -22,7 +22,6 @@ app/dashboard/[eventId]/guests/_components/guests-screen.tsx 1
 app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx 1
 app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx 1
 app/dashboard/[eventId]/launch/_components/maker-logo.tsx 3
-app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx 1
 app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
@@ -38,8 +37,7 @@ app/dashboard/[eventId]/seating/_components/seating-editor.tsx 6
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
 app/dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx 1
 app/dashboard/[eventId]/sponsors/page.tsx 1
-app/dashboard/[eventId]/story/_components/editorial-editor.tsx 2
-app/dashboard/[eventId]/story/_components/make-it-yours.tsx 8
+app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
 app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx 2
 app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx 1
 app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx 1
@@ -54,8 +52,6 @@ app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx 4
 app/dashboard/[eventId]/vendors/_components/team-controls.tsx 1
 app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx 2
 app/dashboard/[eventId]/website/editor/_components/background-colour-wells.tsx 1
-app/dashboard/[eventId]/website/our-story/milestones-field.tsx 1
-app/dashboard/[eventId]/website/photo-moments/_components/photo-moments-editor.tsx 1
 app/login/_components/sign-in-card-modal.tsx 1
 app/monogram/public-monogram-studio.tsx 1
 app/onboarding/wedding/_components/location-step.tsx 1

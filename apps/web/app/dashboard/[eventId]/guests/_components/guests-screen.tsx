@@ -141,6 +141,7 @@ import { clearDecided, RequestsJustDecided } from './requests-decided';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { NewGroupInlineForm } from './new-group-inline-form';
 import { GuestPapicBulkSheet, PAPIC_SET_OPTIONS } from './guest-papic-bulk';
 import type { GuestCamera } from '@/lib/papic-guest-camera';
@@ -2521,7 +2522,7 @@ function GuestRowLine({
           sentAt: g.invitation_sent_at ?? null,
         }
       : null;
-  return (
+  const row = (
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id && !hostLink ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
@@ -2616,22 +2617,34 @@ function GuestRowLine({
         </div>
       </button>
       {/* ➡ The buttons END the name's line (owner 2026-10-20: "edit and remove button can be in a row? on the right
-          side?") — one line per guest. 🗂 SHARE · DELETE, NOTHING ELSE (owner 2026-10-27: "share and delete only"): the
-          pencil went — the whole row opens the card, where editing happens. From 701 they keep their words; under 701
-          they are 44 × 44 icons, so each is named for its guest. Held by guest-row-actions-share-the-name-line.test.ts
-          and the-guest-row-is-share-and-delete.test.ts. */}
+          side?") — one line per guest. 🗂 SHARE ON THE ROW, DELETE BEHIND IT (owner 2026-10-27 "share and delete only",
+          then 2026-11-03 "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"): Delete — or Release seat for
+          a +1 with no name — is the row's swipe on a phone and its hover Delete on a computer (`SwipeToDelete`, below),
+          still the same `onRemove` → the one warning (`DeleteGuestSheet`) and its Undo. Held by
+          guest-row-actions-share-the-name-line.test.ts and the-guest-row-is-share-and-delete.test.ts. */}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
           {verbs.includes('share') && share ? (
             <GuestInviteCell eventId={eventId} layout="icon" guest={share} facts={invite!.facts} template={invite!.template} />
           ) : null}
-          {verbs.includes('remove') ? <ActionButton tone="danger" icon={Trash2} label="Delete" name={`Delete ${name}`} onClick={onRemove} /> : null}
-          {verbs.includes('release') ? (
-            <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release seat ${name}`} onClick={onRelease} />
-          ) : null}
         </span>
       )}
     </div>
+  );
+  // 👈 The row's delete (owner 2026-11-03): none in select mode — a row is a thing to tick there.
+  const del = selectMode ? null : verbs.includes('remove') ? 'remove' : verbs.includes('release') ? 'release' : null;
+  if (!del) return row;
+  return (
+    <SwipeToDelete
+      label={del === 'remove' ? `Delete ${name}` : `Release seat ${name}`}
+      word={del === 'remove' ? 'Delete' : 'Release seat'}
+      icon={del === 'remove' ? Trash2 : Armchair}
+      onDelete={del === 'remove' ? onRemove : onRelease}
+      radiusClass=""
+      surfaceClass="bg-[var(--gs-paper)]"
+    >
+      {row}
+    </SwipeToDelete>
   );
 }
 

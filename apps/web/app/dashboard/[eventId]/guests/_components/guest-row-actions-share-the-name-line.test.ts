@@ -190,13 +190,15 @@ test('every row button is named for its guest — an icon-only list is not forty
   const acts = ROW.slice(ROW.indexOf('className={styles.acts}'));
   const body = acts.slice(0, acts.indexOf('</span>'));
   const buttons = body.match(/<ActionButton\b[\s\S]*?\/>/g) ?? [];
-  assert.ok(buttons.length >= 1, `found ${buttons.length} row ActionButtons — Delete at least`);
   for (const b of buttons) {
     const label = /label="([^"]+)"/.exec(b)?.[1];
     assert.ok(label, `a row button without a word: ${b}`);
     assert.ok(b.includes(`name={\`${label} \${name}\`}`), `“${label}” is not named for its guest (aria-label "${label} <name>")`);
   }
-  assert.ok(buttons.some((b) => b.includes('label="Delete"')), 'the row lost Delete');
+  // 👈 Delete is the row's swipe since 2026-11-03 — still named for its guest, never forty identical “Delete”s.
+  const swipe = ROW.slice(ROW.indexOf('<SwipeToDelete'));
+  assert.ok(ROW.indexOf('<SwipeToDelete') > 0, 'the row lost Delete (its swipe)');
+  assert.match(swipe, /label=\{del === 'remove' \? `Delete \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe Delete is not named for its guest');
   // 📤 Share is the shipped Invite cell drawn as one icon; ITS name carries the guest (guest-invite-cell.tsx, layout 'icon').
   assert.match(body, /<GuestInviteCell\b[^>]*layout="icon"/, 'the row lost Share');
   const CELL = stripComments(readFileSync(join(HERE, 'guest-invite-cell.tsx'), 'utf8'));

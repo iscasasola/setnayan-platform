@@ -9,7 +9,8 @@
  *      brings the row back; leaving the page writes it then.
  *
  * SABOTAGE (seen RED, then restored, 2026-11-03): the vertical early-out removed → 1 red · `swipeSettle` threshold at
- * the full width → 3 red · the timer in `deleteWithUndo` writing at once → 5 red.
+ * the full width → 3 red · the timer in `deleteWithUndo` writing at once → 5 red ·
+ * the one-host gate in `UndoToastHost` dropped → 4b red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -67,6 +68,12 @@ test('4 · a drag’s click is swallowed, an open row’s tap closes it, scroll 
   // Named for whom, and reachable by keyboard on a computer.
   assert.equal((SRC.match(/aria-label=\{label\}/g) ?? []).length, 2, 'the revealed and the hover Delete are both named');
   assert.match(SRC, /group-focus-within\/swipe:opacity-100/);
+});
+
+test('4b · one toast however many hosts — a row list may mount its own UndoToastHost; only the first one draws', () => {
+  const host = stripComments(readFileSync(join(HERE, '../dashboard/[eventId]/guests/_components/undo-toast.tsx'), 'utf8'));
+  assert.match(host, /const first = useFirstHost\(\);\s*if \(!toast \|\| !body \|\| !first\) return null;/);
+  assert.match(host, /\(\) => hosts\[0\] === me/);
 });
 
 test('5 · delete with Undo: hidden now, written after the window; Undo writes nothing; a refusal comes back', async () => {

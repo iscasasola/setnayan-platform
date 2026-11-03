@@ -303,7 +303,8 @@ export async function submitRsvp(
   // Only a post that carries an answer is a reply (a checklist tick, a seat name, one chapter's answer carry none).
   const postedAnswer = String(formData.get('rsvp_status') ?? '').trim();
   const chapterAdmin = createAdminClient();
-  const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId) : null;
+  // ✉ THIS guest's invitation (owner 2026-11-02, "Invited to"): a chapter the hosts took them off is never answered.
+  const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId, guestId) : null;
   const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
   if (postedAnswer && replyChapters === null && cantTicks.length > 0) {
     const { data: evNoChapters } = await chapterAdmin.from('events').select('slug').eq('event_id', eventId).maybeSingle();

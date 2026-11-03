@@ -1,3 +1,4 @@
+import { isOrMinutes, isTimeShape, type TimeShape } from './time-shape';
 import { TIME_TBA, isTimeTba } from './time-tba';
 
 /**
@@ -62,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes';
 
 export type Chapter = {
   block_id: string;
@@ -511,6 +512,14 @@ export type MomentFacts = {
   march_key: string | null;
   /** 👷 The suppliers it is for (`responsible_vendor_ids`) — the "yours" on their day; the Suppliers and crew row ticks them. */
   vendor_ids: string[];
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba: boolean;
+  /** ⏭ The moment it comes right after (same chapter); null when it is timed, or first. */
+  follows_block_id: string | null;
+  /** 🕑 How its clock is meant — 'at' · 'about' · 'or' (migration 20271303051692, lib/time-shape.ts). */
+  time_shape: TimeShape;
+  /** 🕑 On 'or': the second time, minutes after its start. */
+  time_or_minutes: number | null;
 };
 
 /** Every moment's own facts, from the rows the chapter read already holds. */
@@ -527,6 +536,10 @@ export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] 
       travel_to: blankToNull(r.travel_to),
       march_key: isMarchKey(r.march_key) ? r.march_key : null,
       vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
+      time_tba: r.time_tba === true,
+      follows_block_id: typeof r.follows_block_id === 'string' ? r.follows_block_id : null,
+      time_shape: isTimeShape(r.time_shape) ? r.time_shape : 'at',
+      time_or_minutes: isOrMinutes(r.time_or_minutes) ? r.time_or_minutes : null,
     }));
 }
 
@@ -712,7 +725,8 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
 
 /** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
 // 'ask_supplier' — the moment sheet's "Ask a supplier to change their times" (D2, `lib/schedule-ask.server.ts`).
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set', 'ask_supplier'] as const;
+// 📇 `contact_set` (4 additions (3), migration 20271303218631): a task's contact — a name and a phone — kept or removed.
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set', 'ask_supplier', 'contact_set'] as const;
 export type MomentOp = (typeof MOMENT_OPS)[number];
 export function isMomentOp(v: unknown): v is MomentOp {
   return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);

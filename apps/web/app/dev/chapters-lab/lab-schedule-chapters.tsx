@@ -53,6 +53,8 @@ export function LabScheduleChapters({
         // 📖 Step 3b: the run-of-show moment holds three tasks at once in two places; `?clash=1` puts Coord A in the
         // lobby too, at the same time; `?tasksfail=1` is the tasks read failing (said, never "no tasks").
         tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,
+        // 📇 4 additions (3): no lab task carries a contact yet — add one on a person's task to see it.
+        contacts: tasksFail ? null : {},
         who: LAB_WHO,
         marches: marchFail ? { ok: false } : { ok: true, marches: LAB_MARCHES },
         wholeMarch: 'Wedding March',

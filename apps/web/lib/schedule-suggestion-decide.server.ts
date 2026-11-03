@@ -131,6 +131,11 @@ export async function decideSuggestion(
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
     if (suggestion.kind === 'adjust' && suggestion.block_id) {
       const patch = proposedPatch(suggestion);
+      if (suggestion.proposed_start_at) {
+        // ⏭ A real time ends "Time TBA" / "Right after the one above" (migration 20271302727358) — the row has a clock now.
+        patch.time_tba = false;
+        patch.follows_block_id = null;
+      }
       let label = suggestion.proposed_label;
       if (Object.keys(patch).length > 0) {
         const { data: changed, error } = await db

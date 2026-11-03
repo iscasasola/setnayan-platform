@@ -7,7 +7,8 @@
  *   2 · setting a time later clears TBA in the same save;
  *   3 · 🛑 a TBA chapter can NEVER be shown to guests (every guest reader filters `is_public`, so the placeholder midnight
  *       never reaches the Event Hub) — refused when made so, and refused when shown later;
- *   4 · only a CHAPTER may be TBA: a TBA moment is refused, and so is a TBA chapter with an end.
+ *   4 · a TBA chapter has no end. (A TBA MOMENT — "right after the one above" — was refused here until 2026-11-02; the
+ *       owner's 4 additions allow it, held by a-moment-can-be-right-after.db.test.ts.)
  * `is_public` defaults to TRUE on the table, so a TBA row must say FALSE — the Schedule's door does (`createScheduleBlock`).
  *
  * Run: pnpm --filter @setnayan/web test:db
@@ -106,13 +107,7 @@ test('3 · a TBA chapter can never be shown to guests', async () => {
   );
 });
 
-test('4 · only a chapter may be TBA, and a TBA chapter has no end', async () => {
-  const parent = await insert({ label: 'Ceremony', start_at: '2099-12-18T15:00:00Z' });
-  await assert.rejects(
-    insert({ label: 'Vows', start_at: '2099-12-18T00:00:00Z', time_tba: true, is_public: false, parent_block_id: parent }),
-    /time_tba_check|violates/i,
-    'a moment was saved as TBA',
-  );
+test('4 · a TBA chapter has no end', async () => {
   await assert.rejects(
     insert({ label: 'Cocktails', start_at: '2099-12-18T00:00:00Z', end_at: '2099-12-18T02:00:00Z', time_tba: true, is_public: false }),
     /time_tba_check|violates/i,

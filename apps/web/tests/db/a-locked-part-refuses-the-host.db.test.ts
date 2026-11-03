@@ -262,6 +262,35 @@ test('the running-late door is the caller’s: a supplier, a stranger, or a span
   assert.deepEqual(await row(F.momentA), was);
 });
 
+test("a HOST'S ask (#7197), accepted by the locked supplier, moves the moment — and nothing more rides on it", async () => {
+  // The lock's own words send the host to "a request instead": the host's ask IS that request. It is an open
+  // 'adjust' row for this shop, so Accept (decideSuggestion, the service role) writes exactly the asked fields.
+  await asUser(F.couple);
+  const sid = (
+    await db.query<{ suggestion_id: string }>(
+      `INSERT INTO public.event_schedule_suggestions
+         (event_id, block_id, vendor_profile_id, suggested_by_user_id, kind, direction, asked_as, proposed_start_at, note, status)
+       VALUES ($1,$2,$3,$4,'adjust','to_supplier','host', TIMESTAMPTZ '2099-12-12 15:20:00+00','could you start later?','open')
+       RETURNING suggestion_id`,
+      [F.eventId, F.shared, F.vpA, F.couple],
+    )
+  ).rows[0]!.suggestion_id;
+  // (On the shared moment, so `momentA`'s time stays what the date-move case expects.)
+  // Riding the ask to rename the moment too is still refused.
+  await asOwner();
+  const was = await row(F.shared);
+  await assert.rejects(
+    () => db.query(`UPDATE public.event_schedule_blocks SET start_at = TIMESTAMPTZ '2099-12-12 15:20:00+00', label = 'Sneaky' WHERE block_id=$1`, [F.shared]),
+    LOCKED,
+    'the asked time PLUS a rename rode the host’s ask past the lock',
+  );
+  assert.deepEqual(await row(F.shared), was);
+  // Accept: exactly the asked time lands while the part is locked.
+  await db.query(`UPDATE public.event_schedule_blocks SET start_at = TIMESTAMPTZ '2099-12-12 15:20:00+00' WHERE block_id=$1`, [F.shared]);
+  assert.equal((await row(F.shared))?.start_at, '2099-12-12 15:20:00', 'the locked supplier’s Accept of a host’s ask was refused');
+  await db.query(`UPDATE public.event_schedule_suggestions SET status='accepted' WHERE suggestion_id=$1`, [sid]);
+});
+
 test('unlock reopens the part to the host', async () => {
   await mark(F.supA, 'unlock');
   await asUser(F.couple);

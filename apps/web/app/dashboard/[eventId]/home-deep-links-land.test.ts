@@ -23,7 +23,7 @@ import { rosterSearchMatches, type RosterFacts } from '@/lib/guest-roster-view';
 import type { GuestRow } from '@/lib/guests';
 import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { payTargetVendor } from '@/lib/budget-page-view';
-import { homeControlTiles } from './_components/home-control-faces';
+import { homeControlTiles, homeNowAction, homeToday, homeWaiting } from './_components/home-control-faces';
 import { drawHome, loadHome } from './home-render.harness';
 
 test.before(loadHome);
@@ -61,8 +61,14 @@ test('3 · a To do task opens itself in Planning Stage’s To do filter', () => 
   const first = fixtureControl('e1').checklist;
   assert.ok(first && first !== 'unread');
   const todo = '/dashboard/e1/schedule?view=preparation&filter=todo';
-  assert.equal(face('plan', 'plan-open')?.href, `${todo}#${checklistTaskAnchor(first.next[0]!.id)}`);
-  assert.equal(face('plan', 'plan-week')?.href, `${todo}#${checklistTaskAnchor(first.next[0]!.id)}`, 'the "due this week" face opens another task');
+  // 🎴 The To do is ONE list under the event card now (Home redraw 2026-11-02): each row opens its own task.
+  const list = drawHome();
+  const at = list.indexOf('data-home-todo=""');
+  assert.ok(at > -1, 'Home draws no To do list');
+  const rows = list.slice(at, list.indexOf('data-home-todo-line', at));
+  for (const t of first.next.slice(0, 3)) {
+    assert.ok(rows.includes(`href="${todo.replace(/&/g, '&amp;')}#${checklistTaskAnchor(t.id)}"`), `the To do row "${t.title}" does not open itself`);
+  }
   assert.equal(checklistTaskAnchor('abc'), 'task-abc');
   // The row wears the very same id, so the browser lands on it (the filter shows it; nothing folds a task away).
   const view = src('schedule/_components/preparation-agenda.tsx');
@@ -74,8 +80,13 @@ test('3 · a To do task opens itself in Planning Stage’s To do filter', () => 
 });
 
 test('4 · a payment’s Pay opens that payment’s sheet', () => {
-  const late = face('budget', 'pay-li-1');
-  assert.equal(late?.href, '/dashboard/e1/budget?pay=li-1');
+  // 🎴 The late payment is Now's (Home redraw 2026-11-02): Now's Pay opens THAT payment, and Budget's next face its own.
+  const c = fixtureControl('e1');
+  const now = homeNowAction(homeToday(c.next, c.guests, homeWaiting(c)), c);
+  assert.equal(now?.verb, 'Pay');
+  assert.equal(now?.href, '/dashboard/e1/budget?pay=li-1');
+  const late = face('budget', 'pay-li-2');
+  assert.equal(late?.href, '/dashboard/e1/budget?pay=li-2');
   assert.equal(late?.action?.href, late?.href);
   // The page's own ledger decides whose sheet: the line's supplier — only an owed supplier line of this event, listed here.
   const lines = [

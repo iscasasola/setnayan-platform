@@ -99,17 +99,24 @@ test('2 · Home draws NO door to the Event Details page — at either width the 
   const { tiles } = homeControlTiles(fixtureControl('EVT123'));
   const toDetails = tiles.filter((t) => [t.door, ...t.faces.flatMap((f) => [f.href, f.action?.href ?? ''])].some((h) => DETAILS_HREF.test(h)));
   assert.deepEqual(toDetails.map((t) => t.key), [], 'a Home tile opens the Event Details page again');
-  const count = tiles.find((t) => t.key === 'count');
-  assert.ok(count, 'the Countdown left Home — this check would pass vacuously');
-  assert.equal(count.door, countdownDoor('EVT123'), 'the phone’s Countdown does not open the Date Finder');
+  // 🎴 The Countdown is the EVENT CARD's figure now (owner-approved Home redraw 2026-11-02, round 3) — one figure at
+  // every width, and its one door is still the Date Finder (a helper's: `countdown.door`, Event Details' sheet).
+  assert.equal(tiles.find((t) => t.key === 'count'), undefined, 'the Countdown is a widget again — it is the card’s figure');
   assert.equal(countdownDoor('EVT123'), '/dashboard/EVT123?date=find');
-  assert.ok(count.faces.every((f) => f.href === countdownDoor('EVT123') && (!f.action || f.action.href === countdownDoor('EVT123'))), 'a Countdown face opens another page');
-  // 🖥 THE DESKTOP (the detail cards, `md:` up) — the Countdown card's door is the tile's own door, never a /details literal.
+  const first = code('home-first-screen.tsx');
+  assert.match(first, /href: c\.door \?\? countdownDoor\(eventId\)/, 'the card’s countdown does not open the Date Finder');
+  const card = renderToStaticMarkup(
+    React.createElement(HomeCoverBand, {
+      cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' },
+      countdown: { value: '51', days: 51, label: 'days to go', line: null, href: countdownDoor('EVT123') },
+    }),
+  );
+  const doors = [...card.matchAll(/<a\b[^>]*href="([^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(doors, ['/dashboard/EVT123?date=find'], 'the card’s countdown is not the Date Finder’s one door');
+  // 🖥 THE DESKTOP (the detail cards, `md:` up) — never a /details literal.
   const row = code('home-control-row.tsx');
-  assert.match(row, /<Shell k="count" door=\{tile\.door\}/, 'the desktop Countdown card has a door of its own again');
   assert.doesNotMatch(row, /\/details[`'"]/, 'the desktop Home cards link to the Event Details page again');
-  assert.equal(HOME_CONTROL_PAGE.count, 'Date Finder', 'the desktop Countdown card is named for something other than the Date Finder it opens');
-  assert.match(row, /label="Set your date" href=\{tile\.faces\[0\]\?\.action\?\.href \?\? tile\.door\}/, 'the desktop card’s Set your date opens another page');
+  assert.equal(HOME_CONTROL_PAGE.count, 'Date Finder', 'the Countdown is named for something other than the Date Finder it opens');
   // The Date Finder is THE sheet Suppliers' date chip opens — never a second one.
   const finder = code('home-date-finder.tsx');
   assert.match(finder, /import\('\.\.\/vendors\/_components\/fact-sheets'\)\.then\(\(m\) => m\.FactSheet\)/, 'Home draws its own date sheet');

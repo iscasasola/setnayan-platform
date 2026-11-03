@@ -39,7 +39,8 @@ test('1 · no upper widget grows in place — every one is a door', () => {
     .filter((b) => !/aria-label="About /.test(b) && !/aria-haspopup="dialog"/.test(b));
   assert.deepEqual(expanding, [], 'an upper widget expands in place');
   assert.doesNotMatch(row, /role="region"/, 'an upper widget holds a settings region');
-  for (const key of HOME_CONTROL_KEYS) {
+  // 🎴 The Countdown and the plan left the grid (Home redraw 2026-11-02): the card's figure and the To do list.
+  for (const key of HOME_CONTROL_KEYS.filter((k) => k !== 'count' && k !== 'plan')) {
     const tile = slice(row, `data-home-tile="${key}"`, ['data-home-tile="', 'data-home-control="detail"']);
     assert.match(tile, /<a [^>]*class="hc-door"/, `compact: the ${key} tile is not a door`);
     const card = slice(row, `data-home-card-key="${key}"`, ['data-home-card-key="', 'data-home-services']);

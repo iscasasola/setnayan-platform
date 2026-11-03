@@ -4,9 +4,12 @@
  * 🎭 Who the sample opens for — the pure rule. The request half that gathers
  * the three facts is `./switch.server.ts`.
  *
- *   · The native app shell (Apple reviewing 1.0) — CLOSED, whatever the switch
- *     says. The middleware bounces it first; this is the same answer again for
- *     a render that got past it (`discoverOpensHere()`, lib/request-platform.ts).
+ *   · Wherever Discover (`/`) does not open — CLOSED, whatever the switch says
+ *     (`discoverOpensHere()`, lib/request-platform.ts). While Apple reviewed 1.0
+ *     that was the native app shell, and middleware bounced the sample out of
+ *     it too. Since the owner's 2026-11-02 ruling ("let everything go live")
+ *     Discover opens in the app, so the sample does as well — under the switch
+ *     below, like on the web. `webShell` keeps its name: it is that question.
  *   · Switch on — OPEN for everyone, signed in or not.
  *   · Switch off (the default) — open only for an internal (§10a) account, so
  *     the owner can walk it before he flips it; everyone else gets a 404, the

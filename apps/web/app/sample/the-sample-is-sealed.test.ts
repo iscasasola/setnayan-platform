@@ -117,13 +117,14 @@ test('(d) /sample is noindex and absent from every sitemap and from robots’ Al
   assert.doesNotMatch(allowed![1]!, /['"]\/sample/, 'robots.txt must not Allow /sample');
 });
 
-test('(e) middleware’s native-shell bounce carries the sample', () => {
+test('(e) no native-shell bounce is left to carry the sample — it follows `/` into the app (owner 2026-11-02)', () => {
+  // The bounce that sent the app away from /sample (by prefix, while `/` was bounced for Apple review) left with `/`:
+  // "let everything go live". What keeps the sample closed now is its own gate, asked on every /sample page ((f)
+  // below), whose "is this a browser?" fact is `discoverOpensHere()` — the same answer the account bar gives.
   const mw = code(join(WEB, 'middleware.ts'));
-  const at = mw.indexOf("new URL(user ? '/dashboard' : '/login', request.url)");
-  assert.ok(at > 0, 'the brochure bounce moved — point this guard at it');
-  const cond = mw.slice(mw.lastIndexOf('if (', at), at);
-  assert.match(cond, /isCapacitorClient\(request\)/, 'the bounce is no longer the native-shell bounce');
-  assert.match(cond, /appShellBouncesSample\(pathname,\s*APP_EXCLUDED_MARKETING_PATHS\)/, 'the native app can reach /sample during review');
+  assert.doesNotMatch(mw, /appShellBouncesSample|APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/, 'middleware bounces the app again — say whether the sample rides it');
+  const sw = code(join(LIB, 'sample-event', 'switch.server.ts'));
+  assert.match(sw, /const webShell = await discoverOpensHere\(\);\s*if \(!webShell\) return false;/, 'the sample no longer asks whether `/` opens here');
 });
 
 test('(f) the layout closes every /sample page when the sample is closed', () => {

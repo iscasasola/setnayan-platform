@@ -8563,6 +8563,7 @@
     "/dashboard/[eventId]/schedule": {
       "files": [
         "dashboard/[eventId]/schedule/_components/announce-button.tsx",
+        "dashboard/[eventId]/schedule/_components/ask-supplier-section.tsx",
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/chapter-sheets.tsx",
         "dashboard/[eventId]/schedule/_components/chapters-context.ts",
@@ -8629,7 +8630,9 @@
         "AddMomentSheet",
         "AddPreparationItem",
         "AnnounceButton",
+        "Answer",
         "Api",
+        "AskSupplierSection",
         "BlockCard",
         "BlockTimeEditor",
         "BulkRetimePanel",
@@ -14554,6 +14557,7 @@
         "AppointmentsSection",
         "AskAccess",
         "AskSubmit",
+        "AskedRow",
         "Badge",
         "BoardPart",
         "BookingAskOutcomeLine",

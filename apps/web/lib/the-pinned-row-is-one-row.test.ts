@@ -160,7 +160,12 @@ test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one
   assert.equal(count(html, /data-menu-settings="home"/g), 1, 'the band does not draw Home’s ⚙ exactly once');
   const gear = /<span data-home-settings-gear="" class="([^"]*)">(.*)<\/span><\/div>$/.exec(html);
   assert.ok(gear, 'Home’s ⚙ is not the band’s last element — it is not at the right end');
-  assert.match(gear![1]!, /\babsolute\b[^"]*\bbottom-1\b[^"]*\bright-4\b/, 'the ⚙ is not on the pinned line’s spot (bottom 52 px, right end)');
+  const cls = gear![1]!.split(/\s+/);
+  for (const c of ['absolute', 'bottom-1', 'right-4']) assert.ok(cls.includes(c), `the ⚙ is not on the pinned line’s spot (bottom 52 px, right end) — no ${c}`);
+  // 🎴 On the event card (Home redraw 2026-11-02) the same ONE ⚙ sits by the name at rest and rides the pinned line once
+  // stuck — its stuck seat is still the pinned line's right end.
+  const card = stripComments(readFileSync(join(APP, '_components', 'home-settings-gear.tsx'), 'utf8'));
+  assert.match(card, /top-\[18px\] group-data-\[collapsed\]\/cover:bottom-1 group-data-\[collapsed\]\/cover:top-auto/, 'on the card, the ⚙ does not ride the pinned line once stuck');
   assert.doesNotMatch(gear![1]!, /\binvisible\b|\bhidden\b|opacity-0/, 'Home’s ⚙ is hidden at rest — the owner asked to keep it there');
   assert.match(gear![2]!, /<button[^>]*aria-label="Event settings"/, 'the ⚙ is not named "Event settings"');
   // The loading screen's band (no event to open) draws no ⚙ and leaves no room for one.

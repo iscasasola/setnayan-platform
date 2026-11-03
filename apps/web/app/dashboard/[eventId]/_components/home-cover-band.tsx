@@ -5,6 +5,8 @@ import { ForTagMark } from '@/app/_components/for-tag-mark';
 import { HomeCoverPin } from './home-cover-pin';
 import { HomeSettingsGear, type HomeSettingsLanded } from './home-settings-gear';
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { Count } from '@/components/count';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -40,6 +42,23 @@ export type HomeSettingsLink = {
   person?: string | null;
 };
 
+/**
+ * 🎴 THE EVENT CARD'S COUNTDOWN (owner-approved Home redraw 2026-11-02, round 3 — `.ecard .cd`): the Countdown widget's
+ * figure moved onto the card (the GCash balance-card shape: name · countdown · the ONE thing to do now). The figure is
+ * the Countdown's one door — the Date Finder for the couple, Event Details for a helper (`countdown.door`).
+ */
+export type HomeCardCountdown = {
+  /** "163", "Today", "—" — `countdown.value`. */
+  value: string;
+  /** The figure as a number, so it COUNTS to its value (owner 2026-10-07, H2 — `Count`); null = a word ("Today", "—"). */
+  days: number | null;
+  /** "days to go" — `countdown.label`; empty when the value says it all. */
+  label: string;
+  /** "Saturday, December 12, 2026" · the place — null when there is no firm day. */
+  line: string | null;
+  href: string;
+};
+
 export function HomeCoverBand({
   cover,
   ground = null,
@@ -47,7 +66,13 @@ export function HomeCoverBand({
   settingsRows,
   settingsLink,
   settingsHelper = false,
+  countdown = null,
+  now = null,
 }: {
+  /** 🎴 The card's countdown — absent on the loading screen (it has not read the date's facts). */
+  countdown?: HomeCardCountdown | null;
+  /** ☀ The card's Now row (`HomeToday`) — absent on the loading screen. */
+  now?: ReactNode;
   cover: HomeCoverWords;
   ground?: HomeCover | null;
   /** ⚙ The event whose Event Settings the ⚙ opens — the couple's Home only. The loading screen passes none. */
@@ -60,6 +85,8 @@ export function HomeCoverBand({
   settingsHelper?: boolean;
 }) {
   const gear = Boolean(settingsFor);
+  // 🎴 The full card (countdown · Now) — the ⚙ sits by the name at rest and rides the pinned line once stuck.
+  const card = countdown !== null || now !== null;
   return (
       <div
         data-home-cover={ground?.kind ?? 'colour'}
@@ -70,7 +97,7 @@ export function HomeCoverBand({
            lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
            the content area, square-edged, with its words on the page's gutter. The cards
            below keep their column (`data-home-column`). */
-        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${card ? 'rounded-b-3xl pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -81,13 +108,27 @@ export function HomeCoverBand({
             <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
           </span>
         ) : null}
-        <div className={`relative min-w-0 ${gear ? 'pr-[54px]' : ''} transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0`}>
+        <div className={`relative min-w-0 ${card ? 'flex-1' : ''} ${gear && !card ? 'pr-[54px]' : ''} transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0`}>
           {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
-          <p className={`truncate text-[12px] uppercase tracking-[0.12em] ${ground ? 'opacity-85' : 'text-cream/85'}`}>{cover.eyebrow}</p>
-          <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
-          {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
+          <div className={card && gear ? 'min-h-[44px] pr-[54px]' : ''}>
+            <p className="truncate text-[12px] uppercase tracking-[0.12em] opacity-85">{cover.eyebrow}</p>
+            <p aria-hidden className={`hc-ecard-name ${card ? 'text-[24px]' : 'text-[26px]'} font-semibold leading-[1.1] tracking-[-0.01em]`}>{cover.name}</p>
+            {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
+          </div>
+          {countdown ? (
+            <Link href={countdown.href} className="hc-ecard-cd" data-home-card-countdown="" aria-label={`${countdown.value}${countdown.label ? ` ${countdown.label}` : ''}${countdown.line ? ` — ${countdown.line}` : ''}`}>
+              <span className={`hc-ecard-n${countdown.days !== null ? '' : ' hc-ecard-word'}`} aria-hidden>
+                {countdown.days !== null ? <Count value={countdown.days} id="home-count" /> : countdown.value}
+              </span>
+              <span aria-hidden className="hc-ecard-w">
+                {countdown.label}
+                {countdown.line ? <span className="hc-ecard-d">{countdown.line}</span> : null}
+              </span>
+            </Link>
+          ) : null}
+          {now}
         </div>
         <HomeCoverPin name={cover.name} date={cover.shortDate} gear={gear} />
         {settingsFor ? (
@@ -100,6 +141,7 @@ export function HomeCoverBand({
             landed={settingsLink?.landed ?? null}
             renderKey={settingsLink?.renderKey}
             helper={settingsHelper}
+            top={card}
           />
         ) : null}
       </div>

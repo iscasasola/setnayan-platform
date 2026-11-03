@@ -52,9 +52,9 @@ export function fixtureControl(eventId: string, over: Partial<HomeControlInput> 
       open: 3,
       dueThisWeek: 1,
       next: [
-        { id: 't1', title: 'Confirm the caterer’s menu', dueDate: fixtureDay(4, now), daysUntilDue: 4 },
-        { id: 't2', title: 'Final headcount to the venue', dueDate: fixtureDay(20, now), daysUntilDue: 20 },
-        { id: 't3', title: 'Choose the entourage’s colours', dueDate: fixtureDay(27, now), daysUntilDue: 27 },
+        { id: 't1', tick: { kind: 'task', id: 't1' }, title: 'Confirm the caterer’s menu', dueDate: fixtureDay(4, now), daysUntilDue: 4 },
+        { id: 't2', tick: { kind: 'task', id: 't2' }, title: 'Final headcount to the venue', dueDate: fixtureDay(20, now), daysUntilDue: 20 },
+        { id: 't3', tick: { kind: 'task', id: 't3' }, title: 'Choose the entourage’s colours', dueDate: fixtureDay(27, now), daysUntilDue: 27 },
       ],
     },
     ...over,

@@ -117,6 +117,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
     'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
+  'lib/schedule-ask.server.ts':
+    'host — a host or the coordinator asks a booked supplier to change their times (D2); reads the moment’s name for the ask, never for a guest',
   'lib/supplier-part-notify.server.ts':
     'host — the schedule actions read the moments a save touches, before and after, to tell the suppliers on them (audit D6); on the host’s own session, never a guest’s',
   'lib/schedule-suggestion-decide.server.ts':

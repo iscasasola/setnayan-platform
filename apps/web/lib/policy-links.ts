@@ -12,9 +12,9 @@
  * typed by hand in one file, so a second menu had nothing to copy but the words. Held by
  * `lib/every-signed-in-menu-reaches-the-policies.test.ts`, which enumerates the roles from `UserRoleSummary`.
  *
- * ⚠ NONE OF THESE MAY BE REFUSED IN THE STORE SHELL. Middleware's `APP_EXCLUDED_MARKETING_PATHS` and
- * `lib/store-shell.ts` both leave them alone ("legal pages stay reachable because store review requires them"); the
- * guard reads both.
+ * ⚠ NONE OF THESE MAY BE REFUSED IN THE STORE SHELL. `lib/store-shell.ts` leaves them alone ("legal pages stay
+ * reachable because store review requires them"), and middleware no longer bounces any page out of the app (owner
+ * 2026-11-02, "let everything go live"); the guard reads both.
  */
 export type PolicyLink = { href: string; label: string };
 

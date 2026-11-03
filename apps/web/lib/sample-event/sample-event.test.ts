@@ -14,11 +14,14 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { isUuid } from '@/lib/is-uuid';
 import { readSampleEvent, readSampleGuest, isSampleEventId, SAMPLE_EVENT_ID } from './snapshot';
 import { sampleOpensFor } from './gate';
-import { appShellBouncesSample, isSamplePath, SAMPLE_ROOT } from './paths';
+import { isSamplePath, SAMPLE_ROOT } from './paths';
+import { stripComments } from '@/lib/strip-comments';
 
 const REAL_LOOKING_KEYS = [
   '5599d399-b4f8-459d-9080-8069824dec96', // a uuid
@@ -69,17 +72,26 @@ test('(f) switch off → only internal accounts; switch on → everyone; the app
   }
 });
 
-test('(e) the app shell is bounced from every /sample path while `/` is bounced — and only then', () => {
-  const withDiscoverHeld = new Set(['/', '/features']);
+test('(e) the sample follows `/` into the app (owner 2026-11-02): it opens wherever Discover opens, under its own switch', () => {
+  // The prefix match the sample is reached by — and nothing that merely starts with the word.
   for (const p of [SAMPLE_ROOT, '/sample/', '/sample/hub/sample-guest-maid-of-honor', '/sample/dashboard/guests']) {
-    assert.equal(isSamplePath(p), true);
-    assert.equal(appShellBouncesSample(p, withDiscoverHeld), true, `${p} reachable in the app during review`);
+    assert.equal(isSamplePath(p), true, `${p} is the sample`);
   }
   for (const p of ['/samples', '/sampler', '/maria-and-jose', '/', '/dashboard']) {
-    assert.equal(appShellBouncesSample(p, withDiscoverHeld), false, `${p} is not the sample`);
+    assert.equal(isSamplePath(p), false, `${p} is not the sample`);
   }
-  const discoverReleased = new Set(['/features']);
-  assert.equal(appShellBouncesSample('/sample', discoverReleased), false, 'the sample must follow `/` out of the bounce');
+  // While Apple reviewed 1.0 middleware bounced the sample out of the app by prefix for as long as `/` was bounced
+  // (`appShellBouncesSample`). `/` left on 2026-11-02 ("let everything go live"), and the sample followed it: there is
+  // no native-shell bounce left in middleware, and the sample's "is this a browser?" fact IS "does Discover open
+  // here?" — which now answers yes in the app too.
+  const WEB = join(__dirname, '..', '..');
+  const mw = stripComments(readFileSync(join(WEB, 'middleware.ts'), 'utf8'));
+  assert.doesNotMatch(mw, /appShellBouncesSample|APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/, 'middleware bounces the app again');
+  const sw = stripComments(readFileSync(join(WEB, 'lib/sample-event/switch.server.ts'), 'utf8'));
+  assert.match(sw, /const webShell = await discoverOpensHere\(\);\s*if \(!webShell\) return false;/, 'the sample no longer follows `/`');
+  // So in the app the switch decides, exactly as on the web.
+  assert.equal(sampleOpensFor({ webShell: true, switchOn: true, internal: false }), true);
+  assert.equal(sampleOpensFor({ webShell: true, switchOn: false, internal: false }), false);
 });
 
 test('(a) /sample/hub/[guestKey] resolves only a sample guest — the two personas today — never a real guest’s key', () => {

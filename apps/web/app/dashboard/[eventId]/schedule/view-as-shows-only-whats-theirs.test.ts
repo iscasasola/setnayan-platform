@@ -137,9 +137,12 @@ test('3 · Free opens Everyone · Suppliers by time and a ◆ PRO door; never a 
   const byTime = (pro: boolean) =>
     renderToStaticMarkup(React.createElement(ViewAsBody, { input: labViewAs(pro), chapters: CHAPTERS, lens: { kind: 'suptime' }, onLens: () => undefined }));
   const freeBody = byTime(false);
-  assert.match(freeBody, /data-view-as-stretch=""/, 'Suppliers by time drew nothing on a Free event');
-  assert.doesNotMatch(freeBody, /<li data-view-as-line="[^"]*"[^>]*><button/, 'a Free supplier line opens a Pro view');
-  assert.match(byTime(true), /<li data-view-as-line="[^"]*"[^>]*><button/, 'a Pro supplier line no longer opens their day');
+  // 🧭 Slice 9: Suppliers by time is now Side by side (one view, renamed) — a column per supplier; a column head opens
+  // that supplier's day on Pro only.
+  assert.match(freeBody, /data-side-by-side="person"/, 'Side by side drew nothing on a Free event');
+  assert.match(freeBody, /data-sbs-column="sup:/, 'Side by side has no supplier column on a Free event');
+  assert.doesNotMatch(freeBody, /<button type="button" data-sbs-head="sup:[^"]*" class/, 'a Free supplier column opens a Pro view');
+  assert.match(byTime(true), /<button type="button" data-sbs-head="sup:[^"]*" class/, 'a Pro supplier column no longer opens their day');
 });
 
 test('4 · a Time TBA chapter reads "Time TBA" in a view, never 12:00 AM', () => {

@@ -900,7 +900,15 @@ export function ScheduleDay({
         </p>
       ) : null}
 
-      {viewingAs && viewAs && ch ? <ViewAsBody eventId={eventId} input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} pill={!booked} /> : null}
+      {viewingAs && viewAs && ch ? <ViewAsBody
+          eventId={eventId}
+          input={viewAs}
+          chapters={ch.chapters}
+          lens={asLens}
+          onLens={setAsLens}
+          pill={!booked}
+          nowIso={isEventDay && now ? `${now.key}T${String(Math.floor(now.min / 60)).padStart(2, '0')}:${String(now.min % 60).padStart(2, '0')}:00.000Z` : null}
+        /> : null}
 
       <div className={viewingAs ? 'hidden' : 'lg:flex lg:items-start lg:gap-6'}>
         <div className="min-w-0 flex-1 space-y-8">

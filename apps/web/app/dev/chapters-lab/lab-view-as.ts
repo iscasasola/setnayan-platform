@@ -83,6 +83,9 @@ const tasks: TaskRow[] = [
   task('lab-t7', '00000000-0000-4000-8000-0000000m0008', { vendor_id: 'v-flor' }, 'Stage florals and centrepieces', null),
   task('lab-t8', '00000000-0000-4000-8000-0000000m0009', { vendor_id: 'v-banq' }, 'Plated dinner, table by table', null),
   task('lab-t9', '00000000-0000-4000-8000-0000000m0009', { vendor_id: 'v-photo', crew: 'Lead' }, 'Candids during dinner', null),
+  // 🧭 Slice 9: the Host / MC and the bride, so Side by side draws their columns too.
+  task('lab-t10', '00000000-0000-4000-8000-0000000m0009', { vendor_id: 'v-mc' }, 'Hosts the program', null),
+  task('lab-t11', '00000000-0000-4000-8000-0000000m0003', { guest_id: 'g-ana' }, 'Portraits with her mother', null),
 ];
 
 /**
@@ -92,6 +95,7 @@ const tasks: TaskRow[] = [
  */
 export const LAB_RECEPTION = LAB_CHAPTERS[4]!.block_id;
 export const LAB_PEOPLE = [
+  { guest_id: 'g-ana', name: 'Ana Cruz', roles: ['bride'], groupIds: [], notInvited: [] },
   { guest_id: 'g-cara', name: 'Cara Lim', roles: ['bridesmaid'], groupIds: [], notInvited: [] },
   { guest_id: 'g-rey', name: 'Tito Rey Santos', roles: [], groupIds: [], notInvited: [] },
   { guest_id: 'g-nena', name: 'Lola Nena Cruz', roles: [], groupIds: [], notInvited: [LAB_RECEPTION] },
@@ -110,6 +114,7 @@ export function labViewAs(pro: boolean, released = false): ViewAsInput {
         { vendor_id: 'v-coord', name: 'The Planning Desk', booked: true, everyChapter: true },
         { vendor_id: 'v-flor', name: 'Bloom & Co.', booked: true },
         { vendor_id: 'v-banq', name: 'Hotel Aurora banquets', booked: true },
+        { vendor_id: 'v-mc', name: 'Ate Jen', booked: true, host: true, trade: 'Host / MC' },
       ],
       groups: {},
       roleNames: { bridesmaid: 'Bridesmaid' },

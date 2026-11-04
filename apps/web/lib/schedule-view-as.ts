@@ -58,7 +58,8 @@ export type ViewMoment = {
 };
 
 /** `everyChapter` — a coordinator (`isOnEveryChapter`): offered "Coordinator" in View as (slice 6). */
-export type ViewSupplier = { vendor_id: string; name: string; booked: boolean; everyChapter?: boolean };
+/** `host` — the booked Host / MC; `trade` — "Photo and video" (Side by side's column heads, slice 9). */
+export type ViewSupplier = { vendor_id: string; name: string; booked: boolean; everyChapter?: boolean; host?: boolean; trade?: string | null };
 
 /**
  * 👤 A NAMED GUEST, as View as › Guests reads them (slice 6, owner 2026-11-04 "What they see now"): the same three facts
@@ -195,7 +196,7 @@ export function lensWords(data: ViewAsData, l: ViewLens): string {
     case 'guest':
       return 'A guest';
     case 'suptime':
-      return 'Suppliers by time';
+      return 'Side by side';
     case 'role':
       return roleWords(data, l.key);
     case 'supplier':
@@ -218,7 +219,7 @@ export function viewAsOptions(data: ViewAsData): ViewOption[] {
   const out: ViewOption[] = [
     { key: 'everyone', label: 'Everyone' },
     { key: 'guest', label: 'A guest' },
-    { key: 'suptime', label: 'Suppliers by time' },
+    { key: 'suptime', label: 'Side by side' },
   ];
   const roles = new Map<string, string>();
   for (const m of data.moments) {

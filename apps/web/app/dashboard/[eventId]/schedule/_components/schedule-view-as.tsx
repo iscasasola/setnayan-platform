@@ -22,7 +22,6 @@
 import { useMemo, useState } from 'react';
 import { Search, UserRound, X } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
 import { TIME_TBA, chapterWhen, chapterWhere, type Chapter } from '@/lib/schedule-chapters';
 import {
@@ -34,14 +33,13 @@ import {
   lensWords,
   roleDay,
   supplierDay,
-  suppliersByTime,
   viewAsMenuOptions,
-  type TimeItem,
   type ViewAsInput,
   type ViewDay,
   type ViewLens,
 } from '@/lib/schedule-view-as';
 import { PickMenu } from './day-ui';
+import { SideBySideView } from './side-by-side';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { coordDay, personDay, printDayFromCard, printDayFromView, type PrintDay } from '@/lib/schedule-view-as-people';
 import type { YourSchedule } from '@/lib/guest-your-schedule';
@@ -161,7 +159,10 @@ export function ViewAsBody({
   lens,
   onLens,
   pill = true,
+  nowIso = null,
 }: {
+  /** 🧭 The venue's wall clock on the day — Side by side draws "Now" across every column (slice 9). */
+  nowIso?: string | null;
   /** For the person's PDF (slice 6); absent (the lab) = no file button. */
   eventId?: string;
   /** The "…’s view · back to Everyone" pill — off where the page's own line under the date already says it (slice 8). */
@@ -200,7 +201,7 @@ export function ViewAsBody({
         ) : null}
       </div>
       {lens.kind === 'suptime' ? (
-        <ByTime input={input} chapters={chapters} onLens={onLens} />
+        <SideBySideView input={input} chapters={chapters} onLens={onLens} nowIso={nowIso} />
       ) : drawn?.kind === 'card' ? (
         <PersonCard card={drawn.card} />
       ) : drawn?.kind === 'unread' ? (
@@ -344,79 +345,5 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
         </section>
       ))}
     </>
-  );
-}
-
-function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: readonly Chapter[]; onLens: (l: ViewLens) => void }) {
-  const { stretches, tba, tasksUnread } = suppliersByTime(chapters, input.data);
-  // Tapping a supplier opens THEIR day — a per-person view, so Pro. On a Free event the lines are read, not pressed.
-  const open = (vendorId: string) => (lensAllowed(input.pro, { kind: 'supplier', vendorId, crew: null }) ? () => onLens({ kind: 'supplier', vendorId, crew: null }) : null);
-  return (
-    <>
-      {tasksUnread ? (
-        <p role="alert" data-view-as-unread="" className="text-[13px] font-semibold text-danger-700">
-          The tasks couldn’t be read just now, so this may be missing lines. Try again in a moment.
-        </p>
-      ) : null}
-      {stretches.length === 0 && tba.length === 0 && !tasksUnread ? <p className="py-3 text-[14px] text-ink/55">No supplier has a line yet.</p> : null}
-      {stretches.map((g) => (
-        <section key={`${g.from}-${g.items[0]?.id}`} data-view-as-stretch="" className="pt-3">
-          <p className="pb-1 text-[13px] text-ink/60">
-            <b className="font-semibold text-ink">
-              {g.from} to {g.to}
-            </b>
-            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers at once</span> : null}
-          </p>
-          <ul className="border-t border-ink/10">
-            {g.items.map((i) => (
-              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
-            ))}
-          </ul>
-        </section>
-      ))}
-      {tba.map((g) => (
-        <section key={g.chapter.block_id} data-view-as-stretch="tba" data-view-as-chapter={g.chapter.block_id} className="pt-3">
-          <p className="pb-1 text-[13px] text-ink/60">
-            <b className="font-semibold text-ink">{g.chapter.label}</b> · {TIME_TBA} · {g.where}
-            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers</span> : null}
-          </p>
-          <ul className="border-t border-ink/10">
-            {g.items.map((i) => (
-              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </>
-  );
-}
-
-/** One supplier line. A button only where tapping opens their day (Pro); otherwise plain words — a frame only on what you press. */
-function TimeLine({ i, onOpen }: { i: TimeItem; onOpen: (() => void) | null }) {
-  const body = (
-    <>
-      <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-view-as-time={i.time}>
-        {i.time}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-ink">{i.who}</span>
-        <span className="block text-[13px] text-ink/60">
-          {i.title} · {i.sub}
-          {i.until ? ` · until ${i.until}` : ''}
-        </span>
-        {i.clash ? <span className="block text-[13px] font-semibold text-danger-700">In two places at once</span> : null}
-      </span>
-    </>
-  );
-  return (
-    <li data-view-as-line={i.id} className="border-b border-ink/10">
-      {onOpen ? (
-        <button type="button" onClick={onOpen} className="sn-press flex min-h-14 w-full items-start gap-4 py-3 text-left">
-          {body}
-        </button>
-      ) : (
-        <div className="flex min-h-14 w-full items-start gap-4 py-3">{body}</div>
-      )}
-    </li>
   );
 }

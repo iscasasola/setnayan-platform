@@ -3803,6 +3803,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'supplier_scan_sessions', column: 'prints' },
       // Roaming (slice 4) is the same shot with no station — one CHECK names both.
       { kind: 'check', table: 'supplier_scan_sessions', name: 'supplier_scan_sessions_mode_check', mentions: 'mode' },
+      // ⭐ Slice 5: a guest's optional review after "received" — its own store, admin-moderated, on no public page yet.
+      { kind: 'table', table: 'supplier_scan_reviews' },
+      { kind: 'fk', table: 'supplier_scan_reviews', column: 'coverage_id', references: 'vendor_coverages' },
+      { kind: 'unique', table: 'supplier_scan_reviews', columns: ['event_id', 'coverage_id', 'guest_id'] },
+      { kind: 'check', table: 'supplier_scan_reviews', name: 'supplier_scan_reviews_rating_or_skip', mentions: 'skipped' },
     ],
     chain: 22,
     pair: ['TYPE-SUPPLIER-SCANS', 'TYPE-GUESTS'],
@@ -3816,7 +3821,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:
-      'A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier never reads a name; a host-approved coordinator sees one only because the action re-reads the guest row under their own RLS.',
+      'Guest reviews (supplier_scan_reviews) are written ONLY by supplier_scan_review_submit, service role, with the guest id from the pass — and are on no public page until the owner decides separate vs merged. A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier never reads a name; a host-approved coordinator sees one only because the action re-reads the guest row under their own RLS.',
   },
 ];
 

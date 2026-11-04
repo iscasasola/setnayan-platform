@@ -136,3 +136,10 @@ test('7 · Roaming: scan the guests in frame, then shoot; the count is Shots · 
   assert.equal(scanAnswerWords({ outcome: 'added', number: 231, guests: 2, mode: 'roaming' }).title, '#0231 · 2 guests · shoot');
   assert.equal(tallyWords('roaming', { claimed: 5, total: 118, ready: 2, sessions: 9 }), 'Shots 9 · Ready 2 · Claimed 5');
 });
+
+test('8 · the guest review: five choices in one dropdown, said in words; one line at most 140', async () => {
+  const { REVIEW_STAR_OPTIONS, REVIEW_LINE_MAX, reviewAskWords } = await import('./supplier-scan');
+  assert.deepEqual(REVIEW_STAR_OPTIONS.map((o) => o.key), ['5', '4', '3', '2', '1']);
+  assert.equal(REVIEW_LINE_MAX, 140, 'the database CHECK says 140');
+  assert.equal(reviewAskWords('Photo booth'), 'How was the Photo booth?');
+});

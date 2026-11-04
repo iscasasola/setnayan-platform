@@ -277,6 +277,9 @@ export type SupplierScanRequest =
   | { op: 'ready'; eventId: string; coverageId: number; number: number }
   | { op: 'numbers'; eventId: string; coverageId: number }
   | { op: 'session_open'; eventId: string; coverageId: number }
+  // Slice 5 — the guest's optional review (their pass decides who they are, never this request) and admin's moderation.
+  | { op: 'guest_review'; eventId: string; coverageId: number; stars: number | null; line: string | null }
+  | { op: 'admin_review'; reviewId: string; state: 'published' | 'hidden' }
   | { op: 'session_done'; eventId: string; coverageId: number; prints: number | null }
   | { op: 'claim'; eventId: string; coverageId: number; raw: string; via: 'qr' | 'nfc' }
   | { op: 'admin_remove'; eventId: string; kind: 'scan' | 'souvenir'; claimId: string };
@@ -286,6 +289,8 @@ export type SupplierScanReply =
   | { op: 'ready'; result: { ok: true; told: number } | { ok: false; error: string } }
   | { op: 'numbers'; result: ScanNumberRow[] | null }
   | { op: 'session_open'; result: { ok: true; number: number; guests: number } | { ok: false; error: string } }
+  | { op: 'guest_review'; result: { ok: true; saved: boolean } | { ok: false; error: string } }
+  | { op: 'admin_review'; result: { ok: boolean; error?: string } }
   | {
       op: 'session_done';
       result:
@@ -300,4 +305,22 @@ export type SupplierScanReply =
 /** A shot's prints: one per guest by default, the operator's –/+ kept within 1–99. */
 export function clampPrints(n: number): number {
   return Math.min(99, Math.max(1, Math.round(Number.isFinite(n) ? n : 1)));
+}
+
+// ── Slice 5 — the guest's optional review after "received" (DECISION_LOG 2026-09-25) ──────────────────────────────
+
+/** The rating dropdown (a set of choices is a dropdown — house rule): five stars down to one, each said in words. */
+export const REVIEW_STAR_OPTIONS: readonly { key: string; label: string }[] = [
+  { key: '5', label: '★★★★★ Loved it' },
+  { key: '4', label: '★★★★ Really good' },
+  { key: '3', label: '★★★ Okay' },
+  { key: '2', label: '★★ Not great' },
+  { key: '1', label: '★ Poor' },
+];
+
+export const REVIEW_LINE_MAX = 140;
+
+/** The card's question: "How was the Photo booth?" */
+export function reviewAskWords(service: string): string {
+  return `How was the ${service}?`;
 }

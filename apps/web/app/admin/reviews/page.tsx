@@ -18,6 +18,8 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { readAdminScanReviews } from '@/lib/supplier-scan.server';
+import { GuestScanReviews } from './_components/guest-scan-reviews';
 export const metadata = { title: 'Reviews · Admin' };
 
 type AppealRow = {
@@ -105,6 +107,8 @@ type Props = {
 
 export default async function AdminReviewsPage({ searchParams }: Props) {
   await requireAdmin();
+  // ⭐ Guests' ratings from the supplier scanner — read only once the admin gate has passed (service role).
+  const guestScanReviews = await readAdminScanReviews();
   const search = await searchParams;
   const filter = (search.filter ?? 'pending') as 'pending' | 'decided' | 'all';
 
@@ -389,6 +393,27 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               />
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* ⭐ Guests' ratings from the supplier scanner (slice 5) — moderated here, shown on no public page yet. */}
+      <section className="mt-12 space-y-4" aria-labelledby="guest-scan-reviews-heading" data-admin-guest-scan-reviews="">
+        <header className="space-y-0.5">
+          <h2 id="guest-scan-reviews-heading" className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <Flag aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
+            Guests&rsquo; ratings from the scanner
+          </h2>
+          <p className="text-xs text-ink/55">
+            A guest rates a supplier service after its scanner marked their item received. The supplier never sees who
+            wrote it. Published ratings are not on any public page yet — that is the owner&rsquo;s call.
+          </p>
+        </header>
+        {guestScanReviews === null ? (
+          <ReadFailed what="the guests' ratings" />
+        ) : guestScanReviews.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/55">No guest ratings yet.</div>
+        ) : (
+          <GuestScanReviews reviews={guestScanReviews} />
         )}
       </section>
 

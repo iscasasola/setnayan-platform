@@ -347,3 +347,110 @@ export async function readAdminEventScans(eventId: string): Promise<AdminScanCla
     return null;
   }
 }
+
+export type GuestReviewAsk = { coverageId: number; service: string; shop: string | null };
+
+/**
+ * ⭐ The services this guest RECEIVED from and has not answered yet (a rating or a skip) — their Event Hub's optional
+ * "How was the Photo booth?" card (slice 5). Service role, scoped to the one guest the page resolved from their pass.
+ * null = the read failed (no card is drawn — never a question asked on a guess).
+ */
+export async function readGuestReviewAsks(eventId: string, guestId: string): Promise<GuestReviewAsk[] | null> {
+  try {
+    const admin = createAdminClient();
+    const [claims, souvenirs, answered] = await Promise.all([
+      admin.from('supplier_scan_claims').select('coverage_id, vendor_profile_id').eq('event_id', eventId).eq('guest_id', guestId).eq('state', 'received'),
+      admin
+        .from('guest_souvenir_claims')
+        .select('coverage_id, vendor_profile_id')
+        .eq('event_id', eventId)
+        .eq('guest_id', guestId)
+        .not('coverage_id', 'is', null),
+      admin.from('supplier_scan_reviews').select('coverage_id').eq('event_id', eventId).eq('guest_id', guestId),
+    ]);
+    if (claims.error || souvenirs.error || answered.error) {
+      logQueryError('readGuestReviewAsks', claims.error ?? souvenirs.error ?? answered.error, { eventId });
+      return null;
+    }
+    const done = new Set(((answered.data ?? []) as { coverage_id: number | string }[]).map((r) => String(r.coverage_id)));
+    const open = new Map<string, string | null>();
+    for (const r of [...(claims.data ?? []), ...(souvenirs.data ?? [])] as { coverage_id: number | string; vendor_profile_id: string | null }[]) {
+      if (!done.has(String(r.coverage_id))) open.set(String(r.coverage_id), r.vendor_profile_id);
+    }
+    if (open.size === 0) return [];
+    const [covs, shops, labels] = await Promise.all([
+      admin.from('vendor_coverages').select('id, canonical_service').in('id', [...open.keys()]),
+      admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, business_name')
+        .in('vendor_profile_id', [...new Set([...open.values()].filter((v): v is string => v != null))]),
+      resolveCoverageLabels(),
+    ]);
+    const label = new Map(((covs.data ?? []) as { id: number | string; canonical_service: string }[]).map((c) => [String(c.id), labels.leafLabel(c.canonical_service)]));
+    const shop = new Map(((shops.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]).map((x) => [x.vendor_profile_id, x.business_name]));
+    return [...open.entries()].map(([cov, vp]) => ({
+      coverageId: Number(cov),
+      service: label.get(cov) ?? 'supplier',
+      shop: vp ? (shop.get(vp) ?? null) : null,
+    }));
+  } catch (err) {
+    logQueryError('readGuestReviewAsks', err, { eventId });
+    return null;
+  }
+}
+
+export type AdminScanReview = {
+  reviewId: string;
+  stars: number;
+  line: string | null;
+  state: 'pending' | 'published' | 'hidden';
+  service: string;
+  shop: string | null;
+  eventName: string | null;
+  at: string;
+};
+
+/**
+ * ⭐ Admin › Reviews — guests' ratings from the scanner, newest first (skips are not listed: there is nothing to
+ * moderate). The guest is not named here either: moderation judges the words, not the writer. null = the read failed.
+ */
+export async function readAdminScanReviews(): Promise<AdminScanReview[] | null> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('supplier_scan_reviews')
+      .select('review_id, stars, line, state, coverage_id, vendor_profile_id, event_id, created_at')
+      .eq('skipped', false)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      logQueryError('readAdminScanReviews', error);
+      return null;
+    }
+    type Row = { review_id: string; stars: number; line: string | null; state: AdminScanReview['state']; coverage_id: number | string; vendor_profile_id: string; event_id: string; created_at: string };
+    const rows = (data ?? []) as Row[];
+    if (rows.length === 0) return [];
+    const [covs, shops, events, labels] = await Promise.all([
+      admin.from('vendor_coverages').select('id, canonical_service').in('id', [...new Set(rows.map((r) => r.coverage_id))]),
+      admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', [...new Set(rows.map((r) => r.vendor_profile_id))]),
+      admin.from('events').select('event_id, display_name').in('event_id', [...new Set(rows.map((r) => r.event_id))]),
+      resolveCoverageLabels(),
+    ]);
+    const label = new Map(((covs.data ?? []) as { id: number | string; canonical_service: string }[]).map((c) => [String(c.id), labels.leafLabel(c.canonical_service)]));
+    const shop = new Map(((shops.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]).map((x) => [x.vendor_profile_id, x.business_name]));
+    const ev = new Map(((events.data ?? []) as { event_id: string; display_name: string | null }[]).map((x) => [x.event_id, x.display_name]));
+    return rows.map((r) => ({
+      reviewId: r.review_id,
+      stars: r.stars,
+      line: r.line,
+      state: r.state,
+      service: label.get(String(r.coverage_id)) ?? 'A service',
+      shop: shop.get(r.vendor_profile_id) ?? null,
+      eventName: ev.get(r.event_id) ?? null,
+      at: r.created_at,
+    }));
+  } catch (err) {
+    logQueryError('readAdminScanReviews', err);
+    return null;
+  }
+}

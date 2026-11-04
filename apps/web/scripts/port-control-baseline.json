@@ -1018,6 +1018,7 @@
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
         "[slug]/_components/save-to-account.tsx",
+        "[slug]/_components/scan-review-ask.tsx",
         "[slug]/_components/scan-trail-notice.tsx",
         "[slug]/_components/scan-your-qr.tsx",
         "[slug]/_components/scene-bg-preview.ts",
@@ -1509,6 +1510,7 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
+        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
         "PlusOneSeatRow",
@@ -1600,6 +1602,7 @@
         "SaveTheDateView",
         "SaveToAccount",
         "ScanButtonAtRest",
+        "ScanReviewAsk",
         "ScanTrailForm",
         "ScanTrailNotice",
         "ScanYourQr",
@@ -4178,6 +4181,7 @@
     },
     "/admin/reviews": {
       "files": [
+        "admin/reviews/_components/guest-scan-reviews.tsx",
         "admin/reviews/actions.ts",
         "admin/reviews/loading.tsx",
         "admin/reviews/page.tsx"
@@ -4195,6 +4199,7 @@
         "AppealCard",
         "Cell",
         "FilterChip",
+        "GuestScanReviews",
         "Link",
         "PageMasthead",
         "ReadFailed",

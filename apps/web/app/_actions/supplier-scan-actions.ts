@@ -11,6 +11,8 @@
  *   { op: 'numbers' }       "Your numbers" — number · guests · state, counts only
  *   { op: 'session_open' }  Group session — New shot: one number for everyone scanned into it
  *   { op: 'session_done' }  Group session — Done: the shot closes with its prints (default one per guest)
+ *   { op: 'guest_review' }  the guest's optional "How was the Photo booth?" — rating or skip; WHO is their pass, never the request
+ *   { op: 'admin_review' }  Admin › Reviews — publish or hide a guest's rating (audited; never on a public page yet)
  *   { op: 'admin_remove' }  Admin › the event — Setnayan takes back a claim recorded in error (audited)
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route, and the repo budget
@@ -37,6 +39,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { parseGuestQrPayload } from '@/lib/checkin';
+import { readGuestSession } from '@/lib/guest-session';
 import { realNameParts } from '@/lib/seat-placeholder-words';
 import {
   scanRefusalWords,
@@ -63,6 +66,10 @@ export async function supplierScan(req: SupplierScanRequest): Promise<SupplierSc
       return { op: 'session_open', result: await sessionOpen(req.eventId, req.coverageId) };
     case 'session_done':
       return { op: 'session_done', result: await sessionDone(req.eventId, req.coverageId, req.prints) };
+    case 'guest_review':
+      return { op: 'guest_review', result: await guestReview(req.eventId, req.coverageId, req.stars, req.line) };
+    case 'admin_review':
+      return { op: 'admin_review', result: await adminReview(req.reviewId, req.state) };
     case 'admin_remove':
       return { op: 'admin_remove', result: await adminRemove(req.eventId, req.kind, req.claimId) };
   }
@@ -271,4 +278,58 @@ async function adminRemove(eventId: string, kind: 'scan' | 'souvenir', claimId: 
 function realGuestName(first: string | null, last: string | null): string | null {
   const p = realNameParts(first, last);
   return `${p.first} ${p.last}`.trim() || null;
+}
+
+/**
+ * ⭐ The guest's answer. WHO is the pass this browser holds for THIS event (`readGuestSession` — the account outranks
+ * the pass), never an id from the request; the database refuses unless that guest RECEIVED from that service.
+ */
+async function guestReview(
+  eventId: string,
+  coverageId: number,
+  stars: number | null,
+  line: string | null,
+): Promise<{ ok: true; saved: boolean } | { ok: false; error: string }> {
+  const session = await readGuestSession({ eventId });
+  if (!session || session.event_id !== eventId) return { ok: false, error: 'Open your invitation again to answer.' };
+  if (stars !== null && (!Number.isInteger(stars) || stars < 1 || stars > 5)) return { ok: false, error: 'Pick a rating.' };
+  const words = line?.trim() ? line.trim().slice(0, 140) : null;
+  const { data, error } = await createAdminClient().rpc('supplier_scan_review_submit', {
+    p_event_id: eventId,
+    p_guest_id: session.guest_id,
+    p_coverage_id: coverageId,
+    p_stars: stars,
+    p_line: words,
+  });
+  if (error) {
+    logQueryError('supplierScan.guest_review', error, { eventId, coverageId });
+    return { ok: false, error: 'Couldn’t send just now. Try again.' };
+  }
+  return { ok: true, saved: data === 'saved' };
+}
+
+/** Admin publishes or hides a guest's rating (it reaches no public page either way until the owner decides). */
+async function adminReview(reviewId: string, state: 'published' | 'hidden'): Promise<{ ok: boolean; error?: string }> {
+  const { userId } = await requireAdminAction();
+  if (state !== 'published' && state !== 'hidden') return { ok: false, error: 'Unknown state.' };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('supplier_scan_reviews')
+    .update({ state, moderated_at: new Date().toISOString(), moderated_by_user_id: userId })
+    .eq('review_id', reviewId)
+    .select('review_id, vendor_profile_id, stars');
+  if (error || !data?.length) {
+    if (error) logQueryError('supplierScan.admin_review', error, { reviewId });
+    return { ok: false, error: 'Couldn’t save that just now.' };
+  }
+  const { error: auditError } = await admin.from('admin_audit_log').insert({
+    action: `supplier_scan_review_${state}`,
+    target_table: 'supplier_scan_reviews',
+    target_id: reviewId,
+    actor_user_id: userId,
+    metadata: data[0],
+  });
+  if (auditError) console.error('[supplierScan.admin_review] audit log insert failed', auditError.message);
+  revalidatePath('/admin/reviews');
+  return { ok: true };
 }

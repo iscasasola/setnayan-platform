@@ -323,7 +323,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string; domains?: string; scan?: string; answer?: string; two?: string; review?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -366,7 +366,7 @@ export default async function SupplierLabPage({
   }
   if (q.s === 'scan-guest' || q.s === 'scan-couple') {
     /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */
-    return <ScanLab side={q.s === 'scan-couple' ? 'couple' : 'guest'} two={q.two} state={q.state} />;
+    return <ScanLab side={q.s === 'scan-couple' ? 'couple' : 'guest'} two={q.two} state={q.state} review={q.review} />;
   }
   if (q.s === 'crew-phone') {
     /* 📱 The crew phone's screens (owner 2026-10-29) — no shell: crew never see the supplier's frame. */

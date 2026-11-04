@@ -666,11 +666,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
      and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */
   if (taskSuppliers.length > 0) {
-    const { data: cats } = await supabase
+    const { data: cats, error: catsErr } = await supabase
       .from('event_vendors')
       .select('vendor_id, category')
       .eq('event_id', eventId)
       .in('vendor_id', taskSuppliers.map((v) => v.id));
+    // Refused: the rows say "Booked" instead of a trade, and no coordinator is listed on every chapter — said in the log.
+    if (catsErr) logQueryError('SchedulePage.supplierTrades', catsErr, { eventId }, 'graceful_degrade');
     const catOf = new Map(((cats ?? []) as { vendor_id: string; category: string | null }[]).map((c) => [c.vendor_id, c.category]));
     for (const v of taskSuppliers as { id: string; name: string; trade?: string | null; everyChapter?: boolean }[]) {
       const cat = catOf.get(v.id) ?? null;

@@ -46,6 +46,8 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { ScheduleSavedMark, ScheduleSavedMarkView } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
 // edited on the time." Client component owns the view → edit form
@@ -320,6 +322,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     return (
       <TimelineReadProblem title="We could not load your schedule">
         Your moments are safe. This is a problem on our side or your connection.
+        {/* 📅 Never kept as the no-signal copy over the last good one (`lib/offline-copies.ts` OFFLINE_COPY_UNREAD). */}
+        <ScheduleSavedMarkView mark={null} busy={false} version={OFFLINE_COPY_UNREAD} />
       </TimelineReadProblem>
     );
   }
@@ -1074,6 +1078,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       )
   );
 
+  const scheduleCopyPath = coordinatorSchedulePath(eventId);
   /** The day's moments (parts sit inside them) — the view dropdown's count, "7". */
   const topLevelCount = scheduleBlocks.filter((b) => !b.parent_block_id).length;
   /** "Friday 18 December 2026 · 50 days to go" — the page's date line (frame 19); the rest is in its ⓘ. */
@@ -1100,6 +1105,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     <section className="sn-col space-y-5" data-schedule-page={oneLine ? '' : undefined}>
       {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
+      {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. */}
+      {inMaker || !scheduleCopyPath ? null : (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={eventDate} eventEndDate={eventRow?.event_end_date ?? null} path={scheduleCopyPath} version={copyVersionOf([scheduleBlocks, chaptersInput])} />
+      )}
 
       {suppliersUnread ? <ReadRefusedNotice what="your suppliers" partial className="mb-3" /> : null}
       {/* 📖 The chapters (owner 2026-11-01): a tapped chapter opens its page over the views — one place, this page. */}

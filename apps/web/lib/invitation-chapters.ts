@@ -37,6 +37,8 @@ export type InvitationChapter = {
 };
 
 /** The columns a guest-facing chapter read selects — and not one more (no notes, no suppliers, no photo rules). */
+import { isBackstage } from './chapter-section';
+
 export const INVITATION_CHAPTER_FIELDS = 'block_id, parent_block_id, label, start_at, end_at, location, spot, time_tba, on_invitation, sort_order';
 
 /** The venue's words when none is set yet (owner: *"Sometime it can be tba"*). */
@@ -317,7 +319,8 @@ export function guestScheduleByChapter(
       where_line: chapterWhere(c),
     });
     const moments = blocks
-      .filter((b) => b.parent_block_id === c.block_id && visible(b))
+      // 🎭 Backstage (Ingress · Egress) never reaches a guest — only the chapter's front-of-house moments.
+      .filter((b) => b.parent_block_id === c.block_id && visible(b) && !isBackstage(b.start_at, c))
       .sort((a, b) => a.start_at.localeCompare(b.start_at) || a.sort_order - b.sort_order);
     out.push(...moments);
   }

@@ -2,6 +2,7 @@ import { buildSupplierDay, changedSinceSeen, type SupplierBlockRow, type Supplie
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
 import type { ScheduleAsk } from '@/lib/schedule-ask';
 import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
+import { crewElsewhere, type CrewClash, type CrewStint } from '@/lib/crew-elsewhere';
 
 /**
  * 🤝 `/dev/supplier-lab?s=schedule` — the supplier's part of the schedule (Step 4b) on a lab wedding: Lumina Studio
@@ -11,7 +12,9 @@ import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
  * `hosttag` (👷 the HOST tagged Lumina's crew member Jubert on Glow's "Hair and make-up" from the moment sheet's Suppliers
  * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert) · `asked` (🗓 D2: the
  * host and the coordinator each asked Lumina to change a time — Accept / Decline in place) · `locked` (🔒 Lumina
- * locked their times — audit D7; Lock / Unlock write nothing here). 📍 Where (owner 2026-11-04): every state shows Lumina's
+ * locked their times — audit D7; Lock / Unlock write nothing here) · `clash` (🚗 slice 5: Lumina's crews are also booked
+ * at Mia & Paolo's in Tagaytay the same day — Team A without time for the drive, the second shooter at the same time; the
+ * real rule, `crewElsewhere`, at a lab speed of 30 km/h) · `clashfail` (the other events couldn't be checked). 📍 Where (owner 2026-11-04): every state shows Lumina's
  * own Where dropdown; `wherewait` (their pick waits for the host · Take back) · `askedwhere` (the host asked them to serve
  * the Reception) · `unlinked` (on no chapter: the trade's usual chapters start the dropdown).
  */
@@ -47,6 +50,22 @@ const ASKED: ScheduleAsk[] = [
 /** 🏛 The shop's second booking on this event — as the Reception venue (lab only). */
 const VENUE_BOOKING = 'ev-venue';
 
+/** 🚗 `&state=clash` — the same day at another client of Lumina's, in Tagaytay. */
+const QC = { lat: 14.6566, lon: 121.03 };
+const TAGAYTAY = { lat: 14.1153, lon: 120.9621 };
+function labElsewhere(): Record<string, CrewClash[]> {
+  const here: CrewStint[] = [
+    { eventId: 'lab', blockId: 'p1', crew: 'Team A', startIso: T('10:00'), endIso: T('10:45'), pin: QC, eventName: 'Cale & Ice' },
+    { eventId: 'lab', blockId: 'c2', crew: 'Team A', startIso: T('16:00'), endIso: T('16:15'), pin: QC, eventName: 'Cale & Ice' },
+    { eventId: 'lab', blockId: 'c2', crew: 'Second shooter', startIso: T('16:00'), endIso: T('16:15'), pin: QC, eventName: 'Cale & Ice' },
+  ];
+  const there: CrewStint[] = [
+    { eventId: 'mia', blockId: 'x1', crew: 'Team A', startIso: T('12:00'), endIso: T('13:30'), pin: TAGAYTAY, eventName: 'Mia & Paolo' },
+    { eventId: 'mia', blockId: 'x2', crew: 'Second shooter', startIso: T('15:30'), endIso: T('17:00'), pin: TAGAYTAY, eventName: 'Mia & Paolo' },
+  ];
+  return Object.fromEntries(crewElsewhere(here, there, 30));
+}
+
 export function ScheduleLab({ state }: { state?: string }) {
   const unlinked = state === 'unlinked';
   const hostTag = state === 'hosttag';
@@ -68,8 +87,12 @@ export function ScheduleLab({ state }: { state?: string }) {
             : b,
         )
       : BLOCKS;
+  // 🎭 …and the venue's own setup moment in Reception's Ingress (backstage, 2026-11-04).
+  const withSetup = venue
+    ? [...blocks, { block_id: 'r0', parent_block_id: 'rec', label: 'Ballroom set-up', start_at: T('14:00'), end_at: T('17:00'), location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: [VENUE_BOOKING], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') }]
+    : blocks;
   const day = buildSupplierDay({
-    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : blocks,
+    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : withSetup,
     myBookingIds: venue ? [ME, VENUE_BOOKING] : [ME],
     venueBookingIds: venue ? [VENUE_BOOKING] : [],
     tasks: [
@@ -109,6 +132,7 @@ export function ScheduleLab({ state }: { state?: string }) {
         tasksRead
         answered={unlinked ? [] : REQUESTS.filter((r) => r.status !== 'open')}
         asked={state === 'asked' ? ASKED : state === 'askedwhere' ? askedWhere : state === 'askedfail' ? null : []}
+        elsewhere={state === 'clash' ? labElsewhere() : state === 'clashfail' ? null : {}}
         where={state === 'fail' ? null : where}
       />
     </main>

@@ -533,3 +533,29 @@ export async function getEffectiveVatRatePct(supabase: SupabaseClient): Promise<
     return 0;
   }
 }
+
+// ---------------------------------------------------------------------------
+// 🚗 Drive speed (migration 20271308471868, event chapters slice 5, owner 2026-11-04 "Admin-set speed").
+// The average speed that turns km between two same-day events' venues into a crew's drive (`lib/crew-elsewhere.ts`).
+// NULL = not set: no drive is estimated, only overlapping times are flagged — there is NO default in code (rule 9).
+// A separate soft probe for the same reason as the VALIDATE pair above. `read: false` = it could not be read, which
+// is NOT "not set": the admin field is then shown locked, so a save can never clear a value it never saw.
+// ---------------------------------------------------------------------------
+
+export type DriveSpeed = { read: true; kmh: number | null } | { read: false };
+
+export async function fetchDriveSpeed(supabase: SupabaseClient): Promise<DriveSpeed> {
+  try {
+    const { data, error } = await supabase.from('platform_settings').select('drive_speed_kmh').eq('id', 1).maybeSingle();
+    if (error) {
+      logQueryError('platform-settings: fetchDriveSpeed', error);
+      return { read: false };
+    }
+    const raw = (data as { drive_speed_kmh?: number | string | null } | null)?.drive_speed_kmh ?? null;
+    const kmh = raw === null ? null : Number(raw);
+    return { read: true, kmh: kmh !== null && Number.isFinite(kmh) && kmh > 0 ? kmh : null };
+  } catch (e) {
+    logQueryError('platform-settings: fetchDriveSpeed (threw)', e);
+    return { read: false };
+  }
+}

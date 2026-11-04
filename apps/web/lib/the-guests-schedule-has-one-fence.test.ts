@@ -156,6 +156,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/vendor-dashboard/clients/[eventId]/actions.ts': 'supplier — the client workspace’s actions',
   'app/vendor-dashboard/clients/[eventId]/_components/script-tab.tsx': 'supplier — the emcee script tab',
   'app/vendor-dashboard/clients/[eventId]/page.tsx': 'supplier — the client workspace',
+  'lib/crew-elsewhere.server.ts': 'supplier — their crews on their other events the same day (slice 5)',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',

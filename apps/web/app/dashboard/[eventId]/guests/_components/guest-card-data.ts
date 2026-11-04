@@ -5,6 +5,8 @@ import { eventRowOnce } from '@/lib/event-row-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyMatches, isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readGuestNotCounted } from '@/lib/guest-not-counted.server';
+import type { BookedService } from '@/lib/guest-not-counted';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { guestGroupsFor } from '@/lib/role-sets';
@@ -18,6 +20,8 @@ import {
   type InvitedToBlock,
 } from '@/lib/guests';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { partialInviteTag } from '@/lib/invitation-chapters';
+import { readInvitationChapterList } from '@/lib/guest-chapter-invites';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { loadGuestAccessMap } from '@/lib/guest-access.server';
@@ -114,6 +118,13 @@ export type GuestCardData = {
   plusOneGuestId: string | null;
   /** The guest's saved invited-to blocks, filtered to values we still know. */
   initialInvited: InvitedToBlock[];
+  /**
+   * ✉ "INVITED TO ▾" BY CHAPTER (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO" CHAPTERS"). The event's chapters on
+   * the invitation, in the day's order, and the ones THIS guest was taken off (`guest_chapter_not_invited`). `[]` chapters =
+   * the event has none on its invitation: the card keeps the five fixed chips. NULL = a read was refused: the card says it
+   * could not read them and offers no change. Optional: a card drawn from elsewhere (the Maker) shows the chips.
+   */
+  inviteChapters?: CardInviteChapters | null;
   /** Table label when this guest is seated, else null. */
   seatedAt: string | null;
   /** Custom group memberships, for the read-only Tags row. */
@@ -186,7 +197,37 @@ export type GuestCardData = {
    * offers nothing it did not measure.
    */
   proxy?: GuestProxyCard | null;
+  /**
+   * 🍽 "Not counted for ▾" (owner 2026-11-02, `lib/guest-not-counted.ts`): the event's BOOKED services and the ones this
+   * guest is left out of. Optional: a card drawn from elsewhere (the Maker, the lab) without it shows no such row. Null =
+   * a read was refused — the card then offers nothing, so a refusal can never count a guest the couple left out.
+   */
+  notCounted?: { services: BookedService[]; picked: string[] } | null;
 };
+
+export type CardInviteChapters = {
+  chapters: { block_id: string; label: string }[];
+  notInvited: string[];
+  /** "After party only" · "Not at Ceremony" — the Guest list row's tag, worked out here so the card carries no rule. */
+  tag: string | null;
+};
+
+/** ✉ The card's two chapter reads, together. NULL when either is refused — never "invited to all" from a failed read. */
+async function readCardInviteChapters(supabase: SupabaseClient, eventId: string, guestId: string): Promise<CardInviteChapters | null> {
+  // The chapter list is the Guests page's own question (its row tags) — asked once per render (`readInvitationChapterList`).
+  const [list, off] = await Promise.all([
+    readInvitationChapterList(supabase, eventId),
+    supabase.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
+  ]);
+  if (!list || off.error || !off.data) {
+    if (off.error) logQueryError('loadGuestCard.inviteChapters', off.error, { eventId, guestId }, 'graceful_degrade');
+    return null;
+  }
+  const chapters = list.map((c) => ({ block_id: c.block_id, label: c.label }));
+  const on = new Set(chapters.map((c) => c.block_id));
+  const notInvited = (off.data as { block_id: string }[]).map((r) => r.block_id).filter((id) => on.has(id));
+  return { chapters, notInvited, tag: partialInviteTag(chapters, new Set(notInvited)) };
+}
 
 export type GuestProxyCard = {
   /** This guest holds a role, so the card offers "Proxy ▾" (owner: "this only works if they have role and not guest"). */
@@ -221,6 +262,8 @@ export async function loadGuestCard(
     guest row, the linked account needs to know the viewer is a co-host) wait.
     Same queries, same degradations, same log lines.
   */
+  // 🍽 Leaves with the reads below, awaited at the end — it needs no other answer.
+  const notCountedRead = readGuestNotCounted(supabase, eventId, guestId).catch(() => null);
   const [
     stored,
     profileNames,
@@ -236,6 +279,7 @@ export async function loadGuestCard(
     roleNames,
     { data: dressRow, error: dressRowError },
     { data: holderRow, error: holderRowError },
+    inviteChapterRead,
   ] = await Promise.all([
     fetchGuestById(supabase, eventId, guestId),
     // 👤 Linked to an account with a formal name → the card wears the profile's
@@ -295,6 +339,8 @@ export async function loadGuestCard(
       .eq('represented_by_guest_id', guestId)
       .is('deleted_at', null)
       .maybeSingle(),
+    // ✉ "Invited to ▾" (owner 2026-11-02): the event's chapters on the invitation and the ones THIS guest was taken off.
+    readCardInviteChapters(supabase, eventId, guestId),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
@@ -401,7 +447,7 @@ export async function loadGuestCard(
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
   const offerProxy = holdsARole(guest) && !guest.plus_one_of_guest_id && !holderRow;
-  const [accessMap, viewerMembership, nameLinked, plusOneOf, proxyRead, choiceRead] = await Promise.all([
+  const [accessMap, viewerMembership, nameLinked, plusOneOf, proxyRead, choiceRead, notCounted] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return null;
@@ -484,6 +530,8 @@ export async function loadGuestCard(
           .neq('guest_id', guestId)
           .order('first_name', { ascending: true })
       : Promise.resolve({ data: [], error: null }),
+    // 🍽 "Not counted for ▾" — started with the first batch above, joined here (no wait of its own).
+    notCountedRead,
   ]);
 
   const canManageAccess = viewerMembership !== null;
@@ -588,6 +636,7 @@ export async function loadGuestCard(
   };
 
   return {
+    notCounted,
     proxy,
     outfit: outfit ? { wear: outfit.wear, from: outfit.from } : null,
     roleNames,
@@ -609,6 +658,7 @@ export async function loadGuestCard(
     plusOnePeople,
     plusOneGuestId: plusOneRowError ? null : (plusOneRowList[0]?.guest_id ?? null),
     initialInvited,
+    inviteChapters: inviteChapterRead,
     seatedAt,
     customGroups,
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),

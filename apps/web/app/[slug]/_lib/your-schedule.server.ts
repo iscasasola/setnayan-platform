@@ -9,13 +9,14 @@ import { websiteProActiveFor } from './hub-look';
  * 📅 YOUR SCHEDULE — THE READ (Event Hub › Me; plan §3, §3b, §11b). The pure half, and every rule about whose lines a
  * guest sees, is `guest-your-schedule.ts`; this only asks the database and hands the answers in.
  *
- * Four small reads, together, on the SERVICE-ROLE client the guest page already uses (a guest holds no session the
+ * Five small reads, together, on the SERVICE-ROLE client the guest page already uses (a guest holds no session the
  * database knows), so the filters below and the pure function ARE the fence:
  *   · the event's blocks, minus a coordinator's staged prep — chapters and moments. The same question for every guest
  *     of the event at one rev, so the guest page's shared-read cache answers it once (`lib/event-shared-reads.ts`);
  *   · whether the schedule is released (`events.schedule_released_at`, 20271302139506);
  *   · the tasks that may be this guest's — their seat, and every role or group task (`isMine` keeps only theirs);
- *   · the groups this guest is in.
+ *   · the groups this guest is in;
+ *   · the chapters the hosts took this guest off (`guest_chapter_not_invited`, owner 2026-11-02 "Invited to").
  * 💎 Release is Pro (§3b): `released` is true only when the event holds Pro, so a Free event stays at the
  * before-Release view for good whatever the column says. A Pro read that fails answers Free — at worst the guest sees
  * the before view, never a full schedule the event has not paid for.
@@ -30,7 +31,7 @@ export type YourScheduleRead = { kind: 'ok'; schedule: YourSchedule } | { kind: 
 
 /** The block columns the card reads: a chapter's (`CHAPTER_FIELDS`) and a moment's fence and place. */
 export const YOUR_SCHEDULE_BLOCK_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id, time_shape, time_or_minutes';
 
 type BlockRow = {
   block_id: string;
@@ -46,6 +47,9 @@ type BlockRow = {
   time_tba: boolean | null;
   travel_from: string | null;
   travel_to: string | null;
+  follows_block_id?: string | null;
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
 } & Record<string, unknown>;
 
 export async function readYourSchedule(
@@ -53,7 +57,7 @@ export async function readYourSchedule(
   input: { eventId: string; guestId: string; roles: readonly string[]; guestsArriveBy: string | null },
 ): Promise<YourScheduleRead> {
   const { eventId, guestId } = input;
-  const [blocksRes, eventRes, tasksRes, groupsRes, pro] = await Promise.all([
+  const [blocksRes, eventRes, tasksRes, groupsRes, notInvitedRes, pro] = await Promise.all([
     admin
       .from('event_schedule_blocks')
       .select(YOUR_SCHEDULE_BLOCK_FIELDS)
@@ -66,9 +70,16 @@ export async function readYourSchedule(
       .eq('event_id', eventId)
       .or(`guest_id.eq.${guestId},role.not.is.null,group_id.not.is.null`),
     admin.from('guest_group_memberships').select('group_id').eq('guest_id', guestId),
+    // ✉ The chapters the hosts took THIS guest off (owner 2026-11-02, "Invited to") — never drawn as theirs.
+    admin.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
     websiteProActiveFor(eventId).catch(() => false),
   ]);
-  const failed = blocksRes.error ?? eventRes.error ?? tasksRes.error ?? groupsRes.error;
+  /* 📇 Task contacts (4 additions (3), migration 20271303218631). The service role reads them, so the fence is HERE:
+     `yourSchedule` shows a contact only on a moment this guest has a task on (they are its crew). A refused read
+     shows none — a phone number is never worth failing the whole card for. */
+  const contactsRes = await admin.from('event_schedule_task_contacts').select('block_id, name, phone').eq('event_id', eventId);
+  if (contactsRes.error) logQueryError('readYourSchedule.contacts', contactsRes.error, { event_id: eventId }, 'graceful_degrade');
+  const failed = blocksRes.error ?? eventRes.error ?? tasksRes.error ?? groupsRes.error ?? notInvitedRes.error;
   if (failed) {
     logQueryError('readYourSchedule', failed, { event_id: eventId }, 'graceful_degrade');
     return { kind: 'unread' };
@@ -92,6 +103,13 @@ export async function readYourSchedule(
             staged: r.visibility === 'coordinator_only',
             travel_from: r.travel_from,
             travel_to: r.travel_to,
+            // ⏭ "Right after the one above" (migration 20271302727358): its start is only an order key.
+            time_tba: r.time_tba === true,
+            follows_block_id: r.follows_block_id ?? null,
+            sort_order: typeof r.sort_order === 'number' ? r.sort_order : 0,
+            // 🕑 "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692).
+            time_shape: r.time_shape ?? 'at',
+            time_or_minutes: r.time_or_minutes ?? null,
           },
         ]
       : [],
@@ -107,10 +125,12 @@ export async function readYourSchedule(
         guestId,
         roles: input.roles,
         groupIds: ((groupsRes.data ?? []) as Array<{ group_id: string }>).map((g) => g.group_id),
+        notInvited: ((notInvitedRes.data ?? []) as Array<{ block_id: string }>).map((r) => r.block_id),
       },
       released: pro && releasedAt !== null,
       pro,
       guestsArriveBy: input.guestsArriveBy,
+      contacts: contactsRes.error ? [] : ((contactsRes.data ?? []) as { block_id: string; name: string; phone: string }[]),
     }),
   };
 }

@@ -53,7 +53,8 @@ export async function answerOneChapter(eventId: string, guestId: string, formDat
   const closed = guestListIsClosed({ lockedAt: (ev as { guest_count_locked_at?: string | null }).guest_count_locked_at });
   if (closed || (await replyWindowOfRow(ev as Parameters<typeof replyWindowOfRow>[0])).state !== 'open') back('window');
 
-  const chapters = await readInvitationChapters(admin, eventId);
+  // ✉ THIS guest's invitation (owner 2026-11-02): a chapter the hosts took them off cannot be answered here either.
+  const chapters = await readInvitationChapters(admin, eventId, guestId);
   if (!chapters) back('error');
   if (!chapters!.some((c) => c.block_id === blockId)) back('error');
   const attending = String(formData.get(CHAPTER_ANSWER_FIELD) ?? '') === 'yes';

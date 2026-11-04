@@ -30,6 +30,7 @@ import {
   type MomentLike,
   type TaskRow,
 } from './schedule-chapters';
+import { RIGHT_AFTER } from './moment-order';
 import { SCHEDULE_AUDIENCE_LABEL, isOnTheGuestsSchedule, readScheduleAudience, type ScheduleAudience } from './schedule-audience';
 
 /* ── what the views read ──────────────────────────────────────────────────────────────────────────────────────── */
@@ -51,6 +52,8 @@ export type ViewMoment = {
   spot: string | null;
   travel_from: string | null;
   travel_to: string | null;
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba?: boolean;
 };
 
 export type ViewSupplier = { vendor_id: string; name: string; booked: boolean };
@@ -239,7 +242,7 @@ export type ViewDay = {
   tasksUnread: boolean;
 };
 
-type Line = { id: string; startIso: string; title: string; sub: string; place?: string; chapter: Chapter; clash?: boolean };
+type Line = { id: string; startIso: string; title: string; sub: string; place?: string; chapter: Chapter; clash?: boolean; rightAfter?: boolean };
 
 const byStart = (a: { startIso: string }, b: { startIso: string }) => (a.startIso < b.startIso ? -1 : a.startIso > b.startIso ? 1 : 0);
 
@@ -252,7 +255,7 @@ function toDay(lines: Line[], call: ViewDay['call'], tasksUnread: boolean): View
   const by = new Map<string, Line[]>();
   for (const l of lines) by.set(l.chapter.block_id, [...(by.get(l.chapter.block_id) ?? []), l]);
   const chapters = [...by.values()]
-    .map((ls) => ({ chapter: ls[0]!.chapter, rows: ls.sort(byStart).map((l) => ({ id: l.id, time: l.chapter.time_tba ? TIME_TBA : clockWords(l.startIso), title: l.title, sub: l.sub, ...(l.clash ? { clash: true } : {}) })) }))
+    .map((ls) => ({ chapter: ls[0]!.chapter, rows: ls.sort(byStart).map((l) => ({ id: l.id, time: l.chapter.time_tba ? TIME_TBA : l.rightAfter ? RIGHT_AFTER : clockWords(l.startIso), title: l.title, sub: l.sub, ...(l.clash ? { clash: true } : {}) })) }))
     .sort((a, b) => (a.chapter.start_at < b.chapter.start_at ? -1 : a.chapter.start_at > b.chapter.start_at ? 1 : 0));
   return { chapters, call, tasksUnread };
 }
@@ -286,11 +289,11 @@ export function guestSeesMoment(m: Pick<ViewMoment, 'is_public' | 'audience' | '
  * is still listed (they reply to it), with its time and place. No task, ever.
  */
 export function guestDay(chapters: readonly Chapter[], data: ViewAsData): ViewDay {
-  const invited = chapters.filter(guestInvitedTo);
+  const invited = chapters.filter((c) => guestInvitedTo(c));
   const lines: Line[] = [];
   for (const { m, c } of withChapter(invited, data.moments).values()) {
     if (!guestSeesMoment(m)) continue;
-    lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: m.location ?? '', chapter: c });
+    lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: m.location ?? '', chapter: c, rightAfter: m.time_tba === true });
   }
   const day = toDay(lines, null, false);
   for (const c of invited) if (!day.chapters.some((x) => x.chapter.block_id === c.block_id)) day.chapters.push({ chapter: c, rows: [] });
@@ -306,7 +309,7 @@ export function roleDay(chapters: readonly Chapter[], data: ViewAsData, key: str
     const aud = readScheduleAudience(key.slice(4)) as ScheduleAudience;
     for (const { m, c } of at.values()) {
       if (aud === 'everyone' || readScheduleAudience(m.audience) !== aud) continue;
-      lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: placeOf(m, c), chapter: c });
+      lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: placeOf(m, c), chapter: c, rightAfter: m.time_tba === true });
     }
     return toDay(lines, null, false);
   }
@@ -340,7 +343,7 @@ export function supplierDay(chapters: readonly Chapter[], data: ViewAsData, vend
     for (const { m, c } of at.values()) {
       if (!m.responsible_vendor_ids.includes(vendorId) || withTask.has(m.block_id)) continue;
       const place = placeOf(m, c);
-      lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: place, place, chapter: c });
+      lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: place, place, chapter: c, rightAfter: m.time_tba === true });
     }
   }
   const timed = lines.filter((l) => !l.chapter.time_tba).sort(byStart)[0];
@@ -355,7 +358,7 @@ function placeOf(m: ViewMoment, c: Chapter): string {
 function taskLine(t: TaskRow, m: ViewMoment, c: Chapter, sayCrew = false): Line {
   const place = taskPlace(t, momentLike(m), c) ?? chapterWhere(c);
   const crew = sayCrew && t.crew?.trim() ? `${t.crew.trim()} · ` : '';
-  return { id: t.task_id, startIso: t.call_at ?? m.start_at, title: t.what, sub: `${crew}${m.label} · ${place}`, place, chapter: c };
+  return { id: t.task_id, startIso: t.call_at ?? m.start_at, title: t.what, sub: `${crew}${m.label} · ${place}`, place, chapter: c, rightAfter: !t.call_at && m.time_tba === true };
 }
 
 function clashIds(data: ViewAsData, at: Map<string, { m: ViewMoment; c: Chapter }>): Set<string> {

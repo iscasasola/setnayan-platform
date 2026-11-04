@@ -53,6 +53,9 @@ import {
   type TaskRow,
 } from '@/lib/schedule-chapters';
 import type { ViewAsInput } from '@/lib/schedule-view-as';
+import { inRunOrder, momentAbove, momentClockWords } from '@/lib/moment-order';
+import type { TimeShape } from '@/lib/time-shape';
+import type { TaskContact } from '@/lib/task-contact';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
@@ -84,6 +87,14 @@ export type ChapterMoment = {
   who: string;
   /** 👷 The suppliers it is for (`responsible_vendor_ids`) — "yours" on their day; Suppliers and crew ▾ ticks them. */
   vendor_ids: string[];
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba: boolean;
+  /** ⏭ The moment it comes right after; null when timed (or first in its chapter). */
+  follows_block_id: string | null;
+  /** 🕑 "About 3:15 PM" · "2:15/2:30 PM" — how its clock is meant (migration 20271303051692). */
+  time_shape: TimeShape;
+  /** 🕑 On 'or': the second time, minutes after its start. */
+  time_or_minutes: number | null;
 };
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
@@ -100,6 +111,8 @@ export type ChaptersInput =
       moments: ChapterMoment[];
       /** Every moment's parallel tasks; null = the read failed (the moment sheet says so, never "no tasks"). */
       tasks: TaskRow[] | null;
+      /** 📇 Each task's contact by task id (4 additions (3)); null = the read failed (said, never "no contact"). */
+      contacts: Record<string, TaskContact> | null;
       /** Who a task can name. */
       who: Omit<TaskWhoList, 'crews'>;
       /** 🚶 The couple's own marches (Guests › March) for "This is a march"; `ok: false` = unread (said). */
@@ -167,6 +180,7 @@ export function ChaptersHost({
   const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
   const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
   const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
+  const [contacts, setContacts] = useState<Record<string, TaskContact> | null>(input.measured ? input.contacts : null);
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [asks, setAsks] = useState<HostAsk[] | null | undefined>(input.measured ? input.asks : undefined);
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
@@ -182,6 +196,7 @@ export function ChaptersHost({
     setChapters(input.chapters);
     setMoments(input.moments);
     setTasks(input.tasks);
+    setContacts(input.contacts);
     setMarches(input.marches);
     setAsks(input.asks);
   }, [input]);
@@ -299,10 +314,13 @@ export function ChaptersHost({
           chapter={current}
           section={momentSheet.section}
           onClose={() => setMomentSheet(null)}
-          onCreate={async (label, startIso, minutes) => {
+          onCreate={async (label, startIso, minutes, rightAfter, shape) => {
             const blockId = crypto.randomUUID();
+            // ⏭ Right after: no clock of its own — after the chapter's last moment, its start only an order key.
+            const above = rightAfter ? momentAbove(moments.filter((x) => x.parent_block_id === current.block_id), null) : null;
+            const keyIso = rightAfter ? (above?.start_at ?? current.start_at) : startIso;
             const endIso = shiftWall(startIso, minutes);
-            const ok = await momentDoors.create(blockId, current.block_id, label, startIso, endIso);
+            const ok = await momentDoors.create(blockId, current.block_id, label, keyIso, endIso, rightAfter ? { follows: above?.block_id ?? null } : undefined, rightAfter ? undefined : shape);
             if (!ok) return false;
             setMoments((ms) => [
               ...ms,
@@ -310,8 +328,12 @@ export function ChaptersHost({
                 block_id: blockId,
                 parent_block_id: current.block_id,
                 label,
-                start_at: startIso,
-                end_at: endIso,
+                start_at: keyIso,
+                end_at: rightAfter ? null : endIso,
+                time_tba: rightAfter,
+                follows_block_id: above?.block_id ?? null,
+                time_shape: rightAfter ? 'at' : shape.shape,
+                time_or_minutes: rightAfter ? null : shape.orMinutes,
                 location: null,
                 spot: null,
                 notes: null,
@@ -338,6 +360,15 @@ export function ChaptersHost({
           chapters={chapters}
           moments={moments}
           tasks={tasks}
+          contacts={contacts}
+          onContact={(taskId, c) =>
+            setContacts((all) => {
+              const next = { ...(all ?? {}) };
+              if (c) next[taskId] = c;
+              else delete next[taskId];
+              return next;
+            })
+          }
           who={who}
           mayShowGuests={input.mayInvite}
           marches={marches}
@@ -450,7 +481,8 @@ function ChapterPage({
   const ingress = ingressAt(c);
   const egress = egressAt(c);
   const bySection = (k: ChapterSection) =>
-    moments.filter((m) => momentSection(m.start_at, c) === k).sort((a, b) => (a.start_at < b.start_at ? -1 : 1));
+    // ⏭ In the run's order — a moment "right after the one above" sits directly under it (lib/moment-order.ts).
+    inRunOrder(moments.filter((m) => momentSection(m.start_at, c) === k));
   // Ingress and Egress are optional (owner: *"not placing a time means no ingress"*): a section shows when it has a time,
   // or when a line already sits in it — then it says "no time set", so nothing is hidden.
   const sections: { key: ChapterSection; sub: string; rows: ChapterMoment[] }[] = [];
@@ -564,7 +596,9 @@ function ChapterPage({
                       const clash = clashed.has(m.block_id);
                       const inner = (
                         <>
-                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{clockWords(m.start_at)}</span>
+                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
+                            {momentClockWords(m, c, clockWords)}
+                          </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[15px] text-ink">{m.label}</span>
                             {sub ? <span className="block truncate text-[13px] text-ink/60">{sub}</span> : null}

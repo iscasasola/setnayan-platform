@@ -1667,6 +1667,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // 🧍 A role holder's proxy (owner 2026-10-27): ON the holder, naming the guest who stands in — the pair counts once.
       { kind: 'fk', table: 'guests', column: 'represented_by_guest_id', references: 'guests' },
       { kind: 'column', table: 'guests', column: 'proxy_named_by_guest' },
+      // 🍽 "Not counted for ▾" (owner 2026-11-02): a guest left out of ONE booked service's supplier headcount.
+      { kind: 'table', table: 'guest_not_counted_for' },
+      { kind: 'fk', table: 'guest_not_counted_for', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'guest_not_counted_for', column: 'event_vendor_id', references: 'event_vendors' },
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
@@ -1674,7 +1678,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table needed',
     implementedBy:
-      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). households groups guests with ON DELETE SET NULL.',
+      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). “Not counted for” (2026-11-02): guest_not_counted_for (guest × booked event_vendors row) leaves a guest out of THAT booking’s supplier headcount only — get_vendor_event_brief / get_vendor_catering_metrics / get_vendor_seat_plan read it as owner through guests_not_counted_for_services; no supplier can read the table. households groups guests with ON DELETE SET NULL.',
     writtenBy: 'Guest-list add/import flows · CSV bulk import · plus-one add action',
     guardedBy: 'current_event_ids() — same RLS spine as chain 1',
     traps: 'Not every edge hides a table — this one is a plain FK. Don’t assume every line on this map is a joint.',
@@ -2670,22 +2674,32 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'guest_chapter_replies', column: 'block_id', references: 'event_schedule_blocks' },
       { kind: 'fk', table: 'guest_chapter_replies', column: 'guest_id', references: 'guests' },
       { kind: 'column', table: 'event_schedule_blocks', column: 'on_invitation' },
+      // ✉ A guest taken OFF one invitation chapter (20271302948959, owner 2026-11-02 "Invited to") — the exception; no row =
+      // invited. A row drops that guest's answer to it and the database refuses a later one.
+      { kind: 'table', table: 'guest_chapter_not_invited' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'guest_id', references: 'guests' },
       // 🤝 The supplier's part (20271300619930): + My moment names its chapter; Seen / Confirm my times are one row per
       // supplier org per event; Auto-agree is the event's own setting.
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'proposed_parent_block_id', references: 'event_schedule_blocks' },
       { kind: 'table', table: 'event_supplier_schedule_marks' },
       { kind: 'fk', table: 'event_supplier_schedule_marks', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'events', column: 'supplier_requests_auto_agree' },
+      // 📇 A task's contact (20271303218631) — a name and phone for someone who is not a supplier (the bridal-car
+      // driver). Its own table, read only by the host, the coordinator and that moment's crew.
+      { kind: 'table', table: 'event_schedule_task_contacts' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'task_id', references: 'event_schedule_tasks' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'block_id', references: 'event_schedule_blocks' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
     title: 'Block → suggestions · scripts · tasks',
     joint: 'event_schedule_blocks',
     cardinality: 'A tree of blocks (top-level = a chapter, child = a moment); vendors attach suggestions and scripts to a block; a moment holds parallel tasks',
-    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times / CHANGE LOCK (locked_at) in event_supplier_schedule_marks \u2014 while locked, the *_part_lock triggers refuse a host change to that supplier\u2019s moments and crew lines; guest_chapter_replies answers a chapter on the invitation',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times / CHANGE LOCK (locked_at) in event_supplier_schedule_marks \u2014 while locked, the *_part_lock triggers refuse a host change to that supplier\u2019s moments and crew lines; guest_chapter_replies answers a chapter on the invitation; guest_chapter_not_invited takes one guest off one (default: every guest on every chapter)',
     writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER) · a supplier\u2019s request, applied by the host\u2019s one accept path (lib/schedule-suggestion-decide.server.ts) or at once under events.supplier_requests_auto_agree · supplier_mark_schedule (seen \u00b7 confirm \u00b7 lock \u00b7 unlock) / withdraw_schedule_request (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
-    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too (and each task\u2019s event_schedule_task_contacts row with it). event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
   {
     /**

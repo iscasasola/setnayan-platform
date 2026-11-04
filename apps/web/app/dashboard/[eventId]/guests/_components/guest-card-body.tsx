@@ -76,6 +76,7 @@ import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
 import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -106,7 +107,8 @@ import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
  *       dietary, and the guest's own note — it opens by itself when there is one)
  *     5 Papic (their camera + the three face switches, ALWAYS; while the event's is off the camera alone becomes ONE line
  *       "Papic is off · Turn on ›")
- *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 9 Passed Away  · 10 Delete.
+ *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 8b Not counted for ▾ (2026-11-02)
+ *     · 9 Passed Away  · 10 Delete.
  *   One open at a time (a native exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
  *   choice = one dropdown, several = a dropdown with checkmarks. TAGS ARE GONE: their words were the eyebrow and the
  *   summaries again. Delete left the ⋯ for its own group.
@@ -152,6 +154,9 @@ export { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guest
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
+  // ✉ "Invited to ▾" (owner 2026-11-02) — a guest is on at least one part of the day.
+  invited_to_none: 'Keep at least one part of the day ticked — to take them off the list, use Delete.',
+  invited_to_failed: 'Which parts they are invited to could not be saved just now — the rest was saved. Please try again.',
   missing_side: 'Choose which side this guest is on.',
   missing_group: 'Choose a group category for this guest.',
   invalid_role: 'Invalid role selection.',
@@ -290,6 +295,7 @@ export function GuestCardBody({
     plusOneLines,
     plusOnePeople,
     initialInvited,
+    inviteChapters,
     seatedAt,
     customGroups,
     recordedAt,
@@ -305,6 +311,7 @@ export function GuestCardBody({
     groupChoices,
     outfit,
     proxy = null,
+    notCounted = null,
   } = data;
   /* 🧍‍♀️➡️🧍 THE PROXY, BOTH WAYS (owner 2026-10-27). `representedBy` — this ROLE HOLDER sends someone in their place;
      `standingInFor` — THIS guest is that someone, and wears the role they stand in for (read-only here). */
@@ -391,6 +398,8 @@ export function GuestCardBody({
         CARD_RSVP_WORDS[guest.rsvp_status],
         // 🖐 A reply the host set says so — "Attending · Marked by you" (owner 2026-10-21).
         replyMarkedByHost(guest) ? 'Marked by you' : null,
+        // ✉ A partial invite says so in the row's own words ("After party only", owner 2026-11-02).
+        inviteChapters?.tag ?? null,
         guest.meal_preference && guest.meal_preference !== 'no_preference' ? MEAL_LABELS[guest.meal_preference] : null,
         guest.guest_note?.trim() ? 'a note from them' : null,
       ]
@@ -889,9 +898,40 @@ export function GuestCardBody({
               </p>
             ) : null}
 
-            {/* Smart defaults by role · locked 2026-05-23 PM — changing the
-                Role snaps these to that role's usual set. */}
-            <K.InvitedTo roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} />
+            {inviteChapters === undefined || (inviteChapters && inviteChapters.chapters.length === 0) ? (
+              /* Smart defaults by role · locked 2026-05-23 PM — changing the
+                 Role snaps these to that role's usual set. An event with no chapter on its invitation (and the Maker's
+                 cards, which read none) keeps the five fixed chips. */
+              <K.InvitedTo roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} />
+            ) : (
+              <>
+                {/* ✉ INVITED TO ▾ — THE EVENT'S CHAPTERS (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO" CHAPTERS").
+                    Ticked = on their invitation; default all, so a guest nobody touched keeps all. The five fixed chips are
+                    not chapters: carried unchanged, so a save never clears them. */}
+                {initialInvited.map((b) => (
+                  <input key={b} type="hidden" name={`invited_${b}`} value="on" />
+                ))}
+                {inviteChapters ? (
+                  <>
+                    <input type="hidden" name="invited_chapters_posted" value="1" />
+                    <K.Pick
+                      name="invited_chapters"
+                      label="Invited to"
+                      multi
+                      value={inviteChapters.chapters
+                        .filter((c) => !inviteChapters.notInvited.includes(c.block_id))
+                        .map((c) => c.block_id)
+                        .join(',')}
+                      options={inviteChapters.chapters.map((c) => ({ key: c.block_id, label: c.label }))}
+                      emptyText="Pick a part"
+                      about="The parts of the day on their invitation. They reply to, see and are counted for only the parts ticked — untick one they are not coming to (e.g. after party only)."
+                    />
+                  </>
+                ) : (
+                  <K.Fact field="invited_chapters" label="Invited to" value="Couldn’t read" where="Refresh to change which parts they are invited to." />
+                )}
+              </>
+            )}
 
             {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. */}
             <K.Cols className="grid grid-cols-2 gap-2.5">
@@ -1094,6 +1134,27 @@ export function GuestCardBody({
             <GuestSeatDoors name={name} canGive={guest.rsvp_status === 'pending'} releaseAction={releaseAction} />
           )}
         </K.Fold>
+
+        {/* ══ 8b · NOT COUNTED FOR ▾ — a guest who COMES but is left out of one booked service's headcount (owner 2026-11-02:
+            "a dropdown above passed away … it will list all booked services to pick if they are not counted"). Directly ABOVE
+            Passed Away and, like it, outside the autosave form, posting with it by `form=`. Ticks keep the list open; Done
+            closes it (the shared PickMenu). Never for the couple, nor a guest already not counted at all (passed away);
+            not drawn while nothing is booked, nor when the read was refused — no marker then, so nothing is changed. ═══ */}
+        {isCouple || guest.passed_away || !notCounted || notCounted.services.length === 0 ? null : (
+          <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
+            <input type="hidden" name={NOT_COUNTED_POSTED} value="1" form={formId} />
+            <K.Pick
+              name={NOT_COUNTED_FIELD}
+              label="Not counted for"
+              multi
+              form={formId}
+              value={notCounted.picked.join(',')}
+              options={notCounted.services.map((s) => ({ key: s.id, label: s.label, hint: s.shop ?? undefined }))}
+              emptyText={COUNTED_FOR_ALL}
+              about={NOT_COUNTED_ABOUT}
+            />
+          </div>
+        )}
 
         {/* ══ 9 · PASSED AWAY — listed, never counted (owner 2026-09-25; out of Details, 2026-10-23). Never offered for the
             couple — `updateGuest` refuses it for them too. It posts with the autosave form (`form={formId}`). ═════════ */}

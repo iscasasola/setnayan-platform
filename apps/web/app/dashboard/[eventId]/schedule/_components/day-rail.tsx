@@ -881,7 +881,7 @@ export function ScheduleDay({
         </p>
       ) : null}
 
-      {viewingAs && viewAs && ch ? <ViewAsBody input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} /> : null}
+      {viewingAs && viewAs && ch ? <ViewAsBody eventId={eventId} input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} /> : null}
 
       <div className={viewingAs ? 'hidden' : 'lg:flex lg:items-start lg:gap-6'}>
         <div className="min-w-0 flex-1 space-y-8">

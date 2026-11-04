@@ -195,8 +195,8 @@ export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | r
   bearers_flower_girl: ['ring_bearer', 'flower_girl'],
   guest: ['guest_m', 'guest_w'],
   /* 🎂 THE CELEBRANT (2026-11-04): FOR WOMEN · FOR MEN, women first — the one pick stored before this was drawn as a
-     woman, so it stays the FIRST pick, where it always was. Which column is drawn follows the celebrants on the guest
-     list (`studioAttireRows`' `celebrantColumns`). */
+     woman, so it stays the FIRST pick, where it always was. Both columns are always drawn (which one a celebrant needs is
+     an owner question — PR #7280). */
   celebrant: ['celebrant_w', 'celebrant_m'],
 };
 

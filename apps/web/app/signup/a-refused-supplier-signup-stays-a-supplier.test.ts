@@ -48,7 +48,7 @@ test('every /signup retry in signUp goes through signupRetryPath', () => {
   assert.ok(sites.length >= 8, `expected >= 8 signupRetryPath redirects, found ${sites.length}`);
   for (const m of src.matchAll(/signupRetryPath\(([^)]*)\)/g)) {
     if (m[0].startsWith('signupRetryPath(error: string')) continue;
-    assert.match(m[1], /,\s*accountType\s*$/, `signupRetryPath call without accountType: ${m[0]}`);
+    assert.match(m[1] ?? '', /,\s*accountType\s*$/, `signupRetryPath call without accountType: ${m[0]}`);
   }
 });
 

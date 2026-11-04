@@ -42,14 +42,10 @@ import {
   type Framing,
   type SnapState,
 } from '@/lib/photo-frame';
-import { layoutMarkInFrame, type Box, type MarkLayout, type MarkSpec } from '@/lib/photo-mark-geometry';
-// The painter is STATIC: this whole step is loaded on first use (FileUpload's next/dynamic), so it rides in this
-// chunk. A separate lazy chunk would add an entry to the webpack runtime every page loads.
-import * as markPainter from '@/lib/photo-mark-canvas';
-
-// FileUpload's framing math, served from THIS chunk: FileUpload only needs it once a frame is in play, when this
-// step is loaded anyway — a separate lazy chunk for it would add an entry to every page's webpack runtime.
-export { FRAME_ASPECT, frameRect, framedFileName, framingFromRef } from '@/lib/photo-frame';
+import type { Box, MarkLayout, MarkSpec } from '@/lib/photo-mark-geometry';
+// The painter and the layout come from lib/watermark.ts, the module that burns the mark in — the SAME code, and
+// already its own chunk; importing them directly would split them into one more lazy chunk (upload-mark.ts).
+import { layoutMarkInFrame, markPainter } from '@/lib/watermark';
 
 export type FramePreviews = 'service-card' | 'service-video' | 'portfolio' | 'inspiration' | 'shop-logo';
 

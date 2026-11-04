@@ -24,7 +24,7 @@ import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 
 /** The Frame step: loaded at the first framed pick, never with the page. */
-const FrameStep = dynamic(() => import('./frame-step').then((m) => m.FrameStep), { ssr: false });
+const FrameStep = dynamic(() => import('./upload-mark').then((m) => m.FrameStep), { ssr: false });
 
 /**
  * 🔒 FAIL-CLOSED (controller audit 2026-11-04; the approved mark page's last
@@ -969,7 +969,7 @@ export function FileUpload({
     if (wantsMark && mark) {
       const kind = mark;
       // Loaded at the first marked upload, never with the page (same as hub-draft-actions in details-march.tsx).
-      const answer = await import('./photo-mark-actions').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
+      const answer = await import('./upload-mark').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
       if (!answer || !answer.ok) return refuseUnmarked(answer && !answer.ok ? answer.error : 'no answer', answer && !answer.ok ? answer.error : MARK_REFUSED_SAYS);
       markInput = { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
     }
@@ -981,7 +981,7 @@ export function FileUpload({
       framed = await askFraming(rawFile, isVideo(initialContentType), again?.initial ?? null, Boolean(again), markInput);
       if (!framed) return;
       if (markInput && isImage(initialContentType)) {
-        const { frameRect, FRAME_ASPECT } = await import('./frame-step');
+        const { frameRect, FRAME_ASPECT } = await import('./upload-mark');
         markInput = {
           ...markInput,
           framed: { frame: frameRect(framed.size.width, framed.size.height, FRAME_ASPECT[frame], framed.framing), shape: frame },
@@ -1041,7 +1041,7 @@ export function FileUpload({
           import('@/lib/watermark'),
         ]);
         setOptimizing({ label: 'Preparing your clip · adding the Setnayan mark', pct: 0 });
-        const frameMath = framed && frame ? await import('./frame-step') : null;
+        const frameMath = framed && frame ? await import('./upload-mark') : null;
         const cropTo = framed && frame && frameMath ? { f: framed.framing, a: frameMath.FRAME_ASPECT[frame], rect: frameMath.frameRect } : null;
         file = await markAndCompressVideo(rawFile, {
           markPng: (w, h) => markOverlayPng(w, h, input),
@@ -1088,7 +1088,7 @@ export function FileUpload({
     // The framing rides in the stored object's NAME (`lib/photo-frame.ts`): every
     // display reads the ref already, so none needs a second read to derive its crop.
     if (framed && isImage(contentType)) {
-      const { framedFileName } = await import('./frame-step');
+      const { framedFileName } = await import('./upload-mark');
       file = new File([file], framedFileName(file.name, { ...framed.framing, ...framed.size }), { type: file.type });
     }
 
@@ -1199,7 +1199,7 @@ export function FileUpload({
         }
         // Pair the marked copy with its clean copy BEFORE it joins the value:
         // a public photo the shop could never re-mark is refused like an unmarked one.
-        void import('./photo-mark-actions')
+        void import('./upload-mark')
           .then((a) => a.photoMark('pair', { publicRef: out.r2Ref, originalRef }))
           .catch(() => ({ ok: false as const, error: MARK_REFUSED_SAYS }))
           .then((paired) => {
@@ -1287,13 +1287,13 @@ export function FileUpload({
     if (!frame || !previews || reframing) return;
     setReframing(item.id);
     try {
-      const { framingFromRef } = await import('./frame-step');
+      const { framingFromRef } = await import('./upload-mark');
       const initial = framingFromRef(item.r2Ref);
       let raw = rawById.current.get(item.id) ?? null;
       if (!raw) {
         let url: string | null = null;
         if (mark === 'supplier') {
-          const got = await import('./photo-mark-actions').then((a) => a.photoMark('original', { publicRef: item.r2Ref })).catch(() => null);
+          const got = await import('./upload-mark').then((a) => a.photoMark('original', { publicRef: item.r2Ref })).catch(() => null);
           if (!got || !got.ok) {
             setError(got && !got.ok ? got.error : 'The original of this photo is not available. Upload it again to re-frame it.');
             return;

@@ -102,6 +102,8 @@ function ChapterRow({ r, onOpen, onMove = null }: { r: ListChapterRow; onOpen: (
       data-day-draggable={canDrag ? '' : undefined}
       onPointerDown={(e) => {
         if (!canDrag || e.button !== 0) return;
+        // A drag never selects the page's words.
+        e.preventDefault();
         grab.current = { y: e.clientY, moved: false };
         e.currentTarget.setPointerCapture?.(e.pointerId);
       }}
@@ -132,7 +134,7 @@ function ChapterRow({ r, onOpen, onMove = null }: { r: ListChapterRow; onOpen: (
         onOpen(r.id);
       }}
       aria-label={`${r.chapter.label}, ${r.start} ${r.end}`}
-      className={`sn-press grid w-full grid-cols-[5.25rem_1fr] gap-0 py-4 text-left ${r.now ? 'border-t-2 border-sn-accent' : ''} ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''} ${landing ? 'rounded-md ring-2 ring-sn-accent' : ''}`}
+      className={`sn-press grid w-full grid-cols-[5.25rem_1fr] gap-0 py-4 text-left ${r.now ? 'border-t-2 border-sn-accent' : ''} ${canDrag ? 'cursor-grab select-none active:cursor-grabbing' : ''} ${landing ? 'rounded-md ring-2 ring-sn-accent' : ''}`}
     >
       {/* ⏱ Start big, end small, then the length — tabular figures in the app font. */}
       <span className="pr-2 tabular-nums">

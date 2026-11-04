@@ -1386,7 +1386,8 @@ export function ScheduleDay({
         {/* THE SIDE — a wide screen only. Nothing selected: the day in
             numbers. Selected: the one inspector. On a phone the inspector is
             the panel below instead, so it is reachable at every width. */}
-        {isDesktop && !inspectorSlot && !(booked && selected) ? (
+        {/* 🖥 Where chapters are drawn, a desktop's side is the page's own people column (slice 10), not this. */}
+        {isDesktop && !inspectorSlot && !(booked && selected) && !ch ? (
           <aside className="sticky top-20 w-[380px] flex-none self-start">
             {side}
           </aside>

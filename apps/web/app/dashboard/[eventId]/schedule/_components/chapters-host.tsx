@@ -924,7 +924,7 @@ function ChapterPage({
                       const clash = clashed.has(m.block_id);
                       const inner = (
                         <>
-                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
+                          <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
                             {momentClockWords(m, c, clockWords)}
                           </span>
                           <span className="min-w-0 flex-1">

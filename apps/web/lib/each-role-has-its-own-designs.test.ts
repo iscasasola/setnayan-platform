@@ -66,6 +66,12 @@ const THE_TABLE: Readonly<Record<FigureRole, readonly string[]>> = {
   flower_girl: ['Tulle dress', 'Filipiniana dress'],
   guest_m: ['Barong Tagalog', 'Suit and tie', 'Smart casual'],
   guest_w: ['Long dress', 'Cocktail dress', 'Filipiniana'],
+  /* 🎂 The celebrant and the officiant (2026-11-04, the owner's own renders — the names are a build call, flagged in the
+     PR for his OK). The girl's party dress sits on the women's list and is DRAWN as the girl. */
+  celebrant_w: ['Ball gown', 'Filipiniana', 'Cocktail dress', 'Long gown', 'Smart casual', 'Filipiniana (lola)', 'Party dress (girl)'],
+  celebrant_m: ['Barong Tagalog', 'Suit and tie', 'Formal', 'Smart casual'],
+  celebrant_girl: ['Party dress'],
+  officiant: ['Alb and stole'],
 };
 
 test('1 · every role offers exactly its own designs — the owner’s table — and each has its drawing', () => {
@@ -77,11 +83,12 @@ test('1 · every role offers exactly its own designs — the owner’s table —
       assert.ok((ATTIRE_STYLES as readonly string[]).includes(style), `${role}: "${style}" is not in the one vocabulary`);
       const art = roleArtKey(role, style);
       assert.ok(art && ROLE_ART_KEYS.includes(art), `${role} has no drawing of ${style}`);
-      drawings += 1;
+      /* A design drawn as another person (the celebrant's girl) is that person's drawing — counted once, there. */
+      if (art === `${role}-${style}`) drawings += 1;
     }
   }
-  assert.equal(drawings, 45, 'the 45 approved drawings');
-  assert.equal(ROLE_ART_KEYS.length, 45);
+  assert.equal(drawings, 57, 'the 45 approved drawings + the celebrant’s 11 and the officiant’s 1 (2026-11-04)');
+  assert.equal(ROLE_ART_KEYS.length, 57);
   /* The Studio's rows: each column lists ITS role's designs — a men's never a gown, the bride's never a suit. */
   for (const row of ATTIRE_ROWS) {
     const roles = ROW_FIGURE_ROLES[row.key];
@@ -92,8 +99,13 @@ test('1 · every role offers exactly its own designs — the owner’s table —
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 0), ['barong_tagalog', 'suit']);
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 1), ['filipiniana', 'long_gown']);
   assert.deepEqual(pickOptions(attireRow('groups', 'bearers_flower_girl')!, 1), ['tulle_dress', 'filipiniana']);
-  /* Rows with no designs of their own keep the shipped seven. */
+  /* Rows with no designs of their own keep the shipped seven — the officiants' gaining the priest's alb at the END. */
   assert.ok(pickOptions(attireRow('groups', 'officiants')!).includes('formal'));
+  assert.equal(pickOptions(attireRow('groups', 'officiants')!).at(-1), 'priest');
+  assert.deepEqual(pickOptions(attireRow('groups', 'officiants')!).slice(0, -1), [...pickOptions(attireRow('groups', 'muslim_principals')!)], 'the officiants lost one of the shipped seven');
+  /* 🎂 The celebrant: FOR WOMEN · FOR MEN, the girl's party dress drawn as a girl. */
+  assert.deepEqual([...pickOptions(attireRow('roles', 'celebrant')!, 1)], ['barong_tagalog', 'suit', 'formal', 'smart_casual']);
+  assert.equal(roleArtKey('celebrant_w', 'party_dress'), 'celebrant_girl-party_dress');
 });
 
 /* ── 2 · old data ─────────────────────────────────────────────────────────── */
@@ -322,7 +334,7 @@ test('5 · the guests offer at most five colour options — stored, written, dra
 
 /* ── 6 · the art budget ──────────────────────────────────────────────────── */
 
-test('6 · the art budget holds — 45 drawings and their masks, in the shipped byte class', () => {
+test('6 · the art budget holds — 57 drawings and their masks, in the shipped byte class', () => {
   const dir = join(PUBLIC, 'attire', 'roles');
   const files = readdirSync(dir).filter((f) => f.endsWith('.webp'));
   let total = 0;
@@ -339,5 +351,6 @@ test('6 · the art budget holds — 45 drawings and their masks, in the shipped 
     }
   }
   assert.equal(files.length, ROLE_ART_KEYS.reduce((n, k) => n + 1 + FIGURE_ART[k].zones!.length, 0), 'a file in public/attire/roles is not a drawing or one of its masks');
-  assert.ok(total <= 640 * 1024, `the 45 drawings weigh ${total} B`);
+  /* 640 KB was the 45 drawings' class (~14 KB each, drawing + masks); the 57 keep the same class per drawing. */
+  assert.ok(total <= Math.round((640 * 1024 * ROLE_ART_KEYS.length) / 45), `the ${ROLE_ART_KEYS.length} drawings weigh ${total} B`);
 });

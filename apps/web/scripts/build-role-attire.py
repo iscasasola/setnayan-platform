@@ -1,7 +1,8 @@
 """Build the per-role attire figures (owner 2026-10-16, DECISION_LOG "APPROVED — ALL 45 ROLE × DESIGN DRAWINGS").
 
 Reads the 45 approved drawings (controller-2026-10-12/attire-figures/role-prompts/: 01-groom-v2.png + raw-02…45.png,
-each ~1792×2400 on white) and writes, for each, into apps/web/public/attire/roles/:
+each ~1792×2400 on white) — and the celebrant's and officiant's twelve (#70–#81, the owner's own renders of 2026-11-04,
+HIGGSFIELD-FRONT-PAGE-ALL-IMAGES-2026-11-04 § F) — and writes, for each, into apps/web/public/attire/roles/:
   <art>.webp          the drawing, cut from its white ground, every recolourable zone neutralised to WHITE with its
                       shading kept (a multiply tint over it is then the couple's exact colour);
   <art>-<zone>.webp   one ALPHA mask per colour zone (approved zones rule, DECISION_LOG "ATTIRE COLOUR ZONES"):
@@ -46,6 +47,13 @@ ART = {
     '58': 'guest_w-long_gown/aline', '59': 'guest_w-long_gown/wrap', '60': 'guest_w-long_gown/off_shoulder', '61': 'guest_w-long_gown/halter',
     '62': 'guest_w-cocktail_dress/sheath', '63': 'guest_w-cocktail_dress/fit_flare', '64': 'guest_w-cocktail_dress/off_shoulder_midi', '65': 'guest_w-cocktail_dress/slip',
     '66': 'guest_w-filipiniana/terno_gown', '67': 'guest_w-filipiniana/barot_saya', '68': 'guest_w-filipiniana/butterfly_midi', '69': 'guest_w-filipiniana/terno_pantsuit',
+    # 🎂 THE CELEBRANT AND THE OFFICIANT (owner 2026-11-04, rendered in his own template — GPT Image 2.5 via Higgsfield,
+    # the same 1792×2400; prompts in build-sessions/HIGGSFIELD-FRONT-PAGE-ALL-IMAGES-2026-11-04.md § F). The cleaner
+    # render of each pair was picked by eye at full size; the wrap dress is the owner's own extra render.
+    '70': 'celebrant_w-ball_gown', '71': 'celebrant_w-filipiniana', '72': 'celebrant_w-cocktail_dress',
+    '73': 'celebrant_w-shirt_dress', '74': 'celebrant_w-elder_filipiniana', '75': 'celebrant_w-long_gown',
+    '76': 'celebrant_m-barong_tagalog', '77': 'celebrant_m-suit', '78': 'celebrant_m-formal', '79': 'celebrant_m-smart_casual',
+    '80': 'celebrant_girl-party_dress', '81': 'officiant-priest',
 }
 
 # ── per drawing: where the head ends, the props, and how each zone is found ─────────────────────────────────────
@@ -170,6 +178,30 @@ ANN.update({
     '67': dict(head=160, props=[[(485, 556), (547, 532), (572, 530), (588, 575), (562, 606), (503, 616), (487, 590)]], sheer=[(240, 200, 660, 470)]),
     '68': dict(head=160, below=948, props=[[(488, 536), (570, 515), (590, 577), (568, 590), (497, 604), (486, 585)]]),
     '69': dict(head=160, props=[[(506, 590), (538, 566), (582, 548), (592, 598), (562, 624), (522, 637), (506, 615)]]),
+})
+# 🎂 The celebrant's and the officiant's drawings (2026-11-04). One new key:
+#   a_only may be a LIST of polygons (the priest's stole is two strips — only the stole takes the colour; the alb stays
+#   as drawn, white).
+ANN.update({
+    '70': dict(head=172),
+    '71': dict(head=175, props=[(305, 450, 405, 515)]),
+    '72': dict(head=170, below=845, props=[(512, 590, 590, 675)]),
+    # the shirt-dress is one garment: its smart-casual "pants" zone is empty (a woman's smart casual has no pants)
+    '73': dict(head=170, below=905),  # a shirt dress: one zone, no pants
+    '74': dict(head=200),
+    '75': dict(head=160, props=[(520, 590, 598, 685)]),
+    # a barong is sheer: inside `sheer` only strong skin is skin; the colour stays above the hem (`a_poly`, as #51)
+    '76': dict(head=165, pants=('dark', [(300, 585), (520, 585), (520, 1058), (300, 1058)]), sheer=[(250, 165, 650, 600)],
+               a_poly=[(250, 160), (650, 160), (650, 598), (250, 598)]),
+    # the tie is shaded so lightly that the ink rule finds only half of it: traced as a polygon (as #42)
+    '77': dict(head=188, tie_poly=[[(421, 203), (440, 203), (444, 225), (448, 300), (442, 360), (431, 374), (420, 360), (414, 300), (418, 225)]],
+               tie_whole=True, pocket=[(478, 258, 525, 290)], shirt='auto',
+               shirt_clip=[(395, 188), (475, 188), (470, 230), (452, 388), (442, 388), (415, 230)]),
+    # formal = the dinner jacket takes the colour; the shirt front and the cuffs stay white, the bow tie and trousers black
+    '78': dict(head=185, never=[[(405, 185), (485, 185), (482, 235), (452, 402), (446, 402), (418, 235)], (285, 555, 335, 605), (565, 555, 615, 605)]),
+    '79': dict(head=185, below=1092, pants=('poly', [(345, 485), (565, 485), (565, 1090), (345, 1090)])),
+    '80': dict(head=185, below=850),
+    '81': dict(head=198, a_only=[[(358, 198), (412, 198), (412, 945), (358, 945)], [(488, 198), (543, 198), (543, 945), (488, 945)]]),
 })
 
 ZONES_OF = {  # design → its zones, in DOT ORDER (lib/attire-figures.ts holds the labels and defaults)
@@ -322,7 +354,8 @@ def build(src, num):
                 m = close(opn(m, 2), 3) & box(shp, *bx) & fig & ~skin
             t |= m
         for pp in ann.get('tie_poly', []):
-            t |= poly(shp, pp) & garment
+            # `tie_whole`: a champagne tie's warm streaks read as skin to the garment rule — the traced outline is the tie (only strong skin is cut)
+            t |= poly(shp, pp) & (fig & ~hands & ~(mn < 70) if ann.get("tie_whole") else garment)
         for bx in ann.get('pocket', []):
             t |= close(box(shp, *bx) & garment & (mn < 240), 2) & box(shp, *bx) & garment
         zones['t'] = t & fig
@@ -371,6 +404,11 @@ def build(src, num):
             p = close(p, 5) & garment & below
         elif kind == 'none':
             p = np.zeros(shp, bool)
+        elif kind == 'dark':
+            # black trousers (2026-11-04): ink-dark, so `garment` never holds them — the trousers inside the polygon,
+            # everything not skin and not the shoes; neutralised to grey with their shading, the default dyes them charcoal
+            p = poly(shp, arg) & fig & ~skin & ~props & ~box(shp, 0, 1060, shp[1], shp[0])
+            p = close(opn(p, 1), 2) & poly(shp, arg) & fig
         elif kind == 'khaki':
             p = poly(shp, arg) & fig & (mn >= 110) & ((r - b) >= 12) & ~props
             p = close(p, 2) & poly(shp, arg) & fig & ~dark
@@ -384,7 +422,8 @@ def build(src, num):
         taken |= zones[k]
     zones['a'] = garment & ~taken
     if 'a_only' in ann:
-        zones['a'] &= poly(shp, ann['a_only'])
+        ao = ann['a_only']
+        zones['a'] &= poly(shp, *ao) if isinstance(ao[0], list) else poly(shp, ao)
     for k in list(zones):
         zones[k] &= fig
 

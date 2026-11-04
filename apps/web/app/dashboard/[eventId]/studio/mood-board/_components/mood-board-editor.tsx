@@ -68,6 +68,7 @@ import {
 } from '@/lib/moodboard-finalization';
 import type { FinalizationPanelPart } from './part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { BoardSection, BoardCard } from './moodboard-board';
 import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
@@ -1112,7 +1113,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes, lookRes, suggestionsRes, scheduleRead] = await Promise.all([
+  const [eventRes, draft, changesRes, lookRes, suggestionsRes, scheduleRead, roleSet] = await Promise.all([
     supabase.from('events').select('invite_theme, role_palette, region, role_names, event_date').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
@@ -1148,6 +1149,9 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
         return { ok: false as const };
       },
     ),
+    /* 🎂 The event's own role set — which principals the Attire draws (a debut's celebrant, never "The bride"). Cached
+       per request (the launch page already read it); a failed read degrades to the wedding's, the rows as shipped. */
+    resolveRoleSetForEvent(eventId),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
@@ -1199,7 +1203,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
       changes={changes}
       /* 👯 Named in the couple's own words (owner 2026-09-30) — the honour rows and the crews they renamed. */
-      attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names))}
+      attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names), { offered: roleSet.offeredRoles })}
       dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
       attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
       inspirations={inspirations}

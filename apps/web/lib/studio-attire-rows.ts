@@ -20,6 +20,13 @@
  * when a man of honor is on the guest list (or the column already holds a pick — `shownColumns`), and then the row is
  * named for him too: "Maid, Matron & Man of Honor".
  *
+ * 🎂 THE EVENT TYPE PICKS THE PRINCIPALS (2026-11-04, so dress codes work for a debut, a birthday, a christening, an
+ * anniversary): the bride's and the groom's rows are drawn only where the event's own role set offers them, and the
+ * celebrant's wherever it offers a celebrant — `opts.offered`, the ONE per-type list every guest picker already reads
+ * (`resolveRoleSetForEvent` → `RoleSet.offeredRoles`, lib/role-sets.ts). No second list of types lives here. Without
+ * `opts` (the dev lab, an old caller) the rows are exactly as before: the bride and the groom always, the celebrant
+ * when one is on the guest list. A role already on the guest list is always drawn, whatever the set says.
+ *
  * Pure, client-safe.
  */
 import { ATTIRE_ROWS, HONOUR_ROW_OF, HONOUR_ROW_ROLES, honourRowLabel, isHonourRole, isHonourRowKey, shownColumns } from './attire-rows';
@@ -83,8 +90,12 @@ export function studioAttireRows(
   tally: ReadonlyArray<{ role: GuestRole; count?: number }>,
   config: object | null,
   names?: RoleNames | null,
+  opts?: { offered?: readonly GuestRole[] | null },
 ): StudioAttireRowData[] {
   const roles = new Set<string>(tally.map((t) => t.role));
+  /* 🎂 A principal's row: on the guest list, or offered by this event's role set (no set given: the shipped rule). */
+  const offered = opts?.offered ? new Set<string>(opts.offered) : null;
+  const principal = (role: 'bride' | 'groom' | 'celebrant', shipped: boolean) => roles.has(role) || (offered ? offered.has(role) : shipped);
   /* A group is drawn for the people it dresses — an honour attendant has a row of their own. */
   const groups = new Set(tally.filter((t) => !isHonourRole(t.role)).map((t) => roleGroupOf(t.role)));
   /* 👗 How many hold it — "8 people" under the role's name (2026-10-14 blocks). */
@@ -92,9 +103,18 @@ export function studioAttireRows(
   const callOf = (tier: 'roles' | 'groups', key: string) =>
     formatCallTime((((config as Record<string, unknown> | null)?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
   const out: StudioAttireRowData[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: studioRowLabel({ tier: 'roles', key: 'celebrant' }), paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: studioRowLabel({ tier: 'roles', key: 'bride' }), paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: studioRowLabel({ tier: 'roles', key: 'groom' }), paletteKey: 'groom', arrives: callOf('roles', 'groom') });
+  if (principal('celebrant', false)) {
+    out.push({
+      tier: 'roles',
+      key: 'celebrant',
+      label: studioRowLabel({ tier: 'roles', key: 'celebrant' }),
+      paletteKey: null,
+      arrives: callOf('roles', 'celebrant'),
+      people: countOf((r) => r === 'celebrant'),
+    });
+  }
+  if (principal('bride', true)) out.push({ tier: 'roles', key: 'bride', label: studioRowLabel({ tier: 'roles', key: 'bride' }), paletteKey: 'bride', arrives: callOf('roles', 'bride') });
+  if (principal('groom', true)) out.push({ tier: 'roles', key: 'groom', label: studioRowLabel({ tier: 'roles', key: 'groom' }), paletteKey: 'groom', arrives: callOf('roles', 'groom') });
   for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
     /* 👯 The honour rows stand at the head of the entourage — just before the Bridesmaids and the Groomsmen. */
     if (group === 'bridesmaids') {

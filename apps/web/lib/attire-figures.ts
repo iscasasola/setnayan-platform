@@ -26,7 +26,7 @@ import type { FigureRole } from './attire-designs';
 export type FigureWho = 'f' | 'm' | 'girl' | 'boy';
 /** One of the 45 role drawings (owner 2026-10-16) — `<role>-<design>`, `ROLE_ART` below. */
 export type RoleArtKey = `${FigureRole}-${AttireStyle}`;
-/** What the figure wears: one of the 13 garment drawings, one of the 45 role drawings, or `unset` — the dotted
+/** What the figure wears: one of the 13 garment drawings, one of the 57 role drawings, or `unset` — the dotted
  *  silhouette ("Not said yet": no outfit is ever assumed). */
 export type FigureGarment =
   | RoleArtKey
@@ -277,6 +277,19 @@ const ROLE_WIDTH: Readonly<Record<string, number>> = {
   'guest_m-smart_casual': 83, // #43
   'guest_w-long_gown': 112, // #44
   'guest_w-filipiniana': 78, // #45
+  /* 🎂 The celebrant's and the officiant's (owner 2026-11-04, his own renders; `scripts/build-role-attire.py` #70–#81). */
+  'celebrant_w-ball_gown': 175, // #70
+  'celebrant_w-filipiniana': 70, // #71
+  'celebrant_w-cocktail_dress': 88, // #72
+  'celebrant_w-shirt_dress': 75, // #73 — her "Smart casual", one colour
+  'celebrant_w-elder_filipiniana': 76, // #74
+  'celebrant_w-long_gown': 115, // #75 — the owner's wrap dress
+  'celebrant_m-barong_tagalog': 79, // #76
+  'celebrant_m-suit': 77, // #77
+  'celebrant_m-formal': 78, // #78
+  'celebrant_m-smart_casual': 85, // #79
+  'celebrant_girl-party_dress': 132, // #80
+  'officiant-priest': 94, // #81
 };
 const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
   Object.entries(ROLE_WIDTH).map(([k, w]) => {
@@ -285,13 +298,13 @@ const ROLE_ART: Readonly<Record<string, FigureArt>> = Object.fromEntries(
     return [k, { src: `/attire/roles/${k}.webp`, mask: zones[0]!.mask, w, h: 280, zones }];
   }),
 );
-/** Every role drawing's key — 45 (a guard holds that each has its files). */
+/** Every role drawing's key — 57 (a guard holds that each has its files). */
 export const ROLE_ART_KEYS = Object.keys(ROLE_WIDTH) as RoleArtKey[];
 
-/** A role drawing — one of the 45, or a style's design in its own folder (a `/` key with a drawing). */
+/** A role drawing — one of the 57, or a style's design in its own folder (a `/` key with a drawing). */
 export const isRoleArt = (g: string): g is RoleArtKey => g in ROLE_WIDTH || (g.includes('/') && g in FIGURE_ART);
 
-/** Every drawing — the 13 garments and the 45 roles (and each drawn design of a style's five, added by
+/** Every drawing — the 13 garments and the 57 roles (and each drawn design of a style's five, added by
  *  `lib/attire-design-picks.ts` — the one door to a design key — so the Maker's first load never carries the library). */
 export const FIGURE_ART: Readonly<Record<Exclude<FigureGarment, 'unset'>, FigureArt>> = { ...GARMENT_ART, ...ROLE_ART } as Record<Exclude<FigureGarment, 'unset'>, FigureArt>;
 /** The design a role drawing is in (`groom-tuxedo` → `tuxedo`, `guest_m-suit/slim` → `suit`), or null for a garment drawing. */

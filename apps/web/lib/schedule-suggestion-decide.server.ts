@@ -33,7 +33,7 @@ export type SuggestionOutcome = 'done' | 'gone' | 'words';
 export const NOTHING_CHANGED = 'Nothing on the schedule changed — the moment is gone, or this account cannot edit it.';
 
 const SUGGESTION_COLUMNS =
-  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id, direction, suggested_by_user_id';
+  'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_parent_block_id, proposed_crew, note, status, vendor_profile_id, direction, suggested_by_user_id, proposed_ingress_minutes, proposed_egress_minutes';
 
 type SuggestionRow = {
   suggestion_id: string;
@@ -80,6 +80,22 @@ async function setCrewTasks(db: Db, blockId: string, booking: string, crew: stri
     crew.map((name, i) => ({ block_id: blockId, vendor_id: booking, crew: name, what: what.slice(0, 500) || 'Their part', sort_order: i })),
   );
   if (error) throw new Error(error.message);
+}
+
+/** Is this block a chapter whose hours a venue holds? Read as the caller, who could already read the block. */
+async function chapterIsHeld(db: Db, blockId: string): Promise<boolean> {
+  const { data, error } = await db.from('event_schedule_blocks').select('hours_vendor_id').eq('block_id', blockId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean((data as { hours_vendor_id: string | null } | null)?.hours_vendor_id);
+}
+
+/** The database's venue-hours refusals, in words (the codes `apply_venue_hours` raises). */
+export function venueHoursRefusal(message: string): string {
+  if (/schedulehours:gone/.test(message)) return 'That request was already answered.';
+  if (/schedulehours:not_the_venue/.test(message)) return 'Only the venue booked to this chapter can set its hours.';
+  if (/schedulehours:not_allowed/.test(message)) return 'This account can’t set these hours.';
+  if (/schedulehours:not_a_chapter/.test(message)) return 'Hours are set on a chapter, and this chapter is gone.';
+  return message;
 }
 
 export async function decideSuggestion(
@@ -129,7 +145,17 @@ export async function decideSuggestion(
 
   if (decision === 'accept') {
     const crew = Array.isArray(suggestion.proposed_crew) ? suggestion.proposed_crew : null;
-    if (suggestion.kind === 'adjust' && suggestion.block_id) {
+    if (suggestion.kind === 'hours' && suggestion.block_id) {
+      // 🏛 VENUE HOURS (migration 20271307658341): the one door writes the chapter's hours and holds them for the venue.
+      const { error } = await db.rpc('apply_venue_hours', { p_suggestion_id: suggestionId });
+      if (error) throw new Error(venueHoursRefusal(error.message));
+      await flip();
+    } else if (suggestion.kind === 'adjust' && suggestion.block_id && toSupplier && (await chapterIsHeld(db, suggestion.block_id))) {
+      // 🏛 "Ask <venue> to change", accepted by the venue: its held hours move through the same door.
+      const { error } = await db.rpc('apply_venue_hours', { p_suggestion_id: suggestionId });
+      if (error) throw new Error(venueHoursRefusal(error.message));
+      await flip();
+    } else if (suggestion.kind === 'adjust' && suggestion.block_id) {
       const patch = proposedPatch(suggestion);
       if (suggestion.proposed_start_at) {
         // ⏭ A real time ends "Time TBA" / "Right after the one above" (migration 20271302727358) — the row has a clock now.

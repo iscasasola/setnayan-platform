@@ -232,11 +232,13 @@ export function InPlaceFields({
 type SwitchDoor =
   | { form: ShippedFormKind; hidden: Record<string, string>; field: string; onValue?: string; offValue?: string }
   | { op: 'hidePart'; slotKey: string }
-  | { op: 'onePerEvent'; categoryId: string };
+  | { op: 'onePerEvent'; categoryId: string }
+  | { op: 'defaultChapter'; categoryId: string; key: string };
 
 function writeSwitch(door: SwitchDoor, on: boolean): Promise<WriteResult> {
   if ('form' in door) return postForm(door.form, { ...door.hidden, [door.field]: on ? door.onValue ?? '1' : door.offValue ?? '0' });
   if (door.op === 'hidePart') return mapWrite({ op: 'hidePart', slotKey: door.slotKey, hidden: on }) as Promise<WriteResult>;
+  if (door.op === 'defaultChapter') return mapWrite({ op: 'defaultChapter', categoryId: door.categoryId, key: door.key, on }) as Promise<WriteResult>;
   return mapWrite({ op: 'onePerEvent', categoryId: door.categoryId, on }) as Promise<WriteResult>;
 }
 

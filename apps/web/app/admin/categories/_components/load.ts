@@ -212,7 +212,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
       .limit(2000),
     admin.from('onboarding_refinements').select('tile_id'),
     // ONE PER EVENT (owner 2026-10-29) — its own read: an unreadable switch says so on the panel (null), never "off".
-    admin.from('service_categories').select('id, one_per_event').eq('tier', 2),
+    admin.from('service_categories').select('id, one_per_event, default_chapters').eq('tier', 2),
   ]);
   if (tax.source === 'fallback') failed.push('the category tree');
   noteFailure(failed, 'services', schemasRes.error);
@@ -224,6 +224,10 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
   const onePerEvent = oneRes.error
     ? null
     : new Map(((oneRes.data ?? []) as Array<{ id: string; one_per_event: boolean | null }>).map((r) => [r.id, r.one_per_event === true]));
+  // 📖 Usual chapters (2026-11-04) — the same read; unreadable → null, said on the panel, never "none".
+  const usualChapters = oneRes.error
+    ? null
+    : new Map(((oneRes.data ?? []) as Array<{ id: string; default_chapters: string[] | null }>).map((r) => [r.id, r.default_chapters ?? []]));
 
   const extra = new Map(
     ((extraRes.data ?? []) as Array<{ canonical_service: string; applicable_event_types: string[] | null; merged_into: string | null }>).map(
@@ -338,6 +342,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
         faithCount: faithCount.get(id) ?? 0,
         refinementCount: refinementCount.get(id) ?? 0,
         onePerEvent: onePerEvent ? onePerEvent.get(id) ?? false : null,
+        defaultChapters: usualChapters ? usualChapters.get(id) ?? [] : null,
         hint: tax.categoryHints?.[id] ?? null,
       };
     }),

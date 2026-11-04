@@ -93,7 +93,9 @@ const SEATS: Array<[string, string, RegExp]> = [
   ['Show — every lens and "Also kept" — in the ≡ menu', THUMB, /\.\.\.show\.map\(\(o\) => \(\{\s*\.\.\.o,\s*key: `show:\$\{o\.key\}`/],
   ['The Event choice in the ≡ menu', THUMB, /\.\.\.\(events \?\? \[\]\)\.map\(\(o\) => \(\{ \.\.\.o, key: `event:\$\{o\.key\}`/],
   ['⤓ Download all in the ≡ menu, once a hosted event is picked', THUMB, /download \? \[\{ key: 'download', label: 'Download all'/],
-  ['Per-event download (gallery-zip)', PAGE, /\/studio\/papic\/gallery-zip/],
+  // (2026-11-04: the per-event download moved from the one-zip route to Download all by chapter — owner 2026-11-03,
+  //  "zips by chapter, ~2 GB numbered parts". The seat is the same pick, its address is the parts page.)
+  ['Per-event download (Download all by chapter)', PAGE, /\/memories\/download-all/],
   ['The People lens — faces and Open People', PAGE, /<AlaalaLensBody lens="people" wall=\{wall\}/],
   ['Albums by event', PAGE, /active === 'albums' \?[\s\S]{0,300}<PhotosTab userId=\{user\.id\} \/>/],
   ['Editorials', PAGE, /<EditorialsTab userId=\{user\.id\} \/>/],

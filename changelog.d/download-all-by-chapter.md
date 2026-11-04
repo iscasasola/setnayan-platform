@@ -1,0 +1,13 @@
+## 2026-11-04 · feat(memories): Download all — zips by chapter, ~2 GB numbered parts, sizes shown first, a ✓ per zip
+
+Owner 2026-11-03 (DECISION_LOG "THE PHOTO RULE"): *"zips by chapter, ~2 GB numbered parts, count + sizes shown up front, per-zip ✓"* · *"this is agreed upon"*.
+
+- **New page `/dashboard/[eventId]/memories/download-all`** (hosts only). It shows one zip set per chapter in the chapters' order, then Unsorted (photos in no chapter). Each part shows its photo/clip count and size before anything downloads. Each part has Make zip → Save, and a ✓ on that device once it is saved.
+- **The plan is pure** (`lib/papic-download-all-core.ts`): parts of at most 2 GiB in capture order; a file bigger than a part gets its own part and is never split; a photo in two chapters is in both. Sizes are measured: the stored byte columns, or the storage object's own size. A file storage can't find is counted and named on the page, never listed as downloadable.
+- **Reads use the host's own session** (`lib/papic-download-all.server.ts`): captures with no 1,000 cap (paged), plus the chapters and photo↔chapter links from the same `readMemoriesChapters` Memories uses. A refused chapter read fails closed, and withheld photos never reach a zip.
+- **Built into storage, not streamed to the phone.** A 2 GB stream from a server function would need about 7 MB/s to finish inside 300 s, which is faster than many PH mobile links, so a cut-off stream would be a broken zip. Each part is assembled server-to-server into R2 (multipart, 16 MiB chunks, one file fetched at a time), then handed over as a 6-hour download link (`OpenFileLink`: the in-app browser sheet in the app, a plain download on the web). Built parts are deleted after 48 h by a new daily job (`download-all-zip-sweep`).
+- **The page and the build agree.** The page sends each part's fingerprint; if the photos changed in between, the build refuses with "refresh", so a ✓ always belongs to the zip that was listed.
+- **Fixed:** the old one-zip route claimed "one object buffered at a time", but `archive.append` only queues, so every file was fetched into memory before the zip drained. It now waits for each file to be taken. It also shares the "which file goes in" rule (`pickDownloadSource`) with the parts, and stays available for old links.
+- **Entry points:** the Library's Download all now opens the parts page instead of fetching one zip into memory, and Memories settings gets a "Download all" row for hosts.
+
+SPEC IMPACT: none beyond the 2026-11-03 "THE PHOTO RULE" row. It implements the "Download all" half of the ruling, which the photo-rule PR stopped at.

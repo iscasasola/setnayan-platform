@@ -871,5 +871,85 @@
     "seniority_rank": [
       ""
     ]
+  },
+  "13 chapters on the invitation: after party only, the fixed blocks carried": {
+    "dietary_restrictions": [
+      ""
+    ],
+    "display_name": [
+      ""
+    ],
+    "email": [
+      ""
+    ],
+    "extra_roles": [
+      ""
+    ],
+    "extra_roles_posted": [
+      "1"
+    ],
+    "first_name": [
+      "Ana"
+    ],
+    "group_category": [
+      "other"
+    ],
+    "host_note_for_guest": [
+      ""
+    ],
+    "invited_ceremony": [
+      "on"
+    ],
+    "invited_chapters": [
+      "ch-aft"
+    ],
+    "invited_chapters_posted": [
+      "1"
+    ],
+    "invited_reception": [
+      "on"
+    ],
+    "last_name": [
+      "Cruz"
+    ],
+    "meal_preference": [
+      "no_preference"
+    ],
+    "middle_name": [
+      ""
+    ],
+    "mobile": [
+      ""
+    ],
+    "name_suffix": [
+      ""
+    ],
+    "name_title": [
+      ""
+    ],
+    "notes": [
+      ""
+    ],
+    "plus_one_count": [
+      "0"
+    ],
+    "quiet": [
+      "1"
+    ],
+    "relation": [
+      ""
+    ],
+    "return_to": [
+      "/dashboard/e1/guests"
+    ],
+    "role": [
+      "guest"
+    ],
+    "rsvp_status": [
+      "attending"
+    ],
+    "seniority_rank": [
+      ""
+    ]
   }
 }

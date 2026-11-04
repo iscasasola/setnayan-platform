@@ -1,5 +1,6 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
-import { readGuestChapterReplies, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
+import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
+import { chaptersForGuest } from '@/lib/invitation-chapters';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { guestsArriveTime } from '@/lib/guests-arrive';
@@ -2549,8 +2550,14 @@ async function invitationBody({
 
   /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
      any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
-  const chapterReplies = invitationChapters && invitationChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
-  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, invitationChapters);
+  /* ✉ …AND ONLY THE CHAPTERS THEY ARE INVITED TO (owner 2026-11-02, "Invited to"): the hosts may take one guest off a part
+     of the day on their card ("after party only"). The reply card, the notices and Details › Schedule all draw from this
+     one narrowed list. A refused read of what they were taken off is `null` — the page then draws as it does with no
+     chapters, never the whole invitation to a guest who was taken off part of it. */
+  const notInvitedHere = invitationChapters && invitationChapters.length > 0 ? await readGuestNotInvited(admin, guest.guest_id) : new Set<string>();
+  const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
+  const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
   timer.flush();
   return wearDraft(
     <>
@@ -2564,6 +2571,7 @@ async function invitationBody({
             ? (guest.first_name ?? '').trim().split(/\s+/)[0] ?? ''
             : null
         }
+        invitationChapters={guestChapters}
         chapterReplies={chapterReplies}
         removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}

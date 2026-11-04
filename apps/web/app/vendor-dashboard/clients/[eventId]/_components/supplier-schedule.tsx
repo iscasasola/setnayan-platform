@@ -10,6 +10,7 @@ import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { chapterWhen, clockWords, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
   crewFromText,
@@ -400,6 +401,12 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
         {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
+        {/* 📇 A contact on this moment (the bridal-car driver) — only on a moment they are on (4 additions (3)). */}
+        {m.contacts.map((c) => (
+          <span key={`${c.name}|${c.phone}`} data-moment-contact="" className="block text-xs text-ink/70">
+            Contact: {contactLine(c)}
+          </span>
+        ))}
         {m.waiting ? <span className="block text-xs text-warn-900">{waitingWords(m.waiting, m.label)} · Waiting for the host</span> : null}
       </span>
     </>
@@ -539,7 +546,9 @@ function MyMomentSheet({
   const chapter = chapters.find((c) => c.block_id === chapterId) ?? chapter0;
   const [label, setLabel] = useState(moment?.label ?? '');
   // A new moment in a Time-TBA chapter starts blank — its stored 00:00 is only the day, never a 12:00 AM to prefill.
-  const [time, setTime] = useState((moment || !chapter.time_tba ? wallTime(moment?.start_at ?? chapter.start_at) : '') || '');
+  // ⏭ A moment "right after the one above" has no clock of its own — its stored start is its anchor's, never prefilled.
+  const baseTime = moment ? (moment.rightAfter ? '' : wallTime(moment.start_at)) : !chapter.time_tba ? wallTime(chapter.start_at) : '';
+  const [time, setTime] = useState(baseTime || '');
   const [minutes, setMinutes] = useState(String(moment?.minutes ?? MOMENT_MINUTES_DEFAULT));
   const [section, setSection] = useState<ChapterSection>(moment?.section ?? 'Event');
   const [crew, setCrew] = useState((moment?.crew ?? []).join(', '));
@@ -574,7 +583,9 @@ function MyMomentSheet({
     }
     const fields: Fields = { block_id: moment.block_id, chapter_of_block: chapter.block_id, note: note.trim() };
     if (label.trim() !== moment.label) fields.proposed_label = label.trim();
-    const timeChanged = time !== wallTime(moment.start_at) || minutes !== String(moment.minutes ?? MOMENT_MINUTES_DEFAULT);
+    const timeChanged = moment.rightAfter
+      ? time !== ''
+      : time !== wallTime(moment.start_at) || minutes !== String(moment.minutes ?? MOMENT_MINUTES_DEFAULT);
     if (timeChanged) Object.assign(fields, { time, minutes, section });
     const crewNow = crewFromText(crew).join(', ');
     if (crewNow && crewNow !== moment.crew.join(', ')) fields.crew = crewNow;

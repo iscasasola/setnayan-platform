@@ -73,8 +73,8 @@ export function proposedPatch(s: {
   proposed_end_at: string | null;
   proposed_location: string | null;
   proposed_label: string | null;
-}): Record<string, string> {
-  const patch: Record<string, string> = {};
+}): Record<string, string | boolean | null> {
+  const patch: Record<string, string | boolean | null> = {};
   if (s.proposed_start_at) patch.start_at = s.proposed_start_at;
   if (s.proposed_end_at) patch.end_at = s.proposed_end_at;
   if (s.proposed_location) patch.location = s.proposed_location;

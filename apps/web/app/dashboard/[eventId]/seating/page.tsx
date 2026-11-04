@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { spreadForDisplay } from '@/lib/table-order';
 import { seatPlacedBy } from '@/lib/seat-why';
@@ -150,7 +151,10 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       </section>
     );
   }
-  const guests = guestsRead.rows;
+  /* 🪑 SEATS FOLLOW THE INVITATION (owner 2026-11-02): a guest taken off every seated chapter ("after party only") is
+     not offered a seat. That read refused → everyone is offered, as before (the arranging actions stop instead). */
+  const noSeat = await readNoSeatGuestIds(supabase, eventId);
+  const guests = noSeat && noSeat.size > 0 ? guestsRead.rows.filter((g) => !noSeat.has(g.guest_id)) : guestsRead.rows;
   if (avatarCount.error) logQueryError('SeatingPage.avatars', avatarCount.error, { event_id: eventId }, 'graceful_degrade');
   const eventFacts = eventRow.data as { slug?: string | null; timezone?: string | null } | null;
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;

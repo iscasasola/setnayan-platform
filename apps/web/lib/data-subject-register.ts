@@ -110,7 +110,10 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
   guest: {
     label: 'Guests invited to an event',
     holdsAccount: false,
-    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name', 'event_gift_records.giver_name'],
+    // 📇 `event_schedule_task_contacts.name` (migration 20271303218631): a day-of contact the hosts name on a task — the
+    // bridal-car driver — not on the guest list, but the same kind of person this category covers: named for the day by
+    // the hosts, never an account holder. DPO: may deserve its own line; folded here, said in the PR.
+    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name', 'event_gift_records.giver_name', 'event_schedule_task_contacts.name'],
     personalData: [
       'name and, where the couple enters it, contact details',
       'RSVP answers, seat and table assignment, dietary notes',
@@ -118,6 +121,7 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
       'a face vector, only where the guest gave biometric consent and affirmed 18+',
       'anything they write themselves — messages on a photo, a public column',
       'what they say they sent as a gift — the amount, their words for the hosts, and a screenshot of their own bank or e-wallet screen, held in a private bucket for the hosts only',
+      'a day-of contact the hosts name on a schedule task (the bridal-car driver, who may not be on the guest list) — a name and a phone, seen only by the hosts, the coordinator and that moment\'s crew, deleted with the task or the event',
     ],
     purpose:
       'Deliver the invitation, the seating, the day-of experience, and the photos that belong to them.',

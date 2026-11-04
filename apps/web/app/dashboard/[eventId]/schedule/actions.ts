@@ -10,6 +10,9 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+// ⏭ Where a moment "right after the one above" goes (4 additions (1), migration 20271302727358).
+import { rightAfterPlace } from '@/lib/moment-follow.server';
+import { isOrMinutes, isTimeShape, type TimeShape } from '@/lib/time-shape';
 // 🔔 THE ONE NOTIFIER for a host's change to a supplier's part (audit D6): read BEFORE the write, tell AFTER it.
 import { partBefore, tellPartSuppliers } from '@/lib/supplier-part-notify.server';
 // 🔒 CHANGE LOCK (audit D7): a change to a LOCKED supplier's part is refused here, in words, before any write — and by
@@ -120,6 +123,21 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
   return t.length > 0 ? t : null;
+}
+
+/**
+ * 🕑 How a moment's clock is meant (4 additions (2), migration 20271303051692): `time_shape` 'at' · 'about' · 'or', and
+ * on 'or' the second time as `time_or_minutes` after the start (1–240). Null when nothing was posted; an unknown word
+ * or a second time out of range is refused here, and again by the column's CHECK.
+ */
+function timeShapeFrom(formData: FormData): { time_shape: TimeShape; time_or_minutes: number | null } | null {
+  const raw = formData.get('time_shape');
+  if (raw === null) return null;
+  if (!isTimeShape(raw)) throw new Error('Invalid time');
+  if (raw !== 'or') return { time_shape: raw, time_or_minutes: null };
+  const n = Number(formData.get('time_or_minutes'));
+  if (!isOrMinutes(n)) throw new Error('The second time must be after the first, and within 4 hours of it.');
+  return { time_shape: 'or', time_or_minutes: n };
 }
 
 function parseDatetimeLocal(raw: FormDataEntryValue | null): string | null {
@@ -235,11 +253,29 @@ export async function createScheduleBlock(formData: FormData) {
   // 📖 A CHAPTER WITH NO TIME YET (owner 2026-11-01, "Time TBA", migration 20271300482585): `start_at` carries its DAY
   // at 00:00 and `time_tba` says the clock is not known. Only a chapter may be TBA, it has no end, and it is never
   // shown to guests — so a reader that does not know the flag can never put a guessed midnight on the Event Hub.
+  // 🕑 "ABOUT 3:15" OR "2:15/2:30" (owner 2026-11-02, 4 additions (2); migration 20271303051692): how the clock is
+  // meant. `start_at` stays the earliest time written; the second time of an 'or' is minutes after it.
+  const shape = timeShapeFrom(formData);
+  if (shape) Object.assign(insertRow, shape);
+  // ⏭ A MOMENT "RIGHT AFTER THE ONE ABOVE" (owner 2026-11-02, 4 additions (1); migration 20271302727358): the same
+  // flag on a moment means no clock of its own. Its `start_at` becomes the start of the moment it follows — an order
+  // key, never a guessed time — and the database moves it with that moment.
   if (formData.get('time_tba') === '1') {
-    if (parentBlockId) throw new Error('Only a chapter can have its time TBA');
     insertRow.time_tba = true;
     insertRow.end_at = null;
     insertRow.is_public = false;
+    if (parentBlockId) {
+      const place = await rightAfterPlace(supabase, {
+        eventId,
+        blockId: null,
+        parentBlockId,
+        followsRaw: formData.get('follows_block_id'),
+      });
+      if (place) {
+        insertRow.start_at = place.start_at;
+        insertRow.follows_block_id = place.follows_block_id;
+      }
+    }
   }
   // ➕ Studio › Schedule's "Add a moment" (2026-10-08) names the new row itself: the Maker draws it at the tap and
   // no render follows a quiet write, so the id cannot come back in one. Taken ONLY from a quiet Maker write and
@@ -458,6 +494,9 @@ export async function updateScheduleBlock(formData: FormData) {
     travel_from?: string | null;
     travel_to?: string | null;
     time_tba?: boolean;
+    follows_block_id?: string | null;
+    time_shape?: TimeShape;
+    time_or_minutes?: number | null;
     updated_at: string;
   };
   const patch: Patch = { updated_at: new Date().toISOString() };
@@ -592,6 +631,10 @@ export async function updateScheduleBlock(formData: FormData) {
     }
   }
 
+  // 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692) — read only when posted.
+  const shapePatch = timeShapeFrom(formData);
+  if (shapePatch) Object.assign(patch, shapePatch);
+
   // 📖 TIME TBA (migration 20271300482585): a chapter whose time is not known keeps its day in `start_at` (00:00) and
   // has no end, no ingress, no egress and no guests (the database refuses the rest). Posting a real time clears it.
   const tbaRaw = formData.get('time_tba');
@@ -599,9 +642,23 @@ export async function updateScheduleBlock(formData: FormData) {
     patch.time_tba = tbaRaw === '1' || tbaRaw === 'true';
     if (patch.time_tba) {
       patch.end_at = null;
-      patch.ingress_minutes_before = null;
-      patch.egress_minutes_after = null;
       patch.is_public = false;
+      // No clock, so nothing to be "about" and no second time (the database refuses a shape on a TBA row).
+      patch.time_shape = 'at';
+      patch.time_or_minutes = null;
+      // ⏭ A MOMENT goes "right after the one above" (migration 20271302727358): it takes that moment's start as its
+      // order key; a chapter keeps its day as before and drops its ingress and egress.
+      const place = await rightAfterPlace(supabase, { eventId, blockId, parentBlockId: null, followsRaw: formData.get('follows_block_id') });
+      if (place) {
+        patch.start_at = place.start_at;
+        patch.follows_block_id = place.follows_block_id;
+      } else {
+        patch.ingress_minutes_before = null;
+        patch.egress_minutes_after = null;
+      }
+    } else {
+      // A time of its own: it follows nothing any more (the database refuses an anchor on a timed row).
+      patch.follows_block_id = null;
     }
   }
 

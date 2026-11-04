@@ -25,6 +25,7 @@
  *
  * Pure: no I/O, no React, no clock. The read is `app/[slug]/_lib/your-schedule.server.ts`; the card `app/[slug]/_components/your-schedule-card.tsx`.
  */
+import type { TaskContact } from './task-contact';
 import {
   TIME_TBA,
   chapterWhere,
@@ -37,6 +38,7 @@ import {
   type TaskRow,
 } from './schedule-chapters';
 import { isOnTheGuestsSchedule } from './schedule-audience';
+import { momentClockWords, runRank } from './moment-order';
 import { guestInvitedTo } from './schedule-view-as';
 
 /** A moment (a chapter's child block) as the card reads it. */
@@ -54,6 +56,13 @@ export type YourMoment = {
   staged: boolean;
   travel_from?: string | null;
   travel_to?: string | null;
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba?: boolean;
+  follows_block_id?: string | null;
+  sort_order?: number;
+  /** 🕑 How its clock is meant — "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
 };
 
 /** Who is looking: their seat, the roles they hold, the groups they are in. */
@@ -62,6 +71,11 @@ export type YourScheduleViewer = {
   /** `guests.role` and `guests.extra_roles` — the role words a task may name. */
   roles: readonly string[];
   groupIds: readonly string[];
+  /**
+   * ✉ The chapters the hosts took THIS guest off on their card (owner 2026-11-02, "Invited to"; `guest_chapter_not_invited`).
+   * Absent or empty = invited to every chapter on the invitation ("existing guests keep all").
+   */
+  notInvited?: readonly string[];
 };
 
 export type YourScheduleInput = {
@@ -78,9 +92,22 @@ export type YourScheduleInput = {
   pro: boolean;
   /** A plain guest's Arrive by — the invitation's own (`guestsArriveTime`), "4:45 PM"; null when none is set. */
   guestsArriveBy: string | null;
+  /**
+   * 📇 Task contacts on the event (4 additions (3)) — shown ONLY on the lines of moments this guest has a task on (they
+   * are that moment's crew); never on an everyone line, never in the shared text.
+   */
+  contacts?: readonly { block_id: string; name: string; phone: string }[];
 };
 
-export type YourLine = { id: string; time: string; title: string; sub: string | null; mine: boolean };
+export type YourLine = {
+  id: string;
+  time: string;
+  title: string;
+  sub: string | null;
+  mine: boolean;
+  /** 📇 How to reach someone on this moment (the bridal-car driver) — only on their own moments. */
+  contacts?: TaskContact[];
+};
 export type YourChapter = { id: string; name: string; line: string; lines: YourLine[] };
 export type YourCall = {
   /** "Your call time" · "Estimated call time" · "Arrive by". */
@@ -126,7 +153,7 @@ export function isMine(t: Pick<TaskRow, 'guest_id' | 'role' | 'group_id' | 'vend
 /**
  * 🔒 Is this chapter on a guest's invitation? ONE rule, shared with the hosts' View as ▾ › A guest
  * (`guestInvitedTo`, lib/schedule-view-as.ts) — so what a host previews and what a guest is shown cannot disagree.
- * Step 5 (invitation per guest) narrows it THERE and nowhere else.
+ * The per-guest narrowing (owner 2026-11-02, "Invited to") is THAT rule's second argument — handed in, never re-decided.
  */
 export const invitedTo = guestInvitedTo;
 
@@ -166,10 +193,11 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
   }
   const myChapterIds = new Set(mine.map((x) => x.chapter.block_id));
   const roleHolder = mine.length > 0;
-  const invited = chapters.filter(invitedTo);
+  const notInvited = new Set(i.viewer.notInvited ?? []);
+  const invited = chapters.filter((c) => invitedTo(c, notInvited));
 
   const stage: 'before' | 'after' = i.released ? 'after' : 'before';
-  const shown = stage === 'after' ? chapters.filter((c) => invitedTo(c) || myChapterIds.has(c.block_id)) : invited;
+  const shown = stage === 'after' ? chapters.filter((c) => invitedTo(c, notInvited) || myChapterIds.has(c.block_id)) : invited;
   if (shown.length === 0) return { kind: 'none' };
 
   /* ── the call time ─────────────────────────────────────────────────────────────────────────────────────────── */
@@ -210,29 +238,44 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
   /* ── the chapters, and (after Release) their lines ─────────────────────────────────────────────────────────── */
   const out: YourChapter[] = shown.map((c) => {
     if (stage === 'before') return { id: c.block_id, name: c.label, line: chapterLineOf(c), lines: [] };
-    const lines = new Map<string, YourLine & { at: string }>();
+    const lines = new Map<string, YourLine & { at: string; rank: number }>();
+    // ⏭ The run's own order — a moment "right after the one above" sits under its anchor (same order key).
+    const rank = runRank(i.moments.filter((m) => m.parent_block_id === c.block_id));
+    const rankOf = (id: string) => rank.get(id) ?? Number.MAX_SAFE_INTEGER;
+    // A moment's clock in words: "Time TBA" in a TBA chapter, "Right after" for an untimed moment.
+    // 🕑 …and "About 3:15 PM" / "2:15/2:30 PM" as the coordinator wrote it (lib/time-shape.ts).
+    const timeOf = (m: YourMoment | null, at: string, own: boolean) =>
+      c.time_tba ? TIME_TBA : m && !own ? momentClockWords(m, null, clockWords) : clockWords(at);
     // Every guest's moments here: shown to guests, for Everyone, not staged — the database's own three questions.
     for (const m of i.moments) {
       if (m.parent_block_id !== c.block_id) continue;
       if (!isOnTheGuestsSchedule({ is_public: m.is_public, audience: m.audience, visibility: m.staged ? 'coordinator_only' : null })) continue;
-      lines.set(m.block_id, { id: m.block_id, at: m.start_at, time: c.time_tba ? TIME_TBA : clockWords(m.start_at), title: m.label, sub: null, mine: false });
+      lines.set(m.block_id, { id: m.block_id, at: m.start_at, rank: rankOf(m.block_id), time: timeOf(m, m.start_at, false), title: m.label, sub: null, mine: false });
     }
+    // 📇 The contacts on a moment this guest is ON (4 additions (3)) — they are that moment's crew.
+    const contactsOn = (blockId: string): TaskContact[] =>
+      (i.contacts ?? []).filter((k) => k.block_id === blockId).map((k) => ({ name: k.name, phone: k.phone }));
     // Mine: on their moment's line (what they do there under it), at their own time when they have one.
     for (const x of mine) {
       if (x.chapter.block_id !== c.block_id) continue;
       const key = x.moment?.block_id ?? `task:${x.task.task_id}`;
       const at = x.task.call_at ?? x.moment?.start_at ?? c.start_at;
+      // A task's own call time is a real clock; otherwise an untimed moment's start is only its order key.
+      const own = Boolean(x.task.call_at);
       const had = lines.get(key);
       const title = x.moment?.label ?? x.task.what;
       const sub = x.moment ? x.task.what : null;
       if (had) {
         const subs = [had.sub, sub].filter((s): s is string => Boolean(s && s !== had.title));
-        lines.set(key, { ...had, at: at < had.at ? at : had.at, time: c.time_tba ? TIME_TBA : clockWords(at < had.at ? at : had.at), sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
+        const earlier = at < had.at;
+        lines.set(key, { ...had, ...(x.moment ? { contacts: contactsOn(x.moment.block_id) } : {}), at: earlier ? at : had.at, time: earlier ? timeOf(x.moment, at, own) : had.time, sub: subs.length ? [...new Set(subs)].join(' · ') : null, mine: true });
       } else {
-        lines.set(key, { id: key, at, time: c.time_tba ? TIME_TBA : clockWords(at), title, sub: sub && sub !== title ? sub : null, mine: true });
+        lines.set(key, { id: key, ...(x.moment ? { contacts: contactsOn(x.moment.block_id) } : {}), at, rank: x.moment ? rankOf(x.moment.block_id) : Number.MAX_SAFE_INTEGER, time: timeOf(x.moment, at, own), title, sub: sub && sub !== title ? sub : null, mine: true });
       }
     }
-    const sorted = [...lines.values()].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map(({ at: _at, ...l }) => l);
+    const sorted = [...lines.values()]
+      .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.rank - b.rank))
+      .map(({ at: _at, rank: _rank, ...l }) => l);
     return { id: c.block_id, name: c.label, line: chapterLineOf(c), lines: sorted };
   });
 

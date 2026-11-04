@@ -45,6 +45,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx', 'editor field — a Do / Don’t text input’s ✕ inside the dress-code form'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx', 'editor field + chip — a custom role’s fields and its colour swatches inside the palette editor'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx', 'chip — a read mood / colour / motif chip inside the theme field'],
+  ['app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx', 'tile — a shortlist card’s × in a horizontal card rail (a swipe would fight the rail’s scroll); the other ✕ close a tip and the compare'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

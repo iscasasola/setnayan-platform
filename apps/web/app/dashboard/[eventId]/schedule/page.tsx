@@ -46,7 +46,6 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
-import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark-lazy';
 import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
@@ -1105,9 +1104,19 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     <section className="sn-col space-y-5" data-schedule-page={oneLine ? '' : undefined}>
       {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
-      {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. */}
+      {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. A
+          plain slot, no client code: the route's `layout.tsx` draws the saved mark into it (`ScheduleSavedSlot` says why
+          — the Maker draws this page and must not carry the mark). */}
       {inMaker || !scheduleCopyPath ? null : (
-        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={eventDate} eventEndDate={eventRow?.event_end_date ?? null} path={scheduleCopyPath} version={copyVersionOf([scheduleBlocks, chaptersInput])} />
+        <div
+          data-schedule-copy=""
+          data-sn-copy-version={copyVersionOf([scheduleBlocks, chaptersInput])}
+          data-sn-copy-viewer={user.id}
+          data-sn-copy-event={eventId}
+          data-sn-copy-path={scheduleCopyPath}
+          data-sn-copy-day={eventDate ?? ''}
+          data-sn-copy-day-end={eventRow?.event_end_date ?? ''}
+        />
       )}
 
       {suppliersUnread ? <ReadRefusedNotice what="your suppliers" partial className="mb-3" /> : null}

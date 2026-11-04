@@ -31,7 +31,14 @@ copy (`lib/offline-copies.ts`, `public/sw.js` "THE SAVED COPY FOR A NO-SIGNAL VE
   (`LastSeenSignedOutWipe` → `OFFLINE_COPIES_WIPE_SCRIPT`) is unchanged and covers accounts; the worker now also erases
   an event's saved Me when it sees the guest's one sign-out request go by (`POST /<slug>/sign-out`, every guest
   sign-out door), and every copy on `/auth/sign-out`. The day-of cache no longer keeps `?tab=me` at all.
-- Lab: `/dev/home-lab?view=offline&schedule=1&state=ok|nosignal|stale`.
+- Lab: `/dev/home-lab?view=offline&schedule=1&state=ok|nosignal|stale` (the guest card is drawn on the server there).
+- 📦 Bundles (measured with a production build against `main` @ `bdbd8a2d`, same machine): main holds the shared
+  bundle 5 bytes and the Maker's first load 127 bytes under their ceilings. Three things kept this change inside them:
+  the reserved-slug check lives in `lib/offline-copy-addresses.ts` (server + tests only), not in the module the client
+  hook imports; the Schedule page draws only a plain server slot (`data-schedule-copy`, its facts as attributes) and
+  the route's new one-line `schedule/layout.tsx` draws the saved mark into it (`ScheduleSavedSlot`), because the Maker
+  draws the Schedule page whole and never imports that layout — an import from the page put 3.6KB in the Maker's
+  first load, and an `import()` instead put one more chunk in webpack's runtime, which every page loads.
 
 Tests (extended, each mutation-tested on a scratch copy of sw.js — dropping the version check, the unread refusal,
 the sign-out erase, the day-of exclusion, the reserved-slug check, the nav-refresh version or the query in the

@@ -13,3 +13,9 @@ Owner 2026-11-04: *"show if there are conflicts with their schedule? … or mayb
 Guards: `tests/db/the-day-check-agrees-with-the-yes.db.test.ts` (preview = refusal for the same row as a real `authenticated` supplier: open · full card · full slot · others asking · month-only; lists; stranger refused; waiting list once, only when full; grants) — mutation-checked (`>=`→`>` on the daily count goes red). `lib/day-check.test.ts` (failed read → `failed` against a stubbed client; full is the RPC's flag, not a recount; every verdict is a yes status; every waiting-list answer has a sentence; the panel swap and both surfaces' wiring) — mutation-checked.
 
 SPEC IMPACT: corpus `DECISION_LOG.md` row "2026-11-04 DAY CHECK BEFORE ACCEPT" (appended via a clean clone of the corpus remote). Reported, not invented: (1) outside bookings live on the shop's schedules (pools), not on cards, and the yes's card limit does not count them — they are LISTED in "Booked that day" but not in "x of N", and the ⓘ says so; (2) the chat's existing answer line ("Sat 12 Dec · Free", `readThreadDayAnswer`) reads the shop's SCHEDULES ("How many a day"), while the yes refuses on the CARD's "Bookings per day" / time slots — two capacity models that can disagree on one day; this PR follows the yes, and the owner should rule whether they become one.
+
+**CI fixes (2026-11-04):** the route budget stays at 1227 — `readContactStamps` (a read helper nothing has called since
+the Shop ⚙ move) leaves `shop/inline-docs-actions.ts`; `vendorWaitlistTheAsk` moves to the end of the clients actions
+file and is declared in-place in `the-event-card-saves-in-place.test.ts`; the day sheet's counts go through
+`formatCount`; the chat-card guard's exact pins now include the Waiting list; the exposure baseline accepts the two new
+gated RPCs (`vendor_day_check`, `vendor_waitlist_the_ask`). SPEC IMPACT: None.

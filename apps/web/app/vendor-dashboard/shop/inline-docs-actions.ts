@@ -636,41 +636,6 @@ export async function saveRegistrationNumberInline(
 export type SubmitResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Read the VALIDATE contact-confirmation stamps for an application — a SOFT
- * probe kept separate from `fetchLatestApplication` because the columns land
- * in a parallel migration; pre-migration environments read as unconfirmed
- * instead of crashing.
- */
-export async function readContactStamps(
-  supabase: SupabaseClient,
-  applicationId: string,
-): Promise<{ emailConfirmedAt: string | null; phoneConfirmedAt: string | null }> {
-  try {
-    const { data, error } = await supabase
-      .from('vendor_verification_applications')
-      .select('contact_email_confirmed_at,contact_phone_confirmed_at')
-      .eq('application_id', applicationId)
-      .maybeSingle();
-    if (error) {
-      console.error('[supabase-error] vendor-dashboard/shop/inline-docs-actions.ts · from:vendor_verification_applications.select', error, {
-        application_id: applicationId,
-      });
-    }
-    if (error || !data) return { emailConfirmedAt: null, phoneConfirmedAt: null };
-    const row = data as {
-      contact_email_confirmed_at?: string | null;
-      contact_phone_confirmed_at?: string | null;
-    };
-    return {
-      emailConfirmedAt: row.contact_email_confirmed_at ?? null,
-      phoneConfirmedAt: row.contact_phone_confirmed_at ?? null,
-    };
-  } catch {
-    return { emailConfirmedAt: null, phoneConfirmedAt: null };
-  }
-}
-
-/**
  * Submit the vendor's draft application for review, INLINE (owner 2026-07-03:
  * the whole verification flow lives on My Shop — no /verify page). The
  * non-redirecting twin of `verify/actions.ts:submitApplication`, enforcing the

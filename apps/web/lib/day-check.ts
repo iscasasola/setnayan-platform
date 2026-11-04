@@ -18,6 +18,7 @@
  * says "Couldn't check this day", and Agree stays exactly as guarded as before (the server still refuses a full day).
  */
 import type { LockAnswerNotice } from './lock-answer-notice';
+import { formatCount } from './format-number';
 
 /** The statuses `vendor_agree_to_lock` answers from its capacity gates — the verdict names the same ones. */
 export const DAY_CHECK_VERDICTS = ['open', 'resolve_others_first', 'slot_full', 'daily_limit_reached'] as const;
@@ -145,8 +146,10 @@ export function shortDayWords(iso: string): string {
 /** "1 of 2 booked" · "3 booked · no limit" · "Full" — one card's day, in the sheet's and the line's words. */
 export function cardDayWords(s: DayCheckService): string {
   if (s.full) return 'Full';
-  if (s.mode === 'slot') return `${s.booked} of ${s.slotLimit} booked`;
-  return s.dailyLimit === null ? `${s.booked} booked · no limit` : `${s.booked} of ${s.dailyLimit} booked`;
+  if (s.mode === 'slot') return `${formatCount(s.booked)} of ${formatCount(s.slotLimit)} booked`;
+  return s.dailyLimit === null
+    ? `${formatCount(s.booked)} booked · no limit`
+    : `${formatCount(s.booked)} of ${formatCount(s.dailyLimit)} booked`;
 }
 
 /** "Whole day · 2 a day" · "By time slot · 1 per slot · 3 slots" · "Whole day · no limit". */

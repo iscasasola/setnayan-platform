@@ -16,7 +16,7 @@ import { stripComments } from '@/lib/strip-comments';
 const SRC = stripComments(readFileSync(join(import.meta.dirname, 'actions.ts'), 'utf8'));
 
 /** Saves in place: no `redirect(` after its last guard — success revalidates. */
-const IN_PLACE = ['createClientNote', 'toggleClientNoteDone', 'deleteClientNote', 'createVendorChallengeAction'];
+const IN_PLACE = ['createClientNote', 'toggleClientNoteDone', 'deleteClientNote', 'createVendorChallengeAction', 'vendorWaitlistTheAsk'];
 
 /**
  * Still navigates on success — WHY, and what converting needs (queued for the next pass, controller 2026-10-29 S8):

@@ -9,7 +9,7 @@ import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
-import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
+import { Plus, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 // ⚠ NOT from './actions'. That module is `'use server'`, and the version there
 // ended with `revalidatePath` — which Next.js forbids during a render, so this
@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 // lib/schedule-seed.server.ts.
 import { seedDefaultChapters, seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { isOnEveryChapter } from '@/lib/supplier-where';
+import { isOnEveryChapter, pickedOf, whereChaptersFrom, whereNames } from '@/lib/supplier-where';
 import {
   scheduleBlockLabelFor,
   SCHEDULE_BLOCK_TYPES,
@@ -121,13 +121,14 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BlockSwipe, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, readTaskPeople } from '@/lib/schedule-chapters.server';
 import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -244,7 +245,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at, proposed_ingress_minutes, proposed_egress_minutes',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at, proposed_ingress_minutes, proposed_egress_minutes, where_vendor_id, proposed_block_ids',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
@@ -253,7 +254,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       .eq('direction', 'to_host')
       // A change or removal whose moment is already gone (the FK is ON DELETE
       // SET NULL since 20271263061583) has nothing left to approve.
-      .or('kind.eq.new,block_id.not.is.null')
+      // 📍 A Where pick names no block of its own (it spans chapters, migration 20271308641275) — kept.
+      .or('kind.in.(new,where),block_id.not.is.null')
       .order('created_at', { ascending: true }),
     /* 📖 The event's chapters (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE") — in the same round, with their
        own fields (spot, ingress, call time…). Not in the Maker: Details › Schedule keeps its moments as they are. A
@@ -768,14 +770,36 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                     tasks: taskRead?.ok ? taskRead.value : null,
                     suppliers:
                       viewAsExtras.suppliers ??
-                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked' })),
+                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked', everyChapter: viewAsExtras.coordinatorIds.includes(v.vendor_id) })),
                     groups: viewAsExtras.groups,
                     roleNames: viewAsExtras.roleNames,
+                    // 👤 View as › a named guest (slice 6): what their own card reads — the guests, Release, Arrive by.
+                    people: viewAsExtras.people,
+                    released: viewAsExtras.released,
+                    guestsArriveBy: guestsArriveTime(scheduleBlocks),
                   },
                 }
               : null,
           }
         : { measured: false };
+  /* 📍 A Where pick reads "Now → Asked" in chapter names (lib/supplier-where.ts `whereNames`, time order). */
+  // ⏰ Time TBA is the CHAPTER's flag (its own read, `readChapterBook`) — a TBA chapter goes after that day's timed ones.
+  const tbaChapters = new Set(chapterRead?.ok ? chapterRead.value.chapters.filter((c) => c.time_tba === true).map((c) => c.block_id) : []);
+  const whereChapters = whereChaptersFrom(
+    dayMoments.map((m) => ({
+      block_id: m.block_id,
+      parent_block_id: m.parent_block_id,
+      label: m.label,
+      start_at: m.start_at,
+      time_tba: tbaChapters.has(m.block_id),
+      responsible_vendor_ids: m.responsible_vendor_ids ?? [],
+    })),
+  );
+  const whereWordsOf = (s: VendorSuggestion): DayRequest['where'] => {
+    if (s.kind !== 'where' || !s.where_vendor_id) return null;
+    const now = whereNames(whereChapters, pickedOf(whereChapters, s.where_vendor_id));
+    return { now: now || 'no chapter yet', asked: whereNames(whereChapters, s.proposed_block_ids ?? []) || 'a chapter that is gone' };
+  };
   const dayRequests: DayRequest[] = openSuggestions.map((s) => ({
     suggestion_id: s.suggestion_id,
     block_id: s.block_id,
@@ -788,6 +812,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_crew: s.proposed_crew,
     proposed_ingress_minutes: s.proposed_ingress_minutes ?? null,
     proposed_egress_minutes: s.proposed_egress_minutes ?? null,
+    where: whereWordsOf(s),
     note: s.note,
   }));
 
@@ -1246,9 +1271,12 @@ function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove' | 'hours';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
   proposed_ingress_minutes?: number | null;
   proposed_egress_minutes?: number | null;
+  /** 📍 A Where pick: the booking and the chapters asked (migration 20271308641275). */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -1327,6 +1355,9 @@ function VendorSuggestionsQueue({
                       {blockLabel.get(s.block_id ?? '') ?? 'a timeline block'}
                     </span>
                   </>
+                ) : s.kind === 'where' ? (
+                  // 📍 A Where pick (migration 20271308641275): its note already names the chapters asked.
+                  <>picked the chapters they serve</>
                 ) : (
                   <>
                     suggests adding{' '}
@@ -1435,7 +1466,8 @@ function EventDayView({
       ) : (
         <ul className="space-y-3">
           {blocks.map((b) => (
-            <li key={b.block_id}>
+            <li key={b.block_id} className="has-[[data-swipe-gone]]:hidden">
+              <BlockSwipe eventId={eventId} blockId={b.block_id} label={b.label}>
               <BlockCard
                 eventId={eventId}
                 block={b}
@@ -1445,6 +1477,7 @@ function EventDayView({
                 rosVendors={rosVendors}
                 eventType={eventType}
               />
+              </BlockSwipe>
             </li>
           ))}
         </ul>
@@ -1689,17 +1722,7 @@ function BlockCard({
             )}
           </SubmitButton>
         </form>
-        <form action={deleteScheduleBlock}>
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="block_id" value={block.block_id} />
-          <SubmitButton
-            aria-label="Delete block"
-            pendingLabel=""
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-danger-700 disabled:opacity-60"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </SubmitButton>
-        </form>
+        {/* 👈 The block's Delete is the card's swipe (owner 2026-11-03) — `BlockSwipe`, around the card below. */}
       </div>
     </article>
   );

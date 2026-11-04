@@ -146,15 +146,18 @@ function itemAround(src: string, at: number): string {
   return src.slice(open, close);
 }
 
-test('every line that needs a switch carries it, and nothing else holds those words', () => {
-  const wrong = SWITCHED_LINES.flatMap(({ line, needs }) => {
+// One test per switched line (owner 2026-11-04: "add a test per line"), each naming its switch.
+for (const { line, needs } of SWITCHED_LINES) {
+  test(`"${line}" is on the page once, and shows only while ${needs} is on`, () => {
     const hits = [...PAGE.matchAll(new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))];
-    if (hits.length !== 1) return [`"${line}" appears ${hits.length}× (expected once)`];
+    assert.equal(hits.length, 1, `"${line}" appears ${hits.length}× — expected exactly once`);
     const item = itemAround(PAGE, hits[0]?.index ?? 0);
-    return item.includes(`needs: '${needs}'`) ? [] : [`"${line}" is not gated on ${needs}`];
+    assert.ok(
+      item.includes(`needs: '${needs}'`),
+      `"${line}" is not gated on ${needs}: it would show while that switch is off — a promise the app does not keep`,
+    );
   });
-  assert.deepEqual(wrong, [], 'a switch-dependent claim could show while its switch is off:\n  ' + wrong.join('\n  '));
-});
+}
 
 test('the switches are read with the gates the features themselves use, and fail closed', () => {
   const reader = stripComments(readFileSync(join(HERE, '_claims.server.ts'), 'utf8'));

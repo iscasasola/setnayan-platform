@@ -39,4 +39,3 @@ app/papic/_components/camera-controls.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
 app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1
-app/vendor-dashboard/repertoire/page.tsx 1

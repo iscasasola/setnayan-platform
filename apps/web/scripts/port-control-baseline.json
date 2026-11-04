@@ -12558,6 +12558,16 @@
         "TemplateList"
       ]
     },
+    "/dev/swipe-rows-lab/repertoire": {
+      "files": [
+        "dev/swipe-rows-lab/repertoire/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SetList"
+      ]
+    },
     "/dev/swipe-rows-lab/seating": {
       "files": [
         "dev/swipe-rows-lab/seating/lab-seat-list-rows.tsx",
@@ -16020,6 +16030,7 @@
     },
     "/vendor-dashboard/repertoire": {
       "files": [
+        "vendor-dashboard/repertoire/_components/set-list.tsx",
         "vendor-dashboard/repertoire/actions.ts",
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
@@ -16027,14 +16038,17 @@
       "destinations": [],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong",
         "setPerformanceLink"
       ],
       "blocks": [
         "GridPageSkeleton",
         "Link",
+        "PerformanceLinkForm",
+        "SetList",
         "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/reviews": {

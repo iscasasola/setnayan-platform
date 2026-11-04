@@ -94,7 +94,9 @@ export function ServiceRadiusFields({
   const toast = useToast();
   const [, startTransition] = useTransition();
 
-  const hasCap = tierMeasured && Number.isFinite(tierCapKm) && tierCapKm > 0;
+  // Ultra reaches nationwide (`Infinity`, owner 2026-11-04) — still a cap to step under, bounded by the column's own
+  // MAX_DECLARABLE_RADIUS_KM, never "no cap at all".
+  const hasCap = tierMeasured && tierCapKm > 0;
   const cap = hasCap ? Math.min(tierCapKm, MAX_DECLARABLE_RADIUS_KM) : 0;
   // What couples are shown is the declaration CLAMPED to today's plan (`effectiveOuterRadiusKm` — a lapsed plan stops
   // buying reach), so that is what the steppers start from; a stale wider number is never drawn as if it applied.
@@ -142,7 +144,11 @@ export function ServiceRadiusFields({
   }
 
   /** ＋ past the plan's farthest: no save — how far the next plan reaches, in words. */
-  const pastCap = () => (nextReach ? `${plan} reaches ${cap} km · ${nextReach.plan} reaches ${nextReach.km} km` : `${cap} km is the farthest any plan reaches`);
+  const kmWords = (km: number) => (Number.isFinite(km) ? `${km} km` : 'nationwide');
+  const pastCap = () =>
+    nextReach
+      ? `${plan} reaches ${cap} km · ${nextReach.plan} reaches ${kmWords(nextReach.km)}`
+      : `${cap} km is the farthest you can set`;
 
   function stepOuter(dir: 1 | -1) {
     if (!hasCap) return;

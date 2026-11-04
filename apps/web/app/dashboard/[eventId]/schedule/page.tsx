@@ -16,6 +16,8 @@ import { createClient } from '@/lib/supabase/server';
 // very call 500'd on the first open of every non-wedding schedule. See
 // lib/schedule-seed.server.ts.
 import { seedDefaultChapters, seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { isOnEveryChapter } from '@/lib/supplier-where';
 import {
   scheduleBlockLabelFor,
   SCHEDULE_BLOCK_TYPES,
@@ -661,6 +663,21 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           .filter((v) => v.standing === 'Booked')
           .map((v) => ({ id: v.vendor_id, name: v.vendor_name }))
       : [];
+  /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
+     and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */
+  if (taskSuppliers.length > 0) {
+    const { data: cats } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, category')
+      .eq('event_id', eventId)
+      .in('vendor_id', taskSuppliers.map((v) => v.id));
+    const catOf = new Map(((cats ?? []) as { vendor_id: string; category: string | null }[]).map((c) => [c.vendor_id, c.category]));
+    for (const v of taskSuppliers as { id: string; name: string; trade?: string | null; everyChapter?: boolean }[]) {
+      const cat = catOf.get(v.id) ?? null;
+      v.trade = cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null;
+      v.everyChapter = isOnEveryChapter(null, cat);
+    }
+  }
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
   const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
   /* ✉ Who replied to each chapter on the invitation (Step 5) — two exact counts and the first names who said yes, per

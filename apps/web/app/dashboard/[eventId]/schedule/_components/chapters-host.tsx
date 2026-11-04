@@ -64,6 +64,7 @@ import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
+import { CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, type ChapterSupplier } from '@/lib/schedule-chapters';
 import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
@@ -102,10 +103,17 @@ export type ChapterMoment = {
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
 export type TaskWhoList = {
-  suppliers: { id: string; name: string }[];
+  /** `trade` ("Photographer") and `everyChapter` (a coordinator) feed a chapter's "Suppliers in this chapter". */
+  suppliers: { id: string; name: string; trade?: string | null; everyChapter?: boolean }[];
   people: TaskPeople | null;
   crews: { vendorId: string; crew: string }[];
 };
+
+/** "Bituin Catering" → "BC". */
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return ((words[0]?.[0] ?? '') + (words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : (words[0]?.[1] ?? ''))).toUpperCase();
+}
 
 export type ChaptersInput =
   | {
@@ -322,14 +330,8 @@ export function ChaptersHost({
     }
   }
   /** 👷 Who a delete takes off their parts: the suppliers on the chapter itself, on its moments, or on a task in them. */
-  const suppliersOn = (c: Chapter): string[] => {
-    const ids = new Set(c.vendor_ids ?? []);
-    const inIt = moments.filter((m) => m.parent_block_id === c.block_id);
-    for (const m of inIt) for (const v of m.vendor_ids) ids.add(v);
-    const momentIds = new Set(inIt.map((m) => m.block_id));
-    for (const t of tasks ?? []) if (t.vendor_id && momentIds.has(t.block_id)) ids.add(t.vendor_id);
-    return who.suppliers.filter((s) => ids.has(s.id)).map((s) => s.name);
-  };
+  const suppliersOn = (c: Chapter): string[] =>
+    chapterSuppliers(c, moments, tasks, who.suppliers).filter((s) => !s.everyChapter).map((s) => s.name);
   const patch = (id: string, next: Partial<Chapter>) => setChapters((cs) => cs.map((c) => (c.block_id === id ? { ...c, ...next } : c)));
   const back = (c: Chapter | null) => {
     setOpenId(null);
@@ -376,6 +378,7 @@ export function ChaptersHost({
           onEdit={() => setSheet('edit')}
           onAddMoment={(section) => setMomentSheet({ kind: 'new', section })}
           onOpenMoment={(id) => setMomentSheet({ kind: 'edit', id })}
+          suppliers={chapterSuppliers(current, moments, tasks, who.suppliers)}
         />
       ) : null}
 
@@ -585,7 +588,10 @@ function ChapterPage({
   onEdit,
   onAddMoment,
   onOpenMoment,
+  suppliers = [],
 }: {
+  /** 👷 The suppliers in this chapter (on it, its moments or their tasks) and the coordinators (every chapter). */
+  suppliers?: readonly ChapterSupplier[];
   chapter: Chapter;
   chapters: Chapter[];
   moments: ChapterMoment[];
@@ -767,6 +773,29 @@ function ChapterPage({
           );
         })}
       </div>
+
+      {/* 👷 SUPPLIERS IN THIS CHAPTER (owner 2026-11-04, prototype frame 2) — under the moments: who is booked to it, by
+          shop name and trade; a coordinator is on every chapter. Shown only when there is someone to show. */}
+      {suppliers.length > 0 ? (
+        <section data-chapter-suppliers="" className="mt-6">
+          <h3 className="flex items-center gap-1.5 pb-1 text-[15px] font-semibold text-ink">
+            Suppliers in this chapter <Tip>{CHAPTER_SUPPLIERS_TIP}</Tip>
+          </h3>
+          <ul>
+            {suppliers.map((s) => (
+              <li key={s.id} data-chapter-supplier={s.id} className="flex min-h-14 items-center gap-3 border-t border-ink/10 py-2">
+                <span aria-hidden className="grid h-11 w-11 flex-none place-items-center rounded-full bg-ink/[0.05] text-[14px] font-semibold text-ink/65">
+                  {initialsOf(s.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-ink">{s.name}</span>
+                  <span className="block truncate text-[13px] text-ink/60">{chapterSupplierLine(s)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {canEdit ? <ChapterThumbRow onEdit={onEdit} onAddMoment={() => onAddMoment(open)} /> : null}
     </div>

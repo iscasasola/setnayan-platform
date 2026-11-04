@@ -902,3 +902,35 @@ export function marchNameFrom(raw: unknown): { ok: true; name: string } | { ok: 
   if (name.length > MARCH_NAME_MAX) return { ok: false, error: `Up to ${MARCH_NAME_MAX} letters.` };
   return { ok: true, name };
 }
+
+/* ── 👷 suppliers in a chapter (owner 2026-11-04, prototype frame 2) ─────────────────────────────────────────── */
+
+/** One row of a chapter's "Suppliers in this chapter". */
+export type ChapterSupplier = { id: string; name: string; trade?: string | null; everyChapter?: boolean };
+
+export const CHAPTER_SUPPLIERS_TIP =
+  'The suppliers booked to this chapter. Their call time is the first task they have in it. Coordinators are on every chapter.';
+
+/** "Catering" · "Coordinator · every chapter" · "Booked" (no trade read). */
+export function chapterSupplierLine(s: ChapterSupplier): string {
+  if (s.everyChapter) return 'Coordinator · every chapter';
+  return s.trade ?? 'Booked';
+}
+
+/** The suppliers in a chapter: those on it, its moments or a task in them — then the coordinators. One row each. */
+export function chapterSuppliers(
+  c: Pick<Chapter, 'block_id' | 'vendor_ids'>,
+  moments: readonly { block_id: string; parent_block_id: string; vendor_ids: readonly string[] }[],
+  tasks: readonly { block_id: string; vendor_id: string | null }[] | null,
+  suppliers: readonly ChapterSupplier[],
+): ChapterSupplier[] {
+  const ids = new Set(c.vendor_ids ?? []);
+  const inIt = moments.filter((m) => m.parent_block_id === c.block_id);
+  for (const m of inIt) for (const v of m.vendor_ids) ids.add(v);
+  const momentIds = new Set(inIt.map((m) => m.block_id));
+  for (const t of tasks ?? []) if (t.vendor_id && momentIds.has(t.block_id)) ids.add(t.vendor_id);
+  const on = suppliers.filter((s) => ids.has(s.id) && !s.everyChapter);
+  const everywhere = suppliers.filter((s) => s.everyChapter);
+  return [...on, ...everywhere];
+}
+

@@ -176,7 +176,13 @@ export const LAB_MARCHES = [
 
 /** Who a lab task can name — made-up names only. */
 export const LAB_WHO = {
-  suppliers: Object.entries(LAB_SUPPLIERS).map(([id, name]) => ({ id, name })),
+  // 👷 Trades and "every chapter" for a chapter's "Suppliers in this chapter" (2026-11-04).
+  suppliers: Object.entries(LAB_SUPPLIERS).map(([id, name]) => ({
+    id,
+    name,
+    trade: id === 'v-hmua' ? 'Makeup artist' : id === 'v-photo' ? 'Photographer' : 'Planner / coordinator',
+    everyChapter: id === 'v-coord',
+  })),
   people: {
     guests: [
       { id: 'g-ana', name: 'Ana Cruz', role: 'bride' },
@@ -243,6 +249,7 @@ export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMom
     spot: null,
     notes: null,
     is_public: false,
+    vendor_ids: [],
   }));
   const chapters: Chapter[] = built.chapters.map((c) => ({
     ...chapter(ids.get(c.key)!, c.label, '00:00', null, null, null),
@@ -250,6 +257,8 @@ export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMom
     end_at: c.end_at,
     is_public: true,
     moments: moments.filter((mo) => mo.parent_block_id === ids.get(c.key)).length,
+    // 👷 The photographer is booked to every chapter but Prep; HMUA to Prep — "Suppliers in this chapter".
+    vendor_ids: c.key === 'prep' ? ['v-hmua', 'v-photo'] : ['v-photo'],
   }));
   return { chapters, moments };
 }

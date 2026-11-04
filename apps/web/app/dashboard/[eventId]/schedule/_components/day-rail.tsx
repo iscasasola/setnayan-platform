@@ -80,6 +80,7 @@ import type {
 import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
 import { ScheduleAddPill, ScheduleSheet } from './schedule-sheet';
 import type { RetimePatch } from '@/lib/schedule-ros';
@@ -197,6 +198,18 @@ export function ScheduleDay({
   const chaptersApi = useChapters();
   const ch = live ? null : chaptersApi;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  /* 👈 A moment's row swiped to Delete (owner 2026-11-03): its inspector opens at the warning. */
+  const [askDelete, setAskDelete] = useState<{ id: string; n: number } | null>(null);
+  /** ↩ A confirmed delete hides the moment for its Undo window; Undo (or a refusal) shows it again. Its own set, so a
+   *  fresh server answer in the window (which clears `gone`) never brings it back early. */
+  const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
+  const hideMoment = (id: string, hide: boolean) =>
+    setHeld((g) => {
+      const next = new Set(g);
+      if (hide) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   /* ➕ Studio's "Add a moment": a moment added in place is on the timeline at once — no render of the Maker brings
      it (its write is quiet) — and cannot be edited until its add has landed (`pending`). */
   const [added, setAdded] = useState<readonly DayMoment[]>([]);
@@ -211,6 +224,10 @@ export function ScheduleDay({
   const hourPx = isDesktop ? 68 : 64;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /* 👈 An ask belongs to the swipe that made it: once the moment closes, ⋯ opens it at its fields again. */
+  useEffect(() => {
+    if (selectedId === null) setAskDelete(null);
+  }, [selectedId]);
   const [overrides, setOverrides] = useState<Record<string, Partial<DayMoment>>>({});
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -220,7 +237,10 @@ export function ScheduleDay({
   /* 👁 VIEW AS on the Schedule page (Step 3c, `schedule-view-as.tsx`): a guest · a role · a supplier or crew · Suppliers
      by time, drawn in place of the rail. Only where the page drew chapters; the Maker keeps the shipped lens above. */
   const viewAs = ch?.viewAs ?? null;
-  const [asLens, setAsLens] = useState<ViewLens>(EVERYONE);
+  // 👤 On the chapters page the lens is the PAGE's (Event Day and a chapter's page share one View as, 2026-11-04).
+  const [localLens, setLocalLens] = useState<ViewLens>(EVERYONE);
+  const asLens = ch?.lens ?? localLens;
+  const setAsLens = ch?.setLens ?? setLocalLens;
   // A Free event draws only the free views (Suppliers by time — owner 2026-11-02); `lensAllowed` is the one question.
   const viewingAs = viewAs !== null && asLens.kind !== 'everyone' && lensAllowed(viewAs.pro, asLens);
   const [notice, setNotice] = useState<string | null>(null);
@@ -280,9 +300,9 @@ export function ScheduleDay({
   const merged = useMemo(
     () =>
       withChapters([...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))], ch?.chapters ?? null)
-        .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
+        .filter((m) => !gone.has(m.block_id) && !held.has(m.block_id) && !(m.parent_block_id && (gone.has(m.parent_block_id) || held.has(m.parent_block_id))))
         .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, added, overrides, gone, ch?.chapters],
+    [moments, added, overrides, gone, held, ch?.chapters],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -597,6 +617,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             ) : (
               <Glance
@@ -633,9 +655,47 @@ export function ScheduleDay({
       />
   );
 
+  /* ⚙ THE DAY'S TOOLS LIVE IN SCHEDULE SETTINGS on the chapters page (owner 2026-11-04, "Match the 4 Nov prototype":
+     the one line is Event Day ▾ · N chapters · 👤 · ⚙). The same tools, the same sheets — handed up as rows. */
+  const settingsTools =
+    ch && booked ? (
+      <div className="flex flex-col border-t border-ink/10" data-schedule-settings-tools="">
+        {canEdit && requests.length > 0 ? (
+          <SettingsRow label={`Supplier requests · ${requests.length}`} onClick={() => setSheet({ kind: 'requests' })}>
+            <MessageSquare aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        {hostPanel ? (
+          <SettingsRow label="Host / MC — segments, questions, a note" onClick={() => setSheet({ kind: 'host' })}>
+            <Mic aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        {topLevel.length > 0 && emcee ? (
+          <div data-settings-closes="" className="flex min-h-14 items-center border-b border-ink/10">
+            {emcee}
+          </div>
+        ) : null}
+        {canEdit && topLevel.length > 0 ? (
+          <SettingsRow label="Running late — shift the day" onClick={() => setSheet({ kind: 'shift', fromId: null })}>
+            <MoveVertical aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          </SettingsRow>
+        ) : null}
+        <p className="pt-2 text-[13px] text-ink/60">
+          Moments shown to guests appear on the Event Hub with a live “happening now” on the day. Hidden moments stay
+          between you, your coordinator and the suppliers you tag.
+        </p>
+      </div>
+    ) : null;
+  const handTools = ch && booked ? ch.setSettingsPart : null;
+  useEffect(() => {
+    if (handTools) handTools('tools', settingsTools);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handed up when what it offers changes
+  }, [handTools, canEdit, requests.length, hostPanel, emcee, topLevel.length]);
+
   if (studio) {
     return (
       <DayActionsContext.Provider value={dayActions}>
+
         <StudioDay
           eventId={eventId}
           dateKey={lastDateKey}
@@ -651,6 +711,14 @@ export function ScheduleDay({
           onCreate={lastDateKey && !canStage ? createInline : null}
           pendingIds={pending}
           onMore={(id) => setSelectedId(id)}
+          onAskDelete={
+            canEdit
+              ? (id) => {
+                  setAskDelete((a) => ({ id, n: (a?.n ?? 0) + 1 }));
+                  setSelectedId(id);
+                }
+              : null
+          }
         />
         {/* ⋯ — the shipped inspector (length, notes, show to guests, suppliers, remove): a desk keeps it in
             Details' right column, as the rail did; a phone opens it from the bottom. */}
@@ -680,6 +748,8 @@ export function ScheduleDay({
                 onRevert={revert}
                 onConfirm={confirm}
                 live={live}
+                askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+                onGone={hideMoment}
               />
             </div>
           ) : null}
@@ -700,16 +770,35 @@ export function ScheduleDay({
           requests={requests}
           moments={merged}
         />
-      </DayActionsContext.Provider>
+        {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
+    </DayActionsContext.Provider>
     );
   }
 
   return (
     <DayActionsContext.Provider value={dayActions}>
+
     <div className="space-y-3" data-schedule-day="">
       {/* THE DAY'S TOOLS — one row; names live in aria-label/title, the
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
       <InSlot id={booked ? toolsSlot : null}>
+      {ch && booked ? (
+        /* 👤 The round View as (prototype frame 1) — the rest of the day's tools are in ⚙ Schedule settings. */
+        <div className="relative flex items-center" data-schedule-day-tools={frame}>
+          {viewAs && topLevel.length > 0 ? (
+            <ViewAsMenu
+              input={viewAs}
+              lens={asLens}
+              round
+              onLens={(l) => {
+                setSelectedId(null);
+                setAsLens(l);
+              }}
+            />
+          ) : null}
+        </div>
+      ) : (
       <div className={booked ? 'relative flex items-center gap-0.5' : 'relative flex flex-wrap items-center gap-1'} data-schedule-day-tools={frame}>
         {viewAs && topLevel.length > 0 ? (
           <div className="flex items-center gap-1">
@@ -803,6 +892,7 @@ export function ScheduleDay({
           ) : null}
         </div>
       </div>
+      )}
       </InSlot>
 
       {notice ? (
@@ -1118,17 +1208,23 @@ export function ScheduleDay({
                           <span>
                             {span.hasEnd || drag?.id === m.block_id
                               ? formatClockRange(span.startMin, span.endMin)
-                              : formatClock(span.startMin)}
+                              : `${formatClock(span.startMin)}${ch ? ' onward' : ''}`}
                           </span>
                           {!short && m.responsible_party ? (
                             <span className="hidden truncate font-sans text-ink/60 sm:inline">
                               · {m.responsible_party}
                             </span>
                           ) : null}
-                          {!short && m.location ? (
+                          {!short && m.location && !ch ? (
                             <span className="hidden truncate font-sans text-ink/55 lg:inline">{m.location}</span>
                           ) : null}
                         </p>
+                        {/* 📍 A chapter says where it is, on a phone too (prototype frame 1) — "Venue TBA" until it has one. */}
+                        {ch && !short ? (
+                          <p className="truncate text-[12.5px] text-ink/60" data-rail-where="">
+                            {chapterWhere({ location: m.location, spot: null })}
+                          </p>
+                        ) : null}
                         {/* 🗓 The suppliers this item is given to — shop name ·
                             Booked / Shortlisted (owner 2026-10-20). One line, on
                             the phone too: it is who answers for the moment. */}
@@ -1266,6 +1362,8 @@ export function ScheduleDay({
             onConfirm={confirm}
             live={live}
             inSheet
+            askDelete={askDelete?.id === selected.block_id ? askDelete.n : 0}
+            onGone={hideMoment}
           />
         </ScheduleSheet>
       ) : null}
@@ -1308,6 +1406,8 @@ export function ScheduleDay({
         </Sheet>
       ) : null}
     </div>
+      {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
+      <UndoToastHost />
     </DayActionsContext.Provider>
   );
 }
@@ -1463,6 +1563,21 @@ function EmptyRail({
   );
 }
 
+/** One row of ⚙ Schedule settings: an icon, the tool's words, the whole row pressable. Closes the settings first. */
+function SettingsRow({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      data-settings-closes=""
+      onClick={onClick}
+      className="sn-press flex min-h-14 w-full items-center gap-3 border-b border-ink/10 text-left text-[15px] text-ink"
+    >
+      <span className="grid h-9 w-9 flex-none place-items-center rounded-full border border-ink/15 text-ink/75">{children}</span>
+      <span className="min-w-0 flex-1">{label}</span>
+    </button>
+  );
+}
+
 /**
  * 🗑 A CHAPTER ON THE RAIL SWIPES LEFT TO DELETE (owner 2026-11-03, prototype frame 3) — the shared gesture
  * (`app/_components/swipe-to-delete.tsx`) on a block that places itself: the revealed Delete sits behind it at the
@@ -1523,7 +1638,7 @@ function withChapters(blocks: DayMoment[], chapters: readonly Chapter[] | null):
     out.push({
       block_id: c.block_id,
       label: c.label,
-      block_type: 'custom',
+      block_type: (c.block_type as DayMoment['block_type'] | null | undefined) ?? 'custom',
       start_at: c.start_at,
       end_at: c.end_at,
       location: c.location,

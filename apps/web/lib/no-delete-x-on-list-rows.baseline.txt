@@ -23,11 +23,6 @@ app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
 app/dashboard/[eventId]/monogram/studio.tsx 1
-app/dashboard/[eventId]/schedule/_components/chapter-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx 2
-app/dashboard/[eventId]/schedule/_components/moment-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx 1
-app/dashboard/[eventId]/schedule/page.tsx 1
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
 app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
@@ -42,13 +37,6 @@ app/onboarding/wedding/_components/location-step.tsx 1
 app/onboarding/wedding/_components/onboarding-shell.tsx 2
 app/papic/_components/camera-controls.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
-app/vendor-dashboard/_components/video-links-editor.tsx 1
-app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx 2
 app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1
-app/vendor-dashboard/packages/_components/package-editor.tsx 2
 app/vendor-dashboard/repertoire/page.tsx 1
-app/vendor-dashboard/services/_components/addons-editor.tsx 2
-app/vendor-dashboard/services/_components/coverage-panel.tsx 1
-app/vendor-dashboard/services/_components/customization-step.tsx 2
-app/vendor-dashboard/services/_components/payment-schedule-editor.tsx 1

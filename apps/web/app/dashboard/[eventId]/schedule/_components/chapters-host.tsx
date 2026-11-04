@@ -799,7 +799,7 @@ function ChapterPage({
                 <span
                   aria-hidden
                   className={`grid h-8 w-8 flex-none place-items-center rounded-md text-[13px] font-semibold ${
-                    on ? 'bg-terracotta text-cream' : 'bg-ink/10 text-ink/70'
+                    on ? 'bg-sn-accent text-sn-on-accent' : 'bg-ink/10 text-ink/70'
                   }`}
                 >
                   {SECTION_LETTER[s.key]}
@@ -874,7 +874,7 @@ function ChapterPage({
                   type="button"
                   data-section-add={s.key}
                   onClick={() => onAddMoment(s.key)}
-                  className="sn-press flex min-h-11 w-full items-center justify-center border-b border-ink/10 text-[15px] font-semibold text-terracotta-700"
+                  className="sn-press flex min-h-11 w-full items-center justify-center border-b border-ink/10 text-[15px] font-semibold text-sn-accent"
                 >
                   + Add a moment
                 </button>

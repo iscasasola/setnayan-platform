@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { Chapter } from '@/lib/schedule-chapters';
-import type { ViewAsInput } from '@/lib/schedule-view-as';
+import type { ViewAsInput, ViewLens } from '@/lib/schedule-view-as';
 
 /**
  * 📖 The Schedule page's chapters, as the rail and the frame's dropdown read them (`chapters-host.tsx` provides it).
@@ -22,6 +22,18 @@ export type ChaptersApi = {
   viewAs: ViewAsInput | null;
   /** 🗑 A swipe left on a chapter asks to delete it — the page shows the warning, then Undo (owner 2026-11-03). */
   askDelete: (id: string) => void;
+  /**
+   * 👤 THE PAGE'S ONE VIEW AS (owner 2026-11-04, prototype frames 1–2: the round 👤 on Event Day AND on a chapter's
+   * page). Held here so both read and set the same lens; the rail draws the view.
+   */
+  lens: ViewLens;
+  setLens: (l: ViewLens) => void;
+  /**
+   * ⚙ SCHEDULE SETTINGS (prototype frames 1–2: the round ⚙). One sheet the host owns: the date line and its ⓘ,
+   * Announce and Share (from the page's one line), and the day's tools (from the rail) — each registered here.
+   */
+  openSettings: () => void;
+  setSettingsPart: (part: 'line' | 'tools', node: ReactNode) => void;
 };
 
 export const ChaptersContext = createContext<ChaptersApi | null>(null);

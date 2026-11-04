@@ -136,7 +136,10 @@ export default function ScheduleLabClient({
   tags,
   frame = 'page',
   toolsSlot = null,
+  noRequests = false,
 }: {
+  /** 📖 No seeded supplier requests (the chapters lab's `?defaults=1` — a NEW event has none). */
+  noRequests?: boolean;
   /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
   frame?: 'page' | 'line';
   toolsSlot?: string | null;
@@ -175,7 +178,7 @@ export default function ScheduleLabClient({
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
     setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);
-  const reqs = requests ?? seedRequests(dateKey);
+  const reqs = requests ?? (noRequests ? [] : seedRequests(dateKey));
 
   const actions = useMemo<DayActions>(() => {
     const say = (line: string) => setLog((l) => [line, ...l].slice(0, 8));

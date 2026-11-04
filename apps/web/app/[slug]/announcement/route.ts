@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { loadEventShell } from '../_lib/loaders';
-import { holdsThisEventsCurrentPass, latestAnnouncementFor } from '../_lib/latest-announcement.server';
+import { holdsThisEventsCurrentPass, latestAnnouncementFor, latestNoticeForGuest, newerOf, passHolderOf } from '../_lib/latest-announcement.server';
 import { announcementStageOf } from '../_lib/announcement-stage';
 import { NOT_HELD } from '@/lib/live-day-cache';
 
@@ -12,6 +12,9 @@ import { NOT_HELD } from '@/lib/live-day-cache';
  * made every page under it render per request — and the per-guest Realtime channel (owner 2026-10-28: guests never
  * hold a live connection). The words are one remembered answer per event; the gate is per phone. See
  * `_lib/latest-announcement.server.ts`.
+ *
+ * 🎟 A supplier's one-guest notice ("#0042 is ready — claim it at Photo booth", `target_guest_id`) is read for THIS
+ * pass's guest only and shown when it is newer than the room's line (2026-11-04, the supplier claim scanner).
  *
  * Answers `{ body, createdAt, stage }` or `{ body: null }` — the SAME answer for "not a guest of this event", "no
  * announcement" and "the event is over", so it says nothing about who is on the list. No event → 404. A refused read
@@ -36,7 +39,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   try {
     if (!(await holdsThisEventsCurrentPass(event.event_id))) return NextResponse.json({ body: null }, { headers: NOT_HELD });
     const latest = await latestAnnouncementFor(event.event_id);
-    return NextResponse.json(latest ? { ...latest, stage } : { body: null }, { headers: NOT_HELD });
+    // 🎟 …or this guest's own newer notice ("#0042 is ready" — a supplier's one-guest line), for the pass's own guest.
+    const guestId = await passHolderOf(event.event_id);
+    const mine = guestId ? await latestNoticeForGuest(event.event_id, guestId) : null;
+    const shown = newerOf(latest, mine);
+    return NextResponse.json(shown ? { ...shown, stage } : { body: null }, { headers: NOT_HELD });
   } catch {
     return NextResponse.json({ error: 'unavailable' }, { status: 503, headers: NOT_HELD });
   }

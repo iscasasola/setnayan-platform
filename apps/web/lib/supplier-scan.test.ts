@@ -21,8 +21,12 @@ import {
   nfcLine,
   nfcPlace,
   scanAnswerWords,
+  guestNumberStateWords,
+  numberState,
+  numberStateWords,
   scanNumberLabel,
   scannerChoiceOf,
+  tallyWords,
   scannerChoiceOptions,
   scannerChoiceToSetting,
 } from './supplier-scan';
@@ -96,4 +100,19 @@ test('4 · NFC: each phone is told only what works on it', () => {
   assert.match(nfcLine('iphone-browser'), /iPhone browsers can’t read NFC/);
   assert.match(nfcLine('iphone-browser'), /Setnayan app/);
   assert.doesNotMatch(nfcLine('reads'), /can’t/);
+});
+
+test('5 · Ordered → Received: the words for each step, and a number’s state from its counts', () => {
+  assert.equal(scanAnswerWords({ outcome: 'ordered', number: 42 }).title, '✓ Ordered · #0042');
+  assert.equal(scanAnswerWords({ outcome: 'not_ready', number: 42 }).title, 'Not ready yet · #0042');
+  assert.equal(scanAnswerWords({ outcome: 'received', number: 42, claimed: 21, total: 118 }).title, '✓ Received · #0042');
+  assert.equal(scanAnswerWords({ outcome: 'already', number: 42, mode: 'ordered_received' }).title, 'Already received · #0042');
+  assert.equal(tallyWords('ordered_received', { claimed: 20, total: 118, ordered: 12, ready: 3 }), 'Ordered 12 · Ready 3 · Received 20 of 118');
+  assert.equal(tallyWords('once', { claimed: 20, total: 118 }), 'Claimed 20 of 118');
+  assert.equal(numberState({ guests: 1, ordered: 1, ready: 0, received: 0 }), 'ordered');
+  assert.equal(numberState({ guests: 1, ordered: 0, ready: 1, received: 0 }), 'ready');
+  assert.equal(numberState({ guests: 1, ordered: 0, ready: 0, received: 1 }), 'received');
+  assert.equal(numberStateWords({ guests: 5, ordered: 0, ready: 2, received: 3 }), '3 of 5 received');
+  assert.equal(guestNumberStateWords('ready'), 'Ready — claim it now');
+  assert.equal(guestNumberStateWords('received'), null, 'a done claim needs no line');
 });

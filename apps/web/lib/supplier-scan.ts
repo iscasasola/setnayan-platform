@@ -29,7 +29,7 @@ export const SCAN_MODES: readonly { key: ScanMode; label: string; line: string }
 ];
 
 /** The modes that RUN today — the dropdown's options, and the database CHECK's list. */
-export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once'];
+export const SCAN_MODES_BUILT: readonly ScanMode[] = ['once', 'ordered_received'];
 
 export function scanModeLabel(mode: string | null | undefined): string {
   return SCAN_MODES.find((m) => m.key === mode)?.label ?? 'Once';
@@ -84,7 +84,11 @@ export const SOUVENIR_SERVICES: readonly string[] = [
 
 export type ScanAnswer =
   | { outcome: 'claimed'; number: number; claimed: number; total: number; name?: string | null }
-  | { outcome: 'already'; number: number | null; name?: string | null }
+  // Ordered → Received (slice 2): the first scan orders, the second (after Ready) hands over.
+  | { outcome: 'ordered'; number: number; name?: string | null }
+  | { outcome: 'not_ready'; number: number; name?: string | null }
+  | { outcome: 'received'; number: number; claimed: number; total: number; name?: string | null }
+  | { outcome: 'already'; number: number | null; name?: string | null; mode?: ScanMode }
   | { outcome: 'not_guest' }
   | { outcome: 'unreadable' }
   | { outcome: 'no_signal' }
@@ -109,10 +113,20 @@ export function scanAnswerWords(a: ScanAnswer): ScanWords {
         title: `✓ ${scanNumberLabel(a.number)} · Claimed ${claimedOfWords(a.claimed, a.total)}`,
         line: a.name ?? null,
       };
+    case 'ordered':
+      return { tone: 'ok', title: `✓ Ordered · ${scanNumberLabel(a.number)}`, line: a.name ?? 'Tap Ready on the number when it’s done — the guest is told.' };
+    case 'not_ready':
+      return { tone: 'warn', title: `Not ready yet · ${scanNumberLabel(a.number)}`, line: a.name ?? 'Tap Ready on the number first, then scan again to hand it over.' };
+    case 'received':
+      return {
+        tone: 'ok',
+        title: `✓ Received · ${scanNumberLabel(a.number)}`,
+        line: a.name ?? `Received ${claimedOfWords(a.claimed, a.total)}`,
+      };
     case 'already':
       return {
         tone: 'warn',
-        title: a.number != null ? `Already claimed · ${scanNumberLabel(a.number)}` : 'Already claimed',
+        title: a.number != null ? `Already ${a.mode === 'ordered_received' ? 'received' : 'claimed'} · ${scanNumberLabel(a.number)}` : 'Already claimed',
         line: a.name ?? (a.number == null ? 'Handed out at the couple’s own desk.' : null),
       };
     case 'not_guest':
@@ -131,6 +145,56 @@ export function scanRefusalWords(code: string): string {
   if (/scanner_off/.test(code)) return 'This service’s scanner is off. Switch it on under Shop › Services.';
   if (/not_your_booking/.test(code)) return 'You aren’t booked for this service at this event.';
   return 'Something stopped the scan. Try again.';
+}
+
+/** The count under the scanner: "Claimed 142 of 176", or "Ordered 12 · Ready 3 · Received 20 of 176" (slice 2). */
+export function tallyWords(mode: ScanMode, t: { claimed: number; total: number; ordered?: number; ready?: number }): string {
+  if (mode === 'ordered_received') {
+    return `Ordered ${formatCount(t.ordered ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Received ${claimedOfWords(t.claimed, t.total)}`;
+  }
+  return `Claimed ${claimedOfWords(t.claimed, t.total)}`;
+}
+
+/** One number on "Your numbers" (prototype frame F) — counts only. */
+export type ScanNumberRow = {
+  number: number;
+  guests: number;
+  ordered: number;
+  ready: number;
+  received: number;
+  firstAt: string;
+  readyAt: string | null;
+  receivedAt: string | null;
+};
+
+export type NumberState = 'ordered' | 'ready' | 'received' | 'part';
+
+/** A number's state: all ordered · all ready · all received · or a mix (a shared number part-collected). */
+export function numberState(r: Pick<ScanNumberRow, 'guests' | 'ordered' | 'ready' | 'received'>): NumberState {
+  if (r.received === r.guests) return 'received';
+  if (r.ready === r.guests) return 'ready';
+  if (r.ordered === r.guests) return 'ordered';
+  return 'part';
+}
+
+export function numberStateWords(r: Pick<ScanNumberRow, 'guests' | 'ordered' | 'ready' | 'received'>): string {
+  switch (numberState(r)) {
+    case 'received':
+      return 'Received';
+    case 'ready':
+      return 'Ready · waiting';
+    case 'ordered':
+      return 'Ordered';
+    case 'part':
+      return `${formatCount(r.received)} of ${formatCount(r.guests)} received`;
+  }
+}
+
+/** The guest's own card line for a number in Ordered → Received (null for a claim that is simply done). */
+export function guestNumberStateWords(state: 'ordered' | 'ready' | 'received' | null | undefined): string | null {
+  if (state === 'ordered') return 'Being prepared';
+  if (state === 'ready') return 'Ready — claim it now';
+  return null;
 }
 
 // ── QR vs NFC, said by the screen itself (DECISION_LOG 2026-09-25 "THE SUPPLIER SCANNER EXPLAINS QR vs NFC ITSELF") ──
@@ -167,10 +231,14 @@ export type ScannerSaveResult = { ok: true; choice: ScannerChoice } | { ok: fals
 
 export type SupplierScanRequest =
   | { op: 'set_scanner'; coverageId: number; choice: string }
+  | { op: 'ready'; eventId: string; coverageId: number; number: number }
+  | { op: 'numbers'; eventId: string; coverageId: number }
   | { op: 'claim'; eventId: string; coverageId: number; raw: string; via: 'qr' | 'nfc' }
   | { op: 'admin_remove'; eventId: string; kind: 'scan' | 'souvenir'; claimId: string };
 
 export type SupplierScanReply =
   | { op: 'set_scanner'; result: ScannerSaveResult }
+  | { op: 'ready'; result: { ok: true; told: number } | { ok: false; error: string } }
+  | { op: 'numbers'; result: ScanNumberRow[] | null }
   | { op: 'claim'; result: ScanAnswer }
   | { op: 'admin_remove'; result: { ok: boolean; error?: string } };

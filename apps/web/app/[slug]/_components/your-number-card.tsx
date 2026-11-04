@@ -1,5 +1,5 @@
 import { readGuestScanNumbers, type GuestScanNumber } from '@/lib/supplier-scan.server';
-import { scanNumberLabel } from '@/lib/supplier-scan';
+import { guestNumberStateWords, scanNumberLabel } from '@/lib/supplier-scan';
 import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
 /**
@@ -40,6 +40,11 @@ export function YourNumberCardView({ numbers, className = '' }: { numbers: Guest
             <span className="block text-[12px] uppercase tracking-[0.16em] text-ink/55">Your number</span>
             <span className="block font-pahina text-3xl font-light tabular-nums text-ink">{scanNumberLabel(n.number)}</span>
             <span className="block text-[13.5px] text-ink/65">{[n.service, n.shop].filter(Boolean).join(' · ')}</span>
+            {guestNumberStateWords(n.state) ? (
+              <span className={`block text-[13px] ${n.state === 'ready' ? 'font-medium text-ink' : 'text-ink/55'}`} data-your-number-state={n.state}>
+                {guestNumberStateWords(n.state)}
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>

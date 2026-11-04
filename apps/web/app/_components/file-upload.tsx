@@ -904,8 +904,9 @@ export function FileUpload({
     let markInput: import('@/lib/watermark').PhotoMarkInput | null = null;
     const wantsMark = Boolean(mark) && (isImage(initialContentType) || isVideo(initialContentType));
     if (wantsMark && mark) {
+      const kind = mark;
       // Loaded at the first marked upload, never with the page (same as hub-draft-actions in details-march.tsx).
-      const answer = await import('./photo-mark-actions').then((a) => a.getPhotoMark(mark, pathPrefix)).catch(() => null);
+      const answer = await import('./photo-mark-actions').then((a) => a.getPhotoMark(kind, pathPrefix)).catch(() => null);
       if (!answer || !answer.ok) return refuseUnmarked(answer && !answer.ok ? answer.error : 'no answer', answer && !answer.ok ? answer.error : MARK_REFUSED_SAYS);
       markInput = { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
     }

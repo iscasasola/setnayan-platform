@@ -82,8 +82,12 @@ test('SABOTAGE-PROVEN: FileUpload FAILS CLOSED — a mark failure refuses, never
   for (const call of ['markPhotoFile(rawFile', 'watermarkFile(rawFile', 'markAndCompressVideo(rawFile']) {
     const at = src.indexOf(call);
     assert.notEqual(at, -1, `FileUpload must call ${call}`);
-    const tail = src.slice(at, at + 900);
-    assert.match(tail, /catch \(err\) \{\s*return refuseUnmarked\(err\);/, `${call} must refuse on failure`);
+    // The FIRST catch after the call — not merely some later one (a sabotage that
+    // set `file = rawFile` here stayed green against a window that reached the
+    // next painter's catch; caught and narrowed 2026-11-04).
+    const tail = src.slice(at);
+    const firstCatch = /catch \(err\) \{\s*([^\n]*)/.exec(tail)?.[1] ?? '';
+    assert.equal(firstCatch.trim(), 'return refuseUnmarked(err);', `${call} must refuse on failure`);
   }
   // The refusal is a failed tile WITH Try again, not a silent drop.
   assert.match(src, /const refuseUnmarked = [\s\S]{0,600}setFailed\(\(prev\) => \[\.\.\.prev, \{ id, file: rawFile \}\]\)/);
@@ -104,7 +108,7 @@ test('the mark is decided on the SERVER — FileUpload takes no verified/name/sl
   const src = code('app/_components/file-upload.tsx');
   const props = src.slice(src.indexOf('type FileUploadBaseProps'), src.indexOf('export type FileUploadProps'));
   assert.doesNotMatch(props, /\b(verified|shopName|slug|logoUrl|logoDataUrl)\??:/);
-  assert.match(src, /getPhotoMark\(mark, pathPrefix\)/);
+  assert.match(src, /getPhotoMark\(kind, pathPrefix\)/);
   const action = code('app/_components/photo-mark-actions.ts');
   assert.match(action, /shopMarkFacts\(createAdminClient\(\), shop\.vendorProfileId\)/);
   assert.match(action, /resolveActiveShopId\(/);

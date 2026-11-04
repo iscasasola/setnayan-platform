@@ -63,5 +63,10 @@ CREATE POLICY supplier_photo_originals_owner_all
     OR public.is_admin()
   );
 
+-- Never an anonymous surface: no anon grant at all (the RLS policy is TO
+-- authenticated; this closes the default table grant too).
+REVOKE ALL ON public.supplier_photo_originals FROM anon;
+REVOKE ALL ON SEQUENCE public.supplier_photo_originals_id_seq FROM anon;
+
 COMMENT ON TABLE public.supplier_photo_originals IS
   'Private clean copy + framing of each marked supplier photo (Seal and plate, 2026-11-04). public_ref = the marked copy every display column stores; original_ref = the clean copy in the private verification bucket; mark_kind lets the re-mark job run idempotently when a shop gains or loses Verified.';

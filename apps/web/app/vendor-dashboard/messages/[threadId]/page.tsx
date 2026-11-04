@@ -81,7 +81,9 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
-import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
+import { readDayCheck } from '@/lib/day-check.server';
+import { waitlistAnswerNotice } from '@/lib/day-check';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
@@ -167,6 +169,8 @@ type Props = {
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
     lock_decline?: string;
+    /** "Waiting list" on a full day (`vendorWaitlistTheAsk`, `lib/day-check.ts`). */
+    waitlist?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
     free?: string;
@@ -222,7 +226,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       halls: lockAgreeHalls(sp?.taken, sp?.free),
-    }) ?? lockDeclineNotice(sp?.lock_decline);
+    }) ?? lockDeclineNotice(sp?.lock_decline) ?? waitlistAnswerNotice(sp?.waitlist);
   const supabase = await createClient();
   const {
     data: { user },
@@ -718,6 +722,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       : null;
   })();
 
+  // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
+  // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
+  const dayCheckRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.state === 'requested' && lockHandshake.eventVendorId
+      ? await readDayCheck(supabase, lockHandshake.eventVendorId)
+      : null;
+  })();
+
   // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
   // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
   // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
@@ -1010,6 +1024,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBands,
     lockHandshake,
     chatFeeForecast,
+    dayCheck,
     bookedMoney,
     payoutReadiness,
     standingExtras,
@@ -1036,6 +1051,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBandsRead,
     lockHandshakeRead,
     chatFeeForecastRead,
+    dayCheckRead,
     bookedMoneyRead,
     payoutReadinessRead,
     standingExtrasRead,
@@ -1345,6 +1361,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           returnTo={`/vendor-dashboard/messages/${threadId}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
+          dayCheck={dayCheck}
+          waitlistAsk={vendorWaitlistTheAsk}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,

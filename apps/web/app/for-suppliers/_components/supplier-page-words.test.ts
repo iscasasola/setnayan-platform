@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import {
   HERO_SLIDES,
@@ -33,10 +34,7 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const has = (rel: string) => existsSync(join(WEB, rel));
 
 /** Source without comments — so the comment explaining why there is no button never reads as a button. */
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('(1) no demo or sample button anywhere on the page — and the doors it does draw exist', () => {
   const files = [

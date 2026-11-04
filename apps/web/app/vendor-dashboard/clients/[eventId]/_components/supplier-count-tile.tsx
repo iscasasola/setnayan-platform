@@ -2,8 +2,8 @@
  * Lives in its own file so `/dev/customer-money-lab?count=…` draws the SAME tile on fixture data.
  */
 import { InfoTip } from '@/app/_components/info-tip';
-import { breakdownWords, countNoun, ruleWords } from '@/lib/supplier-count';
-import { ROLE_GROUP_LABELS, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
+import { breakdownWords, countNoun, ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
+import type { RoleNames } from '@/lib/role-names';
 import type { SupplierHeadcount } from '@/lib/supplier-count';
 
 /**
@@ -12,11 +12,9 @@ import type { SupplierHeadcount } from '@/lib/supplier-count';
  * the couple left out (never who), and that it moves with every reply. Its number IS the brief's `pax.attending`: one
  * SQL helper (`guests_not_counted_for_services`) feeds both.
  */
-export function SupplierCountTile({ count }: { count: SupplierHeadcount }) {
-  const labels = [
-    ...new Set(count.roles.map(roleGroupOf).filter((g): g is RoleGroup => g !== 'guest').map((g) => ROLE_GROUP_LABELS[g])),
-    ...count.groups,
-  ];
+export function SupplierCountTile({ count, names = null }: { count: SupplierHeadcount; names?: RoleNames | null }) {
+  // The rule in the couple's words ("Only Bride's Crew"), as the couple's own sheet says it.
+  const labels = [...ruleRoleLabels(count.roles, names), ...count.groups];
   return (
     <div data-supplier-count={count.counted}>
       <div className="mt-3 grid grid-cols-2 gap-4">

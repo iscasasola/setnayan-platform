@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { askedOnce } from '@/lib/request-once';
+import { loadRoleNames } from '@/lib/role-names.server';
 import type { GuestRole } from '@/lib/guests';
 import {
   serviceLabel,
@@ -58,14 +59,18 @@ export function serviceCountsOf(raw: RawCounts): ServiceCounts {
  * row notes and the Suppliers page's "Who they count" all read it. The couple, a guest-list helper, or the admin.
  */
 export async function readEventServiceCounts(supabase: SupabaseClient, eventId: string): Promise<ServiceCounts | null> {
-  const { data, error } = await askedOnce(supabase, 'rpc.get_event_service_counts', [eventId], async () =>
-    supabase.rpc('get_event_service_counts', { p_event_id: eventId }),
-  );
+  // The couple's words for roles ride along (a failed read is the usual words, logged — `loadRoleNames`).
+  const [{ data, error }, names] = await Promise.all([
+    askedOnce(supabase, 'rpc.get_event_service_counts', [eventId], async () =>
+      supabase.rpc('get_event_service_counts', { p_event_id: eventId }),
+    ),
+    loadRoleNames(supabase, eventId, 'supplierCount.roleNames'),
+  ]);
   if (error || !data) {
     if (error) logQueryError('supplierCount.eventServiceCounts', error, { eventId }, 'graceful_degrade');
     return null;
   }
-  return serviceCountsOf(data as RawCounts);
+  return { ...serviceCountsOf(data as RawCounts), names };
 }
 
 /**

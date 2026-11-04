@@ -642,7 +642,7 @@ function BookedFold({ eventId, row, counts = null }: { eventId: string; row: Boo
       {row.invite ? <ClaimDoor eventId={eventId} vendorId={row.vendorId} vendorName={row.name} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
-      {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} /> : null}
+      {counted && counts ? <BookedCountRule eventId={eventId} service={counted} groups={counts.groups} roster={counts.roster} names={counts.names} /> : null}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
         <span className="text-ink/55">Used across your event:</span>
         {row.feeds.map((u) => (

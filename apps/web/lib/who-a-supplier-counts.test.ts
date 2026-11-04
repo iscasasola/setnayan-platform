@@ -17,12 +17,15 @@ import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
   ALL_ATTENDING,
+  audienceOf,
   breakdownWords,
   countFor,
   countNoun,
   keysOfRule,
   notCountedResult,
+  ruleLabels,
   ruleOfKeys,
+  ruleRoleLabels,
   ruleWords,
   serviceHint,
   type CountedService,
@@ -30,6 +33,17 @@ import {
 } from '@/lib/supplier-count';
 
 const WEB = join(__dirname, '..');
+
+test('2b · a rule is said in the couple’s words for a role — the sheet, the tick list and the supplier’s tile alike', () => {
+  const names = { bridesmaid: { one: "Bride's Crew" } };
+  const rule = ruleOfKeys('only', ['r:bridesmaids', 'g:kids']);
+  const groups = [{ id: 'kids', label: 'Kids' }];
+  assert.deepEqual(ruleLabels(rule, groups, names), ["Bride's Crew", 'Kids']);
+  assert.deepEqual(ruleLabels(rule, groups), ['Bridesmaids', 'Kids'], 'no words given → the usual word');
+  assert.deepEqual(ruleRoleLabels(rule.roles, names), ruleLabels(rule, [], names), 'the supplier’s tile and the couple’s sheet disagree');
+  const roster: RosterEntry[] = [{ r: ['bridesmaid'], g: [], t: [] }];
+  assert.equal(audienceOf(roster, groups, [], names).find((o) => o.key === 'r:bridesmaids')?.label, "Bride's Crew");
+});
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 function sources(dir: string, out: string[] = []): string[] {
@@ -142,8 +156,11 @@ test('3 · Suppliers › an opened service › "Who they count" — only for a p
 test('3 · the supplier’s Headcount card and Admin › Events', () => {
   const page = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
   assert.match(page, /isBooked && feeUnlocked \? readVendorHeadcountRule\(supabase, eventId\) : Promise\.resolve\(null\),/);
-  assert.match(page, /\{headcountRule \? \(\s*<SupplierCountTile count=\{headcountRule\} \/>/);
+  assert.match(page, /\{headcountRule \? \(\s*<SupplierCountTile count=\{headcountRule\} names=\{headcountNames\} \/>/);
+  // The rule is said in the couple's words, on the supplier's side as on theirs.
+  assert.match(page, /isBooked && feeUnlocked \? loadRoleNames\(admin, eventId, 'vendorClientCard\.roleNames'\) : Promise\.resolve\(null\),/);
   const tile = read('app/vendor-dashboard/clients/[eventId]/_components/supplier-count-tile.tsx');
+  assert.match(tile, /ruleRoleLabels\(count\.roles, names\)/);
   assert.match(tile, /<InfoTip label=\{countNoun\(count\.category\)\}[^>]*>\s*\{breakdownWords\(count\)\}/);
   for (const words of ['Their rule', 'Not counted', 'The couple picked them · names stay private', 'Moves with', 'Every reply']) {
     assert.ok(tile.includes(words), `the supplier's card lost "${words}"`);

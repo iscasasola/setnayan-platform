@@ -40,6 +40,7 @@ import {
   type CountedService,
   type RosterEntry,
 } from '@/lib/supplier-count';
+import type { RoleNames } from '@/lib/role-names';
 import { saveCountRule } from '../_actions/count-rule';
 import { BookedStandInCtx } from './booked-stand-ins';
 
@@ -48,16 +49,19 @@ export function BookedCountRule({
   service,
   groups,
   roster,
+  names = null,
 }: {
   eventId: string;
   service: CountedService;
   groups: readonly CountGroup[];
   roster: readonly RosterEntry[];
+  /** The couple's words for roles — "Only Bride's Crew" when they renamed her. */
+  names?: RoleNames | null;
 }) {
   const [saved, setSaved] = useState(service.rule);
   const [open, setOpen] = useState(false);
   const shown = useMemo(() => countFor(roster, saved, service.id), [roster, saved, service.id]);
-  const words = ruleWords(saved.mode, ruleLabels(saved, groups));
+  const words = ruleWords(saved.mode, ruleLabels(saved, groups, names));
   return (
     <>
       <button
@@ -88,6 +92,7 @@ export function BookedCountRule({
           service={service}
           groups={groups}
           roster={roster}
+          names={names}
           start={saved}
           onClose={() => setOpen(false)}
           onSaved={(next) => {
@@ -105,6 +110,7 @@ function CountRuleSheet({
   service,
   groups,
   roster,
+  names,
   start,
   onClose,
   onSaved,
@@ -113,6 +119,7 @@ function CountRuleSheet({
   service: CountedService;
   groups: readonly CountGroup[];
   roster: readonly RosterEntry[];
+  names: RoleNames | null;
   start: CountedService['rule'];
   onClose: () => void;
   onSaved: (rule: CountedService['rule']) => void;
@@ -123,7 +130,7 @@ function CountRuleSheet({
   const [keys, setKeys] = useState<string[]>(() => keysOfRule(start));
   const [pending, run] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const audience = useMemo(() => audienceOf(roster, groups, keys), [roster, groups, keys]);
+  const audience = useMemo(() => audienceOf(roster, groups, keys, names), [roster, groups, keys, names]);
   const rule = ruleOfKeys(mode, keys);
   const c = countFor(roster, rule, service.id);
   const shop = service.shop ?? service.label;

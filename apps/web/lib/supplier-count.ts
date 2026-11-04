@@ -15,7 +15,8 @@
  * 🔒 lib/who-a-supplier-counts.test.ts · tests/db/who-a-supplier-counts.db.test.ts
  */
 import type { GuestRole } from './guests';
-import { ROLE_GROUP_LABELS, ROLE_IMPORTANCE, roleGroupOf, type RoleGroup } from './role-groups';
+import { ROLE_IMPORTANCE, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
+import type { RoleNames } from './role-names';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 
 export type CountMode = 'all' | 'only' | 'except';
@@ -49,7 +50,8 @@ export type CountedService = Breakdown & {
   booked: boolean;
   rule: CountRule;
 };
-export type ServiceCounts = { services: CountedService[]; groups: CountGroup[]; roster: RosterEntry[] };
+/** `names` = the couple's own words for roles (`events.role_names`) — a rule says "Only Bride's Crew" when they renamed her. */
+export type ServiceCounts = { services: CountedService[]; groups: CountGroup[]; roster: RosterEntry[]; names?: RoleNames | null };
 
 export const ALL_ATTENDING: CountRule = { mode: 'all', roles: [], groupIds: [] };
 
@@ -82,8 +84,13 @@ export function rolesOfGroup(group: RoleGroup): GuestRole[] {
 /** One line of the tick list: a role group or a guest group, with how many of it are attending. */
 export type AudienceOption = { key: string; label: string; type: 'Role' | 'Group'; n: number };
 
-/** The tick list, roles first (in importance order), then the couple's own groups. */
-export function audienceOf(roster: readonly RosterEntry[], groups: readonly CountGroup[], keep: readonly string[] = []): AudienceOption[] {
+/** The tick list, roles first (in importance order, in the couple's words), then the couple's own groups. */
+export function audienceOf(
+  roster: readonly RosterEntry[],
+  groups: readonly CountGroup[],
+  keep: readonly string[] = [],
+  names: RoleNames | null = null,
+): AudienceOption[] {
   const roleN = new Map<RoleGroup, number>();
   for (const g of roster) {
     const mine = new Set(g.r.map(roleGroupOf).filter((x): x is RoleGroup => x !== 'guest'));
@@ -96,7 +103,7 @@ export function audienceOf(roster: readonly RosterEntry[], groups: readonly Coun
   const order = [...first.filter((rg) => ranked.includes(rg)), ...ranked.filter((rg) => !first.includes(rg))];
   const roles: AudienceOption[] = order
     .filter((rg) => roleN.has(rg) || keep.includes(`r:${rg}`))
-    .map((rg) => ({ key: `r:${rg}`, label: ROLE_GROUP_LABELS[rg], type: 'Role' as const, n: roleN.get(rg) ?? 0 }));
+    .map((rg) => ({ key: `r:${rg}`, label: roleGroupLabel(rg, names), type: 'Role' as const, n: roleN.get(rg) ?? 0 }));
   const own: AudienceOption[] = groups.map((gr) => ({
     key: `g:${gr.id}`,
     label: gr.label,
@@ -127,10 +134,15 @@ export function ruleWords(mode: CountMode, labels: readonly string[]): string {
   return mode === 'only' ? `Only ${names}` : `Everyone except ${names}`;
 }
 
+/** The labels of a rule's role groups, in the couple's words — the supplier's tile and `ruleLabels` say the same. */
+export function ruleRoleLabels(roles: readonly GuestRole[], names: RoleNames | null = null): string[] {
+  return [...new Set(roles.map(roleGroupOf).filter((x): x is RoleGroup => x !== 'guest'))].map((rg) => roleGroupLabel(rg, names));
+}
+
 /** The rule's labels for the couple's own rule (role groups first, then groups that still exist). */
-export function ruleLabels(rule: CountRule, groups: readonly CountGroup[]): string[] {
+export function ruleLabels(rule: CountRule, groups: readonly CountGroup[], names: RoleNames | null = null): string[] {
   const byId = new Map(groups.map((g) => [g.id, g.label] as const));
-  const roleLabels = [...new Set(rule.roles.map(roleGroupOf).filter((x): x is RoleGroup => x !== 'guest'))].map((rg) => ROLE_GROUP_LABELS[rg]);
+  const roleLabels = ruleRoleLabels(rule.roles, names);
   return [...roleLabels, ...rule.groupIds.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))];
 }
 

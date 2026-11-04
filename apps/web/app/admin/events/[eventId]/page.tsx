@@ -421,7 +421,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
                     {s.booked ? '' : <span className="text-ink/50"> · quoted, not booked</span>}
                   </span>
                   <span className="block text-xs text-ink/60">
-                    {ruleWords(s.rule.mode, ruleLabels(s.rule, serviceCounts.groups))} · {breakdownWords(s)}
+                    {ruleWords(s.rule.mode, ruleLabels(s.rule, serviceCounts.groups, serviceCounts.names))} · {breakdownWords(s)}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">

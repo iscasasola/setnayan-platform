@@ -66,7 +66,7 @@ test('1 · rows sized by content, the line between them, dashed faces and "Happe
 
 test('2 · with chapters the rail draws the list — no hour grid, no 👁, no monospace', () => {
   const rail = code('_components/day-rail.tsx');
-  assert.match(rail, /if \(ch\) \{[\s\S]{0,2600}<DayList rows=\{list\}/, 'the chapters day is still the hour grid');
+  assert.match(rail, /if \(ch\) \{[\s\S]{0,2600}<DayList\s+rows=\{list\}/, 'the chapters day is still the hour grid');
   const list = code('_components/day-list.tsx');
   assert.doesNotMatch(list, /\bEye\b|EyeOff|font-mono/, 'the list shows an eye or a monospace time');
   assert.match(list, /tabular-nums/);

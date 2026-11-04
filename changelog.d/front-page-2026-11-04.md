@@ -21,7 +21,10 @@ MARKETING PAGES GO TO CLOUD BUILD"), ported onto the shipped front door. Signed-
   pages); `lib/front-page-photos.ts` maps keys to paths.
 - **Guards moved, not loosened**: the headline guard pins the new approved line and still pins "one album";
   a new case pins the sample-open buttons; the Google OAuth guard reads the Privacy/Terms links from the
-  page footer and checks the home page draws it; two house-word allowances with reasons.
+  page footer and checks the home page draws it; one house-word allowance (the quoted “wedding website”)
+  and the photo map's `celebration` key in the event-type-keys allowance, each with its reason.
+- Both dropdowns are the shared `PickMenu`. The plans line drops "Same prices on the website and in the
+  iPhone app" — `/` opens in the app, and the app never steers to the web.
 - Regenerated `lib/ugat/screens.generated.json` and `scripts/port-control-baseline.json`.
 
 SPEC IMPACT: None to the corpus — this ports `prototypes/front_page_2026-11-04.html` (Setnayan-specs) as

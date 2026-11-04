@@ -114,13 +114,7 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
       'The front page’s problem #8 (prototypes/front_page_2026-11-04.html, owner-approved 4 Nov) quotes the ' +
       'category the Event Hub replaces — the other products — never our own page. Same exemption as /pawebsite.',
   },
-  {
-    file: 'app/_components/frontdoor/front-door-landing.tsx',
-    phrase: /Same prices on the website and in the iPhone app/i,
-    why:
-      'The plans line (4 Nov front page) means setnayan.com versus the iPhone app — one price on both ' +
-      '(DECISION_LOG 2026-11-04 "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"). It names no Event Hub.',
-  },
+
   {
     file: /^app\/\(shell\)\/pawebsite\//,
     phrase: /\bweb ?sites?\b|\bwedding sites\b/i,

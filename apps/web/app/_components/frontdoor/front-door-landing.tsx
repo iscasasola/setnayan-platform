@@ -36,6 +36,7 @@ import { readSampleEvent, readSampleGuest, SAMPLE_EVENT_ID } from '@/lib/sample-
 import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event/hub';
 import { marchOrdinal } from '@/lib/march-place';
 import { guestRoleLabel } from '@/lib/guests';
+import { formatCount } from '@/lib/format-number';
 import {
   ADD_ONS,
   COORDINATOR_TOOLS,
@@ -343,7 +344,7 @@ export function FrontDoorLanding({
                   <img className="fl-ph" src={marketingPhoto(s.photo)} alt={s.alt} loading="lazy" decoding="async" width={960} height={720} />
                   <figcaption>
                     <span className="fl-n">
-                      {String(i + 1).padStart(2, '0')} / {total}
+                      {String(i + 1).padStart(2, '0')} / {formatCount(total)}
                     </span>
                     <span className="fl-t">{s.title}</span>
                     <span className="fl-pain">{s.pain}</span>
@@ -363,7 +364,7 @@ export function FrontDoorLanding({
             ))}
           </div>
           <div className="fl-solves-more">
-            <ExpandButton className="fl-btn fl-btn-line" more={`See all ${total} ›`} less={`Show the top ${SOLVES_SHOWN_FIRST}`} />
+            <ExpandButton className="fl-btn fl-btn-line" more={`See all ${formatCount(total)} ›`} less={`Show the top ${SOLVES_SHOWN_FIRST}`} />
           </div>
         </Expandable>
       </section>
@@ -458,7 +459,7 @@ export function FrontDoorLanding({
           kicker="What you get"
           id="h-plans"
           title="Free is complete. Plus and Pro are for more."
-          lede="One price for the whole event — it unlocks for everyone on it. Same prices on the website and in the iPhone app."
+          lede="One price for the whole event — it unlocks for everyone on it."
         />
         <div className="fl-plans">
           <Expandable as="article" className="fl-plan fl-plan-free">
@@ -506,7 +507,7 @@ export function FrontDoorLanding({
                 </div>
               </div>
             </div>
-            <ExpandButton className="fl-ptoggle" more={`See all ${plusCount} features`} less="Show less" chevron />
+            <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(plusCount)} features`} less="Show less" chevron />
             <Link className="fl-btn fl-btn-line" href="/start">
               Start free, upgrade any time
             </Link>
@@ -532,7 +533,7 @@ export function FrontDoorLanding({
                 </div>
               </div>
             </div>
-            <ExpandButton className="fl-ptoggle" more={`See all ${proCount} features`} less="Show less" chevron />
+            <ExpandButton className="fl-ptoggle" more={`See all ${formatCount(proCount)} features`} less="Show less" chevron />
             <Link className="fd-btn-terra fl-btn" href="/start">
               Start free, upgrade any time
             </Link>

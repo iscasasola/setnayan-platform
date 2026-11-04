@@ -22,6 +22,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { marketingPhoto } from '@/lib/front-page-photos';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { HeroSlide } from './front-door-landing-data';
 
 const LOOP_MS = 5000;
@@ -71,16 +72,13 @@ export function HeroStage({ slides, children }: { slides: readonly HeroSlide[]; 
   );
 
   useEffect(() => {
-    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
     const arm = () => setArmed(true);
-    let idle: ReturnType<typeof setTimeout> | number | null = null;
-    if (w.requestIdleCallback) idle = w.requestIdleCallback(arm);
-    else idle = setTimeout(arm, 900);
-    return () => {
-      if (typeof idle === 'number' && w.requestIdleCallback && 'cancelIdleCallback' in w) {
-        (w as Window & { cancelIdleCallback: (id: number) => void }).cancelIdleCallback(idle);
-      } else if (idle !== null) clearTimeout(idle as ReturnType<typeof setTimeout>);
-    };
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(arm);
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = setTimeout(arm, 900);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -120,17 +118,16 @@ export function HeroStage({ slides, children }: { slides: readonly HeroSlide[]; 
           </div>
         ))}
       </div>
-      {/* House rule: any set of choices is a dropdown, never a pill row. */}
-      <label className="fl-picker">
-        <span className="fd-sr-only">Which event?</span>
-        <select value={index} onChange={(e) => pick(Number(e.target.value))}>
-          {slides.map((s, i) => (
-            <option key={s.key} value={i}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* House rule: any set of choices is ONE dropdown — the shared PickMenu, never a raw <select>. */}
+      <div className="fl-picker">
+        <PickMenu
+          label="Which event?"
+          value={String(index)}
+          options={slides.map((s, i) => ({ key: String(i), label: s.label }))}
+          onPick={(k) => pick(Number(k))}
+          dataAttr="data-fl-hero-pick"
+        />
+      </div>
       {children}
     </HeroIndex.Provider>
   );

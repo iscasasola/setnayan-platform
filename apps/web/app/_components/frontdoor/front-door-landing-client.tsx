@@ -13,6 +13,7 @@
  *   • `LandingMotion` — the calm reveal on scroll, and the problems' photo settling in.
  */
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 /* ─── "See it as" ───────────────────────────────────────────────────────────────────────────── */
 
@@ -47,17 +48,17 @@ export function PersonaViewer({
   return (
     <div ref={root} className={scrolled ? 'fl-viewer fl-scrolled' : 'fl-viewer'} data-who={who}>
       <div className="fl-viewer-ctl">
-        {/* House rule: a set of choices is a dropdown, never a pill row. */}
-        <label className="fl-pick">
-          See it as
-          <select value={who} onChange={(e) => choose(e.target.value)}>
-            {options.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* House rule: a set of choices is ONE dropdown — the shared PickMenu, never a raw <select>. */}
+        <span className="fl-pick">
+          <span aria-hidden="true">See it as</span>
+          <PickMenu
+            label="See it as"
+            value={who}
+            options={options.map((o) => ({ key: o.key, label: o.label }))}
+            onPick={choose}
+            dataAttr="data-fl-persona-pick"
+          />
+        </span>
       </div>
       {children}
     </div>

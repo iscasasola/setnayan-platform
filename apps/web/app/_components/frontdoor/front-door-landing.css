@@ -154,48 +154,11 @@
   );
 }
 .fd .fl-picker {
+  /* The shared PickMenu pill, placed on the photo; it keeps its own look (white glass, terracotta ▾). */
   position: absolute;
   left: 16px;
   top: 16px;
   z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: var(--m-r-full);
-  background: rgb(23 22 15 / 0.55);
-  color: #fbfaf7;
-  font-size: 13px;
-  font-weight: 500;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.fd .fl-picker select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  padding-right: 16px;
-  outline-offset: 2px;
-  cursor: pointer;
-}
-.fd .fl-picker select option {
-  color: #2c2a29;
-}
-.fd .fl-picker::after {
-  content: '';
-  position: absolute;
-  right: 12px;
-  top: 13px;
-  width: 7px;
-  height: 7px;
-  border-right: 1.6px solid currentColor;
-  border-bottom: 1.6px solid currentColor;
-  transform: rotate(45deg);
-  pointer-events: none;
 }
 .fd .fl-hero-copy {
   position: relative;
@@ -424,44 +387,16 @@
   grid-area: ctl;
 }
 .fd .fl-pick {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 44px;
+  gap: 10px;
   max-width: 100%;
-  padding: 0 36px 0 16px;
-  border: 1px solid rgb(var(--color-ink) / 0.3);
-  border-radius: var(--m-r-full);
   font-weight: 500;
   font-size: 15px;
   color: rgb(var(--ink-soft));
-  background: var(--surface);
 }
-.fd .fl-pick select {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-weight: 600;
-  color: rgb(var(--color-ink));
-  padding: 0;
-  max-width: 62vw;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-.fd .fl-pick::after {
-  content: '';
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 7px;
-  height: 7px;
-  border-right: 1.6px solid currentColor;
-  border-bottom: 1.6px solid currentColor;
-  transform: rotate(45deg);
-  pointer-events: none;
+.fd .fl-pick > button {
+  border: 1px solid rgb(var(--color-ink) / 0.3);
 }
 .fd .fl-phone {
   grid-area: frame;
@@ -1336,9 +1271,6 @@
   .fd .fl-phone {
     width: 100%;
     margin: 0;
-  }
-  .fd .fl-pick select {
-    max-width: none;
   }
   .fd .fl-solve {
     max-width: 820px;

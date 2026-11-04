@@ -121,12 +121,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
     busy.current = true;
     setState({ k: 'working' });
     try {
-      const res = await printFetch(
-        href,
-        body === undefined
-          ? { credentials: 'same-origin' }
-          : { credentials: 'same-origin', method: 'POST', body, headers: { 'Content-Type': 'application/json' } },
-      );
+      const res = await printFetch(href, body === undefined ? { credentials: 'same-origin' } : { credentials: 'same-origin', method: 'POST', body, headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) {
         const text = (await res.text().catch(() => '')).trim();
         setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });

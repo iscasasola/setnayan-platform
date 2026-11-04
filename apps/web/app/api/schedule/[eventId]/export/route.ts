@@ -8,7 +8,6 @@ import { ScheduleUnreadError, personDayPdf, schedulePdf } from '@/lib/schedule-p
 import { readPrintDay } from '@/lib/schedule-view-as-people';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { asViewed } from '@/lib/view-as-free.server';
 import { sharePdfPaper } from '@/lib/share-pdf-papers';
 import { printedDate } from '@/lib/print-pieces';
 
@@ -132,8 +131,9 @@ export async function POST(req: Request, { params }: Params) {
   if (viewerAreaLevel(viewer, 'schedule') === null) {
     return new NextResponse("The schedule isn't shared with you. Ask the hosts for access.", { status: 403 });
   }
-  // 💎 One person's day is Pro, like the view it prints (a refused Pro read is "not Pro", never a free file).
-  const pro = await asViewed((async () => eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId))().catch(() => false));
+  // 💎 One person's day is Pro, like the view it prints — the REAL gate (a POST never reads the owner's "view as Free"
+  // switch, lib/view-as-free-never-changes-a-save.test.ts). A refused Pro read is "not Pro", never a free file.
+  const pro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false);
   if (!pro) return new NextResponse('A schedule for one person is part of Pro.', { status: 402, headers: NO_STORE });
 
   const text = await req.text();

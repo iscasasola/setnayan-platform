@@ -10,3 +10,5 @@ Owner 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS"): *"we want 3000 credits a
 - llms.txt, its fixture, the admin ladder seed, the IAP list and every guard now name the three packs.
 
 SPEC IMPACT: DECISION_LOG 2026-11-03 rows already record the rulings. RELEASE_LIST_DARK_LAUNCHES row 12 "Papic Unlimited photos pass" → ⛔ retired (it was never built). The supplier gift's effective cap (3,000, not 50,000) needs owner sign-off.
+
+**Also (2026-11-04):** the Event Hub Maker's first-load budget is raised from 507.5 to 508.5 KB (owner: *"yes, raise the Maker budget by 1 KB"*). The reason is CI noise, not new code. `main` measured 11 B under the old line, this PR measured 18 B smaller than `main`, and CI's builds drift by about 100 B between runs (`--frozen-lockfile=false`). SPEC IMPACT: DECISION_LOG row "MAKER FIRST-LOAD BUDGET RAISED TO 508.5 KB" (controller to add, as with the 507.5 raise).

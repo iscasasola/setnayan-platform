@@ -83,7 +83,6 @@ import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
 import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
 import { readDayCheck } from '@/lib/day-check.server';
-import { waitlistAnswerNotice } from '@/lib/day-check';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
@@ -169,8 +168,6 @@ type Props = {
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
     lock_decline?: string;
-    /** "Waiting list" on a full day (`vendorWaitlistTheAsk`, `lib/day-check.ts`). */
-    waitlist?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
     free?: string;
@@ -226,7 +223,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       halls: lockAgreeHalls(sp?.taken, sp?.free),
-    }) ?? lockDeclineNotice(sp?.lock_decline) ?? waitlistAnswerNotice(sp?.waitlist);
+    }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {
     data: { user },

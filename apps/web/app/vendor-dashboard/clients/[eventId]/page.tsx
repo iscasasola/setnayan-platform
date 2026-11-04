@@ -113,7 +113,6 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
-import { waitlistAnswerNotice } from '@/lib/day-check';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -526,8 +525,6 @@ type Props = {
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
     lock_decline?: string;
-    /** "Waiting list" on a full day (`vendorWaitlistTheAsk`, `lib/day-check.ts`). */
-    waitlist?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
     free?: string;
@@ -789,8 +786,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
     lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
-    lockDeclineNotice(search.lock_decline) ??
-    waitlistAnswerNotice(search.waitlist);
+    lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
   // value, which the couple's session can write (a `https://wa.me/…` there

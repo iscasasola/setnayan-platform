@@ -1525,8 +1525,15 @@ export async function vendorDeclineLock(formData: FormData) {
  * refuses (`not_full`) unless the SAME verdict the panel drew says the day is full. The message rides the shipped
  * send path (`sendChatMessageCore` — its gates, its notice); no email is added. The ask itself is left as it is —
  * turning it down stays the supplier's own, separate answer.
+ *
+ * 🪟 IN PLACE (house rule "a save never resets the screen"): no redirect — the answer RETURNS (`{ status }`) to the
+ * form's own `useActionState` (`_components/waitlist-form.tsx`), which says it under the button, and the page is
+ * revalidated so the line reads the day again.
  */
-export async function vendorWaitlistTheAsk(formData: FormData) {
+export async function vendorWaitlistTheAsk(
+  _prev: { status: string } | null,
+  formData: FormData,
+): Promise<{ status: string }> {
   const eventVendorId = formData.get('vendor_id');
   if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
   const back = lockAnswerReturnTo(formData.get('return_to'));
@@ -1559,7 +1566,7 @@ export async function vendorWaitlistTheAsk(formData: FormData) {
 
   revalidatePath('/vendor-dashboard');
   if (back !== '/vendor-dashboard') revalidatePath(back);
-  redirect(`${back}?waitlist=${flag}`);
+  return { status: flag };
 }
 
 /**

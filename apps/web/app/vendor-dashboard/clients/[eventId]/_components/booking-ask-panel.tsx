@@ -24,7 +24,7 @@
  * Server-rendered; the two actions are props so the dev lab
  * (`/dev/booking-ask-lab`) draws the same panel without a session.
  */
-import { Check, Clock, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { askLine, type SupplierAskOutcome } from '@/lib/booking-ask-words';
@@ -37,6 +37,7 @@ import { AskSubmit } from '@/app/_components/ask-submit';
 import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
 import type { DayCheckRead } from '@/lib/day-check';
 import { DayCheckLine } from './day-check-line';
+import { WaitlistForm } from './waitlist-form';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -86,8 +87,8 @@ export function LockRequestAnswer({
    * is drawn and Agree stands as before. A `failed` read says so and keeps Agree — the server still refuses a full day.
    */
   dayCheck?: (DayCheckRead & { halls?: { taken: string[]; free: string[] } | null }) | null;
-  /** `vendorWaitlistTheAsk` — posted by "Waiting list" on a full day. */
-  waitlistAsk?: FormAction;
+  /** `vendorWaitlistTheAsk` — "Waiting list" on a full day; answers in place (`waitlist-form.tsx`). */
+  waitlistAsk?: (prev: { status: string } | null, formData: FormData) => Promise<{ status: string }>;
   /** The render instant (the lab pins it). */
   now?: Date;
 }) {
@@ -121,11 +122,7 @@ export function LockRequestAnswer({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {dayFull && waitlistAsk ? (
           // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
-          <form action={waitlistAsk} data-day-check-waitlist="">
-            <input type="hidden" name="vendor_id" value={eventVendorId} />
-            <input type="hidden" name="return_to" value={returnTo} />
-            <AskSubmit tone="brand" main icon={<Clock {...ico} />} label="Waiting list" pendingLabel="Adding…" />
-          </form>
+          <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
         ) : (
           <form action={agreeLock}>
             <input type="hidden" name="vendor_id" value={eventVendorId} />

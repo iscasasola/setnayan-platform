@@ -53,7 +53,7 @@ export default async function OpenShopPage({
   const gate = await getOAuthGate(OAUTH_FLAGS);
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
-  const { data: owned } = user ? await supabase
+  const { data: owned, error: ownedError } = user ? await supabase
     // `vendor_profiles_self` (migration 20271217955839), never the table: the
     // projection names `business_owner_name`, off `authenticated`'s column
     // allowlist, and one denied column refuses the whole query — which here
@@ -64,7 +64,13 @@ export default async function OpenShopPage({
       'vendor_profile_id, business_name, business_slug, logo_url, services, event_types, location_city, business_owner_name, business_owner_position, contact_phone, contact_email, hq_address, in_business_since_year',
     )
     .eq('user_id', user.id)
-    .maybeSingle() : { data: null };
+    .maybeSingle() : { data: null, error: null };
+  // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, it re-opens the wizard
+  // over a shop that already has a name — the restart the view above exists to
+  // prevent. Throw to the error screen, which says the truth: try again.
+  if (ownedError) {
+    throw new Error(`open-shop: could not read your shop (${ownedError.message})`);
+  }
   const row = owned as {
     vendor_profile_id?: string | null;
     business_name?: string | null;

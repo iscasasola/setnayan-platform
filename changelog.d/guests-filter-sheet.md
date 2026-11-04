@@ -16,5 +16,10 @@ the filter only filters.
 - 🔒 `the-filter-sheet-only-filters.test.ts` (new); re-anchored to the new places: `search-or-add`, `the-fable-card-and-rows`,
   `the-guest-list-sheet-is-calm`, `thumb-row-order-and-field-share`, `a-simple-event-has-no-sides`, `lib/guest-export-file`.
 
-SPEC IMPACT: Reverses the 2026-10-25 "remove the +" on the List (owner 3 Nov, relayed) — ＋ Add ▾ is a menu, not the old
-bare round. DECISION_LOG row needed for the ≡ → "Show & sort" sheet and the four moved actions.
+**Owner, 4 Nov:** "keep long-press as drag; the ＋ Add is fine" — both open calls settled. A long press on a row stays
+drag-to-a-new-role; Select starts from the top-row ☑ Select. `guest-selection-store.ts`'s comment no longer claims a
+long press starts selecting (that stale line is where the 3 Nov brief's assumption came from).
+
+SPEC IMPACT: Reverses the 2026-10-25 "remove the +" on the List — ＋ Add ▾ is a menu, not the old bare round (owner
+confirmed 4 Nov: "the ＋ Add is fine"). DECISION_LOG row needed for the ≡ → "Show & sort" sheet, the four moved
+actions, and long-press staying drag (the corpus is not in this cloud session — for the controller to apply).

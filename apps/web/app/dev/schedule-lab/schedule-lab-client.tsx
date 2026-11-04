@@ -77,6 +77,19 @@ const LOCKED_MOMENTS = new Set(['ingress']);
 function seedRequests(dateKey: string): DayRequest[] {
   return [
     {
+      /* 📍 A supplier's Where pick (owner 2026-11-04, migration 20271308641275): OK · Decline · Change. */
+      suggestion_id: 'r5',
+      block_id: null,
+      kind: 'where',
+      by: 'Lumière Photo',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      where: { now: 'Ceremony', asked: 'Preparation, Ceremony, Reception' },
+      note: 'Asks to work Preparation, Ceremony, Reception',
+    },
+    {
       suggestion_id: 'r1',
       block_id: 'ingress',
       kind: 'adjust',

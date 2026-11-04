@@ -150,6 +150,9 @@ export type SupplierRequestRow = {
   /** 🏛 A venue's hours request: setup / pack-up in minutes. */
   proposed_ingress_minutes?: number | null;
   proposed_egress_minutes?: number | null;
+  /** 📍 A Where request (kind 'where', migration 20271308641275): their booking and the chapters asked. */
+  where_vendor_id?: string | null;
+  proposed_block_ids?: string[] | null;
 };
 
 /** 📇 A task contact the supplier may read (RLS: only on moments they are on) — 4 additions (3). */
@@ -313,7 +316,8 @@ export function buildSupplierDay(input: {
   const otherWaiting = open.filter(
     (r) =>
       (r.kind === 'new' && (!r.proposed_parent_block_id || !chapterIds.has(r.proposed_parent_block_id))) ||
-      (r.kind !== 'new' && r.kind !== 'hours' && (!r.block_id || !ownMomentIds.has(r.block_id))),
+      // 📍 A Where request is drawn on its own row (their Where), never as "A suggestion".
+      (r.kind !== 'new' && r.kind !== 'hours' && r.kind !== 'where' && (!r.block_id || !ownMomentIds.has(r.block_id))),
   );
 
   return { chapters, otherWaiting, stamps };
@@ -386,6 +390,7 @@ export function timesRequests(input: {
 
 /** How a waiting request reads on the supplier's day. */
 export function waitingWords(r: Pick<SupplierRequestRow, 'kind' | 'proposed_label'>, momentLabel: string | null): string {
+  if (r.kind === 'where') return 'Your chapters';
   if (r.kind === 'remove') return `Delete “${momentLabel ?? r.proposed_label ?? 'a moment'}”`;
   if (r.kind === 'adjust') return momentLabel ? `Change “${momentLabel}”` : 'A suggestion';
   return r.proposed_label ?? 'A new moment';

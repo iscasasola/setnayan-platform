@@ -22,11 +22,13 @@ import { ChosenRow, FactRow, FormRows } from '@/app/_components/form-row';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
-import { Check, X } from 'lucide-react';
+import { Check, Send, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
   WHERE_ASK_WORDS,
   WHERE_WORDS,
+  isLockedRefusal,
+  whereAskRefusalWords,
   whereRefusalWords,
   whereSaveVerdict,
   type InHouseWhere,
@@ -46,9 +48,23 @@ async function saveWhere(args: { vendorId: string; blockIds: string[]; coveredGr
     p_block_ids: args.blockIds,
     p_covered_group: args.coveredGroup,
   });
-  if (error || !data) return { ok: false, message: whereRefusalWords(error?.message ?? '') };
+  if (error || !data) {
+    const message = error?.message ?? '';
+    return { ok: false, message: whereRefusalWords(message), locked: isLockedRefusal(message) };
+  }
   const r = data as { after: string[] | null; told: boolean | null };
   return { ok: true, picked: r.after ?? [], told: r.told === true };
+}
+
+/**
+ * 🔒 A supplier who LOCKED their part (migration 20271303409352) has their Where changed only by request (owner
+ * 2026-11-04): `host_ask_supplier_where` writes the ask and tells them in the app, in one statement; they answer on
+ * their Schedule (migration 20271308641275).
+ */
+async function askWhere(vendorId: string, blockIds: string[]): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data, error } = await createClient().rpc('host_ask_supplier_where', { p_vendor_id: vendorId, p_block_ids: blockIds });
+  if (error || !data) return { ok: false, message: whereAskRefusalWords(error?.message ?? '') };
+  return { ok: true };
 }
 
 /** The pill's words: the picked chapters' own names, or the ask. */
@@ -84,6 +100,9 @@ function WherePick({
   const router = useRouter();
   const [picked, setPicked] = useState<string[]>([...initial]);
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  // 🔒 The set the lock refused — kept so "Send them a request" asks for exactly it.
+  const [refused, setRefused] = useState<string[] | null>(null);
+  const [asking, setAsking] = useState(false);
   // Ticks save IN ORDER (each save sends the whole set, so the last tap is what stays), and only the newest answer
   // speaks; a refusal puts back what was last saved.
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -122,8 +141,10 @@ function WherePick({
       if (!res.ok) {
         setPicked(saved.current);
         setSaid({ tone: 'error', text: res.message });
+        setRefused(res.locked && !covered ? next : null);
         return;
       }
+      setRefused(null);
       setSaid(res.told ? { tone: 'ok', text: 'Saved. They were told in the app.' } : null);
       // The row's own line and the "need a chapter" count read again — in place, the screen kept.
       // one-render: keep (client-write) — the write is the browser's own rpc, so nothing on the server revalidated
@@ -131,7 +152,18 @@ function WherePick({
     });
   };
 
+  const sendAsk = async () => {
+    if (!refused) return;
+    setAsking(true);
+    const r = await askWhere(vendorId, refused);
+    setAsking(false);
+    if (!r.ok) return setSaid({ tone: 'error', text: r.message });
+    setRefused(null);
+    setSaid({ tone: 'ok', text: 'Request sent. They answer on their Schedule.' });
+  };
+
   return (
+    <>
     <ChosenRow
       name={name}
       about={{ words: about }}
@@ -146,6 +178,20 @@ function WherePick({
       problem={said?.tone === 'error' ? said.text : undefined}
       note={said?.tone === 'ok' ? said.text : undefined}
     />
+    {refused && !standIn.setWhere ? (
+      <div className="flex justify-end pt-1" data-where-locked-ask="">
+        <ActionButton
+          tone="brand"
+          main
+          icon={Send}
+          label={asking ? 'Sending…' : 'Send them a request'}
+          disabled={asking}
+          onClick={() => void sendAsk()}
+          data-testid="where-locked-ask"
+        />
+      </div>
+    ) : null}
+    </>
   );
 }
 

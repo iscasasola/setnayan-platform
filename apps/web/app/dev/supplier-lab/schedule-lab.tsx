@@ -1,6 +1,7 @@
 import { buildSupplierDay, changedSinceSeen, type SupplierBlockRow, type SupplierRequestRow } from '@/lib/supplier-schedule';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
 import type { ScheduleAsk } from '@/lib/schedule-ask';
+import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
 
 /**
  * 🤝 `/dev/supplier-lab?s=schedule` — the supplier's part of the schedule (Step 4b) on a lab wedding: Lumina Studio
@@ -10,7 +11,9 @@ import type { ScheduleAsk } from '@/lib/schedule-ask';
  * `hosttag` (👷 the HOST tagged Lumina's crew member Jubert on Glow's "Hair and make-up" from the moment sheet's Suppliers
  * and crew ▾ — the two writes `setMomentFor` makes: Lumina on the moment, and one line for Jubert) · `asked` (🗓 D2: the
  * host and the coordinator each asked Lumina to change a time — Accept / Decline in place) · `locked` (🔒 Lumina
- * locked their times — audit D7; Lock / Unlock write nothing here).
+ * locked their times — audit D7; Lock / Unlock write nothing here). 📍 Where (owner 2026-11-04): every state shows Lumina's
+ * own Where dropdown; `wherewait` (their pick waits for the host · Take back) · `askedwhere` (the host asked them to serve
+ * the Reception) · `unlinked` (on no chapter: the trade's usual chapters start the dropdown).
  */
 const ME = 'ev-lumina';
 const T = (hhmm: string, day = '2026-12-18') => `${day}T${hhmm}:00.000Z`;
@@ -77,6 +80,20 @@ export function ScheduleLab({ state }: { state?: string }) {
     ],
     requests: unlinked ? [] : REQUESTS,
   });
+  // 📍 Lumina's own Where — the same pure builder the page uses.
+  const whereBlocks = unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : blocks;
+  const where = supplierOwnWhere({
+    bookings: [{ vendorId: ME, category: 'photographer', status: 'contracted', label: 'Lumina Studio' }],
+    chapters: whereChaptersFrom(whereBlocks.map((b) => ({ ...b, block_type: b.block_id === 'prep' ? 'pre_ceremony' : b.block_id === 'cer' ? 'ceremony' : null }))),
+    requests:
+      state === 'wherewait'
+        ? [{ suggestion_id: 'wh1', kind: 'where', status: 'open', direction: 'to_host', where_vendor_id: ME, proposed_block_ids: ['prep', 'cer', 'rec'] }]
+        : [],
+    tradeDefault: () => ['prep', 'cer'],
+  });
+  const askedWhere: ScheduleAsk[] = [
+    { suggestion_id: 'askw', block_id: null, vendor_profile_id: 'vp-lumina', suggested_by_name: 'Cale', asked_as: 'host', proposed_start_at: null, proposed_end_at: null, note: 'Asks you to work Reception', status: 'open', answer_note: null, created_at: T('08:00', '2026-11-03'), kind: 'where', proposed_block_ids: ['rec'] },
+  ];
   const seenAt = state === 'seen' || state === 'confirmed' ? T('12:00', '2026-11-02') : T('00:00', '2026-11-02');
   return (
     <main className="min-h-screen bg-cream px-4 pb-40 pt-6 text-ink">
@@ -91,7 +108,8 @@ export function ScheduleLab({ state }: { state?: string }) {
         finalWeek={state === 'week' || state === 'confirmed'}
         tasksRead
         answered={unlinked ? [] : REQUESTS.filter((r) => r.status !== 'open')}
-        asked={state === 'asked' ? ASKED : state === 'askedfail' ? null : []}
+        asked={state === 'asked' ? ASKED : state === 'askedwhere' ? askedWhere : state === 'askedfail' ? null : []}
+        where={state === 'fail' ? null : where}
       />
     </main>
   );

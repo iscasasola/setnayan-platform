@@ -87,6 +87,11 @@ export const COUPLE_SUPPLIER_NOTICES = {
     reach: 'app_only',
     why: 'the supplier said yes or no to the host’s or coordinator’s ask; no email',
   },
+  supplier_where_asked: {
+    to: 'couple',
+    reach: 'app_only',
+    why: 'owner 2026-11-04: a booked supplier picks the chapters they serve; the host OKs or changes it on their Schedule; no email',
+  },
   chat_message: {
     to: 'either',
     reach: 'email',

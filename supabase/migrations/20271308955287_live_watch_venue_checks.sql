@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS public.live_watch_venue_checks (
   slowest_kbps  INTEGER CHECK (slowest_kbps IS NULL OR slowest_kbps >= 0),
   worst_rung    SMALLINT CHECK (worst_rung IS NULL OR worst_rung BETWEEN 0 AND 2),
   delay_ms      INTEGER CHECK (delay_ms IS NULL OR delay_ms >= 0),
-  bytes_sent    INTEGER CHECK (bytes_sent IS NULL OR bytes_sent >= 0),
   -- Finished and judged are one fact: a finished row always has its verdict.
   CONSTRAINT live_watch_venue_checks_finished_has_verdict
     CHECK ((finished_at IS NULL) = (verdict IS NULL))

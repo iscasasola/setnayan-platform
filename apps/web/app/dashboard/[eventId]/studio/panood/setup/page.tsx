@@ -417,7 +417,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
       />
 
       {/* The venue connection check — the page's footer: the tool the step-3 tip used to only promise. */}
-      <VenueCheckCard eventId={eventId} latest={venueCheck} />
+      <VenueCheckCard href={`/dashboard/${eventId}/studio/panood/setup/venue-check`} latest={venueCheck} />
     </section>
   );
 }

@@ -35,6 +35,7 @@
  * storage's answer, which includes the round trip; that biases the figure DOWN, never up.
  */
 import { AUDIO_BITRATE, VIDEO_BITRATE } from './encoder/video-encode';
+import { formatCount } from './format-number';
 import {
   BITRATE_LADDER,
   INITIAL_RUNG_STATE,
@@ -180,7 +181,7 @@ export function formatMbps(bps: number): string {
 
 /** "8 MB" — what the run can cost in data. */
 export function formatMegabytes(bytes: number): string {
-  return `${Math.ceil(bytes / 1_000_000)} MB`;
+  return `${formatCount(Math.ceil(bytes / 1_000_000), 0)} MB`;
 }
 
 /** The plain words for each verdict — the setup page and the check page say the same thing. */

@@ -7,7 +7,7 @@ import { VenueCheckStatus, type VenueCheckStatusProps } from './venue-check-stat
  * "run a venue connectivity check a week ahead" for months with no tool behind it; this card is the
  * tool's door, and shows the last result to the couple and the coordinator alike.
  */
-export function VenueCheckCard({ eventId, latest }: { eventId: string; latest: VenueCheckStatusProps }) {
+export function VenueCheckCard({ href, latest }: { href: string; latest: VenueCheckStatusProps }) {
   return (
     <section aria-labelledby="venue-check-heading" className="sn-tile space-y-3 p-5 sm:p-6">
       <p className="sn-eye">Before the day</p>
@@ -25,7 +25,7 @@ export function VenueCheckCard({ eventId, latest }: { eventId: string; latest: V
         main
         icon={<Wifi aria-hidden className="h-4 w-4" strokeWidth={2} />}
         label={latest.state === 'found' ? 'Check again' : 'Check the venue'}
-        href={`/dashboard/${eventId}/studio/panood/setup/venue-check`}
+        href={href}
         data-testid="venue-check-open"
       />
     </section>

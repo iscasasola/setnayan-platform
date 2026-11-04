@@ -24,7 +24,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import { isUuid } from '@/lib/is-uuid';
-import { isR2Configured, r2Delete } from '@/lib/r2';
+import { isR2Configured } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { venueCheckProbeScope } from '@/lib/cleanup-delete-scope';
 import { presignUploadUrl } from '@/lib/uploads';
 import { PROBE_BUCKET, maybeRunVenueProbeSweep } from '@/lib/venue-check-sweep';
 import {
@@ -75,7 +77,8 @@ const setupPath = (eventId: string) => `/dashboard/${eventId}/studio/panood/setu
 async function removeProbe(eventId: string, checkId: string): Promise<void> {
   if (!isR2Configured()) return;
   try {
-    await r2Delete({ bucket: PROBE_BUCKET, key: probeKey(eventId, checkId) });
+    // The pinned executor, held to this event's venue-check folder (lib/cleanup-delete-scope.ts).
+    await cleanupDelete(`r2://${PROBE_BUCKET}/${probeKey(eventId, checkId)}`, venueCheckProbeScope(eventId));
   } catch (error) {
     logQueryError('venueCheck.removeProbe', error, { event_id: eventId, check_id: checkId }, 'graceful_degrade');
   }
@@ -170,7 +173,6 @@ async function finishCheck(
       slowest_kbps: Math.round(judgement.slowestBps / 1_000),
       worst_rung: judgement.worstRung,
       delay_ms: Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : null,
-      bytes_sent: judgement.bytesSent,
     })
     .eq('check_id', checkId)
     .eq('event_id', eventId)

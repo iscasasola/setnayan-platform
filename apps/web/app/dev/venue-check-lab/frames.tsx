@@ -65,7 +65,7 @@ export function VenueCheckLabFrames({ f }: { f: string }) {
   }
   if (f === 'card' || f === 'card-none' || f === 'card-unread') {
     const latest = f === 'card' ? LAST.found! : f === 'card-none' ? LAST.none! : LAST.unread!;
-    return <VenueCheckCard eventId={EVENT} latest={latest} />;
+    return <VenueCheckCard href={`/dashboard/${EVENT}/studio/panood/setup/venue-check`} latest={latest} />;
   }
   return <p>Unknown frame.</p>;
 }

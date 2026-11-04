@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7086
+# facts: 7085
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     591
-#   col       5143
+#   col       5142
 #   policy    1036
 #   view      9
 #   func      303
@@ -2914,7 +2914,6 @@ col	public.live_studio_roam_zones.updated_at	anon=SIU authenticated=SIU
 col	public.live_studio_roam_zones.venue_label	anon=SIU authenticated=SIU
 col	public.live_studio_roam_zones.zone_index	anon=SIU authenticated=SIU
 col	public.live_watch_venue_checks.average_kbps	anon=- authenticated=S
-col	public.live_watch_venue_checks.bytes_sent	anon=- authenticated=S
 col	public.live_watch_venue_checks.check_id	anon=- authenticated=S
 col	public.live_watch_venue_checks.delay_ms	anon=- authenticated=S
 col	public.live_watch_venue_checks.event_id	anon=- authenticated=SI

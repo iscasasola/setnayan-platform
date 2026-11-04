@@ -1,5 +1,7 @@
 import 'server-only';
-import { R2_BUCKETS, isR2Configured, r2Delete, r2List } from '@/lib/r2';
+import { R2_BUCKETS, isR2Configured, r2List } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { venueCheckProbeScope } from '@/lib/cleanup-delete-scope';
 import { runClaimedJob } from '@/lib/periodic-jobs';
 import { VENUE_PROBE_SWEEP_GAP_MS } from '@/lib/periodic-job-registry';
 import { PROBE_PREFIX, PROBE_SWEEP_AFTER_MS } from '@/lib/venue-check';
@@ -35,9 +37,13 @@ export async function runVenueProbeSweep(nowMs = Date.now()): Promise<number> {
   for (const o of objects) {
     // No date is not "old": an object R2 could not date is left for the next run, never guessed at.
     if (!o.lastModified || nowMs - o.lastModified.getTime() < PROBE_SWEEP_AFTER_MS) continue;
+    // Through the pinned executor: the scope is the event folder the key itself names, so a key outside
+    // `venue-check/<event>/` is refused (and reported), never deleted.
+    const eventId = o.key.slice(PROBE_PREFIX.length).split('/')[0];
     try {
-      await r2Delete({ bucket: PROBE_BUCKET, key: o.key });
-      removed += 1;
+      const done = await cleanupDelete(`r2://${PROBE_BUCKET}/${o.key}`, venueCheckProbeScope(eventId));
+      if (done === 'deleted') removed += 1;
+      else failed.push(o.key);
     } catch {
       failed.push(o.key);
     }

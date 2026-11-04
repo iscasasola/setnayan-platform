@@ -23,11 +23,6 @@ app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
 app/dashboard/[eventId]/monogram/studio.tsx 1
-app/dashboard/[eventId]/schedule/_components/chapter-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx 2
-app/dashboard/[eventId]/schedule/_components/moment-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx 1
-app/dashboard/[eventId]/schedule/page.tsx 1
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
 app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6

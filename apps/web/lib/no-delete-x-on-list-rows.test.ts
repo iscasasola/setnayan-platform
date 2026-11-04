@@ -48,6 +48,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx', 'tile — a shortlist card’s × in a horizontal card rail (a swipe would fight the rail’s scroll); the other ✕ close a tip and the compare'],
   ['app/dashboard/[eventId]/seating/_components/seating-editor.tsx', 'editor — the selected table’s dock (Delete table), a chair in edit-chairs mode on the plan, the selected marker’s Remove (its table and rule rows are on the swipe)'],
   ['app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx', 'editor — the selected table’s phone panel: its own “Delete this table” beside Done'],
+  ['app/vendor-dashboard/shop/_components/docs-body.tsx', 'editor field — a client reference’s name / number inputs, written on the documents form’s Save'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

@@ -20,6 +20,7 @@ import {
   normalizeVirtualValue,
   parseVirtualLocation,
   readVirtualFields,
+  viasFor,
   virtualHandoff,
   virtualSummary,
 } from './virtual-meeting';
@@ -101,32 +102,36 @@ test('2b · each composer posts kind from the In-person / Virtual pick, never a 
   for (const f of ['app/_components/appointments-actions.ts', 'app/_components/negotiation-actions.ts']) {
     const src = read(f);
     assert.match(src, /postedKindToStored\(formData\.get\('kind'\)\)/, `${f} reads kind its own way`);
-    assert.match(src, /readVirtualFields\(formData\)/, `${f} saves the link unvalidated`);
+    assert.match(src, /readVirtualFields\(formData, booked\)/, `${f} saves the link unvalidated, or without the booking check`);
   }
 });
 
 test('3 · Join hands off to the right app', () => {
-  assert.deepEqual(virtualHandoff(parseVirtualLocation('meet|https://meet.google.com/abc-defg-hij')), {
+  assert.deepEqual(virtualHandoff(parseVirtualLocation('meet|https://meet.google.com/abc-defg-hij'), true), {
     href: 'https://meet.google.com/abc-defg-hij',
     label: 'Join on Google Meet',
     newTab: true,
   });
-  assert.equal(virtualHandoff(parseVirtualLocation('zoom|https://zoom.us/j/1'))?.label, 'Join on Zoom');
-  assert.equal(virtualHandoff(parseVirtualLocation('messenger|https://m.me/shop'))?.label, 'Open in Messenger');
-  assert.deepEqual(virtualHandoff(parseVirtualLocation('viber|+639171234567')), {
+  assert.equal(virtualHandoff(parseVirtualLocation('zoom|https://zoom.us/j/1'), true)?.label, 'Join on Zoom');
+  assert.equal(virtualHandoff(parseVirtualLocation('messenger|https://m.me/shop'), true)?.label, 'Open in Messenger');
+  assert.deepEqual(virtualHandoff(parseVirtualLocation('viber|+639171234567'), true), {
     href: 'viber://chat?number=%2B639171234567',
     label: 'Open in Viber',
     newTab: false,
   });
-  assert.deepEqual(virtualHandoff(parseVirtualLocation('phone|+639171234567')), {
+  assert.deepEqual(virtualHandoff(parseVirtualLocation('phone|+639171234567'), true), {
     href: 'tel:+639171234567',
     label: 'Call 0917 123 4567',
     newTab: false,
   });
   // Nothing unsafe ever becomes a Join.
-  assert.equal(virtualHandoff(parseVirtualLocation('meet|javascript:alert(1)')), null);
-  assert.equal(virtualHandoff(parseVirtualLocation('zoom|ftp://x.y/z')), null);
-  assert.equal(virtualHandoff(parseVirtualLocation('viber|12345')), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('meet|javascript:alert(1)'), true), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('zoom|ftp://x.y/z'), true), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('viber|12345'), true), null);
+  // Viber / Phone call only for a BOOKED shop (owner 2026-11-04) — unbooked, nothing opens.
+  assert.equal(virtualHandoff(parseVirtualLocation('viber|+639171234567'), false), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('phone|+639171234567'), false), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('meet|https://meet.google.com/abc-defg-hij'), false)?.label, 'Join on Google Meet');
 });
 
 test('3b · each value is validated before anything is saved', () => {
@@ -138,12 +143,18 @@ test('3b · each value is validated before anything is saved', () => {
   assert.deepEqual(normalizeVirtualValue('phone', '02 8123 4567'), { ok: true, value: '+63281234567' });
   assert.equal(normalizeVirtualValue('phone', '555-1234').ok, false);
   const fd = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
-  assert.deepEqual(readVirtualFields(fd({ via: 'viber', virtual_value: '+63 917 123 4567' })), {
+  assert.deepEqual(readVirtualFields(fd({ via: 'viber', virtual_value: '+63 917 123 4567' }), true), {
     ok: true,
     location: 'viber|+639171234567',
   });
-  assert.equal(readVirtualFields(fd({ via: 'zoom', virtual_value: 'hello' })).ok, false);
-  assert.equal(readVirtualFields(fd({ via: 'skype', virtual_value: 'x' })).ok, false);
+  assert.equal(readVirtualFields(fd({ via: 'zoom', virtual_value: 'hello' }), true).ok, false);
+  assert.equal(readVirtualFields(fd({ via: 'skype', virtual_value: 'x' }), true).ok, false);
+  // Unbooked: Viber and Phone call are REFUSED on the server; Jitsi · Meet · Zoom · Messenger are not.
+  assert.equal(readVirtualFields(fd({ via: 'viber', virtual_value: '+63 917 123 4567' }), false).ok, false);
+  assert.equal(readVirtualFields(fd({ via: 'phone', virtual_value: '0917 123 4567' }), false).ok, false);
+  assert.equal(readVirtualFields(fd({ via: 'meet', virtual_value: 'https://meet.google.com/abc-defg-hij' }), false).ok, true);
+  assert.deepEqual([...viasFor(false)], ['jitsi', 'meet', 'zoom', 'messenger']);
+  assert.deepEqual([...viasFor(true)], ['jitsi', 'meet', 'zoom', 'messenger', 'viber', 'phone']);
   // Meet / Zoom get a "Create a … link" in the person's own account; the rest do not.
   assert.equal(createLinkHref('meet'), 'https://meet.google.com/new');
   assert.equal(createLinkHref('zoom'), 'https://zoom.us/start/videomeeting');
@@ -163,7 +174,7 @@ test('3c · Jitsi: Setnayan makes the link itself — and accepts only a link it
   assert.deepEqual(normalizeVirtualValue('jitsi', link), { ok: true, value: link });
   assert.equal(normalizeVirtualValue('jitsi', 'https://meet.jit.si/anything').ok, false);
   assert.equal(normalizeVirtualValue('jitsi', 'https://evil.example/Setnayan-ABCDEFGHJK').ok, false);
-  assert.deepEqual(virtualHandoff(parseVirtualLocation(`jitsi|${link}`)), {
+  assert.deepEqual(virtualHandoff(parseVirtualLocation(`jitsi|${link}`), true), {
     href: link,
     label: 'Join on Jitsi Meet',
     newTab: true,
@@ -177,8 +188,8 @@ test('4 · old video / voice rows read as Virtual · no link yet', () => {
   assert.equal(meetingModeOf('voice'), 'virtual');
   const old = parseVirtualLocation(null);
   assert.equal(virtualSummary(old), 'Virtual');
-  assert.equal(virtualHandoff(old), null);
-  assert.equal(virtualHandoff(parseVirtualLocation('meet|')), null);
+  assert.equal(virtualHandoff(old, true), null);
+  assert.equal(virtualHandoff(parseVirtualLocation('meet|'), true), null);
   // A bare link on an old row still works, its app inferred.
   assert.equal(parseVirtualLocation('https://meet.google.com/x').via, 'meet');
 });

@@ -35,6 +35,7 @@ export function NegotiationComposerMenu({
   initialMode = null,
   embedded = false,
   entry,
+  booked = false,
 }: {
   threadId: string;
   /** `dealEntryFor(...)` for this thread — whether "Send a deal" is offered at all. */
@@ -55,6 +56,8 @@ export function NegotiationComposerMenu({
    * choices show at once, and Cancel returns to them rather than to nothing.
    */
   embedded?: boolean;
+  /** The booking check's answer for this thread's (event, shop) — gates Viber / Phone call in the Via list. */
+  booked?: boolean;
 }) {
   // `?compose=deal` cannot open the amendment builder over nothing — with no
   // quote on the thread it lands on the menu instead.
@@ -146,7 +149,7 @@ export function NegotiationComposerMenu({
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="return_to" value={returnPath} />
-      <MeetingHowFields onValidChange={setHowOk} />
+      <MeetingHowFields onValidChange={setHowOk} booked={booked} />
       <input
         type="text"
         name="title"

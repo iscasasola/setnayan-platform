@@ -204,6 +204,7 @@ import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
+import { shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -1541,6 +1542,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // event, both under the vendor's own RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  // Viber / Phone call only for a shop booked on this event (owner 2026-11-04) — the one booking check.
+  const shopBooked = isBooked ? await shopIsBookedOnEvent(eventId, profile.vendor_profile_id) : false;
   if (isBooked) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
     const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
@@ -1911,6 +1914,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             counterpartyName={eventName}
             presets={appointmentPresets}
             appointments={appointmentViews}
+            booked={shopBooked}
           />
         </div>
       ) : null}

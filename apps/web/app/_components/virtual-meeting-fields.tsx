@@ -16,15 +16,16 @@ import {
   JITSI_HOST_TIP,
   JITSI_MADE_NOTE,
   PHONE_IS_ONE_PERSON,
-  VIRTUAL_VIAS,
+  BOOKED_ONLY_NOTE,
   VIRTUAL_VIA_META,
+  viasFor,
   createLinkHref,
   makeJitsiLink,
   normalizeVirtualValue,
   type VirtualVia,
 } from '@/lib/virtual-meeting';
 
-const VIA_OPTIONS = VIRTUAL_VIAS.map((v) => ({ key: v, label: VIRTUAL_VIA_META[v].label }));
+const viaOptions = (booked: boolean) => viasFor(booked).map((v) => ({ key: v, label: VIRTUAL_VIA_META[v].label }));
 
 export function VirtualMeetingFields({
   initialVia = 'jitsi',
@@ -32,6 +33,7 @@ export function VirtualMeetingFields({
   onValidChange,
   inputClassName = 'input-field h-9 text-sm',
   labelClassName = 'flex flex-col gap-1 text-[11px] font-medium text-ink/60',
+  booked = false,
 }: {
   initialVia?: VirtualVia;
   initialValue?: string;
@@ -39,8 +41,14 @@ export function VirtualMeetingFields({
   onValidChange?: (ok: boolean) => void;
   inputClassName?: string;
   labelClassName?: string;
+  /**
+   * The booking check's answer for this (event, shop) — `shopIsBookedOnEvent`. Viber and Phone call are offered
+   * ONLY when true (owner 2026-11-04 "Viber and phone call booked suppliers"); the server refuses them otherwise.
+   */
+  booked?: boolean;
 }) {
-  const [via, setVia] = useState<VirtualVia>(initialVia);
+  const allowed = viasFor(booked);
+  const [via, setVia] = useState<VirtualVia>(allowed.includes(initialVia) ? initialVia : 'jitsi');
   const [value, setValue] = useState(initialValue);
   const [touched, setTouched] = useState(false);
   const meta = VIRTUAL_VIA_META[via];
@@ -64,7 +72,7 @@ export function VirtualMeetingFields({
         <PickMenu
           label="Which app the meeting is on"
           value={via}
-          options={VIA_OPTIONS}
+          options={viaOptions(booked)}
           dataAttr="data-meeting-via"
           onPick={(k) => {
             const next = k as VirtualVia;
@@ -74,6 +82,13 @@ export function VirtualMeetingFields({
             report(next, '');
           }}
         />
+        {booked ? null : (
+          <span data-booked-only-note>
+            <InfoTip label="Viber and phone calls" align="start" labelClassName="text-[11px] font-normal normal-case tracking-normal text-ink/50">
+              {BOOKED_ONLY_NOTE}
+            </InfoTip>
+          </span>
+        )}
       </div>
       {via === 'jitsi' ? (
         <div className={labelClassName}>

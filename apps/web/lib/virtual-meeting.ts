@@ -30,6 +30,17 @@ export type VirtualVia = 'jitsi' | 'meet' | 'zoom' | 'messenger' | 'viber' | 'ph
 /** Owner-approved list and order, 2026-11-04. */
 export const VIRTUAL_VIAS: ReadonlyArray<VirtualVia> = ['jitsi', 'meet', 'zoom', 'messenger', 'viber', 'phone'];
 
+/** Viber and Phone call — only once the shop is booked on the event (owner 2026-11-04). */
+export const BOOKED_ONLY_VIAS: ReadonlyArray<VirtualVia> = ['viber', 'phone'];
+
+/** The apps a meeting may use: unbooked → Jitsi · Google Meet · Zoom · Messenger; booked → all six. */
+export function viasFor(booked: boolean): ReadonlyArray<VirtualVia> {
+  return booked === true ? VIRTUAL_VIAS : VIRTUAL_VIAS.filter((v) => !BOOKED_ONLY_VIAS.includes(v));
+}
+
+/** The ⓘ line shown to an unbooked pair. */
+export const BOOKED_ONLY_NOTE = 'Viber and phone calls open once this supplier is booked for your event.';
+
 export const VIRTUAL_VIA_META: Record<
   VirtualVia,
   {
@@ -118,38 +129,9 @@ function asHttpUrl(raw: string): URL | null {
   }
 }
 
-/**
- * A Philippine number → E.164 (+63…). Mobile `0917 123 4567` / `917…` /
- * `+63 917…` / `63917…`; landline `0` + area code + number (`02 8123 4567`).
- * Anything else → null.
- */
-export function phPhoneToE164(raw: string): string | null {
-  const t = raw.trim();
-  if (!/^\+?[\d\s().-]+$/.test(t)) return null;
-  const digits = t.replace(/\D/g, '');
-  let national: string | null = null;
-  if (t.startsWith('+')) {
-    if (!digits.startsWith('63')) return null;
-    national = digits.slice(2);
-  } else if (digits.startsWith('63') && digits.length === 12) {
-    national = digits.slice(2);
-  } else if (digits.startsWith('0')) {
-    national = digits.slice(1);
-  } else if (digits.startsWith('9') && digits.length === 10) {
-    national = digits;
-  }
-  if (!national) return null;
-  const mobile = /^9\d{9}$/.test(national);
-  const landline = /^[2-8]\d{7,9}$/.test(national);
-  return mobile || landline ? `+63${national}` : null;
-}
-
-/** +639171234567 → "0917 123 4567"; a landline → "0" + its national digits. */
-export function formatPhPhone(e164: string): string {
-  const n = e164.replace(/^\+63/, '');
-  if (/^9\d{9}$/.test(n)) return `0${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
-  return `0${n}`;
-}
+export { phPhoneToE164, formatPhPhone } from './ph-dial';
+import { phPhoneToE164, formatPhPhone } from './ph-dial';
+import { bookedTelHref, bookedViberHref, bookedCallLabel } from './booked-handoff';
 
 export type VirtualValueCheck = { ok: true; value: string } | { ok: false; error: string };
 
@@ -226,19 +208,21 @@ export type VirtualHandoff = { href: string; label: string; newTab: boolean };
 
 /**
  * The hand-off OUT of Setnayan — never an in-app call. Jitsi / Meet / Zoom /
- * Messenger → the http(s) link in a new tab; Viber → viber://chat?number=+63…; Phone →
- * tel:+63…. Null when there is nothing safe to open.
+ * Messenger → the http(s) link in a new tab. Viber / Phone only for a shop with
+ * a confirmed booking on the event (owner 2026-11-04 "Viber and phone call
+ * booked suppliers") — those links are made ONLY by `lib/booked-handoff.ts`,
+ * which returns null without `booked`. Null when there is nothing safe to open.
  */
-export function virtualHandoff(place: VirtualPlace): VirtualHandoff | null {
+export function virtualHandoff(place: VirtualPlace, booked: boolean): VirtualHandoff | null {
   const { via, value } = place;
   if (!value) return null;
-  if (via === 'viber' || via === 'phone') {
-    const e164 = phPhoneToE164(value);
-    if (!e164) return null;
-    if (via === 'viber') {
-      return { href: `viber://chat?number=${encodeURIComponent(e164)}`, label: 'Open in Viber', newTab: false };
-    }
-    return { href: `tel:${e164}`, label: `Call ${formatPhPhone(e164)}`, newTab: false };
+  if (via === 'viber') {
+    const href = bookedViberHref(booked, value);
+    return href ? { href, label: 'Open in Viber', newTab: false } : null;
+  }
+  if (via === 'phone') {
+    const href = bookedTelHref(booked, value);
+    return href ? { href, label: bookedCallLabel(value), newTab: false } : null;
   }
   const u = asHttpUrl(value);
   if (!u) return null;
@@ -283,15 +267,20 @@ export function joinIsOpen(scheduledAt: string | null, now = Date.now()): boolea
  * Server-side read of a composer's Virtual fields (`via`, `virtual_value`).
  * ok:false → the caller saves NOTHING.
  */
-export function readVirtualFields(formData: {
-  get(name: string): unknown;
-}): { ok: true; location: string | null } | { ok: false; error: string } {
+export function readVirtualFields(
+  formData: { get(name: string): unknown },
+  /** The booking check's answer for this (event, shop) — `shopIsBookedOnEvent`. Viber / Phone are refused without it. */
+  booked: boolean,
+): { ok: true; location: string | null } | { ok: false; error: string } {
   const viaRaw = formData.get('via');
   const valueRaw = formData.get('virtual_value');
   const value = typeof valueRaw === 'string' ? valueRaw.slice(0, 500) : '';
   if (!isVirtualVia(viaRaw)) {
     if (value.trim() === '') return { ok: true, location: null };
     return { ok: false, error: 'Pick the app first.' };
+  }
+  if (!viasFor(booked).includes(viaRaw)) {
+    return { ok: false, error: 'Viber and phone calls open once this supplier is booked. Pick another app.' };
   }
   const check = normalizeVirtualValue(viaRaw, value);
   if (!check.ok) return check;

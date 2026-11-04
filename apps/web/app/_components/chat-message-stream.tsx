@@ -183,6 +183,11 @@ type Props = {
    */
   eventDate?: string | null;
   /**
+   * The booking check's answer for this thread's (event, shop) — `shopIsBookedOnEvent`. Viber / Phone call are
+   * offered and opened in meetings ONLY when true (owner 2026-11-04 "Viber and phone call booked suppliers").
+   */
+  shopBooked?: boolean;
+  /**
    * WHERE THIS SUPPLIER STANDS — derived ONCE on the server by
    * `buildSupplierStanding` (S6) and handed here to be drawn. ⛔ Never rebuilt
    * in this component: the bench card renders the same sentence from the same
@@ -327,6 +332,7 @@ export function ChatMessageStream({
   viewerRole,
   counterpartyLabel,
   eventDate = null,
+  shopBooked = false,
   standing = null,
   decisionPayments = [],
   decisionGuestCounts = [],
@@ -1491,6 +1497,7 @@ export function ChatMessageStream({
                     vendorProfileId={m.vendor_profile_id}
                     returnPath={returnPathFor(m)}
                     eventDate={eventDate}
+                    booked={shopBooked}
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
@@ -1684,6 +1691,7 @@ export function ChatMessageStream({
                   returnPath={returnPathFor(m)}
                   body={m.body}
                   eventDate={eventDate}
+                  booked={shopBooked}
                 />
               ) : null}
               {/* Phase 3: bundled "request proposal changes" chip under the

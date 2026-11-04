@@ -38,6 +38,7 @@ export function AppointmentJoin({
   confirmed,
   canEdit,
   returnPath,
+  booked = false,
 }: {
   appointmentId: string;
   /** `event_appointments.location` of a Virtual row (`"<via>|<value>"`, a bare link, or null). */
@@ -47,9 +48,11 @@ export function AppointmentJoin({
   /** Either party on a live (proposed / confirmed) meeting may add the link. */
   canEdit: boolean;
   returnPath: string;
+  /** The booking check's answer for this meeting's (event, shop) — Viber / Phone hand-offs exist only when true. */
+  booked?: boolean;
 }) {
   const place = parseVirtualLocation(location);
-  const handoff = virtualHandoff(place);
+  const handoff = virtualHandoff(place, booked);
   const [now, setNow] = useState(() => Date.now());
   // Re-check the 15-minute window once a minute while the card is on screen.
   useEffect(() => {
@@ -74,6 +77,7 @@ export function AppointmentJoin({
             <VirtualMeetingFields
               key={state.savedAt}
               initialVia={place.via ?? 'jitsi'}
+              booked={booked}
               onValidChange={setValid}
             />
             {state.error ? (

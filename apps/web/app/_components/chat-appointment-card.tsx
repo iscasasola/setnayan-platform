@@ -31,6 +31,8 @@ type Props = {
   vendorProfileId: string;
   returnPath: string;
   eventDate: string | null;
+  /** The booking check's answer for this (event, shop) — Viber / Phone hand-offs exist only when true. */
+  booked?: boolean;
 };
 
 function formatWhen(iso: string | null): string {
@@ -62,6 +64,7 @@ export function ChatAppointmentCard({
   vendorProfileId,
   returnPath,
   eventDate,
+  booked = false,
 }: Props) {
   const [reviseOpen, setReviseOpen] = useState(false);
   const isProposer = data.initiated_by === viewerRole;
@@ -104,6 +107,7 @@ export function ChatAppointmentCard({
         confirmed={data.status === 'confirmed'}
         canEdit
         returnPath={returnPath}
+        booked={booked}
       />
     ) : null;
 

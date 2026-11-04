@@ -71,6 +71,11 @@ type Props = {
   counterpartyName: string;
   presets: AppointmentTypePreset[];
   appointments: AppointmentView[];
+  /**
+   * The booking check's answer for this (event, shop) — `shopIsBookedOnEvent` (lib/shop-booking.server.ts).
+   * Viber / Phone call are offered and opened ONLY when true (owner 2026-11-04).
+   */
+  booked?: boolean;
 };
 
 const MODE_ICON: Record<MeetingMode, typeof Video> = {
@@ -119,7 +124,8 @@ function Scheduler({
   returnPath,
   threadId,
   presets,
-}: Pick<Props, 'eventId' | 'vendorProfileId' | 'returnPath' | 'threadId' | 'presets'>) {
+  booked = false,
+}: Pick<Props, 'eventId' | 'vendorProfileId' | 'returnPath' | 'threadId' | 'presets' | 'booked'>) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<MeetingMode>('in_person');
   const [virtualOk, setVirtualOk] = useState(true);
@@ -232,6 +238,7 @@ function Scheduler({
       ) : (
         <VirtualMeetingFields
           onValidChange={setVirtualOk}
+          booked={booked}
           inputClassName="w-full rounded-lg border border-ink/15 bg-cream/50 px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
           labelClassName="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink/55"
         />
@@ -308,12 +315,14 @@ function AppointmentCard({
   eventId,
   vendorProfileId,
   returnPath,
+  booked,
 }: {
   a: AppointmentView;
   role: Role;
   eventId: string;
   vendorProfileId: string;
   returnPath: string;
+  booked: boolean;
 }) {
   const [proposingNew, setProposingNew] = useState(false);
 
@@ -385,6 +394,7 @@ function AppointmentCard({
               confirmed={a.status === 'confirmed'}
               canEdit
               returnPath={returnPath}
+              booked={booked}
             />
           ) : null}
           {a.location && !isOnline ? (
@@ -526,6 +536,7 @@ export function AppointmentsSection({
   counterpartyName,
   presets,
   appointments,
+  booked = false,
 }: Props) {
   return (
     <section
@@ -546,6 +557,7 @@ export function AppointmentsSection({
           returnPath={returnPath}
           threadId={threadId}
           presets={presets}
+          booked={booked}
         />
       </header>
 
@@ -569,6 +581,7 @@ export function AppointmentsSection({
               eventId={eventId}
               vendorProfileId={vendorProfileId}
               returnPath={returnPath}
+              booked={booked}
             />
           ))}
         </ul>

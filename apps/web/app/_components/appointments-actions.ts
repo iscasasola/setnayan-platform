@@ -22,6 +22,7 @@
 // added — the WHERE precondition is the guard.
 // ============================================================================
 
+import { shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -196,8 +197,11 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
   const kind = postedKindToStored(formData.get('kind'));
   const type = str(formData.get('type'), 60);
   if (!eventId || !kind || !type) redirect(returnPath);
-  // A Virtual meeting's app + value — validated; invalid saves NOTHING.
-  const virtual = kind === 'video' ? readVirtualFields(formData) : null;
+  // A Virtual meeting's app + value — validated; invalid saves NOTHING. Viber /
+  // Phone call only for a shop booked on this event (owner 2026-11-04) — the
+  // booking check runs for the very (event, shop) pair the row is written for.
+  const booked = kind === 'video' ? await shopIsBookedOnEvent(eventId, vendorProfileId) : false;
+  const virtual = kind === 'video' ? readVirtualFields(formData, booked) : null;
   if (virtual && !virtual.ok) redirect(returnPath);
 
   const supabase = await createClient();
@@ -429,17 +433,27 @@ export async function setVirtualMeetingLink(
   const appointmentId = str(formData.get('appointment_id'), 64);
   const returnPath = safeReturnPath(formData.get('return_path'));
   if (!appointmentId) return { ok: false, error: 'This meeting could not be found.', savedAt: 0 };
-  const read = readVirtualFields(formData);
-  if (!read.ok) return { ok: false, error: read.error, savedAt: 0 };
-  if (!read.location || read.location.endsWith('|')) {
-    return { ok: false, error: 'Add the link or number first.', savedAt: 0 };
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Sign in again to save this.', savedAt: 0 };
+
+  // The row as THIS caller may read it (RLS) — its (event, shop) pair is what the
+  // booking check answers for: Viber / Phone call only once that shop is booked.
+  const { data: row } = await supabase
+    .from('event_appointments')
+    .select('event_id, vendor_profile_id')
+    .eq('appointment_id', appointmentId)
+    .maybeSingle();
+  if (!row) return { ok: false, error: 'This meeting could not be found.', savedAt: 0 };
+  const pair = row as { event_id: string | null; vendor_profile_id: string | null };
+  const booked = await shopIsBookedOnEvent(pair.event_id, pair.vendor_profile_id);
+  const read = readVirtualFields(formData, booked);
+  if (!read.ok) return { ok: false, error: read.error, savedAt: 0 };
+  if (!read.location || read.location.endsWith('|')) {
+    return { ok: false, error: 'Add the link or number first.', savedAt: 0 };
+  }
 
   const { data: updated, error } = await supabase
     .from('event_appointments')

@@ -215,6 +215,7 @@ import {
 import { reviewState, type ReviewState } from '@/lib/completion-handshake';
 import { coupleConfirmReceived, coupleReportNonDelivery } from '../review/actions';
 import { DEPOSIT_DISPUTE_COLUMNS } from '@/lib/payment-refusal';
+import { shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -2267,6 +2268,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
   );
 
+  // Viber / Phone call only for a shop booked on this event (owner 2026-11-04) — the one booking check.
+  const shopBooked = await shopIsBookedOnEvent(eventId, ev.marketplace_vendor_id);
   const appointmentsSection =
       ev.marketplace_vendor_id ? (
         <AppointmentsSection
@@ -2279,6 +2282,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           counterpartyName={displayName}
           presets={appointmentPresets}
           appointments={appointmentViews}
+          booked={shopBooked}
         />
       ) : null;
 

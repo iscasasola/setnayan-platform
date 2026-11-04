@@ -436,7 +436,7 @@ async function resolveBranchId(
 
   const { data: owned } = await supabase
     .from('vendor_branches')
-    .select('branch_id,cancelled_at')
+    .select('branch_id,cancelled_at,included_in_plan')
     .eq('branch_id', t)
     .eq('parent_vendor_profile_id', vendorProfileId)
     .maybeSingle();
@@ -463,7 +463,7 @@ async function resolveBranchId(
   try {
     const latest = await fetchLatestBranchOrders(createAdminClient(), [t]);
     status = deriveBranchStatus(
-      owned as { cancelled_at: string | null },
+      owned as { cancelled_at: string | null; included_in_plan?: boolean | null },
       latest.get(t),
       Date.now(),
     );

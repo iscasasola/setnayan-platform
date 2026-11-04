@@ -63,6 +63,9 @@ import { PeoplePinnedRow, type PeopleSettings } from './people-pinned-row';
 import Link from 'next/link';
 import { InfoTip } from '@/app/_components/info-tip';
 import { personPageHref } from '@/lib/person-page-link';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 /**
  * people-roster-view.tsx — People, wearing the Guest List's clothes.
@@ -276,6 +279,8 @@ export function PeopleRosterView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openPerson]);
   const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
+  /** Removed and waiting out the Undo window (owner 2026-11-03) — off the list now, written when the window closes. */
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
   const find = useFindOrInvite();
   const [inviting, setInviting] = useState(false);
   const router = useRouter();
@@ -294,7 +299,7 @@ export function PeopleRosterView({
   // Alaga rows stay in the data (the guest list's sheet reads them) and are
   // never drawn as roster rows — the Loved ones section (the alaga's own cards,
   // where the age fence and the consent stamps live) draws them.
-  const connections = roster.people.filter((p) => p.kind === 'connection');
+  const connections = roster.people.filter((p) => p.kind === 'connection').filter((p) => !gone.has(p.key));
   // EVERY HANDSHAKE WAITING ON ME — a request to connect, or a label somebody
   // asked on a connection I already have (owner 2026-09-29: "it will show to
   // their requests on people as well").
@@ -618,6 +623,8 @@ export function PeopleRosterView({
 
   return (
     <div ref={rootRef} className={`${gs.screen} ${ps.people}`} data-people-view="connected" data-people-screen="">
+      {/* ↩ The one Undo toast for a removed person (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"). */}
+      <UndoToastHost />
       {topLine}
       {error ? (
         <p role="alert" className="py-2 text-sm text-red-700 dark:text-red-300">
@@ -680,19 +687,30 @@ export function PeopleRosterView({
                   const rows = toRemove;
                   setToRemove(null);
                   leaveSelect();
-                  run(async () => {
-                    const res = await removeFromPeople(rows, (id) => withdrawConnection(id));
-                    if (res.ok) {
-                      const one = rows.length === 1 ? rows[0]! : null;
-                      setNotice(
-                        one
-                          ? one.state === 'waiting_them'
-                            ? `Your request to ${one.name} is taken back.`
-                            : `${one.name} left your people.`
-                          : `Removed ${formatCount(res.removed)} people.`,
-                      );
-                    }
-                    return res;
+                  // ↩ UNDO AFTER THE WARNING (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW" — "Undo
+                  // everywhere"): they leave the list now and the removal is written when the Undo window closes, so
+                  // Undo writes nothing. A refusal brings them back, and its own words are said under the list.
+                  const keys = rows.map((r) => r.key);
+                  const one = rows.length === 1 ? rows[0]! : null;
+                  deleteWithUndo({
+                    label: one
+                      ? one.state === 'waiting_them'
+                        ? `Your request to ${one.name} is taken back`
+                        : `${one.name} left your people`
+                      : `Removed ${formatCount(rows.length)} people`,
+                    hide: () => setGone((prev) => new Set([...prev, ...keys])),
+                    restore: () =>
+                      setGone((prev) => {
+                        const next = new Set(prev);
+                        for (const k of keys) next.delete(k);
+                        return next;
+                      }),
+                    commit: async () => {
+                      const res = await removeFromPeople(rows, (id) => withdrawConnection(id));
+                      if (!res.ok) setError(res.error);
+                      return res;
+                    },
+                    failed: rows.length === 1 ? 'Couldn’t remove them. They’re back — try again.' : 'Couldn’t remove them all. They’re back — try again.',
                   });
                 }}
                 data-testid="people-remove-confirm"
@@ -814,7 +832,10 @@ function plain(res: AnswerResult): { ok: true } | { ok: false; error: string } {
 /**
  * ONE PERSON, ONE LINE — the Guest row's anatomy (`guests-screen.module.css` `.g`): the round face · the name ·
  * the pill line (the label pill IS the editor, then "· group", then whose move it is) · round buttons at the
- * right end. Connected: ✎ (the card) · ✕ Remove. Waiting for them: ➤ Send again · ✕ Withdraw.
+ * right end. Connected: ✎ (the card). Waiting for them: ➤ Send again. 👈 Remove / Withdraw is the row's SWIPE (owner
+ * 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"): swipe left on a phone, the
+ * hover trash on a computer — the same `onRemove`, so the same warning ("Remove … from your people?") and then Undo.
+ * The card's foot keeps its Remove for the keyboard. None in select mode — a row is a thing to tick there.
  */
 function PersonRow({
   person: p,
@@ -854,7 +875,7 @@ function PersonRow({
      (which carries "See … page" too), ✕ stays. Select mode keeps both as the tick. No account handle → the
      old press: the card. 🔒 people/every-person-row-opens-their-page.test.ts */
   const href = selectMode ? null : personPageHref(p);
-  return (
+  const row = (
     <div className={`${gs.g} ${picked ? gs.picked : ''}`} data-person-row="" data-person-state={p.state}>
       {href ? (
         <Link href={href} className={gs.ava} aria-label={`Open ${p.name}’s page`} data-person-page-link="">
@@ -893,19 +914,28 @@ function PersonRow({
       {selectMode ? null : (
         <span className={gs.acts} data-row-acts="">
           {p.state === 'waiting_them' ? (
-            <>
-              <ActionButton tone="info" icon={Send} label="Send again" name={`Send again to ${p.name}`} onClick={resend} disabled={pending || busy} />
-              <ActionButton tone="danger" icon={X} label="Withdraw" name={`Withdraw ${p.name}`} onClick={onRemove} disabled={pending || busy} />
-            </>
+            <ActionButton tone="info" icon={Send} label="Send again" name={`Send again to ${p.name}`} onClick={resend} disabled={pending || busy} />
           ) : (
-            <>
-              <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Open ${p.name}`} onClick={onOpen} />
-              <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${p.name}`} onClick={onRemove} disabled={pending || busy} />
-            </>
+            <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Open ${p.name}`} onClick={onOpen} />
           )}
         </span>
       )}
     </div>
+  );
+  if (selectMode) return row;
+  const waiting = p.state === 'waiting_them';
+  return (
+    <SwipeToDelete
+      label={waiting ? `Withdraw ${p.name}` : `Remove ${p.name}`}
+      word={waiting ? 'Withdraw' : 'Remove'}
+      icon={X}
+      onDelete={onRemove}
+      busy={pending || busy}
+      radiusClass=""
+      surfaceClass="bg-[var(--gs-paper)]"
+    >
+      {row}
+    </SwipeToDelete>
   );
 }
 

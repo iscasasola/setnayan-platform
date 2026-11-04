@@ -19,6 +19,7 @@ import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { guestFullName } from '@/lib/guests';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { NOT_TAKING_CHANGES, SCHEDULE_MARK_COLUMNS, marksByShop, markDay, timesMarkOf } from '@/lib/supplier-schedule-marks';
+import { adminWhereLine, whereChaptersFrom, type WhereBlockRow, type WhereRequestRow } from '@/lib/supplier-where';
 
 export const metadata = { title: 'Event · Admin' };
 export const dynamic = 'force-dynamic';
@@ -204,7 +205,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   // change. Admin words may say "Locked"; the host reads "Not taking changes".
   const supRowsRead = await admin
     .from('event_vendors')
-    .select('vendor_id, vendor_name, marketplace_vendor_id')
+    .select('vendor_id, vendor_name, marketplace_vendor_id, category')
     .eq('event_id', eventId)
     .in('status', [...BOOKED_EVENT_VENDOR_STATUSES])
     .is('archived_at', null)
@@ -225,7 +226,24 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
     : marksByShop(
         (marksRead.data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null; locked_at: string | null }>,
       );
-  const supplierLocks: Array<{ key: string; name: string; state: string }> | null = supRowsRead.error
+  // 📍 Each supplier's Where (owner 2026-11-04, migration 20271308641275): the chapters they are on, and a Where request
+  // still waiting either way. Read-only; a refused read is said on the row, never "no chapter".
+  const chaptersRead = await admin
+    .from('event_schedule_blocks')
+    .select('block_id, parent_block_id, label, start_at, time_tba, responsible_vendor_ids')
+    .eq('event_id', eventId)
+    .is('parent_block_id', null);
+  const whereAsksRead = await admin
+    .from('event_schedule_suggestions')
+    .select('suggestion_id, kind, status, direction, where_vendor_id, proposed_block_ids')
+    .eq('event_id', eventId)
+    .eq('kind', 'where')
+    .eq('status', 'open');
+  if (chaptersRead.error) logQueryError('admin/events/[eventId]:chapters for Where', chaptersRead.error);
+  if (whereAsksRead.error) logQueryError('admin/events/[eventId]:Where requests', whereAsksRead.error);
+  const whereChapters = chaptersRead.error ? null : whereChaptersFrom((chaptersRead.data ?? []) as WhereBlockRow[]);
+  const whereAsks = whereAsksRead.error ? null : ((whereAsksRead.data ?? []) as WhereRequestRow[]);
+  const supplierLocks: Array<{ key: string; name: string; state: string; where: string }> | null = supRowsRead.error
     ? null
     : (supRowsRead.data ?? []).map((r) => {
         const shop = r.marketplace_vendor_id as string;
@@ -238,7 +256,17 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               : mark.word === NOT_TAKING_CHANGES
                 ? `Locked since ${markDay(mark.at)} · a host's change is refused`
                 : `Open · ${mark.word} ${markDay(mark.at)}`;
-        return { key: r.vendor_id as string, name: shopName.get(shop) || ((r.vendor_name as string | null) ?? '').trim() || 'Supplier', state };
+        return {
+          key: r.vendor_id as string,
+          name: shopName.get(shop) || ((r.vendor_name as string | null) ?? '').trim() || 'Supplier',
+          state,
+          where: adminWhereLine({
+            vendorId: r.vendor_id as string,
+            category: (r.category as string | null) ?? null,
+            chapters: whereChapters,
+            openAsks: whereAsks,
+          }),
+        };
       });
 
   // RA 10173 who-viewed-whom — one row per host whose details this page shows.
@@ -449,6 +477,9 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               <li key={s.key} className="flex flex-wrap justify-between gap-x-4 py-2">
                 <span className="text-ink">{s.name}</span>
                 <span className={s.state.startsWith('Locked') ? 'font-medium text-ink' : 'text-ink/60'}>{s.state}</span>
+                <span className="basis-full text-xs text-ink/60" data-admin-supplier-where={s.key}>
+                  {s.where}
+                </span>
               </li>
             ))}
           </ul>

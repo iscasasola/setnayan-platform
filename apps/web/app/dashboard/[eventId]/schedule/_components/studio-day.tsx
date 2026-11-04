@@ -3,6 +3,7 @@
 import { useContext, useState } from 'react';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { TICKER_PILL_CLASS, TickerPill, TimeTicker } from '@/app/_components/ticker';
 import { TimelineDash, TimelineEmpty, TimelineRow } from '@/app/_components/timeline-row';
 import { daysBetween, formatDateHeading, spanOf, toDatetimeLocal, wallDateKey } from '@/lib/schedule-rail';
@@ -63,6 +64,8 @@ export type StudioDayProps = {
   /** Moments whose add has not landed yet — shown, not yet editable. */
   pendingIds?: ReadonlySet<string>;
   onMore: (id: string) => void;
+  /** 👈 A swipe on a moment's row: open its inspector at the delete's warning (parts · tasks · Papic). Null: no swipe. */
+  onAskDelete?: ((id: string) => void) | null;
   /** A refusal, said under the day. */
   notice: string | null;
 };
@@ -122,6 +125,7 @@ function MomentRow({
   onEndEdit,
   onPatch,
   onMore,
+  onAskDelete = null,
   clash,
 }: {
   m: DayMoment;
@@ -133,6 +137,7 @@ function MomentRow({
   onEndEdit: () => void;
   onPatch: StudioDayProps['onPatch'];
   onMore: (id: string) => void;
+  onAskDelete?: ((id: string) => void) | null;
   /** "Starts before Ceremony ends (4:00 PM)." — or null. */
   clash: string | null;
 }) {
@@ -161,8 +166,13 @@ function MomentRow({
   };
   const line = hasEnd ? spanLine(shown) : `${clockWords(shown.startMin)} · no end time yet`;
   const named = m.label ? ` · ${m.label}` : '';
-  return (
+  /* 👈 SWIPE LEFT TO DELETE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): the moment's Delete was
+     only behind ⋯ (the inspector's "Delete it"); the row now gains the one swipe — and it opens that SAME warning, since
+     a moment takes its parts, tasks and Papic with it. The ⋯ keeps it too, so a computer's hover Delete is not drawn. */
+  const swipe = canEdit && onAskDelete !== null;
+  const row = (
     <TimelineRow
+      as={swipe ? 'div' : 'li'}
       data="moment"
       attrs={{ 'data-studio-moment': m.block_id, 'data-studio-moment-for': audience }}
       name={m.label}
@@ -247,6 +257,23 @@ function MomentRow({
       }
     />
   );
+  if (!swipe || !onAskDelete) return row;
+  return (
+    <SwipeToDelete
+      as="li"
+      /* The band's hairline moves to the list item: the band is now the only child of the swipe's front. */
+      className="border-t border-ink/10 first:border-t-0"
+      label={`Delete ${m.label || 'this moment'}`}
+      radiusClass=""
+      hover={false}
+      onDelete={(close) => {
+        close();
+        onAskDelete(m.block_id);
+      }}
+    >
+      {row}
+    </SwipeToDelete>
+  );
 }
 
 /** Everything a moment's time pill can read at its widest: a two-digit hour, morning or afternoon — and "End", before one is set. */
@@ -277,7 +304,7 @@ function NewMomentRow({ span, onKeep, onLeave }: { span: TimeSpan; onKeep: (text
   );
 }
 
-export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, onCreate = null, pendingIds, onMore, notice }: StudioDayProps) {
+export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, onCreate = null, pendingIds, onMore, onAskDelete = null, notice }: StudioDayProps) {
   /* ONE row's name is open at a time — a moment's id, the new row, or none. */
   const [editing, setEditing] = useState<string | null>(null);
   const [fresh, setFresh] = useState<TimeSpan | null>(null);
@@ -337,6 +364,7 @@ export function StudioDay({ eventId, dateKey, moments, canEdit, onPatch, onAdd, 
                 onEndEdit={() => setEditing((cur) => (cur === m.block_id ? null : cur))}
                 onPatch={onPatch}
                 onMore={onMore}
+                onAskDelete={onAskDelete}
                 clash={clash ? overlapLine(clash.above.label, spanOf(clash.above.start_at, clash.above.end_at).endMin) : null}
               />
             );

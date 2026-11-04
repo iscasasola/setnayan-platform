@@ -3260,6 +3260,7 @@
       "files": [
         "admin/disputes/_components/deposit-disputes-section.tsx",
         "admin/disputes/_components/payment-disputes-section.tsx",
+        "admin/disputes/_components/quote-versions-evidence.tsx",
         "admin/disputes/actions.ts",
         "admin/disputes/loading.tsx",
         "admin/disputes/page.tsx"
@@ -3282,6 +3283,9 @@
         "PaymentDisputesSection",
         "PolicyEvidence",
         "ProofImage",
+        "QuoteVersionsByVendor",
+        "QuoteVersionsEvidence",
+        "QuoteWhatChanged",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -5472,10 +5476,12 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwipeToDelete",
         "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
+        "UndoToastHost",
         "ViewReport",
         "YourStorySection"
       ]
@@ -6945,6 +6951,7 @@
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
+        "AwayCarriers",
         "CaptureBar",
         "CardBoxProps",
         "CardDoorProps",
@@ -8590,6 +8597,7 @@
       "files": [
         "dashboard/[eventId]/schedule/_components/announce-button.tsx",
         "dashboard/[eventId]/schedule/_components/ask-supplier-section.tsx",
+        "dashboard/[eventId]/schedule/_components/block-swipe.tsx",
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/chapter-sheets.tsx",
         "dashboard/[eventId]/schedule/_components/chapters-context.ts",
@@ -8636,13 +8644,13 @@
         "/api/schedule/[seg]/export",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/paperwork"
+        "/dashboard/[seg]/paperwork",
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "applyActivityPicks",
         "bulkRetimeScheduleBlocks",
         "createScheduleBlock",
-        "deleteScheduleBlock",
         "loadScheduleTemplate",
         "saveHostAnswers",
         "sendStageNoteFromEvent",
@@ -8661,6 +8669,7 @@
         "Api",
         "AskSupplierSection",
         "BlockCard",
+        "BlockSwipe",
         "BlockTimeEditor",
         "BulkRetimePanel",
         "ByTime",
@@ -8686,7 +8695,6 @@
         "DayActionsContext.Provider",
         "DayList",
         "DayMoment",
-        "DeletePreparationItemButton",
         "DragState",
         "EmceePicks",
         "EmceePicksUnread",
@@ -8742,6 +8750,7 @@
         "PlanningFilter",
         "PlanningFilterFrame",
         "PlanningTick",
+        "PrepItemSwipe",
         "PrepKind",
         "PreparationAgendaView",
         "PreparationEmptyState",
@@ -8806,6 +8815,7 @@
         "TravelClashGuard",
         "TravelItineraryView",
         "TypedRow",
+        "UndoToastHost",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
         "ViewAsBody",
@@ -12109,6 +12119,7 @@
         "DayMoment",
         "DayRole",
         "LabPlaylist",
+        "MakerContext.Provider",
         "PickMenu",
         "PlaylistSlotSection",
         "PreparationAgendaView",
@@ -12560,6 +12571,16 @@
         "TemplateList"
       ]
     },
+    "/dev/swipe-rows-lab/repertoire": {
+      "files": [
+        "dev/swipe-rows-lab/repertoire/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SetList"
+      ]
+    },
     "/dev/swipe-rows-lab/seating": {
       "files": [
         "dev/swipe-rows-lab/seating/lab-seat-list-rows.tsx",
@@ -12571,6 +12592,19 @@
         "LabSeatListRows",
         "SeatList",
         "UndoToastHost"
+      ]
+    },
+    "/dev/swipe-rows-lab/suppliers": {
+      "files": [
+        "dev/swipe-rows-lab/suppliers/fixtures.ts",
+        "dev/swipe-rows-lab/suppliers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BuildLocked",
+        "PackageItemSwipe",
+        "WorkingNoteSwipe"
       ]
     },
     "/dev/thumb-row-lab": {
@@ -14249,7 +14283,7 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/signup?as=vendor",
+        "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -14746,6 +14780,7 @@
         "SupplierScheduleAnswer",
         "SupplierTaskRow",
         "SupplierThumbRow",
+        "SupplierWhereRow",
         "TheyToldYou",
         "TimeRow",
         "TypedRow",
@@ -16023,6 +16058,7 @@
     },
     "/vendor-dashboard/repertoire": {
       "files": [
+        "vendor-dashboard/repertoire/_components/set-list.tsx",
         "vendor-dashboard/repertoire/actions.ts",
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
@@ -16030,14 +16066,17 @@
       "destinations": [],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong",
         "setPerformanceLink"
       ],
       "blocks": [
         "GridPageSkeleton",
         "Link",
+        "PerformanceLinkForm",
+        "SetList",
         "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/reviews": {
@@ -16149,12 +16188,14 @@
         "Fragment",
         "GridCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionDraft",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",

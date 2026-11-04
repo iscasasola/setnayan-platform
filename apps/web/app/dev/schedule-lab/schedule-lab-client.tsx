@@ -14,6 +14,7 @@ import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
 import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
+import { MakerContext, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
 import type {
   DayActions,
@@ -76,6 +77,19 @@ const LOCKED_MOMENTS = new Set(['ingress']);
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
+    {
+      /* 📍 A supplier's Where pick (owner 2026-11-04, migration 20271308641275): OK · Decline · Change. */
+      suggestion_id: 'r5',
+      block_id: null,
+      kind: 'where',
+      by: 'Lumière Photo',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      where: { now: 'Ceremony', asked: 'Preparation, Ceremony, Reception' },
+      note: 'Asks to work Preparation, Ceremony, Reception',
+    },
     {
       suggestion_id: 'r1',
       block_id: 'ingress',
@@ -160,6 +174,9 @@ export default function ScheduleLabClient({
      (the rail must show the edit on its own); each write is recorded on
      `window.__labWrites` with its time, to measure edit → save. */
   const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
+  /* 🗓 `?maker=1&studio=1` — the new Maker's Studio day (`studio-day.tsx`: one timeline row per moment, swipe left to
+     delete — owner 2026-11-03), on the same fixtures. Only `stagesStudio` is said; nothing else of the Maker is drawn. */
+  const [studio] = useState(() => maker && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1');
   const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
   const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
@@ -393,6 +410,7 @@ export default function ScheduleLabClient({
 
       {when === 'live' ? <RunOfShowHeader eventId="lab" initial={strip} canAdvance={false} variant="strip" /> : null}
 
+      <MakerContext.Provider value={studio ? ({ stagesStudio: true } as MakerState) : null}>
       <ScheduleDay
         key={`${role}-${when}`}
         inspectorSlot={maker ? LAB_SLOT : null}
@@ -412,6 +430,7 @@ export default function ScheduleLabClient({
         emcee={null}
         hostPanel={<p className="text-[13px] text-ink/60">Your booked host&rsquo;s segments, questions and a note to them sit here.</p>}
       />
+      </MakerContext.Provider>
 
       {maker ? <aside id={LAB_SLOT} data-lab-slot="" className="rounded-xl bg-white/60 p-2" /> : null}
 

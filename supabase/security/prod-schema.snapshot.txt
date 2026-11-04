@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1691
-# tables: 440
-# columns: 5458
-# notnull: 3298
+# ledger: 1731
+# tables: 448
+# columns: 5531
+# notnull: 3342
 [ledger]
 20260512000000
 20260513000000
@@ -1703,6 +1703,46 @@
 20271299515167
 20271299854365
 20271300072429
+20271300249267
+20271300250517
+20271300482585
+20271300598766
+20271300619930
+20271301389353
+20271301452824
+20271301555513
+20271301571290
+20271301956127
+20271302002155
+20271302139013
+20271302139506
+20271302302532
+20271302310560
+20271302376604
+20271302590530
+20271302707661
+20271302727358
+20271302857885
+20271302910538
+20271302920811
+20271302948959
+20271303051692
+20271303132255
+20271303211103
+20271303218631
+20271303245624
+20271303409352
+20271303571970
+20271303655108
+20271303690499
+20271304032942
+20271304542745
+20271304682748
+20271305628470
+20271306532960
+20271307273159
+20271307658341
+20271308471868
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2518,6 +2558,7 @@ event_category_decisions.tile
 event_checklist_items.category
 event_checklist_items.completed_at
 event_checklist_items.created_at
+event_checklist_items.due_date_set
 event_checklist_items.due_offset_days
 event_checklist_items.event_id
 event_checklist_items.item_id
@@ -2615,6 +2656,9 @@ event_day_requests.resolved_at
 event_day_requests.resolved_by_user_id
 event_day_requests.status
 event_day_requests.updated_at
+event_default_chapters_pending.created_at
+event_default_chapters_pending.event_id
+event_default_chapters_pending.placeholder_day
 event_deletion_requests.admin_note
 event_deletion_requests.created_at
 event_deletion_requests.event_id
@@ -2716,6 +2760,7 @@ event_floor_plan.entrance_y
 event_floor_plan.event_id
 event_floor_plan.ghost_booths_dismissed
 event_floor_plan.ghost_booths_enabled
+event_floor_plan.guest_seat_view
 event_floor_plan.priority_order
 event_floor_plan.published_at
 event_floor_plan.role_seating
@@ -2730,6 +2775,7 @@ event_floor_plan.updated_at
 event_floor_plan.venue_length_m
 event_floor_plan.venue_photo_visibility
 event_floor_plan.venue_width_m
+event_floor_plan.vip_plus_ones
 event_floor_signs.created_at
 event_floor_signs.event_id
 event_floor_signs.id
@@ -2904,6 +2950,7 @@ event_playlist_slot_vibes.updated_at
 event_playlist_slot_vibes.vibe
 event_playlist_slot_vibes.vibe_id
 event_preparation_items.amount_php
+event_preparation_items.completed_at
 event_preparation_items.created_at
 event_preparation_items.created_by
 event_preparation_items.due_date
@@ -2951,11 +2998,14 @@ event_schedule_blocks.created_at
 event_schedule_blocks.egress_minutes_after
 event_schedule_blocks.end_at
 event_schedule_blocks.event_id
+event_schedule_blocks.follows_block_id
+event_schedule_blocks.hours_vendor_id
 event_schedule_blocks.ingress_minutes_before
 event_schedule_blocks.is_optional
 event_schedule_blocks.is_public
 event_schedule_blocks.label
 event_schedule_blocks.location
+event_schedule_blocks.march_key
 event_schedule_blocks.notes
 event_schedule_blocks.on_invitation
 event_schedule_blocks.parent_block_id
@@ -2969,6 +3019,9 @@ event_schedule_blocks.run_state
 event_schedule_blocks.sort_order
 event_schedule_blocks.spot
 event_schedule_blocks.start_at
+event_schedule_blocks.time_or_minutes
+event_schedule_blocks.time_shape
+event_schedule_blocks.time_tba
 event_schedule_blocks.travel_from
 event_schedule_blocks.travel_to
 event_schedule_blocks.updated_at
@@ -2979,14 +3032,22 @@ event_schedule_day_anchor.event_id
 event_schedule_day_anchor.moved_at
 event_schedule_day_anchor.moved_blocks
 event_schedule_day_anchor.moved_by
+event_schedule_suggestions.answer_note
+event_schedule_suggestions.asked_as
+event_schedule_suggestions.auto_agreed
 event_schedule_suggestions.block_id
 event_schedule_suggestions.created_at
+event_schedule_suggestions.direction
 event_schedule_suggestions.event_id
 event_schedule_suggestions.kind
 event_schedule_suggestions.note
+event_schedule_suggestions.proposed_crew
+event_schedule_suggestions.proposed_egress_minutes
 event_schedule_suggestions.proposed_end_at
+event_schedule_suggestions.proposed_ingress_minutes
 event_schedule_suggestions.proposed_label
 event_schedule_suggestions.proposed_location
+event_schedule_suggestions.proposed_parent_block_id
 event_schedule_suggestions.proposed_start_at
 event_schedule_suggestions.resolved_at
 event_schedule_suggestions.resolved_by_user_id
@@ -2995,6 +3056,14 @@ event_schedule_suggestions.suggested_by_name
 event_schedule_suggestions.suggested_by_user_id
 event_schedule_suggestions.suggestion_id
 event_schedule_suggestions.vendor_profile_id
+event_schedule_task_contacts.block_id
+event_schedule_task_contacts.created_at
+event_schedule_task_contacts.created_by
+event_schedule_task_contacts.event_id
+event_schedule_task_contacts.name
+event_schedule_task_contacts.phone
+event_schedule_task_contacts.task_id
+event_schedule_task_contacts.updated_at
 event_schedule_tasks.block_id
 event_schedule_tasks.call_at
 event_schedule_tasks.created_at
@@ -3098,9 +3167,15 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_schedule_marks.confirmed_at
+event_supplier_schedule_marks.event_id
+event_supplier_schedule_marks.locked_at
+event_supplier_schedule_marks.seen_at
+event_supplier_schedule_marks.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
+event_tables.is_vip
 event_tables.link_group_id
 event_tables.link_group_label
 event_tables.public_id
@@ -3280,6 +3355,7 @@ event_vendors.contact_email
 event_vendors.contact_phone
 event_vendors.contract_signed_at
 event_vendors.cost_basis_pax
+event_vendors.covered_where
 event_vendors.covers_plan_groups
 event_vendors.created_at
 event_vendors.crew_meal_covered
@@ -3561,6 +3637,7 @@ events.role_palette
 events.rsvp_ask_config
 events.rsvp_backdrop
 events.same_date_count_opt_out
+events.schedule_released_at
 events.scheduled_launch_at
 events.seating_autoplace_enabled
 events.seating_group_adjacency
@@ -3605,6 +3682,7 @@ events.story_cover_ref
 events.story_language
 events.story_tone
 events.style_preferences
+events.supplier_requests_auto_agree
 events.suppliers_on
 events.ticket_url
 events.timezone
@@ -3709,6 +3787,16 @@ godparents.public_id
 godparents.reminders_enabled
 godparents.role
 godparents.updated_at
+guest_chapter_not_invited.block_id
+guest_chapter_not_invited.created_at
+guest_chapter_not_invited.event_id
+guest_chapter_not_invited.guest_id
+guest_chapter_replies.attending
+guest_chapter_replies.block_id
+guest_chapter_replies.event_id
+guest_chapter_replies.guest_id
+guest_chapter_replies.removal_seen_at
+guest_chapter_replies.replied_at
 guest_checkins.checked_in_at
 guest_checkins.checked_in_by_user_id
 guest_checkins.checkin_id
@@ -3796,6 +3884,10 @@ guest_message_blocks.guest_id
 guest_message_blocks.id
 guest_message_blocks.reason
 guest_message_blocks.revoked_at
+guest_not_counted_for.created_at
+guest_not_counted_for.event_id
+guest_not_counted_for.event_vendor_id
+guest_not_counted_for.guest_id
 guest_push_subscriptions.auth
 guest_push_subscriptions.created_at
 guest_push_subscriptions.endpoint
@@ -4545,6 +4637,22 @@ papic_challenge_library.priority_rank
 papic_challenge_library.prompt
 papic_challenge_library.slug
 papic_challenge_library.title
+papic_chapter_captures.added_by
+papic_chapter_captures.block_id
+papic_chapter_captures.created_at
+papic_chapter_captures.event_id
+papic_chapter_captures.guest_capture_id
+papic_chapter_captures.how
+papic_chapter_captures.link_id
+papic_chapter_captures.moment_block_id
+papic_chapter_captures.seat_photo_id
+papic_chapter_windows.block_id
+papic_chapter_windows.created_at
+papic_chapter_windows.event_id
+papic_chapter_windows.opened_early_at
+papic_chapter_windows.picked
+papic_chapter_windows.updated_at
+papic_chapter_windows.updated_by
 papic_event_point_grants.created_at
 papic_event_point_grants.event_id
 papic_event_point_grants.grant_id
@@ -5157,6 +5265,7 @@ platform_settings.booking_fee_minting_live
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php
+platform_settings.bookings_open
 platform_settings.brand_apple_touch_url
 platform_settings.brand_favicon_ico_url
 platform_settings.brand_icon_master_url
@@ -5169,6 +5278,7 @@ platform_settings.business_name
 platform_settings.business_tin
 platform_settings.creator_offer_sweep_last_run_at
 platform_settings.default_vat_rate_pct
+platform_settings.drive_speed_kmh
 platform_settings.fee_leak_price_tolerance
 platform_settings.fee_review_unsettled_events_min
 platform_settings.fee_unlocks_event_enforced
@@ -5216,6 +5326,7 @@ platform_settings.referral_program_enabled
 platform_settings.referral_reward_php
 platform_settings.repost_watch_hamming_threshold
 platform_settings.resend_from_address
+platform_settings.sample_event_enabled
 platform_settings.setnayan_ai_paywall_enabled
 platform_settings.setnayan_ai_per_event_pricing_enabled
 platform_settings.setnayan_pay_fee_pct
@@ -5456,6 +5567,7 @@ service_catalog.updated_at
 service_categories.applicable_event_types
 service_categories.coarse_category
 service_categories.created_at
+service_categories.default_chapters
 service_categories.hint_en
 service_categories.icon_name
 service_categories.id
@@ -6578,6 +6690,7 @@ vendor_profiles.screen_name
 vendor_profiles.screen_name_id
 vendor_profiles.screen_name_slug
 vendor_profiles.screen_name_taxonomy
+vendor_profiles.self_published_at
 vendor_profiles.services
 vendor_profiles.show_team_bookings_in_backend_count
 vendor_profiles.social_feature_opt_out
@@ -7747,6 +7860,8 @@ event_day_requests.origin
 event_day_requests.request_id
 event_day_requests.status
 event_day_requests.updated_at
+event_default_chapters_pending.created_at
+event_default_chapters_pending.event_id
 event_deletion_requests.created_at
 event_deletion_requests.event_id
 event_deletion_requests.event_name
@@ -7817,6 +7932,7 @@ event_floor_plan.entrance_y
 event_floor_plan.event_id
 event_floor_plan.ghost_booths_dismissed
 event_floor_plan.ghost_booths_enabled
+event_floor_plan.guest_seat_view
 event_floor_plan.service_entrance_enabled
 event_floor_plan.service_entrance_x
 event_floor_plan.service_entrance_y
@@ -7826,6 +7942,7 @@ event_floor_plan.stage_x
 event_floor_plan.stage_y
 event_floor_plan.updated_at
 event_floor_plan.venue_photo_visibility
+event_floor_plan.vip_plus_ones
 event_floor_signs.created_at
 event_floor_signs.event_id
 event_floor_signs.id
@@ -7964,13 +8081,17 @@ event_schedule_blocks.responsible_vendor_ids
 event_schedule_blocks.run_state
 event_schedule_blocks.sort_order
 event_schedule_blocks.start_at
+event_schedule_blocks.time_shape
+event_schedule_blocks.time_tba
 event_schedule_blocks.updated_at
 event_schedule_blocks.visibility
 event_schedule_day_anchor.anchor_day
 event_schedule_day_anchor.created_at
 event_schedule_day_anchor.event_id
 event_schedule_day_anchor.moved_blocks
+event_schedule_suggestions.auto_agreed
 event_schedule_suggestions.created_at
+event_schedule_suggestions.direction
 event_schedule_suggestions.event_id
 event_schedule_suggestions.kind
 event_schedule_suggestions.note
@@ -7978,6 +8099,13 @@ event_schedule_suggestions.status
 event_schedule_suggestions.suggested_by_user_id
 event_schedule_suggestions.suggestion_id
 event_schedule_suggestions.vendor_profile_id
+event_schedule_task_contacts.block_id
+event_schedule_task_contacts.created_at
+event_schedule_task_contacts.event_id
+event_schedule_task_contacts.name
+event_schedule_task_contacts.phone
+event_schedule_task_contacts.task_id
+event_schedule_task_contacts.updated_at
 event_schedule_tasks.block_id
 event_schedule_tasks.created_at
 event_schedule_tasks.event_id
@@ -8047,9 +8175,12 @@ event_std_views.event_id
 event_std_views.updated_at
 event_std_views.view_date
 event_std_views.views
+event_supplier_schedule_marks.event_id
+event_supplier_schedule_marks.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
+event_tables.is_vip
 event_tables.public_id
 event_tables.qr_token
 event_tables.removed_seats
@@ -8150,6 +8281,7 @@ event_vendor_working_notes.note_id
 event_vendor_working_notes.visibility
 event_vendors.category
 event_vendors.completion_status
+event_vendors.covered_where
 event_vendors.covers_plan_groups
 event_vendors.created_at
 event_vendors.crew_meal_covered
@@ -8245,6 +8377,7 @@ events.share_budget_band
 events.site_art_direction
 events.site_bg_music_enabled
 events.style_preferences
+events.supplier_requests_auto_agree
 events.timezone
 events.tracked_categories
 events.updated_at
@@ -8315,6 +8448,15 @@ godparents.owner_user_id
 godparents.public_id
 godparents.reminders_enabled
 godparents.updated_at
+guest_chapter_not_invited.block_id
+guest_chapter_not_invited.created_at
+guest_chapter_not_invited.event_id
+guest_chapter_not_invited.guest_id
+guest_chapter_replies.attending
+guest_chapter_replies.block_id
+guest_chapter_replies.event_id
+guest_chapter_replies.guest_id
+guest_chapter_replies.replied_at
 guest_checkins.checked_in_at
 guest_checkins.checkin_id
 guest_checkins.event_id
@@ -8375,6 +8517,10 @@ guest_message_blocks.created_at
 guest_message_blocks.event_id
 guest_message_blocks.guest_id
 guest_message_blocks.id
+guest_not_counted_for.created_at
+guest_not_counted_for.event_id
+guest_not_counted_for.event_vendor_id
+guest_not_counted_for.guest_id
 guest_push_subscriptions.auth
 guest_push_subscriptions.created_at
 guest_push_subscriptions.endpoint
@@ -8868,6 +9014,16 @@ papic_challenge_library.mission_type
 papic_challenge_library.prompt
 papic_challenge_library.slug
 papic_challenge_library.title
+papic_chapter_captures.block_id
+papic_chapter_captures.created_at
+papic_chapter_captures.event_id
+papic_chapter_captures.how
+papic_chapter_captures.link_id
+papic_chapter_windows.block_id
+papic_chapter_windows.created_at
+papic_chapter_windows.event_id
+papic_chapter_windows.picked
+papic_chapter_windows.updated_at
 papic_event_point_grants.created_at
 papic_event_point_grants.event_id
 papic_event_point_grants.grant_id
@@ -9401,6 +9557,7 @@ service_catalog.subscription
 service_catalog.unit
 service_catalog.updated_at
 service_categories.created_at
+service_categories.default_chapters
 service_categories.id
 service_categories.kind
 service_categories.label_en

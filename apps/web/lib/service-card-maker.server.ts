@@ -2,9 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  SERVICE_GROUPS,
   VENDOR_CATEGORY_LABEL,
-  groupDisplayOptions,
   isCanonicalService,
   type VendorCategory,
 } from '@/lib/vendors';
@@ -17,7 +15,7 @@ import {
 } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, planHasBranches } from '@/lib/vendor-tier-caps';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind, type LeafIndex } from '@/lib/service-card-kind';
 import type { TradeMatch } from '@/lib/kind-search-trades';
@@ -31,6 +29,7 @@ import {
 } from '@/lib/service-card-maker';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import type { CategoryGroup, MakerEditing, MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -156,29 +155,25 @@ export async function loadMakerContext(
     };
   });
   const leadWithOwnWords = coverageKindOptions.some((o) => o.standing === 'covered');
-  const legacyGroups: CategoryGroup[] = withKindList
-    ? SERVICE_GROUPS.map((group) => ({
-        key: group.key,
-        label: group.label,
-        options: groupDisplayOptions(group.members, labelFor).map((opt) => {
-          const st = standingOf(opt.primaryKey);
-          return {
-            value: opt.primaryKey,
-            label: opt.label,
-            // ⚠ RE-BANDED, NEVER REMOVED — a legacy kind in a family the shop's own words already lead moves to
-            // "Something else" rather than competing with their word for it.
-            standing: leadWithOwnWords && st.standing === 'covered' ? ('open' as const) : st.standing,
-            why: st.standing === 'locked' ? st.why : undefined,
-          };
-        }),
-      })).filter((g) => g.options.length > 0)
+  // "Something else" — the LIVE taxonomy (Admin › Categories), one fold per top-level group (owner 2026-11-04: "why
+  // is it that i only see these categories when we have a whole spectrum"; 2026-10-26 "the taxonomy has one source").
+  // The hard-coded SERVICE_GROUPS list no longer draws this sheet. lib/service-card-kind-groups.ts
+  const liveGroups: CategoryGroup[] = withKindList
+    ? liveKindGroups({
+        tree,
+        standingOf,
+        ownCategories,
+        leadWithOwnWords,
+        kindLabel,
+        alreadyListed: new Set(coverageKindOptions.map((o) => o.value)),
+      })
     : [];
   const categoryOptions: CategoryGroup[] = withKindList
     ? [
         ...(coverageKindOptions.length > 0
           ? [{ key: 'your-coverage', label: 'What you cover', options: coverageKindOptions }]
           : []),
-        ...legacyGroups,
+        ...liveGroups,
       ]
     : [];
 
@@ -247,10 +242,10 @@ export async function loadMakerContext(
     if (activePool.has(r.pool_id)) scheduleOfKind[r.category_key] = r.pool_id;
   }
 
-  // ── Branches (Enterprise) — only a paid, in-window branch may be chosen ──
+  // ── Branches (Pro includes some, Ultra includes more + buys — owner 2026-11-04) — only a live branch may be chosen ──
   // A lapsed branch stays LISTED (not choosable) so a card filed under it keeps naming it — dropping it would
   // relabel that card "You" and the save would move it (owner 2026-08-28 "paid").
-  const branches = isTierAtLeast(tierRow?.tier_state ?? null, 'enterprise')
+  const branches = planHasBranches(tierRow?.tier_state ?? null)
     ? (await fetchVendorBranches(supabase, vendorProfileId, createAdminClient()).catch(() => []))
         .filter((b) => b.status !== 'cancelled')
         .map((b) => ({ id: b.branch_id, label: b.branch_label, usable: branchIsUsable(b.status) }))

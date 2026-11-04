@@ -43,6 +43,12 @@ export type QuoteCardInput = {
    * may already be asked for.
    */
   handshake?: LockRequestState | null;
+  /**
+   * 4 Nov 2026 · this quote's version within (event, supplier) — `lib/quote-versions.ts`.
+   * ABSENT MEANS UNKNOWN (the history read did not arrive): the card then says
+   * nothing about versions and behaves exactly as before.
+   */
+  version?: number | null;
 };
 
 export type QuoteCardPrimary =
@@ -83,13 +89,29 @@ export type QuoteCardState = {
   note: string | null;
   /** Draw the card muted — it is history, not the live offer. */
   history: boolean;
+  /**
+   * 4 Nov 2026 · the LIVE pending update (version 2+): the couple's "Updated" /
+   * the supplier's "Waiting for them". Null otherwise — and always null while
+   * the version is unknown.
+   */
+  badge: 'Updated' | 'Waiting for them' | null;
+  /**
+   * Couple only, the LIVE pending update (version 2+): "Accept the update",
+   * posted to the same `respondToProposal` the full quote's Accept posts.
+   * ⛔ Never on a superseded or earlier card — there is one live quote.
+   */
+  offerAcceptUpdate: boolean;
+  /** The supplier's revise label: "Update again" once they have updated before. */
+  reviseLabel: 'Update this quote' | 'Update again';
 };
 
 const CONFIRMED_HANDSHAKE: ReadonlySet<LockRequestState> = new Set(['locked', 'requested']);
 
 export function quoteCardState(input: QuoteCardInput): QuoteCardState {
-  const { status, isLatest, viewer, handshake = null } = input;
+  const { status, isLatest, viewer, handshake = null, version = null } = input;
   const couple = viewer === 'couple';
+  const updated = typeof version === 'number' && version > 1;
+  const reviseLabel: QuoteCardState['reviseLabel'] = updated ? 'Update again' : 'Update this quote';
   const view: QuoteCardPrimary = { kind: 'view', label: 'View quote' };
 
   // ── HISTORY: anything that is not the live quote. A superseded row stays in
@@ -104,6 +126,9 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerLockAnswer: false,
       note: status === 'superseded' ? 'Replaced by a newer quote' : null,
       history: true,
+      badge: null,
+      offerAcceptUpdate: false,
+      reviseLabel,
     };
   }
 
@@ -117,6 +142,9 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerLockAnswer: false,
       note: null,
       history: false,
+      badge: updated ? (couple ? 'Updated' : 'Waiting for them') : null,
+      offerAcceptUpdate: couple && updated,
+      reviseLabel,
     };
   }
 
@@ -148,6 +176,9 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
       offerLockAnswer: !couple && handshake === 'requested',
       note,
       history: false,
+      badge: null,
+      offerAcceptUpdate: false,
+      reviseLabel,
     };
   }
 
@@ -160,5 +191,8 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
     offerLockAnswer: false,
     note: null,
     history: status === 'declined' || status === 'expired',
+    badge: null,
+    offerAcceptUpdate: false,
+    reviseLabel,
   };
 }

@@ -267,6 +267,8 @@ const WEB = path.resolve(__dirname, '..');
 
 /** file → why it may read `start_at` without the flag. Every line is a reason, never a shrug. */
 const ALLOWED: Record<string, string> = {
+  'app/admin/events/[eventId]/page.tsx':
+    "Admin › Suppliers' schedule names each supplier's chapters (Where); start_at only orders the names — no clock is drawn",
   'app/api/live/run-of-show/[eventId]/route.ts':
     "guests' live lines only — fenced by onlyWhatGuestsMaySee a few lines down; the database refuses a public TBA chapter",
   'app/dashboard/[eventId]/schedule/actions.ts': "the Schedule's own write door — #7151 set TBA there; it draws nothing",

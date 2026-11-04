@@ -87,6 +87,10 @@ export type PageClientData = {
   stories: { id: string; label: string }[] | null;
   personalizeAsks: boolean;
   proAsks: boolean;
+  /** Your own web address's ◆ — its own cap (`customWebsiteName`, Solo+ since 2026-11-04), not the Pro page parts'. */
+  addressAsks: boolean;
+  /** The first plan with your own web address, from the plan table ("Solo"). */
+  addressPlan: string;
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges — composed by `lib/shop-badges.ts` from today's reads. */
@@ -433,12 +437,13 @@ export function PageParts({
           anchor="domain"
           lead={<RowIcon icon={Globe} />}
           data="page-domain"
-          title={`Your web address${diamond(d.proAsks)}`}
+          title={`Your web address${diamond(d.addressAsks)}`}
           line={d.publicPath ? `${d.displayHost}${d.publicPath}` : 'Name your shop first'}
         >
-          {/* 💳 Your OWN web address is a ◆ Pro item (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3)) — the same
-              flag-aware question as the cover photo (`proAsks` = customWebsiteName); `addVendorDomain` asks it again. */}
-          {d.proAsks ? <PlanAsk plan="Pro" when="adding your own address asks for Pro" /> : null}
+          {/* 💳 Your OWN web address is a ◆ plan item (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3); Solo+
+              since 2026-11-04) — the flag-aware question on its own cap (`addressAsks` = customWebsiteName);
+              `addVendorDomain` asks it again. */}
+          {d.addressAsks ? <PlanAsk plan={d.addressPlan} when={`adding your own address asks for ${d.addressPlan}`} /> : null}
           <div className="pb-4">{domainBody}</div>
         </Fold>
 
@@ -486,7 +491,7 @@ export function PageParts({
 }
 
 /** ◆ — a plan's part. Information, never a lock: the control works, and Apply is where the plan is asked. */
-function PlanAsk({ plan, when }: { plan: 'Solo' | 'Pro'; when?: string }) {
+function PlanAsk({ plan, when }: { plan: string; when?: string }) {
   // `when` — a part with its own save (not the page's Apply) says which press asks for the plan.
   return (
     <p className="flex flex-wrap items-center gap-2 text-xs text-ink/60">

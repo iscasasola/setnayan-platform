@@ -31,10 +31,10 @@
  * CDN can serve the old framing. `supplier_photo_originals.frame` mirrors it for
  * the re-mark job; the key is the truth.
  */
-import { FRAME_ASPECT, type Box, type FrameShape } from './photo-mark-geometry';
+import { FRAME_ASPECT, type Box, type FrameShape } from './photo-frame-shape';
 
-export type { FrameShape } from './photo-mark-geometry';
-export { FRAME_ASPECT } from './photo-mark-geometry';
+export type { FrameShape } from './photo-frame-shape';
+export { FRAME_ASPECT } from './photo-frame-shape';
 
 export type Framing = { focusX: number; focusY: number; zoom: number };
 

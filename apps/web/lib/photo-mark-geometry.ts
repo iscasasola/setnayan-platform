@@ -74,7 +74,11 @@ export type MarkFont = 'caps' | 'name' | 'addr';
 /** Width in px of `text` set in `font` at `px`, untracked. */
 export type MarkMeasure = (text: string, font: MarkFont, px: number) => number;
 
-export type Box = { left: number; top: number; width: number; height: number };
+// Box, FrameShape and FRAME_ASPECT live in a leaf module so a page that only DISPLAYS a framed photo
+// (FramedImg → lib/photo-frame.ts) never pulls this whole module — the SY path, the palette, the font URLs —
+// into its first load. They are re-exported here, so this stays the one place a painter imports them from.
+import { FRAME_ASPECT, type Box, type FrameShape } from './photo-frame-shape';
+export { FRAME_ASPECT, type Box, type FrameShape } from './photo-frame-shape';
 
 export type MarkLine = {
   text: string;
@@ -377,10 +381,6 @@ export function offsetLayout(l: MarkLayout, dx: number, dy: number): MarkLayout 
 
 /* ── frames ──────────────────────────────────────────────────────────────── */
 
-export type FrameShape = 'square' | 'circle' | 'wide' | 'phone';
-
-/** Aspect (w/h) of each frame shape. Wide = 5:2, the cover's phone aspect; phone = 9:16. */
-export const FRAME_ASPECT: Readonly<Record<FrameShape, number>> = { square: 1, circle: 1, wide: 2.5, phone: 9 / 16 };
 
 /**
  * The square inside a frame the mark is stamped in (`markSquare` of the

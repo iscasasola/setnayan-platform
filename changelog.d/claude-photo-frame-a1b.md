@@ -72,5 +72,6 @@ Fix-up after the merge with the updated A1a (2026-11-04):
 - "Gallery picker" now reads "Inspiration picker" (owner 2026-10-23: no "gallery" in the UI).
 - Re-open signs the clean copy through `displayUrlForPrivateStoredAsset`, held to the shop's own `vendor-originals/<shop>/` root, not the raw signer. It is the `'original'` op of A1a's one `photoMark` action, not a new export.
 - The Frame step and `lib/photo-frame.ts` are listed as upload pipeline in the Maker preload guard.
+- Bundle: `FrameShape`, `FRAME_ASPECT` and `Box` moved to a leaf module, `lib/photo-frame-shape.ts`, which `photo-mark-geometry` re-exports. A supplier avatar (`FramedImg` → `photo-frame`) used to pull the mark's whole geometry into every event page's shared chunk: +4.2 KB gzipped in the Maker's first load. The Frame step now imports the painter statically, inside its own lazy chunk, instead of as one more lazy chunk.
 
 SPEC IMPACT: None. No schema change; the framing is encoded in the R2 object name.

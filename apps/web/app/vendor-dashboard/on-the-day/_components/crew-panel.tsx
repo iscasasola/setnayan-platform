@@ -9,13 +9,13 @@
  *
  * 🗂 A row is a tap (owner 2026-11-04, "crew row opens what Member / Helper get"; prototype v59 `crewSheet`): it opens a
  * sheet with what the phone's role gets on the crew's Event Hub (`crewRoleGets` — the crew page's own rule), the other
- * role beside it, its Role ▾ and Remove — the same writes as the row's own ▾.
+ * role beside it, and its Role ▾ (Member · Helper · Remove from the crew) — the same writes as the row's own ▾.
  *
  * Every press writes on the caller's own session (`lib/crew-writes.ts` — the database is the boundary) and answers in
  * the row; a refused one says why and the row goes back.
  */
 import { Fragment, useState, useTransition } from 'react';
-import { Check, Expand, QrCode, Send, Share, UserMinus } from 'lucide-react';
+import { Check, Expand, QrCode, Send, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
@@ -295,17 +295,17 @@ function CrewRowSheet({
             options={[
               { key: 'member', label: CREW_ROLE_LABEL.member, hint: crewToolsWords('member', coordinator) },
               { key: 'helper', label: CREW_ROLE_LABEL.helper, hint: crewToolsWords('helper', coordinator) },
+              { key: 'remove', label: 'Remove from the crew', hint: 'This phone leaves the Event Hub now' },
             ]}
-            onPick={(k) => decide({ role: k as CrewRole })}
+            onPick={(k) => (k === 'remove' ? decide({ status: 'removed' }) : decide({ role: k as CrewRole }))}
             dataAttr="data-crew-row-role"
           />
         </FormRows>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {pass.status === 'waiting' ? (
+        {pass.status === 'waiting' ? (
+          <div className="mt-4 flex flex-wrap gap-2">
             <ActionButton tone="brand" main icon={Check} label="Allow" name={`Allow ${pass.name}`} disabled={pending} onClick={() => decide({ status: 'allowed' })} />
-          ) : null}
-          <ActionButton tone="danger" quiet icon={UserMinus} label="Remove from the crew" disabled={pending} onClick={() => decide({ status: 'removed' })} />
-        </div>
+          </div>
+        ) : null}
       </div>
     </Sheet>
   );

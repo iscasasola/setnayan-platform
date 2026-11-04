@@ -405,3 +405,101 @@ export async function compressVideoForWeb(
     return file;
   }
 }
+
+/** A local clip's display size, via a metadata-only <video>. */
+function probeVideoSize(file: File): Promise<{ w: number; h: number } | null> {
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const v = document.createElement('video');
+      const done = (s: { w: number; h: number } | null) => {
+        URL.revokeObjectURL(url);
+        v.removeAttribute('src');
+        resolve(s);
+      };
+      v.preload = 'metadata';
+      v.muted = true;
+      v.onloadedmetadata = () => done(v.videoWidth > 0 && v.videoHeight > 0 ? { w: v.videoWidth, h: v.videoHeight } : null);
+      v.onerror = () => done(null);
+      setTimeout(() => done(null), 8000);
+      v.src = url;
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/** The web720 output size for an input of w×h: the same `min(cap,…)`+decrease+even rule the filter applies. */
+export function web720OutputSize(w: number, h: number): { w: number; h: number } {
+  const k = Math.min(1, Math.min(WEB_LONG_EDGE, w) / w, Math.min(WEB_LONG_EDGE, h) / h);
+  return { w: Math.max(2, Math.trunc((w * k) / 2) * 2), h: Math.max(2, Math.trunc((h * k) / 2) * 2) };
+}
+
+/**
+ * THE MARKED CLIP (Seal and plate on the service-card video, 2026-11-04).
+ *
+ * The existing web720 encode (1280 long edge → 720p, H.264 baseline, CRF 30),
+ * with the supplier mark — a canvas-drawn PNG from `markOverlayPng`, the same
+ * geometry and painter as the photos — burned in by an `overlay`. `scale2ref`
+ * sizes the PNG to the encoded frame exactly, so a 1-px rounding difference
+ * between the probe and ffmpeg can never shift the mark off its square.
+ *
+ * 🔒 FAIL-CLOSED — UNLIKE `compressVideoForWeb`. That function returns the
+ * original on any failure (correct for an unmarked copy). Here a returned
+ * original would be an UNMARKED clip on a public card, so every failure THROWS
+ * and FileUpload refuses the upload with Try again.
+ */
+export async function markAndCompressVideo(
+  file: File,
+  opts: {
+    markPng: (w: number, h: number) => Promise<Uint8Array>;
+    maxDurationS?: number;
+    onProgress?: (p: CompressProgress) => void;
+  },
+): Promise<File> {
+  if (!canCompressVideo()) throw new Error('marked clip: this browser cannot prepare video');
+  const size = await probeVideoSize(file);
+  if (!size) throw new Error('marked clip: the clip size could not be read');
+  const out = web720OutputSize(size.w, size.h);
+  const png = await opts.markPng(out.w, out.h);
+  const { fetchFile } = await import('@ffmpeg/util');
+  opts.onProgress?.({ phase: 'loading', ratio: 0 });
+  return runExclusive(async () => {
+    const ffmpeg = await getLoadedFFmpeg();
+    const onFfmpegProgress = ({ progress }: { progress: number }) => {
+      opts.onProgress?.({ phase: 'optimizing', ratio: Math.max(0, Math.min(1, progress)) });
+    };
+    ffmpeg.on('progress', onFfmpegProgress);
+    try {
+      await ffmpeg.writeFile('in.mp4', await fetchFile(file));
+      await ffmpeg.writeFile('mark.png', png);
+      const cap = WEB_LONG_EDGE;
+      const code = await ffmpeg.exec([
+        '-i', 'in.mp4',
+        '-i', 'mark.png',
+        '-map_metadata', '-1',
+        '-filter_complex',
+        `[0:v]scale='min(${cap},iw)':'min(${cap},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2[v0];` +
+          `[1:v][v0]scale2ref=w=iw:h=ih[m][v1];[v1][m]overlay=0:0:format=auto,format=yuv420p[vout]`,
+        '-map', '[vout]',
+        '-map', '0:a?',
+        '-c:v', 'libx264',
+        '-profile:v', 'baseline',
+        '-preset', PRESET,
+        '-crf', WEB_CRF,
+        '-c:a', 'aac', '-b:a', WEB_AUDIO_BITRATE,
+        '-movflags', '+faststart',
+        ...(opts.maxDurationS != null ? ['-t', String(opts.maxDurationS + 1)] : []),
+        'out.mp4',
+      ]);
+      if (code !== 0) throw new Error(`marked clip: the encode failed (ffmpeg exit ${code})`);
+      const bytes = await ffmpeg.readFile('out.mp4');
+      if (typeof bytes === 'string' || bytes.byteLength === 0) throw new Error('marked clip: the encode produced nothing');
+      const ab = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'video';
+      return new File([ab], `${baseName}.mp4`, { type: 'video/mp4' });
+    } finally {
+      ffmpeg.off('progress', onFfmpegProgress);
+    }
+  });
+}

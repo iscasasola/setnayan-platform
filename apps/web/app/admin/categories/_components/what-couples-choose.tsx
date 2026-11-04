@@ -318,6 +318,7 @@ function LeafBlock({
                 {(submit) => (
                   <FileUpload
                     bucket="samples"
+                    mark="setnayan"
                     pathPrefix={`refinements/${leaf.leafKey}`}
                     name="main_photo_url"
                     unsavedHint={null}
@@ -528,6 +529,7 @@ function OptionCard({
               {(submit) => (
                 <FileUpload
                   bucket="samples"
+                  mark="setnayan"
                   pathPrefix={`refinements/${leaf.leafKey}`}
                   name="photo_url"
                   unsavedHint={null}
@@ -629,6 +631,7 @@ function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard
         </span>
         <FileUpload
           bucket="samples"
+          mark="setnayan"
           pathPrefix={`refinements/${leaf.leafKey}`}
           name="photo_url"
           unsavedHint="press Add option below"

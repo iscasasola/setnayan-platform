@@ -480,3 +480,79 @@ function renameForMime(name: string, mime: string): string {
   const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png';
   return `${base}.${ext}`;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE SEAL AND PLATE (owner-approved 2026-11-04 · supplier_photo_mark, A)
+   ══════════════════════════════════════════════════════════════════════════
+   `watermarkFile` above stays as it is for the callers that still carry the
+   MB27 address stamp (and its pixel guards). Supplier photos and the admin's
+   category samples are marked by `markPhotoFile` below: the approved Seal and
+   plate, laid out by `lib/photo-mark-geometry.ts` — the SAME geometry the
+   server painter uses — and painted by `lib/photo-mark-canvas.ts`.
+
+   🔒 FAIL-CLOSED. Every failure here THROWS, and the caller refuses the
+   upload ("Nothing goes up unmarked" — the approved page's last line). */
+
+export type PhotoMarkInput = {
+  spec: import('./photo-mark-geometry').MarkSpec;
+  /** the shop's logo as a data: URL (from the server), for the verified coin */
+  logoDataUrl?: string | null;
+  /** stamp inside this frame (image px) instead of the centred safe square */
+  framed?: { frame: MarkBox; shape: import('./photo-mark-geometry').FrameShape } | null;
+};
+
+/** Burn the Seal and plate into an image File. Throws on ANY failure — never returns the input unmarked. */
+export async function markPhotoFile(file: File, input: PhotoMarkInput): Promise<File> {
+  assertNotVideoFile(file);
+  const [{ layoutMark, layoutMarkInFrame, layoutInside }, painter] = await Promise.all([
+    import('./photo-mark-geometry'),
+    import('./photo-mark-canvas'),
+  ]);
+  await painter.ensureMarkFonts();
+  const img = await loadImage(await fileToDataUrl(file));
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d context unavailable');
+  ctx.drawImage(img, 0, 0);
+  const measure = painter.canvasMeasure(ctx);
+  const layout = input.framed
+    ? layoutMarkInFrame(input.framed.frame, input.framed.shape, input.spec, measure)
+    : layoutMark(canvas.width, canvas.height, input.spec, measure);
+  const whole = { left: 0, top: 0, width: canvas.width, height: canvas.height };
+  if (!layoutInside(layout, input.framed ? input.framed.frame : whole) || !layoutInside(layout, whole)) {
+    throw new Error(`photo mark: the mark does not fit a ${canvas.width}×${canvas.height} image`);
+  }
+  const logo = layout.coin && input.logoDataUrl ? await loadImage(input.logoDataUrl) : null;
+  painter.paintMark(ctx, layout, logo);
+  const mimeType = preserveMime(file.type);
+  const blob = await canvasToBlob(canvas, mimeType);
+  return new File([blob], renameForMime(file.name, mimeType), { type: mimeType });
+}
+
+/**
+ * The mark alone, on a transparent W×H canvas, as PNG bytes — the overlay the
+ * showcase clip's ffmpeg.wasm encode burns in (`compressVideoForWeb({ markPng })`).
+ * Same geometry, same painter, so a clip and a photo carry the same mark.
+ */
+export async function markOverlayPng(W: number, H: number, input: PhotoMarkInput): Promise<Uint8Array> {
+  const [{ layoutMark, layoutInside }, painter] = await Promise.all([
+    import('./photo-mark-geometry'),
+    import('./photo-mark-canvas'),
+  ]);
+  await painter.ensureMarkFonts();
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d context unavailable');
+  const layout = layoutMark(W, H, input.spec, painter.canvasMeasure(ctx));
+  if (!layoutInside(layout, { left: 0, top: 0, width: W, height: H })) {
+    throw new Error(`photo mark: the mark does not fit a ${W}×${H} clip`);
+  }
+  const logo = layout.coin && input.logoDataUrl ? await loadImage(input.logoDataUrl) : null;
+  painter.paintMark(ctx, layout, logo);
+  const blob = await canvasToBlob(canvas, 'image/png');
+  return new Uint8Array(await blob.arrayBuffer());
+}

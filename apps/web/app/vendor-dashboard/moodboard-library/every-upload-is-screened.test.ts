@@ -172,7 +172,7 @@ test('SABOTAGE-PROVEN: the watermark variant is read off source_event_id', () =>
   const store = functionBody(read(ACTIONS), 'storeScreenedAsset');
   assert.match(
     store,
-    /watermarkImageBytes\(\s*args\.bytes,\s*markVariantForSource\(args\.row\.source_event_id\),?\s*\)/,
+    /watermarkImageBytes\(\s*args\.bytes,\s*markVariantForSource\(args\.row\.source_event_id\),\s*supplierMark,?\s*\)/,
     'the mark must be chosen from the row’s source_event_id, not by the entry point',
   );
   assert.doesNotMatch(

@@ -111,7 +111,10 @@ export const ATTIRE_ROWS: readonly AttireRowDef[] = [
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
   { tier: 'groups', key: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl', who: ['boy', 'girl'] },
-  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true, also: 'officiant' },
+  /* 🙏 The priest's alb and stole (`officiant`, 2026-11-04) is drawn and ready, but NOT offered here: where the officiant
+     belongs is the owner's call (the PR's "needs owner OK"), and a wedding stays exactly as it ships. His answer, if it is
+     "on this row", is `also: 'officiant'` on this line. */
+  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true },
   { tier: 'roles', key: 'guest', paletteKey: 'guest', who: ['m', 'f'] },
 ];
 

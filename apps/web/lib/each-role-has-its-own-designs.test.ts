@@ -20,7 +20,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { COAT_AND_PANTS, DESIGN_ZONES, FIGURE_ART, LONG_SLEEVES, ROLE_ART_KEYS, TIE_AND_ACCENT, artZoneKeys, designOfArt } from './attire-figures';
-import { FIGURE_ROLES, GUEST_OPTIONS_MAX, ROLE_DESIGNS, ROW_FIGURE_ROLES, designLabel, designOf, roleArtKey, wearLabelFor, type FigureRole } from './attire-designs';
+import { FIGURE_ROLES, GUEST_OPTIONS_MAX, ROLE_DESIGNS, ROW_FIGURE_ROLES, designLabel, designOf, roleArtKey, roleDesigns, wearLabelFor, type FigureRole } from './attire-designs';
 import { ATTIRE_ROWS, attireRow, pickOptions, picksOf, readerAttire, sanitizeSecondPicks, withSecondColours } from './attire-rows';
 import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type AttireStyle } from './role-dress-code';
 import { deeper, roleFigurePeople, singleWearerOf, zoneTints } from './role-figure';
@@ -99,10 +99,12 @@ test('1 · every role offers exactly its own designs — the owner’s table —
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 0), ['barong_tagalog', 'suit']);
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 1), ['filipiniana', 'long_gown']);
   assert.deepEqual(pickOptions(attireRow('groups', 'bearers_flower_girl')!, 1), ['tulle_dress', 'filipiniana']);
-  /* Rows with no designs of their own keep the shipped seven — the officiants' gaining the priest's alb at the END. */
+  /* Rows with no designs of their own keep the shipped seven. */
   assert.ok(pickOptions(attireRow('groups', 'officiants')!).includes('formal'));
-  assert.equal(pickOptions(attireRow('groups', 'officiants')!).at(-1), 'priest');
-  assert.deepEqual(pickOptions(attireRow('groups', 'officiants')!).slice(0, -1), [...pickOptions(attireRow('groups', 'muslim_principals')!)], 'the officiants lost one of the shipped seven');
+  /* 🙏 The priest is drawn (`officiant`) but offered on no row until the owner says where (2026-11-04) — a wedding's
+     Officiants row is exactly as shipped. */
+  assert.ok(!pickOptions(attireRow('groups', 'officiants')!).includes('priest'), 'the priest reached a row before the owner ruled');
+  assert.deepEqual(roleDesigns('officiant'), ['priest']);
   /* 🎂 The celebrant: FOR WOMEN · FOR MEN, the girl's party dress drawn as a girl. */
   assert.deepEqual([...pickOptions(attireRow('roles', 'celebrant')!, 1)], ['barong_tagalog', 'suit', 'formal', 'smart_casual']);
   assert.equal(roleArtKey('celebrant_w', 'party_dress'), 'celebrant_girl-party_dress');

@@ -561,7 +561,7 @@ export function MomentInspector({
             {parts.filter((p) => !goneParts.has(p.block_id)).map((p) => {
               const ps = spanOf(p.start_at, p.end_at);
               const line = (
-                <div className="flex items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
+                <div className="flex min-h-11 items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
                   <span className="min-w-0 truncate">{p.label}</span>
                   <span className="font-mono text-xs text-ink/55">
                     {p.end_at ? formatClockRange(ps.startMin, ps.endMin) : formatClock(ps.startMin)}
@@ -570,7 +570,8 @@ export function MomentInspector({
               );
               if (!canEdit) return <li key={p.block_id}>{line}</li>;
               /* 👈 A part's Delete is its swipe (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW") — it was a
-                 small ✕ on the line. Same write; it waits out the Undo window (`deleteWithUndo`). */
+                 small ✕ on the line. Same write; it waits out the Undo window (`deleteWithUndo`). The line is 44 px tall so the
+                 revealed Delete's icon and word fit. */
               return (
                 <SwipeToDelete
                   key={p.block_id}

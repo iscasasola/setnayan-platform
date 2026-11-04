@@ -29,7 +29,8 @@ import { resolveShellSearchContext, type ShellSearchContext } from './shell-sear
 import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sampleOpensHere } from '@/lib/sample-event/switch.server';
-import { FrontDoorLanding, frontPageSample } from './front-door-landing';
+import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -90,10 +91,22 @@ export async function FrontDoor({ q }: { q?: string }) {
     sample switch off '/' falls back to the plain page"). A typed search still replaces every section below
     the hero, as it always has, so it pays only for the sample answer the hero's buttons need.
   */
+  /*
+    💰 …and the two plan prices, from `platform_retail_catalog_v2` — the price list Admin edits — never typed:
+    Event Pro is Event Hub Pro (`COUPLE_WEBSITE_PRO`, live today); Event Plus is `EVENT_PLUS`, which the price-sheet
+    PR (#7262) puts on sale. A row that is not on sale or not readable draws no figure. Named cost: one catalogue
+    read per signed-out view (prices are read live everywhere, never remembered).
+  */
   const signedOut = !account.signedIn;
-  const [sampleOpen, eventTypes]: [boolean, ReadonlyArray<{ key: string; label: string }>] = signedOut
-    ? await Promise.all([sampleOpensHere().catch(() => false), searchQuery ? [] : getCreatableEventTypes()])
-    : [false, []];
+  const landing = signedOut && !searchQuery;
+  const [sampleOpen, eventTypes, planPrices]: [boolean, ReadonlyArray<{ key: string; label: string }>, PlanPrices] =
+    signedOut
+      ? await Promise.all([
+          sampleOpensHere().catch(() => false),
+          landing ? getCreatableEventTypes() : [],
+          landing ? fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([])) : planPricesFrom([]),
+        ])
+      : [false, [], planPricesFrom([])];
 
   return (
     <>
@@ -202,6 +215,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         /* The 4 Nov front page — the shipped shelves ride inside it, unchanged, as #shelves. */
         <FrontDoorLanding
           eventTypes={eventTypes}
+          planPrices={planPrices}
           sample={sampleOpen ? frontPageSample(new Date()) : null}
           shelves={
             <FrontDoorFeed

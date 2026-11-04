@@ -905,6 +905,13 @@
   font-weight: 600;
   letter-spacing: -0.02em;
 }
+.fd .fl-price small {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(var(--ink-soft));
+  letter-spacing: 0;
+  margin-left: 4px;
+}
 .fd .fl-price-none {
   font-size: 12px;
   font-weight: 500;

@@ -24,9 +24,10 @@
  * (`lib/sample-event/*`), never typed here.
  *
  * ─── NO PRICE IS TYPED HERE ──────────────────────────────────────────────────────────────────────────────
- * Event Plus and Event Pro have no `platform_retail_catalog_v2` row yet, so their cards say "per event" and
- * name no figure. The add-on tiles open their own feature pages, which read the live catalogue. ₱0 is the
- * free tier, not a price.
+ * Event Plus and Event Pro are read from `platform_retail_catalog_v2` (`planPricesFrom`, below): Event Pro is
+ * Event Hub Pro (`COUPLE_WEBSITE_PRO`), Event Plus is `EVENT_PLUS`. A row that is not on sale draws "per event"
+ * and no figure, so Plus shows its price on its own the day its row goes on sale. The add-on tiles open their own
+ * feature pages, which read the live catalogue. ₱0 is the free tier, not a price.
  */
 import type { ReactNode } from 'react';
 import Link from 'next/link';
@@ -37,6 +38,7 @@ import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event
 import { marchOrdinal } from '@/lib/march-place';
 import { guestRoleLabel } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
+import { formatPeso } from '@/lib/v2-catalog-pure';
 import {
   ADD_ONS,
   COORDINATOR_TOOLS,
@@ -133,6 +135,38 @@ export function frontPageSample(now: Date): FrontPageSample | null {
   return { dateLabel: sampleDay(now).label, personas };
 }
 
+/* ─── The two plan prices, from the price list ─────────────────────────────────────────────────────── */
+
+/** Event Plus and Event Pro, in pesos — null when the row is not on sale or could not be read. */
+export type PlanPrices = { plus: number | null; pro: number | null };
+
+/** The service codes the plan cards read. Event Pro IS Event Hub Pro. */
+export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO' } as const;
+
+/**
+ * Picks the two prices out of the customer catalogue (`fetchV2CustomerCatalog`, active rows only). Never a
+ * fallback figure: a missing, inactive or non-positive row is null, and the card then names no price.
+ */
+export function planPricesFrom(
+  rows: ReadonlyArray<{ service_code: string; retail_price_php: number | null }>,
+): PlanPrices {
+  const php = (code: string): number | null => {
+    const v = Number(rows.find((r) => r.service_code === code)?.retail_price_php);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  return { plus: php(PLAN_PRICE_CODES.plus), pro: php(PLAN_PRICE_CODES.pro) };
+}
+
+function PlanPrice({ php }: { php: number | null }) {
+  if (php === null) return <span className="fl-price fl-price-none">per event</span>;
+  return (
+    <span className="fl-price">
+      ₱{formatPeso(php)}
+      <small>per event</small>
+    </span>
+  );
+}
+
 /* ─── Pieces ───────────────────────────────────────────────────────────────────────────────────── */
 
 function Head({
@@ -215,11 +249,14 @@ export type EventTypeTile = { key: string; label: string; photo: string | null }
 
 export function FrontDoorLanding({
   eventTypes,
+  planPrices,
   sample,
   shelves,
 }: {
   /** The creatable event types, in the roster's order (`getCreatableEventTypes`). */
   eventTypes: readonly { key: string; label: string }[];
+  /** Event Plus and Event Pro from the price list (`planPricesFrom`). */
+  planPrices: PlanPrices;
   /** The sample's two guests — null whenever `/sample` does not open for this visitor. */
   sample: FrontPageSample | null;
   /** The shipped Discover shelves, rendered by the caller. */
@@ -494,7 +531,7 @@ export function FrontDoorLanding({
           <Expandable as="article" className="fl-plan">
             <div className="fl-plan-name">
               <h3>Event Plus</h3>
-              <span className="fl-price fl-price-none">per event</span>
+              <PlanPrice php={planPrices.plus} />
             </div>
             <p className="fl-plan-one">A nicer, more personal Event Hub.</p>
             <Dots items={PLUS_PEEK} />
@@ -516,7 +553,7 @@ export function FrontDoorLanding({
           <Expandable as="article" className="fl-plan fl-plan-pro">
             <div className="fl-plan-name">
               <h3>Event Pro</h3>
-              <span className="fl-price fl-price-none">per event</span>
+              <PlanPrice php={planPrices.pro} />
             </div>
             <p className="fl-plan-one">Everything in Plus, and an Event Hub that is fully yours.</p>
             <Dots items={PRO_PEEK} />

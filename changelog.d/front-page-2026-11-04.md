@@ -15,8 +15,10 @@ MARKETING PAGES GO TO CLOUD BUILD"), ported onto the shipped front door. Signed-
 - **Sections** (`front-door-landing.tsx`): #events (from `event_type_vocab` via `getCreatableEventTypes`,
   count read, never typed) · #sample (names, date, roles and march place from the Maria and Jose
   fixtures) · #shelves (the shipped `FrontDoorFeed`, unchanged) · #solves (20 problems) · #coordinators
-  (→ /for-coordinators) · #suppliers (→ /for-suppliers) · #plans (no peso figure for Plus/Pro — no catalog
-  row yet) · close · a footer carrying /privacy and /terms.
+  (→ /for-coordinators) · #suppliers (→ /for-suppliers) · #plans (Event Pro = Event Hub Pro,
+  `COUPLE_WEBSITE_PRO`; Event Plus = `EVENT_PLUS` from the price-sheet PR #7262 — both read from
+  `platform_retail_catalog_v2`; a row not on sale prints "per event" and no figure) · close · a footer
+  carrying /privacy and /terms.
 - **Photos**: 56 keys copied to `apps/web/public/marketing/2026-11-04/` (shared folder with the other two
   pages); `lib/front-page-photos.ts` maps keys to paths.
 - **Guards moved, not loosened**: the headline guard pins the new approved line and still pins "one album";
@@ -28,5 +30,5 @@ MARKETING PAGES GO TO CLOUD BUILD"), ported onto the shipped front door. Signed-
 - Regenerated `lib/ugat/screens.generated.json` and `scripts/port-control-baseline.json`.
 
 SPEC IMPACT: None to the corpus — this ports `prototypes/front_page_2026-11-04.html` (Setnayan-specs) as
-approved. Deltas from it are listed in the PR body for the owner (no price on Plus/Pro, "Try it" links to
+approved. Deltas from it are listed in the PR body for the owner (Plus has no figure until #7262 merges, "Try it" links to
 /features until the sample's S3 pages exist, the shipped shelves keep their own headings, no video clips yet).

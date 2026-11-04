@@ -21,6 +21,8 @@ import { PickMenu } from './day-ui';
 const PX_PER_HOUR = 64;
 const TIME_COL = 56;
 const HEAD = 60;
+/** Room above the first hour so its mark is never under the pinned heads. */
+const PAD = 10;
 const EVERYONE = 'everyone';
 
 /** How many columns fit: a phone ≈ 2.5, a tablet ≈ 5, a desktop every one (never thinner than 140 px). */
@@ -140,7 +142,7 @@ export function SideBySideView({
         <p className="py-3 text-[14px] text-ink/55">Nobody is on a timed chapter yet. Tag a supplier on a moment and their column appears here.</p>
       ) : (
         <div ref={wrap} className="relative -mx-4 max-h-[calc(100dvh-11rem)] overflow-auto overscroll-contain border-y border-ink/10" data-sbs-scroll="">
-          <div className="relative" style={{ width: TIME_COL + colW * shown.length, height: HEAD + height }}>
+          <div className="relative" style={{ width: TIME_COL + colW * shown.length, height: HEAD + PAD + height }}>
             {/* Column heads — pinned on top while the day scrolls. */}
             <div className="sticky top-0 z-[4] flex bg-cream" style={{ height: HEAD }}>
               <div className="sticky left-0 z-[5] flex-none bg-cream" style={{ width: TIME_COL }} />
@@ -166,7 +168,7 @@ export function SideBySideView({
               ))}
             </div>
             {/* The axis: hour marks pinned left; the chapter bands shaded behind every column. */}
-            <div className="absolute inset-x-0" style={{ top: HEAD, height }}>
+            <div className="absolute inset-x-0" style={{ top: HEAD + PAD, height }}>
               {sbs.bands.map((b, i) => (
                 <div
                   key={b.id}

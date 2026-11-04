@@ -29,6 +29,7 @@ export function LabScheduleChapters({
   asks = false,
   defaults = false,
   held = false,
+  lock = false,
 }: {
   /** `?held=1`: 🏛 with `?defaults=1`, Blue Leaf holds Cocktail + Reception's hours. */
   held?: boolean;
@@ -47,6 +48,8 @@ export function LabScheduleChapters({
   free?: boolean;
   /** `?asks=1`: 🗓 D2 — the run-of-show moment carries one waiting ask and one declined (`?asks=fail`: the read failed). */
   asks?: boolean | 'fail';
+  /** `?lock=1`: 🔒 D7 — the hair-and-make-up supplier locked their part (the moment sheet says so before a change). */
+  lock?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   const [fresh] = useState(() => labDefaultChapters(held));
@@ -62,7 +65,7 @@ export function LabScheduleChapters({
         tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,
         // 📇 4 additions (3): no lab task carries a contact yet — add one on a person's task to see it.
         contacts: tasksFail ? null : {},
-        who: LAB_WHO,
+        who: lock ? { ...LAB_WHO, suppliers: LAB_WHO.suppliers.map((s) => (s.id === 'v-hmua' ? { ...s, locked: true } : s)) } : LAB_WHO,
         marches: marchFail ? { ok: false } : { ok: true, marches: LAB_MARCHES },
         wholeMarch: 'Wedding March',
         venues: LAB_VENUES,

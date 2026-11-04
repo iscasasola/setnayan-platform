@@ -170,11 +170,12 @@
   flex-direction: column;
   gap: 5px;
 }
-/* A ROW, NOT A BUTTON: its grip, the button that opens the moment and its × sit side by side, so
-   no button is ever inside another (the prototype's open accessibility item, 10a r3/critic OPEN). */
+/* A ROW, NOT A BUTTON: its grip and the button that opens the moment sit side by side, so no button
+   is ever inside another (the prototype's open accessibility item, 10a r3/critic OPEN). Its delete is
+   the swipe around it (`SwipeToDelete`, 2026-11-03), never a button inside the row. */
 .chap {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 4px;
   align-items: center;
   padding: 0 4px 0 2px;
@@ -251,67 +252,13 @@
   background: var(--act);
   color: var(--on-act);
 }
-/* ST-11 — THE TARGET IS 44px; THE CIRCLE IS STILL 28.
-   The moment row's × was 28px (36 on coarse), under the 44px touch floor on
-   desk and phone both. Two obvious fixes are already recorded in this file as
-   FAILURES, so neither is used here:
-     · an invisible halo — `.x` below: "spread over a neighbour, it took off the
-       wrong photo (round 3)";
-     · the app's global 44px min-height — `.x` again: "on this 26px circle that
-       drew a tall oval that reached over the words and the neighbour".
-   So the BUTTON grows to 44 and the painted circle stays where it was, on its
-   own span. Unlike `.x`, this button is not absolutely positioned over photos —
-   it is the last cell of the row's grid, so a wider cell DISPLACES its
-   neighbours instead of covering them, which is the whole reason the halo
-   failure does not repeat here. */
-.cx {
-  all: unset;
-  cursor: pointer;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  color: var(--mute);
-  font-size: 16px;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-.cxDot {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  transition: background 0.15s, color 0.15s;
-}
-.chap:hover .cx,
-.chap.on .cx,
-.chap:focus-within .cx,
-.cx:focus-visible {
-  opacity: 1;
-}
-@media (hover: none) {
-  .cx {
-    opacity: 1;
-  }
-}
-/* Painted on the DOT, never on the 44px box — a filled 44px disc is the
-   decoration growing, which is the thing this row was told not to do. */
-.cx:hover .cxDot {
-  background: var(--act-soft);
-  color: var(--act);
-}
-.cx:focus-visible {
-  outline: 2px solid var(--act);
-  outline-offset: 1px;
-}
-@media (pointer: coarse) {
-  /* The box is already 44 everywhere; on touch only the DOT grows, keeping the
-     glyph comfortable without enlarging the hit area past its own cell. */
-  .cxDot {
-    width: 36px;
-    height: 36px;
-  }
+/* 👈 THE ROW'S DELETE IS ITS SWIPE (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON
+   ROWS"): the row's × (ST-11's 44px `.cx` with its 28px dot) left the row for the shared `SwipeToDelete`, whose phone
+   Delete is the row's full height × 84 px and whose computer trash is 44 × 44 — still a finger's width, still no halo.
+   The swipe's front wears the moments box's own paper and is square (the row draws its own rounding inside it): a
+   rounded front let the red behind show as a hairline at its corners (measured on /dev/memories-lab?story=1). */
+.chapGround {
+  background: var(--paper);
 }
 
 /* mode switch */

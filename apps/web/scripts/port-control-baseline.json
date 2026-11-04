@@ -865,6 +865,8 @@
         "[slug]/_components/day-of-announcement.tsx",
         "[slug]/_components/day-of-banner.tsx",
         "[slug]/_components/day-of-face-enroll.tsx",
+        "[slug]/_components/door-choice-words.ts",
+        "[slug]/_components/door-choices.tsx",
         "[slug]/_components/dress-code-dos.tsx",
         "[slug]/_components/dress-code-palette-looks.tsx",
         "[slug]/_components/dress-code-styles.tsx",
@@ -1017,6 +1019,7 @@
         "[slug]/_components/save-the-date.tsx",
         "[slug]/_components/save-to-account.tsx",
         "[slug]/_components/scan-trail-notice.tsx",
+        "[slug]/_components/scan-your-qr.tsx",
         "[slug]/_components/scene-bg-preview.ts",
         "[slug]/_components/scene-clip.tsx",
         "[slug]/_components/scene-look-lay.ts",
@@ -1265,6 +1268,7 @@
         "DirectionsMenu",
         "Document",
         "DoorCard",
+        "DoorChoices",
         "DoorPanels",
         "DosAndDonts",
         "DosList",
@@ -1460,6 +1464,7 @@
         "NativeSaveForm",
         "NativeSaveHandOff",
         "NearViewport",
+        "NotYouSwitch",
         "OnYourTicket",
         "OpenInBrowser",
         "OpenUpScene",
@@ -1593,8 +1598,10 @@
         "SaveTheDateFilm",
         "SaveTheDateView",
         "SaveToAccount",
+        "ScanButtonAtRest",
         "ScanTrailForm",
         "ScanTrailNotice",
+        "ScanYourQr",
         "SceneClip",
         "ScenePlaceholder",
         "SceneSample",
@@ -6017,6 +6024,7 @@
         "DirectPayBody",
         "DirectPayTrigger",
         "Dot",
+        "DownloadExcelRow",
         "EditablePlanRow",
         "EffectToggle",
         "EmailCallTimesResult",
@@ -6849,6 +6857,8 @@
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
         "dashboard/[eventId]/guests/_components/guests-excel-button.tsx",
         "dashboard/[eventId]/guests/_components/guests-filter-menu.tsx",
+        "dashboard/[eventId]/guests/_components/guests-filter-panel.tsx",
+        "dashboard/[eventId]/guests/_components/guests-filter-sheet.tsx",
         "dashboard/[eventId]/guests/_components/guests-last-copy.tsx",
         "dashboard/[eventId]/guests/_components/guests-lens.tsx",
         "dashboard/[eventId]/guests/_components/guests-march.tsx",
@@ -6869,6 +6879,7 @@
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
+        "dashboard/[eventId]/guests/_components/section-fold.ts",
         "dashboard/[eventId]/guests/_components/section-head-toolbar.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
         "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
@@ -6914,6 +6925,7 @@
         "/dashboard/profile"
       ],
       "actions": [
+        "addMenu",
         "partnerLinkAction",
         "release",
         "releaseAction",
@@ -7014,7 +7026,10 @@
         "GuestSeatPreview",
         "GuestSeatViewSaved",
         "GuestSide",
+        "GuestsExcelContext.Provider",
         "GuestsFilter",
+        "GuestsFilterPanel",
+        "GuestsFilterSheet",
         "GuestsLastCopy",
         "GuestsLens",
         "GuestsLensContext.Provider",
@@ -7070,6 +7085,7 @@
         "MiniTour",
         "Mode",
         "MoreMenu",
+        "NarrowFolds",
         "NewGroupInlineForm",
         "NfcWriteButton",
         "OneOpenScope",
@@ -7137,6 +7153,7 @@
         "TitleGenderResult",
         "TitlePicker",
         "TitlesWaiting",
+        "TopicHead",
         "TypedRow",
         "TypedWays",
         "UndoToastHost",
@@ -8647,6 +8664,8 @@
         "BulkRetimePanel",
         "ByTime",
         "Chapter",
+        "ChapterDeleteWords",
+        "ChapterDoors",
         "ChapterMoment",
         "ChapterPage",
         "ChapterSection",
@@ -8672,6 +8691,7 @@
         "EmptyRail",
         "EventDayView",
         "Eyebrow",
+        "FactRow",
         "FeedPageSkeleton",
         "ForRow",
         "FormRows",
@@ -8709,6 +8729,7 @@
         "OverlayBackdrop",
         "PageMasthead",
         "PaidMark",
+        "PeekToast",
         "PickMenu",
         "PillThumb",
         "PlanningChapters",
@@ -8720,6 +8741,7 @@
         "PreparationEmptyState",
         "PreparationLegend",
         "PreparationRow",
+        "RailSwipe",
         "ReadRefusedNotice",
         "ReleaseRow",
         "RequestDecision",
@@ -8753,6 +8775,8 @@
         "Stepper",
         "StudioDay",
         "SubmitButton",
+        "SwipeDeleteButton",
+        "SwipeToDelete",
         "Switch",
         "SwitchRow",
         "T",
@@ -8913,10 +8937,12 @@
         "StudioSeatPlanHead",
         "StudioSeatPlanTools",
         "Suspense",
+        "SwipeToDelete",
         "SwitchRow",
         "T",
         "TableType",
         "TypedRow",
+        "UndoToastHost",
         "VipMark",
         "VipPlusOneSeating"
       ]
@@ -9031,6 +9057,8 @@
         "FileUpload",
         "PageMasthead",
         "ReadRefusedNotice",
+        "SwipeToDelete",
+        "UndoToastHost",
         "WalkthroughManager",
         "ZoneCard"
       ]
@@ -9149,6 +9177,7 @@
         "StoryStepKey",
         "StoryTheme",
         "SwatchPopover",
+        "SwipeToDelete",
         "TheDesk",
         "ThemeStep",
         "Toast",
@@ -9859,6 +9888,8 @@
         "PlaylistSlotSection",
         "PlaylistSlotType",
         "PlaylistVibe",
+        "SwipeToDelete",
+        "UndoToastHost",
         "UnsortedTray",
         "VibePicker"
       ]
@@ -10369,6 +10400,8 @@
         "WaitingRow",
         "WaitingRowItem",
         "WeddingFolder",
+        "WhereAsk",
+        "WhereAskSheet",
         "WherePick",
         "WithdrawAskButton",
         "WithdrawLockRequestResult"
@@ -11902,6 +11935,7 @@
     },
     "/dev/memories-lab": {
       "files": [
+        "dev/memories-lab/lab-story-moments.tsx",
         "dev/memories-lab/page.tsx"
       ],
       "destinations": [],
@@ -11910,6 +11944,8 @@
         "AccountBottomNav",
         "GuestMemoriesLab",
         "LabPageSpotlight",
+        "LabStoryMoments",
+        "MakeItYours",
         "MemoriesChapters",
         "MemoriesThumb",
         "PhotosOfYouGallery",
@@ -12051,6 +12087,7 @@
       "files": [
         "dev/schedule-lab/lab-moments.ts",
         "dev/schedule-lab/lab-planning.ts",
+        "dev/schedule-lab/lab-playlist.tsx",
         "dev/schedule-lab/page.tsx",
         "dev/schedule-lab/schedule-lab-client.tsx",
         "dev/schedule-lab/schedule-lab-mount.tsx"
@@ -12064,14 +12101,17 @@
         "DayActions",
         "DayMoment",
         "DayRole",
+        "LabPlaylist",
         "PickMenu",
+        "PlaylistSlotSection",
         "PreparationAgendaView",
         "PreparationItem",
         "RunOfShowHeader",
         "ScheduleDay",
         "ScheduleLabClient",
         "ScheduleLabMount",
-        "Switch"
+        "Switch",
+        "UndoToastHost"
       ]
     },
     "/dev/search-lab": {
@@ -12477,6 +12517,53 @@
         "SuppliersLabStage",
         "SuppliersSettingsRows",
         "TeamRowFacts"
+      ]
+    },
+    "/dev/swipe-rows-lab/clients": {
+      "files": [
+        "dev/swipe-rows-lab/clients/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "UndoToastHost",
+        "VendorPrepForBooking"
+      ]
+    },
+    "/dev/swipe-rows-lab/on-the-day": {
+      "files": [
+        "dev/swipe-rows-lab/on-the-day/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ConsolePlate",
+        "IssuesLog",
+        "SetsPanel",
+        "ShotList"
+      ]
+    },
+    "/dev/swipe-rows-lab/proposals": {
+      "files": [
+        "dev/swipe-rows-lab/proposals/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "TemplateList"
+      ]
+    },
+    "/dev/swipe-rows-lab/seating": {
+      "files": [
+        "dev/swipe-rows-lab/seating/lab-seat-list-rows.tsx",
+        "dev/swipe-rows-lab/seating/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "LabSeatListRows",
+        "SeatList",
+        "UndoToastHost"
       ]
     },
     "/dev/thumb-row-lab": {
@@ -14456,7 +14543,8 @@
         "PrepKind",
         "PrepKindPicker",
         "ShopEmpty",
-        "VendorDeletePrepItem",
+        "SwipeToDelete",
+        "UndoToastHost",
         "VendorPrepForBooking"
       ]
     },
@@ -14657,6 +14745,7 @@
         "VendorCompletionCard",
         "VendorFinalizationResult",
         "VendorPaymentLive",
+        "VenueHoursSheet",
         "WaitingRow",
         "WaivedFeeRows"
       ]
@@ -15462,9 +15551,11 @@
         "SupplierColumns",
         "SupplierSavedStrip",
         "SupplierThumbRow",
+        "SwipeToDelete",
         "SwitchTrack",
         "Tag",
         "ThumbRow",
+        "UndoToastHost",
         "VendorStatusUpdates"
       ]
     },
@@ -15540,7 +15631,6 @@
         "Group",
         "HTMLCanvasElement",
         "HTMLInputElement",
-        "HTMLVideoElement",
         "HostPlaylist",
         "HubDoorRow",
         "HubEyebrow",
@@ -15551,7 +15641,6 @@
         "LockedUpsell",
         "MarchRead",
         "MediaRecorder",
-        "MediaStream",
         "MyLine",
         "PapicUploadChip",
         "PauseToggle",
@@ -15583,7 +15672,9 @@
         "SubmitButton",
         "SupplierSavedStrip",
         "Surface",
+        "SwipeToDelete",
         "TierMeter",
+        "UndoToastHost",
         "VendorSpecializationSet",
         "WakeLockSentinel"
       ]
@@ -15837,6 +15928,7 @@
     "/vendor-dashboard/proposals": {
       "files": [
         "vendor-dashboard/proposals/_components/reuse-inbox.tsx",
+        "vendor-dashboard/proposals/_components/template-list.tsx",
         "vendor-dashboard/proposals/actions.ts",
         "vendor-dashboard/proposals/loading.tsx",
         "vendor-dashboard/proposals/page.tsx",
@@ -15848,7 +15940,6 @@
       ],
       "actions": [
         "createProposal",
-        "deleteTemplate",
         "saveTemplate",
         "vendorDeclineReuseForm",
         "vendorQuoteReuseForm"
@@ -15859,6 +15950,9 @@
         "ListPager",
         "ReuseActionResult",
         "SubmitButton",
+        "SwipeToDelete",
+        "TemplateList",
+        "UndoToastHost",
         "VendorReuseInbox"
       ]
     },
@@ -16586,10 +16680,12 @@
         "ShowBeforeVerifiedRow",
         "ShowPageResult",
         "SupplierThumbRow",
+        "SwipeToDelete",
         "SwitchRow",
         "SwitchTrack",
         "ThumbRow",
-        "TypedRow"
+        "TypedRow",
+        "UndoToastHost"
       ]
     },
     "/vendor-invite/[slug]": {

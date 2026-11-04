@@ -26,6 +26,7 @@ import { readBookedRoomSizes } from '@/lib/booked-room.server';
 import { readScheduleMarks } from '@/lib/supplier-schedule-marks.server';
 import { readBookedSchedule } from '@/lib/booked-call-times.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
+import { readEventServiceCounts } from '@/lib/supplier-count.server';
 import { ROOM_SIZE_GROUPS, bookedView, type BookedFacts } from '@/lib/booked-rows';
 import type { TeamRow } from '@/lib/your-team-rows';
 import { BookedBody } from './booked-body';
@@ -61,7 +62,7 @@ export async function BookedSlot({
   // Together: the ledger, each booked supplier's own payment plan, the venues'
   // room sizes, the event's open date-change request (if any), and each supplier's
   // call time — the Schedule moment they are tagged on (owner 2026-10-27).
-  const [money, plans, rooms, dateChange, schedule, marks] = await Promise.all([
+  const [money, plans, rooms, dateChange, schedule, marks, counts] = await Promise.all([
     isBudgetTruthEnabled() ? resolveEventMoneySettled(supabase, eventId) : Promise.resolve(unreadEventMoney()),
     readBookedPlans(supabase, eventId, bookedIds),
     readBookedRoomSizes(supabase, venueShops),
@@ -70,6 +71,8 @@ export async function BookedSlot({
     scheduleShared ? readBookedSchedule(supabase, eventId, bookedIds) : Promise.resolve(undefined),
     // ✅ Each booked supplier's Seen / Confirm my times (audit G6) — the Team row says it.
     scheduleShared && bookedIds.length > 0 ? readScheduleMarks(supabase, eventId) : Promise.resolve(undefined),
+    // 🧮 "Who they count" per per-head service (owner 2026-11-04) — one request, in the same batch.
+    bookedIds.length > 0 ? readEventServiceCounts(supabase, eventId) : Promise.resolve(null),
   ]);
   const list = buildBudgetList(money);
   const view = bookedView({
@@ -85,5 +88,5 @@ export async function BookedSlot({
   });
   // The Budget is its own page (Team · Budget · Schedule, owner 2026-10-29; Home's page since 2026-11-01), a door in
   // the body's "Team ▾" — so the small block that sat under the rows is not drawn here.
-  return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} firstOpen={firstOpen} />;
+  return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} firstOpen={firstOpen} counts={counts} />;
 }

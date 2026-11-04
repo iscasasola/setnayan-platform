@@ -57,6 +57,8 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
+import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
+import { SupplierCountTile } from './_components/supplier-count-tile';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -671,6 +673,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myMarksRes,
     myScheduleFacts,
     myContactsRes,
+    headcountRule,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -757,6 +760,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
       // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
       supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
+      // 🧮 WHO THEY COUNT (owner 2026-11-04) — a per-head booked supplier's count and its why, NUMBERS only
+      // (`get_vendor_headcount_rule`). Null for a flat-priced service: the Headcount card then draws what it always did.
+      isBooked && feeUnlocked ? readVendorHeadcountRule(supabase, eventId) : Promise.resolve(null),
     ]),
   );
 
@@ -1774,6 +1780,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <OverviewTab
       eventId={eventId}
       brief={brief}
+      headcountRule={headcountRule}
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
@@ -2444,6 +2451,8 @@ function ReturningMarkerAndActions({
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
+  headcountRule: SupplierHeadcount | null;
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
@@ -2509,6 +2518,7 @@ function OverviewTab(props: {
     eventId,
     depositReturnTo,
     brief,
+    headcountRule,
     threadId,
     returningFlag,
     isBooked,
@@ -2614,7 +2624,11 @@ function OverviewTab(props: {
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
             <Users aria-hidden className="h-4 w-4 text-terracotta" /> Headcount
           </h2>
-          {brief.pax.invited > 0 ? (
+          {/* 🧮 WHO THEY COUNT (owner 2026-11-04, the approved prototype's "Supplier · their count"): a per-head service
+              reads ITS number — the couple's rule and ticks applied — with the why in the ⓘ. Numbers only, never names. */}
+          {headcountRule ? (
+            <SupplierCountTile count={headcountRule} />
+          ) : brief.pax.invited > 0 ? (
             <>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {brief.pax.attending}

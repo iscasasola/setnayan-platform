@@ -102,7 +102,10 @@ test('2 · the page seeds them once, through the one fail-soft seed, for someone
 test('3 · swipe left only asks; the delete has an Undo; the one removal waits for the window', () => {
   const rail = code('_components/day-rail.tsx');
   assert.match(rail, /from '@\/app\/_components\/swipe-to-delete'/, 'the rail grew its own swipe gesture');
-  assert.match(rail, /onDelete=\{\(\) => ch\?\.askDelete\(m\.block_id\)\}/, 'a swipe on a rail chapter does not ask');
+  // 📋 Slice 8: a chapter on the day is a row of the day LIST (`day-list.tsx`) — its swipe still only ASKS.
+  assert.match(rail, /onDelete=\{\(id\) => ch\.askDelete\(id\)\}/, 'a swipe on a day chapter does not ask');
+  const list = web('app/dashboard/[eventId]/schedule/_components/day-list.tsx');
+  assert.match(list, /<SwipeToDelete label=\{\`Delete \$\{r\.chapter\.label\}\`\} onDelete=\{\(close\) => \{ close\(\); onDelete\(r\.id\); \}\}/, 'a day chapter does not swipe with the shared gesture');
   // The Time TBA row uses the ONE shared row (main's `SwipeToDelete`): off for anyone who may not edit, and it asks.
   assert.match(rail, /<SwipeToDelete label=\{`Delete \$\{m\.label\}`\} disabled=\{!\(Boolean\(ch\) && canEdit\)\}/, 'a Time TBA chapter does not swipe');
   assert.match(rail, /onDelete=\{\(close\) => \{ close\(\); ch\?\.askDelete\(m\.block_id\); \}\}/, 'a swipe on a Time TBA chapter does not ask');

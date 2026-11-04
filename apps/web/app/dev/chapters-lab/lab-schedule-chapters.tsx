@@ -78,6 +78,8 @@ export function LabScheduleChapters({
         mayInvite: !viewOnly,
         viewAs: empty ? null : labViewAs(!free, released),
         asks: asks === 'fail' ? null : asks ? LAB_ASKS : [],
+        // 📋 Slice 8: a booked supplier that hasn't picked a chapter yet — a dashed face on the Ceremony (its trade's usual one).
+        picking: empty || defaults ? {} : { '00000000-0000-4000-8000-0000000000c4': ['v-hmua'] },
       };
   if (!mounted) return null;
   return (

@@ -89,7 +89,9 @@ import { useChapters } from './chapters-context';
 import { SwipeDeleteButton, SwipeToDelete, useSwipeReveal } from '@/app/_components/swipe-to-delete';
 import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
 import { lockedLine } from '@/lib/supplier-schedule-marks';
-import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
+import { TIME_TBA, chapterStage, chapterSuppliers, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
+import { dayList } from '@/lib/day-list';
+import { DayList } from './day-list';
 import { EVERYONE, lensAllowed, type ViewLens } from '@/lib/schedule-view-as';
 import { ViewAsBody, ViewAsMenu } from './schedule-view-as';
 
@@ -752,7 +754,7 @@ export function ScheduleDay({
       <InSlot id={booked ? toolsSlot : null}>
       {ch && booked ? (
         /* 👤 The round View as (prototype frame 1) — the rest of the day's tools are in ⚙ Schedule settings. */
-        <div className="relative flex items-center" data-schedule-day-tools={frame}>
+        <div className="relative flex min-w-0 items-center gap-1" data-schedule-day-tools={frame}>
           {viewAs && topLevel.length > 0 ? (
             <ViewAsMenu
               input={viewAs}
@@ -763,6 +765,23 @@ export function ScheduleDay({
                 setAsLens(l);
               }}
             />
+          ) : null}
+          {/* ✋ THE ROW'S ONE ACTION (slice 8, "Changed 3"): the supplier requests waiting on you — the same requests
+              sheet ⚙ holds. While a filter is on it shrinks to a badge so the row still fits. */}
+          {canEdit && requests.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setSheet({ kind: 'requests' })}
+              data-schedule-need-you={requests.length}
+              aria-label={`${formatCount(requests.length)} supplier request${requests.length === 1 ? '' : 's'} need you`}
+              className={
+                viewingAs || ch.dayFilter
+                  ? 'sn-press grid h-7 min-w-7 flex-none place-items-center rounded-full bg-sn-accent px-1.5 text-[13px] font-bold tabular-nums text-sn-on-accent'
+                  : 'sn-press flex h-11 flex-none items-center whitespace-nowrap px-0.5 text-[13px] font-semibold text-sn-accent'
+              }
+            >
+              {viewingAs || ch.dayFilter ? formatCount(requests.length) : `${formatCount(requests.length)} need you ›`}
+            </button>
           ) : null}
         </div>
       ) : (
@@ -881,7 +900,7 @@ export function ScheduleDay({
         </p>
       ) : null}
 
-      {viewingAs && viewAs && ch ? <ViewAsBody eventId={eventId} input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} /> : null}
+      {viewingAs && viewAs && ch ? <ViewAsBody eventId={eventId} input={viewAs} chapters={ch.chapters} lens={asLens} onLens={setAsLens} pill={!booked} /> : null}
 
       <div className={viewingAs ? 'hidden' : 'lg:flex lg:items-start lg:gap-6'}>
         <div className="min-w-0 flex-1 space-y-8">
@@ -889,6 +908,54 @@ export function ScheduleDay({
             <NoDateYet canEdit={canEdit} onAdd={() => openAdd(null, 14 * 60)} />
           ) : null}
           {rails.map(({ dateKey, rows }) => {
+            // The hour grid below is drawn only without chapters; this alias keeps its (now unused) chapter doors typed.
+            const railChapters: typeof ch = ch;
+            /* 📋 SLICE 8 — where chapters are drawn, the day is a LIST of content-sized chapter rows (the prototype's
+               "Changed 4"); the hour grid below stays only where no chapters are drawn (the Maker, a failed read). */
+            if (ch) {
+              const facts = new Map(ch.chapters.map((c) => [c.block_id, c]));
+              const names = new Map<string, string>([
+                ...suppliers.map((v) => [v.vendor_id, v.vendor_name] as [string, string]),
+                ...ch.suppliers.map((v) => [v.id, v.name] as [string, string]),
+              ]);
+              const shown = ch.dayFilter ? rows.filter((m) => m.block_id === ch.dayFilter) : rows;
+              const nowIso =
+                isEventDay && now && now.key === dateKey
+                  ? `${dateKey}T${String(Math.floor(now.min / 60)).padStart(2, '0')}:${String(now.min % 60).padStart(2, '0')}:00.000Z`
+                  : null;
+              const list = dayList({
+                chapters: shown.map((m) => ({
+                  block_id: m.block_id,
+                  label: m.label,
+                  block_type: facts.get(m.block_id)?.block_type ?? m.block_type,
+                  start_at: m.start_at,
+                  end_at: m.end_at,
+                  location: facts.get(m.block_id)?.location ?? m.location,
+                })),
+                moments: ch.moments.map((x) => ({
+                  block_id: x.block_id,
+                  parent_block_id: x.parent_block_id,
+                  label: x.label,
+                  start_at: x.start_at,
+                  end_at: x.end_at,
+                  time_tba: x.time_tba,
+                  responsible_vendor_ids: x.vendor_ids,
+                })),
+                names,
+                vendorsOf: (id) => {
+                  const c = facts.get(id);
+                  return c ? chapterSuppliers(c, ch.moments, ch.tasks, ch.suppliers).filter((v) => !v.everyChapter).map((v) => v.id) : [];
+                },
+                pickingOf: (id) => ch.picking[id] ?? [],
+                nowIso,
+              });
+              return (
+                <section key={dateKey} aria-label={formatDateHeading(dateKey)} data-day-list-day={dateKey}>
+                  {rails.length > 1 ? <h2 className="pb-1 font-display text-base text-ink">{formatDateHeading(dateKey)}</h2> : null}
+                  <DayList rows={list} canEdit={canEdit && lens.kind === 'all'} onOpen={(id) => ch.open(id)} onDelete={(id) => ch.askDelete(id)} />
+                </section>
+              );
+            }
             const spans = new Map(rows.map((m) => [m.block_id, spanOf(m.start_at, m.end_at)]));
             const liveSpans = new Map(spans);
             if (drag && drag.moved && liveSpans.has(drag.id)) {
@@ -1081,7 +1148,7 @@ export function ScheduleDay({
                         label={`Delete ${m.label}`}
                         top={top(span.startMin)}
                         height={height}
-                        onDelete={() => ch?.askDelete(m.block_id)}
+                        onDelete={() => railChapters?.askDelete(m.block_id)}
                       >
                       {(sw) => (
                       <div
@@ -1094,7 +1161,7 @@ export function ScheduleDay({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            if (ch) return ch.open(m.block_id);
+                            if (railChapters) return railChapters.open(m.block_id);
                             setSelectedId((cur) => (cur === m.block_id ? null : m.block_id));
                           }
                         }}

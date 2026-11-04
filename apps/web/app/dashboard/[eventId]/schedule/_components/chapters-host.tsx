@@ -152,6 +152,8 @@ export type ChaptersInput =
       viewAs?: ViewAsInput | null;
       /** 🗓 The hosts' and the coordinator's asks of suppliers (D2); null = the read failed (said on the moment sheet). */
       asks?: HostAsk[] | null;
+      /** 📋 Booked suppliers with no chapter yet, by the chapters their trade usually serves (slice 8, dashed faces). */
+      picking?: Record<string, string[]>;
     }
   | { measured: false };
 
@@ -201,6 +203,8 @@ export function ChaptersHost({
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [asks, setAsks] = useState<HostAsk[] | null | undefined>(input.measured ? input.asks : undefined);
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
+  /** 🔎 The day narrowed to one chapter from the "N chapters" door (slice 8). */
+  const [dayFilter, setDayFilter] = useState<string | null>(null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
     lab && labOpen ? { kind: 'edit', id: labOpen.moment } : null,
@@ -323,9 +327,15 @@ export function ChaptersHost({
             setLens,
             openSettings: () => setSettingsOpen(true),
             setSettingsPart,
+            moments: moments.filter((m) => m.parent_block_id !== pendingDelete?.block_id),
+            tasks,
+            suppliers: who.suppliers,
+            picking: input.picking ?? {},
+            dayFilter: dayFilter && chapters.some((c) => c.block_id === dayFilter && c.block_id !== pendingDelete?.block_id) ? dayFilter : null,
+            setDayFilter,
           }
         : null,
-    [chapters, input, openId, pendingDelete, lens, setSettingsPart],
+    [chapters, moments, tasks, who, input, openId, pendingDelete, lens, setSettingsPart, dayFilter],
   );
 
   if (!input.measured || !api) {
@@ -696,7 +706,10 @@ function ChapterPage({
   const about = [
     c.notes ? `Notes: ${c.notes}.` : null,
     c.time_tba ? 'No call time until the time is set.' : `Call time: ${c.call_lead_minutes} minutes before each person’s first task.`,
-    c.on_invitation ? 'On the invitation: guests reply to it.' : 'Not on the invitation.',
+    // 👁 Who sees this chapter lives here, in its ⓘ — never an eye on the day's rows (slice 8).
+    c.on_invitation
+      ? 'Who sees it: guests — it is on the invitation and they reply to it. Its Backstage moments stay hidden from them.'
+      : 'Who sees it: you, your coordinator and its suppliers. It is not on the invitation, so guests don’t see it.',
   ]
     .filter(Boolean)
     .join(' ');

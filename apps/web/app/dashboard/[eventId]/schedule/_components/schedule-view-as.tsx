@@ -20,7 +20,7 @@
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
 import { useMemo, useState } from 'react';
-import { Search, UserRound } from 'lucide-react';
+import { Search, UserRound, X } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
@@ -77,17 +77,31 @@ export function ViewAsMenu({
   );
   const q = query.trim().toLowerCase();
   const shown = q ? options.filter((o) => o.key === lensKey(lens) || o.key === VIEW_AS_PRO_DOOR || o.label.toLowerCase().includes(q)) : options;
-  return (
+  /* 📋 Slice 8 ("Changed 1 — View as shows its state"): the round 👤 stays a bare icon while the day is Everyone's, and
+     becomes a tinted chip "👤 DJ Migs ✕" once a view is on — the ✕ goes back to Everyone. */
+  const chip = round && lens.kind !== 'everyone';
+  const menu = (
     <PickMenu
       label="View as"
       value={lensKey(lens)}
       compact={compact}
       buttonText={compact || round ? lensWords(input.data, lens) : undefined}
-      trigger={round ? <UserRound aria-hidden className="h-5 w-5" strokeWidth={1.8} /> : undefined}
+      trigger={
+        chip ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <UserRound aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
+            <span className="max-w-[4.75rem] truncate text-[14px] font-semibold">{lensWords(input.data, lens)}</span>
+          </span>
+        ) : round ? (
+          <UserRound aria-hidden className="h-5 w-5" strokeWidth={1.8} />
+        ) : undefined
+      }
       className={
-        round
-          ? `sn-press grid h-11 w-11 flex-none place-items-center rounded-full border text-ink ${lens.kind === 'everyone' ? 'border-ink/15' : 'border-terracotta text-terracotta'}`
-          : ''
+        chip
+          ? 'sn-press flex h-11 min-w-0 items-center rounded-full bg-terracotta/15 pl-3 pr-2 text-ink'
+          : round
+            ? 'sn-press grid h-11 w-9 flex-none place-items-center rounded-full text-ink'
+            : ''
       }
       dataAttr="data-schedule-lens"
       options={shown}
@@ -122,6 +136,21 @@ export function ViewAsMenu({
       }}
     />
   );
+  if (!chip) return menu;
+  return (
+    <span className="flex flex-none items-center rounded-full bg-terracotta/15" data-view-as-chip="">
+      {menu}
+      <button
+        type="button"
+        onClick={() => onLens({ kind: 'everyone' })}
+        aria-label={`Stop seeing the day as ${lensWords(input.data, lens)}`}
+        data-view-as-clear=""
+        className="sn-press -ml-1 grid h-11 w-7 flex-none place-items-center rounded-full text-ink/70"
+      >
+        <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+      </button>
+    </span>
+  );
 }
 
 /** The day as the picked person sees it — drawn in place of the rail. Never for Everyone (that IS the rail). */
@@ -131,9 +160,12 @@ export function ViewAsBody({
   chapters,
   lens,
   onLens,
+  pill = true,
 }: {
   /** For the person's PDF (slice 6); absent (the lab) = no file button. */
   eventId?: string;
+  /** The "…’s view · back to Everyone" pill — off where the page's own line under the date already says it (slice 8). */
+  pill?: boolean;
   input: ViewAsInput;
   chapters: readonly Chapter[];
   lens: ViewLens;
@@ -148,7 +180,7 @@ export function ViewAsBody({
   return (
     <div data-view-as={lens.kind} className="space-y-3 pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-2 rounded-full bg-terracotta/15 px-3 py-1.5 text-xs text-ink/75">
+        <p className={pill ? 'inline-flex items-center gap-2 rounded-full bg-terracotta/15 px-3 py-1.5 text-xs text-ink/75' : 'sr-only'}>
           {lens.kind === 'suptime' ? words : `${words}’s view`} ·
           <button type="button" onClick={() => onLens({ kind: 'everyone' })} className="font-bold text-ink underline" data-view-as-back="">
             back to Everyone
@@ -241,7 +273,7 @@ function PersonCard({ card }: { card: YourSchedule }) {
             <ul className="mt-1 border-t border-ink/10">
               {c.lines.map((l) => (
                 <li key={l.id} data-view-as-row={l.id} className="flex min-h-14 items-start gap-4 border-b border-ink/10 py-3">
-                  <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{l.time}</span>
+                  <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80">{l.time}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] text-ink">
                       {l.title}
@@ -296,7 +328,7 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
             <ul className="mt-1 border-t border-ink/10">
               {rows.map((r) => (
                 <li key={r.id} data-view-as-row={r.id} className="flex min-h-14 items-start gap-4 border-b border-ink/10 py-3">
-                  <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{r.time}</span>
+                  <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80">{r.time}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] text-ink">
                       {r.title}
@@ -363,7 +395,7 @@ function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: rea
 function TimeLine({ i, onOpen }: { i: TimeItem; onOpen: (() => void) | null }) {
   const body = (
     <>
-      <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-view-as-time={i.time}>
+      <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-view-as-time={i.time}>
         {i.time}
       </span>
       <span className="min-w-0 flex-1">

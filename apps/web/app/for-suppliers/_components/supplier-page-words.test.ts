@@ -2,10 +2,10 @@
  * supplier-page-words.test.ts — what the /for-suppliers port (4 Nov 2026 prototype) says is read, not typed,
  * and every door and photo it draws is really there.
  *
- *   (1) THE DEMO SHOP WAITS FOR ITS PAGE. The prototype links "See the demo shop" to `/sample/supplier`, which is
- *       not built — a link there today is a 404 that looks like a door. The switch is `DEMO_SHOP.open`. It must be
- *       false while `app/sample/supplier` has no page, and true once it has one, so the links come back the day
- *       the demo shop lands instead of whenever somebody remembers.
+ *   (1) NO DEMO-SHOP LINK TO A PAGE THAT IS NOT THERE. The prototype links "See the demo shop" to
+ *       `/sample/supplier`, which is not built — a link there today is a 404 that looks like a door. The switch is
+ *       `DEMO_SHOP.open` and it is OFF: owner, 2026-11-04, *"do not add buttons now"*. Turning it on is his call,
+ *       so this test never asks for it — it only refuses it being on with no page behind it.
  *   (2) THE ALLOWANCES FOLLOW TIER_CAPS. The plan lines and the problem answers put reach, team seats, waitlists
  *       and the own web address into words. Every number in those words must be one TIER_CAPS holds, and no
  *       JavaScript value ("Infinity", "NaN", "undefined") may reach a person.
@@ -33,16 +33,14 @@ import {
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const has = (rel: string) => existsSync(join(WEB, rel));
 
-test('(1) the demo-shop links are on exactly when /sample/supplier has a page', () => {
+test('(1) a demo-shop link is never drawn to a page that does not exist', () => {
   assert.equal(DEMO_SHOP.href, '/sample/supplier');
-  const built = has('app/sample/supplier/page.tsx');
-  assert.equal(
-    DEMO_SHOP.open,
-    built,
-    built
-      ? 'app/sample/supplier/page.tsx exists now — switch DEMO_SHOP.open on so the page links to the demo shop again'
-      : 'DEMO_SHOP.open is on but app/sample/supplier has no page: every "See the demo shop" would be a 404',
-  );
+  if (DEMO_SHOP.open) {
+    assert.ok(
+      has('app/sample/supplier/page.tsx'),
+      'DEMO_SHOP.open is on but app/sample/supplier has no page: every "See the demo shop" would be a 404',
+    );
+  }
   assert.ok(has(`app${OPEN_SHOP_HREF}/page.tsx`), `${OPEN_SHOP_HREF} — the "Open a shop" door — has no page`);
   assert.ok(has('app/vendor-dashboard/profile/page.tsx'), '"Get Verified — free" (the papers, /vendor-dashboard/profile#docs) points at a page that is gone');
 });

@@ -20,9 +20,11 @@ export const OPEN_SHOP_HREF = '/open-shop';
  * `/sample/supplier` — a slice of the sample-event build (corpus
  * `SAMPLE_EVENT_BUILD_BRIEF_2026-11-02.md` §8) that is NOT built yet; today the
  * address is the /sample catch-all's 404. So every demo link is drawn from here
- * and stays hidden until the page exists. `supplier-page-words.test.ts`
- * goes red the day `app/sample/supplier` lands while this still says `false` —
- * and red the other way if it is switched on with no page behind it.
+ * and is OFF.
+ *
+ * ⚖ OWNER, 2026-11-04: *"do not add buttons now"*. Turning this on is HIS call —
+ * not automatic when the demo shop is built. `supplier-page-words.test.ts` only
+ * refuses it being on with no page behind it; it never asks for it to be on.
  */
 export const DEMO_SHOP: { href: string; open: boolean } = { href: '/sample/supplier', open: false };
 

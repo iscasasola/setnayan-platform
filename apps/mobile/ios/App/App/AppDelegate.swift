@@ -17,9 +17,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    /// Every new window scene uses the one configuration Info.plist declares
-    /// (`UIApplicationSceneManifest` → "Default Configuration": SceneDelegate +
-    /// Main.storyboard).
     // 📱 APNs (owner 2026-10-31, "The notification on the phone not on the app").
     // iOS hands the device token to the APP delegate — not the scene — and
     // @capacitor/push-notifications listens for these two Capacitor notifications,
@@ -34,6 +31,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
+    /// Every new window scene uses the one configuration Info.plist declares
+    /// (`UIApplicationSceneManifest` → "Default Configuration": SceneDelegate +
+    /// Main.storyboard).
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,

@@ -102,7 +102,12 @@ export async function sendApns(userId: string, message: PushMessage): Promise<vo
         else if (res.status !== 200) console.error('[apns] send refused:', res.status, res.reason);
       }),
     );
-    if (gone.length > 0) await admin.from('push_subscriptions').delete().in('id', gone);
+    if (gone.length > 0) {
+      const { error: pruneError } = await admin.from('push_subscriptions').delete().in('id', gone);
+      // The notice already went to every live phone; a failed prune only means
+      // Apple refuses the same dead token again next time — say so, never retry.
+      if (pruneError) console.error('[apns] dead-token prune failed:', pruneError.message);
+    }
   } catch (e) {
     console.error('[apns] sendApns threw:', e instanceof Error ? e.message : 'unknown');
   } finally {

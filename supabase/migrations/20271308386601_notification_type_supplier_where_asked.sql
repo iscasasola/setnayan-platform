@@ -1,0 +1,22 @@
+-- notification_type_supplier_where_asked
+-- ============================================================================
+-- 📍 "LIGHTS & CO. ASKS TO WORK PREPARATION, RECEPTION" — TO THE HOSTS (owner
+-- 2026-11-04, DECISION_LOG "CHAPTERS: THE SUPPLIER PICKS, AND THE HOST CAN ALSO
+-- PICK FOR THEM": *"They can pick and we can also pick for them"*). A booked
+-- supplier picks the chapters they serve; the pick is a REQUEST the host OKs.
+-- The hosts (and a coordinator holding The Day = Edit) get ONE in-app notice
+-- with OK / Change.
+--
+-- Why not `schedule_change_requested`: that type is on the email allowlist,
+-- and the owner rule is no new emails (2026-10-11). Same reasoning that made
+-- `schedule_ask` its own type (20271302910538). Written by
+-- app/vendor-dashboard/clients/[eventId]/actions.ts after
+-- `supplier_ask_where` (20271308641275).
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it (same shape as
+-- 20271301389353_notification_type_supplier_where_changed.sql).
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_where_asked';

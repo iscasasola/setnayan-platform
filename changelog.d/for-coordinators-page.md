@@ -14,7 +14,12 @@ every event, and the close. Both calls to action open `/open-shop` — a coordin
   coordinator and the couple; prep-then-release releases to the couple; no "Recommend an add-on" (no screen since 2026-10-02). The demo links (`/sample/coordinator`)
   do not exist, so the scenes link to `/schedule`, `/seat-plan`, `/guest-list` or `#how`, or show only
   their tag.
-- Day-of tools are tagged plain "Free", no end date (DECISION_LOG 2026-11-04). No price typed.
+- The day-of desk (cue the show · requests inbox · seat scanner) reads "Free" only while
+  `specializationFreeWindowActive` says the floor-command kit is free (board 5 Nov "TRUE-CLAIMS CHECK":
+  `lib/vendor-specialization-gate.ts` still charges Solo+ while `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is
+  unset, fix pending the owner). Until then those tools leave the free kit and free line and carry
+  `TIER_LABEL[SPECIALIZATION_MIN_TIER]` + " plan and up"; the hero drops "the tools to run the day". No
+  price typed, no end date written.
 - 16 photos copied to `public/marketing/2026-11-04/` under their prototype names.
 - Registered: sitemap, robots, `DOORWAY_BLEED_PATHS`, `TOP_LEVEL_SEGMENTS`, the generated reserved-slug
   half, Ugat screens, the port baseline, the sideways-scroll e2e list.

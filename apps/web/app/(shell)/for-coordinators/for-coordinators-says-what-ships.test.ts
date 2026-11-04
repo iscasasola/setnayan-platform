@@ -137,6 +137,9 @@ const SWITCHED_LINES: readonly { line: string; needs: string }[] = [
   { line: 'Send one announcement', needs: 'announcements' },
   { line: 'Prepare schedule items in private', needs: 'prepRelease' },
   { line: 'Keep private notes for yourself', needs: 'privateNotes' },
+  { line: "text: 'Day-of desk'", needs: 'dayOfFree' },
+  { line: "title: 'The day-of desk'", needs: 'dayOfFree' },
+  { line: 'the seat scanner finds any guest’s table', needs: 'dayOfFree' },
 ];
 
 /** The `{ … }` object literal (one item of a list) that contains `at`. */
@@ -192,4 +195,39 @@ test('a switched item shows only when its switch is on; an unswitched one always
   assert.equal(countWord(9), 'Nine');
   assert.equal(countWord(12), 'Twelve');
   assert.equal(countWord(21), '21');
+});
+
+// ── THE DAY-OF DESK IS "FREE" ONLY WHILE THE GATE SAYS SO (board, 5 Nov "TRUE-CLAIMS CHECK") ──────────
+
+test('cue-the-show and the requests inbox read "Free" only while the floor-command kit is free', () => {
+  for (const line of ['only you and the couple move the show forward', 'One requests inbox for the day']) {
+    const at = PAGE.indexOf(line);
+    assert.ok(at > 0, `"${line}" not found — this check would pass vacuously`);
+    assert.ok(
+      itemAround(PAGE, at).includes("freeWhen: 'dayOfFree'"),
+      `"${line}" is tagged Free while lib/vendor-specialization-gate.ts may still charge for it`,
+    );
+  }
+  assert.match(PAGE, /tag: freeWhen && !on\[freeWhen\] \? DAY_OF_PLAN_TAG : scene\.tag/, 'freeWhen is not applied');
+  assert.match(
+    PAGE,
+    /const DAY_OF_PLAN_TAG = `\$\{TIER_LABEL\[SPECIALIZATION_MIN_TIER\]\} plan and up`;/,
+    'the plan tag is not derived from the gate',
+  );
+  assert.doesNotMatch(PAGE, /'(Solo|Pro|Ultra) plan/, 'a plan name is typed');
+});
+
+test('the hero says the day’s tools cost nothing only while they do', () => {
+  const at = PAGE.indexOf('the tools to run the day cost you nothing');
+  assert.ok(at > 0, 'anti-vacuity: the sentence was not found');
+  assert.match(PAGE.slice(at - 120, at), /on\.dayOfFree\s*\?\s*'Your shop, your dashboard and $/, 'the claim is not behind dayOfFree');
+  assert.equal((PAGE.match(/the tools to run the day cost you nothing/g) ?? []).length, 1);
+});
+
+test('dayOfFree asks the same function the floor-command paywall asks', () => {
+  const reader = stripComments(readFileSync(join(HERE, '_claims.server.ts'), 'utf8'));
+  assert.match(reader, /dayOfFree: specializationFreeWindowActive\(vendorDayOfFreeUntilIso\(\), Date\.now\(\)\)/);
+  const gate = read('lib/vendor-specialization-gate.ts');
+  assert.match(gate, /export function specializationFreeWindowActive\b/);
+  assert.match(gate, /export const SPECIALIZATION_MIN_TIER\b/);
 });

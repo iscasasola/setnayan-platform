@@ -27,12 +27,17 @@
  * unreadable switch reads OFF, so it can never promise a thing that is switched off. The headings'
  * counts ("Nine tools", "Twelve problems") are counted from what is shown, never typed.
  *
- * 🆓 "FREE", WITH NO END DATE (owner 2026-11-04, DECISION_LOG "DAY-OF DESKS STAY FREE — NO END DATE":
- * *"keep it free"*). The day-of tools are tagged plain "Free" — `isVendorDayOfStillFree` stays true while
- * `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is unset. Never write an end date here.
+ * 🆓 THE DAY-OF DESK IS "FREE" ONLY WHILE THE APP SAYS SO. The owner ruled it free with no end date
+ * (DECISION_LOG 2026-11-04 "DAY-OF DESKS STAY FREE — NO END DATE"), but the coordinator's floor-command
+ * kit (cue the show · requests inbox · seat scanner) is still behind the Solo plan in
+ * `lib/vendor-specialization-gate.ts` while `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is unset — a fix
+ * pending the owner's OK (board, 5 Nov "TRUE-CLAIMS CHECK"). So the page asks the gate's own
+ * `specializationFreeWindowActive` (switch `dayOfFree`): while it says no, those tools leave the free
+ * kit and the free line and are tagged with the plan that opens them; once the fix lands they read
+ * "Free" with no edit here. Never write an end date here.
  *
- * NO PRICE IS TYPED HERE. The page shows no paid plan; the one "not free" line names the couple's
- * add-ons without a number. If a price is ever added, read it from the catalogue
+ * NO PRICE IS TYPED HERE. The page shows no price; a plan is named from `TIER_LABEL`, and the one
+ * "not free" line names the couple's add-ons without a number. If a price is ever added, read it from the catalogue
  * (`platform_retail_catalog_v2`), never type it.
  *
  * The page sits in the shared shell (`app/(shell)/layout.tsx` owns the bar, the rail and
@@ -49,6 +54,8 @@ import { PhotoHeroSlides, type HeroSlide } from '@/app/_components/marketing/pho
 import { ProblemScenes, type ProblemScene } from '@/app/_components/marketing/problem-scenes';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { DELEGATE_GRACE_DAYS } from '@/lib/delegate-access-window';
+import { SPECIALIZATION_MIN_TIER } from '@/lib/vendor-specialization-gate';
+import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 
 import { countWord, shownWith, type ClaimSwitch, type ClaimSwitches } from './_claims';
 import { readClaimSwitches } from './_claims.server';
@@ -60,9 +67,12 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PHOTOS = '/marketing/2026-11-04';
 
+/** The plan that opens the coordinator's day-of desk while it is not free — from the gate, never typed. */
+const DAY_OF_PLAN_TAG = `${TIER_LABEL[SPECIALIZATION_MIN_TIER]} plan and up`;
+
 const TITLE = 'For Coordinators — Run every event from one place, free';
 const DESCRIPTION =
-  'Open your coordinator shop free. With the couple’s say-so, run their event from one place — the guest list, the seat plan, the run-of-show, door check-in and the day-of desk. Your own clients never carry a fee.';
+  'Open your coordinator shop free. With the couple’s say-so, run their event from one place — the guest list, the seat plan, the run-of-show and door check-in. Your own clients never carry a fee.';
 
 export const metadata = {
   title: TITLE,
@@ -127,7 +137,7 @@ const FREE_LINE: readonly Gated<{ text: string }>[] = [
   { text: 'Host access, part by part' },
   { text: 'One run-of-show', needs: 'runOfShow' },
   { text: 'Door check-in' },
-  { text: 'Day-of desk' },
+  { text: 'Day-of desk', needs: 'dayOfFree' },
   { text: 'Auto-arrange seats' },
   { text: 'One-tap invites' },
   { text: 'One free helper' },
@@ -183,6 +193,7 @@ const KIT: readonly Gated<{ title: string; body: string; icon: ReactNode }>[] = 
   {
     title: 'The day-of desk',
     body: 'Cue the show, the requests inbox and the seat scanner, in one place on the day.',
+    needs: 'dayOfFree',
     icon: (
       <>
         <rect x="3" y="4" width="18" height="12" rx="2" />
@@ -238,8 +249,13 @@ const KIT: readonly Gated<{ title: string; body: string; icon: ReactNode }>[] = 
   },
 ];
 
-/** `addWhen` appends one sentence to the answer, only while its switch is on. */
-const PROBLEMS: readonly Gated<ProblemScene & { addWhen?: { needs: ClaimSwitch; text: string } }>[] = [
+/**
+ * `addWhen` appends one sentence to the answer, only while its switch is on. `freeWhen` makes the tag
+ * "Free" only while its switch is on, and the plan that opens the tool otherwise.
+ */
+const PROBLEMS: readonly Gated<
+  ProblemScene & { addWhen?: { needs: ClaimSwitch; text: string }; freeWhen?: ClaimSwitch }
+>[] = [
   {
     photo: `${PHOTOS}/problem-11-five-apps.webp`,
     alt: 'A coordinator juggling a laptop and two phones',
@@ -286,7 +302,8 @@ const PROBLEMS: readonly Gated<ProblemScene & { addWhen?: { needs: ClaimSwitch; 
     title: 'A line at the door',
     pain: 'Guests wait while someone searches a printed list for their name and table.',
     answer:
-      'Check guests in at the door by scanning their pass, and send them to their seat. On the day-of desk, the seat scanner finds any guest’s table. With the couple’s approval you see the full guest details.',
+      'Check guests in at the door by scanning their pass, and send them to their seat. With the couple’s approval you see the full guest details.',
+    addWhen: { needs: 'dayOfFree', text: 'On the day-of desk, the seat scanner finds any guest’s table.' },
     tag: 'Free',
   },
   {
@@ -297,6 +314,7 @@ const PROBLEMS: readonly Gated<ProblemScene & { addWhen?: { needs: ClaimSwitch; 
     answer:
       'On the day, only you and the couple move the show forward, part by part. The emcee and the other suppliers cannot.',
     tag: 'Free',
+    freeWhen: 'dayOfFree',
   },
   {
     photo: `${PHOTOS}/supplier-02-inquiries.webp`,
@@ -305,6 +323,7 @@ const PROBLEMS: readonly Gated<ProblemScene & { addWhen?: { needs: ClaimSwitch; 
     pain: 'Requests and problems arrive by text, call and tap on the shoulder, all at once.',
     answer: 'One requests inbox for the day. Every supplier’s request and issue lands in one list that you sort.',
     tag: 'Free',
+    freeWhen: 'dayOfFree',
   },
   {
     photo: `${PHOTOS}/supplier-12-time-changes.webp`,
@@ -364,9 +383,10 @@ const ONE_LOGIN = [
 
 /** The problems whose switches are on, each answer completed by its `addWhen` line when that is on too. */
 function problemsFor(on: ClaimSwitches): ProblemScene[] {
-  return shownWith(PROBLEMS, on).map(({ needs: _needs, addWhen, ...scene }) => ({
+  return shownWith(PROBLEMS, on).map(({ needs: _needs, addWhen, freeWhen, ...scene }) => ({
     ...scene,
     answer: addWhen && on[addWhen.needs] ? `${scene.answer} ${addWhen.text}` : scene.answer,
+    tag: freeWhen && !on[freeWhen] ? DAY_OF_PLAN_TAG : scene.tag,
   }));
 }
 
@@ -387,7 +407,12 @@ export default async function ForCoordinatorsPage() {
             <p className="pp-eyebrow">For coordinators</p>
             <h1 id="fc-h1">Run every event from one place — free.</h1>
             <p className="pp-lede">
-              <b>Your shop, your dashboard and the tools to run the day cost you nothing.</b> With the
+              <b>
+                {on.dayOfFree
+                  ? 'Your shop, your dashboard and the tools to run the day cost you nothing.'
+                  : 'Your shop and your dashboard cost you nothing.'}
+              </b>{' '}
+              With the
               couple’s say-so, step into their event — the guest list, the seat plan, the run-of-show and every
               supplier.
             </p>
@@ -467,6 +492,9 @@ export default async function ForCoordinatorsPage() {
           <p className="fc-notfree">
             <b>Not free, said plainly.</b> Papic guest cameras and the Live Photo Wall are add-ons the couple
             buys for their event.
+            {on.dayOfFree
+              ? null
+              : ` The day-of desk — cue the show, the requests inbox and the seat scanner — comes with the ${DAY_OF_PLAN_TAG}.`}
           </p>
         </section>
 

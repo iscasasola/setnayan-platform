@@ -11,6 +11,8 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isCoordinatorVendorNotesEnabled } from '@/lib/vendor-working-notes';
+import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
+import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
 
 import type { ClaimSwitches } from './_claims';
 
@@ -20,5 +22,12 @@ export async function readClaimSwitches(): Promise<ClaimSwitches> {
     isCoordinatorP3Enabled().catch(() => false),
     isCoordinatorPrepReleaseEnabled().catch(() => false),
   ]);
-  return { runOfShow, announcements, prepRelease, privateNotes: isCoordinatorVendorNotesEnabled() };
+  return {
+    runOfShow,
+    announcements,
+    prepRelease,
+    privateNotes: isCoordinatorVendorNotesEnabled(),
+    // The SAME question the floor-command kit's paywall asks (lib/vendor-specialization-gate.ts).
+    dayOfFree: specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now()),
+  };
 }

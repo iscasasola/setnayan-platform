@@ -89,14 +89,16 @@ export function AppointmentJoin({
   if (open) {
     if (room.kind === 'enter' && handoff) {
       return (
-        <div className="flex flex-wrap items-center gap-2" data-meeting-room="enter">
+        // The ⓘ hangs from the ROW's start (`!static` + a `relative` row), not from the ⓘ: from the ⓘ, ~150 px in,
+        // an 18rem popover ran past a 390-px screen.
+        <div className="relative flex flex-wrap items-center gap-2" data-meeting-room="enter">
           <span className="text-[11px] font-medium text-ink/60">{room.lead}</span>
           <a href={handoff.href} target="_blank" rel="noopener noreferrer" data-meeting-join className={FILLED}>
             <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {room.label}
             <ExternalLink aria-hidden className="h-3 w-3 opacity-70" strokeWidth={2} />
           </a>
-          <InfoTip label="About entering" align="start" labelClassName="sr-only">
+          <InfoTip label="About entering" align="start" labelClassName="sr-only" className="!static">
             {room.tip}
           </InfoTip>
         </div>
@@ -104,7 +106,7 @@ export function AppointmentJoin({
     }
     return (
       <div className="flex flex-col gap-1" data-meeting-room="create">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={pending}
@@ -133,7 +135,7 @@ export function AppointmentJoin({
             <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             {pending ? 'Creating…' : room.label}
           </button>
-          <InfoTip label="About creating the room" align="start" labelClassName="sr-only">
+          <InfoTip label="About creating the room" align="start" labelClassName="sr-only" className="!static">
             {room.tip}
           </InfoTip>
         </div>

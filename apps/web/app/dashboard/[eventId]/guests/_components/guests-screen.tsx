@@ -73,6 +73,7 @@ import {
   Users,
   Trash2,
   X,
+  Keyboard,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -87,7 +88,7 @@ import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector
 import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { GuestCardData } from './guest-card-data';
 import { GuestPopup } from './guest-popup';
-import { GUESTS_EXCEL_KEY, useGuestsExcel } from './guests-excel-button';
+import { useGuestsExcel } from './guests-excel-button';
 import { Handed } from './handed';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePeekToast } from './use-peek-toast';
@@ -136,7 +137,7 @@ import {
   type SectionMark,
 } from '@/lib/guest-roster-view';
 import { withStandIns, proxyForWords, representedByWords, type PairOnRow as StandInOnRow, type StandingInOnRow } from '@/lib/guest-proxy';
-import { OpenRequestsContext, PickWhoContext, useGuestActions } from './guest-actions-context';
+import { GuestsExcelContext, OpenRequestsContext, PickWhoContext, useGuestActions } from './guest-actions-context';
 import { clearDecided, RequestsJustDecided } from './requests-decided';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
@@ -212,6 +213,8 @@ import {
 } from '@/lib/guests-filter';
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
+import { NO_FOLDS, foldNarrowed, foldSet, narrowingOf, sectionIsOpen, type NarrowFolds } from './section-fold';
+import { GuestsFilterSheet } from './guests-filter-sheet';
 import { ReplyPushAsk } from './reply-push-ask';
 
 
@@ -704,10 +707,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (unread) setOpen(firstOpen(view));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the copy arrives
   }, [unread]);
-  // A search opens every section that has a hit (G19 — a hit inside a folded
-  // section was invisible, a failure that looked like "not found").
+  // A search or a Show / +1 filter opens every section that has a hit (G19 — a hit inside a folded section was
+  // invisible, a failure that looked like "not found") — and a tap still folds it (owner 2026-11-03, "i cannot
+  // collapse the search results group"): the narrowed list keeps its own folds, scoped to that narrowing.
+  // 🔒 a-filtered-group-folds.test.ts
   const filtered = Boolean(plusFilter || replyFilter);
-  const isOpen = (key: string) => (q || filtered ? true : open.has(key));
+  const narrowing = narrowingOf({ q, show: replyFilter ?? null, plus: plusFilter ?? null, group: view });
+  const [narrowFolds, setNarrowFolds] = useState<NarrowFolds>(NO_FOLDS);
+  const isOpen = (key: string) => sectionIsOpen(key, { narrowing, open, folds: narrowFolds });
+  /** Open or shut these headings — in the whole list's `open`, or in the narrowed list's own folds. */
+  const foldSections = (keys: Iterable<string>, opening: boolean) => {
+    if (narrowing !== null) setNarrowFolds((prev) => foldNarrowed(prev, narrowing, keys, opening));
+    else setOpen((prev) => foldSet(prev, keys, opening));
+  };
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
@@ -796,8 +808,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   /* The ⚙ rows reach `openRequests` through their own wrapper, made HERE — the ⚙ sheet keeps its one child and the top
      row stays as it is (the top row belongs to the top-row build). */
+  /* 📤 DOWNLOAD AS EXCEL (owner 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON"; 3 Nov it left the ≡ for Guests ⚙ — the
+     filter only filters): the shipped save (`usePrintSave` → the phone's share sheet / a download), never a link the app
+     would render in place. Handed to the ⚙ rows beside Requests (`GuestsExcelContext`); not on the phone's failed copy
+     (there is no fresh list to write). 🔒 lib/guest-export-file.test.ts */
+  const excel = useGuestsExcel(eventId, toast);
   const setup = setupRows ? (
-    <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>{setupRows}</OpenRequestsContext.Provider>
+    <GuestsExcelContext.Provider value={copy?.freshness === 'failed' ? null : excel}>
+      <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>{setupRows}</OpenRequestsContext.Provider>
+    </GuestsExcelContext.Provider>
   ) : null;
   const pickWho = useCallback(() => {
     openSettings(false);
@@ -1097,14 +1116,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
       el.scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
-    if (q) return; // a search holds every hit open
-    const opening = !open.has(key);
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (opening) next.add(key);
-      else next.delete(key);
-      return next;
-    });
+    const opening = !isOpen(key);
+    foldSections([key], opening);
     if (opening) setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
   };
 
@@ -1120,7 +1133,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }
     if (keys.size === 0) return;
     const folded = [...keys].some((k) => !isOpen(k));
-    if (folded) setOpen((prev) => new Set([...prev, ...keys]));
+    if (folded) foldSections(keys, true);
     const sel = (t: { id: string; jumpRow?: boolean }) => `${t.jumpRow ? '[data-jump-row]' : '[data-guest-row]'}[data-guest-id="${CSS.escape(t.id)}"]`;
     let tries = 0;
     const look = () => {
@@ -1457,15 +1470,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     openAddWay(k.slice(4) as AddWayKey, eventId, (href) => router.push(href));
     return true;
   };
-  /* 📤 SAVE AS EXCEL (owner 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON") — the counts strip that drew "⤓ Excel" is
-     the carousel now, so the list's file is a ≡ choice wearing the SHARE icon: the shipped save (`usePrintSave` →
-     the phone's share sheet / a download), never a link the app would render in place. Not on the phone's failed
-     copy (there is no fresh list to write). 🔒 lib/guest-export-file.test.ts */
-  const excel = useGuestsExcel(eventId, toast);
-  const fileOptions: PickOption[] =
-    copy?.freshness === 'failed'
-      ? []
-      : [{ key: GUESTS_EXCEL_KEY, label: excel.label, group: 'File', icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }];
   /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
       did) and clears the +1 narrowing; the list goes back to its top. */
   const pickFilter = (next: GuestsFilter) => {
@@ -1477,54 +1481,59 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setFilter(next);
     window.scrollTo({ top: 0 });
   };
-  /* ⇅ THE LIST'S ROUND (R4 slice 1): Show · Group by · Sort — the shared state — then the shipped ≡ items it held: +1 ·
-     Select… · File · the ways to add. The same seat, the same icon. */
-  const sortMenu: ThumbMenu = guestsFilterMenu({
-    view: 'list',
-    filter,
-    onFilter: pickFilter,
-    hasSides,
-    mark: 'data-thumb-sort',
-    tour: 'guests-sort',
-    label: 'Show, sort, select or add',
-    alsoOn: plusFilter !== null || asking,
-    showExtras: requestsInPlace
-      ? [
-          {
-            key: 'asking',
-            label: `Asking to join · ${formatCount(requests)}`,
-            group: 'Show',
-            trail: asking ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
-          },
-        ]
-      : [],
-    extras: ([] as PickOption[]).concat(
-      // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; a new Group by clears it.
-      plusTally.named + plusTally.unnamed > 0
-        ? PLUS_ONE_FILTERS.map((f) => ({
-            key: `plus:${f.key}`,
-            label: f.label,
-            group: '+1',
-            icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />,
-            trail: plusFilter === f.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
-          }))
-        : [],
-      // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-      writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
-      fileOptions,
-      addWays,
-    ),
-    onExtra: (k) => {
-      if (pickedAddWay(k)) return;
-      if (k === GUESTS_EXCEL_KEY) return excel.save();
-      if (k === 'select') return setSelectMode(true);
-      if (k === 'asking') return asking ? closeAsking() : openAsking();
-      if (k.startsWith('plus:')) {
-        setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
-        window.scrollTo({ top: 0 });
+  /* ⇅ THE LIST'S ROUND — "SHOW & SORT" (owner approved 2026-11-03, `docs/prototypes/guests_filter_popup_2026-11-03.html`;
+     then "so fix their locations": the filter only filters). A sheet from the bottom: Who you see (Show ▾ · +1s ▾) · How
+     it is laid out (Group by ▾ · Sort ▾) · Clear all + "Show N guests". What the old ≡ also held moved to where it belongs:
+     ＋ Add ▾ on this row (Type a name · From your people · Import a file), ☑ Select on the top row, and Download as Excel
+     in Guests ⚙ (`GuestsExcelContext`). 🔒 the-filter-sheet-only-filters.test.ts */
+  const clearAllFilters = () => {
+    closeAsking();
+    setPlusFilter(null);
+    if (listGroupOf(filter) !== listGroupOf(NO_GUESTS_FILTER)) setOpen(firstOpen(listGroupOf(NO_GUESTS_FILTER)));
+    setFilter(NO_GUESTS_FILTER);
+    window.scrollTo({ top: 0 });
+  };
+  const filterSheet = (
+    <GuestsFilterSheet
+      filter={filter}
+      onFilter={pickFilter}
+      hasSides={hasSides}
+      plus={
+        plusTally.named + plusTally.unnamed > 0
+          ? {
+              value: plusFilter,
+              onPick: (next) => {
+                setPlusFilter(next);
+                window.scrollTo({ top: 0 });
+              },
+            }
+          : null
       }
-    },
-  });
+      asking={requestsInPlace ? { label: `Asking to join · ${formatCount(requests)}`, on: asking, onPick: () => (asking ? closeAsking() : openAsking()) } : null}
+      shown={shown}
+      onClearAll={clearAllFilters}
+      tour="guests-sort"
+    />
+  );
+  /* ＋ ADD ▾ — the row's one main verb (owner 3 Nov: From your people + Import a file move "next to the guests search
+     … where hosts already type new guests"). "Type a name" puts the cursor in the field, which is still the add (Enter
+     adds at once); the other two are the shipped openers (`ADD_WAYS`, `openAddWay`). A viewer who may not write gets none. */
+  const addMenu: ThumbMenu | null = writesOff
+    ? null
+    : {
+        label: 'Add guests',
+        value: null,
+        mark: 'data-thumb-add-menu',
+        tour: 'guests-add-ways',
+        menu: [{ key: 'add:type', label: 'Type a name', icon: <Keyboard className="h-[18px] w-[18px]" strokeWidth={1.9} /> }, ...addWays.map(({ group: _g, ...o }) => o)],
+        onPick: (k) => {
+          if (k === 'add:type') {
+            fieldRef.current?.focus();
+            return;
+          }
+          pickedAddWay(k);
+        },
+      };
   /* ⇅ THE MAP'S ROUND: Show · Group by (the SAME state as the List's — v18: the Map has no "Grouped by" chip of its own),
      then the ways to add. */
   const arrangeMenu: ThumbMenu = guestsFilterMenu({
@@ -1819,12 +1828,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
             icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
             label: allOpen ? 'Collapse all' : 'Expand all',
             expanded: allOpen,
-            onClick: () => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.key))),
+            onClick: () => foldSections(sections.map((s) => s.key), !allOpen),
             testId: 'thumb-expand',
           },
         ]}
         field={field}
-        right={[sortMenu]}
+        right={[{ node: filterSheet }]}
+        action={addMenu}
       />
     );
   } else if (gview === 'map') {
@@ -2163,7 +2173,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }
             />
             {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
-            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
+            {/* 🎚 The view's own rounds, left of the ⚙ — Seats portals its Edit · ⋯ here (`lens.toolsSlot`); the List's is ☑ SELECT
+                (owner 3 Nov: Select left the ≡ — the filter only filters). The same select mode and the same bulk bar as before;
+                hidden while selecting (the bar's Done leaves it) and for a viewer who may not write. */}
+            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="">
+              {gview === 'list' && !selectMode && !writesOff && !asking ? (
+                <ActionButton tone="neutral" icon={SquareCheck} label="Select" onClick={() => setSelectMode(true)} data-testid="guests-select" />
+              ) : null}
+            </span>
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
                 <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>

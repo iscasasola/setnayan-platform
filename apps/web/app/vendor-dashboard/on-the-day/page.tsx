@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import type { ReactNode } from 'react';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
@@ -375,6 +376,8 @@ export default async function VendorOnTheDayPage({
         <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
       ) : null}
       {body}
+      {/* ↩ ONE Undo toast for the console — the shot list and issues log delete by swipe with Undo (owner 2026-11-03). */}
+      <UndoToastHost />
     </HubScreen>
   );
 }

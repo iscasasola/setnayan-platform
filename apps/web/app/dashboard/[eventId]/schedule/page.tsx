@@ -127,6 +127,7 @@ import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, read
 import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -766,9 +767,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                     tasks: taskRead?.ok ? taskRead.value : null,
                     suppliers:
                       viewAsExtras.suppliers ??
-                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked' })),
+                      rosVendors.map((v) => ({ vendor_id: v.vendor_id, name: v.vendor_name, booked: v.standing === 'Booked', everyChapter: viewAsExtras.coordinatorIds.includes(v.vendor_id) })),
                     groups: viewAsExtras.groups,
                     roleNames: viewAsExtras.roleNames,
+                    // 👤 View as › a named guest (slice 6): what their own card reads — the guests, Release, Arrive by.
+                    people: viewAsExtras.people,
+                    released: viewAsExtras.released,
+                    guestsArriveBy: guestsArriveTime(scheduleBlocks),
                   },
                 }
               : null,

@@ -183,6 +183,9 @@ function exportedTables(routeSrc: string): Set<string> {
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── added 2026-11-04 with the table itself (the supplier claim scanner, slice 1) ──
+  supplier_scan_sessions:
+    'A supplier’s group shot (one number, its prints). opened_by_user_id is the crew member who tapped New shot — a ' +
+    'staff actor stamp; the shot carries no guest name and nothing of the opener’s own.',
   supplier_scan_settings:
     'A shop’s per-service scanner switch (on/off + mode). updated_by_user_id is the operator who flipped it — a staff ' +
     'actor stamp on the shop’s own configuration, carrying nothing about the person.',

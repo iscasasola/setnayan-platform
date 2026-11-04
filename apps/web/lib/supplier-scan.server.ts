@@ -46,9 +46,15 @@ export type ScanTally = {
   total: number;
   lastNumber: number;
   souvenir: boolean;
-  /** Ordered → Received only (0 otherwise). */
+  /** Ordered → Received and shots (0 otherwise). */
   ordered: number;
   ready: number;
+  /** Unlimited: every scan, and the guests among them. */
+  served: number;
+  unique: number;
+  /** Group session: shots so far, and the one open now (null = none). */
+  sessions: number;
+  open: { number: number; guests: number } | null;
 };
 
 export type EventScanService = {
@@ -68,7 +74,19 @@ export function tallyOf(raw: unknown): ScanTally | null {
   const total = n(t.total);
   const lastNumber = n(t.last_number);
   if (claimed === null || total === null || lastNumber === null) return null;
-  return { claimed, total, lastNumber, souvenir: t.souvenir === true, ordered: n(t.ordered) ?? 0, ready: n(t.ready) ?? 0 };
+  const openNumber = n(t.open_number);
+  return {
+    claimed,
+    total,
+    lastNumber,
+    souvenir: t.souvenir === true,
+    ordered: n(t.ordered) ?? 0,
+    ready: n(t.ready) ?? 0,
+    served: n(t.served) ?? 0,
+    unique: n(t.unique) ?? 0,
+    sessions: n(t.sessions) ?? 0,
+    open: openNumber !== null ? { number: openNumber, guests: n(t.open_guests) ?? 0 } : null,
+  };
 }
 
 /**

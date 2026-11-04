@@ -50,15 +50,7 @@ export function ScanReviewAsk({ eventId, coverageId, service, shop }: { eventId:
         <PickMenu label="Your rating" value={stars} options={REVIEW_STAR_OPTIONS} onPick={setStars} buttonText={stars ? undefined : 'Your rating'} dataAttr="data-scan-review-stars" />
       </div>
       {stars ? (
-        <input
-          type="text"
-          value={line}
-          maxLength={REVIEW_LINE_MAX}
-          onChange={(e) => setLine(e.target.value)}
-          placeholder="One line (optional)"
-          aria-label="One line (optional)"
-          className="w-full rounded-lg border border-ink/20 bg-transparent px-3 py-2 text-[15px] text-ink placeholder:text-ink/40"
-        />
+        <input type="text" value={line} maxLength={REVIEW_LINE_MAX} onChange={(e) => setLine(e.target.value)} placeholder="One line (optional)" aria-label="One line (optional)" className="w-full rounded-lg border border-ink/20 bg-transparent px-3 py-2 text-[15px] text-ink placeholder:text-ink/40" />
       ) : null}
       <div className="flex items-center justify-center gap-4">
         <button

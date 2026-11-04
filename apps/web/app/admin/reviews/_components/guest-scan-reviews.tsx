@@ -28,9 +28,9 @@ export function GuestScanReviews({ reviews }: { reviews: AdminScanReview[] }) {
           {error}
         </p>
       ) : null}
-      <ul className="space-y-2">
+      <ul className="divide-y divide-ink/10">
         {reviews.map((r) => (
-          <li key={r.reviewId} className="space-y-1 rounded-xl border border-ink/10 p-3 text-xs text-ink/70" data-guest-scan-review={r.state}>
+          <li key={r.reviewId} className="space-y-1 py-3 text-xs text-ink/70" data-guest-scan-review={r.state}>
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/60">
               {'★'.repeat(r.stars)} · {r.service}
               {r.shop ? ` · ${r.shop}` : ''}

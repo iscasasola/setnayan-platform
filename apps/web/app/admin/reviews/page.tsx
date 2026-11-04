@@ -411,7 +411,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         {guestScanReviews === null ? (
           <ReadFailed what="the guests' ratings" />
         ) : guestScanReviews.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-ink/15 p-6 text-center text-sm text-ink/55">No guest ratings yet.</div>
+          <p className="py-6 text-center text-sm text-ink/55">No guest ratings yet.</p>
         ) : (
           <GuestScanReviews reviews={guestScanReviews} />
         )}

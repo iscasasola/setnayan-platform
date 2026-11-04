@@ -18,10 +18,11 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 export function SupplierScanList({ claims }: { claims: CoupleScanClaim[] | null }) {
   return (
     <section aria-labelledby="supplier-scans-h" className="mt-8" data-supplier-scan-list="">
-      <div className="flex items-center gap-2">
-        <h2 id="supplier-scans-h" className="text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
-          Suppliers&rsquo; scans
-        </h2>
+      {/* The heading is for screen readers; the InfoTip's own label is the one word on screen (the Shop › Services way). */}
+      <h2 id="supplier-scans-h" className="sr-only">
+        Suppliers&rsquo; scans
+      </h2>
+      <div className="text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
         <InfoTip label="Suppliers' scans" align="start">
           A supplier whose service has a scanner (a photo booth, a souvenir table, a print station) scans each guest&rsquo;s
           QR or taps their tag. Each guest gets a number — the same number shows on their Event Hub. Suppliers see only

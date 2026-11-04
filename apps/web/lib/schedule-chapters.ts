@@ -942,11 +942,13 @@ export function chapterSuppliers(
 
 /** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" — a held chapter's hours in one line. */
 export function heldHoursLine(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>): string {
-  const parts = [`${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`];
+  // The prototype's words (frame 2): "5:00 PM – 10:00 PM · setup from 1 PM, out by 11:30 PM" — the window in one part,
+  // a whole hour without its ":00".
+  const short = (iso: string) => clockWords(iso).replace(':00 ', ' ');
+  const hours = `${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`;
   const i = ingressAt(c);
   const e = egressAt(c);
-  if (i) parts.push(`setup from ${clockWords(i)}`);
-  if (e) parts.push(`out by ${clockWords(e)}`);
-  return parts.join(' · ');
+  const window = [i ? `setup from ${short(i)}` : null, e ? `out by ${short(e)}` : null].filter(Boolean).join(', ');
+  return window ? `${hours} · ${window}` : hours;
 }
 

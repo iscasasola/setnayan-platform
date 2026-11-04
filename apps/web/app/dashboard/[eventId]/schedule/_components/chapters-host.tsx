@@ -733,6 +733,7 @@ function ChapterPage({
               ask={held.ask}
               onAsked={held.onAsked}
               askLabel={`Ask ${held.name} to change`}
+              bare
             />
           ) : null}
         </div>

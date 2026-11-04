@@ -1152,7 +1152,7 @@ export function GuestCardBody({
               saved={notCounted.picked}
               field={NOT_COUNTED_FIELD}
               self={{
-                attending: guest.rsvp_status === 'attending' && guest.passed_away !== true && !guest.represented_by_guest_id,
+                attending: guest.rsvp_status === 'attending' && !guest.represented_by_guest_id, // passed_away is already ruled out above
                 roles: [guest.role, ...(guest.extra_roles ?? [])],
                 groupIds: ownPicked,
                 firstName: guest.first_name?.trim() || name,

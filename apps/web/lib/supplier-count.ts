@@ -89,7 +89,11 @@ export function audienceOf(roster: readonly RosterEntry[], groups: readonly Coun
     const mine = new Set(g.r.map(roleGroupOf).filter((x): x is RoleGroup => x !== 'guest'));
     for (const rg of mine) roleN.set(rg, (roleN.get(rg) ?? 0) + 1);
   }
-  const order = [...new Set(ROLE_IMPORTANCE.map(roleGroupOf))].filter((x): x is RoleGroup => x !== 'guest');
+  // Sponsors first, as the prototype draws them — a per-head giveaway is most often "only the sponsors"; the rest
+  // follow the roster's own importance order.
+  const ranked = [...new Set(ROLE_IMPORTANCE.map(roleGroupOf))].filter((x): x is RoleGroup => x !== 'guest');
+  const first: RoleGroup[] = ['principal_sponsors', 'secondary_sponsors'];
+  const order = [...first.filter((rg) => ranked.includes(rg)), ...ranked.filter((rg) => !first.includes(rg))];
   const roles: AudienceOption[] = order
     .filter((rg) => roleN.has(rg) || keep.includes(`r:${rg}`))
     .map((rg) => ({ key: `r:${rg}`, label: ROLE_GROUP_LABELS[rg], type: 'Role' as const, n: roleN.get(rg) ?? 0 }));

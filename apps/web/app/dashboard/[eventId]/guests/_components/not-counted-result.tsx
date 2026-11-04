@@ -49,9 +49,11 @@ export function NotCountedResult({
     <div ref={ref}>
       {children}
       {line ? (
-        <p className="pb-3 text-[13px] leading-snug" role="status" data-card-not-counted-result="">
-          <b className="font-medium text-ink">{line.slice(0, cut)}</b>
-          <span className="text-ink/60">{line.slice(cut)}</span>
+        // Drawn as the prototype draws it: a quiet tint (not a frame — nothing here is pressed), the count on the
+        // first line, "Every other service still counts <name>." under it.
+        <p className="mb-3 rounded-xl bg-success-50 px-4 py-3 text-[13px] leading-snug" role="status" data-card-not-counted-result="">
+          <b className="block font-medium text-ink">{cut < 0 ? line : line.slice(0, cut)}</b>
+          {cut < 0 ? null : <span className="block text-ink/70">{line.slice(cut + 3)}</span>}
         </p>
       ) : null}
     </div>

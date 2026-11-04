@@ -52,9 +52,9 @@ function service(
 }
 
 /** The labs' event: a booked caterer, a sponsors' giveaway counting principal sponsors only, a quoted bar. */
-export function labServiceCounts(ids: { catering: string; giveaway?: string; quoted?: string }): ServiceCounts {
+export function labServiceCounts(ids: { catering: string; cateringShop?: string; giveaway?: string; quoted?: string }): ServiceCounts {
   const r = roster(ids.catering);
-  const services: CountedService[] = [service(ids.catering, 'catering', 'Juan’s Kitchen', true, ruleOfKeys('all', []), r)];
+  const services: CountedService[] = [service(ids.catering, 'catering', ids.cateringShop ?? 'Juan’s Kitchen', true, ruleOfKeys('all', []), r)];
   if (ids.giveaway) services.push(service(ids.giveaway, 'gifts_and_giveaways', 'Bloom & Vine', true, ruleOfKeys('only', ['r:principal_sponsors']), r));
   if (ids.quoted) services.push(service(ids.quoted, 'mobile_bar', 'Tipsy Cart', false, ruleOfKeys('all', []), r));
   return {

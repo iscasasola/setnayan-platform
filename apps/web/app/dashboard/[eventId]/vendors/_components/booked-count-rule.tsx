@@ -189,7 +189,7 @@ function CountRuleSheet({
             })}
           </ul>
         )}
-        <p className="pt-3 text-[13.5px] leading-snug" role="status" data-count-rule-count={c.counted}>
+        <p className="mt-3 rounded-xl bg-success-50 px-4 py-3 text-[13.5px] leading-snug" role="status" data-count-rule-count={c.counted}>
           <b className="block font-medium text-ink">
             {shop} counts {c.counted}
           </b>
@@ -200,8 +200,8 @@ function CountRuleSheet({
             {error}
           </p>
         ) : null}
-        <div className="flex justify-end pt-3">
-          <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Done'} disabled={pending} onClick={done} />
+        <div className="pt-3">
+          <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Done'} disabled={pending} onClick={done} className="w-full justify-center" />
         </div>
       </div>
     </Sheet>

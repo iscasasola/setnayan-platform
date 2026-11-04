@@ -353,7 +353,7 @@ export default async function SuppliersLabPage({
               <BookedBody
                   eventId={LAB_EVENT}
                   firstOpen={one('bkopen') ?? null}
-                  counts={labServiceCounts({ catering: 'v-bituin' })}
+                  counts={labServiceCounts({ catering: 'v-bituin', cateringShop: 'Bituin Catering' })}
                   state={
                     bookedOpts.fail === 'team'
                       ? { kind: 'unreadable', retryHref: '/dev/suppliers-lab?mode=booked' }

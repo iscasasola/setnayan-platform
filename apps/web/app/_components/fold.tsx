@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /** How many OPEN folds this one sits inside — its head pins that many slim lines further down (flush under theirs). */
 const FoldDepth = createContext(0);
@@ -232,6 +233,13 @@ export function Fold({
   const id = useId();
   const depth = useContext(FoldDepth);
   const { pinRef, box } = useSlimPin(open, depth);
+  // 🔭 A USER'S open glides the head to the pin line when the body runs past the bottom (owner 2026-11-04, app-wide —
+  // `reveal-on-open.ts`). Only the head's own press counts: never `defaultOpen`, a controlled open or the `#anchor`.
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
+  const toggle = () => {
+    intend();
+    setOpen((o) => !o);
+  };
   useEffect(() => {
     if (!anchor) return;
     const apply = () => {
@@ -253,7 +261,7 @@ export function Fold({
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       aria-current={current ? 'true' : undefined}
       data-fold-current={current ? '' : undefined}
-      onClick={() => setOpen((o) => !o)}
+      onClick={toggle}
       className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped || endPress ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead ? (
@@ -319,7 +327,7 @@ export function Fold({
         </div>
       ) : tipped ? (
         <div className="flex items-center gap-2" data-fold-row="" data-fold-tipped="">
-          <div className="shrink-0 cursor-pointer" data-fold-title="" onClick={(e) => !(e.target as Element).closest('button') && setOpen((o) => !o)}>
+          <div className="shrink-0 cursor-pointer" data-fold-title="" onClick={(e) => !(e.target as Element).closest('button') && toggle()}>
             <OneOpenScope id={scope}>
               <InfoTip label={title} labelClassName={`text-[15px] font-medium ${danger ? 'text-danger-700' : 'text-ink'}`} align="start">
                 {tip}

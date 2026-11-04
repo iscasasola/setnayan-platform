@@ -20,6 +20,8 @@ export type ChaptersApi = {
   add: () => void;
   /** 👁 What the rail's View as ▾ reads (`schedule-view-as.tsx`); null = the page drew none. */
   viewAs: ViewAsInput | null;
+  /** 🗑 A swipe left on a chapter asks to delete it — the page shows the warning, then Undo (owner 2026-11-03). */
+  askDelete: (id: string) => void;
 };
 
 export const ChaptersContext = createContext<ChaptersApi | null>(null);

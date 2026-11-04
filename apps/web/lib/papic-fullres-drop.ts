@@ -32,8 +32,10 @@ import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
 // ============================================================================
 // 6-month full-res drop (owner 2026-07-11 · Pricing.md § 2.1 retention model).
 //
-// After the event's full-res clock runs out (6 months from its FIRST capture —
-// owner-locked 2026-08-02, NOT each photo's own age), delete OUR R2 copy of the
+// ⚖ THE PHOTO RULE (owner 2026-11-03): originals are kept until 3 months after
+// the event's LAST day — `FULL_RES_POST_EVENT_GRACE_DAYS` — and the first-capture
+// clock below is 0 (was 6 months from the FIRST capture, owner 2026-08-02).
+// After that clock runs out (one clock per event, NOT each photo's own age), delete OUR R2 copy of the
 // full-res ORIGINAL and stamp full_res_dropped_at. NEVER touches the couple's
 // Google Drive copy (core invariant); the forever web copy (display/thumb AVIF)
 // is kept, so the gallery — which serves the web copy — is unaffected.
@@ -275,7 +277,7 @@ export type FullResDropSummary = {
  * Events whose 6-month full-res clock has run out (owner-locked 2026-08-02).
  *
  * Thin wrapper over `papic_events_past_fullres_clock`, which owns the rule:
- * 6 months from the event's FIRST capture, and never sooner than
+ * first-capture clock (0 since the 2026-11-03 photo rule), and never sooner than
  * FULL_RES_POST_EVENT_GRACE_DAYS after the day the event ENDED so the couple
  * always gets their download grace. "Ended" is `events.event_end_date` when the
  * celebration spans several days and `events.event_date` otherwise (owner
@@ -350,9 +352,10 @@ export async function runFullResDropSweep(
   const nowMs = Date.now();
   const admin = createAdminClient();
 
-  // ── WHOSE CLOCK HAS RUN OUT (owner-locked 2026-08-02) ────────────────────
-  // "the total time we keep their high resolution is 6 months from the first day
-  // they use the service."
+  // ── WHOSE CLOCK HAS RUN OUT ─────────────────────────────────────────────
+  // ⚖ 2026-11-03 (THE PHOTO RULE): 3 months after the event's LAST day. Was
+  // (owner 2026-08-02) "the total time we keep their high resolution is 6 months
+  // from the first day they use the service."
   //
   // ⚠ This replaced a PER-PHOTO age fuse, and the difference is not cosmetic. A
   // photo taken five months before a wedding had its original deleted 90 days

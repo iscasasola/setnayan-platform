@@ -47,6 +47,7 @@ import { fetchEventSetsForHost, buildVendorSets } from '@/lib/vendor-sets';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
 import { UnsortedTray } from './_components/unsorted-tray';
 import { HostSetlistPanel } from './_components/host-setlist-panel';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
 
 type Props = {
@@ -216,6 +217,8 @@ export default async function PlaylistPage({ params }: Props) {
         </p>
       ) : (
         <>
+          {/* ↩ The one Undo toast for a swiped-away pick (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"). */}
+          <UndoToastHost />
           <UnsortedTray eventId={eventId} entries={unsorted} />
 
           <div className="space-y-5">

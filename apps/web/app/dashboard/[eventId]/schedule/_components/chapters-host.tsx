@@ -62,6 +62,7 @@ import { ViewAsMenu } from './schedule-view-as';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
 import { ChapterDeleteWords, ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
@@ -722,7 +723,7 @@ function ChapterPage({
           />
         </span>
         <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60" data-chapter-count="">
-          {moments.length} moment{moments.length === 1 ? '' : 's'} · {suppliers.length} supplier{suppliers.length === 1 ? '' : 's'}
+          {formatCount(moments.length)} moment{moments.length === 1 ? '' : 's'} · {formatCount(suppliers.length)} supplier{suppliers.length === 1 ? '' : 's'}
         </span>
         {viewAs ? (
           <ViewAsMenu

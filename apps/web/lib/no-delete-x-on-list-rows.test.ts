@@ -55,6 +55,9 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
   ['app/_components/proposal-maker.tsx', 'editor field — a quote line’s ✕ DROPS it (reversible, “Put back”) and a payment’s ✕ removes a draft installment, both inside the quote editor'],
   ['app/_components/amendment-builder.tsx', 'editor field — a draft change item (type, words, ₱) inside the amendment form, written on Send'],
+  ['app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx', 'tile — a booth / sign piece on the drag-to-place cocktail floor plan'],
+  ['app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx', 'tile — a staged photo / clip waiting to be submitted'],
+  ['app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx', 'editor sheet — the moment sheet’s own “Delete moment” at its foot (an ask the host approves)'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

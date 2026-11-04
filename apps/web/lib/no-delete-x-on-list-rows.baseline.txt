@@ -50,10 +50,6 @@ app/papic/_components/camera-controls.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
 app/vendor-dashboard/_components/video-links-editor.tsx 1
 app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx 2
-app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx 1
-app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx 1
-app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx 2
-app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx 1
 app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
 app/vendor-dashboard/invite/_components/locked-qr-generator.tsx 2
 app/vendor-dashboard/on-the-day/_components/issues-log.tsx 1

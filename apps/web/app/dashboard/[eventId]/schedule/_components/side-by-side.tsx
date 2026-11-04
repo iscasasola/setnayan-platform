@@ -23,7 +23,7 @@ const TIME_COL = 56;
 const HEAD = 60;
 /** Room above the first hour so its mark is never under the pinned heads. */
 const PAD = 10;
-const EVERYONE = 'everyone';
+const ALL_COLUMNS = 'everyone';
 
 /** How many columns fit: a phone ≈ 2.5, a tablet ≈ 5, a desktop every one (never thinner than 140 px). */
 export function columnWidth(screen: number, pane: number, columns: number): number {
@@ -45,7 +45,7 @@ export function SideBySideView({
   nowIso?: string | null;
 }) {
   const [grouping, setGrouping] = useState<SbsGrouping>('person');
-  const [focus, setFocus] = useState<string>(EVERYONE);
+  const [focus, setFocus] = useState<string>(ALL_COLUMNS);
   const [query, setQuery] = useState('');
   const wrap = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(390);
@@ -69,8 +69,8 @@ export function SideBySideView({
   const hostIds = useMemo(() => new Set(input.data.suppliers.filter((s) => s.host).map((s) => s.vendor_id)), [input.data.suppliers]);
   const trades = useMemo(() => new Map(input.data.suppliers.filter((s) => s.trade).map((s) => [s.vendor_id, s.trade!])), [input.data.suppliers]);
   const sbs = useMemo(() => sideBySide({ chapters, data: input.data, grouping, hostIds, trades, nowIso }), [chapters, input.data, grouping, hostIds, trades, nowIso]);
-  const shown = focus === EVERYONE ? sbs.columns : sbs.columns.filter((c) => c.key === focus);
-  const colW = focus === EVERYONE ? columnWidth(screen, width, shown.length) : Math.max(140, width - TIME_COL);
+  const shown = focus === ALL_COLUMNS ? sbs.columns : sbs.columns.filter((c) => c.key === focus);
+  const colW = focus === ALL_COLUMNS ? columnWidth(screen, width, shown.length) : Math.max(140, width - TIME_COL);
   const height = ((sbs.endMs - sbs.startMs) / 3_600_000) * PX_PER_HOUR;
   const y = (t: number) => ((t - sbs.startMs) / 3_600_000) * PX_PER_HOUR;
   const hours = Array.from({ length: Math.round((sbs.endMs - sbs.startMs) / 3_600_000) + 1 }, (_, i) => sbs.startMs + i * 3_600_000);
@@ -95,7 +95,7 @@ export function SideBySideView({
           options={SBS_GROUPINGS.map((g) => ({ key: g.key, label: g.label }))}
           onPick={(k) => {
             setGrouping(k as SbsGrouping);
-            setFocus(EVERYONE);
+            setFocus(ALL_COLUMNS);
           }}
           dataAttr="data-sbs-grouping"
           compact
@@ -104,8 +104,8 @@ export function SideBySideView({
         <PickMenu
           label="Show one person"
           value={focus}
-          buttonText={focus === EVERYONE ? (grouping === 'role' ? 'Every role' : 'Everyone') : (sbs.columns.find((c) => c.key === focus)?.name ?? 'Everyone')}
-          options={[{ key: EVERYONE, label: grouping === 'role' ? 'Every role' : 'Everyone' }, ...peopleShown]}
+          buttonText={focus === ALL_COLUMNS ? (grouping === 'role' ? 'Every role' : 'Everyone') : (sbs.columns.find((c) => c.key === focus)?.name ?? 'Everyone')}
+          options={[{ key: ALL_COLUMNS, label: grouping === 'role' ? 'Every role' : 'Everyone' }, ...peopleShown]}
           head={
             people.length > 6 ? (
               <li role="none" className="sticky top-0 z-[2] -mx-1.5 -mt-1.5 mb-1 bg-cream/95 p-1.5">

@@ -906,7 +906,7 @@ export function FileUpload({
     if (wantsMark && mark) {
       const kind = mark;
       // Loaded at the first marked upload, never with the page (same as hub-draft-actions in details-march.tsx).
-      const answer = await import('./photo-mark-actions').then((a) => a.getPhotoMark(kind, pathPrefix)).catch(() => null);
+      const answer = await import('./photo-mark-actions').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
       if (!answer || !answer.ok) return refuseUnmarked(answer && !answer.ok ? answer.error : 'no answer', answer && !answer.ok ? answer.error : MARK_REFUSED_SAYS);
       markInput = { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
     }
@@ -1039,7 +1039,21 @@ export function FileUpload({
         const clean = compressImage ? await compressImageForWeb(rawFile) : rawFile;
         const run = sendLib.sendToStorage(
           { file: clean, bucket: 'vendor-verification', pathPrefix: `vendor-originals/${shopId}`, contentType: uploadTypeOf(clean.type) || contentType },
-          { stallMs: stallMs ?? UPLOAD_STALL_MS, responseMs: UPLOAD_RESPONSE_MS, onProgress: () => {}, onStall: () => {} },
+          {
+            stallMs: stallMs ?? UPLOAD_STALL_MS,
+            responseMs: UPLOAD_RESPONSE_MS,
+            onProgress: () => {},
+            // The clean copy stalling is the same silent failure as the public one: recorded the same way.
+            onStall: () => {
+              void trackFailure({
+                eventType: 'UPLOAD_STALLED',
+                elementName: 'File upload (private clean copy)',
+                filePath: 'app/_components/file-upload.tsx',
+                error: `no bytes moved for ${(stallMs ?? UPLOAD_STALL_MS) / 1000}s`,
+                payload: { bucket: 'vendor-verification', action: 'upload stalled', page: window.location.pathname },
+              });
+            },
+          },
         );
         const out = await run.done;
         if (!out.ok) throw new Error(`original copy refused at ${out.step}`);
@@ -1095,7 +1109,7 @@ export function FileUpload({
         // Pair the marked copy with its clean copy BEFORE it joins the value:
         // a public photo the shop could never re-mark is refused like an unmarked one.
         void import('./photo-mark-actions')
-          .then((a) => a.recordSupplierOriginal({ publicRef: out.r2Ref, originalRef }))
+          .then((a) => a.photoMark('pair', { publicRef: out.r2Ref, originalRef }))
           .catch(() => ({ ok: false as const, error: MARK_REFUSED_SAYS }))
           .then((paired) => {
             if (!isMountedRef.current) return;

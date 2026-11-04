@@ -108,7 +108,7 @@ test('the mark is decided on the SERVER — FileUpload takes no verified/name/sl
   const src = code('app/_components/file-upload.tsx');
   const props = src.slice(src.indexOf('type FileUploadBaseProps'), src.indexOf('export type FileUploadProps'));
   assert.doesNotMatch(props, /\b(verified|shopName|slug|logoUrl|logoDataUrl)\??:/);
-  assert.match(src, /getPhotoMark\(kind, pathPrefix\)/);
+  assert.match(src, /photoMark\('mark', \{ kind, pathPrefix \}\)/);
   const action = code('app/_components/photo-mark-actions.ts');
   assert.match(action, /shopMarkFacts\(createAdminClient\(\), shop\.vendorProfileId\)/);
   assert.match(action, /resolveActiveShopId\(/);

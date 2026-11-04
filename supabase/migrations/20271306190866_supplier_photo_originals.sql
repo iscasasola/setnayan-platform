@@ -56,11 +56,11 @@ CREATE POLICY supplier_photo_originals_owner_all
   TO authenticated
   USING (
     vendor_profile_id IN (SELECT public.current_vendor_ids())
-    OR public.is_admin()
+    OR (SELECT public.is_admin())
   )
   WITH CHECK (
     vendor_profile_id IN (SELECT public.current_vendor_ids())
-    OR public.is_admin()
+    OR (SELECT public.is_admin())
   );
 
 -- Never an anonymous surface: no anon grant at all (the RLS policy is TO

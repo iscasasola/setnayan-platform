@@ -197,12 +197,12 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         items: [
           { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
-          { n: 'All categories', b: 'List under every parent category, no cap.' },
+          { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Pro.' },
           { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
           { n: 'Nationwide reach', b: 'Couples anywhere in the Philippines find you in their search.' },
           { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
           { n: `Waitlist: ${many(TIER_CAPS.enterprise.waitlistAcceptances, 'couple', 'couples')} per date`, b: 'Take more couples off a booked-out date.' },
-          { n: 'Unlimited service cards', b: 'As many services per category as you offer.' },
+          { n: `${many(TIER_CAPS.enterprise.servicesPerLeaf, 'service card', 'service cards')} per category`, b: 'More services per category than Pro.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
           // business review" and "a named contact" promised HUMAN ATTENTION

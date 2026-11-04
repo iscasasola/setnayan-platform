@@ -5,6 +5,8 @@
  * ultra nationwide · main categories solo 2 pro 8, ultra unlimited · service cards free 1, solo 3, pro 10, ultra
  * unlimited · team seats 0,1,5,20 · waitlist 0,0,1,5 · website applies to solo as well"*; corrected the same day:
  * *"team seats ultra 15 only"*; and "BRANCHES PER PLAN": *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra.
+ * SUPERSEDED FOR ULTRA the same day by "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR, WITH TRIMMED ALLOWANCES":
+ * categories 15 · service cards 25 · seats 10 · branches 6 · waitlist 3 (reach stays nationwide). Custom in lockstep.
  *
  * The stale `calls` capability is GONE (same ruling) — in-app calls were retired 2026-10-28, so no plan buys them.
  */
@@ -29,11 +31,11 @@ const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'servicesPerLeaf', 'agen
 test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Solo / Pro / Ultra', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
   assert.deepEqual(row('serviceRadiusKm'), [0, 20, 30, 100, Infinity], 'reach: 0·20 / 30 / 100 / nationwide');
-  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, Infinity], 'main categories: 1 / 2 / 8 / unlimited');
-  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, Infinity], 'service cards per category: 1 / 3 / 10 / unlimited');
-  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 15], 'team seats: 0 / 1 / 5 / 15 ("team seats ultra 15 only")');
-  assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 5], 'waitlist per date: 0 / 0 / 1 / 5');
-  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 10], 'branches: 0 / 0 / 3 / 10');
+  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 15], 'main categories: 1 / 2 / 8 / 15 (Ultra trimmed)');
+  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, 25], 'service cards per category: 1 / 3 / 10 / 25 (Ultra trimmed)');
+  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 10], 'team seats: 0 / 1 / 5 / 10 (Ultra trimmed; was 15)');
+  assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 3], 'waitlist per date: 0 / 0 / 1 / 3 (Ultra trimmed; was 5)');
+  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 6], 'branches: 0 / 0 / 3 / 6 (Ultra trimmed; was 10)');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Solo, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
 });
@@ -100,19 +102,19 @@ test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
   );
 });
 
-test('ladder · Ultra: up to 15 seats + nationwide reach + unlimited categories', () => {
+test('ladder · Ultra: up to 10 seats + nationwide reach + 15 categories', () => {
   const c = TIER_CAPS.enterprise;
-  assert.equal(c.agentAccounts, 15, 'Ultra = up to 15 team seats (owner 2026-11-04 "team seats ultra 15 only"; was 10)');
+  assert.equal(c.agentAccounts, 10, 'Ultra = up to 10 team seats (owner 2026-11-04 "WITH TRIMMED ALLOWANCES"; 15 earlier that day)');
   assert.equal(c.serviceRadiusKm, Infinity, 'Ultra = nationwide (owner 2026-11-04; was 100 km)');
-  assert.equal(c.parentCategories, Infinity, 'Enterprise = unlimited categories');
+  assert.equal(c.parentCategories, 15, 'Ultra = 15 categories (trimmed 2026-11-04; was unlimited)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 
-test('ladder · Custom: unlimited, runs as Enterprise-or-better on every axis', () => {
+test('ladder · Custom: runs as Enterprise-or-better on every axis', () => {
   const c = TIER_CAPS.custom;
   const e = TIER_CAPS.enterprise;
-  assert.equal(c.parentCategories, Infinity, 'Custom = unlimited categories');
-  assert.equal(c.servicesPerLeaf, Infinity, 'Custom = unlimited service listings');
+  assert.ok(c.parentCategories >= e.parentCategories, 'Custom categories >= Enterprise');
+  assert.ok(c.servicesPerLeaf >= e.servicesPerLeaf, 'Custom service listings >= Enterprise');
   assert.ok(c.agentAccounts >= e.agentAccounts, 'Custom seats >= Enterprise');
   assert.ok(c.serviceRadiusKm >= e.serviceRadiusKm, 'Custom reach >= Enterprise');
   assert.equal(c.marketIntel, true, 'Custom keeps Market Intel');

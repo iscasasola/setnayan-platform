@@ -189,13 +189,13 @@ test('the owner grid reads exactly as given', async () => {
   const expect: Array<[string, number, number]> = [
     // tier, whitelist, waitlist
     // Whitelist: 5 on every plan (owner 2026-10-23). Waitlist: owner 2026-11-04,
-    // "waitlist 0,0,1,5" (was 0 · 1 · 1 · 3 · 5).
+    // "waitlist 0,0,1,5" (was 0 · 1 · 1 · 3 · 5), Ultra trimmed to 3 the same day ("WITH TRIMMED ALLOWANCES").
     ['free', 5, 0],
     ['verified', 5, 0],
     ['solo', 5, 0],
     ['pro', 5, 1],
-    ['enterprise', 5, 5],
-    ['custom', 5, 5],
+    ['enterprise', 5, 3],
+    ['custom', 5, 3],
   ];
   for (const [tier, wl, wa] of expect) {
     const r = await db.query<{ wl: number; wa: number }>(
@@ -506,7 +506,7 @@ test('FREE has no waitlist: switching it on is clamped straight back off', async
   assert.equal(s.cap, 0, 'and its number must read 0, not a stale 3');
 });
 
-test('PRO is clamped to 1, ENTERPRISE keeps 5 (owner 2026-11-04)', async () => {
+test('PRO is clamped to 1, ENTERPRISE keeps 3 (owner 2026-11-04)', async () => {
   await setCapsEnabled(true);
   const pro = await newVendor('pro-wa', 'pro');
   await db.query(
@@ -520,12 +520,12 @@ test('PRO is clamped to 1, ENTERPRISE keeps 5 (owner 2026-11-04)', async () => {
 
   const ent = await newVendor('ent-wa', 'enterprise');
   await db.query(
-    `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 5
+    `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 3
       WHERE vendor_profile_id = $1`,
     [ent],
   );
   const e = await waitlistSettings(ent);
-  assert.equal(e.cap, 5, 'Enterprise keeps its 5');
+  assert.equal(e.cap, 3, 'Enterprise keeps its 3 (Ultra trimmed 2026-11-04; was 5)');
 });
 
 test('a number ABOVE the plan clamps quietly instead of locking the vendor out of saving', async () => {

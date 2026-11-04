@@ -31,7 +31,7 @@ test('custom with no plan: returns the Enterprise-clone base caps', () => {
 
 test('custom overlay raises seats / reach / slots / photos', () => {
   const caps = vendorEffectiveCaps('custom', COMP);
-  assert.equal(caps.agentAccounts, Math.max(tierCaps('custom').agentAccounts, 15)); // max(base, 15)
+  assert.equal(caps.agentAccounts, Math.max(tierCaps('custom').agentAccounts, 15)); // max(base 10, composed 15)
   // Reach: the Ultra clone is nationwide (Infinity) since owner 2026-11-04, so a composed 300 km never lowers it.
   assert.equal(caps.serviceRadiusKm, Infinity);
   assert.equal(caps.slotsPerDay, Infinity); // no plan limit on any plan (2026-10-23) — composed slots cannot lower it
@@ -105,8 +105,9 @@ test('the axis lifts the booked-out waitlist TOO — one axis, both ceilings', (
 test('WITHOUT the axis the waitlist ceiling is untouched', () => {
   // The control: the test above must pass because of the AXIS, not because the
   // overlay returns Infinity for everybody.
-  assert.equal(vendorEffectiveCaps('custom', COMP).waitlistAcceptances, 5);
-  assert.equal(vendorEffectiveCaps('custom', null).waitlistAcceptances, 5);
+  // 3 = Custom runs as Ultra, trimmed 2026-11-04 (was 5).
+  assert.equal(vendorEffectiveCaps('custom', COMP).waitlistAcceptances, 3);
+  assert.equal(vendorEffectiveCaps('custom', null).waitlistAcceptances, 3);
 });
 
 test('a NON-custom tier cannot get it, even if the flag is somehow stored', () => {

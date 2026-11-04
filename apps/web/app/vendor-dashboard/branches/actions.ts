@@ -21,6 +21,7 @@ import {
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { TIER_LABEL, canBuyExtraBranches, includedBranchesLeft, planHasBranches, tierCaps } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
+import { formatCount } from '@/lib/format-number';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BranchActionState } from './branch-types';
 import { parseCoordPair } from '@/lib/parse-coord';
@@ -100,7 +101,7 @@ async function requireBranchManager(): Promise<
     tier = null;
   }
   // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro and Ultra have branches (Pro 3 included,
-  // Ultra 10 included + buys more). A plan with none is a PLAN PAYWALL, asked through the one flag-aware question:
+  // Ultra 6 included + buys more). A plan with none is a PLAN PAYWALL, asked through the one flag-aware question:
   // while VENDOR_TIER_FEATURE_GATE is off any shop may still BUY a branch (the branch's own fee, below), as before;
   // while on, this is where a Free · Verified · Solo shop is asked for the plan — the final action, try-first.
   if (vendorPaywallApplies(planHasBranches(tier))) {
@@ -244,7 +245,7 @@ export async function createBranch(
   const hasCoords = lat !== null && lng !== null;
 
   // ── 📐 INCLUDED IN THE PLAN (owner 2026-11-04, "branches 0,0,3,10") ─────────────────────────────────────────────
-  // Pro includes 3 branches and Ultra 10, fee-free. Counted from the shop's own LIVE included branches (a cancelled
+  // Pro includes 3 branches and Ultra 6 (trimmed the same day), fee-free. Counted from the shop's own LIVE included branches (a cancelled
   // one frees its place). A shop already over a lowered allowance keeps every branch it has and gets 0 here — it
   // just cannot add another (owner, same day). The database holds the same number and refuses an included branch
   // past it (`enforce_included_branch_allowance`), so this count is the friendly answer, not the only gate.
@@ -278,7 +279,7 @@ export async function createBranch(
     const total = tierCaps(tier).branchesIncluded;
     return err(
       total > 0
-        ? `Your plan includes ${total} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches are part of ${TIER_LABEL.enterprise}.`
         : `Branches come with Pro and ${TIER_LABEL.enterprise}.`,
     );
   }

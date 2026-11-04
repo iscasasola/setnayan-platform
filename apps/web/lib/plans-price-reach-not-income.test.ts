@@ -80,7 +80,7 @@ test('1 · every plan can put up a card in each category it covers; the rungs ar
   assert.equal(TIER_CAPS.verified.servicesPerLeaf, 1);
   assert.equal(TIER_CAPS.solo.servicesPerLeaf, 3);
   assert.equal(TIER_CAPS.pro.servicesPerLeaf, 10);
-  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, Infinity);
+  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 25); // Ultra trimmed 2026-11-04 (was unlimited)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────

@@ -210,7 +210,7 @@ export interface TierCaps {
   agentAccounts: number;
   /**
    * BRANCHES INCLUDED beyond the main shop (owner 2026-11-04, DECISION_LOG "BRANCHES PER PLAN", verbatim:
-   * *"branches 0,0,3,10"*) — Free·Verified 0 · Solo 0 · Pro 3 · Ultra 10. An included branch is live without a branch
+   * *"branches 0,0,3,10"*) — Free·Verified 0 · Solo 0 · Pro 3 · Ultra 6 (trimmed the same day, "WITH TRIMMED ALLOWANCES"). An included branch is live without a branch
    * fee. Only Ultra (and Custom, which runs as Ultra) may BUY more — {@link canBuyExtraBranches}. The SQL twin is
    * `vendor_tier_limit(…,'branches_included')`, held in step by `vendor-plan-allowances.db.test.ts`.
    */
@@ -585,18 +585,18 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
-    waitlistAcceptances: 5, // owner 2026-08-09
+    waitlistAcceptances: 3, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
     serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
-    servicesPerLeaf: Infinity,
+    servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
     chat: 'chat',
-    parentCategories: Infinity,
-    agentAccounts: 15, // owner 2026-11-04: "team seats ultra 15 only" (was 10)
-    branchesIncluded: 10, // owner 2026-11-04 "BRANCHES PER PLAN" — and only Ultra may buy more
+    parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    agentAccounts: 10, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (15 earlier the same day) — extra seats are priced by the price PR
+    branchesIncluded: 6, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" ("BRANCHES PER PLAN" said 10) — and only Ultra may buy more
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
@@ -629,18 +629,18 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
   custom: {
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10) — runs as Enterprise
-    waitlistAcceptances: 5, // runs as Enterprise (keep in lockstep on any Enterprise edit)
+    waitlistAcceptances: 3, // runs as Enterprise (keep in lockstep on any Enterprise edit) — owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
     serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
-    servicesPerLeaf: Infinity,
+    servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
     chat: 'chat',
-    parentCategories: Infinity,
-    agentAccounts: 15, // owner 2026-11-04: "team seats ultra 15 only" (was 10)
-    branchesIncluded: 10, // owner 2026-11-04 "BRANCHES PER PLAN" — and only Ultra may buy more
+    parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    agentAccounts: 10, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (15 earlier the same day) — extra seats are priced by the price PR
+    branchesIncluded: 6, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" ("BRANCHES PER PLAN" said 10) — and only Ultra may buy more
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',

@@ -16,6 +16,7 @@ import { useActionState, useCallback, useEffect, useRef, useState } from 'react'
 import { Building2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { formatCount } from '@/lib/format-number';
 import { type OpenRail, type OpenRailDetails } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from './payments-paused-note';
 import { Collapsible } from './collapsible';
@@ -62,7 +63,7 @@ type Props = {
   initialCenter: LatLng;
   pay: PayInfo;
   /**
-   * Fee-free branches the plan still includes (owner 2026-11-04, "branches 0,0,3,10" — Pro 3 · Ultra 10), read by the
+   * Fee-free branches the plan still includes (owner 2026-11-04, "branches 0,0,3,10", Ultra trimmed to 6 — read from TIER_CAPS), read by the
    * server from `TIER_CAPS` and the shop's own included branches. > 0 → Add needs no payment.
    */
   includedLeft?: number;
@@ -335,7 +336,7 @@ function AddBranchForm({
             Add branch · included in your plan
           </SubmitButton>
           <p className="text-center text-[11px] text-ink/45">
-            {includedLeft} of {includedTotal} included {includedTotal === 1 ? 'branch' : 'branches'} left · no fee — it is live once added.
+            {formatCount(includedLeft)} of {formatCount(includedTotal)} included {includedTotal === 1 ? 'branch' : 'branches'} left · no fee — it is live once added.
           </p>
         </>
       ) : !canBuyMore ? (
@@ -345,7 +346,7 @@ function AddBranchForm({
           </SubmitButton>
           <p className="text-center text-[11px] text-ink/45">
             {includedTotal > 0
-              ? `Your plan’s ${includedTotal} included branches are in use — more branches are part of Ultra.`
+              ? `Your plan’s ${formatCount(includedTotal)} included branches are in use — more branches are part of Ultra.`
               : 'Branches come with Pro and Ultra.'}
           </p>
         </>

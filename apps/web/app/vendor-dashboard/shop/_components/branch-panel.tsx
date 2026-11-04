@@ -1,4 +1,5 @@
 import { Building2 } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { TIER_LABEL, asVendorTier, canBuyExtraBranches, includedBranchesLeft, nextPlanReach, planHasBranches, reachLadderWords, tierCaps } from '@/lib/vendor-tier-caps';
@@ -47,7 +48,7 @@ export async function BranchPanel({
   /** The plan was read. False → Where you work says so instead of drawing a plan's reach nobody read. */
   tierMeasured?: boolean;
 }) {
-  // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro includes 3, Ultra 10, fee-free; only Ultra buys
+  // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro includes 3, Ultra 6 (trimmed the same day), fee-free; only Ultra buys
   // more. Counted from the shop's own live included branches — a shop over a lowered allowance keeps them (0 left).
   const includedInUse = branches.filter((b) => b.included_in_plan && b.status !== 'cancelled').length;
   const includedLeft = includedBranchesLeft(tier, includedInUse);
@@ -141,7 +142,7 @@ export async function BranchPanel({
                 size="xs"
               />
               {includedTotal > 0
-                ? `Your plan’s ${includedTotal} branches are in use. More branches are part of Ultra — plan one here; adding it asks for the plan.`
+                ? `Your plan’s ${formatCount(includedTotal)} branches are in use. More branches are part of Ultra — plan one here; adding it asks for the plan.`
                 : 'Branches come with Pro and Ultra — each gets its own team and calendar. Plan one here; adding it asks for the plan.'}
             </p>
           ) : null}

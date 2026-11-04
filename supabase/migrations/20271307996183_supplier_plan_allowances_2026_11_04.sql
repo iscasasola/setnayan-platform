@@ -4,6 +4,8 @@
 -- 📐 SUPPLIER PLAN ALLOWANCES + BRANCHES PER PLAN — owner 2026-11-04 (DECISION_LOG), verbatim:
 --   "… waitlist 0,0,1,5 …"            (Free·Verified / Solo / Pro / Ultra)
 --   "branches 0,0,3,10"              (included beyond the main shop; only Ultra buys more)
+-- and, the same day, "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR, WITH TRIMMED ALLOWANCES": Ultra waitlist 3
+-- (was 5) and Ultra branches 6 (was 10). Custom runs as Ultra.
 --
 -- The SQL side of the two numbers the database ENFORCES. Every other allowance in the ruling (reach, categories,
 -- service cards, seats, own web address) is enforced in the app's server actions and has no SQL twin — checked:
@@ -12,7 +14,7 @@
 -- 1 · `vendor_tier_limit` — copied from its LATEST definition
 --     (20271285071117_every_plan_holds_five_couples_a_date.sql). The `whitelist_per_date` arm is VERBATIM. The
 --     `waitlist_acceptances` arm moves to the owner's numbers: Free 0 · Verified 0 (was 1) · Solo 0 (was 1) ·
---     Pro 1 (was 3) · Enterprise/Custom 5. A NEW key, `branches_included`: 0 · 0 · 0 · 3 · 10 · 10.
+--     Pro 1 (was 3) · Enterprise/Custom 3 (was 5). A NEW key, `branches_included`: 0 · 0 · 0 · 3 · 6 · 6.
 --     Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by
 --     tests/db/vendor-tier-pipeline-caps.db.test.ts (waitlist) and
 --     tests/db/vendor-plan-allowances.db.test.ts (branches), both of which DERIVE from the TypeScript side.
@@ -65,8 +67,8 @@ AS $$
         WHEN 'verified'   THEN 0   -- owner 2026-11-04 "waitlist 0,0,1,5" (was 1)
         WHEN 'solo'       THEN 0   -- (was 1)
         WHEN 'pro'        THEN 1   -- (was 3)
-        WHEN 'enterprise' THEN 5
-        WHEN 'custom'     THEN 5   -- runs as Ultra
+        WHEN 'enterprise' THEN 3   -- Ultra trimmed 2026-11-04 (was 5)
+        WHEN 'custom'     THEN 3   -- runs as Ultra
         ELSE 0
       END
     WHEN 'branches_included' THEN
@@ -75,22 +77,22 @@ AS $$
         WHEN 'verified'   THEN 0
         WHEN 'solo'       THEN 0
         WHEN 'pro'        THEN 3
-        WHEN 'enterprise' THEN 10
-        WHEN 'custom'     THEN 10  -- runs as Ultra
+        WHEN 'enterprise' THEN 6   -- Ultra trimmed 2026-11-04 ("branches 0,0,3,10" said 10)
+        WHEN 'custom'     THEN 6   -- runs as Ultra
         ELSE 0
       END
     ELSE NULL                      -- unknown key: NULL, never a silent 0
   END;
 $$;
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Owner-set per-tier limits. Keys: whitelist_per_date (accepted-but-not-yet-locked customers a vendor may hold for ONE date — 5 on EVERY plan since 2026-10-23) · waitlist_acceptances (couples they may accept off the waitlist for one date — 0/0/0/1/5/5 since 2026-11-04, "waitlist 0,0,1,5") · branches_included (fee-free branches beyond the main shop — 0/0/0/3/10/10 since 2026-11-04, "branches 0,0,3,10"). Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
+  'Owner-set per-tier limits. Keys: whitelist_per_date (accepted-but-not-yet-locked customers a vendor may hold for ONE date — 5 on EVERY plan since 2026-10-23) · waitlist_acceptances (couples they may accept off the waitlist for one date — 0/0/0/1/3/3 since 2026-11-04, Ultra trimmed to 3) · branches_included (fee-free branches beyond the main shop — 0/0/0/3/6/6 since 2026-11-04, Ultra trimmed to 6). Mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts; held in step by tests/db/vendor-tier-pipeline-caps.db.test.ts and tests/db/vendor-plan-allowances.db.test.ts, which derive from the TS side. An unknown KEY returns NULL on purpose so a typo cannot read as an unlimited/zero cap.';
 
 -- ── 2 · the included branch ──────────────────────────────────────────────────
 ALTER TABLE public.vendor_branches
   ADD COLUMN IF NOT EXISTS included_in_plan boolean NOT NULL DEFAULT false;
 
 COMMENT ON COLUMN public.vendor_branches.included_in_plan IS
-  'TRUE = a branch the shop''s PLAN includes (owner 2026-11-04, "branches 0,0,3,10": Pro 3 · Ultra 10) — no fee, no '
+  'TRUE = a branch the shop''s PLAN includes (owner 2026-11-04: Pro 3 · Ultra 6) — no fee, no '
   'order, live from the moment it is added and still live after a downgrade (a shop keeps what it has). FALSE = a '
   'PAID branch, live only while its latest vendor_additional_branch__{branch_id} order is paid and in window. '
   'Guarded by enforce_included_branch_allowance: a row may only BECOME a live included branch while the shop holds '

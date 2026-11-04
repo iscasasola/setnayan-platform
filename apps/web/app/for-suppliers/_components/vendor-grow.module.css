@@ -200,10 +200,6 @@
 .with::before { content: ''; width: 28px; height: 2px; border-radius: var(--m-r-xs); background: currentColor; }
 .ans { margin: 8px 0 0; font-size: 19px; line-height: 1.42; color: rgb(var(--color-ink)); text-wrap: pretty; }
 .act { display: flex; flex-wrap: wrap; align-items: center; column-gap: 14px; row-gap: 4px; margin-top: 10px; }
-/* a plain-text action — no frame, because the words are the press */
-.actLink { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-size: 15px; font-weight: 700; color: rgb(var(--color-mulberry)); text-decoration: none; }
-.actLink i { display: inline-block; font-style: normal; transition: transform .25s ease; }
-.actLink:hover i { transform: translateX(4px); }
 .plan { font-size: 12px; font-weight: 600; color: rgb(var(--color-ok)); }
 .solvesMore { display: flex; justify-content: center; margin-top: 40px; }
 

@@ -2,16 +2,16 @@
  * supplier-page-words.test.ts — what the /for-suppliers port (4 Nov 2026 prototype) says is read, not typed,
  * and every door and photo it draws is really there.
  *
- *   (1) NO DEMO-SHOP LINK TO A PAGE THAT IS NOT THERE. The prototype links "See the demo shop" to
- *       `/sample/supplier`, which is not built — a link there today is a 404 that looks like a door. The switch is
- *       `DEMO_SHOP.open` and it is OFF: owner, 2026-11-04, *"do not add buttons now"*. Turning it on is his call,
- *       so this test never asks for it — it only refuses it being on with no page behind it.
+ *   (1) NO DEMO / SAMPLE BUTTONS. The prototype linked "See the demo shop" and twelve "See it on the demo shop"
+ *       links to `/sample/supplier`. Owner, 2026-11-04/05: *"do not add buttons now"* · *"just do not add
+ *       buttons"* — not hidden behind a switch, not added. No file that draws this page may link to `/sample` or
+ *       say "demo shop". The doors it does draw must exist.
  *   (2) THE ALLOWANCES FOLLOW TIER_CAPS. The plan lines and the problem answers put reach, team seats, waitlists
  *       and the own web address into words. Every number in those words must be one TIER_CAPS holds, and no
  *       JavaScript value ("Infinity", "NaN", "undefined") may reach a person.
  *   (3) THE PHOTOS ARE ON DISK, with the owner's hero shifts.
  *
- * SABOTAGE (run 2026-11-04): set `DEMO_SHOP.open = true` → (1) RED · type "100 km" into planLine → (2) RED ·
+ * SABOTAGE (run 2026-11-05): add a "See the demo shop" link to /sample/supplier in the hero → (1) RED · type "100 km" into planLine → (2) RED ·
  * delete public/marketing/2026-11-04/supplier-team-hero.webp → (3) RED · change florist's --dr to 5% → (3) RED.
  */
 import test from 'node:test';
@@ -21,7 +21,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import {
-  DEMO_SHOP,
   HERO_SLIDES,
   MARKETING_PHOTOS,
   OPEN_SHOP_HREF,
@@ -33,13 +32,26 @@ import {
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const has = (rel: string) => existsSync(join(WEB, rel));
 
-test('(1) a demo-shop link is never drawn to a page that does not exist', () => {
-  assert.equal(DEMO_SHOP.href, '/sample/supplier');
-  if (DEMO_SHOP.open) {
-    assert.ok(
-      has('app/sample/supplier/page.tsx'),
-      'DEMO_SHOP.open is on but app/sample/supplier has no page: every "See the demo shop" would be a 404',
-    );
+/** Source without comments — so the comment explaining why there is no button never reads as a button. */
+const code = (rel: string) =>
+  readFileSync(join(WEB, rel), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+test('(1) no demo or sample button anywhere on the page — and the doors it does draw exist', () => {
+  const files = [
+    'app/(shell)/for-suppliers/page.tsx',
+    'app/for-suppliers/_components/vendor-grow-hero.tsx',
+    'app/for-suppliers/_components/vendor-grow-sections.tsx',
+    'app/for-suppliers/_components/vendor-tier-deltas.tsx',
+    'app/for-suppliers/_components/supplier-page-words.ts',
+    'app/for-suppliers/_components/for-vendors-motion.tsx',
+  ];
+  for (const f of files) {
+    const src = code(f);
+    assert.ok(src.length > 200, `${f} could not be read`);
+    assert.doesNotMatch(src, /['"`]\/sample\b/, `${f} links to /sample — owner: "just do not add buttons"`);
+    assert.doesNotMatch(src, /demo shop/i, `${f} draws a demo-shop button or line — owner: "just do not add buttons"`);
   }
   assert.ok(has(`app${OPEN_SHOP_HREF}/page.tsx`), `${OPEN_SHOP_HREF} — the "Open a shop" door — has no page`);
   assert.ok(has('app/vendor-dashboard/profile/page.tsx'), '"Get Verified — free" (the papers, /vendor-dashboard/profile#docs) points at a page that is gone');

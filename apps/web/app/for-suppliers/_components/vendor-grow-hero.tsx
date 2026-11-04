@@ -3,7 +3,7 @@
  * (`prototypes/for_suppliers_2026-11-04.html`, section 1 "aspiring · new · experienced").
  *
  * "Start or grow your event business here." — one headline for three kinds of supplier (no business yet · new ·
- * experienced), one primary door ("Open a shop — free"), the demo shop beside it, and the truths line with the
+ * experienced), one primary door ("Open a shop — free") — no demo-shop button (owner, "just do not add buttons") — and the truths line with the
  * booking fee behind an ⓘ.
  *
  * THE PHOTOS — six trades, one every 5 s (`HeroSlides`), the owner's 4 Nov renders in
@@ -26,7 +26,7 @@ import type { CSSProperties } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { bookingFeeBandsLine, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
-import { DEMO_SHOP, HERO_SLIDES, MARKETING_PHOTOS, OPEN_SHOP_HREF } from './supplier-page-words';
+import { HERO_SLIDES, MARKETING_PHOTOS, OPEN_SHOP_HREF } from './supplier-page-words';
 import { HeroSlides } from './for-vendors-motion';
 import css from './vendor-grow.module.css';
 
@@ -79,11 +79,6 @@ export function VendorGrowHero({ fee }: { fee: BookingFeeSchedule | null }) {
           <Link href={OPEN_SHOP_HREF} className={`${css.btn} ${css.btnPrimary}`}>
             Open a shop — free
           </Link>
-          {DEMO_SHOP.open ? (
-            <Link href={DEMO_SHOP.href} className={`${css.btn} ${css.btnSecondary}`}>
-              See the demo shop
-            </Link>
-          ) : null}
         </div>
         <div className={css.truths}>
           <span>Free to join</span>

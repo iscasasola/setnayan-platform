@@ -23,7 +23,6 @@ import { formatCount } from '@/lib/format-number';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { ProblemsList } from './for-vendors-motion';
 import {
-  DEMO_SHOP,
   MARKETING_PHOTOS,
   OPEN_SHOP_HREF,
   capFirst,
@@ -634,8 +633,6 @@ type Problem = {
   title: string;
   pain: string;
   ans: string;
-  /** The demo shop's anchor for this tool, and the words on the link. */
-  demo: { hash: string; label: string };
   /** The plan that has it. */
   plan: string;
 };
@@ -653,7 +650,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       // The prototype said "no website"; the house word is never "website" (public-copy-says-the-house-words).
       pain: 'You have no web page of your own, or a Facebook page that Google never shows.',
       ans: `Once you’re Verified — still free — your Setnayan page is shown to couples and found by search engines.${address ? ` Your own web address ${address}.` : ''}`,
-      demo: { hash: '', label: 'See a shop page' },
       plan: 'Free',
     },
     {
@@ -662,7 +658,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Inquiries lost in Messenger',
       pain: 'Inquiries come from everywhere and get lost. Half are not even serious.',
       ans: 'One inbox, with each couple’s event, date and budget attached, and only the inquiries that match what you do.',
-      demo: { hash: '#inquiries', label: 'Open the inbox' },
       plan: 'Free',
     },
     {
@@ -671,7 +666,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Quotes typed into chats',
       pain: 'Prices are typed into chats, changed three times, and nobody knows which version was agreed.',
       ans: 'Build the quote in the chat — package, per guest or per hour, with inclusions, add-ons and the payment schedule — and send one clear quote.',
-      demo: { hash: '#quotes', label: 'Build a quote' },
       plan: 'Free',
     },
     {
@@ -680,7 +674,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Double-booked dates',
       pain: 'Two couples, one Saturday. The calendar is in a notebook, a chat and your head.',
       ans: 'One calendar for every booking. A date you block is blocked everywhere, and a waitlist holds the next couple in line.',
-      demo: { hash: '#calendar', label: 'Open the calendar' },
       plan: waitFrom ? `Free · waitlist ${fromPlan(waitFrom)}` : 'Free',
     },
     {
@@ -689,7 +682,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Chasing every payment',
       pain: 'You chase the reservation fee, then the progress payment, then the balance — by chat, every time.',
       ans: 'Reservation, progress and balance on one timeline, with proof. Couples pay straight to your GCash or bank; we never hold your money.',
-      demo: { hash: '#payments', label: 'See the payment timeline' },
       plan: 'Free',
     },
     {
@@ -698,7 +690,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Forms on paper or Google Forms',
       pain: 'The details you need from the couple — names, pronunciations, songs, timings — live in a form they never finish.',
       ans: 'Ask your questions once; they travel with you to every event, and the couple answers on their own schedule page.',
-      demo: { hash: '#questions', label: 'See the client questions' },
       plan: 'Free',
     },
     {
@@ -707,7 +698,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Contracts and permits',
       pain: 'Agreements are screenshots. Your DTI, BIR and permit papers are somewhere in a drawer.',
       ans: 'Every contract on record, timestamped per event. Upload your papers once and earn the Verified badge couples look for.',
-      demo: { hash: '#contracts', label: 'See contracts' },
       plan: 'Free · Verified',
     },
     {
@@ -716,7 +706,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Fake reviews, copied photos',
       pain: 'A page with stolen photos and bought stars outranks you.',
       ans: 'Reviews carry a real “booked through Setnayan” mark, you can reply to any of them, new shops are rated fairly, and we watch for your photos on other pages.',
-      demo: { hash: '#reviews', label: 'See reviews' },
       plan: 'Free',
     },
     {
@@ -725,7 +714,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'A team on one login',
       pain: 'Your crew shares your password, or asks you for every detail on the day.',
       ans: `Each person gets their own login, seeing only what their job needs. ${seatsLine()}`,
-      demo: { hash: '#team', label: 'See team logins' },
       plan: seatsFrom ? capFirst(fromPlan(seatsFrom)) : 'Free',
     },
     {
@@ -734,7 +722,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Couples beyond your city',
       pain: 'The couples who would book you are planning in another city, and never see you.',
       ans: `You are shown to couples within your reach — ${reachLine()} — matched to the events and rites you serve.`,
-      demo: { hash: '#reach', label: 'See your reach' },
       plan: wider ? `Free · wider ${fromPlan(wider)}` : 'Free',
     },
     {
@@ -743,7 +730,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'A cut of every booking',
       pain: 'Platforms take a cut of every booking — even the clients you brought yourself.',
       ans: `Your own clients are free, always. ${FIRST_BOOKING_FREE} After that, ${fee ? bookingFeeBandsLine(fee) : 'a booking fee'}.`,
-      demo: { hash: '', label: 'See the fees' },
       plan: 'Free to join',
     },
     {
@@ -752,7 +738,6 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       title: 'Time changes nobody told you about',
       pain: 'The host moves the program and nobody tells you until you arrive.',
       ans: 'You see the event’s schedule live, confirm your times and ask for changes in one place.',
-      demo: { hash: '', label: 'See the live schedule' },
       plan: 'Free',
     },
   ];
@@ -771,13 +756,7 @@ export function VendorGrowProblems({ fee }: FeeProp) {
           </h2>
           <p className={s.lede}>
             Every one of these is a real tool in the supplier dashboard today.
-            {DEMO_SHOP.open ? ' See each one on the demo shop.' : null}
           </p>
-          {DEMO_SHOP.open ? (
-            <Link href={DEMO_SHOP.href} className={s.more}>
-              Open the demo shop
-            </Link>
-          ) : null}
         </div>
         <ProblemsList>
           {list.map((p, i) => (
@@ -803,11 +782,6 @@ export function VendorGrowProblems({ fee }: FeeProp) {
                 <p className={s.with}>With Setnayan</p>
                 <p className={s.ans}>{p.ans}</p>
                 <div className={s.act}>
-                  {DEMO_SHOP.open ? (
-                    <Link href={`${DEMO_SHOP.href}${p.demo.hash}`} className={s.actLink}>
-                      {p.demo.label} <i aria-hidden>›</i>
-                    </Link>
-                  ) : null}
                   <span className={s.plan}>{p.plan}</span>
                 </div>
               </div>
@@ -886,11 +860,6 @@ export function VendorGrowCTA() {
         <Link href={OPEN_SHOP_HREF} className={`${s.btn} ${s.btnPrimary}`}>
           Open a shop — free
         </Link>
-        {DEMO_SHOP.open ? (
-          <Link href={DEMO_SHOP.href} className={`${s.btn} ${s.btnSecondary}`}>
-            See the demo shop first
-          </Link>
-        ) : null}
       </div>
       <p className={s.fine}>Free to join · Full dashboard free · Your own clients never carry a fee</p>
     </section>

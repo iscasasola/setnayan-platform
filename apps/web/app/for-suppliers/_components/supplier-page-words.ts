@@ -15,19 +15,12 @@ export const MARKETING_PHOTOS = '/marketing/2026-11-04';
 /** The one door into opening a shop (auth → existing shop? → limits → wizard). */
 export const OPEN_SHOP_HREF = '/open-shop';
 
-/**
- * THE DEMO SHOP. The prototype sends every "See it on the demo shop" to
- * `/sample/supplier` — a slice of the sample-event build (corpus
- * `SAMPLE_EVENT_BUILD_BRIEF_2026-11-02.md` §8) that is NOT built yet; today the
- * address is the /sample catch-all's 404. So every demo link is drawn from here
- * and is OFF.
- *
- * ⚖ OWNER, 2026-11-04: *"do not add buttons now"*. Turning this on is HIS call —
- * not automatic when the demo shop is built. `supplier-page-words.test.ts` only
- * refuses it being on with no page behind it; it never asks for it to be on.
+/*
+ * NO DEMO / SAMPLE BUTTONS. The prototype linked "See the demo shop" and twelve "See it on the demo shop" links
+ * to `/sample/supplier`, which is not built. Owner, 2026-11-04/05: *"do not add buttons now"* · *"just do not
+ * add buttons"* — not hidden behind a switch, not added. So there is no demo link anywhere on this page, and
+ * `supplier-page-words.test.ts` fails if one appears.
  */
-export const DEMO_SHOP: { href: string; open: boolean } = { href: '/sample/supplier', open: false };
-
 /** The plans a shop climbs, in order. Free (unverified) is never searchable, so it is not a rung here. */
 const RUNGS: readonly VendorTier[] = ['verified', 'solo', 'pro', 'enterprise'];
 export const planName = (t: VendorTier) => (t === 'verified' ? 'Verified' : TIER_LABEL[t]);

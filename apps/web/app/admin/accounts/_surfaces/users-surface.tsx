@@ -72,7 +72,8 @@ type BlacklistRow = {
   blacklisted_at: string;
 };
 
-type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool' | 'blacklisted';
+// 'team_pool' filter retired 2026-11-05 with the service-credit pool it was named for (owner: "retire").
+type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'blacklisted';
 
 /**
  * UsersSurface — the Users LIST body, re-homed byte-identical from
@@ -175,8 +176,6 @@ export async function UsersSurface({
       query = query.eq('account_type', filter);
     } else if (filter === 'internal') {
       query = query.eq('is_internal', true);
-    } else if (filter === 'team_pool') {
-      query = query.eq('is_team_member', true);
     }
 
     if (q.length > 0) {
@@ -368,7 +367,6 @@ export async function UsersSurface({
           <option value="customer">Couples (customer)</option>
           <option value="vendor">Suppliers</option>
           <option value="internal">🟣 Internal (§ 10a)</option>
-          <option value="team_pool">🟢 Team Pool (§ 10b)</option>
           <option value="blacklisted">🚫 Blacklisted</option>
         </select>
         <button type="submit" className="button-secondary">Apply</button>
@@ -556,7 +554,7 @@ function UsersTable({
                             }`}
                             pendingLabel="…"
                           >
-                            {u.is_team_member ? 'Remove from pool' : 'Add to pool'}
+                            {u.is_team_member ? 'Remove from team' : 'Add to team'}
                           </SubmitButton>
                         </form>
                         <form action={confirmUserEmail}>

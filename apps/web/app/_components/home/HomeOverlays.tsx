@@ -110,10 +110,11 @@ export function OverlayShell({
  * Cross-tier vendor benefit count — computed at build time from the canonical
  * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
- *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
- *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
+ *   • named benefits across every tier (VENDOR_TIER_SECTIONS)
+ *   • Custom-only dials (VENDOR_CUSTOM_TIER.dials), only while Custom is offered publicly
  *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
- * = 102 today. Rendered as "100+" once the total crosses 100 so the headline
+ * (No total is written here on purpose — it went stale: this said "84 … = 102" while the real sum was 99, and
+ * seven retired "soon" rows took it to 92 on 2026-11-05.) Rendered as "100+" once the total crosses 100 so the headline
  * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
 const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx

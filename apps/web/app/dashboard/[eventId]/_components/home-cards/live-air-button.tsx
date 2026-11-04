@@ -10,6 +10,8 @@
 import { useState, useTransition } from 'react';
 import { Radio, Square } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { GO_LIVE_CONFIRM } from '@/lib/live-studio-go-live-confirm';
 import { endOnAirTarget, type LiveAirSource } from '@/lib/live-studio-manual-air';
 import { endPanoodBroadcast, goLivePanood } from '../../studio/panood/setup/actions';
 import { endManualOnAir } from '@/app/panood/control/[eventId]/actions';
@@ -18,8 +20,11 @@ export function LiveAirButton({ eventId, onAir, source }: { eventId: string; onA
   const [line, setLine] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const target = endOnAirTarget(source);
+  const { confirm, dialog } = useConfirm();
 
-  const run = () =>
+  // Owner 2026-11-05 (item 11): going on air asks once first (lib/live-studio-go-live-confirm.ts); ending never asks.
+  const run = async () => {
+    if (!onAir && !(await confirm(GO_LIVE_CONFIRM))) return;
     start(async () => {
       setLine(null);
       const r = await (onAir
@@ -33,14 +38,16 @@ export function LiveAirButton({ eventId, onAir, source }: { eventId: string; onA
       }
       // (No refresh: these actions revalidate, so their answer already carries Home's new render — one render per press.)
     });
+  };
 
   return (
     <>
+      {dialog}
       <ActionButton
         tone={onAir ? 'neutral' : 'brand'}
         icon={onAir ? <Square aria-hidden="true" strokeWidth={1.9} /> : <Radio aria-hidden="true" strokeWidth={1.9} />}
         label={onAir ? 'End' : 'Go live'}
-        onClick={run}
+        onClick={() => void run()}
         disabled={busy || (onAir && !target)}
         data-testid={onAir ? 'home-live-end' : 'home-live-go'}
       />

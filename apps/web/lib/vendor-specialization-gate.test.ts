@@ -11,6 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  FREE_SPECIALIZATION_SETS,
   SPECIALIZATION_MIN_TIER,
   VENDOR_SPECIALIZATIONS,
   resolveVendorSpecializationAccess,
@@ -87,8 +88,8 @@ test('moving the floor to pro keeps Pro and above unlocked', () => {
 
 // ─── No subscription → generic only ─────────────────────────────────────────
 
-test('NO SUBSCRIPTION → generic kit only, for every named category', () => {
-  for (const services of [BAND, HOST, COORDINATOR]) {
+test('NO SUBSCRIPTION → generic kit only, for every PAID category', () => {
+  for (const services of [BAND, HOST]) {
     const access = resolveVendorSpecializationAccess({
       subscription: null,
       services,
@@ -145,14 +146,48 @@ test('TIERS BELOW THE FLOOR (free, verified) → generic kit only', () => {
   for (const tier of ['free', 'verified'] as const) {
     const access = resolveVendorSpecializationAccess({
       subscription: sub(tier),
-      services: COORDINATOR,
+      services: HOST,
       now: NOW,
     });
     assert.equal(access.genericKit, true);
     assert.equal(access.unlockedSet, null);
     assert.equal(access.reason, 'below_tier_floor');
-    assert.equal(access.eligibleSet, 'floor_command');
+    assert.equal(access.eligibleSet, 'stage_script');
   }
+});
+
+// ─── 🆓 The coordinator's day-of desk is free (owner 2026-11-04 / 2026-11-05: "keep it free") ──
+
+test('only the floor-command desk is free — the song desk and script & cues keep the Solo floor', () => {
+  assert.deepEqual([...FREE_SPECIALIZATION_SETS], ['floor_command']);
+});
+
+test('a COORDINATOR on any tier, or none, holds the floor-command desk — no Solo needed', () => {
+  for (const subscription of [null, undefined, sub('free'), sub('verified'), sub('platinum_deluxe')]) {
+    const access = resolveVendorSpecializationAccess({ subscription, services: COORDINATOR, now: NOW });
+    assert.equal(access.genericKit, true);
+    assert.equal(access.unlockedSet, 'floor_command');
+    assert.deepEqual(access.unlockedSets, ['floor_command']);
+    assert.equal(access.reason, 'free_set');
+    assert.equal(holdsSpecialization(access, 'floor_command'), true);
+  }
+});
+
+test('a lapsed coordinator keeps the floor-command desk mid-event', () => {
+  const access = resolveVendorSpecializationAccess({ subscription: sub('pro', PAST), services: COORDINATOR, now: NOW });
+  assert.equal(access.unlockedSet, 'floor_command');
+  assert.equal(access.reason, 'free_set');
+});
+
+test('a free band that also coordinates gets the floor, never the paid song desk', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: sub('free'),
+    services: [...BAND, ...COORDINATOR],
+    now: NOW,
+  });
+  assert.deepEqual(access.unlockedSets, ['floor_command']);
+  assert.equal(holdsAnySpecialization(access, 'song_desk'), false);
+  assert.deepEqual(access.eligibleSets, ['floor_command', 'song_desk']);
 });
 
 test('every tier in VENDOR_TIERS resolves without throwing, generic kit always granted', () => {
@@ -182,13 +217,13 @@ test('an unrecognised tier string is treated as free → generic only', () => {
 test('LAPSED SUBSCRIPTION MID-EVENT → generic kit, never blank or error', () => {
   const access = resolveVendorSpecializationAccess({
     subscription: sub('pro', PAST),
-    services: COORDINATOR,
+    services: HOST,
     now: NOW,
   });
   assert.equal(access.genericKit, true); // the whole point
   assert.equal(access.unlockedSet, null);
   assert.equal(access.reason, 'subscription_lapsed'); // "renew", not "subscribe"
-  assert.equal(access.eligibleSet, 'floor_command');
+  assert.equal(access.eligibleSet, 'stage_script');
 });
 
 test('a null expiry never expires (admin grant / comp tier / free window)', () => {

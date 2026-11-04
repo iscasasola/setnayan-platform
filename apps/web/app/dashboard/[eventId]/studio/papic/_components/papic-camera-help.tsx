@@ -18,8 +18,7 @@ export function PapicCameraHelp({ appleIap = false }: { appleIap?: boolean }) {
             Drag-to-shoot and a synced flash arrive with the native app (V1.5).
           </span>
           <span className="mt-2 block">
-            <strong>Capture defaults.</strong> Battery handoff when it runs low — a handoff QR lets the next person take
-            over without losing queued uploads. App-sandbox storage — captures live in the app and purge 24h after upload,
+            <strong>Capture defaults.</strong> App-sandbox storage — captures live in the app and purge 24h after upload,
             never in the camera roll (opt-in to save copies). Fixed by design — rear-only, 10-second snippet cap, no
             settings for your crew to fiddle with.
           </span>

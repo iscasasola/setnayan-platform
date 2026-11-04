@@ -1713,8 +1713,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         {!oauthReady ? (
           <p className="inline-flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2.5 text-sm text-ink/60">
             <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-            Coming soon — Setnayan’s YouTube app review is still with Google. We’ll email you the
-            moment the Connect button lights up.
+            Coming soon — Setnayan’s YouTube app review is still with Google. You’ll get a notice in
+            Setnayan the moment the Connect button lights up.
           </p>
         ) : youtubeGrant ? (
           <p className="inline-flex items-center gap-2 rounded-lg border border-success-200/80 bg-success-50/60 px-3 py-2.5 text-sm text-ink">
@@ -2419,7 +2419,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               cameras arrive on this screen, and practise your cuts as often as you like. When you
               unlock Live Watch, more than one of them can be on air at once and the picker on your
               event page lights up so guests can choose their view. That last step — pushing your
-              cut out to YouTube — is being wired now, and we’ll email you the moment it’s ready.
+              cut out to YouTube — is being wired now, and you’ll get a notice in Setnayan the moment it’s ready.
               Nothing you set up here needs redoing.
             </p>
           </div>

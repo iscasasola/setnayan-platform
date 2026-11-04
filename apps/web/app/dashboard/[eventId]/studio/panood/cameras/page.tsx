@@ -150,18 +150,23 @@ export default async function PanoodCamerasPage({ params }: Props) {
         </Link>
       </div>
 
-      {/* Displays — deliberately an HONEST note, not a fake door. Live Studio venue screens are
-          NOT wired: `provisionPanoodScreensAdmin` has no callers, so no screen is ever created,
-          and `panoodScreenPairUrl` builds `/wall?code=…` while the route is `/wall/[eventId]`
-          (a 404) AND that route gates on the LIVE_WALL SKU — a different product. Showing a
-          pairing UI here would be a door onto nothing. */}
+      {/* Displays — venue screens ARE built (DAY-12, 2026-09-20): the controller's "Venue screens"
+          section (`venue-screens-section.tsx`, `screens-actions.ts`) adds a screen and shows its code,
+          and the TV pairs at /live (`app/live/actions.ts`). This card used to say there was "no way to
+          pair a screen" — true before September, wrong since (owner digest 5 Nov, item 14). It now
+          points there; `#screens` opens the controller's setup sheet at that section. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
         <h2 className="text-sm font-semibold">Venue displays</h2>
         <p className="mt-1 max-w-prose text-xs leading-relaxed text-ink/60">
-          Routing a feed to a screen at the venue isn’t connected yet — the control room can
-          choose what each screen shows, but there’s no way to pair a screen to it. For now, put a
-          laptop on the screen and use the OBS program window from the control room.
+          Any TV, projector or LED wall with a browser can show your livestream or monogram. Add and
+          pair screens under Venue screens in the controller.
         </p>
+        <Link
+          href={`${liveStudioControllerHref(eventId)}#screens`}
+          className="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-terracotta hover:underline"
+        >
+          Open Venue screens
+        </Link>
       </div>
 
       {rows.length === 0 ? (

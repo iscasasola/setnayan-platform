@@ -84,7 +84,7 @@ export async function SettingsSurface({ searchParams }: Props) {
       <PageMasthead title="Platform settings" />
       <p className="mb-6 text-sm text-ink/70">
         Business identity printed on every transaction receipt. Everything
-        here is read-everywhere across the app; only internal/team-pool
+        here is read-everywhere across the app; only internal and team-member
         admins can edit. The actual BIR Official Receipt for a paid order
         is issued separately, offline &mdash; these are not BIR ORs.
       </p>

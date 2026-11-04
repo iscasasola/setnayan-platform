@@ -110,8 +110,8 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     key: 'team-pool',
     asPublished: 'adding a team member to the shared pool',
     whyPerClause: 'Grants ongoing pool draw rights',
-    actionType: 'grant_team_pool',
-    note: 'Enforced (§ 10b). `users.is_team_member = TRUE`.',
+    actionType: null,
+    note: 'Nothing to enforce: the shared service-credit pool was RETIRED 2026-11-05 (owner: "retire. we already have our pool = papic credits") — no pool table or draw ever existed, so no one can be added to it, and the `grant_team_pool` approval is no longer offered. The row stays because § 9.1 still names it; taking it out of the Vendor Agreement is an owner and counsel edit. `users.is_team_member` itself is kept (it is staff admin access, lib/admin/admin-predicate.ts).',
   },
   {
     key: 'large-comp-grant',

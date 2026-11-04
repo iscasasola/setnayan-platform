@@ -128,7 +128,7 @@ test('an implemented promise must name a REAL action type', () => {
   // promise as kept while the insert fails a CHECK.
   const live = new Set([
     'grant_internal_account',
-    'grant_team_pool',
+    'grant_team_pool', // still in the CHECK; retired 2026-11-05, no row claims it any more
     'promote_to_admin',
     'approve_vendor_partnership',
     'approve_fraud_wipe_ban',

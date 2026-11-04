@@ -1,8 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { NOT_THIS_EVENTS_CODE, uploadedQrTarget } from '@/lib/uploaded-qr';
-import { useLiveQrScan } from '@/lib/use-live-qr-scan';
+import dynamic from 'next/dynamic';
 import { UploadYourQr } from './upload-your-qr';
 import { DOOR_CHOICE, DOOR_CHOICE_CLASS } from './door-choice-words';
 
@@ -16,7 +14,24 @@ import { DOOR_CHOICE, DOOR_CHOICE_CLASS } from './door-choice-words';
  * A code read by the camera goes where an uploaded one goes (`uploadedQrTarget`): this event's key, on THIS site, so
  * the ordinary redeem → RSVP-first flow runs. A code for another event says so and the camera keeps looking.
  * The same three, in the same words, behind a listed guest's "Not [name]? Switch account".
+ *
+ * 📦 THE CAMERA LOADS WHEN IT IS NEEDED (`next/dynamic`): the door is drawn on the Maker's canvas too, whose first-load
+ * JavaScript has a budget (`scripts/check-maker-js-budget.mjs`). Until its chunk arrives, the same button is drawn.
  */
+const ScanYourQr = dynamic(() => import('./scan-your-qr').then((m) => m.ScanYourQr), {
+  loading: () => <ScanButtonAtRest />,
+});
+
+/** The "Scan QR" button exactly as the scanner draws it at rest — so the first screen never changes as it loads. */
+function ScanButtonAtRest() {
+  return (
+    <div className="space-y-2" data-door-choice="scan">
+      <button type="button" className={DOOR_CHOICE_CLASS}>
+        {DOOR_CHOICE.scan}
+      </button>
+    </div>
+  );
+}
 export function DoorChoices({ slug, signIn }: { slug: string | null; signIn: string }) {
   return (
     <div className="space-y-3" data-door-choices="">
@@ -32,55 +47,3 @@ export function DoorChoices({ slug, signIn }: { slug: string | null; signIn: str
     </div>
   );
 }
-
-function ScanYourQr({ slug }: { slug: string }) {
-  const [said, setSaid] = useState<string | null>(null);
-  // Set below: the code that ends the scan releases the camera before the page moves on.
-  const stopRef = useRef<() => void>(() => undefined);
-  const onCode = useCallback(
-    (raw: string) => {
-      const target = uploadedQrTarget(raw, slug);
-      if (target) {
-        stopRef.current();
-        window.location.assign(target);
-        return;
-      }
-      setSaid(NOT_THIS_EVENTS_CODE);
-    },
-    [slug],
-  );
-  const { scanning, cameraError, videoRef, start, stop } = useLiveQrScan(onCode);
-  useEffect(() => {
-    stopRef.current = stop;
-  }, [stop]);
-
-  return (
-    <div className="space-y-2" data-door-choice="scan">
-      {scanning ? (
-        <>
-          <video ref={videoRef} playsInline muted className="aspect-square w-full rounded-xl bg-ink/90 object-cover" />
-          <button type="button" onClick={stop} className={DOOR_CHOICE_CLASS}>
-            Stop
-          </button>
-        </>
-      ) : (
-        <button
-          type="button"
-          className={DOOR_CHOICE_CLASS}
-          onClick={() => {
-            setSaid(null);
-            void start();
-          }}
-        >
-          {DOOR_CHOICE.scan}
-        </button>
-      )}
-      {said || cameraError ? (
-        <p role="alert" className="text-center text-sm font-medium text-terracotta-700">
-          {said ?? cameraError}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-

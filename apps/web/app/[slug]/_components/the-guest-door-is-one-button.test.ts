@@ -93,7 +93,11 @@ test('(3) signed in and listed: "Not Maria? Switch account" opens the same three
 });
 
 test('(4) the live scan is the shared camera half, and a scanned code goes where an uploaded one goes', () => {
-  const choices = read('app/[slug]/_components/door-choices.tsx');
+  // The camera loads when the door is drawn, never on the Maker's first load (its JS budget).
+  const door = read('app/[slug]/_components/door-choices.tsx');
+  assert.match(door, /const ScanYourQr = dynamic\(\(\) => import\('\.\/scan-your-qr'\)/);
+  assert.doesNotMatch(door, /useLiveQrScan|from '@\/lib\/use-live-qr-scan'/, 'the camera half is back on the door’s first load');
+  const choices = read('app/[slug]/_components/scan-your-qr.tsx');
   assert.match(choices, /useLiveQrScan\(onCode\)/);
   assert.match(choices, /const target = uploadedQrTarget\(raw, slug\);/);
   assert.match(choices, /setSaid\(NOT_THIS_EVENTS_CODE\)/);

@@ -530,6 +530,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'The crew member handing out the souvenir, not the guest receiving it. Same object as a scan_events row with a different noun.',
   },
   {
+    table: 'supplier_scan_claims',
+    column: 'scanned_by_user_id',
+    why: 'The supplier’s crew member who scanned, not the guest whose claim it is. The claim, its number and the count stay; only the scanner’s stamp goes (ON DELETE SET NULL already).',
+  },
+  {
+    table: 'supplier_scan_settings',
+    column: 'updated_by_user_id',
+    why: 'The shop operator who last flipped a service’s scanner. The shop’s setting stays; only the operator’s stamp goes (ON DELETE SET NULL already).',
+  },
+  {
     table: 'event_blocked_users',
     column: 'blocked_by_user_id',
     why: 'Who applied the block. The block protects the EVENT and must outlive the organiser who set it, or it silently lifts.',

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { scanNumberLabel } from '@/lib/supplier-scan';
 import type { AdminScanClaim } from '@/lib/supplier-scan.server';
 import { supplierScan } from '@/app/_actions/supplier-scan-actions';
@@ -12,7 +11,6 @@ import { supplierScan } from '@/app/_actions/supplier-scan-actions';
  * `admin_audit_log`, and leaves the number unused: a visible gap is the honest mark of a correction.
  */
 export function SupplierScansAdmin({ eventId, claims }: { eventId: string; claims: AdminScanClaim[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const remove = (c: AdminScanClaim) => {
@@ -20,8 +18,8 @@ export function SupplierScansAdmin({ eventId, claims }: { eventId: string; claim
     setError(null);
     start(async () => {
       const reply = await supplierScan({ op: 'admin_remove', eventId, kind: c.kind, claimId: c.claimId });
-      if (reply.op === 'admin_remove' && reply.result.ok) router.refresh();
-      else setError(reply.op === 'admin_remove' ? (reply.result.error ?? 'Couldn’t remove it.') : 'Couldn’t remove it.');
+      // The action revalidates this page itself — its answer carries the new render.
+      if (!(reply.op === 'admin_remove' && reply.result.ok)) setError(reply.op === 'admin_remove' ? (reply.result.error ?? 'Couldn’t remove it.') : 'Couldn’t remove it.');
     });
   };
   return (

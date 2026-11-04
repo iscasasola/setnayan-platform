@@ -87,6 +87,9 @@ BEGIN
 END;
 $$;
 
+-- A trigger function, never an RPC: nobody calls it by hand.
+REVOKE ALL ON FUNCTION public.supplier_scan_settings_owner() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS supplier_scan_settings_owner ON public.supplier_scan_settings;
 CREATE TRIGGER supplier_scan_settings_owner
   BEFORE INSERT OR UPDATE ON public.supplier_scan_settings
@@ -120,6 +123,8 @@ CREATE INDEX IF NOT EXISTS supplier_scan_counters_coverage_idx
 
 ALTER TABLE public.supplier_scan_counters ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.supplier_scan_counters FROM anon;
+-- No browser role writes a number — the pen is taken away, not just refused by RLS.
+REVOKE INSERT, UPDATE, DELETE ON public.supplier_scan_counters FROM authenticated;
 
 -- No write policy on purpose: only supplier_scan_claim() (SECURITY DEFINER) moves a number.
 DROP POLICY IF EXISTS supplier_scan_counters_admin_read ON public.supplier_scan_counters;
@@ -166,6 +171,9 @@ CREATE INDEX IF NOT EXISTS supplier_scan_claims_scanner_idx
 
 ALTER TABLE public.supplier_scan_claims ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.supplier_scan_claims FROM anon;
+-- Claims are written only by supplier_scan_claim(); a browser role keeps SELECT (couple · coordinator · admin, by
+-- policy) and DELETE (admin's fix, by policy) — never INSERT or UPDATE.
+REVOKE INSERT, UPDATE ON public.supplier_scan_claims FROM authenticated;
 
 -- The event's couple + coordinator READ (their desk shows names — they can already read
 -- the guest list); Setnayan admin reads and fixes. A SUPPLIER has no direct read at all:
@@ -233,6 +241,9 @@ AS $$
     'angpao_betrothal_supplier'
   );
 $$;
+
+REVOKE ALL ON FUNCTION public.supplier_scan_is_souvenir(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.supplier_scan_is_souvenir(TEXT) TO authenticated;
 
 -- ─── 6 · who is scanning: the service's shop on this event, booked ───────────
 -- Returns the coverage's shop when the caller may scan for it on this event; NULL

@@ -1,14 +1,15 @@
-import { notFound } from 'next/navigation';
 import { YourNumberCardView } from '@/app/[slug]/_components/your-number-card';
 import { SupplierScanList } from '@/app/dashboard/[eventId]/guests/souvenirs/_components/supplier-scan-list';
 import type { CoupleScanClaim, GuestScanNumber } from '@/lib/supplier-scan.server';
 
 /**
- * /dev/supplier-scan-lab — 🎟 the supplier claim scanner's GUEST and COUPLE sides on fixture data (approved prototype
- * `supplier_scan_2026-10-03_fable.html`, frame E). DEV-ONLY: production builds 404 this route. It draws the REAL pieces
+ * /dev/supplier-lab?s=scan-guest | scan-couple — 🎟 the supplier claim scanner's GUEST and COUPLE sides on fixture data
+ * (approved prototype `supplier_scan_2026-10-03_fable.html`, frame E). DEV-ONLY (the lab page 404s in production). It
+ * draws the REAL pieces
  * — the guest's `YourNumberCardView` and the couple's `SupplierScanList` — over lab numbers; nothing is read or written.
  * The supplier's side is `/dev/supplier-lab?s=event-hub&view=scanner&scan=on` and `/dev/supplier-lab?s=services`.
  *
+ *   (side = guest for s=scan-guest, couple for s=scan-couple)
  *   ?side=guest            the guest's Live: Now, then "Your number #0042 · Photo booth · Lumina Studio"
  *   ?side=guest&two=1      two numbers (a booth and the souvenir table)
  *   ?side=couple           the couple's souvenir table › Suppliers' scans, with names
@@ -25,13 +26,7 @@ const CLAIMS: CoupleScanClaim[] = [
   { number: 41, guestName: 'Lito Santos', service: 'Photo booth', shop: 'Lumina Studio', method: 'supplier_qr', at: '2026-12-18T11:36:00Z' },
 ];
 
-export default async function SupplierScanLabPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ side?: string; two?: string; state?: string }>;
-}) {
-  if (process.env.NODE_ENV === 'production') notFound();
-  const q = await searchParams;
+export function ScanLab(q: { side?: string; two?: string; state?: string }) {
   if (q.side === 'couple') {
     const claims = q.state === 'unread' ? null : q.state === 'empty' ? [] : CLAIMS;
     return (

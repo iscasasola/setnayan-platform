@@ -182,6 +182,10 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-04 with the table itself (the supplier claim scanner, slice 1) ──
+  supplier_scan_settings:
+    'A shop’s per-service scanner switch (on/off + mode). updated_by_user_id is the operator who flipped it — a staff ' +
+    'actor stamp on the shop’s own configuration, carrying nothing about the person.',
   // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
   app_store_purchases:
     'The subject IS the buyer here, and every purchase is already in their export as an ' +
@@ -481,6 +485,9 @@ const KNOWN_GAPS: Record<string, string> = {
   guest_saved_vendors:
     'TODO(RA10173-backlog): the subject’s saved vendors — cross-event taste data (see the privacy memo on this table).',
   guest_souvenir_claims: 'TODO(RA10173-backlog): the subject’s souvenir claims.',
+  supplier_scan_claims:
+    'TODO(RA10173-backlog): the scans a supplier’s crew member made (scanned_by_user_id) — and, for the guest, their ' +
+    'claims, which reach no account export because a guest is not an account (same gap as guest_souvenir_claims).',
   guests:
     'TODO(RA10173-backlog): the guest row for the subject themselves — export shape pending (a guest row is also the HOST’s stored data about them).',
   help_messages: 'TODO(RA10173-backlog): support correspondence the subject wrote.',

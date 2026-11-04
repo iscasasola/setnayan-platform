@@ -1732,6 +1732,7 @@
         "YourColours",
         "YourGuests",
         "YourNumberCard",
+        "YourNumberCardView",
         "YourOwnConsent",
         "YourOwnDay",
         "YourPhotosWidget",
@@ -12302,6 +12303,7 @@
         "dev/supplier-lab/page-lab.tsx",
         "dev/supplier-lab/page.tsx",
         "dev/supplier-lab/people-lab.tsx",
+        "dev/supplier-lab/scan-lab.tsx",
         "dev/supplier-lab/schedule-lab.tsx",
         "dev/supplier-lab/suggest-lab.tsx",
         "dev/supplier-lab/suggestion-lab-fixture.ts",
@@ -12420,6 +12422,7 @@
         "QrCodes",
         "RosterRow",
         "RunOfShowHeader",
+        "ScanLab",
         "ScheduleLab",
         "ScreenFindingsPanel",
         "SearchBox",
@@ -12434,6 +12437,7 @@
         "SuggestBoardActions",
         "SuggestLab",
         "SupplierLabShell",
+        "SupplierScanList",
         "SupplierSchedule",
         "SupplierSetupScreen",
         "SupplierSubmit",
@@ -12446,7 +12450,8 @@
         "TodayLab",
         "TodaySettings",
         "VerifySection",
-        "YourBadges"
+        "YourBadges",
+        "YourNumberCardView"
       ]
     },
     "/dev/supplier-plan-lab": {

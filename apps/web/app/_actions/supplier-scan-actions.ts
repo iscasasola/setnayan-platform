@@ -127,13 +127,13 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
 async function adminRemove(eventId: string, kind: 'scan' | 'souvenir', claimId: string): Promise<{ ok: boolean; error?: string }> {
   const { userId } = await requireAdminAction();
   const admin = createAdminClient();
+  // Two named reads, never `.from(<variable>)` — each one is a select the column guard can check.
+  const cols = 'claim_id, guest_id, scan_number, vendor_profile_id, coverage_id';
+  const { data: gone, error } =
+    kind === 'souvenir'
+      ? await admin.from('guest_souvenir_claims').delete().eq('claim_id', claimId).eq('event_id', eventId).select(cols)
+      : await admin.from('supplier_scan_claims').delete().eq('claim_id', claimId).eq('event_id', eventId).select(cols);
   const table = kind === 'souvenir' ? 'guest_souvenir_claims' : 'supplier_scan_claims';
-  const { data: gone, error } = await admin
-    .from(table)
-    .delete()
-    .eq('claim_id', claimId)
-    .eq('event_id', eventId)
-    .select('claim_id, guest_id, scan_number, vendor_profile_id, coverage_id');
   if (error) {
     logQueryError('supplierScan.admin_remove', error, { eventId, kind });
     return { ok: false, error: 'Couldn’t remove it just now.' };
@@ -148,7 +148,8 @@ async function adminRemove(eventId: string, kind: 'scan' | 'souvenir', claimId: 
     metadata: { event_id: eventId, ...row },
   });
   if (auditError) console.error('[supplierScan.admin_remove] audit log insert failed', auditError.message);
-  revalidatePath(`/admin/events/${eventId}`);
+  // The admin page is opened by either the event's public id or its uuid — revalidate the route, not one address.
+  revalidatePath('/admin/events/[eventId]', 'page');
   return { ok: true };
 }
 

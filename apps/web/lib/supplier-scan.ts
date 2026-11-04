@@ -15,6 +15,8 @@
  * service can hold a mode nobody can run. 🔒 lib/supplier-scan.test.ts
  */
 
+import { formatCount } from '@/lib/format-number';
+
 /** The five approved modes (DECISION_LOG 2026-10-03 "ALL FIVE MODES", re-confirmed 2026-10-28). */
 export type ScanMode = 'once' | 'ordered_received' | 'unlimited' | 'group_session' | 'roaming';
 
@@ -92,7 +94,7 @@ export type ScanWords = { tone: 'ok' | 'warn' | 'quiet'; title: string; line: st
 
 /** "142 of 176" — or just "142" when nobody has said they are coming yet (never "of 0"). */
 export function claimedOfWords(claimed: number, total: number): string {
-  return total > 0 ? `${claimed} of ${total}` : `${claimed}`;
+  return total > 0 ? `${formatCount(claimed)} of ${formatCount(total)}` : formatCount(claimed);
 }
 
 /**

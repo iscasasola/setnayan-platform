@@ -63,6 +63,11 @@ Virtual is stored as 'video'; the link lives in `location` as `"jitsi|<link>"`.
   booked hand-offs. The meeting-specific Viber/phone exemption is gone with the feature.
 - Sabotage, each seen red then restored: a booking refusal dropped (2 red) · an extra `sms:` in the guest file (1 red)
   · "Enter" shown only to the proposer (1 red) · a permissive policy letting anyone update (2 red).
+- Server-action budget held at its ceiling (1227), not raised: `createMeetingRoom` is a new export, so Withdraw /
+  Cancel meeting now post `decision=cancel` to `respondAppointment`, which hands them to the same (now un-exported)
+  `cancelAppointment` body. Same update, same notification, same redirect.
+- Exposure baseline regenerated: +2 `col` facts, `event_appointments.room_created_at` / `room_created_by`, with the same
+  grants as every sibling column. RLS and the set-once trigger govern them.
 
 SPEC IMPACT: None in this PR — it implements rulings already in DECISION_LOG.md (2026-10-28 no calls; 2026-11-04 "SIX
 OWNER ANSWERS", "VIRTUAL = JITSI ONLY", "ONE BUTTON THAT SAYS WHAT THE ROOM NEEDS").

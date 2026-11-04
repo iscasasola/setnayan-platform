@@ -55,7 +55,6 @@ import {
 import {
   proposeAppointment,
   respondAppointment,
-  cancelAppointment,
 } from '@/app/_components/appointments-actions';
 
 type Role = 'vendor' | 'couple';
@@ -478,8 +477,9 @@ function AppointmentCard({
       {a.status === 'proposed' && iMadeIt ? (
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-2.5">
           <span className="text-[11px] text-ink/55">Waiting for the other side to confirm.</span>
-          <form action={cancelAppointment}>
+          <form action={respondAppointment}>
             {hidden}
+            <input type="hidden" name="decision" value="cancel" />
             <SubmitButton
               pendingLabel="Cancelling…"
               overlay={false}
@@ -494,8 +494,9 @@ function AppointmentCard({
       {/* Confirmed — allow either side to cancel. */}
       {a.status === 'confirmed' ? (
         <div className="mt-2 flex justify-end">
-          <form action={cancelAppointment}>
+          <form action={respondAppointment}>
             {hidden}
+            <input type="hidden" name="decision" value="cancel" />
             <SubmitButton
               pendingLabel="Cancelling…"
               overlay={false}

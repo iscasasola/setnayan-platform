@@ -260,6 +260,9 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
  * other side best-effort.
  */
 export async function respondAppointment(formData: FormData): Promise<void> {
+  // Withdraw / Cancel meeting ride this export (decision=cancel) instead of an export of their own: every
+  // exported server action is one Vercel route (lint-server-action-budget.mjs), and createMeetingRoom needed the slot.
+  if (formData.get('decision') === 'cancel') return cancelAppointment(formData);
   const appointmentId = str(formData.get('appointment_id'), 64);
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);
@@ -378,8 +381,9 @@ export async function respondAppointment(formData: FormData): Promise<void> {
  * cancelAppointment — either side cancels a proposed or confirmed meeting.
  * RLS scopes the update to the caller's relationship; the status IN (...) guard
  * keeps done/cancelled rows immutable. Notifies the other side best-effort.
+ * Reached through respondAppointment with decision=cancel (not exported — see there).
  */
-export async function cancelAppointment(formData: FormData): Promise<void> {
+async function cancelAppointment(formData: FormData): Promise<void> {
   const appointmentId = str(formData.get('appointment_id'), 64);
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);

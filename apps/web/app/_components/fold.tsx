@@ -251,9 +251,13 @@ export function Fold({
   // 🔭 A USER'S open glides the head to the pin line when the body runs past the bottom (owner 2026-11-04, app-wide —
   // `reveal-on-open.ts`). Only the head's own press counts: never `defaultOpen`, a controlled open or the `#anchor`.
   const intend = useRevealOnOpen(open, () => ({ head: box.current }));
-  const toggle = () => {
-    intend();
-    setOpen((o) => !o);
+  // The press is caught on its way down (capture), so the head and the title keep their ONE handler that flips open. Only
+  // THIS fold's head or title marks it — a press on the ⓘ, a leadPress, an endPress or a fold inside marks nothing.
+  const pressed = (e: { target: EventTarget }) => {
+    const t = e.target as Element;
+    if (t.closest('[data-fold-pinbox]') !== pinRef.current) return;
+    const b = t.closest('button');
+    if (b ? b.hasAttribute('data-fold-head') : t.closest('[data-fold-title]')) intend();
   };
   useEffect(() => {
     if (!anchor) return;
@@ -276,7 +280,7 @@ export function Fold({
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       aria-current={current ? 'true' : undefined}
       data-fold-current={current ? '' : undefined}
-      onClick={toggle}
+      onClick={() => setOpen((o) => !o)}
       className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped || endPress ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead ? (
@@ -328,6 +332,7 @@ export function Fold({
       data-fold={data ?? ''}
       data-fold-open={open ? '' : undefined}
       className={anchor ? `scroll-mt-24 ${className}` : className}
+      onClickCapture={pressed}
     >
       <div ref={pinRef} data-fold-pinbox="">
       {leadPress || endPress ? (
@@ -342,7 +347,7 @@ export function Fold({
         </div>
       ) : tipped ? (
         <div className="flex items-center gap-2" data-fold-row="" data-fold-tipped="">
-          <div className="shrink-0 cursor-pointer" data-fold-title="" onClick={(e) => !(e.target as Element).closest('button') && toggle()}>
+          <div className="shrink-0 cursor-pointer" data-fold-title="" onClick={(e) => !(e.target as Element).closest('button') && setOpen((o) => !o)}>
             <OneOpenScope id={scope}>
               <InfoTip label={title} labelClassName={`text-[15px] font-medium ${danger ? 'text-danger-700' : 'text-ink'}`} align="start">
                 {tip}

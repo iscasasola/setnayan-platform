@@ -20,6 +20,11 @@ expanded? this should apply universally?" → "Yes, app-wide").
   buttons) — nothing to move. Also joined: the Home service card and the supplier Business-health card.
 - **Every native `<details>`** (≈99 files) gets the rule from one capture `toggle` listener in the root layout, only when
   a tap or key came just before (a `<details open>` on load is left alone); `data-no-reveal` opts one out.
+- ⚡ **Off the first load:** the hook every fold mounts (`reveal-on-open.ts`) carries only the press and an `import()`;
+  the engine and its DOM side (`reveal-dom.ts`) load on the first open. The visible bottom reads `visibleBottom()` from
+  `lib/keyboard-ride.ts` (the one keyboard reading) instead of `window.visualViewport`.
+- The Fold head, the Fold title and the Home service tile keep their one `setOpen` handler; the press is marked on its
+  way down (`onClickCapture`), only for that fold's own head or title.
 - 🔒 `every-fold-reveals-on-open.test.ts` (+ `.baseline.txt`, only shrinks) fails a NEW hand-rolled `aria-expanded`
   toggle that is not a menu and does not use the shared piece; `reveal-on-open.test.ts` drives the behaviour.
 

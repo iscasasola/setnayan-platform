@@ -49,15 +49,22 @@ const baseline = () =>
 test('the shared pieces all reveal through the ONE implementation', () => {
   const fold = read('app/_components/fold.tsx');
   assert.match(fold, /const intend = useRevealOnOpen\(open, \(\) => \(\{ head: box\.current \}\)\);/, 'the shared Fold no longer reveals on open');
-  assert.match(fold, /onClick=\{toggle\}/, "the Fold's head press no longer marks the open as the user's");
+  assert.match(fold, /onClickCapture=\{pressed\}/, "the Fold's head press no longer marks the open as the user's");
+  assert.match(fold, /const pressed = [\s\S]*?hasAttribute\('data-fold-head'\) : t\.closest\('\[data-fold-title\]'\)\) intend\(\);/, 'only the head or the title may mark the open');
   assert.doesNotMatch(fold, /setOpenRef\.current\(true\);\s*\n\s*intend/, 'a #hash open must never count as a user open');
   assert.match(read('app/vendor-dashboard/_components/collapsible.tsx'), /useRevealOnOpen\(open, .*\{ cause: 'gesture' \}\)/);
   assert.match(read('app/vendor-dashboard/_components/feature-accordion.tsx'), /useRevealOnOpen\(isOpen,/);
   assert.match(read('app/layout.tsx'), /<RevealDetailsOnOpen \/>/, 'native <details> lost the reveal');
+  // ⚡ The hook is in every page's first load (the Maker's included): it carries the press and the lazy call, and the
+  // engine + its DOM side load on the first open — never a static import of either.
   const hook = read('app/_components/reveal-on-open.ts');
-  assert.match(hook, /from '\.\/reveal-engine'/);
-  assert.match(hook, /joinPinLine\(\)/, 'the pin line must be fresh while it reveals');
-  assert.match(hook, /'touchstart', 'wheel', 'pointerdown', 'keydown'/, 'input no longer cancels the glide');
+  assert.match(hook, /import\('\.\/reveal-dom'\)/, 'the reveal no longer loads on the first open');
+  assert.doesNotMatch(hook, /^import[^\n]*(reveal-engine|reveal-dom|pin-line|keyboard-ride)/m, 'the engine rides the first load again');
+  assert.match(hook, /'touchstart', 'wheel', 'pointerdown', 'keydown'/, 'input while the engine loads no longer cancels the glide');
+  const dom = read('app/_components/reveal-dom.ts');
+  assert.match(dom, /from '\.\/reveal-engine'/);
+  assert.match(dom, /joinPinLine\(\)/, 'the pin line must be fresh while it reveals');
+  assert.match(dom, /'touchstart', 'wheel', 'pointerdown', 'keydown'/, 'input no longer cancels the glide');
 });
 
 test('no NEW hand-rolled expand/collapse — use the shared Fold or useRevealOnOpen', () => {

@@ -177,12 +177,14 @@ export function HomeServiceCard({
       {tile && !open ? (
         /* The phone's closed face: the tile is the press that grows the card (or, for a card with nothing to grow, its
            door); the card's own control sits beside it, never inside it (no control in a control). */
-        <div className={`hc-svc-wrap md:hidden${tile.span ? ' hc-span' : ''}`} data-home-service-tile={svcKey}>
+        /* 🔭 The tile's press marks the open as the user's on its way down (capture), so the tile keeps its one handler. */
+        <div
+          className={`hc-svc-wrap md:hidden${tile.span ? ' hc-span' : ''}`}
+          data-home-service-tile={svcKey}
+          onClickCapture={(e) => (e.target as Element).closest('button.hc-svc-tile') && intend()}
+        >
           {grows ? (
-            <button type="button" className="hc-tile hc-svc-tile" aria-expanded={false} aria-controls={regionId} onClick={() => {
-              intend();
-              setOpen(true);
-            }}>
+            <button type="button" className="hc-tile hc-svc-tile" aria-expanded={false} aria-controls={regionId} onClick={() => setOpen(true)}>
               <ServiceTileFace name={name} tile={tile} />
             </button>
           ) : (

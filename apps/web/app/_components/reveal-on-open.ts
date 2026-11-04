@@ -3,77 +3,46 @@
 /**
  * 🔭 REVEAL ON OPEN (owner 2026-11-04, APP-WIDE) — the ONE implementation. After a user opens a section and its motion
  * settles, if any of it sits below the visible area, the scroll glides so its HEAD sits on the pin line. Fits → nothing.
- * The rule itself is `reveal-engine.ts`; this is its DOM side:
+ * The rule itself is `reveal-engine.ts`, its DOM side `reveal-dom.ts` — both loaded on the FIRST open (⚡ this file is
+ * in every page's first load, the Maker's included, so it carries only the press and the lazy call). It holds:
  *
  *   · `useRevealOnOpen` — every expand/collapse joins with one call (the shared `Fold`, `Collapsible`,
  *     `FeatureAccordion`). Only a closed → open CHANGE that a user caused reveals: never a fold open on load, restored
  *     state, or a `#hash` (that path scrolls on its own).
  *   · `RevealDetailsOnOpen` — the same for every native `<details>`, from one listener in the root layout.
  *
- * THE PIN LINE: in the page, `--sn-pin-top` (`pinned-row/pin-line.ts`, joined while it runs so the number is fresh);
- * inside a box that scrolls on its own (a sheet, a panel), that box's top. Plus one slim line (`FOLD_SLIM_PX`) per OPEN
- * fold around the section — their heads pin slim there, so this head lands flush under them, never behind them.
- * THE VISIBLE BOTTOM: the box's bottom; in the page, the window less the bottom dock (`--sn-bottomdock-h`).
+ * Where the pin line and the visible bottom are: `reveal-dom.ts`.
  *
  * 🖥 From 701 a supplier list opens a row in the RIGHT column (`supplier-open-row.tsx`): the row's fold stays SHUT
  * there, so nothing reveals — the content is already beside the list.
  * 🔒 app/_components/reveal-on-open.test.ts · app/_components/every-fold-reveals-on-open.test.ts
  */
 import { useEffect, useRef } from 'react';
-import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
-import { isUserOpen, revealAfterSettle } from './reveal-engine';
+import { isUserOpen } from './reveal-intent';
 
-/** One slim pinned head (`fold.tsx` FOLD_SLIM_PX) — kept here as a number so this file does not import the fold. */
-const SLIM_PX = 40;
 /** A user's tap or key counts as the cause of an open that lands within this long of it. */
 const GESTURE_MS = 1000;
 
-/** The box this element scrolls in: the nearest ancestor that scrolls on its own, or null for the page. */
-export function scrollBoxOf(el: Element): HTMLElement | null {
-  let p: HTMLElement | null = el.parentElement;
-  while (p && p !== document.body && p !== document.documentElement && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement;
-  return p && p !== document.body && p !== document.documentElement ? p : null;
-}
+const INPUT = ['touchstart', 'wheel', 'pointerdown', 'keydown'] as const;
 
-const px = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0;
-
-/** Glide `head`…`end` into view, under the pin line, once it settles. Returns cancel. */
+/**
+ * Glide `head`…`end` into view, under the pin line, once it settles. Returns cancel. The engine is import()ed here; a
+ * touch, wheel or key while it is still on its way cancels it, exactly as one does mid-glide.
+ */
 export function revealSection(head: Element, end: Element = head, opts: { minWaitMs?: number } = {}): () => void {
-  const box = scrollBoxOf(head);
-  let depth = 0;
-  for (let p = head.parentElement; p && p !== box; p = p.parentElement) if (p.hasAttribute('data-fold-open')) depth += 1;
-  const leave = box ? null : joinPinLine();
-  const cancel = revealAfterSettle(
-    {
-      now: () => performance.now(),
-      frame: (cb) => requestAnimationFrame(cb),
-      cancelFrame: (id) => cancelAnimationFrame(id),
-      section: () => ({ top: head.getBoundingClientRect().top, bottom: end.getBoundingClientRect().bottom }),
-      view: () => {
-        if (box) {
-          const r = box.getBoundingClientRect();
-          return { top: r.top + box.clientTop + depth * SLIM_PX, bottom: r.top + box.clientTop + box.clientHeight };
-        }
-        const h = window.visualViewport?.height ?? window.innerHeight;
-        return { top: px('--sn-pin-top') + depth * SLIM_PX, bottom: h - px('--sn-bottomdock-h') };
-      },
-      getScroll: () => (box ? box.scrollTop : window.scrollY),
-      setScroll: (y) => (box ?? window).scrollTo({ top: y, behavior: 'instant' }),
-      reduced: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
-      onInput: (cb) => {
-        const kinds = ['touchstart', 'wheel', 'pointerdown', 'keydown'] as const;
-        for (const k of kinds) window.addEventListener(k, cb, { capture: true, passive: true });
-        return () => {
-          for (const k of kinds) window.removeEventListener(k, cb, { capture: true });
-        };
-      },
-    },
-    opts,
-  );
-  return () => {
-    cancel();
-    leave?.();
+  let cancel: (() => void) | null = null;
+  let gone = false;
+  const stop = () => {
+    gone = true;
+    for (const k of INPUT) window.removeEventListener(k, stop, { capture: true });
+    cancel?.();
   };
+  for (const k of INPUT) window.addEventListener(k, stop, { capture: true, passive: true });
+  void import('./reveal-dom').then((m) => {
+    for (const k of INPUT) window.removeEventListener(k, stop, { capture: true });
+    if (!gone) cancel = m.revealSection(head, end, opts);
+  });
+  return stop;
 }
 
 // ── the user's last tap or key, for openers that do not own the press (Collapsible, <details>) ──

@@ -8,7 +8,7 @@
  *
  * No DOM in this runner: the arithmetic runs for real; the wiring is read from the source, comments stripped.
  * Sabotage (2026-11-04): `if (shut.length > 0) keepTheTapInPlace();` removed → "ONE OPEN keeps the tap" red;
- * `ro?.observe(document.body);` removed → "the menu follows the layout" red. Both restored green.
+ * the resize dispatch removed → "a menu … is told the page moved" red. Both restored green.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -44,9 +44,10 @@ test('ONE OPEN keeps the tap in place — measured BEFORE the peers shut, only w
   assert.match(src, /rememberTaps\(\);/, 'nothing listens for the tap');
 });
 
-test('the shared menu follows the layout, not only scroll and resize', () => {
-  const src = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
-  assert.match(src, /new ResizeObserver\(onMove\)/);
-  assert.match(src, /ro\?\.observe\(document\.body\);/, 'the menu no longer follows a layout move');
-  assert.match(src, /ro\?\.disconnect\(\);/, 'the observer leaks after the menu shuts');
+test('a menu placed against the tapped control is told the page moved (PickMenu re-places on resize)', () => {
+  // Not an observer inside PickMenu: that file must stay under its inlined-size budget (pick-menu-stays-inline.test.ts).
+  const keep = read('lib/keep-the-tap-in-place.ts');
+  assert.match(keep, /window\.dispatchEvent\(new Event\('resize'\)\);/, 'an open menu is left floating where its button was');
+  const menu = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
+  assert.match(menu, /window\.addEventListener\('resize', onMove\);/, 'PickMenu stopped re-placing on resize');
 });

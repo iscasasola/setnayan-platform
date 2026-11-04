@@ -62,9 +62,19 @@ test("the seed is gone from the 'use server' module", () => {
 test('the seed fails soft, and never throws into a render', () => {
   const seed = code('lib/schedule-seed.server.ts');
   assert.ok(!/throw new Error/.test(seed), 'no throw may escape into the render');
+  // Each seed counted on its own body, so a second seed in the file cannot hide a swallowed failure in the first.
+  const nonWedding = seed.slice(seed.indexOf('export async function seedNonWeddingRunOfShow'), seed.indexOf('export async function seedDefaultChapters'));
   assert.equal(
-    (seed.match(/logQueryError\(/g) || []).length,
+    (nonWedding.match(/logQueryError\(/g) || []).length,
     3,
     'every one of the three failure points must be logged, not swallowed',
+  );
+  // 📖 The four default chapters (2026-11-03): the blocks read, the event read, dropping the marker, the claim, the
+  // chapters, putting the marker back, the moments.
+  const chapters = seed.slice(seed.indexOf('export async function seedDefaultChapters'));
+  assert.equal(
+    (chapters.match(/logQueryError\(/g) || []).length,
+    7,
+    'every one of the seven failure points of the default chapters must be logged, not swallowed',
   );
 });

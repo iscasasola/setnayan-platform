@@ -84,6 +84,9 @@ export function keepTheTapInPlace(): void {
       else window.scrollBy(0, by);
       // Re-read: the page may be too short to scroll the whole way back; never chase what cannot be reached.
       top = el.getBoundingClientRect().top;
+      // Anything placed against the tapped control (an open PickMenu list) re-places on resize — tell it the page
+      // moved, even when the scroll could not take all of it back (no scroll event fires then).
+      window.dispatchEvent(new Event('resize'));
     }
     if (performance.now() < until) requestAnimationFrame(step);
   };

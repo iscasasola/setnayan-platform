@@ -89,13 +89,7 @@ export function PickMenu({
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('resize', onMove);
     window.addEventListener('scroll', onMove, true);
-    // 🪤 THE PAGE CAN MOVE WITHOUT A SCROLL (2026-11-04, iPhone card maker): opening this list shuts an open fold
-    // above it (ONE OPEN AT A TIME), the button rides up, and no scroll/resize fires — the list was left floating where
-    // the button used to be. Follow the layout too.
-    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onMove);
-    ro?.observe(document.body);
     return () => {
-      ro?.disconnect();
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('resize', onMove);

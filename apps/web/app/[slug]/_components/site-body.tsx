@@ -253,6 +253,7 @@ import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
 import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
+import { NotYouSwitch } from './not-you-switch';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
@@ -565,6 +566,9 @@ type SiteBodyProps = {
    *  (`held-pass-line.tsx`, owner bug 2026-10-19). Drawn under the cover on the host's / a signed-in stranger's page;
    *  the guest tree draws it in Me (page.tsx). Null for everyone else. */
   heldPassSlot?: React.ReactNode;
+  /** 🚪 A SIGNED-IN guest on this list (their account holds this seat): their first name, for "Not [name]? Switch
+   *  account" under the cover's button (owner 2026-11-03, `NotYouSwitch account`). Null for everyone else. */
+  switchAccountName?: string | null;
   /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
@@ -676,6 +680,7 @@ export async function SiteBody({
   makerWayBack = null,
   ownerCapability = null,
   heldPassSlot = null,
+  switchAccountName = null,
   hostOwnGuestId = null,
   hostOwnRsvp = null,
   vendorCapability = null,
@@ -3376,6 +3381,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
@@ -3398,6 +3404,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */

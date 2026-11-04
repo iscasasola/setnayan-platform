@@ -967,7 +967,7 @@ export function FileUpload({
     if (wantsMark && mark) {
       const kind = mark;
       // Loaded at the first marked upload, never with the page (same as hub-draft-actions in details-march.tsx).
-      const answer = await import('./photo-mark-actions').then((a) => a.getPhotoMark(kind, pathPrefix)).catch(() => null);
+      const answer = await import('./photo-mark-actions').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
       if (!answer || !answer.ok) return refuseUnmarked(answer && !answer.ok ? answer.error : 'no answer', answer && !answer.ok ? answer.error : MARK_REFUSED_SAYS);
       markInput = { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
     }
@@ -1198,7 +1198,7 @@ export function FileUpload({
         // Pair the marked copy with its clean copy BEFORE it joins the value:
         // a public photo the shop could never re-mark is refused like an unmarked one.
         void import('./photo-mark-actions')
-          .then((a) => a.recordSupplierOriginal({ publicRef: out.r2Ref, originalRef }))
+          .then((a) => a.photoMark('pair', { publicRef: out.r2Ref, originalRef }))
           .catch(() => ({ ok: false as const, error: MARK_REFUSED_SAYS }))
           .then((paired) => {
             if (!isMountedRef.current) return;
@@ -1291,7 +1291,7 @@ export function FileUpload({
       if (!raw) {
         let url: string | null = null;
         if (mark === 'supplier') {
-          const got = await import('./photo-mark-actions').then((a) => a.getPhotoOriginalUrl(item.r2Ref)).catch(() => null);
+          const got = await import('./photo-mark-actions').then((a) => a.photoMark('original', { publicRef: item.r2Ref })).catch(() => null);
           if (!got || !got.ok) {
             setError(got && !got.ok ? got.error : 'The original of this photo is not available. Upload it again to re-frame it.');
             return;

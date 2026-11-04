@@ -186,7 +186,7 @@ test('SABOTAGE-PROVEN: FileUpload frames BEFORE it marks, stamps inside the fram
   assert.match(src, /crop: cropTo \? \(w, h\) => frameRect\(w, h, cropTo\.a, cropTo\.f\) : undefined/, 'the clip is cropped to its frame');
   // Re-open re-frames the CLEAN original — a supplier photo's private copy, never its marked display URL.
   const re = src.slice(src.indexOf('async function reframe('), src.indexOf('function cancelInFlight('));
-  assert.match(re, /mark === 'supplier'[\s\S]{0,200}getPhotoOriginalUrl\(item\.r2Ref\)/);
+  assert.match(re, /mark === 'supplier'[\s\S]{0,200}photoMark\('original', \{ publicRef: item\.r2Ref \}\)/);
   assert.doesNotMatch(re.slice(0, re.indexOf("} else if (!mark)")), /item\.displayUrl/, 'a marked copy re-framed would carry two marks');
   assert.match(re, /uploadOne\(raw, \{ replaceId: item\.id, initial \}\)/);
   assert.match(src, /at >= 0 \? prev\.map\(\(i, n\) => \(n === at \? completed : i\)\)/, 'the re-framed copy takes the old one\'s place');

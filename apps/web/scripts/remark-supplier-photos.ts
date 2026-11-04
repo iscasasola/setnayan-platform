@@ -1,7 +1,7 @@
 /**
  * scripts/remark-supplier-photos.ts — DRY RUN ONLY.
  *
- *   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npx tsx scripts/remark-supplier-photos.ts --dry-run
+ *   NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npx tsx scripts/remark-supplier-photos.ts --dry-run
  *
  * Counts the supplier photos whose public copy carries the wrong mark for its
  * shop's state now (verified ↔ Setnayan only) — `pendingRemarks` in
@@ -12,7 +12,7 @@
  * public bytes, and running that against production is the owner's call. Any
  * argument other than `--dry-run` is refused.
  */
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '../lib/supabase/admin';
 import { pendingRemarks, desiredMarkKind, type MarkKind, type OriginalRow } from '../lib/supplier-photo-remark.server';
 import { shopMarkFromRow } from '../lib/supplier-mark-spec.server';
 
@@ -22,13 +22,12 @@ async function main(): Promise<void> {
     console.error('Refused: this script only counts. Run it with exactly `--dry-run`.');
     process.exit(2);
   }
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
     process.exit(2);
   }
-  const db = createClient(url, key, { auth: { persistSession: false } });
+  // The service role, through the app's one factory: the shop's renewal date is not readable by a signed-in session.
+  const db = createAdminClient();
   const { data: rows, error } = await db
     .from('supplier_photo_originals')
     .select('id, vendor_profile_id, public_ref, original_ref, frame, mark_kind');

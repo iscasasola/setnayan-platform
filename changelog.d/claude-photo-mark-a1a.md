@@ -23,4 +23,13 @@ Deviations from the prototype:
 - No clean copy is kept for clips or for inspiration, whose storage is Supabase rather than R2.
 - The booth poster and category art are not marked.
 
+Fix-up after the merge with main (2026-11-04):
+- The stale copy of #7241's card-maker work is dropped; main's merged version is kept.
+- `supplier_photo_originals_owner_all` asks `(SELECT is_admin())` once per statement, not once per row.
+- The upload actions are ONE server action, `photoMark('mark' | 'pair', …)`, instead of two exports. This keeps the route budget at +1.
+- The shop's renewal date is read on the service role in the mood-board upload and in the re-mark dry run.
+- A stall of the private clean-copy upload is recorded like any other stall.
+- `vendor-originals` is declared in the upload-prefix guard. The photo-mark modules are listed as upload pipeline in the Maker preload guard.
+- `Font.ascender` is added to the opentype.js ambient types.
+
 SPEC IMPACT: None. This implements the approved 2026-11-04 Seal and plate design. New table `supplier_photo_originals` (RLS owner/admin, no anon). New private R2 root `vendor-originals`.

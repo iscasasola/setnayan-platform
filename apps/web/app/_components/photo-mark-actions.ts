@@ -1,18 +1,24 @@
 'use server';
 
 /**
- * The two server halves of a marked upload (Seal and plate, 2026-11-04).
+ * The server halves of a marked upload (Seal and plate, 2026-11-04), behind ONE
+ * exported action, `photoMark(op, req)`. Every exported server action is a
+ * Vercel route and the repo sits at its route budget
+ * (`scripts/lint-server-action-budget.mjs`), so the halves are ops of one
+ * dispatcher rather than an export each — the couple-photo share's pattern.
  *
- *   getPhotoMark          — WHAT to stamp. For a supplier photo the spec is read
+ *   'mark'  getPhotoMark          — WHAT to stamp. For a supplier photo the spec is read
  *                           from the shop's own row (verified / name / slug /
  *                           logo) for the shop the login is standing in; the
  *                           browser only paints it. Never trusted from props.
- *   recordSupplierOriginal — after both PUTs landed: the marked public copy
+ *   'pair'  recordSupplierOriginal — after both PUTs landed: the marked public copy
  *                           and its PRIVATE clean copy, paired in
  *                           supplier_photo_originals so the shop can be
  *                           re-marked when it gains or loses Verified.
+ *   'original' getPhotoOriginalUrl — re-open: a 10-minute address of the private
+ *                           clean copy, so the Frame step re-frames the original.
  *
- * Both answer `{ ok: false }` rather than throw; FileUpload REFUSES the upload
+ * All answer `{ ok: false }` rather than throw; FileUpload REFUSES the upload
  * on any `ok: false` (fail-closed: nothing goes up unmarked or unpaired).
  */
 import { createClient } from '@/lib/supabase/server';
@@ -41,7 +47,7 @@ async function ownShopFor(pathPrefix: string): Promise<{ vendorProfileId: string
   return active === vendorProfileId ? { vendorProfileId } : null;
 }
 
-export async function getPhotoMark(kind: 'supplier' | 'setnayan', pathPrefix: string): Promise<PhotoMarkAnswer> {
+async function getPhotoMark(kind: 'supplier' | 'setnayan', pathPrefix: string): Promise<PhotoMarkAnswer> {
   try {
     if (kind === 'setnayan') return { ok: true, spec: { kind: 'setnayan' }, logoDataUrl: null };
     const shop = await ownShopFor(pathPrefix);
@@ -66,7 +72,7 @@ export async function getPhotoMark(kind: 'supplier' | 'setnayan', pathPrefix: st
   }
 }
 
-export async function recordSupplierOriginal(input: {
+async function recordSupplierOriginal(input: {
   publicRef: string;
   originalRef: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -110,7 +116,7 @@ export async function recordSupplierOriginal(input: {
  * original — never the marked copy, which would stamp a second mark over the
  * first. Only for the shop the login is standing in; 10 minutes.
  */
-export async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const NONE = 'The original of this photo is not available. Upload it again to re-frame it.';
   try {
     const pub = parseStoredAsset(publicRef);
@@ -141,4 +147,23 @@ export async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true
     console.error('[photo-mark] getPhotoOriginalUrl failed', err);
     return { ok: false, error: NONE };
   }
+}
+
+/** Each op's request and reply. */
+type PhotoMarkOps = {
+  mark: { req: { kind: 'supplier' | 'setnayan'; pathPrefix: string }; res: PhotoMarkAnswer };
+  pair: { req: { publicRef: string; originalRef: string }; res: { ok: true } | { ok: false; error: string } };
+  original: { req: { publicRef: string }; res: { ok: true; url: string } | { ok: false; error: string } };
+};
+
+/** The ONE exported action. An op it does not know is refused like any other failure (fail-closed). */
+export async function photoMark<K extends keyof PhotoMarkOps>(op: K, req: PhotoMarkOps[K]['req']): Promise<PhotoMarkOps[K]['res']> {
+  type Res = PhotoMarkOps[K]['res'];
+  if (op === 'mark') {
+    const r = req as PhotoMarkOps['mark']['req'];
+    return (await getPhotoMark(r.kind, r.pathPrefix)) as Res;
+  }
+  if (op === 'pair') return (await recordSupplierOriginal(req as PhotoMarkOps['pair']['req'])) as Res;
+  if (op === 'original') return (await getPhotoOriginalUrl((req as PhotoMarkOps['original']['req']).publicRef)) as Res;
+  return { ok: false, error: REFUSED } as Res;
 }

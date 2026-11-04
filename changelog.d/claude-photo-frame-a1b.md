@@ -67,4 +67,10 @@ The owner-approved Photo Frame Template (`photo_frame_template_2026-11-04_fable.
 - A clip can be re-framed only within the same session, because clip originals are not kept.
 - Portfolio display sites other than the sheet still use `object-cover`.
 
+Fix-up after the merge with the updated A1a (2026-11-04):
+- The Frame step uses the app's colour and corner tokens, not raw hex and px radii, so light and dark follow the app. Its ⓘ is the house `<Explain>`, which replaces the hand-drawn "i" and its own dark sheet. The dialog runs on `useModalA11y` (focus trap, Esc, focus restored). The drawn "i" beside "How to adjust" is gone; the words stay.
+- "Gallery picker" now reads "Inspiration picker" (owner 2026-10-23: no "gallery" in the UI).
+- Re-open signs the clean copy through `displayUrlForPrivateStoredAsset`, held to the shop's own `vendor-originals/<shop>/` root, not the raw signer. It is the `'original'` op of A1a's one `photoMark` action, not a new export.
+- The Frame step and `lib/photo-frame.ts` are listed as upload pipeline in the Maker preload guard.
+
 SPEC IMPACT: None. No schema change; the framing is encoded in the R2 object name.

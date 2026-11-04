@@ -718,7 +718,7 @@ function ChapterPage({
       {held ? (
         <div data-chapter-held={c.block_id} className="mt-3 border-t border-ink/10 pt-2">
           <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
-            Hours from {held.name} <span aria-label="Locked by the venue">🔒</span>
+            Hours from {held.name} <span aria-label="Held by the venue">🔒</span>
           </p>
           <p className="flex items-center gap-2 text-[13.5px] text-ink/65">
             {heldHoursLine(c)}

@@ -172,7 +172,7 @@ test('the moment sheet says the calm line BEFORE a change, with Send a request, 
   const sheet = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'moment-sheets.tsx');
   assert.match(sheet, /const lockedShop = lockedShopOnMoment\(m\.vendor_ids, who\.suppliers\)/);
   // Before: the line + the door to ask instead, which opens the Ask with that supplier picked.
-  assert.match(sheet, /data-moment-locked=""[\s\S]{0,200}?\{lockedHead\(lockedShop\)\}[\s\S]{0,700}?Send them a request/);
+  assert.match(sheet, /data-moment-locked=""[\s\S]{0,200}?\{lockedHead\(lockedShop\)\}/);
   assert.match(sheet, /setAskOpener\(/);
   assert.match(sheet, /opener=\{askOpener\}/);
   // After: a refused field save, a refused delete, and the task / Suppliers-and-crew doors.
@@ -191,4 +191,25 @@ test('the admin event page shows each booked supplier’s lock, and a refused re
   assert.match(admin, /mark\.word === NOT_TAKING_CHANGES\s*\?\s*`Locked since/);
   assert.match(admin, /supplierLocks: [^=]+= supRowsRead\.error\s*\?\s*null/);
   assert.match(admin, /marks === null\s*\?\s*COULD_NOT_LOAD/);
+});
+
+test('a locked moment renders no editable inputs — plain values, no frame, and ONE thing to press', () => {
+  const sheet = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'moment-sheets.tsx');
+  const from = sheet.indexOf("stage === 'details' && lockedShop && lockedId ?");
+  assert.ok(from > 0, 'the locked branch of the moment sheet is gone');
+  const branch = sheet.slice(from, sheet.indexOf(") : stage === 'details' ?", from));
+  // No editable row of any kind, no raw field, no Delete, no Add a task.
+  for (const editable of ['<TypedRow', '<TimeRow', '<ChosenRow', '<SwitchRow', '<WhenRow', '<MinutesRow', '<ForRow', '<MarchRow', '<TaskEditor', '<input', '<textarea', '<select', 'onKeep', 'Delete moment', 'Add a task']) {
+    assert.ok(!branch.includes(editable), `the locked moment draws ${editable} — the host would type into a refused change`);
+  }
+  // Exactly one pressable thing: Send them a request (the Ask under it hides its own open button).
+  assert.equal((branch.match(/<ActionButton\b/g) ?? []).length, 1, 'one button on a locked moment');
+  assert.match(branch, /label="Send them a request"/);
+  assert.match(branch, /<AskSupplierSection[\s\S]*?noOpenButton/);
+  const ask = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'ask-supplier-section.tsx');
+  assert.match(ask, /\) : noOpenButton \? null : \(/);
+  // The values themselves: plain text, nothing pressable, no frame (frames only on what you press).
+  const facts = sheet.slice(sheet.indexOf('function LockedMomentFacts('), sheet.indexOf('function SearchHead('));
+  assert.ok(facts.length > 100, 'LockedMomentFacts is gone');
+  assert.doesNotMatch(facts, /<button|<input|<textarea|onClick|\brounded|\bring-|\bborder(?=[\s"'`])/, 'a read-only value is drawn with a frame or something to press');
 });

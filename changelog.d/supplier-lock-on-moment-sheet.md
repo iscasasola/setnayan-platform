@@ -15,3 +15,11 @@ before a change and answered a refused save with "Try again."
 - Guards: `lib/a-locked-part-refuses-the-host.test.ts` (4 new tests; sabotage turned 3 red, restored green).
 
 SPEC IMPACT: None — implements the existing ruling; no schema change.
+
+**Follow-up (coordinator review):** a locked supplier's moment is now READ-ONLY — its values as plain text (no pencil,
+chevron, clock or frame), its tasks as text, no Delete or Add a task; the one thing to press is **Send them a request**,
+which opens the Ask with that supplier picked (the Ask hides its own open button). The WHOLE moment locks, not only the
+locked supplier's crew line: the moment's when / where / what is the locked supplier's part, so the trigger refuses all
+of it. Guard: "a locked moment renders no editable inputs" (sabotage: a TypedRow in the branch, a framed `<dl>` — both red).
+The editable What pill's cut-off start was the owner's long-answer ride (`lib/form-row.ts`) caught mid-scroll — at rest
+it shows its start, ellipsed; unchanged.

@@ -35,6 +35,7 @@ export function AskSupplierSection({
   onAsked,
   askLabel = 'Ask a supplier to change their times',
   opener,
+  noOpenButton = false,
 }: {
   /** The button's words — "Ask Blue Leaf to change" on a chapter a venue holds (2026-11-04). */
   askLabel?: string;
@@ -49,6 +50,8 @@ export function AskSupplierSection({
   /** 🔒 "Send a request" on a locked supplier's moment (audit D7): opens the ask with that supplier picked. `n`
    *  changes on every press, so a second press re-opens it. */
   opener?: { vendorId: string; n: number } | null;
+  /** 🔒 A locked moment: no "Ask a supplier" button of its own — the sheet's "Send them a request" is the one door. */
+  noOpenButton?: boolean;
 }) {
   // The moment's own suppliers first, then every other booked one.
   const options = useMemo(
@@ -205,7 +208,7 @@ export function AskSupplierSection({
             />
           </div>
         </div>
-      ) : (
+      ) : noOpenButton ? null : (
         <div className="mt-2">
           <ActionButton
             tone="neutral"

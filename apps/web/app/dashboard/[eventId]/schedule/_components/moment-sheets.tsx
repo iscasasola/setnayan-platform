@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import { CalendarPlus, Plus, Search, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
@@ -34,6 +34,7 @@ import {
   shiftWall,
   taskFields,
   taskPlace,
+  clockWords,
   taskWhoWords,
   whoFieldsOf,
   whoKeyOf,
@@ -580,29 +581,62 @@ export function MomentSheet({
         <h3 id={headingId} className="sr-only">
           {m.label}
         </h3>
-        {stage === 'details' ? (
+        {stage === 'details' && lockedShop && lockedId ? (
+          /* 🔒 CHANGE LOCK (audit D7): the moment of a locked supplier is READ-ONLY — plain values, no pencil, chevron,
+             clock or frame — so the host never types into a change the database will refuse. The WHOLE moment locks
+             (its when / where / what is the supplier's part, so the trigger refuses any of it). The one door: Send them
+             a request. Guarded by "a locked moment renders no editable inputs" (a-locked-part-refuses-the-host.test.ts). */
           <>
             <p className="text-[13px] text-ink/60">{c.label}</p>
-            {lockedShop && lockedId ? (
-              <p role="note" data-moment-locked="" className="text-[13px] text-warn-900">
-                {lockedHead(lockedShop)}{' '}
-                <button
-                  type="button"
-                  data-testid="moment-locked-ask"
-                  className="font-semibold underline underline-offset-2"
-                  onClick={() => {
-                    setAskOpener((o) => ({ vendorId: lockedId, n: (o?.n ?? 0) + 1 }));
-                    requestAnimationFrame(() =>
-                      document
-                        .querySelector(`[data-moment-sheet="${m.block_id}"] [data-moment-asks]`)
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                    );
-                  }}
-                >
-                  Send them a request
-                </button>
-              </p>
-            ) : null}
+            <p role="note" data-moment-locked="" className="text-[13px] text-warn-900">
+              {lockedHead(lockedShop)}
+            </p>
+            <LockedMomentFacts
+              rows={[
+                ['What', m.label],
+                ['When', untimed ? RIGHT_AFTER_LONG : `${m.time_shape === 'about' ? 'About ' : ''}${clockWords(m.start_at)}${secondIso ? ` or ${clockWords(secondIso)}` : ''}`],
+                ...(untimed ? [] : ([['Minutes', String(minutes)]] as [string, string][])),
+                ...(!untimed && sections.length > 1 ? ([['Section', section]] as [string, string][]) : []),
+                ['Room', m.spot ?? c.spot ?? '—'],
+                ['Suppliers and crew', forWords(m.vendor_ids, mine, who.suppliers)],
+                ['Visible to guests', m.is_public ? 'Yes' : 'No'],
+                ['Optional', m.is_optional ? 'Yes' : 'No'],
+                ...(m.travel_to ? ([['Travel', `${m.travel_from?.trim() || c.location || 'Here'} → ${m.travel_to}`]] as [string, string][]) : []),
+                ...(m.notes ? ([['Notes', m.notes]] as [string, string][]) : []),
+              ]}
+              tasks={tasks === null ? null : mine.map((t) => ({ id: t.task_id, who: taskWhoWords(t, names), what: t.what, place: taskPlace(t, m, c) }))}
+            />
+            <div className="pt-1">
+              <ActionButton
+                tone="brand"
+                main
+                icon={Send}
+                label="Send them a request"
+                data-testid="moment-locked-ask"
+                onClick={() => {
+                  setAskOpener((o) => ({ vendorId: lockedId, n: (o?.n ?? 0) + 1 }));
+                  requestAnimationFrame(() =>
+                    document
+                      .querySelector(`[data-moment-sheet="${m.block_id}"] [data-moment-asks]`)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                  );
+                }}
+              />
+            </div>
+            <AskSupplierSection
+              moment={m}
+              chapter={c}
+              suppliers={who.suppliers}
+              asks={asks}
+              ask={doors.ask}
+              onAsked={(row) => onAsked?.(row)}
+              opener={askOpener}
+              noOpenButton
+            />
+          </>
+        ) : stage === 'details' ? (
+          <>
+            <p className="text-[13px] text-ink/60">{c.label}</p>
             <FormRows width="wide">
               <TypedRow
                 name="What"
@@ -851,6 +885,50 @@ export function MomentSheet({
           </div>
         )}
       </div>
+  );
+}
+
+/* ── 🔒 a locked moment, read-only ─────────────────────────────────────────────────────────────────────────────────── */
+
+/** Plain text, no frame and nothing to press: the values of a locked supplier's moment, then its tasks. */
+function LockedMomentFacts({
+  rows,
+  tasks,
+}: {
+  rows: readonly (readonly [string, string])[];
+  tasks: { id: string; who: string; what: string; place: string | null }[] | null;
+}) {
+  return (
+    <div data-moment-readonly="" className="flex flex-col">
+      <dl className="divide-y divide-ink/10">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-baseline justify-between gap-4 py-2.5">
+            <dt className="shrink-0 text-[15px] text-ink/70">{k}</dt>
+            <dd className="min-w-0 truncate text-right text-[15px] text-ink" title={v}>
+              {v}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <h4 className="mt-3 border-t border-ink/10 pt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Tasks at this moment</h4>
+      {tasks === null ? (
+        <p role="alert" className="mt-2 text-[13px] font-semibold text-danger-700">
+          The tasks couldn’t be read just now. Nothing is lost — close and open the moment again.
+        </p>
+      ) : tasks.length === 0 ? (
+        <p className="mt-2 text-[13px] text-ink/60">No tasks at this moment.</p>
+      ) : (
+        <ul className="divide-y divide-ink/10">
+          {tasks.map((t) => (
+            <li key={t.id} className="py-2 text-[14px]">
+              <span className="block font-semibold">{t.who}</span>
+              <span className="block">{t.what}</span>
+              {t.place ? <span className="block text-[13px] text-ink/60">{t.place}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

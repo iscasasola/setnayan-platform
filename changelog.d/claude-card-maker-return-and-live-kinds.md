@@ -15,7 +15,8 @@ Owner, iPhone, live card maker (2026-11-04).
 - **No blank screen when a menu or fold opens** ("i keep going to this blank slate"). ONE OPEN AT A TIME shut the open
   fold above the tapped control; Safari has no scroll anchoring, so the page jumped onto the white past the form and the
   Schedule menu floated where its button had been. The shared mechanism now keeps the tapped element in place
-  (`lib/keep-the-tap-in-place.ts`, called from `lib/one-open.ts`), and the shared PickMenu follows layout moves.
+  (`lib/keep-the-tap-in-place.ts`, called from `lib/one-open.ts`), and tells an open PickMenu to re-place (a resize
+  event — PickMenu itself is untouched; it must stay under its inlined-size budget).
 - **More settings: no gap, no covered row.** A nested fold head pinned through its parent's clipping body and stuck
   40 px (+ the top bar) down inside its own fold. A head now never pins through a clip; More settings stops clipping
   once open, so its groups pin as slim lines UNDER it (the 2026-10-29 rule) — `app/_components/fold.tsx` (small).

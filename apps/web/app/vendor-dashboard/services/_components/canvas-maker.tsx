@@ -39,6 +39,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ActionButton } from '@/components/action-button';
@@ -1116,6 +1117,12 @@ export function CanvasMaker({
                 {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
                 <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                   <div className="pb-4 pt-1">
+                    {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
+                    <div className="mb-2" data-maker-disc-tip="">
+                      <InfoTip label="Starting offers" labelClassName="text-[14px] text-ink/70" align="start">
+                        Starting offers. You can give a bigger discount in any quote.
+                      </InfoTip>
+                    </div>
                     <DiscountsEditor
                       initial={initial?.discounts ?? []}
                       seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}

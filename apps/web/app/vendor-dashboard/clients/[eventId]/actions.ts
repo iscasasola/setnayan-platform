@@ -473,13 +473,34 @@ export type SupplierScheduleAnswer =
 const NOT_YOURS_WORDS = 'That isn’t yours, so you can only suggest a change to it in words.';
 const NOT_SENT_WORDS = 'That didn’t send — try again.';
 
+/** A venue's hours as posted: wall-clock ISO start/end, setup and pack-up in minutes (blank = none). */
+function venueHoursFromForm(
+  fd: FormData,
+): { ok: true; start: string; end: string | null; ingress: number | null; egress: number | null } | { ok: false; error: string } {
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?Z$/;
+  const start = String(fd.get('start_at') ?? '');
+  const endRaw = String(fd.get('end_at') ?? '');
+  if (!iso.test(start)) return { ok: false, error: 'Give the chapter a start time.' };
+  if (endRaw && (!iso.test(endRaw) || Date.parse(endRaw) <= Date.parse(start))) return { ok: false, error: 'The end comes after the start.' };
+  const minutes = (k: string, max: number): number | null | 'bad' => {
+    const v = String(fd.get(k) ?? '').trim();
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 0 && n <= max ? n : 'bad';
+  };
+  const ingress = minutes('ingress_minutes', 1440);
+  const egress = minutes('egress_minutes', 2880);
+  if (ingress === 'bad' || egress === 'bad') return { ok: false, error: 'Setup and pack-up are up to a day.' };
+  return { ok: true, start, end: endRaw || null, ingress, egress };
+}
+
 export async function suggestScheduleChange(formData: FormData): Promise<SupplierScheduleAnswer | void> {
   const eventId = formData.get('event_id');
   const quiet = formData.get('quiet') === '1';
   const request = formData.get('request');
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
-  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer';
+  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -537,7 +558,9 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
 
   /** Write one ask, tell the host, then settle it (Auto-agree on = in at once; off = it waits). */
   const ask = async (row: {
-    kind: 'new' | 'adjust' | 'remove';
+    kind: 'new' | 'adjust' | 'remove' | 'hours';
+    proposed_ingress_minutes?: number | null;
+    proposed_egress_minutes?: number | null;
     block_id: string | null;
     proposed_label: string | null;
     proposed_start_at: string | null;
@@ -575,7 +598,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       await notifyScheduleRequest({
         eventId,
         supplierName,
-        kind: row.kind,
+        // 🏛 A venue's hours read to the host as a change to that chapter.
+        kind: row.kind === 'hours' ? 'adjust' : row.kind,
         itemLabel,
         proposesChange: row.kind !== 'adjust' || !isNoteOnlySuggestion(row),
         note: row.note,
@@ -586,6 +610,30 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     }
     return { ok: true, outcome };
   };
+
+  // ── 🏛 Venue hours — the chapter's Starts · Ends · setup from · pack-up until (migration 20271307658341) ─────────────
+  // Only a venue booked to the chapter may send them (RLS: `schedule_suggestions_hours_only_from_its_venue`). Once the
+  // host approves, the hours are held for the venue: the host asks it to change.
+  if (request === 'hours') {
+    const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+    const hours = venueHoursFromForm(formData);
+    if (!chapterId || !hours.ok) return { ok: false, error: hours.ok ? NOT_SENT_WORDS : hours.error };
+    const label = nullIfBlank(formData.get('chapter_label'), 120) ?? 'the chapter';
+    const r = await ask({
+      kind: 'hours',
+      block_id: chapterId,
+      proposed_label: null,
+      proposed_start_at: hours.start,
+      proposed_end_at: hours.end,
+      proposed_location: null,
+      proposed_ingress_minutes: hours.ingress,
+      proposed_egress_minutes: hours.egress,
+      note: `${supplierName} sets the hours of ${label}`,
+      itemLabel: `${label} hours`,
+    });
+    if (!r.ok) return { ok: false, error: r.code === '42501' ? 'Only the venue booked to this chapter can set its hours.' : NOT_SENT_WORDS };
+    return done({ ok: true, outcome: r.outcome });
+  }
 
   // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
   if (request === 'times') {

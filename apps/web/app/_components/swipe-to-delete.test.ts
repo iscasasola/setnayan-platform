@@ -68,7 +68,10 @@ test('4 · a drag’s click is swallowed, an open row’s tap closes it, scroll 
   // Closed and still, the red is not drawn at all — no hairline at a rounded row's corners.
   assert.match(SRC, /\$\{tx === 0 && !dragging \? 'invisible \[transition:visibility_0s_0\.2s\]' : ''\}/);
   // Named for whom, and reachable by keyboard on a computer.
-  assert.equal((SRC.match(/aria-label=\{label\}/g) ?? []).length, 2, 'the revealed and the hover Delete are both named');
+  const row = SRC.slice(SRC.indexOf('export function SwipeToDelete'), SRC.indexOf('export function useSwipeReveal'));
+  assert.equal((row.match(/aria-label=\{label\}/g) ?? []).length, 2, 'the revealed and the hover Delete are both named');
+  // The rail's revealed Delete (`SwipeDeleteButton`, for a row that places itself) is named too.
+  assert.match(SRC.slice(SRC.indexOf('export function SwipeDeleteButton')), /aria-label=\{label\}/, 'the rail’s Delete has no name');
   assert.match(SRC, /group-focus-within\/swipe:opacity-100/);
 });
 

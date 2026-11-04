@@ -410,6 +410,24 @@ export function CategoryPanel({
         )}
       </PanelFold>
 
+      {/* 📖 USUAL CHAPTERS (owner 2026-11-04, prototype "Event chapters", frame 5) — what a booking of this category
+          starts on when the couple is asked "Which chapters will they serve?". Only a prefill; they confirm. */}
+      <PanelFold id="chapters" title="Usual chapters" summary={usualChaptersSummary(category.defaultChapters)}>
+        {category.defaultChapters == null ? (
+          <p role="alert" className="text-sm text-ink">Couldn’t read the usual chapters — refresh to try again.</p>
+        ) : (
+          USUAL_CHAPTERS.map((c) => (
+            <InPlaceSwitch
+              key={c.key}
+              label={c.label}
+              on={category.defaultChapters?.includes(c.key) === true}
+              door={{ op: 'defaultChapter', categoryId: category.id, key: c.key }}
+              help={c.key === USUAL_CHAPTERS[0]!.key ? 'When a couple books one of these, “Which chapters will they serve?” starts with these ticked. They confirm.' : undefined}
+            />
+          ))
+        )}
+      </PanelFold>
+
       <PanelFold id="deadline" title="Deadline" summary={deadlineSummary(plan, documents)}>
         <DeadlineRows plan={plan} documents={documents} />
       </PanelFold>
@@ -631,4 +649,18 @@ export function ServicePanel({
       </PanelFold>
     </article>
   );
+}
+
+/** The four default chapters, in order (`DEFAULT_CHAPTER_LABELS`, lib/schedule.ts). */
+const USUAL_CHAPTERS: readonly { key: string; label: string }[] = [
+  { key: 'prep', label: 'Prep' },
+  { key: 'ceremony', label: 'Ceremony' },
+  { key: 'cocktail_reception', label: 'Cocktail + Reception' },
+  { key: 'after_party', label: 'After Party' },
+];
+
+function usualChaptersSummary(keys: readonly string[] | null | undefined): string {
+  if (keys == null) return 'Couldn’t read';
+  const words = USUAL_CHAPTERS.filter((c) => keys.includes(c.key)).map((c) => c.label);
+  return words.length === 0 ? 'None' : words.join(', ');
 }

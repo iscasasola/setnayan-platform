@@ -252,11 +252,35 @@ export function labDefaultChapters(held = false): { chapters: Chapter[]; moments
     is_public: false,
     vendor_ids: [],
   }));
+  // 🎭 `?held=1` also gives Cocktail + Reception its backstage: a setup and a pack-up line, one per supplier (frame 2).
+  if (held) {
+    const rec = ids.get('cocktail_reception')!;
+    const back = (n: number, label: string, start: string, end: string, who: string): ChapterMoment => ({
+      ...LAB_MOMENT_ROW,
+      block_id: `00000000-0000-4000-8000-0000000b000${n}`,
+      parent_block_id: rec,
+      label,
+      start_at: `${LAB_EVENT_DAY}T${start}:00.000Z`,
+      end_at: `${LAB_EVENT_DAY}T${end}:00.000Z`,
+      location: null,
+      spot: null,
+      notes: null,
+      is_public: false,
+      vendor_ids: [],
+      who,
+    });
+    moments.push(
+      back(1, 'Bituin Catering', '13:00', '15:30', 'Kitchen and buffet set-up'),
+      back(2, 'Key Designs', '13:15', '16:00', 'Florals and stage'),
+      back(3, 'Key Designs', '22:30', '23:30', 'Strike the stage'),
+    );
+  }
   const chapters: Chapter[] = built.chapters.map((c) => ({
     ...chapter(ids.get(c.key)!, c.label, '00:00', null, null, null),
     start_at: c.start_at,
     end_at: c.end_at,
     is_public: true,
+    block_type: c.block_type,
     moments: moments.filter((mo) => mo.parent_block_id === ids.get(c.key)).length,
     // 👷 The photographer is booked to every chapter but Prep; HMUA to Prep — "Suppliers in this chapter".
     vendor_ids: c.key === 'prep' ? ['v-hmua', 'v-photo'] : c.key === 'cocktail_reception' ? ['v-venue', 'v-photo'] : ['v-photo'],

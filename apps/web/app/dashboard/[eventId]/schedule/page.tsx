@@ -320,11 +320,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // See the docblock in `lib/schedule-seed.server.ts`.
   if (blocks === null) {
     return (
-      <TimelineReadProblem title="We could not load your schedule">
-        Your moments are safe. This is a problem on our side or your connection.
+      <>
+        <TimelineReadProblem title="We could not load your schedule">
+          Your moments are safe. This is a problem on our side or your connection.
+        </TimelineReadProblem>
         {/* 📅 Never kept as the no-signal copy over the last good one (`lib/offline-copies.ts` OFFLINE_COPY_UNREAD). */}
         <ScheduleSavedMarkView mark={null} busy={false} version={OFFLINE_COPY_UNREAD} />
-      </TimelineReadProblem>
+      </>
     );
   }
   let scheduleBlocks = blocks;

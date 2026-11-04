@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './strip-comments';
 import {
   VENDOR_ADDON_BAND_SKU_CODES,
   vendorAddonPriceBand,
@@ -46,8 +47,8 @@ test('3D booth and Papic Challenges are one price — the same row on both sides
 });
 
 test('🔒 no price is typed in the band module — it maps rows, the catalogue holds money', () => {
-  const src = readFileSync(fileURLToPath(new URL('./vendor-addon-tier-pricing.ts', import.meta.url)), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  const src = stripComments(
+    readFileSync(fileURLToPath(new URL('./vendor-addon-tier-pricing.ts', import.meta.url)), 'utf8'),
+  );
   assert.doesNotMatch(src, /\b\d{3,}\b/, 'a number of 3+ digits is back in the band module');
 });

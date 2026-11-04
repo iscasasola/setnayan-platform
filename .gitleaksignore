@@ -159,3 +159,9 @@ f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.t
 # introducing commit.
 118399277a6312d88f9884098254bea75e7d6366:apps/web/lib/iap/products.test.ts:generic-api-key:116
 118399277a6312d88f9884098254bea75e7d6366:apps/web/lib/iap/products.test.ts:generic-api-key:117
+#
+# The final price sheet (2026-11-04): the same pack service_code list — the migration's catalogue UPDATE filter and
+# the IAP test's list of on-sale couple products — read as a keyword + high-entropy value. Catalogue codes, not
+# credentials. Pinned for the introducing commit (gitleaks-action scans every commit in the PR range).
+d209b39a72bf3b56fb1a108fac1b04c4e724550f:supabase/migrations/20271308555594_the_final_price_sheet.sql:generic-api-key:117
+d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:generic-api-key:258

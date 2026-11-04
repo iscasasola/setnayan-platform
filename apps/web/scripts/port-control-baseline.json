@@ -1089,6 +1089,7 @@
         "[slug]/_components/when-yes-celebration.tsx",
         "[slug]/_components/you-will-be-at.tsx",
         "[slug]/_components/your-guests.tsx",
+        "[slug]/_components/your-number-card.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-schedule-card.tsx",
         "[slug]/_components/your-seat-block.tsx",
@@ -1730,6 +1731,7 @@
         "YouWillBeAt",
         "YourColours",
         "YourGuests",
+        "YourNumberCard",
         "YourOwnConsent",
         "YourOwnDay",
         "YourPhotosWidget",
@@ -3345,6 +3347,7 @@
     },
     "/admin/events/[eventId]": {
       "files": [
+        "admin/events/[eventId]/_components/supplier-scans-admin.tsx",
         "admin/events/[eventId]/page.tsx"
       ],
       "destinations": [
@@ -3359,7 +3362,8 @@
         "ConsoleTable",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "SupplierScansAdmin"
       ]
     },
     "/admin/force-majeure": {
@@ -6945,6 +6949,7 @@
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
+        "AwayCarriers",
         "CaptureBar",
         "CardBoxProps",
         "CardDoorProps",
@@ -7370,6 +7375,7 @@
     "/dashboard/[eventId]/guests/souvenirs": {
       "files": [
         "dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx",
+        "dashboard/[eventId]/guests/souvenirs/_components/supplier-scan-list.tsx",
         "dashboard/[eventId]/guests/souvenirs/actions.ts",
         "dashboard/[eventId]/guests/souvenirs/page.tsx"
       ],
@@ -7379,6 +7385,7 @@
       "actions": [],
       "blocks": [
         "HTMLVideoElement",
+        "InfoTip",
         "Link",
         "LiveRefresher",
         "MediaStream",
@@ -7386,6 +7393,7 @@
         "ReadRefusedNotice",
         "SouvenirActionResult",
         "SouvenirDesk",
+        "SupplierScanList",
         "UndoActionResult"
       ]
     },
@@ -8766,6 +8774,7 @@
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
         "SentList",
+        "SettingsRow",
         "SharePdfButton",
         "Sheet",
         "SheetChoice",
@@ -14739,6 +14748,7 @@
         "SuggestSheet",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
+        "SupplierTaskRow",
         "SupplierThumbRow",
         "TheyToldYou",
         "TimeRow",
@@ -15588,6 +15598,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/supplier-scan/supplier-scanner.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/loading.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/page.tsx"
       ],
@@ -15603,6 +15614,7 @@
         "sendStageNote"
       ],
       "blocks": [
+        "ActionButton",
         "AnnounceButton",
         "AnnouncementsCard",
         "Answer",
@@ -15658,6 +15670,7 @@
         "RequestsInbox",
         "RunOfDay",
         "RunOfShowHeader",
+        "ScanAnswer",
         "ScheduleUpdater",
         "ScriptCard",
         "SeatLookupResponse",
@@ -15672,6 +15685,7 @@
         "StageNoteCompose",
         "StageNotesCard",
         "SubmitButton",
+        "SupplierClaimScanner",
         "SupplierSavedStrip",
         "Surface",
         "SwipeToDelete",
@@ -16143,12 +16157,14 @@
         "Fragment",
         "GridCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionDraft",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",
@@ -16292,6 +16308,7 @@
         "vendor-dashboard/shop/_components/reach-map.tsx",
         "vendor-dashboard/shop/_components/request-correction-card.tsx",
         "vendor-dashboard/shop/_components/service-radius-fields.tsx",
+        "vendor-dashboard/shop/_components/service-scanner-pick.tsx",
         "vendor-dashboard/shop/_components/services-disclosure.tsx",
         "vendor-dashboard/shop/_components/shop-door-section.tsx",
         "vendor-dashboard/shop/_components/shop-gear-sections.ts",
@@ -16426,9 +16443,11 @@
         "Row",
         "RowIcon",
         "RowPreview",
+        "ScannerChoice",
         "ServiceCoverageRow",
         "ServiceRadiusFields",
         "ServiceRadiusSaveResult",
+        "ServiceScannerPick",
         "ServicesDisclosure",
         "ShopData",
         "ShopDoorSection",

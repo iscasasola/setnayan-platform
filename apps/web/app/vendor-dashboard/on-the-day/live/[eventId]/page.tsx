@@ -37,6 +37,7 @@ import { EventHubBar, EventHubCounts } from './_components/event-hub-bar';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
 import { eventHubViewOf } from '@/lib/event-hub-views';
+import { readEventScanServices } from '@/lib/supplier-scan.server';
 import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { readEventsYouRun } from '@/lib/events-you-run.server';
 import type { EventYouRun } from '@/lib/events-you-run';
@@ -312,6 +313,8 @@ export default async function VendorOnTheDayLivePage({
   ];
   const recent =
     view === 'announce' && run?.canAnnounce && announceOn ? await fetchLatestBroadcasts(supabase, eventId) : null;
+  // 🎟 The claim scanner's services (booked here, scanner ON) — asked only on the Scanner view; the database decides.
+  const scanServices = view === 'scanner' ? await readEventScanServices(supabase, eventId) : [];
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6" data-event-hub-view={view}>
@@ -329,7 +332,7 @@ export default async function VendorOnTheDayLivePage({
       </div>
 
       {view === 'scanner' ? (
-        <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} />
+        <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} scan={scanServices} />
       ) : view === 'announce' ? (
         <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
       ) : (

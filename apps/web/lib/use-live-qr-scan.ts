@@ -22,8 +22,16 @@ export const NO_CAMERA_ACCESS = 'No camera access. Check the browser’s permiss
  *
  * `onCode` is called once per DIFFERENT code in view. It decides: call `stop()`
  * when the code is the one it wanted; return to keep looking.
+ *
+ * `repeatAfterMs` (the supplier claim scanner, 2026-11-04): a desk that keeps the camera open across a queue of
+ * guests must answer the SAME code again once it has been out of mind for a moment — a guest who comes back is told
+ * "Already claimed", not met with silence. Absent = once per different code, as before.
  */
-export function useLiveQrScan(onCode: (raw: string) => void | Promise<void>) {
+export function useLiveQrScan(
+  onCode: (raw: string) => void | Promise<void>,
+  opts: { repeatAfterMs?: number } = {},
+) {
+  const repeatAfterMs = opts.repeatAfterMs ?? null;
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -32,6 +40,7 @@ export function useLiveQrScan(onCode: (raw: string) => void | Promise<void>) {
   const detectRef = useRef<((v: HTMLVideoElement) => Promise<string | null>) | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastRef = useRef<string>('');
+  const lastAtRef = useRef<number>(0);
   const onCodeRef = useRef(onCode);
   useEffect(() => {
     onCodeRef.current = onCode;
@@ -92,9 +101,15 @@ export function useLiveQrScan(onCode: (raw: string) => void | Promise<void>) {
       if (cancelled) return;
       try {
         const raw = await detect(video);
-        if (raw && raw !== lastRef.current) {
+        // "Out of mind" = not SEEN for `repeatAfterMs`: a code held in view keeps refreshing its time, so it is answered
+        // once, and again only when it comes back after a pause.
+        const again = repeatAfterMs !== null && raw === lastRef.current && Date.now() - lastAtRef.current > repeatAfterMs;
+        if (raw && (raw !== lastRef.current || again)) {
           lastRef.current = raw;
+          lastAtRef.current = Date.now();
           await onCodeRef.current(raw);
+        } else if (raw && raw === lastRef.current) {
+          lastAtRef.current = Date.now();
         }
       } catch {
         // A single bad frame is not a failure — keep scanning.
@@ -107,7 +122,7 @@ export function useLiveQrScan(onCode: (raw: string) => void | Promise<void>) {
       cancelled = true;
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [scanning]);
+  }, [scanning, repeatAfterMs]);
 
   return { scanning, cameraError, videoRef, start, stop };
 }

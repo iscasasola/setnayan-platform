@@ -1579,6 +1579,7 @@ function TablesView({
     colourgrant: 'TYPE-COLOURGRANT',
     march: 'TYPE-MARCH',
     inspirationpart: 'TYPE-INSPIRATION-PARTS',
+    supplierscan: 'TYPE-SUPPLIER-SCANS',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

@@ -20,7 +20,7 @@
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, UserRound } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
@@ -51,12 +51,15 @@ export function ViewAsMenu({
   lens,
   onLens,
   compact = false,
+  round = false,
 }: {
   input: ViewAsInput;
   lens: ViewLens;
   onLens: (l: ViewLens) => void;
   /** The Booked frame's one line: a chip-sized button that says the current view. */
   compact?: boolean;
+  /** 👤 The round button of the 4 Nov prototype (frames 1–2); the current view shows as a ring when it is not Everyone. */
+  round?: boolean;
 }) {
   const [query, setQuery] = useState('');
   // 💎 The ◆ PRO mark on the Free menu's door row — absent where no Pro is sold here (a store shell), never a lock.
@@ -76,7 +79,13 @@ export function ViewAsMenu({
       label="View as"
       value={lensKey(lens)}
       compact={compact}
-      buttonText={compact ? lensWords(input.data, lens) : undefined}
+      buttonText={compact || round ? lensWords(input.data, lens) : undefined}
+      trigger={round ? <UserRound aria-hidden className="h-5 w-5" strokeWidth={1.8} /> : undefined}
+      className={
+        round
+          ? `sn-press grid h-11 w-11 flex-none place-items-center rounded-full border text-ink ${lens.kind === 'everyone' ? 'border-ink/15' : 'border-terracotta text-terracotta'}`
+          : ''
+      }
       dataAttr="data-schedule-lens"
       options={shown}
       head={

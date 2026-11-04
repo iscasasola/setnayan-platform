@@ -14,7 +14,6 @@
  * never "try again".
  */
 import { useId, useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarClock, MoveRight, SkipForward } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -49,7 +48,6 @@ export function ChangeTheSchedule({
 }) {
   const [open, setOpen] = useState(false);
   const headingId = useId();
-  const router = useRouter();
   const [pending, start] = useTransition();
 
   const movable = useMemo(() => movableParts(parts), [parts]);
@@ -80,15 +78,14 @@ export function ChangeTheSchedule({
         setError(res.error ?? 'Nothing changed — try again.');
         return;
       }
+      // The action revalidates, so this page re-renders with the new times — no refresh of our own.
       setOpen(false);
-      if (via === 'crew') router.refresh();
       const moved = res.moved ?? [];
       pushUndo({
         label: res.message ?? 'Schedule changed',
         undo: async () => {
           const back = await floorChangeSchedule(eventId, undoOf(change, moved), via);
           if (!back.ok) guestToast.error(back.error ?? 'Couldn’t undo — change it again from the sheet.');
-          else if (via === 'crew') router.refresh();
         },
       });
     });

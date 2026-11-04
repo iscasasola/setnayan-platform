@@ -62,6 +62,13 @@ test('⓵ a move carries the picked part and every later part that has not run',
   assert.deepEqual(partsThatFollow(DAY, 'arrival'), [], 'a part that is done cannot move');
   assert.deepEqual(partsThatFollow(DAY, 'nope'), []);
   assert.deepEqual(movableParts(DAY).map((p) => p.block_id), ['ceremony', 'photos', 'dinner', 'dance']);
+  // ⏰ A Time-TBA part has no time: never offered, never moved from, never carried along by a move.
+  const tba = { ...part('reception', '16:00'), start_at: '2026-12-18T00:00:00Z', time_tba: true };
+  const withTba = [...DAY, tba];
+  assert.ok(!movableParts(withTba).some((p) => p.block_id === 'reception'));
+  assert.ok(!skippableParts(withTba).some((p) => p.block_id === 'reception'));
+  assert.deepEqual(partsThatFollow(withTba, 'reception'), []);
+  assert.ok(!partsThatFollow(withTba, 'ceremony').some((p) => p.block_id === 'reception'));
   assert.equal(moveWords(10), 'later 10 min');
   assert.equal(moveWords(-60), 'earlier 1 h');
   assert.equal(moveWords(75), 'later 1 h 15 min');

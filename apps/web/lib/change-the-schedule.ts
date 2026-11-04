@@ -18,6 +18,7 @@
  */
 import type { RunState } from './run-of-show';
 import { formatWallClock } from './schedule-datetime-local';
+import { isTimeTba } from './time-tba';
 
 /** The minutes the sheet offers — the prototype's list. One PickMenu, never a pill row. */
 export const MOVE_MINUTES: readonly number[] = [5, 10, 15, 20, 30, 45, 60];
@@ -34,6 +35,8 @@ export type ChangeablePart = {
   label: string;
   start_at: string;
   run_state: RunState;
+  /** ⏰ A Time-TBA part has no time yet (its 00:00 is a placeholder): never offered, never carried by a move. */
+  time_tba?: boolean | null;
 };
 
 /** A part that is over — it happened, or it was skipped. Neither is "next", and neither is left to do. */
@@ -58,12 +61,12 @@ function byClock<T extends ChangeablePart>(a: T, b: T): number {
 
 /** The parts the sheet offers to move: everything that has not run — the live part included (it is running late). */
 export function movableParts<T extends ChangeablePart>(blocks: readonly T[]): T[] {
-  return [...blocks].filter((b) => b.run_state === 'upcoming' || b.run_state === 'live').sort(byClock);
+  return [...blocks].filter((b) => !isTimeTba(b) && (b.run_state === 'upcoming' || b.run_state === 'live')).sort(byClock);
 }
 
 /** The parts the sheet offers to skip: only what has not started. A live part is finished with "Done · next". */
 export const skippableParts = <T extends ChangeablePart>(blocks: readonly T[]): T[] =>
-  [...blocks].filter((b) => b.run_state === 'upcoming').sort(byClock);
+  [...blocks].filter((b) => !isTimeTba(b) && b.run_state === 'upcoming').sort(byClock);
 
 /**
  * What a move of `fromId` carries: that part, and every part at or after its time that is not done. Skipped parts later
@@ -71,8 +74,9 @@ export const skippableParts = <T extends ChangeablePart>(blocks: readonly T[]): 
  */
 export function partsThatFollow<T extends ChangeablePart>(blocks: readonly T[], fromId: string): T[] {
   const from = blocks.find((b) => b.block_id === fromId);
-  if (!from || !(from.run_state === 'upcoming' || from.run_state === 'live')) return [];
+  if (!from || isTimeTba(from) || !(from.run_state === 'upcoming' || from.run_state === 'live')) return [];
   return [...blocks]
+    .filter((b) => !isTimeTba(b))
     .filter((b) => b.block_id === fromId || (b.start_at >= from.start_at && b.run_state !== 'done' && b.run_state !== 'live'))
     .sort(byClock);
 }

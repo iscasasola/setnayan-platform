@@ -2,7 +2,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
 import { logQueryError } from './supabase/error-detect';
-import { onlyTimedBlocks, onlyWhatABookedShopMaySee } from './schedule';
+import { onlyWhatABookedShopMaySee } from './schedule';
+import { isTimeTba } from './time-tba';
 import { checkRetime } from './floor-command';
 import { notifyScheduleShifted } from './schedule-shift-notify.server';
 import {
@@ -37,9 +38,9 @@ export type ChangeAnswer =
   | { ok: true; message: string; moved: readonly string[] }
   | { ok: false; error: string; locked?: string | null };
 
-type PartRow = ChangeablePart & { is_public: boolean | null; audience: string | null };
+type PartRow = ChangeablePart & { is_public: boolean | null; audience: string | null; parent_block_id: string | null };
 
-const PART_COLUMNS = 'block_id, label, start_at, run_state, is_public, audience';
+const PART_COLUMNS = 'block_id, label, start_at, run_state, time_tba, parent_block_id, is_public, audience';
 
 const NO_EDIT = 'Nothing changed — the hosts have not given you edit access to the schedule.';
 
@@ -76,14 +77,19 @@ export async function changeTheSchedule(
   // ── the parts, as this caller's own door may see them ──
   const reader = via === 'crew' ? createAdminClient() : supabase;
   const base = reader.from('event_schedule_blocks').select(PART_COLUMNS).eq('event_id', eventId);
-  const { data, error: readErr } = await onlyTimedBlocks(via === 'crew' ? onlyWhatABookedShopMaySee(base) : base);
+  const { data, error: readErr } = await (via === 'crew' ? onlyWhatABookedShopMaySee(base) : base);
   if (readErr) {
     logQueryError('changeTheSchedule.parts', readErr, { eventId, via }, 'graceful_degrade');
     return { ok: false, error: 'Couldn’t read the schedule — try again.' };
   }
-  const parts = (data ?? []) as PartRow[];
-  const part = parts.find((p) => p.block_id === change.blockId) ?? null;
+  const rows = (data ?? []) as PartRow[];
+  const part = rows.find((p) => p.block_id === change.blockId) ?? null;
   if (!part) return { ok: false, error: 'That part is no longer on the schedule.' };
+  // ⏰ A Time-TBA chapter has no time to move from (its 00:00 is a placeholder) — said, never "moved from 12:00 AM";
+  // and a TBA chapter is never carried along by a move from a timed one.
+  const fromTop = part.parent_block_id ? rows.find((b) => b.block_id === part.parent_block_id) ?? part : part;
+  if (isTimeTba(part) || isTimeTba(fromTop)) return { ok: false, error: 'That part of the day has no time yet (Time TBA) — nothing to change.' };
+  const parts = rows.filter((b) => !isTimeTba(b));
 
   // ── which rows the change touches ──
   let ids: string[];

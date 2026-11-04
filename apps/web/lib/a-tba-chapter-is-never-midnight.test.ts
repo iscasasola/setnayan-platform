@@ -220,8 +220,11 @@ test('the floor command (and every bulk retime) never shifts a TBA chapter, and 
   // From a timed chapter: the timed ones move; the TBA chapter is never in the span (also with a negative shift).
   assert.deepEqual(computeRetimePatches(rows, 'prep', 15).map((p) => p.block_id), ['prep', 'rites']);
   assert.ok(!computeRetimePatches(rows, 'prep', -15).some((p) => p.block_id === 'tba'));
-  const floor = fs.readFileSync(path.join(WEB_ROOT, 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts'), 'utf8');
+  // The floor's +N became "Change the schedule" (owner 2026-11-04); both its doors (floor + crew phone) write through
+  // `lib/change-the-schedule.server.ts`, so that is where the TBA chapter is refused — and said.
+  const floor = fs.readFileSync(path.join(WEB_ROOT, 'lib/change-the-schedule.server.ts'), 'utf8');
   assert.match(floor, /isTimeTba\(fromTop\)/, 'the floor says why a TBA chapter cannot be delayed from');
+  assert.match(floor, /\.filter\(\(b\) => !isTimeTba\(b\)\)/, 'a move from a timed part carries a TBA chapter along');
 });
 
 test("Memories' photo windows leave a TBA chapter out — it never claims the photos from midnight on", () => {

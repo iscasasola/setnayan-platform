@@ -46,7 +46,7 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
-import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark-lazy';
 import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be

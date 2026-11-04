@@ -185,7 +185,7 @@ export function PickMenu({
               style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
               data-pick-side={at.side}
               data-pick-grid={grid || undefined}
-              className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
+              className="bg-surface z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
             >
               {rows}
             </ul>,

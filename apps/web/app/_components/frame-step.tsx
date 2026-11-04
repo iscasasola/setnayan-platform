@@ -195,9 +195,23 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
           v.preload = 'auto';
           v.crossOrigin = 'anonymous';
           v.src = src;
+          // iPhone Safari ignores `preload` and fetches no frame until the clip plays or seeks:
+          // wait for its size, nudge it (a muted play is always allowed), then seek to a frame.
           await new Promise<void>((res, rej) => {
-            v.onloadeddata = () => res();
-            v.onerror = () => rej(new Error('the clip could not be read'));
+            v.onloadedmetadata = () => res();
+            v.onerror = () => rej(new Error('This clip could not be opened here.'));
+          });
+          try {
+            await v.play();
+            v.pause();
+          } catch {
+            /* a refused play still leaves the seek below to fetch a frame */
+          }
+          await new Promise<void>((res) => {
+            const done = () => res();
+            v.onseeked = done;
+            window.setTimeout(done, 3000);
+            v.currentTime = Math.min(0.05, Number.isFinite(v.duration) ? v.duration / 2 : 0.05);
           });
           if (!alive) return;
           setClipLen(Number.isFinite(v.duration) ? v.duration : 0);
@@ -370,7 +384,11 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
       f.current = zoomAbout(source.w, source.h, frameCss.w, frameCss.h, f.current, p, z);
     };
     const onDown = (e: PointerEvent) => {
-      el.setPointerCapture(e.pointerId);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* a pointer the browser no longer tracks: follow it without capture */
+      }
       pts.set(e.pointerId, local(e));
       moved = 0;
       setHintOff(true);
@@ -778,7 +796,7 @@ html.dark .fst{--fst-bg:#1C1A16;--fst-surface:#262320;--fst-ink:#F3EEE6;--fst-mu
 .fst-reopen{margin:0 16px 8px;padding:7px 12px;border-radius:10px;background:var(--fst-gold-soft);color:var(--fst-gold);font-size:12.5px;font-weight:500;line-height:1.35}
 .fst-stage{position:relative;background:#141210;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden;cursor:grab;display:flex;justify-content:center;flex:none}
 .fst-stage:active{cursor:grabbing}
-.fst-mask{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at center, transparent calc(50% - 1px), rgba(20,18,16,.62) 50%)}
+.fst-mask{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle closest-side at center, transparent calc(100% - 1px), rgba(20,18,16,.62) 100%)}
 .fst-mask::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,253,247,.85)}
 .fst-snap{position:absolute;background:#E9CF86;box-shadow:0 0 4px rgba(233,207,134,.9);pointer-events:none;display:none}
 .fst-snap.v{top:0;bottom:0;left:50%;width:1px;margin-left:-.5px}.fst-snap.h{left:0;right:0;top:50%;height:1px;margin-top:-.5px}

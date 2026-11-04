@@ -1,4 +1,9 @@
 import { SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
+import { DoorChoices } from './door-choices';
+import { doorSignInHref } from './door-choice-words';
+
+/** The listed, signed-in guest's line (owner 2026-11-03): "Not Maria? Switch account". */
+export const SWITCH_ACCOUNT_WORDS = 'Switch account';
 
 /**
  * "NOT YOU? SWITCH" — under the guest's name, for a phone a family shares
@@ -16,16 +21,38 @@ import { SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
  * 🧽 AND IT ERASES THE FACE-TAGGING SELFIE (owner 2026-09-30) — the sign-out
  * route does it. `erasesSelfie` (the guest has one) says so BEFORE the tap, in
  * the owner's words: a control that deletes something must say it first.
+ *
+ * 🚪 …AND FOR A SIGNED-IN GUEST ON THIS LIST, "NOT MARIA? SWITCH ACCOUNT" (owner 2026-11-03, DECISION_LOG "THE GUEST
+ * DOOR IS ONE BUTTON"): their invitation shows straight away (the server answered with their seat), and under the
+ * cover's button one small line opens THE SAME three choices as the signed-out door — Scan QR · Upload QR · Lost QR?
+ * Login (`DoorChoices`). `account` draws that line; nothing is signed out by drawing or opening it. A `<details>`,
+ * so it opens with no script.
  */
 export function NotYouSwitch({
   slug,
   className = '',
   erasesSelfie = false,
+  account,
 }: {
   slug: string;
   className?: string;
   erasesSelfie?: boolean;
+  /** A signed-in guest on this list: their first name ('' when the list has none — "Not you?"). */
+  account?: { firstName: string };
 }) {
+  if (account) {
+    return (
+      <details data-not-you-switch="account" className={`group mx-auto w-full max-w-md text-sm text-ink/70 ${className}`}>
+        <summary className="mx-auto flex min-h-[44px] w-fit cursor-pointer list-none items-center justify-center gap-1 [&::-webkit-details-marker]:hidden">
+          Not {account.firstName || 'you'}?{' '}
+          <span className="font-medium text-ink underline underline-offset-4">{SWITCH_ACCOUNT_WORDS}</span>
+        </summary>
+        <div className="mt-3">
+          <DoorChoices slug={slug} signIn={doorSignInHref(slug)} />
+        </div>
+      </details>
+    );
+  }
   return (
     <form method="post" action={`/${slug}/sign-out`} className={`text-sm text-ink/70 ${className}`}>
       Not you?{' '}

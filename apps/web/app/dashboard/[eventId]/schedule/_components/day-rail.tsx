@@ -1263,7 +1263,7 @@ export function ScheduleDay({
             <ul data-chapters-tba="" className="ml-[54px] border-t border-ink/10 lg:ml-16 lg:max-w-[720px]">
               {tbaChapters.map((m) => (
                 <li key={m.block_id} className="border-b border-ink/10">
-                  <SwipeToDelete label={`Delete ${m.label}`} enabled={Boolean(ch) && canEdit} onDelete={() => ch?.askDelete(m.block_id)}>
+                  <SwipeToDelete label={`Delete ${m.label}`} disabled={!(Boolean(ch) && canEdit)} hover={Boolean(ch) && canEdit} radiusClass="" onDelete={(close) => { close(); ch?.askDelete(m.block_id); }}>
                   <button
                     type="button"
                     data-chapter-tba={m.block_id}

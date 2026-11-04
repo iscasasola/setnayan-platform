@@ -180,12 +180,18 @@ test('2 · a named +1 never shows Release seat; every seat with no name yet does
   const rowOf = (id: string) => {
     const at = html.indexOf(`data-guest-id="${id}"`);
     assert.ok(at > 0, `row ${id} is not drawn (the probe would pass vacuously)`);
-    const next = html.indexOf('data-guest-row=""', at + 10);
-    return html.slice(at, next > 0 ? next : undefined);
+    // 👈 The row's whole swipe (owner 2026-11-03): its revealed Delete / Release sits just before the row, its hover one after.
+    const swipe = html.lastIndexOf('data-swipe-row=""', at);
+    const prevRow = html.lastIndexOf('data-guest-row=""', html.lastIndexOf('data-guest-row=""', at) - 1);
+    const from = swipe > prevRow ? swipe : at;
+    const next = html.indexOf('data-swipe-row=""', at);
+    const nextRow = html.indexOf('data-guest-row=""', at + 10);
+    const end = [next, nextRow].filter((i) => i > 0);
+    return html.slice(from, end.length ? Math.min(...end) : undefined);
   };
   assert.match(rowOf('h-1'), /aria-label="Release [^"]*"[^>]*>[\s\S]*?Release seat/, 'the seat with no name yet has no Release seat');
   assert.doesNotMatch(rowOf('h-2'), /Release seat|aria-label="Release /, 'a named +1 shows Release seat');
-  assert.match(rowOf('h-2'), /aria-label="Delete /, 'a named +1 lost the shipped remove (its row button reads Delete since 2026-10-27)');
+  assert.match(rowOf('h-2'), /aria-label="Delete /, 'a named +1 lost the shipped remove (its swipe Delete since 2026-11-03)');
 });
 
 /* ── 3–5 · the server action, over the in-memory database ─────────────────────────────────────────────────────── */

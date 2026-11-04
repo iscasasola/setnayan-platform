@@ -28,7 +28,10 @@ export function LabScheduleChapters({
   free = false,
   asks = false,
   defaults = false,
+  held = false,
 }: {
+  /** `?held=1`: 🏛 with `?defaults=1`, Blue Leaf holds Cocktail + Reception's hours. */
+  held?: boolean;
   /** `?defaults=1`: 📖 a NEW wedding's four default chapters, as the seed writes them (2026-11-03). */
   defaults?: boolean;
   empty: boolean;
@@ -46,7 +49,7 @@ export function LabScheduleChapters({
   asks?: boolean | 'fail';
 }) {
   const [mounted, setMounted] = useState(false);
-  const [fresh] = useState(labDefaultChapters);
+  const [fresh] = useState(() => labDefaultChapters(held));
   useEffect(() => setMounted(true), []);
   const input: ChaptersInput = fail
     ? { measured: false }

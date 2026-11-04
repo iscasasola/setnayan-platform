@@ -811,7 +811,9 @@ button.pinCount:disabled {
 .accSec {
   border-top: 0;
 }
-.accSec > .fold > div > .g:first-child {
+.accSec > .fold > div > .g:first-child,
+/* 👈 …and when that first row sits in its swipe (`SwipeToDelete`, owner 2026-11-03). */
+.accSec > .fold > div > :global([data-swipe-row]):first-child .g {
   border-top: 0;
 }
 .barWrap {

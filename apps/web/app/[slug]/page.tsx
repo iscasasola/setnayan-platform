@@ -2564,6 +2564,14 @@ async function invitationBody({
       <SiteBody
         {...siteProps}
         invitationChapters={guestChapters}
+        /* 🚪 SIGNED IN AND ON THIS LIST (owner 2026-11-03): no door — the server answered with their seat and this is
+           their invitation — plus "Not [first name]? Switch account" under the cover's button. Only when the signed-in
+           account's OWN seat is the guest drawn (a pass held for somebody else has its own line, `heldPassNode`). */
+        switchAccountName={
+          viewerAccount?.id && viewerSeat?.guestId === guest.guest_id && !isEditorCanvas
+            ? (guest.first_name ?? '').trim().split(/\s+/)[0] ?? ''
+            : null
+        }
         chapterReplies={chapterReplies}
         removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}

@@ -26,7 +26,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
 export default async function ChaptersLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string; defaults?: string }>;
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string; defaults?: string; held?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -36,7 +36,7 @@ export default async function ChaptersLabPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} held={q.held === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

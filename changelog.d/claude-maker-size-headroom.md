@@ -20,4 +20,11 @@ sign-in still creates the client before it starts the loopback.
 headroom) → after 453.0 KB / 47 chunks (**54.5 KB headroom**). Shared client bundle (`check-bundle-size.mjs`) still
 within its 202 KB lock (14 B to spare locally — that ceiling is tight on `main` independently of this change).
 
+**The shared bundle paid for it in the webpack runtime (merge with `main`, 2026-11-04).** Every lazy chunk is one
+more entry in the runtime's chunk-name map, which loads on every page: the client's three new lazy chunks added 42 B
+gzipped, and with `main` sitting ~26 B under its 202 KB lock the shared total read 206,864 B against 206,848 B — 16 B
+over (`check-bundle-size.mjs`). The fix is the lever `next.config.ts` already documents for this map: chunk hashes go
+from 10 to 9 hex (36 bits; the service worker needs ≥ 8). Runtime 4,999 → 4,860 B gzipped (−139 B), so the shared
+bundle sits ~123 B under the lock. The lock itself is unchanged.
+
 SPEC IMPACT: None — no budget, price or decision changed; the Maker budget's ceiling and comment are untouched.

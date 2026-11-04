@@ -46,7 +46,7 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
-import { ScheduleSavedMark, ScheduleSavedMarkView } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
@@ -320,13 +320,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // See the docblock in `lib/schedule-seed.server.ts`.
   if (blocks === null) {
     return (
-      <>
-        <TimelineReadProblem title="We could not load your schedule">
-          Your moments are safe. This is a problem on our side or your connection.
-        </TimelineReadProblem>
+      <TimelineReadProblem title="We could not load your schedule">
+        Your moments are safe. This is a problem on our side or your connection.
         {/* 📅 Never kept as the no-signal copy over the last good one (`lib/offline-copies.ts` OFFLINE_COPY_UNREAD). */}
-        <ScheduleSavedMarkView mark={null} busy={false} version={OFFLINE_COPY_UNREAD} />
-      </>
+        <span hidden data-sn-copy-version={OFFLINE_COPY_UNREAD} />
+      </TimelineReadProblem>
     );
   }
   let scheduleBlocks = blocks;

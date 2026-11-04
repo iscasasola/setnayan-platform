@@ -18,9 +18,7 @@ import { CheckinDesk, type DeskGuest } from '@/app/dashboard/[eventId]/guests/ch
 import { ReadyForNoSignalView, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
 import { SupplierSavedStripView } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { ScheduleSavedMarkView } from '@/app/_components/offline-ready/schedule-saved-mark';
-import { YourScheduleCard } from '@/app/[slug]/_components/your-schedule-card';
-import { labYourSchedule } from '@/app/dev/me-lab/lab-your-schedule';
-import { copyVersionOf, savedMark, type SavedPhase } from '@/lib/offline-copies';
+import { savedMark, type SavedPhase } from '@/lib/offline-copies';
 import type { CheckinNote } from '@/lib/offline/checkin-queue';
 
 const E = '0e0e0e0e-0000-4000-8000-000000000001';
@@ -77,7 +75,31 @@ function stubQueue(desk: string | undefined) {
   };
 }
 
-export function OfflineLab({ state, browser, desk, schedule }: { state?: string; browser?: string; desk?: string; schedule?: string }) {
+/**
+ * 📅 The "Your schedule" saved mark in each lab state (`&schedule=1`, drawn by `offline-schedule-lab.tsx`). Client-only
+ * because the clock is the browser's; the card around it is drawn on the server, so the lab adds no schedule code to
+ * any page's client bundle.
+ */
+export function LabScheduleMark({ state, version, className = '' }: { state?: string; version: string; className?: string }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  if (now === null) return <ScheduleSavedMarkView mark={null} busy={false} version={version} />;
+  const phase: SavedPhase = state === 'failed' ? 'failed' : state === 'saving' ? 'saving' : state === 'none' ? 'none' : 'saved';
+  const savedAt = state === 'none' ? null : state === 'amber' ? now - 9 * HOUR : now - 40 * 60_000;
+  // No signal: the page on screen IS the copy (the worker opened it) — the mark names which copy.
+  const mark = savedMark({
+    phase,
+    savedAt,
+    now,
+    online: state !== 'nosignal',
+    eventDay: true,
+    stale: state === 'stale',
+    onCopy: state === 'nosignal' ? savedAt : null,
+  });
+  return <ScheduleSavedMarkView mark={mark} busy={state === 'saving'} version={version} className={className} />;
+}
+
+export function OfflineLab({ state, browser, desk }: { state?: string; browser?: string; desk?: string }) {
   // The clock is read in the browser only — a server and a phone a few seconds apart would draw different times.
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
@@ -89,37 +111,6 @@ export function OfflineLab({ state, browser, desk, schedule }: { state?: string;
   const phase: SavedPhase = state === 'failed' ? 'failed' : state === 'saving' ? 'saving' : state === 'none' ? 'none' : state === 'unsupported' ? 'unsupported' : 'saved';
   const savedAt = state === 'none' || state === 'unsupported' ? null : state === 'amber' ? now - 9 * HOUR : now - 40 * 60_000;
   const mark = savedMark({ phase, savedAt, now, online: state !== 'nosignal', eventDay: true, stale: state === 'stale' });
-  if (schedule === '1') {
-    // 📅 No signal: the page on screen IS the copy (the worker opened it) — the mark names which copy.
-    const scheduleMark = savedMark({
-      phase,
-      savedAt,
-      now,
-      online: state !== 'nosignal',
-      eventDay: true,
-      stale: state === 'stale',
-      onCopy: state === 'nosignal' ? savedAt : null,
-    });
-    // After Release the guest sees their full day; the stale frame shows the page drawn after Release over the old copy.
-    const read = labYourSchedule({ schedule: 'bridesmaid', released: '1' });
-    return (
-      <div className="mx-auto min-h-screen w-full max-w-xl space-y-8 bg-cream px-4 pb-28 pt-4" data-lab-offline="" data-lab-schedule="">
-        <section aria-label="Guest · Event Hub › Me">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Guest · Event Hub › Me · Your schedule</p>
-          <YourScheduleCard
-            read={read}
-            eventName="Ana & Ben"
-            saved={<ScheduleSavedMarkView mark={scheduleMark} busy={state === 'saving'} version={read?.kind === 'ok' ? copyVersionOf(read.schedule) : 'unread'} />}
-          />
-        </section>
-        <section aria-label="Supplier · Customer › Schedule" className="border-t border-ink/10 pt-6">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">Supplier · Host / MC · Customer › Schedule</p>
-          <ScheduleSavedMarkView mark={scheduleMark} busy={state === 'saving'} version="lab" className="mb-3" />
-          <p className="text-sm text-ink/60">The supplier&rsquo;s Schedule tab draws here, unchanged.</p>
-        </section>
-      </div>
-    );
-  }
   const installed = browser !== '1';
   const canUpdate = state !== 'saving' && state !== 'nosignal' && state !== 'unsupported';
   const rows: ReadyRow[] = [

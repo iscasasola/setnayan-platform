@@ -17,14 +17,14 @@
  *      "Remove it from this browser" (the POST to `/<slug>/sign-out`, every guest sign-out door) deletes that event's.
  *   4. SMALL. Four pages per event at most; no photos or albums are kept by this cache.
  *
- * `public/sw.js` cannot import this file, so it holds a COPY of `isOfflineCopyPath` / `offlineCopyEventId`;
+ * `public/sw.js` cannot import this file, so it holds a COPY of `isOfflineCopyPath` / `offlineCopyEventId` (those two live
+ * in `./offline-copy-addresses.ts`);
  * `app/sw-offline-copies.test.ts` runs both over one table and fails if they ever disagree.
  *
  * PURE — no I/O. Client-safe.
  */
 
 import { AUTH_COOKIE } from '@/lib/last-seen/wipe';
-import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 
 /** The Cache Storage name. NOT tied to the deploy VERSION in sw.js: a deploy must not erase a venue's copy. */
 export const OFFLINE_COPIES_CACHE = 'setnayan-offline-pages-v1';
@@ -86,28 +86,11 @@ export const OFFLINE_COPY_SHAPES = [
   /^\/([a-z0-9-]{3,32})\?tab=me$/,
 ] as const;
 
-/** The guest's Me shape — its one capture is a slug, which must not be a reserved word (`lib/reserved-slugs.ts`). */
-const GUEST_ME_SHAPE = OFFLINE_COPY_SHAPES[6];
-
-/** True when `path` (a pathname, plus the query where the shape has one) is one of the shapes. */
-export function isOfflineCopyPath(path: string): boolean {
-  return offlineCopyEventId(path) !== undefined;
-}
-
 /**
- * The event a path belongs to — its event segment (a guest's Me: its slug) — or `null` for the supplier Hub, which is
- * the supplier's own page (it names no event, and it is kept under whichever event saved it). `undefined` = not a copy
- * path at all.
+ * `isOfflineCopyPath` / `offlineCopyEventId` / `guestMePath` live in `./offline-copy-addresses.ts`: the guest's shape
+ * asks the reserved-word list (`lib/reserved-slugs.ts`), which only the server and the tests need — kept out of this
+ * module so no page's client code carries it (the shared bundle has bytes, not kilobytes, of room).
  */
-export function offlineCopyEventId(path: string): string | null | undefined {
-  for (const re of OFFLINE_COPY_SHAPES) {
-    const m = re.exec(path);
-    if (!m) continue;
-    if (re === GUEST_ME_SHAPE && RESERVED_SLUGS.has(m[1] ?? '')) return undefined;
-    return m[1] ?? null;
-  }
-  return undefined;
-}
 
 /** 📅 The coordinator's own day: the event's Schedule. */
 export function coordinatorSchedulePath(eventId: string): string | null {
@@ -117,13 +100,6 @@ export function coordinatorSchedulePath(eventId: string): string | null {
 /** 📅 The supplier's own day (a Host/MC's too): Customer › Schedule. */
 export function supplierSchedulePath(eventId: string): string | null {
   return EVENT_ID.test(eventId) ? `/vendor-dashboard/clients/${eventId}?tab=schedule` : null;
-}
-
-/** 📅 The guest's own day: Event Hub › Me. Its key in the registry is the slug (lower-case). */
-export function guestMePath(slug: string): string | null {
-  const s = slug.trim().toLowerCase();
-  const path = `/${s}?tab=me`;
-  return offlineCopyEventId(path) === s ? path : null;
 }
 
 /**

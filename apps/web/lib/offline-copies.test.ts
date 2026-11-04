@@ -12,9 +12,6 @@ import {
   coordinatorSchedulePath,
   copyVersionIn,
   copyVersionOf,
-  guestMePath,
-  isOfflineCopyPath,
-  offlineCopyEventId,
   offlineEventDay,
   staleFor,
   supplierSchedulePath,
@@ -26,6 +23,7 @@ import {
   supplierOfflinePaths,
   type SavedPhase,
 } from './offline-copies';
+import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from './offline-copy-addresses';
 import { labYourSchedule } from '@/app/dev/me-lab/lab-your-schedule';
 
 const E = '0e0e0e0e-0000-4000-8000-000000000001';

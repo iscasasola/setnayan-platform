@@ -29,15 +29,13 @@ import {
   OFFLINE_COPY_UNREAD,
   OFFLINE_REGISTRY_PATH,
   coordinatorSchedulePath,
-  guestMePath,
-  isOfflineCopyPath,
-  offlineCopyEventId,
   parseOfflineRegistry,
   savedAtFor,
   savedMark,
   staleFor,
   supplierSchedulePath,
 } from '@/lib/offline-copies';
+import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from '@/lib/offline-copy-addresses';
 
 const SW_FILE = process.env.SW_OFFLINE_FROM || path.join(import.meta.dirname, '..', 'public', 'sw.js');
 const HOOK = path.join(import.meta.dirname, '_components', 'offline-ready', 'use-offline-copy.ts');

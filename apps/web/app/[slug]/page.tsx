@@ -5,7 +5,8 @@ import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.se
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
-import { OFFLINE_COPY_UNREAD, copyVersionOf, guestMePath } from '@/lib/offline-copies';
+import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
+import { guestMePath } from '@/lib/offline-copy-addresses';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';

@@ -144,6 +144,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { OfflineScheduleLab } from './offline-schedule-lab';
 import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
 import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
@@ -533,7 +534,8 @@ export default async function HomeLab({
   }
   if (q.view === 'offline') {
     /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
-    return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} schedule={q.schedule} />;
+    if (q.schedule === '1') return <OfflineScheduleLab state={q.state} />;
+    return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
   }
   if (q.view === 'day') {
     /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */

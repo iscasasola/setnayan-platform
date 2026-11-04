@@ -137,7 +137,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     table: 'communities',
     decision: 'excluded',
     why:
-      'The samahan GROUP itself — its name, description and photo. `created_by` only stamps who started it; every ' +
+      'The GROUP itself — its name, description and photo. `created_by` only stamps who started it; every ' +
       'member reads and may edit the row, so it is the group\'s shared record, not the founder\'s (same call as ' +
       'event_wish_items). The subject\'s own membership, with the group\'s name, is exported as samahan_memberships.',
   },
@@ -145,7 +145,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     table: 'live_studio_highlights',
     decision: 'excluded',
     why:
-      'A moment marked on an EVENT\'s Live Studio recording. `created_by` stamps which host or operator pressed ' +
+      'A moment marked on an EVENT\'s Live Watch recording. `created_by` stamps which host or operator pressed ' +
       'the button; the row is the event\'s bookmark on its own footage, the same way an event_schedule_tasks row ' +
       'is the event\'s run of show. The subject\'s membership of that event is exported.',
   },

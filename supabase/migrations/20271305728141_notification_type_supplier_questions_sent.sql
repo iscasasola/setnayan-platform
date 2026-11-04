@@ -1,0 +1,21 @@
+-- notification_type_supplier_questions_sent
+-- ============================================================================
+-- ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (owner 2026-11-04, verbatim
+-- "Yes, every supplier"; DECISION_LOG "QUESTIONS FOR THE COUPLE — EVERY
+-- SUPPLIER, NOT HOSTS ONLY").
+--
+-- `supplier_questions_sent` → each host (event_members.member_type = 'couple')
+-- of an event a supplier sent their question set into, from the chat's ＋
+-- ("Questions for the couple"). Sent by
+-- apps/web/app/vendor-dashboard/messages/[threadId]/questions-actions.ts.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it. Same shape as
+-- 20271304032942_notification_type_papic_originals_reminder.sql.
+--
+-- ⛔ IN-APP ONLY. Not on the email allowlist (lib/notification-emit.ts) — no
+-- new emails without the owner's word.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_questions_sent';

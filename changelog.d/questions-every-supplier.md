@@ -1,0 +1,34 @@
+## 2026-11-04 · feat(questions): Questions for the couple opens to every supplier — not hosts only
+
+Owner ruling 2026-11-04, verbatim "Yes, every supplier" (corpus `DECISION_LOG.md`, "QUESTIONS FOR THE COUPLE — EVERY
+SUPPLIER, NOT HOSTS ONLY"). The feature shipped (DAY-7) for the host/MC; the schema was never host-only — the gate was
+in the app. Widened:
+
+- **Supplier writes their set** where they always did (`/vendor-dashboard/activities#questions`), now with its own
+  doorway for every shop (Shop tools · Settings › More tools: "Questions for the couple"). Starting suggestions follow
+  the shop's TRADE: the shop's services → tiles through the LIVE taxonomy (`getTaxonomy()`, Admin › Categories),
+  `STARTERS_BY_TILE` in `lib/emcee-questions.ts` — the emcee set for `host_mc`, short sets for coordinator ·
+  stylist_decorator · catering · photo_video, a generic fallback. None asks venue, date, headcount or names. Saves land
+  in place (no redirect back to the page).
+- **Chat ＋ › "Their event · for your service" › Questions for the couple** ("Your question set · they answer in their
+  event") — the ONE approved row of that prototype group, shut with "Opens once they book you" until a booking
+  (DECISION_LOG: sent "into a booked event"). Its panel shows the set and where it stands (not sent · sent
+  on … · N of M answered) and sends it into the event: records the ask (`event_question_requests`), posts one line in
+  the conversation as the supplier, and tells each host IN THE APP (`supplier_questions_sent`, not on the email
+  allowlist).
+- **The couple answers in that supplier's room** (`/dashboard/[eventId]/vendors/[vendorId]/workspace`, Details tab,
+  "{Shop} asks") — shown when the supplier asks something AND is booked (settled) or sent their set. Two hosts never
+  overwrite each other (`base:` boxes); only that supplier's questions are written from that form. The host's own copy
+  on the Schedule's Host / MC sheet is unchanged.
+- **The supplier reads the answers on that customer's card** — the host in the Script tab as before; every other trade
+  on Details (flag-on) / the overview (flag-off). One shared renderer (`couple-answers.tsx`).
+- Migrations: `20271305728141_notification_type_supplier_questions_sent` (enum value, own file) and
+  `20271306062544_questions_every_supplier` (`event_question_requests`, RLS at create: own row only, only into an event
+  with a conversation, no DELETE; plus `event_question_answers_asked_vendor_select` — asked AND own question).
+- Guards: `lib/questions-for-every-supplier.test.ts` (the gate is not host-only, the row exists and is open before a
+  booking, in-app only), `tests/db/questions-every-supplier.db.test.ts`. Lab: `/dev/questions-lab`, and the panel in
+  `/dev/supplier-chat-lab`.
+
+SPEC IMPACT: `Emcee_Script_System_BUILD_SPEC_2026-07-29.md` § 8 (the questionnaire) now applies to every supplier: the
+couple answers non-host suppliers in that supplier's workspace (Details), and a supplier may send the set from the chat
+before a booking. Decision already recorded in `DECISION_LOG.md` (2026-11-04).

@@ -72,6 +72,131 @@ export const STARTER_QUESTIONS: ReadonlyArray<{ prompt: string; hint: string }> 
   },
 ];
 
+export type StarterQuestion = { prompt: string; hint: string };
+
+/**
+ * ❓ EVERY SUPPLIER ASKS (owner 2026-11-04, verbatim "Yes, every supplier";
+ * DECISION_LOG "QUESTIONS FOR THE COUPLE — EVERY SUPPLIER, NOT HOSTS ONLY").
+ *
+ * Short starting sets per TRADE, keyed by the taxonomy's TILE key — the same
+ * `WeddingTile` the code already uses everywhere (`host_mc`, `catering`…). The
+ * shop's own services are resolved to tiles through the LIVE taxonomy
+ * (`getTaxonomy()`, Admin › Categories is the one source) by the caller; this
+ * file holds no copy of the taxonomy, only which set a tile starts from.
+ *
+ * Same rule as the host's set: only ask what the app cannot know. Never venue,
+ * date, headcount or names-of-the-couple — the event already carries those.
+ */
+const COORDINATOR_STARTERS: ReadonlyArray<StarterQuestion> = [
+  {
+    prompt: 'Who are our two contact people on the day, and how do we reach them?',
+    hint: 'Someone who is not the two of you — a sibling, a cousin, a best friend.',
+  },
+  {
+    prompt: 'Is there anything about family we should handle quietly?',
+    hint: 'Who should not sit together, a parent who must be fetched, someone unwell. Only we read this.',
+  },
+  {
+    prompt: 'Which moments must not be missed or rushed?',
+    hint: 'A dance, a surprise, a prayer, a gift from your lola.',
+  },
+];
+
+const STYLIST_STARTERS: ReadonlyArray<StarterQuestion> = [
+  {
+    prompt: 'Which colours do you love — and any you never want to see?',
+    hint: 'Name them, or say "like the photos on our mood board".',
+  },
+  {
+    prompt: 'Any flowers or materials you love, or must avoid?',
+    hint: 'Allergies, a flower with a meaning, no fresh flowers at all.',
+  },
+  {
+    prompt: 'Who signs off on the setup on the day?',
+    hint: 'The person we show the finished room to before the doors open.',
+  },
+];
+
+const CATERER_STARTERS: ReadonlyArray<StarterQuestion> = [
+  {
+    prompt: 'Any allergies or dishes some guests cannot eat?',
+    hint: 'Halal, no pork, vegetarian, nut or seafood allergies — how many, roughly.',
+  },
+  {
+    prompt: 'Is there a family dish or flavour you want on the table?',
+    hint: 'Your lola’s recipe, a dish from home, a dessert that means something.',
+  },
+  {
+    prompt: 'Who should be served first, or served at their table?',
+    hint: 'Elders, sponsors, a guest who cannot queue.',
+  },
+];
+
+const PHOTO_VIDEO_STARTERS: ReadonlyArray<StarterQuestion> = [
+  {
+    prompt: 'Which people must be in the photos together?',
+    hint: 'Family groupings, barkada, a grandparent who may leave early.',
+  },
+  {
+    prompt: 'Any moment or detail you want us to catch?',
+    hint: 'A letter, a ring, a surprise, the view from a window.',
+  },
+  {
+    prompt: 'Is there anyone or anything we should NOT photograph?',
+    hint: 'A guest who asked not to be posted, a private moment. Only we read this.',
+  },
+];
+
+/** Any trade without its own set starts here. */
+export const GENERIC_STARTERS: ReadonlyArray<StarterQuestion> = [
+  {
+    prompt: 'What matters most to you about our part of the day?',
+    hint: 'In your own words — what would make you say "that was perfect".',
+  },
+  {
+    prompt: 'Is there anything we should know before we plan?',
+    hint: 'A family situation, an accessibility need, a surprise being kept.',
+  },
+  {
+    prompt: 'Who should we talk to on the day if you are busy?',
+    hint: 'Their name and how they are related to you.',
+  },
+];
+
+/**
+ * Tile key → its starting set. Keys are taxonomy TILE keys; a tile not named
+ * here falls back to {@link GENERIC_STARTERS}. `host_mc` keeps the emcee set.
+ */
+export const STARTERS_BY_TILE: Readonly<Record<string, ReadonlyArray<StarterQuestion>>> = {
+  host_mc: STARTER_QUESTIONS,
+  coordinator: COORDINATOR_STARTERS,
+  stylist_decorator: STYLIST_STARTERS,
+  catering: CATERER_STARTERS,
+  photo_video: PHOTO_VIDEO_STARTERS,
+};
+
+/**
+ * The starting suggestions for a shop, from the tiles its services sit under
+ * (resolved by the caller through the live taxonomy). A shop in several trades
+ * gets each trade's set, in the shop's own order, without repeats; a shop in no
+ * named trade gets the generic set. Pure.
+ */
+export function startersForTiles(tiles: readonly (string | null | undefined)[]): StarterQuestion[] {
+  const out: StarterQuestion[] = [];
+  const seen = new Set<string>();
+  for (const tile of tiles) {
+    const set = tile ? STARTERS_BY_TILE[tile] : undefined;
+    if (!set) continue;
+    for (const s of set) {
+      const key = normalise(s.prompt);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+  }
+  return out.length > 0 ? out : [...GENERIC_STARTERS];
+}
+
 /** The questions he still asks, in his order. Retired ones are kept, not asked. */
 export function askedQuestions(all: readonly VendorQuestion[]): VendorQuestion[] {
   return all
@@ -90,9 +215,10 @@ function normalise(prompt: string): string {
  */
 export function startersNotYetAdded(
   all: readonly VendorQuestion[],
+  starters: ReadonlyArray<StarterQuestion> = STARTER_QUESTIONS,
 ): Array<{ prompt: string; hint: string }> {
   const have = new Set(all.map((q) => normalise(q.prompt)));
-  return STARTER_QUESTIONS.filter((s) => !have.has(normalise(s.prompt)));
+  return starters.filter((s) => !have.has(normalise(s.prompt)));
 }
 
 export type QuestionnaireRow = {

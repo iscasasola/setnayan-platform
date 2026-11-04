@@ -58,7 +58,9 @@ test('More tools is the shelves, minus Team, plus Manpower and (web only) Deep S
   assert.ok(!tools.includes('/vendor-dashboard/team'), 'Team is doubled — Helpers is its own Settings row');
   assert.ok(tools.includes('/vendor-dashboard/shop?open=manpower#shop-folds'));
   assert.ok(tools.includes('/vendor-dashboard/deep-search'));
-  assert.equal(tools.length, 15, 'the prototype’s fifteen, with every grant');
+  // 16 = the prototype's fifteen + "Questions for the couple" (owner 2026-11-04, "Yes, every supplier": every trade
+  // writes a question set, so every shop gets the doorway — `lib/questions-for-every-supplier.test.ts`).
+  assert.equal(tools.length, 16, 'the prototype’s fifteen + Questions for the couple, with every grant');
   assert.ok(!all({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: true }).includes('/vendor-dashboard/deep-search'));
 });
 

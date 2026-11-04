@@ -9,6 +9,7 @@ import {
   CalendarClock,
   CalendarPlus,
   ChevronRight,
+  ListChecks,
   Flag,
   Handshake,
   Paperclip,
@@ -66,6 +67,7 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
   guests: Users,
   outcome: Star,
   problem: Flag,
+  questions: ListChecks,
 };
 
 /** Each off-screen destination, written out where `lint-port-no-lost-controls` reads this route's doors. */

@@ -7,7 +7,9 @@
  * "free 50" portfolio photos for every shop (more is Papic credits, Phase 2), couples per date the same on every plan.
  *
  * Each block pins a PROPERTY of the plan table or of the code that enforces it — never a sentence of copy:
- *   1 · no tier has fewer than MIN_SERVICES_PER_LEAF service cards per category;
+ *   1 · SUPERSEDED 2026-11-04 — service cards per category are a plan allowance again (owner, "SUPPLIER PLAN
+ *       ALLOWANCES": "service cards free 1, solo 3, pro 10, ultra unlimited"); the block now pins those rungs and that
+ *       every plan may still put up at least one card in a category it covers (a booking needs a card);
  *   2 · no tier carries a per-day booking limit or a weekly answering limit — and NO shipped code reads either cap to
  *       refuse anything (the readers are named below, each one display-only);
  *   3 · the portfolio base is PORTFOLIO_FREE_BASE on every tier, it is grandfathered (stored photos always survive),
@@ -25,7 +27,6 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
 import {
-  MIN_SERVICES_PER_LEAF,
   PORTFOLIO_FREE_BASE,
   PORTFOLIO_OVER_BASE_MESSAGE,
   portfolioOverCapMessage,
@@ -67,22 +68,19 @@ function readersOf(key: string): string[] {
     .sort();
 }
 
-// ── 1 · at least three service cards per category ─────────────────────────────
+// ── 1 · service cards per category, by plan (owner 2026-11-04) ─────────────────
 
-test('1 · no tier has fewer than three service cards per category', () => {
-  assert.equal(MIN_SERVICES_PER_LEAF, 3, 'owner: "let them create at least 3 per category"');
+test('1 · every plan can put up a card in each category it covers; the rungs are the owner\'s', () => {
+  // Owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES", verbatim: "service cards free 1, solo 3, pro 10, ultra
+  // unlimited" — supersedes the 2026-10-23 "at least 3 per category" for Free·Verified.
   for (const t of VENDOR_TIERS) {
-    assert.ok(
-      TIER_CAPS[t].servicesPerLeaf >= MIN_SERVICES_PER_LEAF,
-      `${t} allows ${TIER_CAPS[t].servicesPerLeaf} per category — below the every-plan minimum of ${MIN_SERVICES_PER_LEAF}`,
-    );
+    assert.ok(TIER_CAPS[t].servicesPerLeaf >= 1, `${t} allows ${TIER_CAPS[t].servicesPerLeaf} per category — a shop could not be booked at all`);
   }
-  // The rungs the ruling named (Free 3 · Verified 3 · Solo 3 · Pro 5 · Ultra unlimited).
-  assert.equal(TIER_CAPS.free.servicesPerLeaf, 3);
-  assert.equal(TIER_CAPS.verified.servicesPerLeaf, 3);
+  assert.equal(TIER_CAPS.free.servicesPerLeaf, 1);
+  assert.equal(TIER_CAPS.verified.servicesPerLeaf, 1);
   assert.equal(TIER_CAPS.solo.servicesPerLeaf, 3);
-  assert.equal(TIER_CAPS.pro.servicesPerLeaf, 5);
-  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, Infinity);
+  assert.equal(TIER_CAPS.pro.servicesPerLeaf, 10);
+  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 25); // Ultra trimmed 2026-11-04 (was unlimited)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────

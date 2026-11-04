@@ -1,3 +1,5 @@
+import { FramedImg } from './framed-img';
+
 /**
  * The shop avatar — ONE shared rule for every surface that shows a vendor's
  * identity tile (owner 2026-07-02: "the logo will also replace the logo on the
@@ -33,8 +35,8 @@ export function VendorAvatar({
       >
         {/* Presigned R2 URL — next/image can't optimize short-lived signed
             URLs, so this follows the FileUpload thumbnail pattern. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+        {/* The logo's own circle framing (Frame step), when it has one; else the centre crop as before. */}
+        <FramedImg src={logoUrl} shape="circle" aspect={1} />
       </span>
     );
   }

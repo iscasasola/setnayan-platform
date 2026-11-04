@@ -1301,6 +1301,8 @@ function AddServiceForm({
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           mark="supplier"
+          frame="square"
+          previews="service-card"
           compressImage
           variant="square"
         />

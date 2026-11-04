@@ -145,6 +145,8 @@ export function ShowcaseMediaFields({
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         mark="supplier"
+        frame="square"
+        previews="service-card"
         compressImage
         qrGuard
         variant="gallery"
@@ -161,6 +163,8 @@ export function ShowcaseMediaFields({
         maxSizeMB={200}
         acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
         mark="supplier"
+        frame="square"
+        previews="service-video"
         compressVideo
         maxVideoDurationS={SHOWCASE_VIDEO_MAX_SECONDS}
         validateFile={validateVideo}

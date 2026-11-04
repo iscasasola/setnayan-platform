@@ -52,7 +52,7 @@ export async function getPhotoMark(kind: 'supplier' | 'setnayan', pathPrefix: st
       const bytes = await shopLogoBytes(facts.logoRef);
       if (bytes) {
         const { logoCoinPng } = await import('@/lib/photo-mark-server');
-        const png = await logoCoinPng(bytes);
+        const png = await logoCoinPng(bytes, facts.logoRef);
         if (png) logoDataUrl = `data:image/png;base64,${png.toString('base64')}`;
       }
     }
@@ -100,5 +100,41 @@ export async function recordSupplierOriginal(input: {
   } catch (err) {
     console.error('[photo-mark] recordSupplierOriginal failed', err);
     return { ok: false, error: REFUSED };
+  }
+}
+
+/**
+ * RE-OPEN (Photo Frame Template · "Tapping the photo on its row opens the same
+ * step with the saved framing"): a short-lived address of the PRIVATE clean
+ * copy behind a marked supplier photo, so the Frame step re-frames the
+ * original — never the marked copy, which would stamp a second mark over the
+ * first. Only for the shop the login is standing in; 10 minutes.
+ */
+export async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const NONE = 'The original of this photo is not available. Upload it again to re-frame it.';
+  try {
+    const pub = parseStoredAsset(publicRef);
+    if (!pub || pub.kind !== 'r2' || pub.bucket !== 'setnayan-media') return { ok: false, error: NONE };
+    const vendorProfileId = vendorIdOfMediaKey(pub.key);
+    if (!vendorProfileId) return { ok: false, error: NONE };
+    const shop = await ownShopFor(`vendors/${vendorProfileId}`);
+    if (!shop) return { ok: false, error: NONE };
+    const { data, error } = await createAdminClient()
+      .from('supplier_photo_originals')
+      .select('original_ref')
+      .eq('public_ref', publicRef)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] photo-mark-actions · supplier_photo_originals.select', error);
+      return { ok: false, error: NONE };
+    }
+    const orig = parseStoredAsset((data as { original_ref?: string } | null)?.original_ref ?? null);
+    if (!orig || orig.kind !== 'r2' || orig.bucket !== 'setnayan-vendor-verification') return { ok: false, error: NONE };
+    const { presignDisplayUrl } = await import('@/lib/uploads');
+    return { ok: true, url: await presignDisplayUrl(orig.bucket, orig.key, 600) };
+  } catch (err) {
+    console.error('[photo-mark] getPhotoOriginalUrl failed', err);
+    return { ok: false, error: NONE };
   }
 }

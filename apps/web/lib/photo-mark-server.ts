@@ -211,10 +211,26 @@ export async function markPhotoBytes(
 }
 
 /** The shop's logo as a 256×256 PNG for the coin (contain on transparent), or null when it cannot be read. */
-export async function logoCoinPng(bytes: Uint8Array | Buffer): Promise<Buffer | null> {
+export async function logoCoinPng(bytes: Uint8Array | Buffer, logoRef?: string | null): Promise<Buffer | null> {
   try {
-    return await sharp(bytes)
-      .rotate()
+    // A logo framed in the Frame step (its circle) is the coin: crop to that
+    // framing first (Photo Frame Template: "the coin is this framing").
+    const { framingFromRef, frameRect } = await import('./photo-frame');
+    const f = framingFromRef(logoRef);
+    let img = sharp(bytes).rotate();
+    if (f) {
+      const upright = await sharp(await img.toBuffer()).metadata();
+      const W = upright.width ?? 0;
+      const H = upright.height ?? 0;
+      if (W > 0 && H > 0) {
+        const r = frameRect(W, H, 1, f);
+        const left = Math.max(0, Math.round(r.left));
+        const top = Math.max(0, Math.round(r.top));
+        const side = Math.max(1, Math.min(Math.round(r.width), W - left, H - top));
+        img = sharp(await img.toBuffer()).extract({ left, top, width: side, height: side });
+      }
+    }
+    return await img
       .resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();

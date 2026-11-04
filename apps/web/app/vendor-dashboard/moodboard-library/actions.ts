@@ -292,7 +292,7 @@ async function storeScreenedAsset(args: {
   // its uploads: Setnayan only, or Setnayan Verified + shop + address + logo
   // coin, read from the shop's row here on the server, never from the client.
   const shopMark = await shopMarkFacts(admin, profile.vendor_profile_id);
-  const coin = shopMark.spec.hasLogo && logoBytes ? await logoCoinPng(logoBytes) : null;
+  const coin = shopMark.spec.hasLogo && logoBytes ? await logoCoinPng(logoBytes, shopMark.logoRef) : null;
   const supplierMark = { spec: { ...shopMark.spec, hasLogo: coin !== null }, logoPng: coin };
   const marked = await watermarkImageBytes(
     args.bytes,

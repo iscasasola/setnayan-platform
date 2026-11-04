@@ -2491,22 +2491,49 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // left the planner unlocked FOREVER. That is precisely the "refund the money,
   // keep the feature" hole this whole reversal path exists to close; it simply
   // could not see a bill shaped like this. Read the basket's real contents.
-  const basketItems =
-    ctx.serviceKey === ONBOARDING_SERVICES_SKU
-      ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
-      : [];
-  const grantsAi =
-    ctx.serviceKey === 'SETNAYAN_AI' ||
-    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
-    (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
-      'SETNAYAN_AI',
-    ) ??
-      false);
-  if (!grantsAi) return;
+  if (!(await orderGrantsSetnayanAi(ctx))) return;
   try {
     await deactivateSetnayanAiIfUnowned(ctx);
   } catch (e) {
     console.error(`[sku-activation] deactivation for ${ctx.serviceKey} threw (non-fatal):`, e);
     reportActivationFault('deactivate:SETNAYAN_AI', ctx, e);
+  }
+}
+
+/** Does this order carry Setnayan AI — directly, in an onboarding basket, or as a bundle child? */
+async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
+  const basketItems =
+    ctx.serviceKey === ONBOARDING_SERVICES_SKU
+      ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
+      : [];
+  return (
+    ctx.serviceKey === 'SETNAYAN_AI' ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
+    (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
+      'SETNAYAN_AI',
+    ) ??
+      false)
+  );
+}
+
+/**
+ * An order MOVED off `ctx.eventId` (Admin › Payments "Move to the couple's next
+ * event", lib/admin/service-remedies.server.ts) — clear the stored per-event flags
+ * it set there, if nothing else on that event still owns them.
+ *
+ * 🔑 NOT `deactivateOrderSku`. That is the REVERSAL path: it deletes the order's
+ * Papic grants by order_id (which a move has just re-pointed to the new event)
+ * and writes `order_refunded` ledger rows. A move refunds nothing. Today the only
+ * stored per-event flag is Setnayan AI; every orders-backed gate already follows
+ * `orders.event_id`. Call AFTER the move is committed so the re-derive sees it.
+ * NEVER throws.
+ */
+export async function rederiveEventFlagsAfterMove(ctx: ActivationContext): Promise<void> {
+  try {
+    if (!(await orderGrantsSetnayanAi(ctx))) return;
+    await deactivateSetnayanAiIfUnowned(ctx);
+  } catch (e) {
+    console.error(`[sku-activation] move re-derive for ${ctx.serviceKey} threw (non-fatal):`, e);
+    reportActivationFault('move:SETNAYAN_AI', ctx, e);
   }
 }

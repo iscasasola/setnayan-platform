@@ -32,6 +32,7 @@ import { ScheduleViewOnScreen } from './schedule-sheet';
 import { useChapters } from './chapters-context';
 import { Settings } from 'lucide-react';
 import { chapterStage } from '@/lib/schedule-chapters';
+import { formatCount } from '@/lib/format-number';
 import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
 
 export type ScheduleLineView = 'event-day' | 'preparation';
@@ -155,7 +156,7 @@ export function ScheduleOneLine({
           {/* The day's tools are the Event Day's only: `hidden` as a CLASS — a `flex` class beats the attribute. */}
           {settled ? (
             <span className="min-w-0 truncate text-[14px] text-ink/60" data-schedule-count="">
-              {chapterCount} chapter{chapterCount === 1 ? '' : 's'}
+              {formatCount(chapterCount)} chapter{chapterCount === 1 ? '' : 's'}
             </span>
           ) : null}
           <span

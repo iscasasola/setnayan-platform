@@ -115,6 +115,7 @@ export const LAB_MOMENT: MomentLike & { label: string; parent_block_id: string }
 };
 
 export const LAB_SUPPLIERS: Record<string, string> = {
+  'v-venue': 'Blue Leaf Pavilion',
   'v-hmua': 'Glow HMUA',
   'v-coord': 'The Planning Desk',
   'v-photo': 'Lightbox Studio',
@@ -180,7 +181,7 @@ export const LAB_WHO = {
   suppliers: Object.entries(LAB_SUPPLIERS).map(([id, name]) => ({
     id,
     name,
-    trade: id === 'v-hmua' ? 'Makeup artist' : id === 'v-photo' ? 'Photographer' : 'Planner / coordinator',
+    trade: id === 'v-hmua' ? 'Makeup artist' : id === 'v-photo' ? 'Photographer' : id === 'v-venue' ? 'Venue' : 'Planner / coordinator',
     everyChapter: id === 'v-coord',
   })),
   people: {
@@ -235,7 +236,7 @@ export const LAB_ASKS: HostAsk[] = [
  * `buildDefaultChapters` on the lab's day, Catholic, so Prep · Ceremony · Cocktail + Reception · After Party with the
  * shipped template moments inside. Nothing is written anywhere.
  */
-export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMoment[] } {
+export function labDefaultChapters(held = false): { chapters: Chapter[]; moments: ChapterMoment[] } {
   const built = buildDefaultChapters('catholic', LAB_EVENT_DAY, { ceremony_type: 'catholic', secondary_ceremony_type: null });
   const ids = new Map(built.chapters.map((c, i) => [c.key, `00000000-0000-4000-8000-00000000d00${i + 1}`]));
   const moments: ChapterMoment[] = built.moments.map((mo, i) => ({
@@ -258,7 +259,9 @@ export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMom
     is_public: true,
     moments: moments.filter((mo) => mo.parent_block_id === ids.get(c.key)).length,
     // 👷 The photographer is booked to every chapter but Prep; HMUA to Prep — "Suppliers in this chapter".
-    vendor_ids: c.key === 'prep' ? ['v-hmua', 'v-photo'] : ['v-photo'],
+    vendor_ids: c.key === 'prep' ? ['v-hmua', 'v-photo'] : c.key === 'cocktail_reception' ? ['v-venue', 'v-photo'] : ['v-photo'],
+    // 🏛 `?held=1` — Blue Leaf holds Cocktail + Reception's hours: setup from 1 PM, out by 11:30 PM (2026-11-04).
+    ...(held && c.key === 'cocktail_reception' ? { hours_vendor_id: 'v-venue', ingress_minutes_before: 240, egress_minutes_after: 390 } : {}),
   }));
   return { chapters, moments };
 }

@@ -242,7 +242,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at, proposed_ingress_minutes, proposed_egress_minutes',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
@@ -781,6 +781,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_end_at: s.proposed_end_at,
     proposed_location: s.proposed_location,
     proposed_crew: s.proposed_crew,
+    proposed_ingress_minutes: s.proposed_ingress_minutes ?? null,
+    proposed_egress_minutes: s.proposed_egress_minutes ?? null,
     note: s.note,
   }));
 
@@ -1224,7 +1226,9 @@ function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours';
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;

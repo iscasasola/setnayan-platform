@@ -64,7 +64,11 @@ import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
-import { CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, type ChapterSupplier } from '@/lib/schedule-chapters';
+import { AskSupplierSection } from './ask-supplier-section';
+
+const HELD_HOURS_TIP =
+  'The venue booked to this chapter sets its hours, including setup and pack-up. Ask them to change; they answer on their schedule. Take the venue off this chapter and you set the hours yourself.';
+import { CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, heldHoursLine, type ChapterSupplier } from '@/lib/schedule-chapters';
 import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
@@ -379,6 +383,18 @@ export function ChaptersHost({
           onAddMoment={(section) => setMomentSheet({ kind: 'new', section })}
           onOpenMoment={(id) => setMomentSheet({ kind: 'edit', id })}
           suppliers={chapterSuppliers(current, moments, tasks, who.suppliers)}
+          held={
+            current.hours_vendor_id
+              ? {
+                  vendorId: current.hours_vendor_id,
+                  name: who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue',
+                  asMoment: { block_id: current.block_id, start_at: current.start_at, end_at: current.end_at, vendor_ids: [current.hours_vendor_id] },
+                  asks,
+                  ask: momentDoors.ask,
+                  onAsked: (row) => setAsks((a) => [row, ...(a ?? [])]),
+                }
+              : null
+          }
         />
       ) : null}
 
@@ -511,6 +527,7 @@ export function ChaptersHost({
           mayInvite={input.mayInvite}
           replyCount={input.replyCounts?.[current.block_id]}
           doors={sheetDoors}
+          heldBy={current.hours_vendor_id ? (who.suppliers.find((x) => x.id === current.hours_vendor_id)?.name ?? 'The venue') : null}
           deleteSuppliers={suppliersOn(current)}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}
@@ -589,7 +606,17 @@ function ChapterPage({
   onAddMoment,
   onOpenMoment,
   suppliers = [],
+  held = null,
 }: {
+  /** 🏛 The venue holding this chapter's hours, and the shipped ask to send it. */
+  held?: {
+    vendorId: string;
+    name: string;
+    asMoment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
+    asks: HostAsk[] | null | undefined;
+    ask: ((blockId: string, fields: Record<string, string>) => Promise<{ ok: true; value: string } | { ok: false; error: string }>) | null;
+    onAsked: (row: HostAsk) => void;
+  } | null;
   /** 👷 The suppliers in this chapter (on it, its moments or their tasks) and the coordinators (every chapter). */
   suppliers?: readonly ChapterSupplier[];
   chapter: Chapter;
@@ -685,6 +712,31 @@ function ChapterPage({
         )}
         <Tip>{about}</Tip>
       </p>
+
+      {/* 🏛 VENUE HOURS (owner 2026-11-04, prototype frame 2): the venue booked to this chapter holds its hours — the
+          host asks it to change (the shipped host ask, answered by the venue). With no venue holding them, nothing. */}
+      {held ? (
+        <div data-chapter-held={c.block_id} className="mt-3 border-t border-ink/10 pt-2">
+          <p className="flex items-center gap-1.5 text-[15px] font-semibold text-ink">
+            Hours from {held.name} <span aria-label="Locked by the venue">🔒</span>
+          </p>
+          <p className="flex items-center gap-2 text-[13.5px] text-ink/65">
+            {heldHoursLine(c)}
+            <Tip>{HELD_HOURS_TIP}</Tip>
+          </p>
+          {canEdit && held.ask ? (
+            <AskSupplierSection
+              moment={{ ...(held.asMoment as ChapterMoment) }}
+              chapter={c}
+              suppliers={[{ id: held.vendorId, name: held.name }]}
+              asks={held.asks}
+              ask={held.ask}
+              onAsked={held.onAsked}
+              askLabel={`Ask ${held.name} to change`}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-3 border-t border-ink/10" data-chapter-sections="">
         {sections.map((s) => {

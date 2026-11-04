@@ -2694,6 +2694,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // left by a trigger on every events INSERT, claimed once by the app seed (lib/schedule-seed.server.ts).
       { kind: 'table', table: 'event_default_chapters_pending' },
       { kind: 'fk', table: 'event_default_chapters_pending', column: 'event_id', references: 'events' },
+      // 🏛 The venue booking that HOLDS a chapter's hours (20271307658341) — set only by apply_venue_hours; while set the
+      // host's change to its start/end/ingress/egress is refused (they ask the venue).
+      { kind: 'fk', table: 'event_schedule_blocks', column: 'hours_vendor_id', references: 'event_vendors' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],

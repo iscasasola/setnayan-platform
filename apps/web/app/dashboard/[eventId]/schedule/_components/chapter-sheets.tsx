@@ -4,7 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { CalendarPlus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
-import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
 import {
@@ -16,6 +16,7 @@ import {
   TIME_TBA,
   VENUE_TBA,
   callLeadWords,
+  clockWords,
   capChapterDay,
   chapterWindowFlags,
   egressAt,
@@ -31,6 +32,7 @@ import {
   wallIso,
   wallLocal,
   wallTime,
+  heldHoursLine,
   type Chapter,
 } from '@/lib/schedule-chapters';
 import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
@@ -230,7 +232,10 @@ export function ChapterSheet({
   onDeleted,
   replyCount,
   deleteSuppliers = [],
+  heldBy = null,
 }: {
+  /** 🏛 The venue that holds this chapter's hours (by name) — its hours are a fact here, not fields. */
+  heldBy?: string | null;
   /** 👷 Who Delete chapter takes off their parts, by name (the host reads them; the warning says them). */
   deleteSuppliers?: readonly string[];
   chapter: Chapter;
@@ -331,6 +336,16 @@ export function ChapterSheet({
                 onKeep={(t) => keep({ label: t.trim() }, { label: t.trim() })}
                 data="chapter-name"
               />
+              {/* 🏛 VENUE HOURS (2026-11-04): a venue holds them — one fact row, never a field the host can change. */}
+              {heldBy ? (
+                <FactRow
+                  name="Hours"
+                  value={heldHoursLine(c)}
+                  where={`🔒 ${heldBy} holds these hours — ask them to change on the chapter’s page.`}
+                  data="chapter-held-hours"
+                />
+              ) : null}
+              {heldBy ? null : (
               <DateRow
                 name="Date"
                 value={wallDay(c.start_at)}
@@ -338,6 +353,8 @@ export function ChapterSheet({
                 onKeep={(d) => moveTo(d, c.time_tba ? '' : wallTime(c.start_at))}
                 data="chapter-date"
               />
+              )}
+              {heldBy ? null : (
               <TimeRow
                 name="Starts"
                 value={c.time_tba ? '' : wallTime(c.start_at)}
@@ -347,7 +364,8 @@ export function ChapterSheet({
                 onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : goTba())}
                 data="chapter-start"
               />
-              {c.time_tba ? null : (
+              )}
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Ends"
                 value={wallTime(c.end_at)}
@@ -397,7 +415,7 @@ export function ChapterSheet({
                 onKeep={(t) => keep({ spot: t.trim() }, { spot: t.trim() || null })}
                 data="chapter-spot"
               />
-              {c.time_tba ? null : (
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Ingress from"
                 about={{ words: 'When suppliers can start setting up here. Leave it blank for no ingress.' }}
@@ -412,7 +430,7 @@ export function ChapterSheet({
                 data="chapter-ingress"
               />
               )}
-              {c.time_tba ? null : (
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Egress until"
                 about={{ words: 'When everything must be out. Leave it blank for no egress. It can be after midnight.' }}

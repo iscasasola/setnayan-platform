@@ -212,6 +212,7 @@ import {
 } from '@/lib/guests-filter';
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
+import { NO_FOLDS, foldNarrowed, foldSet, narrowingOf, sectionIsOpen, type NarrowFolds } from './section-fold';
 import { ReplyPushAsk } from './reply-push-ask';
 
 
@@ -704,10 +705,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (unread) setOpen(firstOpen(view));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the copy arrives
   }, [unread]);
-  // A search opens every section that has a hit (G19 — a hit inside a folded
-  // section was invisible, a failure that looked like "not found").
+  // A search or a Show / +1 filter opens every section that has a hit (G19 — a hit inside a folded section was
+  // invisible, a failure that looked like "not found") — and a tap still folds it (owner 2026-11-03, "i cannot
+  // collapse the search results group"): the narrowed list keeps its own folds, scoped to that narrowing.
+  // 🔒 a-filtered-group-folds.test.ts
   const filtered = Boolean(plusFilter || replyFilter);
-  const isOpen = (key: string) => (q || filtered ? true : open.has(key));
+  const narrowing = narrowingOf({ q, show: replyFilter ?? null, plus: plusFilter ?? null, group: view });
+  const [narrowFolds, setNarrowFolds] = useState<NarrowFolds>(NO_FOLDS);
+  const isOpen = (key: string) => sectionIsOpen(key, { narrowing, open, folds: narrowFolds });
+  /** Open or shut these headings — in the whole list's `open`, or in the narrowed list's own folds. */
+  const foldSections = (keys: Iterable<string>, opening: boolean) => {
+    if (narrowing !== null) setNarrowFolds((prev) => foldNarrowed(prev, narrowing, keys, opening));
+    else setOpen((prev) => foldSet(prev, keys, opening));
+  };
   const allOpen = sections.length > 0 && sections.every((s) => isOpen(s.key));
 
   // ── ⚡ ROWS EXIST WHERE THEY CAN BE SEEN (measured 2026-10-16, the owner's 84 guests at
@@ -1097,14 +1107,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
       el.scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
-    if (q) return; // a search holds every hit open
-    const opening = !open.has(key);
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (opening) next.add(key);
-      else next.delete(key);
-      return next;
-    });
+    const opening = !isOpen(key);
+    foldSections([key], opening);
     if (opening) setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
   };
 
@@ -1120,7 +1124,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }
     if (keys.size === 0) return;
     const folded = [...keys].some((k) => !isOpen(k));
-    if (folded) setOpen((prev) => new Set([...prev, ...keys]));
+    if (folded) foldSections(keys, true);
     const sel = (t: { id: string; jumpRow?: boolean }) => `${t.jumpRow ? '[data-jump-row]' : '[data-guest-row]'}[data-guest-id="${CSS.escape(t.id)}"]`;
     let tries = 0;
     const look = () => {
@@ -1819,7 +1823,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
             label: allOpen ? 'Collapse all' : 'Expand all',
             expanded: allOpen,
-            onClick: () => setOpen(allOpen ? new Set() : new Set(sections.map((s) => s.key))),
+            onClick: () => foldSections(sections.map((s) => s.key), !allOpen),
             testId: 'thumb-expand',
           },
         ]}

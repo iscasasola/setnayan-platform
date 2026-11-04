@@ -38,6 +38,7 @@ import {
   tallyWords,
   isSessionMode,
   type ScanAnswer,
+  type ScanNumberRow,
 } from '@/lib/supplier-scan';
 import { ShotPanel } from './shot-panel';
 import { YourNumbers } from './your-numbers';
@@ -50,7 +51,10 @@ export function SupplierClaimScanner({
   eventId,
   services,
   initialAnswer = null,
+  labNumbers = null,
 }: {
+  /** The dev lab's "Your numbers", drawn open (its frames only). */
+  labNumbers?: ScanNumberRow[] | null;
   eventId: string;
   services: EventScanService[];
   /** The result line to open on — the dev lab's frames only (`/dev/supplier-lab?s=event-hub&view=scanner&scan=…`). */
@@ -301,6 +305,7 @@ export function SupplierClaimScanner({
       {/* "Your numbers" — tap one to open it; an ordered number offers Ready (frames D · F). */}
       <YourNumbers
         key={service.coverageId}
+        labRows={labNumbers}
         eventId={eventId}
         coverageId={service.coverageId}
         onReady={(told) =>

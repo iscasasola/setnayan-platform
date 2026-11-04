@@ -14,7 +14,7 @@ import { eventHubViewOf } from '@/lib/event-hub-views';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import type { EventScanService } from '@/lib/supplier-scan.server';
-import type { ScanAnswer } from '@/lib/supplier-scan';
+import type { ScanAnswer, ScanNumberRow } from '@/lib/supplier-scan';
 
 const at = (hhmm: string) => `2026-12-18T${hhmm}:00Z`; // the venue's wall clock in a UTC column
 const block = (id: string, hhmm: string, label: string, run_state: RunOfShowBlock['run_state']): RunOfShowBlock => ({
@@ -89,7 +89,16 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   'roam-added': { outcome: 'added', number: 231, guests: 2, mode: 'roaming' },
 };
 
-export function EventHubLab({ view: rawView, scan, answer }: { view?: string; scan?: string; answer?: string }) {
+const at2 = (hhmm: string) => `2026-12-18T${hhmm}:00+08:00`;
+/** `&numbers=1` — "Your numbers" drawn open on lab rows (frames D · F). */
+const LAB_NUMBERS: ScanNumberRow[] = [
+  { number: 43, guests: 1, ordered: 1, ready: 0, received: 0, firstAt: at2('20:05'), readyAt: null, receivedAt: null, prints: null, open: false },
+  { number: 42, guests: 3, ordered: 0, ready: 3, received: 0, firstAt: at2('19:41'), readyAt: at2('19:58'), receivedAt: null, prints: 3, open: false },
+  { number: 41, guests: 2, ordered: 0, ready: 0, received: 2, firstAt: at2('19:36'), readyAt: at2('19:50'), receivedAt: at2('20:01'), prints: 2, open: false },
+  { number: 40, guests: 5, ordered: 0, ready: 2, received: 3, firstAt: at2('19:30'), readyAt: at2('19:45'), receivedAt: at2('19:59'), prints: 5, open: false },
+];
+
+export function EventHubLab({ view: rawView, scan, answer, numbers }: { view?: string; scan?: string; answer?: string; numbers?: string }) {
   const view = eventHubViewOf(rawView);
   return (
     <div className="min-h-screen bg-paper" data-supplier-lab="event-hub">
@@ -119,6 +128,7 @@ export function EventHubLab({ view: rawView, scan, answer }: { view?: string; sc
             floorIsYours={!scan}
             scan={scan ? (SCAN_SERVICES[scan] ?? []) : []}
             scanAnswer={answer ? (SCAN_ANSWERS[answer] ?? null) : null}
+            scanNumbers={numbers === '1' ? LAB_NUMBERS : null}
           />
         ) : view === 'announce' ? (
           <EventHubAnnounce

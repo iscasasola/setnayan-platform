@@ -156,6 +156,13 @@ export async function buyVendorPapicPortfolioPack(
     return err('Could not start the order. Please try again.');
   }
   const orderId = (orderRow as { order_id: string }).order_id;
+  // Takes the just-minted order back when a later write fails. Same client that minted it — a mixed-client
+  // compensation is how a rollback silently stops rolling back. A failed undo leaves an unpaid order with no
+  // payment behind it; it is logged so somebody sees it, and the customer is told the order did not start.
+  const undoOrder = async (why: string) => {
+    const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    if (undoErr) console.error(`[shop-pack] could not take back order ${orderId} after ${why}:`, undoErr.message);
+  };
 
   // 🎁 What this gift order bought — approval reads it to land the credits in the gift stock.
   if (forGift && giftUnit) {
@@ -171,7 +178,7 @@ export async function buyVendorPapicPortfolioPack(
       created_by: user.id,
     });
     if (gErr) {
-      await moneyWriter.from('orders').delete().eq('order_id', orderId);
+      await undoOrder('the gift row failed');
       return err('Could not start the order. Please try again.');
     }
   }
@@ -189,9 +196,7 @@ export async function buyVendorPapicPortfolioPack(
     ),
   );
   if (pErr) {
-    // Same client that minted it — a mixed-client compensation is how a
-    // rollback silently stops rolling back.
-    await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    await undoOrder('the payment row failed');
     return err('Could not start the payment. Please try again.');
   }
 

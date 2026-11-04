@@ -162,7 +162,7 @@ test('spend and left fold BOTH doors: on-the-day capture AND portfolio imports',
   assert.equal(r.credits, 60);
   assert.equal(r.spent, 4, 'capture spend (2) + portfolio spend (2, the hidden row excluded)');
   assert.equal(r.left, 56, '58 (capture-only left) minus 2 more spent importing');
-  assert.deepEqual(r.packs, [{ code: 'PAPIC_GUEST_A', title: 'Pack A', credits: 7, pricePhp: 11 }], 'only the pack on sale, read from the catalogue');
+  assert.deepEqual(r.packs, [{ code: 'PAPIC_GUEST_A', title: 'Pack A', credits: 7, pricePhp: 11, giftPricePhp: null }], 'only the pack on sale, read from the catalogue — no gift price on this row, so none is invented');
   assert.equal(r.offerPack, true, '60 credits is under a pack’s worth (100)');
 });
 

@@ -679,11 +679,13 @@ export async function sendCustomProposalCore(
       codes: input.shopGiftCodes,
     });
     if (!gifts.ok) {
-      await supabase
+      // The draft never reached the couple; a draft left behind is invisible to them, so a failed delete is logged.
+      const { error: undoErr } = await supabase
         .from('vendor_proposals')
         .delete()
         .eq('proposal_id', inserted.proposal_id)
         .eq('status', 'draft');
+      if (undoErr) console.error(`[proposal-send] gift-refused draft ${inserted.proposal_id} not removed:`, undoErr.message);
       return { ok: false, code: 'gift_refused', message: gifts.message };
     }
   }

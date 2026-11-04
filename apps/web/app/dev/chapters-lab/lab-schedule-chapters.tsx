@@ -90,7 +90,7 @@ export function LabScheduleChapters({
         notes={{}}
         announce={null}
         panels={{
-          'event-day': <ScheduleLabClient bare frame="line" toolsSlot={SCHEDULE_TOOLS_SLOT} />,
+          'event-day': <ScheduleLabClient bare frame="line" toolsSlot={SCHEDULE_TOOLS_SLOT} noRequests={defaults} />,
           preparation: <PlanningChapters />,
         }}
       />

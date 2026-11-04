@@ -55,6 +55,7 @@ import {
   shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
+import { shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -416,6 +417,118 @@ async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
   const code = shopPapicPackCodeOf(ctx.serviceKey);
   if (!code) return;
   await grantShopWalletCredits(ctx, () => papicPointsBoughtBySku(ctx.admin, code));
+}
+
+/**
+ * 🎁 2026-11-04 — a shop buys GIFTS (`vendor_gift__<PAPIC_GUEST code>`, owner "SUPPLIER GIFTS: BOUGHT IN QUANTITY,
+ * KEPT AS STOCK"). Approval lands `quantity × credits_each` in the shop's GIFT STOCK (`shop_gift_stock_entries`,
+ * kind 'bought'), read from the `shop_gift_purchases` row the buy action wrote — `orders` has no quantity. Never the
+ * shop wallet: gift stock can only ever reach a couple's event. Idempotent by (order_id, kind).
+ */
+async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_purchases')
+      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    if (!p) {
+      reportActivationFault(
+        'activate:shop_gift_purchase',
+        ctx,
+        new Error(`gift order ${ctx.orderId} has no shop_gift_purchases row — nothing says how many were bought`),
+      );
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, p.vendor_profile_id);
+    const credits = p.quantity * p.credits_each;
+    if (!Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: p.vendor_profile_id,
+      gift_kind: p.gift_kind,
+      delta: credits,
+      kind: 'bought',
+      order_id: ctx.orderId,
+      note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already landed for this order
+      reportActivationFault('activate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: p.vendor_profile_id,
+        shop_gift_credits_granted: credits,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_purchase', ctx, e);
+  }
+}
+
+/**
+ * A refunded / un-approved gift order takes its credits back OUT of the gift stock as a negative 'reversal' row —
+ * sized from the 'bought' row, so it takes back exactly what this order put in, and nothing when it never landed.
+ * The stock may go below zero when the gifts were already given; the delivery door then refuses until more land.
+ */
+async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_stock_entries')
+      .select('vendor_profile_id, gift_kind, delta')
+      .eq('order_id', ctx.orderId)
+      .eq('kind', 'bought')
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    if (!bought || !(bought.delta > 0)) return;
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: bought.vendor_profile_id,
+      gift_kind: bought.gift_kind,
+      delta: -bought.delta,
+      kind: 'reversal',
+      order_id: ctx.orderId,
+      note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already taken back
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: bought.vendor_profile_id,
+        shop_gift_credits_revoked: bought.delta,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_purchase', ctx, e);
+  }
 }
 
 async function grantShopWalletCredits(
@@ -1840,6 +1953,11 @@ const PREFIX_HOOKS: ReadonlyArray<{
     run: grantShopPapicPack,
   },
   {
+    // 'vendor_gift__<PAPIC_GUEST code>' → GIFTS a shop bought for its couples, into its gift stock (2026-11-04).
+    match: (serviceKey) => shopGiftCodeOf(serviceKey) !== null,
+    run: grantShopGiftPurchase,
+  },
+  {
     // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
     //
     // A plan purchase now mints an `orders` row so the shop has somewhere to
@@ -2575,6 +2693,9 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.
     await reverseShopPapicWalletPack(ctx);
+  } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
+    // 🎁 A gift order — take its credits back out of the gift stock.
+    await reverseShopGiftPurchase(ctx);
   } else if (ctx.serviceKey === VENDOR_PHOTO_CHALLENGE_SKU_CODE) {
     try {
       await deactivatePhotoChallengeSponsorship(ctx);

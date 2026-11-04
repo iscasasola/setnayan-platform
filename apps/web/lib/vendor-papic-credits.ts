@@ -125,7 +125,18 @@ export const VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS = 100;
 export const SHOP_PAPIC_PACK_KEY_PREFIX = 'vendor_papic_pack__';
 
 /** A couple pack offered to a shop, as read from the catalogue. */
-export type ShopPapicPack = { code: string; title: string; credits: number; pricePhp: number };
+export type ShopPapicPack = {
+  code: string;
+  title: string;
+  credits: number;
+  /** The price couples pay (`retail_price_php`). */
+  pricePhp: number;
+  /**
+   * 🎁 What a Verified-and-up shop pays to GIFT this pack (`gift_price_php`, owner 2026-11-04 "GIFT PRICES"), or
+   * null when the row has none — then every shop pays `pricePhp`. Read with the pack, never typed.
+   */
+  giftPricePhp?: number | null;
+};
 
 /** The order key a shop pack is minted under. */
 export function shopPapicPackServiceKey(code: string): string {

@@ -12,7 +12,7 @@
  *   ?m=tools     an accepted conversation, the couple spoke last — quick replies, ＋ beside the field (tap it)
  *   ?m=ask       the couple asked to book — "They asked to book" on the answer line, the panel open: fee BEFORE Agree
  *   ?m=agreed    …pressed Agree, the fee held the couple's news back — the live sentence and its Pay door
- *   ?m=quote     Send a quote — the one-screen quote, open
+ *   ?m=quote     Send a quote — the one-screen quote, open   &gifts=1 · &gifts=over · &gifts=short (Gifts from you)
  *   ?m=full      the couple's date is full — no "Yes po, that day is free"
  *   &booked=1    the couple already booked you — every tool open
  *
@@ -20,6 +20,7 @@
  * Names are samples: nobody real.
  */
 import { notFound } from 'next/navigation';
+import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
@@ -86,6 +87,21 @@ export default async function SupplierChatLabPage({
         cards={CARDS}
         feeStanding={feeStanding}
         papicStanding={{ kind: 'silent' }}
+        shopGifts={
+          sp.gifts
+            ? {
+                // Lab-only stand-in packs — the page reads the catalogue.
+                packs: shopGiftPacksFrom([
+                  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
+                  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+                ]),
+                schedule: BOOKING_FEE,
+                free: sp.gifts === 'short' ? 400 : 2150,
+              }
+            : null
+        }
+        shopGiftsBuy={sp.gifts ? { paysGiftPrice: true, openRails: [{ id: 'gcash', label: 'GCash' }] } : null}
+        labGiftCodes={sp.gifts === 'over' ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K', 'PAPIC_GUEST_1K'] : sp.gifts ? ['PAPIC_GUEST_1K', 'PAPIC_GUEST_150'] : undefined}
         savedQuotes={[{ id: 'tpl-garden', name: 'Garden wedding 150' }]}
         askedCardId="card-buffet"
         todayIso={TODAY}

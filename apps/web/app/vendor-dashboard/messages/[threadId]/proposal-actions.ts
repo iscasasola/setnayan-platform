@@ -52,6 +52,7 @@ const NOTICE_BY_CODE: Record<Exclude<SendProposalError, 'unauthenticated' | 'not
   // lock at it, or the booking is confirmed. The notice names the next door.
   deal_locked: 'proposal_deal_locked',
   lock_requested: 'proposal_lock_requested',
+  gift_refused: 'proposal_gift_refused',
   failed: 'proposal_failed',
 };
 
@@ -449,6 +450,8 @@ export async function sendCustomProposalFromChat(formData: FormData) {
   // never said, which the thread reads as "fall back to the timestamp rule".
   // `[]` is a real answer: built from no card.
   let serviceCardIds: string[] | null = null;
+  // 🎁 The shop's own gifts, one pack code per pack (re-judged by the core on send).
+  let shopGiftCodes: string[] | null = null;
   try {
     const parsed = JSON.parse(String(formData.get('payload') ?? '{}')) as {
       lineItems?: ProposalLineItem[];
@@ -459,6 +462,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
       paymentMethodIds?: string[];
       includesSetnayanGift?: boolean | null;
       serviceCardIds?: unknown;
+      shopGiftCodes?: unknown;
     };
     lineItems = Array.isArray(parsed.lineItems) ? parsed.lineItems : [];
     validUntil = parsed.validUntil ?? null;
@@ -475,6 +479,9 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     serviceCardIds = Array.isArray(parsed.serviceCardIds)
       ? parsed.serviceCardIds.filter((v): v is string => typeof v === 'string' && v.length > 0)
       : null;
+    shopGiftCodes = Array.isArray(parsed.shopGiftCodes)
+      ? parsed.shopGiftCodes.filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 20)
+      : null;
   } catch {
     redirect(`${back}?notice=proposal_failed`);
   }
@@ -489,6 +496,7 @@ export async function sendCustomProposalFromChat(formData: FormData) {
     paymentMethodIds,
     includesSetnayanGift,
     serviceCardIds,
+    shopGiftCodes,
   });
 
   if (!result.ok) {

@@ -14,12 +14,15 @@ export function RequestDecision({
   suggestionId,
   noteOnly,
   decide,
+  acceptLabel,
 }: {
   eventId: string;
   suggestionId: string;
   /** A suggestion in words: nothing to approve or decline — Noted says it was read. */
   noteOnly: boolean;
   decide: (fd: FormData) => Promise<unknown>;
+  /** 📍 A supplier's Where pick says "OK" (owner 2026-11-04: OK / Change). */
+  acceptLabel?: string;
 }) {
   const [busy, setBusy] = useState<'accept' | 'decline' | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -59,7 +62,7 @@ export function RequestDecision({
           onClick={() => void press('accept')}
           className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
         >
-          {busy === 'accept' ? (noteOnly ? 'Saving…' : 'Approving…') : noteOnly ? 'Noted' : 'Approve'}
+          {busy === 'accept' ? (noteOnly ? 'Saving…' : 'Approving…') : (acceptLabel ?? (noteOnly ? 'Noted' : 'Approve'))}
         </button>
       </div>
       {problem ? (

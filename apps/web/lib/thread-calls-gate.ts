@@ -1,35 +1,20 @@
 import 'server-only';
-import { createAdminClient } from './supabase/admin';
-import { resolveVendorTier } from './vendor-feature-gate';
-import { callsArePaidOnly, threadCallsAllowed } from './thread-calls-rule';
 
 /**
- * Is in-thread voice/video calling unlocked for the thread whose vendor is
- * `vendorProfileId`?
+ * Is in-thread voice/video calling open for the thread whose vendor is `vendorProfileId`?
  *
- * Calls became a PAID-vendor capability on 2026-07-13 (owner: "a service for
- * the paid") — any paid plan (Solo+), NOT Free/Verified.
+ * ⚖ NO PLAN GATES IT ANY MORE (owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES": the stale `calls`
+ * capability is removed; Call/Video in chat is for BOOKED suppliers on EVERY plan). It was a paid-only capability
+ * (2026-07-13, "a service for the paid") on its own `VENDOR_CALLS_PAID_ONLY` switch (2026-10-02); both the cap
+ * (`TierCaps.calls`) and the rule file (`lib/thread-calls-rule.ts`) are gone.
  *
- * ⚖ ITS OWN SWITCH SINCE 2026-10-02 (owner, tracker d10: "paid suppliers only,
- * starting now"). It used to ride the shared VENDOR_TIER_FEATURE_GATE, which is
- * off in production and turns on every other plan limit with it. Now the rule
- * is `threadCallsAllowed` (lib/thread-calls-rule.ts): paid only by default;
- * `VENDOR_CALLS_PAID_ONLY=0/false/off` reopens calls for every supplier. The
- * shared switch is untouched and no longer consulted here.
+ * What still gates a call is the relationship, not the plan: `startThreadCall` (app/_actions/thread-call-actions.ts)
+ * refuses until the inquiry is ACCEPTED, and the `thread_calls` member-insert RLS is the authoritative gate. The chat
+ * mounts no call at all since 2026-10-28 ("remove both voice and video call" — `the-chat-has-no-calls.test.ts`); this
+ * file stays, unused by the chat, for the owner to decide on.
  *
- * The vendor tier is read with the ADMIN client — a read-only capability probe
- * on the thread's OWN vendor, so a couple-initiated call resolves it reliably
- * regardless of vendor_profiles read policies. It is NOT an authorization
- * bypass: the actual call insert (thread-call-actions.ts) still rides the
- * caller's RLS-scoped session.
- *
- * The single source of truth for this gate, shared by the authoritative server
- * action AND the four thread surfaces that render the call launcher (so the UI
- * lock and the server refusal can never disagree).
+ * Kept async with the same signature so every caller keeps one place to ask.
  */
-export async function resolveThreadCallsEnabled(vendorProfileId: string): Promise<boolean> {
-  // Kill switch first: reopened calls cost no tier read.
-  if (!callsArePaidOnly()) return true;
-  const tier = await resolveVendorTier(createAdminClient(), vendorProfileId);
-  return threadCallsAllowed(tier);
+export async function resolveThreadCallsEnabled(_vendorProfileId: string): Promise<boolean> {
+  return true;
 }

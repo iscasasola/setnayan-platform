@@ -1,0 +1,412 @@
+/*
+ * _for-coordinators.css — the pieces only /for-coordinators draws: the free line under the hero, the
+ * free kit, the four steps with the couple (each with a small drawing of the couple's real screen), and
+ * the one-login block. The shared look (hero, section heads, problem scenes, close) is
+ * `app/_components/marketing/photo-page.css`.
+ *
+ * Ported from the approved prototype `prototypes/for_coordinators_2026-11-04.html` (corpus). Its
+ * `@container vp (min-width: 701px)` is `@media (min-width: 701px)` here — the prototype measured its
+ * preview frame; here the frame is the viewport.
+ *
+ * Tokens only, so `html.dark` repaints it. Two departures from the prototype, both for dark mode:
+ *   · the screen drawings sit on `--surface` (white in light, the card in dark), not a literal #fff —
+ *     in the prototype's dark view they stayed white under light text and could not be read;
+ *   · words on a filled chip / dot / "Share" use the page colour (`--color-cream` / `--sn-on-accent`),
+ *     which is white in light and dark ink in dark, where the fills turn light.
+ */
+
+/* ── The free line under the hero ── */
+.fc-freeline {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(var(--color-ink) / 0.8);
+}
+.fc-freeline li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fc-freeline li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--color-ok));
+}
+
+/* ── The free kit ── */
+.fc-kit {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.fc-kit li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 2px;
+  padding: 14px 0;
+  border-top: 1px solid var(--m-line-soft);
+}
+.fc-kit li:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+.fc-kit i {
+  grid-row: 1 / 3;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--m-r-full);
+  background: var(--m-paper-2);
+  color: var(--m-mulberry-deep);
+  display: grid;
+  place-items: center;
+}
+.fc-kit i svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fc-kit b {
+  font-size: 16px;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fc-kit b::after {
+  content: 'Free';
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgb(var(--color-ok));
+}
+.fc-kit span {
+  color: rgb(var(--color-ink) / 0.68);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.fc-notfree {
+  margin: 22px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--m-line-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  color: rgb(var(--color-ink) / 0.72);
+}
+.fc-notfree b {
+  color: rgb(var(--color-ink));
+}
+
+/* ── How it works with the couple: four steps, each with its screen ── */
+.fc-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  position: relative;
+}
+.fc-fs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 10px;
+  padding: 0 0 26px;
+}
+.fc-fs::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 34px;
+  bottom: 0;
+  width: 2px;
+  background: var(--m-line-soft);
+}
+.fc-fs:last-child::before {
+  display: none;
+}
+.fc-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--m-r-full);
+  display: grid;
+  place-items: center;
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--sn-on-accent));
+  font-weight: 700;
+  font-size: 14px;
+  position: relative;
+  z-index: 1;
+}
+.fc-ft {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding-top: 4px;
+}
+.fc-ft b {
+  font-size: 17px;
+  line-height: 1.3;
+}
+.fc-ft span {
+  color: rgb(var(--color-ink) / 0.68);
+  font-size: 15px;
+  line-height: 1.45;
+}
+/* a drawing of the couple's screen — not a control, so no button frames inside it */
+.fc-ui {
+  grid-column: 2;
+  background: var(--surface);
+  border-radius: var(--m-r-lg);
+  box-shadow: var(--m-shadow-md);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+.fc-ui-h {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgb(var(--color-ink));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.fc-ui-h small {
+  font-weight: 500;
+  font-size: 12px;
+  color: rgb(var(--color-ink) / 0.6);
+}
+.fc-ui-p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: rgb(var(--color-ink) / 0.68);
+}
+.fc-ui-btn {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--m-r-sm);
+  border: 1px solid rgb(var(--color-ink) / 0.15);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgb(var(--color-ink) / 0.75);
+}
+.fc-ui-dark {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-cream));
+  border-color: transparent;
+}
+.fc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fc-chips span {
+  padding: 5px 10px;
+  border-radius: var(--m-r-full);
+  border: 1px solid rgb(var(--color-ink) / 0.14);
+  font-size: 12.5px;
+  color: rgb(var(--color-ink) / 0.7);
+}
+.fc-chips span[data-on] {
+  background: rgb(var(--color-mulberry));
+  border-color: transparent;
+  color: rgb(var(--sn-on-accent));
+}
+.fc-arow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border-radius: var(--m-r-md);
+  border: 1px solid rgb(var(--color-ink) / 0.1);
+}
+.fc-arow > span:first-child {
+  min-width: 0;
+  flex: 1 1 160px;
+}
+.fc-arow b {
+  font-size: 13px;
+}
+.fc-arow em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: rgb(var(--color-terracotta-700));
+}
+.fc-arow small {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: rgb(var(--color-ink) / 0.6);
+  margin-top: 1px;
+}
+.fc-yn {
+  display: flex;
+  gap: 6px;
+}
+.fc-yn i {
+  font-style: normal;
+  font-size: 12px;
+  padding: 5px 9px;
+  border-radius: var(--m-r-sm);
+  border: 1px solid rgb(var(--color-ink) / 0.15);
+  color: rgb(var(--color-ink) / 0.7);
+}
+.fc-yn i[data-ok] {
+  background: rgb(var(--color-ok));
+  border-color: transparent;
+  color: rgb(var(--color-cream));
+}
+.fc-arow[data-shut] {
+  background: var(--m-paper-2);
+  border-color: transparent;
+}
+.fc-lock {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--color-ink) / 0.6);
+}
+.fc-ui-fine {
+  margin: 0;
+  font-size: 12px;
+  color: rgb(var(--color-ink) / 0.6);
+}
+.fc-track {
+  display: grid;
+  grid-template-columns: 2.4fr 1fr 0.8fr;
+  height: 8px;
+  border-radius: var(--m-r-full);
+  overflow: hidden;
+  background: rgb(var(--color-ink) / 0.08);
+}
+.fc-track i:nth-child(1) {
+  background: rgb(var(--color-mulberry));
+}
+.fc-track i:nth-child(2) {
+  background: rgb(var(--color-mulberry) / 0.45);
+}
+.fc-tlabels {
+  display: grid;
+  grid-template-columns: 2.4fr 1fr 0.8fr;
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgb(var(--color-ink) / 0.6);
+}
+.fc-tlabels span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fc-tlabels span:nth-child(2) {
+  text-align: center;
+}
+.fc-tlabels span:nth-child(3) {
+  text-align: right;
+}
+.fc-flow-src {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: rgb(var(--color-ink) / 0.6);
+}
+
+/* ── One login, every event ── */
+.fc-many {
+  display: grid;
+  gap: 22px;
+}
+.fc-many > img {
+  display: block;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: var(--m-r-md);
+  background: var(--m-paper-2);
+}
+.fc-many-copy {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.fc-lines {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+}
+.fc-lines li {
+  display: grid;
+  gap: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--m-line-soft);
+}
+.fc-lines li:first-child {
+  border-top: 0;
+}
+.fc-lines b {
+  font-size: 16px;
+}
+.fc-lines span {
+  color: rgb(var(--ink-soft));
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+@media (min-width: 701px) {
+  .fc-kit {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 40px;
+  }
+  .fc-kit li:nth-child(-n + 2) {
+    border-top: 0;
+    padding-top: 4px;
+  }
+  .fc-flow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 18px;
+  }
+  .fc-fs {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    padding: 0;
+  }
+  .fc-fs::before {
+    left: 34px;
+    right: -18px;
+    top: 15px;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+  }
+  .fc-ui {
+    grid-column: 1;
+    align-self: start;
+  }
+  .fc-many {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 40px;
+    align-items: center;
+  }
+}

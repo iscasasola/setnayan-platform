@@ -183,6 +183,7 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'download',
   'explore',
   'features',
+  'for-coordinators',
   'for-suppliers',
   'forgot-password',
   'guest-list',

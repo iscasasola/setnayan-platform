@@ -296,6 +296,29 @@
         "FeaturePageView"
       ]
     },
+    "/(shell)/for-coordinators": {
+      "files": [
+        "(shell)/for-coordinators/loading.tsx",
+        "(shell)/for-coordinators/page.tsx"
+      ],
+      "destinations": [
+        "/guest-list",
+        "/open-shop",
+        "/schedule",
+        "/seat-plan"
+      ],
+      "actions": [],
+      "blocks": [
+        "Image",
+        "InfoTip",
+        "LineRevealHeading",
+        "Link",
+        "PhotoHeroSlides",
+        "ProblemScenes",
+        "RevealBand",
+        "RevealList"
+      ]
+    },
     "/(shell)/for-suppliers": {
       "files": [
         "(shell)/for-suppliers/loading.tsx",

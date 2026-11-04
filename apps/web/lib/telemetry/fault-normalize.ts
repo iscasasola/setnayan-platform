@@ -167,7 +167,7 @@ function isIdSegment(seg: string): boolean {
 export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
   '3d_plan', 'about', 'acceptable-use', 'admin', 'alaala', 'api', 'auth', 'blog',
   'budget', 'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev',
-  'download', 'explore', 'favicon.ico', 'features', 'for-suppliers',
+  'download', 'explore', 'favicon.ico', 'features', 'for-coordinators', 'for-suppliers',
   'forgot-password', 'guest-list', 'health', 'help', 'host', 'join', 'live',
   'llms.txt', 'login', 'marketplace', 'monogram', 'mood-board', 'onboarding',
   'open-shop', 'our-story', 'pa3d', 'pakanta', 'palogo', 'panood', 'papic',

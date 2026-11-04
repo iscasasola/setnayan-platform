@@ -37,7 +37,7 @@ import { join } from 'node:path';
  * a real iPhone.
  */
 
-const PUBLIC = ['/', '/login', '/signup', '/features', '/pricing', '/download', '/about', '/for-suppliers'];
+const PUBLIC = ['/', '/login', '/signup', '/features', '/pricing', '/download', '/about', '/for-suppliers', '/for-coordinators'];
 const LABS = [
   '/dev/home-lab',
   '/dev/guests-lab?part=screen',

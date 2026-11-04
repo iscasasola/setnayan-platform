@@ -251,7 +251,16 @@ test('every HAND-TYPED reserved word is reserved in the database', async () => {
 // the word to `business_slug_is_reserved` in a migration, or (b) add it here
 // with a written reason for why a shop taking that page is acceptable. There is
 // no third answer, and weakening the assertion is not one of them.
-const KNOWN_DB_MINT_GAP = new Set<string>([]);
+const KNOWN_DB_MINT_GAP = new Set<string>([
+  // ⏳ TEMPORARY — `/for-coordinators` (new 2026-11-04, ported from the approved 4 Nov prototype) was
+  // built in a draft PR that was told to carry NO migration. Why the gap is tolerable for that draft
+  // and no longer: the PAGE cannot be taken — a static route folder outranks `app/[slug]`, so the URL
+  // always serves our page. The only harm is to a shop whose name slugifies to exactly
+  // "for-coordinators" before the reservation lands: its address would be minted and dead. The fix is
+  // one word added to `business_slug_is_reserved` in a migration (copy the last body that replaced the
+  // function, word for word, plus this one) — then delete this entry and the set is empty again.
+  'for-coordinators',
+]);
 
 test('no NEW route word is left uncovered by the database mint', async () => {
   const words = [...ROUTE_RESERVED_SLUGS];

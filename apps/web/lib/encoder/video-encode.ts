@@ -40,6 +40,13 @@ export const VIDEO_HEIGHT = 720;
 export const VIDEO_BITRATE = 2_500_000;
 export const VIDEO_FRAMERATE = 30;
 
+/**
+ * AAC-LC programme audio, bits per second — what `program-canvas.worker.ts` hands `AudioEncoder.configure()`.
+ * Named here (it was a literal in the worker) so the venue connection check (`lib/venue-check.ts`) adds the
+ * SAME number to `VIDEO_BITRATE` instead of retyping it.
+ */
+export const AUDIO_BITRATE = 128_000;
+
 /** S0-FINDING.md § 2.2 — the only value this WebKit accepts without throwing. */
 export const VIDEO_HARDWARE_ACCELERATION = 'prefer-hardware' as const;
 

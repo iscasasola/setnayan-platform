@@ -52,6 +52,7 @@ import { PROGRAM_HEIGHT, PROGRAM_WIDTH, type ProgramFrameWire, type Region, type
 import type { ProgramAirDecision } from '../live-studio-publish-pure';
 import {
   VIDEO_ENCODER_CONFIG,
+  AUDIO_BITRATE,
   isKeyframeTick,
   createVideoEncodeSink,
   createChunkRing,
@@ -443,7 +444,7 @@ function startEncoder(): void {
     codec: 'mp4a.40.2',
     sampleRate: AUDIO_SAMPLE_RATE,
     numberOfChannels: AUDIO_CHANNELS,
-    bitrate: 128_000,
+    bitrate: AUDIO_BITRATE,
   });
   encoder = enc;
 }

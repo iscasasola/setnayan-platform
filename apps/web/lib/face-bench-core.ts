@@ -390,7 +390,7 @@ function histLines(title: string, h: Histogram): string[] {
 /** The plain-text report the script prints. */
 export function formatBenchReport(r: BenchReport): string {
   const out: string[] = [];
-  out.push('PAPIC FACE BENCH — counts only; no line is changed by this run');
+  out.push('PAPIC FACE MEASURE — counts only; no line is changed by this run');
   out.push(`photos ${r.photos} · faces found ${r.facesFound} · people enrolled ${r.peopleEnrolled}`);
   out.push(`pairs: ${r.presentPairs} person-in-photo · ${r.absentPairs} person-not-in-photo`);
   if (r.selfiesUnread.length) out.push(`⚠ no face read in any selfie of: ${r.selfiesUnread.join(', ')} (not enrolled)`);

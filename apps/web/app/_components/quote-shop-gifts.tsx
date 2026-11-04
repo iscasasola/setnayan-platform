@@ -32,7 +32,7 @@ const BUY_KEY = '__buy_more_gifts';
  *   This booking's gift limit · 40% of its ₱fee booking fee · <smallest pack> is always allowed      ₱limit
  *   🎁 <pack> · N credits                  (swipe left → Remove, with Undo)
  *   Gifts worth · At the price couples pay: ₱v of ₱limit       — or the over-limit / short line
- *   ＋ Add a gift from your stock ▾        (every pack, each saying why it cannot go on now · Buy more gifts…)
+ *   ＋ Add a gift from your stock ▾        (every pack, each saying why it cannot go on now · Add to your stock…)
  *
  * The block owns no state of its own: the codes are the composer's, sent with the quote (`shopGiftCodes`).
  */
@@ -65,7 +65,7 @@ export function QuoteShopGifts({
 
   const options = [
     ...menu.map((o) => ({ key: o.code, label: o.title, ...(o.ok ? {} : { disabledNote: o.why ?? undefined }) })),
-    ...(buy ? [{ key: BUY_KEY, label: 'Buy more gifts…' }] : []),
+    ...(buy ? [{ key: BUY_KEY, label: 'Add to your stock…' }] : []),
   ];
 
   return (
@@ -144,8 +144,8 @@ export function QuoteShopGifts({
         </p>
       ) : verdict.state === 'short' ? (
         <p className="text-xs text-danger-700" role="status" data-testid="quote-shop-gifts-short">
-          <b className="font-semibold">Not on this quote · short {giftCount(verdict.shortBy)} credits.</b> Buy more, or
-          remove a gift.
+          <b className="font-semibold">Not on this quote · short {giftCount(verdict.shortBy)} credits.</b> Remove a gift, or
+          add to your stock first.
         </p>
       ) : verdict.state === 'unknown_pack' ? (
         <p className="text-xs text-danger-700" role="status">

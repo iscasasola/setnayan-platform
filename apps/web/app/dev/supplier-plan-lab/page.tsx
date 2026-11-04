@@ -55,6 +55,7 @@ import { ShopGiftsSection } from '@/app/vendor-dashboard/subscription/_component
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
+import { formatCentavos } from '@/lib/vendor-proposals';
 
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -332,11 +333,11 @@ export default async function SupplierPlanLabPage({
   else if (s === 'gifts') body = giftsFixture(sp.unverified === '1', sp.fail === '1');
   else if (s === 'gifts-couple')
     body = (
-      <section className="rounded-xl border border-ink/10 p-4">
+      <section className="p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">What&rsquo;s included</h2>
         <p className="mt-2 flex items-baseline justify-between border-t border-ink/15 pt-3 text-base font-semibold">
           <span>Total</span>
-          <span className="tabular-nums">₱112,500.00</span>
+          <span className="tabular-nums">{formatCentavos(11_250_000)}</span>
         </p>
         <QuoteShopGiftNote credits={1150} given={sp.given === '1' ? 1150 : 0} shopName="Saysay Catering" side="couple" />
       </section>

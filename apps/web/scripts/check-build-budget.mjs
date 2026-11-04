@@ -31,8 +31,11 @@ import { fileURLToPath } from 'node:url';
 
 /** Pre-rendered routes in .next/prerender-manifest.json: 261 on main 78112195 (2026-11-04). */
 export const STATIC_PAGE_CEILING = 300;
-/** The `Build web app` step on ubuntu-latest, measured on this PR's own CI run. */
-export const BASELINE_SECONDS = 653;
+/**
+ * The `Build web app` step on ubuntu-latest: 524 s on PR #7261's own run
+ * (2026-11-04; main was 653 s the same day, before the cache write was cut).
+ */
+export const BASELINE_SECONDS = 524;
 export const SLOWER_WARN_RATIO = 1.2;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');

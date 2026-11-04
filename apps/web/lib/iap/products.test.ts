@@ -28,6 +28,7 @@ import {
   iapProductIsRepeatable,
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { RETIRED_PAPIC_CREDIT_PRODUCT_IDS } from './products-delivery';
 import { HUB_PARTS } from '../hub-parts';
 import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate';
 
@@ -113,9 +114,9 @@ test('ruling 5, superseded 2026-11-03 — Papic is THREE packs: 150 · 1,000 · 
   assert.deepEqual(
     IAP_PAPIC_PRODUCTS.map((p) => [p.productId, p.serviceKey, p.credits]),
     [
-      ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 150],
-      ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 1_000],
-      ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 3_000],
+      ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 150], // gitleaks:allow — catalog service_codes, not secrets
+      ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 1_000], // gitleaks:allow — catalog service_codes, not secrets
+      ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 3_000], // gitleaks:allow — catalog service_codes, not secrets
     ],
   );
 });
@@ -123,7 +124,8 @@ test('ruling 5, superseded 2026-11-03 — Papic is THREE packs: 150 · 1,000 · 
 test('2026-11-03 — the five papic_credits_* products are retired: never sold, never asked of StoreKit, never reused', () => {
   for (const credits of [100, 500, 1_000, 5_000, 10_000]) {
     const id = `com.setnayan.app.papic_credits_${credits}`;
-    assert.ok(RETIRED_IAP_PRODUCT_IDS.includes(id), `${id} is not on the retired list — it could be reused`);
+    assert.ok(RETIRED_PAPIC_CREDIT_PRODUCT_IDS.includes(id), `${id} is not on the retired list — it could be reused`);
+    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
     assert.equal(iapProductById(id), null, `${id} is sold again`);
   }
 });

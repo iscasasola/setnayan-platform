@@ -21,7 +21,7 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { makeAdminClient } from './supabase-over-pglite';
 import { FIXTURE_ROOTS, FIXTURE_TOKENS, fixtureJws } from '../../lib/iap/apple-jws-fixture';
 import { verifyAppleTransaction } from '../../lib/iap/apple-transaction';
-import { iapProductForDelivery } from '../../lib/iap/products';
+import { iapProductForDelivery } from '../../lib/iap/products-delivery';
 
 let replay: ReplayResult;
 let db: PGlite;

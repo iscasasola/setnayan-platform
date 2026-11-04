@@ -8,7 +8,8 @@
  */
 
 import { verifyAppleJws, APPLE_ROOT_CA_G3_SHA256, type JwsRefusal } from './apple-jws';
-import { iapProductForDelivery, type IapProduct } from './products';
+import { type IapProduct } from './products';
+import { iapProductForDelivery } from './products-delivery';
 
 /** The iPhone app's bundle id — `appId` in apps/mobile/capacitor.config.ts. */
 export const APP_BUNDLE_ID = 'com.setnayan.app';

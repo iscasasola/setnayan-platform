@@ -92,10 +92,12 @@ test('the new door opens the maker with no kind chosen, and hands it the list', 
   const src = (read(NEW_DOOR) + read(NEW_DOOR_MAKER));
   assert.match(src, /categoryValue=""/, 'the new door started pre-picking a kind');
   assert.match(src, /categoryOptions=\{ctx\.categoryOptions\}/, 'the new door stopped handing over the kinds');
-  // Drawn from the SAME groups My Shop draws (in the one loader), never a second hand-typed list.
+  // Drawn from the LIVE taxonomy (Admin › Categories) in the one loader, never a hand-typed list. Until 2026-11-04
+  // this pinned `SERVICE_GROUPS.map` — the hard-coded list the owner caught ("why is it that i only see these
+  // categories when we have a whole spectrum"); the live-tree build is pinned in lib/service-card-kind-groups.test.ts.
   const loader = read(LOADER);
-  assert.match(loader, /SERVICE_GROUPS\.map/, 'the kinds stopped coming from the shared groups');
-  assert.match(loader, /groupDisplayOptions\(/, 'the kinds stopped collapsing legacy keys that share a label');
+  assert.match(loader, /liveKindGroups\(\{\s*tree,/, 'the kinds stopped coming from the live taxonomy');
+  assert.ok(!/SERVICE_GROUPS/.test(loader), 'the kinds are drawn from the hard-coded SERVICE_GROUPS again');
 });
 
 test('the old door is untouched — a route-chosen kind has nothing to choose', () => {

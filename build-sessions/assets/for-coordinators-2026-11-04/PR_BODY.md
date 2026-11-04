@@ -135,23 +135,23 @@ The For Suppliers sections on `main` are the older editorial design (serif + mon
 
 ### `pnpm preflight --base origin/claude/for-suppliers-in-the-shell` (whole run)
 
-Three whole runs. The first found five faults (the service worker's route list, a count without `formatCount`, three house words); all were fixed in `00881fa0`, and the second run was clean. This is the third, on the owner's-answers commit `f9c3e4b5`. Because a migration changed, it also ran the schema pins, the migration-replay tests and the DB tests (Ugat claims and coverage among them).
+Four whole runs. The first found five faults (the service worker's route list, a count without `formatCount`, three house words); all were fixed in `00881fa0`. Every run since has been clean: `00881fa0`, `f9c3e4b5` (owner's answers), and this one, `7a854dfe` (the day-of fix). Because a migration changed, the last two also ran the schema pins, the migration-replay tests and the DB tests (Ugat claims and coverage among them).
 
-**preflight** · `claude/hopeful-archimedes-gvv2vr` @ `f9c3e4b5a` · base `origin/claude/for-suppliers-in-the-shell` · 86 changed · wall 35m 24s · cheap faults clear
+**preflight** · `claude/hopeful-archimedes-gvv2vr` @ `7a854dfeb` · base `origin/claude/for-suppliers-in-the-shell` · 87 changed · wall 35m 20s · cheap faults clear
 
 | check | result | time | first failing line | re-run |
 |---|---|--:|---|---|
-| 44 cheap CI guards (every `node …mjs` step of ci.yml) | PASS | 1m 56s | | |
-| eslint on changed files (14) | PASS | 2.7s |  | `(cd apps/web && npx next lint --file 'app/(shell)/for-coordinators/_claims.server.ts' --file 'app/(shell)/for-coordinators/_claims.ts' --file 'app/(shell)/for-coordinators/for-coordinators-says-what-ships.test.ts' …)` |
-| tsc (15 changed + 40 of 51 importers) | PASS | 1m 02s |  | `(cd apps/web && pnpm typecheck)   # the full compile, under the heavy lock — or let CI run it` |
-| tests that name or import a changed file — 92 files, 865 tests | PASS | 51.3s |  |  |
-| whole-tree guard tests — 622 files, 4,424 tests | PASS | 21m 05s |  |  |
-| unit tests that replay the migrations — 6 files, 50 tests | PASS | 28.3s |  |  |
-| DB tests: source scanners + schema pins — 41 files, 283 tests | PASS | 10m 40s |  |  |
+| 44 cheap CI guards (every `node …mjs` step of ci.yml) | PASS | 2m 10s | | |
+| eslint on changed files (14) | PASS | 3.1s |  | `(cd apps/web && npx next lint --file 'app/(shell)/for-coordinators/_claims.server.ts' --file 'app/(shell)/for-coordinators/_claims.ts' --file 'app/(shell)/for-coordinators/for-coordinators-says-what-ships.test.ts' …)` |
+| tsc (15 changed + 40 of 51 importers) | PASS | 1m 17s |  | `(cd apps/web && pnpm typecheck)   # the full compile, under the heavy lock — or let CI run it` |
+| tests that name or import a changed file — 92 files, 871 tests | PASS | 52.2s |  |  |
+| whole-tree guard tests — 622 files, 4,424 tests | PASS | 20m 26s |  |  |
+| unit tests that replay the migrations — 6 files, 50 tests | PASS | 27.1s |  |  |
+| DB tests: source scanners + schema pins — 41 files, 283 tests | PASS | 10m 48s |  |  |
 
 Left to CI (not run locally): full typecheck — preflight compiled 55 file(s); 11 importer(s) of the changed files were not compiled · full eslint — preflight linted 14 changed file(s) · full unit suite — preflight ran 720 of 3631 test files (a test more than two imports away from a changed file is not woken) · full DB replay — preflight ran 41 of 492 DB tests · production build · Vercel route count · shared bundle size · the Maker's first-load JS budget · lighthouse · playwright e2e · secret scan (gitleaks is not installed on this machine) · native encoder tests (src-tauri untouched)
 
-A green preflight is not a green CI. The one commit after `f9c3e4b5` (`68900b7a`) only splits the switched-lines guard into one test per line; that file alone: 16/16, eslint clean.
+A green preflight is not a green CI. The commits after `7a854dfe` add only screenshots and this file.
 
 One migration, the shop-address reservation, applied only by the pipeline after merge. Nothing touched production. Dummy env only.
 SPEC IMPACT: none to the corpus. This ports `prototypes/for_coordinators_2026-11-04.html`; the copy differences above are listed for the owner to accept or overrule.

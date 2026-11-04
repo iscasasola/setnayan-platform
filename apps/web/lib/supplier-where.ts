@@ -48,6 +48,8 @@ export type WhereChapter = {
   tags: readonly string[];
   /** The chapter's `block_type` (a default chapter's kind — `pre_ceremony`, `ceremony`, `reception`, `after_party`); null = not read. */
   kind?: string | null;
+  /** ⏰ Time TBA (migration 20271300482585): its stored 00:00 is only its DAY — it goes after that day's timed chapters. */
+  timeTba?: boolean;
 };
 
 /** A block as read: only top-level rows (`parent_block_id` null) are chapters. */
@@ -59,7 +61,17 @@ export type WhereBlockRow = {
   location?: string | null;
   responsible_vendor_ids?: readonly string[] | null;
   block_type?: string | null;
+  time_tba?: boolean | null;
 };
+
+/**
+ * ⏰ THE DAY'S ORDER (owner 2026-11-04, answer 3 on #7260: "Time TBA goes last everywhere"): a Time-TBA chapter's 00:00
+ * is only its day, so it sorts AFTER that day's timed chapters — the same key the supplier's day uses
+ * (lib/supplier-schedule.ts `buildSupplierDay`). One rule for every Where dropdown, so the two never disagree.
+ */
+export function chapterDayKey(c: { startAt: string | null; timeTba?: boolean }): string {
+  return c.timeTba ? `${(c.startAt ?? '').slice(0, 10)}~` : (c.startAt ?? '');
+}
 
 /** Every block of an event → its chapters, in time order. One read of the blocks feeds it. */
 export function whereChaptersFrom(rows: readonly WhereBlockRow[]): WhereChapter[] {
@@ -72,8 +84,9 @@ export function whereChaptersFrom(rows: readonly WhereBlockRow[]): WhereChapter[
       startAt: r.start_at ?? null,
       tags: r.responsible_vendor_ids ?? [],
       kind: r.block_type ?? null,
+      timeTba: r.time_tba === true,
     }))
-    .sort((a, b) => ((a.startAt ?? '') < (b.startAt ?? '') ? -1 : (a.startAt ?? '') > (b.startAt ?? '') ? 1 : 0));
+    .sort((a, b) => (chapterDayKey(a) < chapterDayKey(b) ? -1 : chapterDayKey(a) > chapterDayKey(b) ? 1 : 0));
 }
 
 /**
@@ -402,4 +415,26 @@ export function adminWhereLine(args: {
     parts.push(r.direction === 'to_supplier' ? `the host asked ${asked}, waiting for the supplier` : `asked ${asked}, waiting for the host`);
   }
   return parts.join(' · ');
+}
+
+/* ── 📍 OK ON THE NOTICE (owner 2026-11-04, answer 2 on #7260): the same OK as the Requests sheet, where you are ────── */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The host's Where notice opens the Requests sheet AND names its request, so the notice can answer it in place. */
+export function whereNoticeUrl(eventId: string, suggestionId: string): string {
+  return `/dashboard/${eventId}/schedule?sheet=requests&request=${suggestionId}`;
+}
+
+/**
+ * The request a notice can OK in place: only a `supplier_where_asked` notice whose link names a real event and a real
+ * request (both uuids). Anything else → null, and the row stays a plain row.
+ */
+export function whereNoticeTarget(type: string, relatedUrl: string | null | undefined): { eventId: string; suggestionId: string } | null {
+  if (type !== 'supplier_where_asked' || !relatedUrl) return null;
+  const m = relatedUrl.match(/^\/dashboard\/([^/?#]+)\/schedule\?(.*)$/);
+  if (!m) return null;
+  const eventId = m[1]!;
+  const suggestionId = new URLSearchParams(m[2]).get('request') ?? '';
+  return UUID_RE.test(eventId) && UUID_RE.test(suggestionId) ? { eventId, suggestionId } : null;
 }

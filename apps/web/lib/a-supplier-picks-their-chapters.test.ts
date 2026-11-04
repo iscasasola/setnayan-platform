@@ -25,6 +25,8 @@ import {
   supplierOwnWhere,
   whereAskRefusalWords,
   whereAskVerdict,
+  whereNoticeTarget,
+  whereNoticeUrl,
   whereRefusalWords,
   type WhereChapter,
 } from './supplier-where';
@@ -164,4 +166,63 @@ test('5 · the admin event page shows each supplier’s Where, honestly', () => 
   const page = read('app/admin/events/[eventId]/page.tsx');
   assert.match(page, /adminWhereLine\(/, 'the admin event page does not compute each supplier’s Where');
   assert.match(page, /data-admin-supplier-where=/, 'the admin event page does not draw each supplier’s Where');
+});
+
+/* ── The owner's four answers on #7260 (2026-11-04) ───────────────────────────────────────────────────────────────── */
+
+test('6 · Time TBA goes last everywhere — one rule for every Where dropdown and the supplier’s day', async () => {
+  const { whereChaptersFrom, chapterDayKey } = await import('./supplier-where');
+  const rows = [
+    { block_id: 'tba', parent_block_id: null, label: 'Send-off', start_at: '2099-11-07T00:00:00Z', time_tba: true },
+    { block_id: 'cer', parent_block_id: null, label: 'Ceremony', start_at: '2099-11-07T15:00:00Z', time_tba: false },
+    { block_id: 'prep', parent_block_id: null, label: 'Preparation', start_at: '2099-11-07T10:00:00Z' },
+    { block_id: 'next', parent_block_id: null, label: 'Day two', start_at: '2099-11-08T09:00:00Z' },
+  ];
+  assert.deepEqual(whereChaptersFrom(rows).map((c) => c.blockId), ['prep', 'cer', 'tba', 'next'], 'a TBA chapter was not after its day’s timed chapters');
+  // The supplier's day sorts by the very same key.
+  const day = buildSupplierDay({
+    blocks: rows.map((r) => ({ ...r, end_at: null, location: null, spot: null, time_tba: r.time_tba === true, is_optional: false, responsible_vendor_ids: [], created_at: null, updated_at: null })),
+    myBookingIds: [],
+    tasks: [],
+    requests: [],
+  });
+  assert.deepEqual(day.chapters.map((c) => c.block_id), ['prep', 'cer', 'tba', 'next']);
+  assert.match(read('lib/supplier-schedule.ts'), /chapterDayKey\(/, 'the supplier’s day keeps a second ordering rule of its own');
+  assert.equal(chapterDayKey({ startAt: '2099-11-07T00:00:00Z', timeTba: true }) > chapterDayKey({ startAt: '2099-11-07T23:59:00Z' }), true);
+  // Every caller reads the flag, so the rule can see it.
+  for (const f of ['app/admin/events/[eventId]/page.tsx', 'app/vendor-dashboard/clients/[eventId]/page.tsx', 'app/dashboard/[eventId]/schedule/page.tsx']) {
+    const src = read(f);
+    const call = src.slice(src.indexOf('whereChaptersFrom('), src.indexOf('whereChaptersFrom(') + 700);
+    assert.match(call + src, /time_tba/, `${f} sorts its Where chapters without the Time-TBA flag`);
+  }
+});
+
+test('7 · OK on the notice is the SAME action as OK in the Requests sheet', () => {
+  const ok = read('app/_components/notifications/where-notice-ok.tsx');
+  assert.match(ok, /resolveScheduleSuggestion\(fd\)/, 'the notice’s OK does not post the Requests sheet’s action');
+  assert.match(ok, /fd\.set\('decision', 'accept'\)/);
+  assert.doesNotMatch(ok, /rpc\(|from\('event_schedule/, 'the notice’s OK writes on its own — a second copy of what OK means');
+  assert.doesNotMatch(ok, /return_to/, 'marking it read leaves the page');
+  const list = read('app/_components/notifications/notifications-list.tsx');
+  assert.match(list, /whereNoticeTarget\(n\.type, n\.related_url\)/, 'the notice list does not offer OK on a Where notice');
+  assert.match(list, /<WhereNoticeOk /);
+  // The link names the request, and nothing else gets an OK.
+  const url = whereNoticeUrl('11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222');
+  assert.deepEqual(whereNoticeTarget('supplier_where_asked', url), {
+    eventId: '11111111-1111-4111-8111-111111111111',
+    suggestionId: '22222222-2222-4222-8222-222222222222',
+  });
+  assert.equal(whereNoticeTarget('schedule_change_requested', url), null, 'another notice got a Where OK');
+  assert.equal(whereNoticeTarget('supplier_where_asked', '/dashboard/x/schedule?sheet=requests'), null, 'an OK with no request to answer');
+  const notify = read('lib/schedule-request-notify.server.ts');
+  assert.match(notify, /relatedUrl: whereNoticeUrl\(input\.eventId, input\.where\.suggestionId\)/, 'the Where notice does not name its request');
+});
+
+test('8 · the host picked for them: "Answered by the host", never "Not approved"; the locked ask carries a note', () => {
+  const view = read('app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx');
+  assert.match(view, /r\.status === 'answered_by_host'\s*\?\s*'Answered by the host'/, 'the supplier reads the host’s own pick as a refusal');
+  const hostRow = read('app/dashboard/[eventId]/vendors/_components/booked-where.tsx');
+  assert.match(hostRow, /p_note: note\.trim\(\) \|\| null/, 'the host’s request to a locked supplier carries no note');
+  assert.match(hostRow, /data="where-locked-ask-note"/, 'there is no place to type the note');
+  assert.match(hostRow, /maxLength=\{200\}/, 'the note is not one line');
 });

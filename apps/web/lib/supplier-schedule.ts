@@ -18,6 +18,7 @@
  */
 
 import type { TaskContact } from './task-contact';
+import { chapterDayKey } from './supplier-where';
 import { inRunOrder, isRightAfter, momentClockWords } from './moment-order';
 import { VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
@@ -255,7 +256,7 @@ export function buildSupplierDay(input: {
   }
 
   // A Time-TBA chapter's 00:00 is only its day: it sorts after that day's timed chapters, never first as if at midnight.
-  const dayKey = (b: SupplierBlockRow) => (b.time_tba ? `${(b.start_at ?? '').slice(0, 10)}~` : (b.start_at ?? ''));
+  const dayKey = (b: SupplierBlockRow) => chapterDayKey({ startAt: b.start_at, timeTba: b.time_tba });
   const tops = input.blocks
     .filter((b) => !b.parent_block_id)
     .slice()

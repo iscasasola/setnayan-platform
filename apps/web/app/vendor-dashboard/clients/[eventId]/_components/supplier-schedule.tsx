@@ -383,8 +383,16 @@ export function SupplierSchedule({
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                <span className={r.status === 'accepted' ? 'font-semibold text-success-900' : 'text-ink/55'}>
-                  {r.status === 'accepted' ? (r.auto_agreed ? 'In (Auto-agree)' : 'Approved') : r.status === 'withdrawn' ? 'Taken back' : 'Not approved'}
+                <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/55'}>
+                  {r.status === 'accepted'
+                    ? r.auto_agreed
+                      ? 'In (Auto-agree)'
+                      : 'Approved'
+                    : r.status === 'withdrawn'
+                      ? 'Taken back'
+                      : r.status === 'answered_by_host'
+                        ? 'Answered by the host'
+                        : 'Not approved'}
                 </span>
                 <span className="text-ink/70">{waitingWords(r, labelOf(day, r.block_id))}</span>
               </li>
@@ -522,7 +530,8 @@ function AskedRow({
         .
       </p>
       )}
-      {a.note && whereNames === null ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
+      {/* A Where ask's own note shows; the automatic "Asks you to work …" would only repeat the line above. */}
+      {a.note && (whereNames === null || !a.note.startsWith('Asks you to work ')) ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
       {declining ? (
         <>
           <FormRows width="wide">

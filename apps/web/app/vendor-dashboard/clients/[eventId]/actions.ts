@@ -660,7 +660,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
         proposesChange: true,
         note: `Asks to work ${asked.names ?? ''}`,
         applied: outcome === 'applied',
-        where: { names: asked.names || 'their chapters' },
+        where: { names: asked.names || 'their chapters', suggestionId: asked.suggestion_id },
       });
     } catch (e) {
       console.error('[suggestScheduleChange] where notify failed:', e);

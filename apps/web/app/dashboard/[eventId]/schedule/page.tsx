@@ -775,12 +775,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           }
         : { measured: false };
   /* 📍 A Where pick reads "Now → Asked" in chapter names (lib/supplier-where.ts `whereNames`, time order). */
+  // ⏰ Time TBA is the CHAPTER's flag (its own read, `readChapterBook`) — a TBA chapter goes after that day's timed ones.
+  const tbaChapters = new Set(chapterRead?.ok ? chapterRead.value.chapters.filter((c) => c.time_tba === true).map((c) => c.block_id) : []);
   const whereChapters = whereChaptersFrom(
     dayMoments.map((m) => ({
       block_id: m.block_id,
       parent_block_id: m.parent_block_id,
       label: m.label,
       start_at: m.start_at,
+      time_tba: tbaChapters.has(m.block_id),
       responsible_vendor_ids: m.responsible_vendor_ids ?? [],
     })),
   );

@@ -223,7 +223,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   const [chaptersRead, whereAsksRead] = await Promise.all([
     admin
       .from('event_schedule_blocks')
-      .select('block_id, parent_block_id, label, start_at, responsible_vendor_ids')
+      .select('block_id, parent_block_id, label, start_at, time_tba, responsible_vendor_ids')
       .eq('event_id', eventId)
       .is('parent_block_id', null),
     admin

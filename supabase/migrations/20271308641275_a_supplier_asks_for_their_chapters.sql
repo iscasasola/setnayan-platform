@@ -293,7 +293,10 @@ BEGIN
       v_owner,
       'schedule_ask'::public.notification_type,
       left(format('%s asks you to change your chapters', COALESCE(v_host, CASE v_as WHEN 'coordinator' THEN 'The coordinator' ELSE 'The host' END)), 160),
-      left(format('They ask you to work %s. Accept or decline on your Schedule. Your price doesn’t change by itself.', v_names), 500),
+      -- ✍ The host's optional one-line note (answer 4 on #7260) rides the notice, so the supplier knows why.
+      left(format('They ask you to work %s.%s Accept or decline on your Schedule. Your price doesn’t change by itself.',
+                  v_names,
+                  CASE WHEN NULLIF(btrim(p_note), '') IS NULL THEN '' ELSE format(' “%s”', left(btrim(p_note), 200)) END), 500),
       '/vendor-dashboard/clients/' || v_ev.event_id::text || '?tab=schedule',
       v_ev.event_id
     );
@@ -509,5 +512,196 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.event_schedule_blocks_part_lock() FROM PUBLIC, anon, authenticated;
+
+-- ── 6 · the host picks for them: their waiting request is ANSWERED BY THE HOST (owner 2026-11-04, answer 1 on #7260) ─
+-- A new status, never "declined" — the supplier must not read the host's own pick as a refusal of theirs.
+ALTER TABLE public.event_schedule_suggestions DROP CONSTRAINT IF EXISTS event_schedule_suggestions_status_check;
+ALTER TABLE public.event_schedule_suggestions
+  ADD CONSTRAINT event_schedule_suggestions_status_check
+  CHECK (status IN ('open', 'accepted', 'declined', 'withdrawn', 'answered_by_host'));
+
+-- `set_supplier_where`, reproduced from 20271300598766 (its only definition) with ONE addition: it closes the booking's
+-- waiting Where request as 'answered_by_host' (and withdraws the host's own ask), then sends ONE notice that says so in
+-- place of the change notice. Everything else — the gate, the three refusals, the writes, the notice — word for word.
+CREATE OR REPLACE FUNCTION public.set_supplier_where(
+  p_vendor_id UUID,
+  p_block_ids UUID[],
+  p_covered_group TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_uid      UUID := auth.uid();
+  v_owner    UUID;
+  v_host     TEXT;
+  v_told     BOOLEAN := false;
+  v_ev       public.event_vendors%ROWTYPE;
+  v_ids      UUID[];
+  v_chapters UUID[];
+  v_before   UUID[];
+  v_after    UUID[];
+  v_booked   BOOLEAN;
+  v_n        INT;
+  v_names    TEXT[];
+  v_answered INT := 0;
+BEGIN
+  SELECT * INTO v_ev FROM public.event_vendors WHERE vendor_id = p_vendor_id FOR UPDATE;
+  -- Only a host of this supplier's event. A stranger cannot tell "not yours" from "not there".
+  IF NOT FOUND OR v_uid IS NULL OR NOT (v_ev.event_id IN (SELECT public.current_couple_event_ids())) THEN
+    RAISE EXCEPTION 'supplier_not_found: this supplier is not on an event you can edit' USING ERRCODE = 'P0002';
+  END IF;
+
+  -- Coordinators are on every chapter (owner 2026-11-01): there is no Where to set.
+  IF v_ev.category = 'planner_coordinator' OR p_covered_group = 'coordinator' THEN
+    RAISE EXCEPTION 'coordinators_are_everywhere: a coordinator is on every chapter' USING ERRCODE = '22023';
+  END IF;
+
+  -- An in-house group is named by its plan group (`catering`) or its row (`tile:food_truck`). What a booking covers
+  -- has two authors (the couple's `covers_plan_groups` on a supplier they added; the shop's own linked services on a
+  -- supplier on Setnayan), so the key is checked for shape here and offered only from what the page read.
+  IF p_covered_group IS NOT NULL AND p_covered_group !~ '^[a-z0-9_:]{1,64}$' THEN
+    RAISE EXCEPTION 'not_covered: % is not an in-house group', p_covered_group USING ERRCODE = '22023';
+  END IF;
+
+  SELECT COALESCE(array_agg(DISTINCT x ORDER BY x), '{}'::uuid[]) INTO v_ids
+    FROM unnest(COALESCE(p_block_ids, '{}'::uuid[])) AS x WHERE x IS NOT NULL;
+
+  SELECT COALESCE(array_agg(b.block_id ORDER BY b.block_id), '{}'::uuid[]) INTO v_chapters
+    FROM public.event_schedule_blocks b
+   WHERE b.event_id = v_ev.event_id AND b.parent_block_id IS NULL;
+
+  IF NOT (v_ids <@ v_chapters) THEN
+    RAISE EXCEPTION 'not_a_chapter: every Where must be a chapter of this event' USING ERRCODE = '22023';
+  END IF;
+
+  v_booked := v_ev.archived_at IS NULL
+          AND v_ev.status::text IN ('contracted', 'deposit_paid', 'delivered', 'complete');
+
+  -- Required once booked: at least one chapter, whenever the event has any (plan §3 "Suppliers").
+  IF v_booked AND cardinality(v_ids) = 0 AND cardinality(v_chapters) > 0 THEN
+    RAISE EXCEPTION 'a_booked_supplier_needs_a_chapter: keep at least 1 chapter for a booked supplier' USING ERRCODE = '23514';
+  END IF;
+
+  IF p_covered_group IS NULL THEN
+    SELECT COALESCE(array_agg(b.block_id ORDER BY b.block_id), '{}'::uuid[]) INTO v_before
+      FROM public.event_schedule_blocks b
+     WHERE b.event_id = v_ev.event_id AND b.parent_block_id IS NULL
+       AND p_vendor_id = ANY (b.responsible_vendor_ids);
+
+    UPDATE public.event_schedule_blocks b
+       SET responsible_vendor_ids = array_append(b.responsible_vendor_ids, p_vendor_id)
+     WHERE b.block_id = ANY (v_ids)
+       AND NOT (p_vendor_id = ANY (b.responsible_vendor_ids));
+
+    UPDATE public.event_schedule_blocks b
+       SET responsible_vendor_ids = array_remove(b.responsible_vendor_ids, p_vendor_id)
+     WHERE b.event_id = v_ev.event_id AND b.parent_block_id IS NULL
+       AND NOT (b.block_id = ANY (v_ids))
+       AND p_vendor_id = ANY (b.responsible_vendor_ids);
+
+    SELECT COALESCE(array_agg(b.block_id ORDER BY b.block_id), '{}'::uuid[]) INTO v_after
+      FROM public.event_schedule_blocks b
+     WHERE b.event_id = v_ev.event_id AND b.parent_block_id IS NULL
+       AND p_vendor_id = ANY (b.responsible_vendor_ids);
+  ELSE
+    SELECT COALESCE(array_agg(x::uuid ORDER BY x::uuid), NULL) INTO v_before
+      FROM jsonb_array_elements_text(v_ev.covered_where -> p_covered_group) AS x;
+
+    UPDATE public.event_vendors
+       SET covered_where = jsonb_set(COALESCE(covered_where, '{}'::jsonb), ARRAY[p_covered_group], to_jsonb(v_ids), true)
+     WHERE vendor_id = p_vendor_id;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_after := CASE WHEN v_n = 1 THEN v_ids ELSE v_before END;
+  END IF;
+
+  IF v_after IS DISTINCT FROM v_ids THEN
+    RAISE EXCEPTION 'not_saved: this account cannot change where this supplier goes' USING ERRCODE = '42501';
+  END IF;
+
+  -- 📍 THE HOST PICKED FOR THEM (owner 2026-11-04, answer 1 on #7260): the booking's own Where request still waiting is
+  -- closed as ANSWERED BY THE HOST — never "declined", so the supplier does not read it as a refusal — and the host's
+  -- own ask of them is moot (withdrawn). Same statement, so no door that sets Where can leave a stale request behind.
+  IF p_covered_group IS NULL THEN
+    UPDATE public.event_schedule_suggestions
+       SET status = 'answered_by_host', resolved_by_user_id = v_uid, resolved_at = now()
+     WHERE where_vendor_id = p_vendor_id AND kind = 'where' AND direction = 'to_host' AND status = 'open';
+    GET DIAGNOSTICS v_answered = ROW_COUNT;
+    UPDATE public.event_schedule_suggestions
+       SET status = 'withdrawn', resolved_at = now()
+     WHERE where_vendor_id = p_vendor_id AND kind = 'where' AND direction = 'to_supplier' AND status = 'open';
+  END IF;
+
+  -- The chapters it is on now, by name and in time order — the words of the notice.
+  SELECT COALESCE(array_agg(b.label ORDER BY b.start_at, b.sort_order), '{}'::text[]) INTO v_names
+    FROM public.event_schedule_blocks b WHERE b.block_id = ANY (v_ids);
+
+  -- 🔔 Their request was answered by the host's own pick → ONE notice that says so (in place of the change notice
+  -- below, never both), even when the set the host picked is the one they already had.
+  IF v_answered > 0 AND v_ev.marketplace_vendor_id IS NOT NULL THEN
+    SELECT vp.user_id INTO v_owner FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = v_ev.marketplace_vendor_id;
+    IF v_owner IS NOT NULL AND v_owner <> v_uid THEN
+      SELECT NULLIF(btrim(e.display_name), '') INTO v_host FROM public.events e WHERE e.event_id = v_ev.event_id;
+      INSERT INTO public.notifications (user_id, type, title, body, related_url, event_id)
+      VALUES (
+        v_owner,
+        'supplier_where_changed'::public.notification_type,
+        left(format('%s picked your chapters for you', COALESCE(v_host, 'The host')), 160),
+        format(
+          'Your request was answered by the host: you are on %s. Your price doesn’t change by itself — if it should, tell them in your chat.',
+          CASE WHEN cardinality(v_names) = 0 THEN 'no chapter yet' ELSE array_to_string(v_names, ', ') END
+        ),
+        '/vendor-dashboard/clients/' || v_ev.event_id::text || '?tab=schedule',
+        v_ev.event_id
+      );
+      v_told := true;
+    END IF;
+  END IF;
+
+  -- 🔔 Booked, and the set changed (order never matters) → tell the shop's owner, in the app.
+  IF v_answered = 0 AND v_booked
+     AND v_ev.marketplace_vendor_id IS NOT NULL
+     AND NOT (COALESCE(v_before, '{}'::uuid[]) @> v_ids AND v_ids @> COALESCE(v_before, '{}'::uuid[])) THEN
+    SELECT vp.user_id INTO v_owner FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = v_ev.marketplace_vendor_id;
+    IF v_owner IS NOT NULL AND v_owner <> v_uid THEN
+      SELECT NULLIF(btrim(e.display_name), '') INTO v_host FROM public.events e WHERE e.event_id = v_ev.event_id;
+      INSERT INTO public.notifications (user_id, type, title, body, related_url, event_id)
+      VALUES (
+        v_owner,
+        'supplier_where_changed'::public.notification_type,
+        left(format('%s changed where you go', COALESCE(v_host, 'The host')), 160),
+        format(
+          '%syou are now on %s. Your price doesn’t change by itself — if it should, tell them in your chat.',
+          CASE WHEN p_covered_group IS NULL THEN '' ELSE initcap(replace(regexp_replace(p_covered_group, '^(label|tile):', ''), '_', ' ')) || ': ' END,
+          CASE WHEN cardinality(v_names) = 0 THEN 'no chapter yet' ELSE array_to_string(v_names, ', ') END
+        ),
+        '/vendor-dashboard/clients/' || v_ev.event_id::text,
+        v_ev.event_id
+      );
+      v_told := true;
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'event_id', v_ev.event_id,
+    'after_names', to_jsonb(v_names),
+    'booked', v_booked,
+    'shop', v_ev.marketplace_vendor_id,
+    'covered_group', p_covered_group,
+    'told', v_told,
+    'answered_request', v_answered > 0,
+    'before', to_jsonb(v_before),
+    'after', to_jsonb(v_after)
+  );
+END;
+$$;
+
+COMMENT ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) IS
+  'The ONE door that writes a supplier''s Where (owner 2026-11-01): their chapters = top-level event_schedule_blocks whose responsible_vendor_ids hold them; an in-house group''s changed chapters = event_vendors.covered_where. Hosts only (current_couple_event_ids). Refuses a coordinator (on every chapter), a non-chapter, and an empty Where for a booked supplier while the event has chapters. A change to a BOOKED supplier writes ONE in-app notice (supplier_where_changed) to the shop owner — never email, never the actor; the price is never touched.';
+
+REVOKE ALL ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) TO authenticated;
 
 COMMIT;

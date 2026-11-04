@@ -1355,6 +1355,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       location: b.location,
       responsible_vendor_ids: b.responsible_vendor_ids ?? [],
       block_type: b.block_type,
+      time_tba: b.time_tba === true,
     })),
   );
   let ownWhere = liveBlocks && !factsBookings.error ? supplierOwnWhere({ bookings: myBookings, chapters: whereChapters, requests: suggestions }) : null;

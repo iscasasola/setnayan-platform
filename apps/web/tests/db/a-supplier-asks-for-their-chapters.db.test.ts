@@ -280,3 +280,44 @@ test('7 · the lock’s pass is the request, not the flag', async () => {
   await db.exec(`ROLLBACK`);
   assert.deepEqual(await whereOf(), ['Preparation', 'Reception']);
 });
+
+test('8 · the host picks for them: the waiting request is ANSWERED BY THE HOST, never declined, with one notice', async () => {
+  await asUser(F.photoUid);
+  await db.query(`SELECT public.supplier_mark_schedule($1, 'unlock')`, [F.eventId]);
+  // A fresh request, waiting.
+  const waiting = await supplierAsks([F.ceremony, F.reception]);
+  await asOwner();
+  const before = Number(
+    (await db.query<{ n: string }>(`SELECT count(*) AS n FROM public.notifications WHERE user_id = $1 AND type = 'supplier_where_changed'`, [F.photoUid]))
+      .rows[0]!.n,
+  );
+  await asUser(F.couple);
+  const r = await db.query<{ j: { answered_request: boolean } }>(`SELECT public.set_supplier_where($1, $2::uuid[]) AS j`, [F.photoEv, [F.ceremony]]);
+  assert.equal(r.rows[0]!.j.answered_request, true);
+  assert.equal(await statusOf(waiting), 'answered_by_host', 'the host’s own pick left the supplier’s request waiting, or called it a refusal');
+  assert.deepEqual(await whereOf(), ['Ceremony']);
+  await asOwner();
+  const notices = await db.query<{ title: string; body: string }>(
+    `SELECT title, body FROM public.notifications WHERE user_id = $1 AND type = 'supplier_where_changed' ORDER BY created_at DESC`,
+    [F.photoUid],
+  );
+  assert.equal(notices.rows.length, before + 1, 'the supplier got no notice, or two');
+  assert.match(notices.rows[0]!.title, /Where Day picked your chapters for you/);
+  assert.match(notices.rows[0]!.body, /answered by the host: you are on Ceremony/);
+});
+
+test('9 · the host’s optional note reaches the supplier with their ask', async () => {
+  await asUser(F.couple);
+  await db.query(`SELECT public.host_ask_supplier_where($1, $2::uuid[], 'The church moved the blessing', 'Ana')`, [F.photoEv, [F.prep]]);
+  await asOwner();
+  const told = await db.query<{ body: string }>(
+    `SELECT body FROM public.notifications WHERE user_id = $1 AND type = 'schedule_ask' ORDER BY created_at DESC LIMIT 1`,
+    [F.photoUid],
+  );
+  assert.match(told.rows[0]!.body, /They ask you to work Preparation\. “The church moved the blessing”/);
+  const note = await db.query<{ note: string }>(
+    `SELECT note FROM public.event_schedule_suggestions WHERE kind = 'where' AND direction = 'to_supplier' AND status = 'open' AND where_vendor_id = $1`,
+    [F.photoEv],
+  );
+  assert.equal(note.rows[0]!.note, 'The church moved the blessing');
+});

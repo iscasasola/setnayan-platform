@@ -18,7 +18,7 @@
  */
 import { useContext, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChosenRow, FactRow, FormRows } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
@@ -61,8 +61,13 @@ async function saveWhere(args: { vendorId: string; blockIds: string[]; coveredGr
  * 2026-11-04): `host_ask_supplier_where` writes the ask and tells them in the app, in one statement; they answer on
  * their Schedule (migration 20271308641275).
  */
-async function askWhere(vendorId: string, blockIds: string[]): Promise<{ ok: true } | { ok: false; message: string }> {
-  const { data, error } = await createClient().rpc('host_ask_supplier_where', { p_vendor_id: vendorId, p_block_ids: blockIds });
+async function askWhere(vendorId: string, blockIds: string[], note: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { data, error } = await createClient().rpc('host_ask_supplier_where', {
+    p_vendor_id: vendorId,
+    p_block_ids: blockIds,
+    // ✍ Optional, one line (owner 2026-11-04, answer 4 on #7260): the supplier reads why, beside the ask.
+    p_note: note.trim() || null,
+  });
   if (error || !data) return { ok: false, message: whereAskRefusalWords(error?.message ?? '') };
   return { ok: true };
 }
@@ -103,6 +108,7 @@ function WherePick({
   // 🔒 The set the lock refused — kept so "Send them a request" asks for exactly it.
   const [refused, setRefused] = useState<string[] | null>(null);
   const [asking, setAsking] = useState(false);
+  const [askNote, setAskNote] = useState('');
   // Ticks save IN ORDER (each save sends the whole set, so the last tap is what stays), and only the newest answer
   // speaks; a refusal puts back what was last saved.
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -155,10 +161,11 @@ function WherePick({
   const sendAsk = async () => {
     if (!refused) return;
     setAsking(true);
-    const r = await askWhere(vendorId, refused);
+    const r = await askWhere(vendorId, refused, askNote);
     setAsking(false);
     if (!r.ok) return setSaid({ tone: 'error', text: r.message });
     setRefused(null);
+    setAskNote('');
     setSaid({ tone: 'ok', text: 'Request sent. They answer on their Schedule.' });
   };
 
@@ -179,7 +186,20 @@ function WherePick({
       note={said?.tone === 'ok' ? said.text : undefined}
     />
     {refused && !standIn.setWhere ? (
-      <div className="flex justify-end pt-1" data-where-locked-ask="">
+      <div className="flex flex-col gap-1 pt-1" data-where-locked-ask="">
+        <TypedRow
+          name="Note"
+          about={{ words: 'Optional, one line. They read it beside your request.' }}
+          value={askNote}
+          empty="Why the change"
+          maxLength={200}
+          onKeep={(t) => {
+            setAskNote(t.trim());
+            return { ok: true as const };
+          }}
+          data="where-locked-ask-note"
+        />
+        <div className="flex justify-end">
         <ActionButton
           tone="brand"
           main
@@ -189,6 +209,7 @@ function WherePick({
           onClick={() => void sendAsk()}
           data-testid="where-locked-ask"
         />
+        </div>
       </div>
     ) : null}
     </>

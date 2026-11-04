@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
+import { whereNoticeUrl } from '@/lib/supplier-where';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
 // The window is applied inside `scheduleRequestRecipients` (delegate-access-window),
@@ -40,7 +41,7 @@ export async function notifyScheduleRequest(input: {
    * 📍 A supplier's Where pick (owner 2026-11-04): its own IN-APP-ONLY type and title, opening the Requests sheet —
    * never `schedule_change_requested`, which is emailed (owner: no new emails).
    */
-  where?: { names: string };
+  where?: { names: string; suggestionId: string };
 }): Promise<void> {
   const admin = createAdminClient();
   const [membersRes, seatsRes, eventRes] = await Promise.all([
@@ -96,7 +97,8 @@ export async function notifyScheduleRequest(input: {
         type: 'supplier_where_asked',
         title,
         body: input.applied ? 'Auto-agree put them on those chapters.' : 'OK it, or change their chapters yourself.',
-        relatedUrl: `/dashboard/${input.eventId}/schedule?sheet=requests`,
+        // The request rides the link, so the notice's own OK answers exactly it (`whereNoticeTarget`).
+        relatedUrl: whereNoticeUrl(input.eventId, input.where.suggestionId),
       });
       continue;
     }

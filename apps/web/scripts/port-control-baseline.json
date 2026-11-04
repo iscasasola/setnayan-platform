@@ -5472,10 +5472,12 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwipeToDelete",
         "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
+        "UndoToastHost",
         "ViewReport",
         "YourStorySection"
       ]

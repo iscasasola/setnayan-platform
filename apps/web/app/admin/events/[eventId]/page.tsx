@@ -15,6 +15,8 @@ import { formatCount } from '@/lib/format-number';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { guestFullName } from '@/lib/guests';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
+import { NOT_TAKING_CHANGES, SCHEDULE_MARK_COLUMNS, marksByShop, markDay, timesMarkOf } from '@/lib/supplier-schedule-marks';
 
 export const metadata = { title: 'Event · Admin' };
 export const dynamic = 'force-dynamic';
@@ -189,6 +191,48 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       ? null
       : new Set(enrolRows.map((r) => r.guest_id as string));
 
+  // ── booked suppliers and their schedule marks (🔒 CHANGE LOCK, audit D7) ─────
+  // Read-only: which booked shop LOCKED their part (a host's change is refused), confirmed their times, or saw a
+  // change. Admin words may say "Locked"; the host reads "Not taking changes".
+  const supRowsRead = await admin
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .in('status', [...BOOKED_EVENT_VENDOR_STATUSES])
+    .is('archived_at', null)
+    .not('marketplace_vendor_id', 'is', null);
+  if (supRowsRead.error) logQueryError('admin/events/[eventId]:booked suppliers', supRowsRead.error);
+  const supShopIds = [...new Set((supRowsRead.data ?? []).map((r) => r.marketplace_vendor_id as string))];
+  const marksRead = await admin.from('event_supplier_schedule_marks').select(SCHEDULE_MARK_COLUMNS).eq('event_id', eventId);
+  if (marksRead.error) logQueryError('admin/events/[eventId]:schedule marks', marksRead.error);
+  const shopNamesRead = supShopIds.length
+    ? await admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', supShopIds)
+    : { data: [] as Array<{ vendor_profile_id: string; business_name: string | null }>, error: null };
+  if (shopNamesRead.error) logQueryError('admin/events/[eventId]:supplier shop names', shopNamesRead.error);
+  const shopName = new Map(
+    (shopNamesRead.data ?? []).map((n) => [n.vendor_profile_id as string, ((n.business_name as string | null) ?? '').trim()]),
+  );
+  const marks = marksRead.error
+    ? null
+    : marksByShop(
+        (marksRead.data ?? []) as Array<{ vendor_profile_id: string; seen_at: string | null; confirmed_at: string | null; locked_at: string | null }>,
+      );
+  const supplierLocks: Array<{ key: string; name: string; state: string }> | null = supRowsRead.error
+    ? null
+    : (supRowsRead.data ?? []).map((r) => {
+        const shop = r.marketplace_vendor_id as string;
+        const mark = marks ? timesMarkOf(marks.get(shop)) : null;
+        const state =
+          marks === null
+            ? COULD_NOT_LOAD
+            : !mark
+              ? 'Open · nothing pressed yet'
+              : mark.word === NOT_TAKING_CHANGES
+                ? `Locked since ${markDay(mark.at)} · a host's change is refused`
+                : `Open · ${mark.word} ${markDay(mark.at)}`;
+        return { key: r.vendor_id as string, name: shopName.get(shop) || ((r.vendor_name as string | null) ?? '').trim() || 'Supplier', state };
+      });
+
   // RA 10173 who-viewed-whom — one row per host whose details this page shows.
   // Post-response and non-fatal, exactly like the account card.
   after(async () => {
@@ -348,6 +392,27 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             </SubmitButton>
           </ConfirmForm>
         ) : null}
+      </section>
+
+      {/* 🔒 Suppliers' schedule — the CHANGE LOCK (audit D7), read-only */}
+      <section className="border-t border-ink/10 pt-5" data-admin-supplier-locks="">
+        <h2 className="mb-3 text-sm font-medium text-ink">Suppliers&rsquo; schedule</h2>
+        {supplierLocks === null ? (
+          <p role="alert" className="text-sm text-mulberry">
+            {COULD_NOT_LOAD} the booked suppliers — the read was refused, so this is not &ldquo;no suppliers&rdquo;.
+          </p>
+        ) : supplierLocks.length === 0 ? (
+          <p className="text-sm text-ink/60">Verified: no booked supplier with a shop on this event.</p>
+        ) : (
+          <ul className="divide-y divide-ink/10 text-sm">
+            {supplierLocks.map((s) => (
+              <li key={s.key} className="flex flex-wrap justify-between gap-x-4 py-2">
+                <span className="text-ink">{s.name}</span>
+                <span className={s.state.startsWith('Locked') ? 'font-medium text-ink' : 'text-ink/60'}>{s.state}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Face tagging */}

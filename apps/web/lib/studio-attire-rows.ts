@@ -93,9 +93,14 @@ export function studioAttireRows(
   opts?: { offered?: readonly GuestRole[] | null },
 ): StudioAttireRowData[] {
   const roles = new Set<string>(tally.map((t) => t.role));
-  /* 🎂 A principal's row: on the guest list, or offered by this event's role set (no set given: the shipped rule). */
+  /* 🎂 The principals' rows. The celebrant's: someone on the guest list is the celebrant (as shipped). The bride's and the
+     groom's: on the guest list, or offered by this event's role set — so a debut, a birthday or a funeral never shows a
+     bride (no set given: as shipped, always). Which types should show the celebrant before anyone is tagged is the
+     owner's call — not guessed here: the generic set (every type without its own) also covers corporate, travel and a
+     funeral (CLOUD_BOARD 2026-11-05, "don't guess it"). */
   const offered = opts?.offered ? new Set<string>(opts.offered) : null;
-  const principal = (role: 'bride' | 'groom' | 'celebrant', shipped: boolean) => roles.has(role) || (offered ? offered.has(role) : shipped);
+  const principal = (role: 'bride' | 'groom' | 'celebrant', shipped: boolean) =>
+    roles.has(role) || (role !== 'celebrant' && (offered ? offered.has(role) : shipped));
   /* A group is drawn for the people it dresses — an honour attendant has a row of their own. */
   const groups = new Set(tally.filter((t) => !isHonourRole(t.role)).map((t) => roleGroupOf(t.role)));
   /* 👗 How many hold it — "8 people" under the role's name (2026-10-14 blocks). */

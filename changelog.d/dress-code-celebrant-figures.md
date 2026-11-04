@@ -9,9 +9,11 @@ taxonomy.
   Long gown · Smart casual · Filipiniana (lola) · Party dress (girl)) and FOR MEN (Barong Tagalog · Suit and tie · Formal ·
   Smart casual). The girl's party dress sits on the women's list and is drawn as a girl at child scale (`drawnAs`,
   `wearerOf`).
-- **Which principals a Studio shows follows the event type's role set** (`studioAttireRows(…, { offered })`, the editor
-  passes `resolveRoleSetForEvent`): a type whose set offers a celebrant (generic — debut, christening, anniversary,
-  graduation… — and birthday) shows "The celebrant" and no bride or groom rows. A wedding is unchanged.
+- **Which principals a Studio shows** (`studioAttireRows(…, { offered })`, the editor passes `resolveRoleSetForEvent`):
+  "The celebrant" when someone on the guest list is the celebrant (as shipped); "The bride" / "The groom" only where the
+  event's role set offers them — so a debut, a birthday or a funeral no longer shows a bride and a groom. A wedding is
+  unchanged. Which types should show the celebrant before anyone is tagged is left to the owner: the generic set (every
+  type without its own) also covers corporate, travel and funeral.
 - **The officiant**: the priest's alb and stole is drawn and registered (`officiant`), but offered on no row yet — where
   the officiant belongs is the owner's call, and a wedding's Officiants row stays exactly as shipped. His answer, if it is
   "on that row", is one flag (`also: 'officiant'`) on it.

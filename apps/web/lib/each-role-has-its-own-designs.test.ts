@@ -19,6 +19,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
+import { studioAttireRows } from './studio-attire-rows';
+import { resolveRoleSet } from './role-sets';
 import { COAT_AND_PANTS, DESIGN_ZONES, FIGURE_ART, LONG_SLEEVES, ROLE_ART_KEYS, TIE_AND_ACCENT, artZoneKeys, designOfArt } from './attire-figures';
 import { FIGURE_ROLES, GUEST_OPTIONS_MAX, ROLE_DESIGNS, ROW_FIGURE_ROLES, designLabel, designOf, roleArtKey, roleDesigns, wearLabelFor, type FigureRole } from './attire-designs';
 import { ATTIRE_ROWS, attireRow, pickOptions, picksOf, readerAttire, sanitizeSecondPicks, withSecondColours } from './attire-rows';
@@ -108,6 +110,16 @@ test('1 · every role offers exactly its own designs — the owner’s table —
   /* 🎂 The celebrant: FOR WOMEN · FOR MEN, the girl's party dress drawn as a girl. */
   assert.deepEqual([...pickOptions(attireRow('roles', 'celebrant')!, 1)], ['barong_tagalog', 'suit', 'formal', 'smart_casual']);
   assert.equal(roleArtKey('celebrant_w', 'party_dress'), 'celebrant_girl-party_dress');
+  /* 🎂 Which principals a Studio draws (2026-11-05): the celebrant only when someone IS the celebrant; a bride or groom
+     only where the event's role set offers one — a funeral on the generic set shows neither, a wedding is as shipped. */
+  const keys = (t: Array<{ role: string; count?: number }>, offered?: readonly string[]) =>
+    studioAttireRows(t as never, null, null, offered ? { offered: offered as never } : undefined).filter((r) => r.tier === 'roles').map((r) => r.key);
+  const generic = resolveRoleSet('generic').offeredRoles;
+  assert.deepEqual(keys([{ role: 'guest', count: 40 }], generic), ['guest'], 'a generic event with no celebrant drew a principal');
+  assert.deepEqual(keys([{ role: 'celebrant', count: 1 }, { role: 'guest', count: 40 }], generic), ['celebrant', 'guest']);
+  assert.deepEqual(keys([{ role: 'celebrant', count: 1 }], resolveRoleSet('birthday').offeredRoles), ['celebrant', 'guest']);
+  assert.deepEqual(keys([{ role: 'guest', count: 40 }], resolveRoleSet('wedding').offeredRoles).slice(0, 2), ['bride', 'groom']);
+  assert.deepEqual(keys([{ role: 'guest', count: 40 }]).slice(0, 2), ['bride', 'groom'], 'no role set given: not as shipped');
 });
 
 /* ── 2 · old data ─────────────────────────────────────────────────────────── */

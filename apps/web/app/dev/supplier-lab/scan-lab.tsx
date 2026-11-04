@@ -60,7 +60,7 @@ export function ScanLab(q: { side?: string; two?: string; state?: string }) {
         className="mt-8"
       />
       {q.state === 'ready' ? (
-        <p className="mt-6 rounded-xl border border-ink/15 px-4 py-3 text-center text-[14px] text-ink" data-lab-stand-in="announcement">
+        <p className="mt-6 border-y border-ink/15 px-4 py-3 text-center text-[14px] text-ink" data-lab-stand-in="announcement">
           #0042 is ready — claim it at Photo booth prints (Lumina Studio).
           <span className="block text-[12px] text-ink/55">(the Event Hub&rsquo;s announcement card, as this guest sees it)</span>
         </p>

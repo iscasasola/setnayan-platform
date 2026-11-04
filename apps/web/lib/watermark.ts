@@ -75,6 +75,11 @@
  */
 
 import { WATERMARK_TEXT } from './watermark-text';
+// 📦 The Seal and plate's layout and painter are STATIC here, not import()s: this module is itself only ever
+// loaded on first use (FileUpload import()s it after a pick), so they ride in its chunk. Each separate lazy
+// chunk adds an entry to the webpack runtime every page loads, and the shared bundle has no room for one.
+import { layoutInside, layoutMark, layoutMarkInFrame, type FrameShape, type MarkSpec } from './photo-mark-geometry';
+import * as painter from './photo-mark-canvas';
 
 export type WatermarkOptions = {
   /** Text to render (default: the shared `WATERMARK_TEXT`, the web address) */
@@ -494,20 +499,16 @@ function renameForMime(name: string, mime: string): string {
    upload ("Nothing goes up unmarked" — the approved page's last line). */
 
 export type PhotoMarkInput = {
-  spec: import('./photo-mark-geometry').MarkSpec;
+  spec: MarkSpec;
   /** the shop's logo as a data: URL (from the server), for the verified coin */
   logoDataUrl?: string | null;
   /** stamp inside this frame (image px) instead of the centred safe square */
-  framed?: { frame: MarkBox; shape: import('./photo-mark-geometry').FrameShape } | null;
+  framed?: { frame: MarkBox; shape: FrameShape } | null;
 };
 
 /** Burn the Seal and plate into an image File. Throws on ANY failure — never returns the input unmarked. */
 export async function markPhotoFile(file: File, input: PhotoMarkInput): Promise<File> {
   assertNotVideoFile(file);
-  const [{ layoutMark, layoutMarkInFrame, layoutInside }, painter] = await Promise.all([
-    import('./photo-mark-geometry'),
-    import('./photo-mark-canvas'),
-  ]);
   await painter.ensureMarkFonts();
   const img = await loadImage(await fileToDataUrl(file));
   const canvas = document.createElement('canvas');
@@ -537,10 +538,6 @@ export async function markPhotoFile(file: File, input: PhotoMarkInput): Promise<
  * Same geometry, same painter, so a clip and a photo carry the same mark.
  */
 export async function markOverlayPng(W: number, H: number, input: PhotoMarkInput): Promise<Uint8Array> {
-  const [{ layoutMark, layoutInside }, painter] = await Promise.all([
-    import('./photo-mark-geometry'),
-    import('./photo-mark-canvas'),
-  ]);
   await painter.ensureMarkFonts();
   const canvas = document.createElement('canvas');
   canvas.width = W;

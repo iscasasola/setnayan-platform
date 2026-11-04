@@ -126,10 +126,10 @@ The For Suppliers sections on `main` are the older editorial design (serif + mon
 **Done.** The page is built and registered. The owner's four answers of 2026-11-04 are all applied (above): the migration, the copy, the four live switches with one test per line, and the real links. The board's true-claims fix for the day-of desk is applied too. Screenshots exist for every switch on and every switch off. The whole preflight was clean on `00881fa0`; a re-run on the switch work is recorded below. Everything is pushed.
 
 **Next, exact steps:**
-1. When #7272 (schema snapshot) merges, merge `origin/main` into this branch with a merge commit (never force-push). If #7263 has merged by then, this PR's base retargets to `main` by itself.
-2. If either merge conflicts on `apps/web/lib/ugat/screens.generated.json` or `apps/web/scripts/port-control-baseline.json`, regenerate them (`pnpm -C apps/web ugat:screens`, `pnpm -C apps/web port:baseline`); never hand-merge.
+1. ✅ Done 2026-11-04 19:46 UTC: #7272 merged, so `origin/main` was merged into this branch (merge commit `b9384c36`). The generated Ugat and port baselines were regenerated, not hand-merged. No newer replacement of `business_slug_is_reserved` arrived, and `20271308786674` is still the newest prefix.
+2. When #7263 merges, GitHub retargets this PR to `main`. Merge `origin/main` again if it moved, and regenerate `apps/web/lib/ugat/screens.generated.json` + `apps/web/scripts/port-control-baseline.json` on any conflict (`pnpm -C apps/web ugat:screens`, `pnpm -C apps/web port:baseline`).
 3. If another migration replaced `business_slug_is_reserved` meanwhile, re-copy its body into `20271308786674` (plus `for-coordinators`) — `grep -l "FUNCTION public.business_slug_is_reserved" supabase/migrations/*.sql | sort | tail -1`.
-4. Re-run `pnpm preflight --base origin/<base>` whole, paste its table here, push.
+4. Re-run `pnpm preflight --base origin/main` whole, paste its table here, push. Then copy this file into the PR body (the GitHub connector was down at the end of the session that wrote it), and add `[migration · do not auto-merge]` to the PR title.
 
 **Waiting on the owner:** his OK on the screenshots, and the separate gate fix that makes the day-of desk free as he ruled. This page follows that fix by itself. Nothing else. Owner check, optional, prod read: `select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';` should be 0 before the migration applies.
 

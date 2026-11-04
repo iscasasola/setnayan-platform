@@ -103,6 +103,7 @@ import {
 } from '@/lib/schedule-travel';
 import { TravelClashGuard, TravelItineraryView } from './_components/travel-itinerary';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { NOT_TAKING_CHANGES } from '@/lib/supplier-schedule-marks';
 import { APPOINTMENT_KINDS } from '@/lib/appointments';
 import {
   VendorMeetingsSection,
@@ -661,7 +662,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             })
         )
           .filter((v) => v.standing === 'Booked')
-          .map((v) => ({ id: v.vendor_id, name: v.vendor_name }))
+          // 🔒 CHANGE LOCK (audit D7): the moment sheet says "<shop> isn’t taking changes" before the host tries.
+          .map((v) => ({ id: v.vendor_id, name: v.vendor_name, ...(v.times === NOT_TAKING_CHANGES ? { locked: true } : {}) }))
       : [];
   /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
      and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */

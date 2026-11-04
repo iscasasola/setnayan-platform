@@ -50,6 +50,8 @@ import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '.
 import type { ChapterMoment, TaskWhoList } from './chapters-host';
 import { AskSupplierSection } from './ask-supplier-section';
 import type { HostAsk } from '@/lib/schedule-ask';
+import { lockedShopOnMoment } from '@/lib/supplier-part-lock';
+import { lockedHead, lockedLine } from '@/lib/supplier-schedule-marks';
 
 /**
  * 📖 THE MOMENT SHEET — a moment and its parallel tasks (owner 2026-11-01, corpus SCHEDULE_CHAPTERS_BUILD_PLAN §3
@@ -484,6 +486,22 @@ export function MomentSheet({
   const [papic, setPapic] = useState<{ ok: true; value: MomentPapic } | { ok: false } | null>(null);
   const [drafts, setDrafts] = useState<string[]>([]);
   const names = useMemo(() => taskNamesFrom(who), [who]);
+  /* 🔒 CHANGE LOCK (audit D7): a LOCKED supplier on this moment is said BEFORE a change — host words, never "lock" —
+     with the way to ask instead; a refused save then says the same calm line, never "Try again." */
+  const lockedShop = lockedShopOnMoment(m.vendor_ids, who.suppliers);
+  const lockedId = lockedShop ? (m.vendor_ids.find((v) => who.suppliers.some((s) => s.id === v && s.locked === true)) ?? null) : null;
+  const refused = lockedShop ? { ok: false as const, error: lockedLine(lockedShop) } : NOT_SAVED;
+  const [askOpener, setAskOpener] = useState<{ vendorId: string; n: number } | null>(null);
+  /* The task and Suppliers-and-crew doors say the same calm line on a refusal here (their own words otherwise). */
+  const partDoors = useMemo<MomentDoors>(() => {
+    if (!lockedShop) return doors;
+    const calm = <T,>(r: Answer<T>): Answer<T> => (!r.ok && r.error === NOT_SAVED_WORDS ? { ok: false, error: lockedLine(lockedShop) } : r);
+    return {
+      ...doors,
+      task: (op, blockId, fields) => doors.task(op, blockId, fields).then(calm),
+      forSet: (blockId, fields) => doors.forSet(blockId, fields).then(calm),
+    };
+  }, [doors, lockedShop]);
   const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id).sort((a, b) => a.sort_order - b.sort_order);
   const clashes = useMemo(
     () => clashesForMoment(m.block_id, tasks ?? [], moments.map(clashMomentOf), chapters, names),
@@ -504,7 +522,7 @@ export function MomentSheet({
 
   const keep = async (fields: Record<string, string>, next: Partial<ChapterMoment>) => {
     const ok = await doors.save(m.block_id, fields);
-    if (!ok) return NOT_SAVED;
+    if (!ok) return refused;
     onPatch(next);
     return { ok: true as const };
   };
@@ -565,6 +583,26 @@ export function MomentSheet({
         {stage === 'details' ? (
           <>
             <p className="text-[13px] text-ink/60">{c.label}</p>
+            {lockedShop && lockedId ? (
+              <p role="note" data-moment-locked="" className="text-[13px] text-warn-900">
+                {lockedHead(lockedShop)}{' '}
+                <button
+                  type="button"
+                  data-testid="moment-locked-ask"
+                  className="font-semibold underline underline-offset-2"
+                  onClick={() => {
+                    setAskOpener((o) => ({ vendorId: lockedId, n: (o?.n ?? 0) + 1 }));
+                    requestAnimationFrame(() =>
+                      document
+                        .querySelector(`[data-moment-sheet="${m.block_id}"] [data-moment-asks]`)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                    );
+                  }}
+                >
+                  Send them a request
+                </button>
+              </p>
+            ) : null}
             <FormRows width="wide">
               <TypedRow
                 name="What"
@@ -641,7 +679,7 @@ export function MomentSheet({
                 onKeep={(t) => keep({ spot: t.trim() }, { spot: t.trim() || null })}
                 data="moment-room"
               />
-              <ForRow moment={m} who={who} tasks={tasks} doors={doors} onPatch={onPatch} onTasks={onTasks} />
+              <ForRow moment={m} who={who} tasks={tasks} doors={partDoors} onPatch={onPatch} onTasks={onTasks} />
               <SwitchRow
                 name="Visible to guests"
                 line={
@@ -708,6 +746,7 @@ export function MomentSheet({
               asks={asks}
               ask={doors.ask}
               onAsked={(row) => onAsked?.(row)}
+              opener={askOpener}
             />
 
             <section data-moment-tasks={mine.length} aria-label="Tasks" className="mt-2 border-t border-ink/10 pt-3">
@@ -731,7 +770,7 @@ export function MomentSheet({
                       who={who}
                       names={names}
                       clash={clashes.get(t.task_id) ?? null}
-                      doors={doors}
+                      doors={partDoors}
                       contact={contacts === null ? 'unread' : (contacts[t.task_id] ?? null)}
                       onContact={(next) => onContact?.(t.task_id, next)}
                       onSaved={(row) => {
@@ -752,7 +791,7 @@ export function MomentSheet({
                       who={who}
                       names={names}
                       clash={null}
-                      doors={doors}
+                      doors={partDoors}
                       onSaved={(row) => {
                         linked(row);
                         setDrafts((ds) => ds.filter((x) => x !== d));
@@ -785,7 +824,7 @@ export function MomentSheet({
                 'Deleting…'
               ) : stage === 'failed' ? (
                 <span role="alert" className="font-semibold text-danger-700">
-                  {m.label} wasn’t deleted. Nothing was changed — try again.
+                  {lockedShop ? lockedLine(lockedShop) : `${m.label} wasn’t deleted. Nothing was changed — try again.`}
                 </span>
               ) : (
                 momentDeleteWords({ label: m.label, tasks: mine.length, papic })

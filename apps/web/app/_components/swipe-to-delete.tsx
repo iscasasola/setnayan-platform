@@ -171,7 +171,9 @@ export function SwipeToDelete({
             const t = e.touches[0];
             if (!t || disabled) return;
             drag.current = swipeBegin(t.clientX, t.clientY, tx, e.timeStamp);
-            setDragging(true);
+            // 👆 NOTHING visible changes on touch-down (owner 2026-11-04 "i see it needs a double tap?"): iPhone Safari
+            // swallows the click of a tap whose touch-down shows or hides anything — here, the red Delete behind the
+            // row — so every row needed two taps to open. The row only counts as dragging once the swipe is decided.
           }}
           onTouchMove={(e) => {
             const t = e.touches[0];
@@ -179,7 +181,10 @@ export function SwipeToDelete({
             const { drag: next, tx: nextTx } = swipeMove(drag.current, t.clientX, t.clientY, e.timeStamp);
             drag.current = next;
             if (!next.active) setDragging(false);
-            if (nextTx !== null) setTx(nextTx);
+            if (nextTx !== null) {
+              setDragging(true);
+              setTx(nextTx);
+            }
           }}
           onTouchEnd={end}
           onTouchCancel={end}

@@ -18,6 +18,8 @@ import { formatCount } from '@/lib/format-number';
 import { uploadTypeOf } from '@/lib/upload-type-names';
 import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
 import { FramedImg } from './framed-img';
+import type { FrameShape, Framing } from '@/lib/photo-frame';
+import type { FramePreviews } from './frame-step';
 import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 
@@ -277,9 +279,9 @@ type FileUploadBaseProps = {
    * frame, and tapping the uploaded tile re-opens the step to edit in place.
    * No `frame` = no Frame step (evidence, verification, posters).
    */
-  frame?: import('@/lib/photo-frame').FrameShape;
+  frame?: FrameShape;
   /** Which places the Frame step previews (required with `frame`). */
-  previews?: import('./frame-step').FramePreviews;
+  previews?: FramePreviews;
   /**
    * Auto-compress uploaded VIDEOS to a streaming-friendly size in the browser
    * (ffmpeg.wasm) before they go to R2. Phone exports are often ~25 Mbps / >100 MB
@@ -577,10 +579,10 @@ export function FileUpload({
   const [framePrompt, setFramePrompt] = useState<{
     src: string;
     isVideo: boolean;
-    initial: import('@/lib/photo-frame').Framing | null;
+    initial: Framing | null;
     reopened: boolean;
     mark: import('@/lib/watermark').PhotoMarkInput | null;
-    resolve: (v: { framing: import('@/lib/photo-frame').Framing; size: { width: number; height: number } } | null) => void;
+    resolve: (v: { framing: Framing; size: { width: number; height: number } } | null) => void;
   } | null>(null);
   const frameQueue = useRef<Promise<unknown>>(Promise.resolve());
   /** The picked file behind each uploaded tile, for re-framing in this visit without a round trip. */
@@ -588,13 +590,13 @@ export function FileUpload({
   const askFraming = (
     file: File,
     isVid: boolean,
-    initial: import('@/lib/photo-frame').Framing | null,
+    initial: Framing | null,
     reopened: boolean,
     markFor: import('@/lib/watermark').PhotoMarkInput | null,
   ) => {
     const next = frameQueue.current.then(
       () =>
-        new Promise<{ framing: import('@/lib/photo-frame').Framing; size: { width: number; height: number } } | null>((resolve) => {
+        new Promise<{ framing: Framing; size: { width: number; height: number } } | null>((resolve) => {
           if (!isMountedRef.current) return resolve(null);
           const src = URL.createObjectURL(file);
           setFramePrompt({
@@ -936,7 +938,7 @@ export function FileUpload({
    * Errors at any step roll back the inFlight entry and surface the message
    * via the `error` state.
    */
-  async function uploadOne(rawFile: File, again?: { replaceId: string; initial: import('@/lib/photo-frame').Framing | null }) {
+  async function uploadOne(rawFile: File, again?: { replaceId: string; initial: Framing | null }) {
     const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const initialContentType =
       uploadTypeOf(rawFile.type) || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
@@ -973,13 +975,13 @@ export function FileUpload({
     }
     // ── THE FRAME STEP — after the mark is known (the stage shows it), before
     // anything is painted or sent. Backing out uploads nothing and says nothing.
-    let framed: { framing: import('@/lib/photo-frame').Framing; size: { width: number; height: number } } | null = null;
+    let framed: { framing: Framing; size: { width: number; height: number } } | null = null;
     const frames = Boolean(frame && previews) && (isImage(initialContentType) || (isVideo(initialContentType) && Boolean(markInput)));
     if (frames && frame) {
       framed = await askFraming(rawFile, isVideo(initialContentType), again?.initial ?? null, Boolean(again), markInput);
       if (!framed) return;
       if (markInput && isImage(initialContentType)) {
-        const { frameRect, FRAME_ASPECT } = await import('@/lib/photo-frame');
+        const { frameRect, FRAME_ASPECT } = await import('./frame-step');
         markInput = {
           ...markInput,
           framed: { frame: frameRect(framed.size.width, framed.size.height, FRAME_ASPECT[frame], framed.framing), shape: frame },
@@ -1039,11 +1041,11 @@ export function FileUpload({
           import('@/lib/watermark'),
         ]);
         setOptimizing({ label: 'Preparing your clip · adding the Setnayan mark', pct: 0 });
-        const cropTo = framed && frame ? { f: framed.framing, a: (await import('@/lib/photo-frame')).FRAME_ASPECT[frame] } : null;
-        const { frameRect } = await import('@/lib/photo-frame');
+        const frameMath = framed && frame ? await import('./frame-step') : null;
+        const cropTo = framed && frame && frameMath ? { f: framed.framing, a: frameMath.FRAME_ASPECT[frame], rect: frameMath.frameRect } : null;
         file = await markAndCompressVideo(rawFile, {
           markPng: (w, h) => markOverlayPng(w, h, input),
-          crop: cropTo ? (w, h) => frameRect(w, h, cropTo.a, cropTo.f) : undefined,
+          crop: cropTo ? (w, h) => cropTo.rect(w, h, cropTo.a, cropTo.f) : undefined,
           maxDurationS: maxVideoDurationS,
           onProgress: (p) => {
             if (!isMountedRef.current) return;
@@ -1086,7 +1088,7 @@ export function FileUpload({
     // The framing rides in the stored object's NAME (`lib/photo-frame.ts`): every
     // display reads the ref already, so none needs a second read to derive its crop.
     if (framed && isImage(contentType)) {
-      const { framedFileName } = await import('@/lib/photo-frame');
+      const { framedFileName } = await import('./frame-step');
       file = new File([file], framedFileName(file.name, { ...framed.framing, ...framed.size }), { type: file.type });
     }
 
@@ -1285,7 +1287,7 @@ export function FileUpload({
     if (!frame || !previews || reframing) return;
     setReframing(item.id);
     try {
-      const { framingFromRef } = await import('@/lib/photo-frame');
+      const { framingFromRef } = await import('./frame-step');
       const initial = framingFromRef(item.r2Ref);
       let raw = rawById.current.get(item.id) ?? null;
       if (!raw) {

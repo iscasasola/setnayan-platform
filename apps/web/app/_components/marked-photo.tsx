@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { displayAspectAllowed, type FrameShape } from '@/lib/photo-mark-geometry';
-import { framedImageStyle } from '@/lib/photo-frame';
+import { framedImageStyle } from '@/lib/photo-frame-display';
 
 /**
  * A MARKED supplier photo, drawn so its mark is never cropped off (controller

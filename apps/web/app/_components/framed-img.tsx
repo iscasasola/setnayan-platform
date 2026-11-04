@@ -1,4 +1,5 @@
-import { framedImageStyle, type FrameShape } from '@/lib/photo-frame';
+import { framedImageStyle } from '@/lib/photo-frame-display';
+import type { FrameShape } from '@/lib/photo-frame-shape';
 
 /**
  * A supplier photo drawn at its saved framing (Photo Frame Template · "any

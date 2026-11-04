@@ -47,6 +47,10 @@ import { layoutMarkInFrame, type Box, type MarkLayout, type MarkSpec } from '@/l
 // chunk. A separate lazy chunk would add an entry to the webpack runtime every page loads.
 import * as markPainter from '@/lib/photo-mark-canvas';
 
+// FileUpload's framing math, served from THIS chunk: FileUpload only needs it once a frame is in play, when this
+// step is loaded anyway — a separate lazy chunk for it would add an entry to every page's webpack runtime.
+export { FRAME_ASPECT, frameRect, framedFileName, framingFromRef } from '@/lib/photo-frame';
+
 export type FramePreviews = 'service-card' | 'service-video' | 'portfolio' | 'inspiration' | 'shop-logo';
 
 type Copy = { hd: [string, string]; cap: string; info: string[]; save?: string };

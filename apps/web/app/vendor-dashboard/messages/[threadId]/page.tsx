@@ -978,7 +978,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     });
   })();
 
-  // BOOKED → Call · Video call in the head, Viber / Phone call in a meeting's Via (owner 2026-11-04). The one booking
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
   // check; the couple's number is read only once it says yes, and only if they saved one (else no buttons).
   const shopBookedRead = shopIsBookedOnEvent(thread.event_id, profile.vendor_profile_id);
   const couplePhoneRead = shopBookedRead.then((booked) =>
@@ -1370,7 +1370,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           threadId={threadId}
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
-          booked={shopBooked}
         />
     ),
     'log-outcome': outcomeCapture,
@@ -2044,7 +2043,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             viewerRole="vendor"
             counterpartyLabel={coupleLabel}
             eventDate={event?.event_date ?? null}
-            shopBooked={shopBooked}
             standing={threadStanding}
             decisionPayments={decisionPayments}
             decisionGuestCounts={decisionGuestCounts}

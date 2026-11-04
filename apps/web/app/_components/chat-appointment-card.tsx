@@ -17,11 +17,13 @@ export type ChatAppointmentData = {
   appointment_id: string;
   kind: AppointmentKind;
   label: string;
-  /** In-person: the place. Virtual: `"<via>|<value>"` (lib/virtual-meeting.ts). */
+  /** In-person: the place. Virtual: `"jitsi|<link>"` (lib/virtual-meeting.ts). */
   location?: string | null;
   scheduled_at: string | null;
   status: 'proposed' | 'confirmed' | 'done' | 'cancelled';
   initiated_by: 'couple' | 'vendor' | null;
+  /** A Virtual meeting's room: when it was first created (set once), or null. */
+  room_created_at?: string | null;
 };
 
 type Props = {
@@ -31,8 +33,6 @@ type Props = {
   vendorProfileId: string;
   returnPath: string;
   eventDate: string | null;
-  /** The booking check's answer for this (event, shop) — Viber / Phone hand-offs exist only when true. */
-  booked?: boolean;
 };
 
 function formatWhen(iso: string | null): string {
@@ -64,7 +64,6 @@ export function ChatAppointmentCard({
   vendorProfileId,
   returnPath,
   eventDate,
-  booked = false,
 }: Props) {
   const [reviseOpen, setReviseOpen] = useState(false);
   const isProposer = data.initiated_by === viewerRole;
@@ -105,9 +104,9 @@ export function ChatAppointmentCard({
         location={data.location ?? null}
         scheduledAt={data.scheduled_at}
         confirmed={data.status === 'confirmed'}
-        canEdit
+        isProposer={isProposer}
+        roomCreatedAt={data.room_created_at ?? null}
         returnPath={returnPath}
-        booked={booked}
       />
     ) : null;
 

@@ -43,6 +43,8 @@ export type AppointmentView = {
   note: string | null;
   /** Optional link to the relationship chat thread. */
   thread_id: string | null;
+  /** A Virtual meeting's room: when somebody on it first pressed "Create the room" (set once). */
+  room_created_at?: string | null;
   /** custom_label (custom) → catalog label → humanized type. */
   label: string;
 };
@@ -50,9 +52,9 @@ export type AppointmentView = {
 /**
  * 🚫 NO CALLS INSIDE SETNAYAN (owner 2026-10-28, "remove both voice and video
  * call"; the meetings follow-up approved 2026-11-04). A meeting is In-person or
- * Virtual — and a Virtual meeting happens on the proposer's OWN app (Google
- * Meet · Zoom · Messenger · Viber · a phone call), never in an in-app room.
- * The app + value and their hand-off live in `lib/virtual-meeting.ts`.
+ * Virtual — and a Virtual meeting is a Jitsi room Setnayan makes (owner
+ * 2026-11-04 "VIRTUAL = JITSI ONLY"), opened outside the app, never an in-app
+ * room. The link, the room and its one button live in `lib/virtual-meeting.ts`.
  *
  * STORAGE — no new schema. `event_appointments.kind` is a text CHECK of
  * in_person / video / voice; a new Virtual meeting is stored as 'video', and an

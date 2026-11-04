@@ -13,14 +13,8 @@ const MODE_OPTIONS = MEETING_MODES.map((m) => ({ key: m, label: MEETING_MODE_LAB
 
 export function MeetingHowFields({
   initialMode = 'virtual',
-  onValidChange,
-  booked = false,
 }: {
   initialMode?: MeetingMode;
-  /** The booking check's answer for this thread's (event, shop) — gates Viber / Phone call in the Via list. */
-  booked?: boolean;
-  /** False while a Virtual value would be refused — the parent disables Send. */
-  onValidChange?: (ok: boolean) => void;
 }) {
   const [mode, setMode] = useState<MeetingMode>(initialMode);
   return (
@@ -36,11 +30,10 @@ export function MeetingHowFields({
           onPick={(k) => {
             const next = k as MeetingMode;
             setMode(next);
-            if (next === 'in_person') onValidChange?.(true);
           }}
         />
       </div>
-      {mode === 'virtual' ? <VirtualMeetingFields onValidChange={onValidChange} booked={booked} /> : null}
+      {mode === 'virtual' ? <VirtualMeetingFields /> : null}
     </div>
   );
 }

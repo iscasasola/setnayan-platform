@@ -22,7 +22,6 @@
 // added — the WHERE precondition is the guard.
 // ============================================================================
 
-import { shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -36,7 +35,13 @@ import {
   type AppointmentInitiator,
   type AppointmentKind,
 } from '@/lib/appointments';
-import { readVirtualFields } from '@/lib/virtual-meeting';
+import {
+  encodeJitsiLocation,
+  makeJitsiLink,
+  parseVirtualLocation,
+  virtualHandoff,
+  virtualLocationFromForm,
+} from '@/lib/virtual-meeting';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { revalidationTarget } from '@/lib/return-path';
 import { safeNext } from '@/lib/safe-next';
@@ -197,12 +202,9 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
   const kind = postedKindToStored(formData.get('kind'));
   const type = str(formData.get('type'), 60);
   if (!eventId || !kind || !type) redirect(returnPath);
-  // A Virtual meeting's app + value — validated; invalid saves NOTHING. Viber /
-  // Phone call only for a shop booked on this event (owner 2026-11-04) — the
-  // booking check runs for the very (event, shop) pair the row is written for.
-  const booked = kind === 'video' ? await shopIsBookedOnEvent(eventId, vendorProfileId) : false;
-  const virtual = kind === 'video' ? readVirtualFields(formData, booked) : null;
-  if (virtual && !virtual.ok) redirect(returnPath);
+  // A Virtual meeting is a Jitsi link of ours — made here when the form's is missing or not ours
+  // (owner 2026-11-04 "VIRTUAL = JITSI ONLY"). Nothing another app's is ever written.
+  const virtualLocation = kind === 'video' ? virtualLocationFromForm(formData) : null;
 
   const supabase = await createClient();
   const {
@@ -226,9 +228,7 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
     location:
       kind === 'in_person'
         ? str(formData.get('location'), 300)
-        : virtual && virtual.ok
-          ? virtual.location
-          : null,
+        : virtualLocation,
     scheduled_at: toIso(formData.get('scheduled_at')),
     duration_min: toDuration(formData.get('duration_min')),
     status: 'proposed',
@@ -416,60 +416,75 @@ export async function cancelAppointment(formData: FormData): Promise<void> {
   redirect(returnPath);
 }
 
-export type VirtualLinkState = { ok: boolean; error: string | null; savedAt: number };
+export type MeetingRoomResult =
+  | { ok: true; href: string; createdAt: string; createdByMe: boolean }
+  | { ok: false; error: string };
 
 /**
- * setVirtualMeetingLink — either party adds (or fixes) the app + link of a
- * Virtual meeting IN PLACE (a save never resets the screen: returns state,
- * never redirects). Validated by `readVirtualFields`; an invalid value saves
- * NOTHING. RLS scopes the update to the caller's relationship; only a live
- * (proposed / confirmed) Virtual row — 'video', or the retired 'voice' — is
- * touched, so an in-person row's address can never be overwritten from here.
+ * createMeetingRoom — "Create the room" on a Virtual meeting (owner 2026-11-04, DECISION_LOG "ONE BUTTON THAT SAYS
+ * WHAT THE ROOM NEEDS"). Records the room as created — who and when — ONCE, and returns the Jitsi link to open.
+ *
+ *   · WHO: the caller's own session — the event_appointments UPDATE policies already scope the row to the two sides
+ *     of the meeting, so an outsider's update matches nothing. The values themselves are the database's
+ *     (`tg_event_appointments_room_set_once`: `now()` / `auth.uid()`, frozen after the first press).
+ *   · ONCE: a second press is a no-op — the update is filtered on `room_created_at IS NULL`, and the trigger keeps
+ *     the first values regardless. Either way the caller gets the room's link back and is sent in.
+ *   · A row with no link yet (an older Virtual meeting) gets its Jitsi link made here, in the same update.
+ *   · In place: returns state, never redirects; revalidates so a refresh reads "Enter the room".
  */
-export async function setVirtualMeetingLink(
-  _prev: VirtualLinkState,
-  formData: FormData,
-): Promise<VirtualLinkState> {
-  const appointmentId = str(formData.get('appointment_id'), 64);
-  const returnPath = safeReturnPath(formData.get('return_path'));
-  if (!appointmentId) return { ok: false, error: 'This meeting could not be found.', savedAt: 0 };
+export async function createMeetingRoom(appointmentId: string, returnPath: string): Promise<MeetingRoomResult> {
+  const id = typeof appointmentId === 'string' ? appointmentId.slice(0, 64) : '';
+  if (!id) return { ok: false, error: 'This meeting could not be found.' };
+  const back = safeReturnPath(returnPath);
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Sign in again to save this.', savedAt: 0 };
+  if (!user) return { ok: false, error: 'Sign in again to open the room.' };
 
-  // The row as THIS caller may read it (RLS) — its (event, shop) pair is what the
-  // booking check answers for: Viber / Phone call only once that shop is booked.
   const { data: row } = await supabase
     .from('event_appointments')
-    .select('event_id, vendor_profile_id')
-    .eq('appointment_id', appointmentId)
+    .select('location, kind, status, room_created_at, room_created_by')
+    .eq('appointment_id', id)
     .maybeSingle();
-  if (!row) return { ok: false, error: 'This meeting could not be found.', savedAt: 0 };
-  const pair = row as { event_id: string | null; vendor_profile_id: string | null };
-  const booked = await shopIsBookedOnEvent(pair.event_id, pair.vendor_profile_id);
-  const read = readVirtualFields(formData, booked);
-  if (!read.ok) return { ok: false, error: read.error, savedAt: 0 };
-  if (!read.location || read.location.endsWith('|')) {
-    return { ok: false, error: 'Add the link or number first.', savedAt: 0 };
+  const r = row as {
+    location: string | null;
+    kind: string;
+    status: string;
+    room_created_at: string | null;
+    room_created_by: string | null;
+  } | null;
+  if (!r || (r.kind !== 'video' && r.kind !== 'voice')) return { ok: false, error: 'This meeting could not be found.' };
+  if (r.status !== 'confirmed') return { ok: false, error: 'The room opens once the meeting is confirmed.' };
+
+  const existing = parseVirtualLocation(r.location);
+  const location = existing.value ? r.location : encodeJitsiLocation(makeJitsiLink());
+
+  if (!r.room_created_at) {
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('event_appointments')
+      // The trigger replaces both values with now() / auth.uid() — these only say "create it".
+      .update({ room_created_at: now, room_created_by: user.id, location, updated_at: now })
+      .eq('appointment_id', id)
+      .is('room_created_at', null);
+    if (error) {
+      console.error('[appointments] create meeting room refused', error);
+      return { ok: false, error: 'Could not create the room — please try again.' };
+    }
   }
 
-  const { data: updated, error } = await supabase
+  // Read back what the database holds — a racing press by the other side is just "already created".
+  const { data: after } = await supabase
     .from('event_appointments')
-    .update({ location: read.location, updated_at: new Date().toISOString() })
-    .eq('appointment_id', appointmentId)
-    .in('kind', ['video', 'voice'])
-    .in('status', ['proposed', 'confirmed'])
-    .select('appointment_id');
-  if (error) {
-    console.error('[appointments] set virtual link refused', error);
-    return { ok: false, error: 'Could not save — please try again.', savedAt: 0 };
+    .select('location, room_created_at, room_created_by')
+    .eq('appointment_id', id)
+    .maybeSingle();
+  const a = after as { location: string | null; room_created_at: string | null; room_created_by: string | null } | null;
+  const handoff = a ? virtualHandoff(parseVirtualLocation(a.location)) : null;
+  if (!a || !a.room_created_at || !handoff) {
+    return { ok: false, error: 'This meeting can no longer be changed.' };
   }
-  // A zero-row update is not a save — say so rather than show the link as kept.
-  if (!updated || updated.length === 0) {
-    return { ok: false, error: 'This meeting can no longer be changed.', savedAt: 0 };
-  }
-  revalidatePath(revalidationTarget(returnPath));
-  return { ok: true, error: null, savedAt: Date.now() };
+  revalidatePath(revalidationTarget(back));
+  return { ok: true, href: handoff.href, createdAt: a.room_created_at, createdByMe: a.room_created_by === user.id };
 }

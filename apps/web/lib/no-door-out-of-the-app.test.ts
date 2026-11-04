@@ -294,7 +294,7 @@ const BOOKED_HANDOFF_BILL: ReadonlyMap<string, { count: number; why: string; gat
       why:
         'A Call (tel:) and a Viber call (viber://chat?number=) between a couple and a shop, made ONLY when the booking ' +
         'check says the shop is booked on the event (owner 2026-11-04 "Viber and phone call booked suppliers"). Both ' +
-        'builders return null without it: the chat head, a meeting\'s Via and its Join all go through here.',
+        'builders return null without it. Its one caller is the booked chat head (meetings are Jitsi only and dial nothing).',
     },
   ],
 ]);
@@ -805,16 +805,16 @@ test('the bill and the exclusions carry reasons', () => {
 
 test('BOOKED hand-offs: an unbooked shop gets no tel:/viber link — from the builders, a meeting, or the thread head', async () => {
   const { bookedTelHref, bookedViberHref } = await import('./booked-handoff');
-  const { virtualHandoff } = await import('./virtual-meeting');
+  const { virtualHandoff, parseVirtualLocation } = await import('./virtual-meeting');
   for (const phone of ['0917 123 4567', '+639171234567', '02 8123 4567']) {
     assert.equal(bookedTelHref(false, phone), null, `unbooked tel: for ${phone}`);
     assert.equal(bookedViberHref(false, phone), null, `unbooked viber: for ${phone}`);
   }
   assert.equal(bookedTelHref(true, '0917 123 4567'), 'tel:+639171234567');
   assert.equal(bookedViberHref(true, '0917 123 4567'), 'viber://chat?number=%2B639171234567');
-  assert.equal(virtualHandoff({ via: 'viber', value: '+639171234567' }, false), null, 'an unbooked meeting opened Viber');
-  assert.equal(virtualHandoff({ via: 'phone', value: '+639171234567' }, false), null, 'an unbooked meeting dialled');
-  assert.match(virtualHandoff({ via: 'phone', value: '+639171234567' }, true)?.href ?? '', /^tel:\+639171234567$/);
+  // Meetings are Jitsi only (owner 2026-11-04) — an older row's number is shown, never dialled.
+  assert.equal(virtualHandoff(parseVirtualLocation('viber|+639171234567')), null, 'a meeting opened Viber');
+  assert.equal(virtualHandoff(parseVirtualLocation('phone|+639171234567')), null, 'a meeting dialled');
 
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
@@ -839,13 +839,9 @@ test('BOOKED hand-offs: the thread pages pass the ONE booking check, never a lit
       assert.match(m[0], /\bbooked=\{shopBooked\}/, `${rel}: the head's buttons are not keyed on the booking check`);
     }
   }
-  // Viber / Phone in a saved meeting are refused on the SERVER without the booking — not only hidden in the picker.
-  for (const rel of ['app/_components/appointments-actions.ts', 'app/_components/negotiation-actions.ts']) {
-    const src = stripComments(readFileSync(path.join(WEB, rel), 'utf8'));
-    const reads = [...src.matchAll(/readVirtualFields\(([^)]*)\)/g)].map((m) => m[1]!);
-    assert.ok(reads.length > 0, `${rel} no longer validates a Virtual meeting`);
-    for (const r of reads) assert.match(r, /,\s*booked\s*$/, `${rel}: readVirtualFields(${r}) is not given the booking check`);
-    assert.match(src, /shopIsBookedOnEvent\(/, `${rel} no longer asks the booking check`);
+  // Meetings dial nothing: no meeting file reaches the booked hand-offs.
+  for (const rel of ['lib/virtual-meeting.ts', 'app/_components/appointment-join.tsx', 'app/_components/appointments-actions.ts', 'app/_components/negotiation-actions.ts']) {
+    assert.doesNotMatch(readFileSync(path.join(WEB, rel), 'utf8'), /booked-handoff/, `${rel} reaches the booked tel:/viber builders`);
   }
 });
 

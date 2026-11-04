@@ -22,10 +22,12 @@
 // refusal: an unbooked call returns null.
 //
 // These are hand-offs OUT of the app — never the retired in-app call
-// (ThreadCallRoom stays unused; `the-chat-has-no-calls.test.ts`).
+// (ThreadCallRoom stays unused; `the-chat-has-no-calls.test.ts`). Used ONLY by
+// the booked chat head's Call · Video call — meetings are Jitsi only (owner
+// 2026-11-04 "VIRTUAL = JITSI ONLY") and dial nothing.
 // ============================================================================
 
-import { formatPhPhone, phPhoneToE164 } from './ph-dial';
+import { phPhoneToE164 } from './ph-dial';
 
 /** tel:+63… — only for a booked shop ↔ couple, only for a PH number. */
 export function bookedTelHref(booked: boolean, phone: string | null | undefined): string | null {
@@ -40,10 +42,4 @@ export function bookedViberHref(booked: boolean, phone: string | null | undefine
   const e164 = phPhoneToE164(phone);
   if (!e164 || !/^\+639\d{9}$/.test(e164)) return null;
   return `viber://chat?number=${encodeURIComponent(e164)}`;
-}
-
-/** "Call 0917 123 4567" — the words for a booked call button. */
-export function bookedCallLabel(phone: string): string {
-  const e164 = phPhoneToE164(phone);
-  return e164 ? `Call ${formatPhPhone(e164)}` : 'Call';
 }

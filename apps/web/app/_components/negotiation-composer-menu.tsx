@@ -35,7 +35,6 @@ export function NegotiationComposerMenu({
   initialMode = null,
   embedded = false,
   entry,
-  booked = false,
 }: {
   threadId: string;
   /** `dealEntryFor(...)` for this thread — whether "Send a deal" is offered at all. */
@@ -56,14 +55,11 @@ export function NegotiationComposerMenu({
    * choices show at once, and Cancel returns to them rather than to nothing.
    */
   embedded?: boolean;
-  /** The booking check's answer for this thread's (event, shop) — gates Viber / Phone call in the Via list. */
-  booked?: boolean;
 }) {
   // `?compose=deal` cannot open the amendment builder over nothing — with no
   // quote on the thread it lands on the menu instead.
   const opening = initialMode === 'deal' && !entry.offerDeal ? 'menu' : initialMode;
   const [mode, setMode] = useState<Mode>(opening ?? (embedded ? 'menu' : null));
-  const [howOk, setHowOk] = useState(true);
 
   if (!chatNegotiationEnabled()) return null;
 
@@ -149,7 +145,7 @@ export function NegotiationComposerMenu({
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="return_to" value={returnPath} />
-      <MeetingHowFields onValidChange={setHowOk} booked={booked} />
+      <MeetingHowFields />
       <input
         type="text"
         name="title"
@@ -185,7 +181,6 @@ export function NegotiationComposerMenu({
       </div>
       <div className="flex gap-2">
         <button
-          disabled={!howOk}
           className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
         >
           Send request

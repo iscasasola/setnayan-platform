@@ -491,7 +491,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     });
   })();
 
-  // BOOKED → Call · Video call in the head, Viber / Phone call in a meeting's Via (owner 2026-11-04). The one booking
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
   // check; the shop's number is read only once it says yes (bookedCounterpartyPhone returns null without it).
   const shopBookedRead = shopIsBookedOnEvent(thread.event_id, thread.vendor_profile_id);
   const shopPhoneRead = shopBookedRead.then((booked) =>
@@ -666,7 +666,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         threadId={threadId}
         returnPath={`/dashboard/${eventId}/messages/${threadId}`}
         eventDate={eventDate}
-        booked={shopBooked}
       />
     ),
   };
@@ -847,7 +846,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             viewerRole="couple"
             counterpartyLabel={vendorLabel}
             eventDate={eventDate}
-            shopBooked={shopBooked}
             standing={threadStanding}
             decisionPayments={decisionPayments}
             initialView={initialView}

@@ -1,149 +1,37 @@
 'use client';
 
-// The Virtual half of every meeting composer (owner 2026-11-04): a "Via"
-// dropdown (Jitsi Meet · Google Meet · Zoom · Messenger · Viber · Phone call)
-// and ONE field whose label follows the pick — except Jitsi, whose link
-// Setnayan makes itself, read-only (no API, no account). Posts `via` +
-// `virtual_value`; the server re-validates with the same
-// `normalizeVirtualValue` (lib/virtual-meeting.ts) and saves nothing when it
-// fails. No call ever happens inside Setnayan.
+// The Virtual half of every meeting composer — a Jitsi link Setnayan makes
+// itself, shown read-only with its ⓘ (owner 2026-11-04, DECISION_LOG "VIRTUAL =
+// JITSI ONLY": "let's go with jitsi" · "just jitsi"). No app menu, no field to
+// type in, no API, no account. Posts `virtual_value`; the server keeps it only
+// if it is a link Setnayan made (`virtualLocationFromForm`), else makes a fresh
+// one. No call ever happens inside Setnayan.
 
 import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { InfoTip } from './info-tip';
-import {
-  JITSI_HOST_TIP,
-  JITSI_MADE_NOTE,
-  PHONE_IS_ONE_PERSON,
-  BOOKED_ONLY_NOTE,
-  VIRTUAL_VIA_META,
-  viasFor,
-  createLinkHref,
-  makeJitsiLink,
-  normalizeVirtualValue,
-  type VirtualVia,
-} from '@/lib/virtual-meeting';
-
-const viaOptions = (booked: boolean) => viasFor(booked).map((v) => ({ key: v, label: VIRTUAL_VIA_META[v].label }));
+import { JITSI_HOST_TIP, JITSI_MADE_NOTE, makeJitsiLink } from '@/lib/virtual-meeting';
 
 export function VirtualMeetingFields({
-  initialVia = 'jitsi',
-  initialValue = '',
-  onValidChange,
-  inputClassName = 'input-field h-9 text-sm',
   labelClassName = 'flex flex-col gap-1 text-[11px] font-medium text-ink/60',
-  booked = false,
 }: {
-  initialVia?: VirtualVia;
-  initialValue?: string;
-  /** Told whether the current value would be saved, so the parent can disable its submit. */
-  onValidChange?: (ok: boolean) => void;
-  inputClassName?: string;
   labelClassName?: string;
-  /**
-   * The booking check's answer for this (event, shop) — `shopIsBookedOnEvent`. Viber and Phone call are offered
-   * ONLY when true (owner 2026-11-04 "Viber and phone call booked suppliers"); the server refuses them otherwise.
-   */
-  booked?: boolean;
 }) {
-  const allowed = viasFor(booked);
-  const [via, setVia] = useState<VirtualVia>(allowed.includes(initialVia) ? initialVia : 'jitsi');
-  const [value, setValue] = useState(initialValue);
-  const [touched, setTouched] = useState(false);
-  const meta = VIRTUAL_VIA_META[via];
-  const check = normalizeVirtualValue(via, value);
-  const error = touched && !check.ok ? check.error : null;
-  const createHref = createLinkHref(via);
-
-  // Jitsi: make the link after mount — it is random, so never during the server render.
+  const [link, setLink] = useState('');
+  // Random — so made after mount, never during the server render.
   useEffect(() => {
-    if (via === 'jitsi' && value === '') setValue(makeJitsiLink());
-  }, [via, value]);
-
-  const report = (nextVia: VirtualVia, nextValue: string) =>
-    onValidChange?.(normalizeVirtualValue(nextVia, nextValue).ok);
+    setLink(makeJitsiLink());
+  }, []);
 
   return (
-    <div className="flex flex-col gap-2" data-virtual-fields>
-      <input type="hidden" name="via" value={via} />
-      <div className={labelClassName}>
-        <span>Via</span>
-        <PickMenu
-          label="Which app the meeting is on"
-          value={via}
-          options={viaOptions(booked)}
-          dataAttr="data-meeting-via"
-          onPick={(k) => {
-            const next = k as VirtualVia;
-            setVia(next);
-            setValue('');
-            setTouched(false);
-            report(next, '');
-          }}
-        />
-        {booked ? null : (
-          <span data-booked-only-note>
-            <InfoTip label="Viber and phone calls" align="start" labelClassName="text-[11px] font-normal normal-case tracking-normal text-ink/50">
-              {BOOKED_ONLY_NOTE}
-            </InfoTip>
-          </span>
-        )}
-      </div>
-      {via === 'jitsi' ? (
-        <div className={labelClassName}>
-          <span>{meta.field}</span>
-          <input type="hidden" name="virtual_value" value={value} />
-          <p className="break-all text-sm font-normal normal-case tracking-normal text-ink/85" data-jitsi-link>
-            {value || '…'}
-          </p>
-          <InfoTip label={JITSI_MADE_NOTE} align="start" labelClassName="text-[11px] font-normal normal-case tracking-normal text-ink/55">
-            {JITSI_HOST_TIP}
-          </InfoTip>
-        </div>
-      ) : (
-        <label className={labelClassName}>
-          {meta.field}
-          <input
-            // field-ok: one box inside the meeting composers, styled like their Title / Date / Time boxes beside it; its label, keyboard and check follow the Via pick live
-            type={meta.inputMode === 'tel' ? 'tel' : 'url'}
-            inputMode={meta.inputMode}
-            name="virtual_value"
-            value={value}
-            maxLength={500}
-            autoComplete="off"
-            placeholder={meta.placeholder}
-            aria-invalid={error ? true : undefined}
-            onChange={(e) => {
-              setValue(e.target.value);
-              report(via, e.target.value);
-            }}
-            onBlur={() => setTouched(true)}
-            className={inputClassName}
-          />
-        </label>
-      )}
-      {error ? (
-        <p role="alert" className="text-[11px] text-danger-700">
-          {error}
-        </p>
-      ) : null}
-      {meta.freeNote ? <p className="text-[11px] text-ink/50">{meta.freeNote}</p> : null}
-      {createHref ? (
-        <>
-          <a
-            href={createHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-ink/15 px-2.5 text-xs font-medium text-ink/75 hover:bg-ink/[0.04]" // no-card-ok: a pressable link-button that opens the app's new-meeting page
-          >
-            <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Create a {meta.label} link
-          </a>
-          <p className="text-[11px] text-ink/50">Opens {meta.label} in your own account — paste the link here.</p>
-        </>
-      ) : null}
-      {via === 'phone' ? <p className="text-[11px] text-warn-900">{PHONE_IS_ONE_PERSON}</p> : null}
+    <div className={labelClassName} data-virtual-fields>
+      <span>Meeting link</span>
+      <input type="hidden" name="virtual_value" value={link} />
+      <p className="break-all text-sm font-normal normal-case tracking-normal text-ink/85" data-jitsi-link>
+        {link || '…'}
+      </p>
+      <InfoTip label={JITSI_MADE_NOTE} align="start" labelClassName="text-[11px] font-normal normal-case tracking-normal text-ink/55">
+        {JITSI_HOST_TIP}
+      </InfoTip>
     </div>
   );
 }

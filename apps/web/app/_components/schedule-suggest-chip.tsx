@@ -44,18 +44,14 @@ export function ScheduleSuggestChip({
   returnPath,
   body,
   eventDate,
-  booked = false,
 }: {
   threadId: string;
   returnPath: string;
   body: string;
   eventDate: string | null;
-  /** The booking check's answer for this thread's (event, shop) — gates Viber / Phone call in the Via list. */
-  booked?: boolean;
 }) {
   const signal = detectNegotiation(body).signals.find((s) => s.type === 'schedule');
   const [open, setOpen] = useState(false);
-  const [howOk, setHowOk] = useState(true);
 
   if (!signal) return null;
 
@@ -82,7 +78,7 @@ export function ScheduleSuggestChip({
     >
       <input type="hidden" name="thread_id" value={threadId} />
       <input type="hidden" name="return_to" value={returnPath} />
-      <MeetingHowFields onValidChange={setHowOk} booked={booked} />
+      <MeetingHowFields />
 
       <input
         type="text"
@@ -125,7 +121,6 @@ export function ScheduleSuggestChip({
 
       <div className="flex gap-2">
         <button
-          disabled={!howOk}
           className="inline-flex h-9 items-center rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
         >
           Send request

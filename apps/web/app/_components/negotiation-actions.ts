@@ -31,7 +31,7 @@ import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { postedKindToStored } from '@/lib/appointments';
-import { readVirtualFields } from '@/lib/virtual-meeting';
+import { virtualLocationFromForm } from '@/lib/virtual-meeting';
 import {
   signedAmount,
   AMENDMENT_ITEM_KINDS,
@@ -41,7 +41,6 @@ import { dealLockReadiness, dealLockRefusal } from '@/lib/deal-lock-readiness';
 import { revalidationTarget } from '@/lib/return-path';
 import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
-import { shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -118,17 +117,9 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       : null;
   if (!role) redirect(dest);
 
-  // A Virtual meeting's app + value — validated; invalid saves NOTHING. Viber /
-  // Phone call only for a shop booked on this event (owner 2026-11-04) — the
-  // existing booking source of truth, enforced here, not only in the picker.
-  const booked = kind === 'video' ? await shopIsBookedOnEvent(thread.event_id, thread.vendor_profile_id) : false;
-  const virtual = kind === 'video' ? readVirtualFields(formData, booked) : null;
-  if (virtual && !virtual.ok) {
-    if (back) {
-      redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(virtual.error)}`);
-    }
-    redirect(dest);
-  }
+  // A Virtual meeting is a Jitsi link of ours — made here when the form's is missing or not ours
+  // (owner 2026-11-04 "VIRTUAL = JITSI ONLY"). Nothing another app's is ever written.
+  const virtualLocation = kind === 'video' ? virtualLocationFromForm(formData) : null;
 
   // Window rule (owner 2026-07-24): a meeting must fall between TODAY and the day
   // BEFORE the event. Compare Manila calendar dates as strings (tz-correct, no
@@ -165,7 +156,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       kind,
       type: 'custom',
       custom_label: label,
-      location: virtual && virtual.ok ? virtual.location : null,
+      location: virtualLocation,
       scheduled_at: scheduledIso,
       status: 'proposed',
       initiated_by: role,

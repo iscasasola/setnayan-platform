@@ -1,5 +1,5 @@
-// Philippine dial helpers for meeting / call hand-offs — pure, shared by lib/virtual-meeting.ts,
-// lib/booked-handoff.ts and lib/guest-call-links.ts (a separate file so booked-handoff ↔ virtual-meeting has no cycle).
+// Philippine dial helpers — pure, shared by lib/booked-handoff.ts, lib/guest-call-links.ts and the read-only
+// display of an older meeting's number in lib/virtual-meeting.ts.
 
 /**
  * A Philippine number → E.164 (+63…). Mobile `0917 123 4567` / `917…` /

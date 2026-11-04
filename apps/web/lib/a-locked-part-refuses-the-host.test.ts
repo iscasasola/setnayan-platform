@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { stripComments } from './strip-comments';
-import { lockedShopFor, lockedShopOnMoments, patchTouchesPart } from './supplier-part-lock';
+import { lockedShopFor, lockedShopOnMoment, lockedShopOnMoments, patchTouchesPart } from './supplier-part-lock';
 import { SCHEDULE_MARK_COLUMNS, lockedLine, timesMarkOf } from './supplier-schedule-marks';
 import type { PartMoment } from './supplier-part-notice';
 
@@ -147,4 +147,69 @@ test('the supplier has Lock my times and Unlock, and they reach supplier_mark_sc
   assert.match(act, /if \(isMark\) \{\s*const \{ error \} = await supabase\.rpc\('supplier_mark_schedule'/);
   // The page reads the marks through the canonical list (which carries locked_at — asserted above), never a hand-typed one.
   assert.match(read('app', 'vendor-dashboard', 'clients', '[eventId]', 'page.tsx'), /from\('event_supplier_schedule_marks'\)\s*\.select\(SCHEDULE_MARK_COLUMNS\)/);
+});
+
+/* ── 5 · the chapters' MOMENT SHEET — the Schedule page's current editor (4 Nov follow-up) ──────────────────────────
+   The rail and the old inspector said the lock; the chapters' moment sheet (`moment-sheets.tsx`) said "Try again." to
+   a host whose change the database had refused, and showed nothing before the change. */
+
+test('the moment sheet finds the LOCKED supplier on its moment — and only a locked one', () => {
+  const suppliers = [
+    { id: 'evA', name: 'Kusina ni Lola', locked: true },
+    { id: 'evB', name: 'Lumina Studio' },
+  ];
+  assert.equal(lockedShopOnMoment(['evB', 'evA'], suppliers), 'Kusina ni Lola');
+  assert.equal(lockedShopOnMoment(['evB'], suppliers), null, 'an open supplier is not a lock');
+  assert.equal(lockedShopOnMoment([], suppliers), null);
+});
+
+test('the Schedule page hands the lock down on who.suppliers, from the one marks resolver', () => {
+  const page = read('app', 'dashboard', '[eventId]', 'schedule', 'page.tsx');
+  assert.match(page, /\.map\(\(v\) => \(\{ id: v\.vendor_id, name: v\.vendor_name, \.\.\.\(v\.times === NOT_TAKING_CHANGES \? \{ locked: true \}/);
+});
+
+test('the moment sheet says the calm line BEFORE a change, with Send a request, and AFTER a refusal', () => {
+  const sheet = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'moment-sheets.tsx');
+  assert.match(sheet, /const lockedShop = lockedShopOnMoment\(m\.vendor_ids, who\.suppliers\)/);
+  // Before: the line + the door to ask instead, which opens the Ask with that supplier picked.
+  assert.match(sheet, /data-moment-locked=""[\s\S]{0,200}?\{lockedHead\(lockedShop\)\}/);
+  assert.match(sheet, /setAskOpener\(/);
+  assert.match(sheet, /opener=\{askOpener\}/);
+  // After: a refused field save, a refused delete, and the task / Suppliers-and-crew doors.
+  assert.match(sheet, /const refused = lockedShop \? \{ ok: false as const, error: lockedLine\(lockedShop\) \} : NOT_SAVED/);
+  assert.match(sheet, /if \(!ok\) return refused;/);
+  assert.match(sheet, /\{lockedShop \? lockedLine\(lockedShop\) : `\$\{m\.label\} wasn’t deleted/);
+  assert.match(sheet, /<ForRow [^>]*doors=\{partDoors\}/);
+  assert.equal((sheet.match(/<TaskEditor[\s\S]*?doors=\{partDoors\}/g) ?? []).length, 2, 'both task editors use the calm doors');
+  const ask = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'ask-supplier-section.tsx');
+  assert.match(ask, /if \(!opener\) return;\s*setOpen\(true\);\s*setWho\(opener\.vendorId\);/);
+});
+
+test('the admin event page shows each booked supplier’s lock, and a refused read is said', () => {
+  const admin = read('app', 'admin', 'events', '[eventId]', 'page.tsx');
+  assert.match(admin, /from\('event_supplier_schedule_marks'\)\.select\(SCHEDULE_MARK_COLUMNS\)/);
+  assert.match(admin, /mark\.word === NOT_TAKING_CHANGES\s*\?\s*`Locked since/);
+  assert.match(admin, /supplierLocks: [^=]+= supRowsRead\.error\s*\?\s*null/);
+  assert.match(admin, /marks === null\s*\?\s*COULD_NOT_LOAD/);
+});
+
+test('a locked moment renders no editable inputs — plain values, no frame, and ONE thing to press', () => {
+  const sheet = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'moment-sheets.tsx');
+  const from = sheet.indexOf("stage === 'details' && lockedShop && lockedId ?");
+  assert.ok(from > 0, 'the locked branch of the moment sheet is gone');
+  const branch = sheet.slice(from, sheet.indexOf(") : stage === 'details' ?", from));
+  // No editable row of any kind, no raw field, no Delete, no Add a task.
+  for (const editable of ['<TypedRow', '<TimeRow', '<ChosenRow', '<SwitchRow', '<WhenRow', '<MinutesRow', '<ForRow', '<MarchRow', '<TaskEditor', '<input', '<textarea', '<select', 'onKeep', 'Delete moment', 'Add a task']) {
+    assert.ok(!branch.includes(editable), `the locked moment draws ${editable} — the host would type into a refused change`);
+  }
+  // Exactly one pressable thing: Send them a request (the Ask under it hides its own open button).
+  assert.equal((branch.match(/<ActionButton\b/g) ?? []).length, 1, 'one button on a locked moment');
+  assert.match(branch, /label="Send them a request"/);
+  assert.match(branch, /<AskSupplierSection[\s\S]*?noOpenButton/);
+  const ask = read('app', 'dashboard', '[eventId]', 'schedule', '_components', 'ask-supplier-section.tsx');
+  assert.match(ask, /\) : noOpenButton \? null : \(/);
+  // The values themselves: plain text, nothing pressable, no frame (frames only on what you press).
+  const facts = sheet.slice(sheet.indexOf('function LockedMomentFacts('), sheet.indexOf('function SearchHead('));
+  assert.ok(facts.length > 100, 'LockedMomentFacts is gone');
+  assert.doesNotMatch(facts, /<button|<input|<textarea|onClick|\brounded|\bring-|\bborder(?=[\s"'`])/, 'a read-only value is drawn with a frame or something to press');
 });

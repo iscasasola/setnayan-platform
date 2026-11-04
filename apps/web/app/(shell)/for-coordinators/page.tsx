@@ -14,12 +14,18 @@
  * `for-coordinators-says-what-ships.test.ts` beside this file pins each one to its code. Where the
  * prototype's words and the code disagreed, the words follow the code (each is listed in the PR):
  *   · in-app voice and video calls are gone from the chat (owner 2026-10-28, "remove both voice and
- *     video call") — so the kit is nine tools, not ten, and no line offers calls;
+ *     video call") — so the kit is at most nine tools, not ten, and no line offers calls;
  *   · moving the show forward is the coordinator's AND the couple's (`decideMayAdvance` in
  *     `lib/run-of-show-advance-gate.ts`), never the emcee's;
  *   · prep-then-release releases to the couple (`setBlockPrepVisibility`);
  *   · "Recommend an add-on" has had no screen since 2026-10-02 (`studio/recommend-actions.ts`), so the
  *     one-login block does not offer it.
+ *
+ * 🎚 FOUR LINES SHOW ONLY WHILE THEIR SWITCH IS ON (owner 2026-11-04: *"show each line only when its
+ * switch is on"*) — each supplier seeing only their rows, announcements, prepare-then-release and
+ * private notes. The page reads the live switches (`_claims.server.ts`) on every request and an
+ * unreadable switch reads OFF, so it can never promise a thing that is switched off. The headings'
+ * counts ("Nine tools", "Twelve problems") are counted from what is shown, never typed.
  *
  * 🆓 "FREE", WITH NO END DATE (owner 2026-11-04, DECISION_LOG "DAY-OF DESKS STAY FREE — NO END DATE":
  * *"keep it free"*). The day-of tools are tagged plain "Free" — `isVendorDayOfStillFree` stays true while
@@ -43,6 +49,9 @@ import { PhotoHeroSlides, type HeroSlide } from '@/app/_components/marketing/pho
 import { ProblemScenes, type ProblemScene } from '@/app/_components/marketing/problem-scenes';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { DELEGATE_GRACE_DAYS } from '@/lib/delegate-access-window';
+
+import { countWord, shownWith, type ClaimSwitch, type ClaimSwitches } from './_claims';
+import { readClaimSwitches } from './_claims.server';
 
 import '@/app/_components/marketing/photo-page.css';
 import './_for-coordinators.css';
@@ -110,20 +119,23 @@ const HERO: readonly HeroSlide[] = [
   { src: `${PHOTOS}/supplier-team-hero.webp`, width: 1600, height: 1200, dr: '19%' },
 ];
 
-const FREE_LINE = [
-  'Shop + dashboard',
-  'Host access, part by part',
-  'One run-of-show',
-  'Door check-in',
-  'Day-of desk',
-  'Auto-arrange seats',
-  'One-tap invites',
-  'One free helper',
-  'Events you run',
-] as const;
+/** A line that is true only while a switch is on carries `needs` — see `_claims.ts`. */
+type Gated<T> = T & { needs?: ClaimSwitch };
+
+const FREE_LINE: readonly Gated<{ text: string }>[] = [
+  { text: 'Shop + dashboard' },
+  { text: 'Host access, part by part' },
+  { text: 'One run-of-show', needs: 'runOfShow' },
+  { text: 'Door check-in' },
+  { text: 'Day-of desk' },
+  { text: 'Auto-arrange seats' },
+  { text: 'One-tap invites' },
+  { text: 'One free helper' },
+  { text: 'Events you run' },
+];
 
 /** Icon strokes from the prototype (24 × 24, drawn with `currentColor`). */
-const KIT: readonly { title: string; body: string; icon: ReactNode }[] = [
+const KIT: readonly Gated<{ title: string; body: string; icon: ReactNode }>[] = [
   {
     title: 'Your shop and dashboard',
     body: 'Couples find you under coordinators. The clients you bring yourself never carry a fee.',
@@ -148,6 +160,7 @@ const KIT: readonly { title: string; body: string; icon: ReactNode }[] = [
   {
     title: 'One run-of-show',
     body: 'Each supplier sees only their rows. They ask to move a time; you approve.',
+    needs: 'runOfShow',
     icon: (
       <>
         <path d="M9 6h11M9 12h11M9 18h11" />
@@ -225,7 +238,8 @@ const KIT: readonly { title: string; body: string; icon: ReactNode }[] = [
   },
 ];
 
-const PROBLEMS: readonly ProblemScene[] = [
+/** `addWhen` appends one sentence to the answer, only while its switch is on. */
+const PROBLEMS: readonly Gated<ProblemScene & { addWhen?: { needs: ClaimSwitch; text: string } }>[] = [
   {
     photo: `${PHOTOS}/problem-11-five-apps.webp`,
     alt: 'A coordinator juggling a laptop and two phones',
@@ -245,6 +259,7 @@ const PROBLEMS: readonly ProblemScene[] = [
       'One run-of-show for the whole event. Each supplier sees only their own rows; the couple and the guests see theirs.',
     link: { href: '/schedule', label: 'See the run-of-show' },
     tag: 'Free',
+    needs: 'runOfShow',
   },
   {
     photo: `${PHOTOS}/problem-seatplan.webp`,
@@ -308,6 +323,7 @@ const PROBLEMS: readonly ProblemScene[] = [
     pain: 'Dinner is moved, the shuttle is late — and half the guests never hear it.',
     answer: 'Send one announcement and it appears on every guest’s Event Hub, on their phone.',
     tag: 'Free',
+    needs: 'announcements',
   },
   {
     photo: `${PHOTOS}/supplier-team.webp`,
@@ -326,6 +342,7 @@ const PROBLEMS: readonly ProblemScene[] = [
     answer:
       'Prepare schedule items in private and release them to the couple when they are ready. Until then, nobody else sees them.',
     tag: 'Free',
+    needs: 'prepRelease',
   },
   {
     photo: `${PHOTOS}/problem-receipts.webp`,
@@ -333,7 +350,8 @@ const PROBLEMS: readonly ProblemScene[] = [
     title: 'Supplier deposits on scraps of paper',
     pain: 'Who is booked, who is paid and who still needs a first payment lives in a notebook.',
     answer:
-      'Track every booked supplier and payment for the couple. Keep private notes for yourself and notes the couple can read. You book a supplier or handle a payment only where the couple allowed it.',
+      'Track every booked supplier and payment for the couple. You book a supplier or handle a payment only where the couple allowed it.',
+    addWhen: { needs: 'privateNotes', text: 'Keep private notes for yourself and notes the couple can read.' },
     tag: 'Free',
   },
 ];
@@ -344,7 +362,20 @@ const ONE_LOGIN = [
   { title: 'Your own shop page', body: 'Couples find you under coordinators, like every supplier.' },
 ] as const;
 
-export default function ForCoordinatorsPage() {
+/** The problems whose switches are on, each answer completed by its `addWhen` line when that is on too. */
+function problemsFor(on: ClaimSwitches): ProblemScene[] {
+  return shownWith(PROBLEMS, on).map(({ needs: _needs, addWhen, ...scene }) => ({
+    ...scene,
+    answer: addWhen && on[addWhen.needs] ? `${scene.answer} ${addWhen.text}` : scene.answer,
+  }));
+}
+
+export default async function ForCoordinatorsPage() {
+  // The four switches some lines depend on, read live; an unreadable one reads OFF (`_claims.ts`).
+  const on = await readClaimSwitches();
+  const freeLine = shownWith(FREE_LINE, on);
+  const kit = shownWith(KIT, on);
+  const problems = problemsFor(on);
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_LD) }} />
@@ -361,8 +392,8 @@ export default function ForCoordinatorsPage() {
               supplier.
             </p>
             <ul className="fc-freeline" aria-label="Free for coordinators">
-              {FREE_LINE.map((t) => (
-                <li key={t}>{t}</li>
+              {freeLine.map((t) => (
+                <li key={t.text}>{t.text}</li>
               ))}
             </ul>
             <div className="pp-ctas">
@@ -397,14 +428,14 @@ export default function ForCoordinatorsPage() {
               Free for every coordinator
             </p>
             <LineRevealHeading>
-              <span id="fc-h-free">Nine tools you get the day you open your shop.</span>
+              <span id="fc-h-free">{countWord(kit.length)} tools you get the day you open your shop.</span>
             </LineRevealHeading>
             <p className="pp-lede" data-reveal-item="">
               No plan to buy. They work inside the couple’s event and your supplier dashboard today.
             </p>
           </RevealBand>
           <RevealList className="fc-kit" stagger={0.04}>
-            {KIT.map((k) => (
+            {kit.map((k) => (
               <li key={k.title} data-reveal-item="">
                 <i aria-hidden="true">
                   <svg viewBox="0 0 24 24">{k.icon}</svg>
@@ -423,14 +454,16 @@ export default function ForCoordinatorsPage() {
               What it solves
             </p>
             <LineRevealHeading>
-              <span id="fc-h-solves">Twelve problems coordinators face. And what Setnayan does instead.</span>
+              <span id="fc-h-solves">
+                {countWord(problems.length)} problems coordinators face. And what Setnayan does instead.
+              </span>
             </LineRevealHeading>
             <p className="pp-lede" data-reveal-item="">
               Every one of these is a tool that works today, inside the couple’s event and your supplier
               dashboard.
             </p>
           </RevealBand>
-          <ProblemScenes items={PROBLEMS} initial={4} />
+          <ProblemScenes items={problems} initial={4} />
           <p className="fc-notfree">
             <b>Not free, said plainly.</b> Papic guest cameras and the Live Photo Wall are add-ons the couple
             buys for their event.

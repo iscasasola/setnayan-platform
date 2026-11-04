@@ -20,6 +20,8 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 
+import { ALL_SWITCHES_OFF, CLAIM_SWITCHES, countWord, shownWith, type ClaimSwitches } from './_claims';
+
 const HERE = import.meta.dirname; // app/(shell)/for-coordinators
 const APP = join(HERE, '..', '..');
 const WEB = join(APP, '..');
@@ -122,4 +124,69 @@ test('it wears the one shared shell, full-bleed, and is findable', () => {
   assert.ok((bleed[1] ?? '').includes("'/for-coordinators'"), 'the photo hero would be inset by the shell’s gutters');
   assert.match(read('app/sitemap-static.xml/route.ts'), /path: '\/for-coordinators'/, 'not in the sitemap');
   assert.match(read('app/robots.ts'), /'\/for-coordinators'/, 'robots.txt does not allow it');
+});
+
+// ── THE FOUR SWITCHED LINES (owner 2026-11-04: "show each line only when its switch is on") ──────────
+
+
+/** Each switch-dependent sentence → the switch it needs. The guard finds the item that holds it. */
+const SWITCHED_LINES: readonly { line: string; needs: string }[] = [
+  { line: "text: 'One run-of-show'", needs: 'runOfShow' },
+  { line: "title: 'One run-of-show'", needs: 'runOfShow' },
+  { line: 'Each supplier sees only their own rows', needs: 'runOfShow' },
+  { line: 'Send one announcement', needs: 'announcements' },
+  { line: 'Prepare schedule items in private', needs: 'prepRelease' },
+  { line: 'Keep private notes for yourself', needs: 'privateNotes' },
+];
+
+/** The `{ … }` object literal (one item of a list) that contains `at`. */
+function itemAround(src: string, at: number): string {
+  const open = src.lastIndexOf('\n  {', at);
+  const close = src.indexOf('\n  }', at);
+  return src.slice(open, close);
+}
+
+test('every line that needs a switch carries it, and nothing else holds those words', () => {
+  const wrong = SWITCHED_LINES.flatMap(({ line, needs }) => {
+    const hits = [...PAGE.matchAll(new RegExp(line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'))];
+    if (hits.length !== 1) return [`"${line}" appears ${hits.length}× (expected once)`];
+    const item = itemAround(PAGE, hits[0]?.index ?? 0);
+    return item.includes(`needs: '${needs}'`) ? [] : [`"${line}" is not gated on ${needs}`];
+  });
+  assert.deepEqual(wrong, [], 'a switch-dependent claim could show while its switch is off:\n  ' + wrong.join('\n  '));
+});
+
+test('the switches are read with the gates the features themselves use, and fail closed', () => {
+  const reader = stripComments(readFileSync(join(HERE, '_claims.server.ts'), 'utf8'));
+  for (const gate of [
+    "isDataPrivacyControlActive('coordinator_run_of_show')",
+    'isCoordinatorP3Enabled()',
+    'isCoordinatorPrepReleaseEnabled()',
+    'isCoordinatorVendorNotesEnabled()',
+  ]) {
+    assert.ok(reader.includes(gate), `_claims.server.ts does not read ${gate}`);
+  }
+  assert.equal((reader.match(/\.catch\(\(\) => false\)/g) ?? []).length, 3, 'a DB-read switch is not failing closed');
+  assert.match(PAGE, /const on = await readClaimSwitches\(\);/, 'the page does not read the live switches');
+  for (const list of ['FREE_LINE', 'KIT', 'PROBLEMS']) {
+    assert.match(PAGE, new RegExp(`shownWith\\(${list}, on\\)`), `${list} is rendered without its switches`);
+  }
+  assert.doesNotMatch(PAGE, /\{(FREE_LINE|KIT|PROBLEMS)\.map\(/, 'a list is rendered whole, skipping its switches');
+});
+
+test('the headings count what is shown — "Nine tools", "Twelve problems" are never typed', () => {
+  assert.doesNotMatch(PAGE, /\b(Nine|Ten|Twelve|Eleven) (tools|problems)\b/, 'a heading types its count');
+  assert.match(PAGE, /countWord\(kit\.length\)/);
+  assert.match(PAGE, /countWord\(problems\.length\)/);
+});
+
+test('a switched item shows only when its switch is on; an unswitched one always shows', () => {
+  const items = [{ id: 'always' }, { id: 'ros', needs: 'runOfShow' as const }, { id: 'notes', needs: 'privateNotes' as const }];
+  const allOn = Object.fromEntries(CLAIM_SWITCHES.map((k) => [k, true])) as unknown as ClaimSwitches;
+  assert.deepEqual(shownWith(items, ALL_SWITCHES_OFF).map((i) => i.id), ['always']);
+  assert.deepEqual(shownWith(items, allOn).map((i) => i.id), ['always', 'ros', 'notes']);
+  assert.deepEqual(shownWith(items, { ...ALL_SWITCHES_OFF, runOfShow: true }).map((i) => i.id), ['always', 'ros']);
+  assert.equal(countWord(9), 'Nine');
+  assert.equal(countWord(12), 'Twelve');
+  assert.equal(countWord(21), '21');
 });

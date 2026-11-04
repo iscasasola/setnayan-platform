@@ -298,6 +298,8 @@
     },
     "/(shell)/for-coordinators": {
       "files": [
+        "(shell)/for-coordinators/_claims.server.ts",
+        "(shell)/for-coordinators/_claims.ts",
         "(shell)/for-coordinators/loading.tsx",
         "(shell)/for-coordinators/page.tsx"
       ],
@@ -309,14 +311,17 @@
       ],
       "actions": [],
       "blocks": [
+        "ClaimSwitches",
         "Image",
         "InfoTip",
         "LineRevealHeading",
         "Link",
         "PhotoHeroSlides",
+        "ProblemScene",
         "ProblemScenes",
         "RevealBand",
-        "RevealList"
+        "RevealList",
+        "T"
       ]
     },
     "/(shell)/for-suppliers": {

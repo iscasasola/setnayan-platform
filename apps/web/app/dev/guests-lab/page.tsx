@@ -831,7 +831,9 @@ export default async function GuestsLabPage({
       : {};
     const baseCardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
     /* 🔁 `&rsvp=pending` — a guest who has not replied: the Access row's Give this spot… is offered (owner 2026-11-02). */
-    const cardGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
+    const answeredGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
+    /* 🕯 `&away=1` — a guest who passed away: the card shows only what still applies (owner 2026-11-04). */
+    const cardGuest = sp.away === '1' ? { ...answeredGuest, passed_away: true } : answeredGuest;
     const labDress = sp.dress === '1'
       ? {
           groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },

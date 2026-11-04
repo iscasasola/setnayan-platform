@@ -31,8 +31,18 @@ push. Stacked on `claude/rsvp-on-the-phone` (the one push template).
   `apns-request`, `reply-push-ask` (native branch), db
   `an-iphone-token-is-a-push-subscription`.
 
-⚠ Needs the OWNER: an Apple push key pasted into Vercel, and a new app build
-(1.0 build 8) through App Review — steps in the PR body. Until both, nothing sends.
+- **2026-11-05, finished after the merge with `main`:** `lib/apns.ts` now reads the
+  dead-token prune's `{ error }` (the `a-database-error-is-never-ignored` guard);
+  `the-app-opens-what-apple-sells` still pins `SetnayanIAP/2` exactly but lets
+  capability tokens such as `SetnayanPush/1` follow it. Verified in the iOS Simulator
+  (iPhone 17 Pro, iOS 26.5) against the branch's own `lib/native-push.ts`: iOS prompt →
+  Allow → APNs device token handed to the page → save called; a simulated
+  notification tapped → its `url` routed. NOT verified: a real send from Apple to a
+  device (needs a device and the App Store build).
+
+⚠ Needs the OWNER: the Apple push key in Vercel (done 2026-11-05), then a new app
+build (1.0 build 8) through App Review after this merges and deploys. Until the new
+build is installed, nothing reaches a phone.
 
 SPEC IMPACT: DECISION_LOG row "2026-10-31 · GUEST REPLIES GO TO THE PHONE…" covers
 it (corpus b6a95cb1); no new decision.

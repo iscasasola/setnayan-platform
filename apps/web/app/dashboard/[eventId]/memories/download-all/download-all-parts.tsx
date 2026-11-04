@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Download, Loader2 } from 'lucide-react';
+import { Check, Loader2, Share } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 
 /** One part as the page lists it — words already formatted on the server. */
@@ -94,7 +95,7 @@ export function DownloadAllParts({ eventId, rows }: { eventId: string; rows: rea
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-ink">
                 {r.chapterLabel}
-                {r.of > 1 ? ` · part ${r.part} of ${r.of}` : ''}
+                {r.of > 1 ? ` · part ${formatCount(r.part)} of ${formatCount(r.of)}` : ''}
               </span>
               <span className="block text-[13px] text-ink/60">
                 {r.countWords} · about {r.sizeWords}
@@ -105,7 +106,7 @@ export function DownloadAllParts({ eventId, rows }: { eventId: string; rows: rea
                 </span>
               ) : st.k === 'ready' && st.skipped > 0 ? (
                 <span className="block text-[13px] text-warn-800">
-                  {st.skipped} {st.skipped === 1 ? 'file' : 'files'} could not be read and {st.skipped === 1 ? 'is' : 'are'} not in this zip.
+                  {formatCount(st.skipped)} {st.skipped === 1 ? 'file' : 'files'} could not be read and {st.skipped === 1 ? 'is' : 'are'} not in this zip.
                 </span>
               ) : null}
             </span>
@@ -131,7 +132,7 @@ export function DownloadAllParts({ eventId, rows }: { eventId: string; rows: rea
                 }}
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 px-4 text-[14px] font-medium text-ink"
               >
-                <Download className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+                <Share className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
                 Save
               </OpenFileLink>
             ) : (

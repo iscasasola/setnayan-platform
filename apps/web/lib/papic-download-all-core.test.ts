@@ -12,7 +12,7 @@ import {
   entryName,
   findPart,
   formatBytes,
-  formatCount,
+  formatFileCount,
   partFileName,
   partFingerprint,
   pickDownloadSource,
@@ -117,9 +117,9 @@ test('the words: sizes, counts, file names', () => {
   assert.equal(formatBytes(1.9 * GB), '1.9 GB');
   assert.equal(formatBytes(412 * MB), '412 MB');
   assert.equal(formatBytes(0), '0 bytes');
-  assert.equal(formatCount([file('a', 1), file('b', 1)]), '2 photos');
-  assert.equal(formatCount([file('a', 1, [], undefined, 'clip')]), '1 clip');
-  assert.equal(formatCount([file('a', 1), file('b', 1, [], undefined, 'clip')]), '2 photos and clips');
+  assert.equal(formatFileCount([file('a', 1), file('b', 1)]), '2 photos');
+  assert.equal(formatFileCount([file('a', 1, [], undefined, 'clip')]), '1 clip');
+  assert.equal(formatFileCount([file('a', 1), file('b', 1, [], undefined, 'clip')]), '2 photos and clips');
   assert.equal(partFileName('Maria & Jose', { chapterLabel: 'Ceremony', part: 1, of: 2 }), 'Maria & Jose — Ceremony — part 1 of 2.zip');
   assert.equal(partFileName('A/B: "x"', { chapterLabel: 'Day 1', part: 1, of: 1 }), 'A B x — Day 1.zip');
   assert.equal(entryName({ id: 'p1', at: '2027-02-14T10:00:00Z', ext: 'jpg' }, 0), '2027-02-14-0001-p1.jpg');

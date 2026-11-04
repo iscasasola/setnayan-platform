@@ -12,7 +12,9 @@ import {
 } from '@aws-sdk/client-s3';
 import archiver from 'archiver';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { R2_BUCKETS, r2Head, r2List, r2Delete, r2SignedGet, type R2BucketName } from '@/lib/r2';
+import { R2_BUCKETS, r2Head, r2List, r2SignedGet, type R2BucketName } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { downloadAllZipScope } from '@/lib/cleanup-delete-scope';
 import { parseStoredAsset } from '@/lib/uploads';
 import { stripPhotoMetadata } from '@/lib/papic-derivatives';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
@@ -303,8 +305,10 @@ export async function sweepOldDownloadZips(nowMs: number = Date.now()): Promise<
     for (const o of objects) {
       if (!o.key.startsWith(ZIP_PREFIX)) continue;
       if (!o.lastModified || o.lastModified.getTime() > cutoff) continue;
-      await r2Delete({ bucket: ZIP_BUCKET, key: o.key }).catch(() => {});
-      deleted += 1;
+      // Through the cleanup executor: the key must sit in ITS OWN event's zip folder (`downloadAllZipScope`).
+      const eventId = o.key.slice(ZIP_PREFIX.length).split('/')[0] ?? '';
+      const outcome = await cleanupDelete(`r2://${ZIP_BUCKET}/${o.key}`, downloadAllZipScope(eventId)).catch(() => 'refused' as const);
+      if (outcome === 'deleted') deleted += 1;
     }
     return deleted;
   } catch (e) {

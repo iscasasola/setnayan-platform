@@ -18,6 +18,8 @@
  *     part's real size is close to, not exactly, the figure shown: the page says "about".
  */
 
+import { formatCount } from '@/lib/format-number';
+
 /** The owner's "~2 GB" — 2 GiB, the largest a part may plan to be. */
 export const PART_TARGET_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -164,7 +166,7 @@ export function formatBytes(bytes: number): string {
 }
 
 /** "412 photos and clips" · "1 photo" · "3 clips". */
-export function formatCount(files: readonly Pick<DownloadFile, 'kind'>[]): string {
+export function formatFileCount(files: readonly Pick<DownloadFile, 'kind'>[]): string {
   const photos = files.filter((f) => f.kind === 'photo').length;
   const clips = files.length - photos;
   const n = (k: number, one: string, many: string) => `${k.toLocaleString('en-PH')} ${k === 1 ? one : many}`;
@@ -178,7 +180,7 @@ export function partFileName(eventName: string, part: Pick<DownloadPart, 'chapte
   const clean = (s: string) => s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim();
   const name = clean(eventName) || 'Setnayan';
   const chapter = clean(part.chapterLabel) || 'Photos';
-  const of = part.of > 1 ? ` — part ${part.part} of ${part.of}` : '';
+  const of = part.of > 1 ? ` — part ${formatCount(part.part)} of ${formatCount(part.of)}` : '';
   return `${name} — ${chapter}${of}.zip`;
 }
 

@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { InfoTip } from '@/app/_components/info-tip';
-import { formatBytes, formatCount, partFingerprint } from '@/lib/papic-download-all-core';
+import { formatBytes, formatFileCount, partFingerprint } from '@/lib/papic-download-all-core';
 import { readDownloadPlan, ZIP_KEEP_HOURS } from '@/lib/papic-download-all.server';
 import { DownloadAllParts, type PartRow } from './download-all-parts';
 
@@ -52,7 +52,7 @@ export default async function DownloadAllPage({ params }: { params: Promise<{ ev
     chapterLabel: p.chapterLabel,
     part: p.part,
     of: p.of,
-    countWords: formatCount(p.files),
+    countWords: formatFileCount(p.files),
     sizeWords: formatBytes(p.bytes),
     fp: partFingerprint(p),
   }));

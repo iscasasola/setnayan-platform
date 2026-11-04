@@ -29,6 +29,7 @@ import {
   type Chapter,
   type MomentLike,
   type TaskRow,
+  isBackstage,
 } from './schedule-chapters';
 import { RIGHT_AFTER } from './moment-order';
 import { SCHEDULE_AUDIENCE_LABEL, isOnTheGuestsSchedule, readScheduleAudience, type ScheduleAudience } from './schedule-audience';
@@ -293,6 +294,8 @@ export function guestDay(chapters: readonly Chapter[], data: ViewAsData): ViewDa
   const lines: Line[] = [];
   for (const { m, c } of withChapter(invited, data.moments).values()) {
     if (!guestSeesMoment(m)) continue;
+    // 🎭 Backstage (Ingress · Egress) — the guest view never shows it, exactly as the Event Hub never does.
+    if (isBackstage(m.start_at, c)) continue;
     lines.push({ id: m.block_id, startIso: m.start_at, title: m.label, sub: m.location ?? '', chapter: c, rightAfter: m.time_tba === true });
   }
   const day = toDay(lines, null, false);

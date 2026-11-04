@@ -50,7 +50,7 @@ test('verification reads the required-papers count, and says the video call', ()
   assert.ok(REQUIRED_DOC_COUNT > 0, 'anti-vacuity: no required papers counted');
   assert.match(verified.b, new RegExp(`\\b${REQUIRED_DOC_COUNT} required papers\\b`));
   assert.match(verified.b, /video call/);
-  assert.match(code('app/_components/home/vendor-benefits.ts'), /\$\{REQUIRED_DOC_COUNT\} required papers/, 'the count is typed, not read');
+  assert.match(code('app/_components/home/vendor-benefits.ts'), /\$\{formatCount\(REQUIRED_DOC_COUNT\)\} required papers/, 'the count is typed, not read');
 });
 
 test('the 3D seat-plan logo opens from Solo, with the 3D Booth add-on', () => {

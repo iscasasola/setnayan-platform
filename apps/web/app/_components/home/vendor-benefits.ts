@@ -8,6 +8,7 @@
  * doc + the coded caps in lib/vendor-tier-caps.ts.
  */
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
+import { formatCount } from '@/lib/format-number';
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
 import { MIN_SERVICES_PER_LEAF, PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
@@ -48,7 +49,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Look credible & trusted',
         items: [
-          { n: 'Verified badge, free', b: `Send your ${REQUIRED_DOC_COUNT} required papers and take a short video call with our team — free. No copycat can fake your official page.` },
+          { n: 'Verified badge, free', b: `Send your ${formatCount(REQUIRED_DOC_COUNT)} required papers and take a short video call with our team — free. No copycat can fake your official page.` },
           { n: 'Your public page, auto-built', b: 'A clean, search-ready public page, auto-composed from your profile and live the moment you set an address. Ranks on Google and inside Setnayan.' },
           { n: 'Fair merit-based rating', b: 'A Bayesian score protects new suppliers: stars are earned, never bought.' },
           { n: 'Receipt-backed reviews', b: 'Every rating carries a real “booked through Setnayan” verified mark.' },

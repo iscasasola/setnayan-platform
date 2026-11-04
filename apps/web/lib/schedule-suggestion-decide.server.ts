@@ -60,7 +60,7 @@ async function chapterNames(ids: readonly string[] | null | undefined): Promise<
   if (!ids || ids.length === 0) return 'their chapters';
   const { data } = await createAdminClient()
     .from('event_schedule_blocks')
-    .select('label, start_at')
+    .select('label')
     .in('block_id', [...ids])
     .order('start_at', { ascending: true });
   const names = ((data ?? []) as { label: string | null }[]).map((b) => b.label?.trim() || 'Untitled chapter');
@@ -265,30 +265,30 @@ export async function decideSuggestion(
       if (vendorRes.data?.user_id) {
         const eventName = eventRes.data?.display_name?.trim() || 'the couple';
         const accepted = decision === 'accept';
-        const whereNames = suggestion.kind === 'where' ? await chapterNames(suggestion.proposed_block_ids) : null;
+        const chaptersAsked = suggestion.kind === 'where' ? await chapterNames(suggestion.proposed_block_ids) : null;
         await emitNotification({
           userId: vendorRes.data.user_id,
           type: 'schedule_suggestion',
           // 📍 A Where pick reads as chapters, never as "a timeline suggestion".
           title:
-            whereNames !== null
+            chaptersAsked !== null
               ? accepted
                 ? `${eventName} OK’d your chapters`
                 : `${eventName} kept your chapters as they were`
               : accepted
                 ? `${eventName} accepted your timeline suggestion`
                 : `${eventName} declined your timeline suggestion`,
-          body: whereNames !== null
-            ? accepted
-              ? `You’re on ${whereNames}.`
-              : `You asked for ${whereNames}. Talk it through in your chat if it should change.`
-            : accepted
-            ? suggestion.kind === 'remove'
-              ? 'That moment is off their schedule.'
-              : isNoteOnlySuggestion(suggestion)
-                ? 'They read your note — nothing on the schedule moved.'
-                : 'Your proposed change is now on their schedule.'
-            : 'Your proposed change was not applied.',
+          body: accepted
+            ? chaptersAsked !== null
+              ? `You’re on ${chaptersAsked}.`
+              : suggestion.kind === 'remove'
+                ? 'That moment is off their schedule.'
+                : isNoteOnlySuggestion(suggestion)
+                  ? 'They read your note — nothing on the schedule moved.'
+                  : 'Your proposed change is now on their schedule.'
+            : chaptersAsked !== null
+              ? `You asked for ${chaptersAsked}. Talk it through in your chat if it should change.`
+              : 'Your proposed change was not applied.',
           relatedUrl: `/vendor-dashboard/clients/${eventId}?tab=schedule`,
         });
       }

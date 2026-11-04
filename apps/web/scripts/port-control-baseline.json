@@ -6945,6 +6945,7 @@
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
+        "AwayCarriers",
         "CaptureBar",
         "CardBoxProps",
         "CardDoorProps",
@@ -8766,6 +8767,7 @@
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
         "SentList",
+        "SettingsRow",
         "SharePdfButton",
         "Sheet",
         "SheetChoice",
@@ -12568,6 +12570,19 @@
         "UndoToastHost"
       ]
     },
+    "/dev/swipe-rows-lab/suppliers": {
+      "files": [
+        "dev/swipe-rows-lab/suppliers/fixtures.ts",
+        "dev/swipe-rows-lab/suppliers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BuildLocked",
+        "PackageItemSwipe",
+        "WorkingNoteSwipe"
+      ]
+    },
     "/dev/thumb-row-lab": {
       "files": [
         "dev/thumb-row-lab/page.tsx"
@@ -14244,7 +14259,7 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/signup?as=vendor",
+        "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -14739,6 +14754,7 @@
         "SuggestSheet",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
+        "SupplierTaskRow",
         "SupplierThumbRow",
         "TheyToldYou",
         "TimeRow",
@@ -16143,12 +16159,14 @@
         "Fragment",
         "GridCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionDraft",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",

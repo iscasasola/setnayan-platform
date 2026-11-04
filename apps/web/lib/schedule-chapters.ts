@@ -63,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes, hours_vendor_id';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes, hours_vendor_id, block_type';
 
 export type Chapter = {
   block_id: string;
@@ -94,6 +94,8 @@ export type Chapter = {
   vendor_ids?: string[];
   /** 🏛 The venue booking that HOLDS the chapter's hours (migration 20271307658341); null = the host sets them. */
   hours_vendor_id?: string | null;
+  /** Its kind (`block_type`) — the rail tints a chapter by it (Prep · Ceremony · Reception · After Party). */
+  block_type?: string | null;
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -128,6 +130,7 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       time_tba: r.time_tba === true,
       vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
       hours_vendor_id: typeof r.hours_vendor_id === 'string' ? r.hours_vendor_id : null,
+      block_type: typeof r.block_type === 'string' ? r.block_type : null,
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }
@@ -310,20 +313,10 @@ export function gapWords(minutes: number): string {
   return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`;
 }
 
-/**
- * Which part of its chapter a moment is in — Ingress · Event · Egress (plan §3 "Opening a chapter shows Ingress · Event
- * · Egress"). Read from the times, never stored: before the chapter starts is Ingress, at or after it ends is Egress,
- * the rest is the Event. A chapter with no end has no Egress by time.
- */
-export type ChapterSection = 'Ingress' | 'Event' | 'Egress';
-export function momentSection(momentStart: string, c: Pick<Chapter, 'start_at' | 'end_at' | 'time_tba'>): ChapterSection {
-  if (c.time_tba) return 'Event';
-  const t = Date.parse(momentStart);
-  if (!Number.isFinite(t)) return 'Event';
-  if (t < Date.parse(c.start_at)) return 'Ingress';
-  if (c.end_at && t >= Date.parse(c.end_at)) return 'Egress';
-  return 'Event';
-}
+// 🎭 Which part of its chapter a moment is in, and BACKSTAGE — in the leaf `lib/chapter-section.ts` (no imports), so the
+// Event Hub's client bundle reads the rule without carrying this whole module.
+export { BACKSTAGE_TIP, BACKSTAGE_WORDS, isBackstage, momentSection, withoutBackstage, type ChapterSection } from './chapter-section';
+import { momentSection, type ChapterSection } from './chapter-section';
 
 /* ── tasks: who, where, and the clash ─────────────────────────────────────────────────────────────────────────── */
 
@@ -942,11 +935,13 @@ export function chapterSuppliers(
 
 /** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" — a held chapter's hours in one line. */
 export function heldHoursLine(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>): string {
-  const parts = [`${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`];
+  // The prototype's words (frame 2): "5:00 PM – 10:00 PM · setup from 1 PM, out by 11:30 PM" — the window in one part,
+  // a whole hour without its ":00".
+  const short = (iso: string) => clockWords(iso).replace(':00 ', ' ');
+  const hours = `${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`;
   const i = ingressAt(c);
   const e = egressAt(c);
-  if (i) parts.push(`setup from ${clockWords(i)}`);
-  if (e) parts.push(`out by ${clockWords(e)}`);
-  return parts.join(' · ');
+  const window = [i ? `setup from ${short(i)}` : null, e ? `out by ${short(e)}` : null].filter(Boolean).join(', ');
+  return window ? `${hours} · ${window}` : hours;
 }
 

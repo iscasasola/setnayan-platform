@@ -3,14 +3,17 @@
 import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import type { SceneCover } from '@/lib/event-poster';
-import { eventTypePlaceholderGradient } from '../../(account)/create-event/_components/event-types';
+import {
+  EVENT_TYPE_PHOTO_ASPECT,
+  eventTypePlaceholderGradient,
+  faceSpanForTypePhoto,
+} from '../../(account)/create-event/_components/event-types';
 import {
   eventCardFaceSlide,
   eventCardTreatment,
   faceFramedObjectPosition,
   faceFramedTransform,
 } from '@/lib/event-card-art';
-import { EVENT_TYPE_PHOTO_ASPECT, faceSpanForTypePhoto } from '@/lib/event-type-photo-faces';
 
 /**
  * EventScene — the hero band behind an EVENTS card
@@ -157,7 +160,8 @@ export function EventScene({
   const showOwn = !!ownPhotoSrc && !ownFailed;
   const art = eventCardTreatment(eventId);
   // Keep the faces in the band when this is a repo photo whose faces are measured
-  // (lib/event-type-photo-faces.ts); an admin upload keeps the per-event crop.
+  // (EVENT_TYPE_PHOTO_FACES, beside the photo map in create-event/_components/event-types.ts);
+  // an admin upload keeps the per-event crop.
   const face = faceSpanForTypePhoto(eventType, photoSrc);
   const photoTransform = face ? faceFramedTransform(art) : art.photoTransform;
   const objectPosition = face

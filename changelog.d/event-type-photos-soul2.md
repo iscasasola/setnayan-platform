@@ -11,8 +11,8 @@ wide strip (a fifth to a half of the photo's height) at a per-event height (`EVE
 26–50 %, zoom up to 1.3). That assumed the subject sat mid-frame; the new photos put faces in the top
 ~10–35 %, so 13 of 17 types lost heads in most framings. Now:
 
-- `lib/event-type-photo-faces.ts` — the measured face span `[top, bottom]` for each repo photo, applied
-  only when the drawn photo IS that repo file (an admin upload keeps the old crop).
+- `EVENT_TYPE_PHOTO_FACES`, beside `eventTypePhotoSrc` in `create-event/_components/event-types.ts` —
+  the per-type focal point: the measured face span `[top, bottom]` of each repo photo, applied only when the drawn photo IS that repo file (an admin upload keeps the old crop).
 - `lib/event-card-art.ts` `faceFramedObjectPosition` — places the span inside the strip with CSS
   container units (`cqw`/`cqh`), so it holds at every card width; the per-event variety becomes a slide
   through the room the strip leaves (plus the existing mirror and colour). Zoom is dropped in this mode.

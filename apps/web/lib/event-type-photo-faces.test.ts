@@ -23,7 +23,7 @@ import {
   faceFramedObjectPosition,
   faceFramedOffsetPx,
 } from './event-card-art';
-import { EVENT_TYPE_PHOTO_ASPECT, EVENT_TYPE_PHOTO_FACES, faceSpanForTypePhoto } from './event-type-photo-faces';
+import { EVENT_TYPE_PHOTO_ASPECT, EVENT_TYPE_PHOTO_FACES, faceSpanForTypePhoto } from '@/app/dashboard/(account)/create-event/_components/event-types';
 
 const PHOTOS = join(__dirname, '..', 'public', 'event-types');
 

@@ -310,8 +310,8 @@ export function eventCardArtKey(t: EventCardTreatment): string {
 // ---------------------------------------------------------------------------
 
 /**
- * When the photo's face span is known (`lib/event-type-photo-faces.ts`), the crop
- * above is replaced by one that keeps the faces in the band.
+ * When the photo's face span is known (`EVENT_TYPE_PHOTO_FACES`, beside the photo map
+ * in `create-event/_components/event-types.ts`), the crop above is replaced by one that keeps the faces in the band.
  *
  * Why: the fixed crop ladder (26–50 % of the overflow) assumed the subject sat near
  * the middle. The owner's 4 Nov renders put faces in the top 10–35 % of the frame,

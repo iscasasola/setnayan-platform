@@ -67,6 +67,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
 import { ANSWER_IN_PLACE_FIELD } from '@/lib/answer-in-place';
 import { nameMatchesShop } from '@/lib/manual-add-leak';
+import { foundYouNudgeLine } from '@/lib/found-you';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import {
@@ -465,6 +466,12 @@ export function AddYourOwnWalk({
                       <span className="min-w-0 flex-1">
                         <b className="block truncate text-[14.5px] font-semibold text-ink">{m.business_name}</b>
                         <span className="block truncate text-[12.5px] text-ink/60">{matchLine(m)}</span>
+                        {/* 🕵️ FOUND-YOU nudge (2026-11-05): this couple already opened this shop here. */}
+                        {m.found_on ? (
+                          <span className="mt-0.5 block text-[12.5px] leading-snug text-ink/75" data-add-own-found="">
+                            {foundYouNudgeLine(m.found_on)}
+                          </span>
+                        ) : null}
                       </span>
                       {/* Every MAIN button is terracotta (owner "APPROVE ALL" look, 2026-10-12 #1). */}
                       <ActionButton

@@ -65,7 +65,7 @@ test('4 · By person · By chapter · By role, and one person alone', () => {
   const view = code('_components/side-by-side.tsx');
   assert.match(view, /dataAttr="data-sbs-grouping"/);
   assert.match(view, /dataAttr="data-sbs-focus"/, 'one person cannot be shown alone');
-  assert.match(view, /const shown = focus === EVERYONE \? sbs\.columns : sbs\.columns\.filter\(\(c\) => c\.key === focus\);/);
+  assert.match(view, /const shown = focus === ALL_COLUMNS \? sbs\.columns : sbs\.columns\.filter\(\(c\) => c\.key === focus\);/);
   assert.match(view, /data-sbs-search=""/, 'the people cannot be searched');
 });
 

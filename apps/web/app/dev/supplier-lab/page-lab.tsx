@@ -573,7 +573,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false }: { state: PageLabState; who?: string; draft?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -721,7 +721,18 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
         {draft ? <LabSeedDraft vendorId={d.vendorId} /> : null}
         <PageParts
           d={d}
-          domainBody={<DomainManager initial={[]} />}
+          domainBody={
+            <DomainManager
+              initial={
+                domains
+                  ? [
+                      { domain_id: 'lab-domain-1', domain: 'sny.lightsandlace.ph', verified: true },
+                      { domain_id: 'lab-domain-2', domain: 'book.lightsandlace.com', verified: false },
+                    ]
+                  : []
+              }
+            />
+          }
           autoReplyBody={
             <AutoReplyCard
               initialEnabled

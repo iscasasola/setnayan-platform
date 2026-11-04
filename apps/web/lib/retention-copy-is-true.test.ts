@@ -279,7 +279,9 @@ test('the privacy notice states the REAL post-event floor', async () => {
   // sits INSIDE the tag. A first draft put `months` after the closing tag and
   // failed — which is the only reason we know this assertion can fail at all.
   const stated = new RegExp(
-    `never less than\\s*(?:<strong>)?\\s*${months}\\s*months?\\s*(?:</strong>)?\\s*after the event`,
+    // "never less than N months after the event" (a floor) or, since the 2026-11-03 photo rule makes the floor the
+    // whole rule, "kept until N months after the event's last day".
+    `(?:never less than|kept until)\\s*(?:<strong>)?\\s*${months}\\s*months?\\s*(?:</strong>)?\\s*after the event`,
     'i',
   );
   assert.match(

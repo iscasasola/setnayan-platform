@@ -103,7 +103,9 @@ test('3 · swipe left only asks; the delete has an Undo; the one removal waits f
   const rail = code('_components/day-rail.tsx');
   assert.match(rail, /from '@\/app\/_components\/swipe-to-delete'/, 'the rail grew its own swipe gesture');
   assert.match(rail, /onDelete=\{\(\) => ch\?\.askDelete\(m\.block_id\)\}/, 'a swipe on a rail chapter does not ask');
-  assert.match(rail, /<SwipeToDelete label=\{`Delete \$\{m\.label\}`\} enabled=\{Boolean\(ch\) && canEdit\}/, 'a Time TBA chapter does not swipe');
+  // The Time TBA row uses the ONE shared row (main's `SwipeToDelete`): off for anyone who may not edit, and it asks.
+  assert.match(rail, /<SwipeToDelete label=\{`Delete \$\{m\.label\}`\} disabled=\{!\(Boolean\(ch\) && canEdit\)\}/, 'a Time TBA chapter does not swipe');
+  assert.match(rail, /onDelete=\{\(close\) => \{ close\(\); ch\?\.askDelete\(m\.block_id\); \}\}/, 'a swipe on a Time TBA chapter does not ask');
   assert.doesNotMatch(rail, /deleteScheduleBlock|doors\.remove/, 'the rail deletes by itself');
 
   const host = code('_components/chapters-host.tsx');

@@ -195,3 +195,17 @@ export function sortGuestsFor<G extends { guest_id: string; first_name: string |
     });
   return out;
 }
+
+/**
+ * 🧾 "· N applied" — the List's ≡ sheet title (owner approved 2026-11-03, `docs/prototypes/guests_filter_popup_2026-11-03.html`).
+ * One per choice that differs from the plain list: Show (or the List's own "Asking to join"), +1s, Group by, Sort. A
+ * Group by picked back to the default (Role) is not counted — the list reads exactly as the plain one.
+ */
+export function guestsFilterApplied(f: GuestsFilter, own: { plus: boolean; asking: boolean } = { plus: false, asking: false }): number {
+  return (
+    (f.show || own.asking ? 1 : 0) +
+    (own.plus ? 1 : 0) +
+    (listGroupOf(f) !== listGroupOf(NO_GUESTS_FILTER) ? 1 : 0) +
+    (f.sort !== NO_GUESTS_FILTER.sort ? 1 : 0)
+  );
+}

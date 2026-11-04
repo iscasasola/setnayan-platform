@@ -25,7 +25,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, Plus } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 
 import type { DayRequestRow } from '@/lib/day-requests';
 import { getDayRequestsView } from '../actions';
@@ -123,8 +125,29 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
     setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, resolved: !i.resolved } : i)));
   }
 
-  function remove(id: string) {
-    setIssues((prev) => prev.filter((i) => i.id !== id));
+  /**
+   * 👈 An issue's delete is its SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+   * VISIBLE ✕ ON ROWS"), with Undo: it leaves the list (and this device's copy) at once and Undo puts it back where it
+   * was. Nothing is written anywhere else — the log is device-local — so the commit has nothing to send.
+   */
+  function remove(issue: Issue) {
+    let at = -1;
+    deleteWithUndo({
+      label: 'Issue removed',
+      hide: () =>
+        setIssues((prev) => {
+          at = prev.findIndex((i) => i.id === issue.id);
+          return prev.filter((i) => i.id !== issue.id);
+        }),
+      restore: () =>
+        setIssues((prev) => {
+          if (prev.some((i) => i.id === issue.id)) return prev;
+          const next = [...prev];
+          next.splice(at < 0 ? 0 : Math.min(at, next.length), 0, issue);
+          return next;
+        }),
+      commit: () => undefined,
+    });
   }
 
   return (
@@ -174,10 +197,16 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
           </li>
         ) : (
           issues.map((i) => (
-            <li
+            <SwipeToDelete
               key={i.id}
-              className="group flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5"
+              as="li"
+              label={`Remove issue: ${i.text}`}
+              word="Remove"
+              onDelete={() => remove(i)}
+              radiusClass="rounded-xl"
+              surfaceClass="bg-white"
             >
+            <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5" data-issue-row="">
               <button
                 type="button"
                 onClick={() => toggle(i.id)}
@@ -196,15 +225,8 @@ function LocalIssuesLog({ eventId }: { eventId: string }) {
               >
                 {i.text}
               </span>
-              <button
-                type="button"
-                onClick={() => remove(i.id)}
-                aria-label="Remove issue"
-                className="shrink-0 rounded-md p-1 text-ink/30 opacity-0 transition hover:bg-ink/5 hover:text-warn-600 focus:opacity-100 group-hover:opacity-100"
-              >
-                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </button>
-            </li>
+            </div>
+            </SwipeToDelete>
           ))
         )}
       </ul>

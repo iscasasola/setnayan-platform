@@ -80,6 +80,7 @@ export function PahinaMasthead({
   foot: withFoot = true,
   fitFoot = !stampElements,
   door = null,
+  switchLine = null,
   kitSlot = null,
 }: {
   /**
@@ -107,6 +108,11 @@ export function PahinaMasthead({
    * the button: behind a closed veil it waits for the unveil. Absent → the RSVP button, as before.
    */
   door?: ReactNode;
+  /**
+   * 🚪 A signed-in guest on this list: "Not [name]? Switch account" under the RSVP button (owner 2026-11-03,
+   * `NotYouSwitch account`). In the foot, so it is fitted with the button and never drawn on it.
+   */
+  switchLine?: ReactNode;
   /**
    * 🎬 The cover's entrance is Still (`coverEntranceIsStill`): no line enters — after an unveil they appear together,
    * so every line is marked as its own and the veil's default entrance passes them by.
@@ -435,6 +441,7 @@ export function PahinaMasthead({
       ) : (
         rsvpPart
       )}
+      {!door && switchLine ? <div {...line()} data-cover-switch="" className="w-full">{switchLine}</div> : null}
       {/* 🎯 The button opens the RSVP page itself (owner 2026-10-26, `lib/cover-rsvp.ts`) — a plain link; no glide. */}
       {/* 📐 THE BUTTON IS WHOLLY ON THE FIRST SCREEN (owner 2026-10-20, DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE
           STATES": *"lift the button so it's fully visible on first open"* — measured on iPhone 13, its box was y 644–688

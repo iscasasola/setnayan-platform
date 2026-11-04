@@ -175,6 +175,8 @@ export function VendorTierDeltas({
 
   return (
     <section
+      // The plan lines near the top of the page point here ("further down this page").
+      id="plan-table"
       style={{
         padding: 'clamp(56px, 9vw, 104px) clamp(20px, 5vw, 56px)',
         background: 'var(--m-paper-2)',

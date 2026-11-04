@@ -25,16 +25,18 @@
  * The URL is unchanged; `/vendors` and `/for-vendors` still 308 here.
  * Held by `for-suppliers-wears-the-shell.test.ts` beside this file.
  *
- * Narrative flow (top→bottom):
- *   photographic hero → thesis strip (₱0 · 0% commission + booking fee · first-5-free) →
- *   run-your-business-here-free hub → Setnayan AI (dark signature: sells for
- *   you + 3 nudge steps + phone mock + flywheel callout) →
- *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
- *   → analytics + only-inquiries-that-matter → trust earned not bought →
- *   no-fakes → reach that compounds → the tools → get paid your way →
- *   tier DELTAS (Free·Verified / Solo / Pro / Enterprise / Custom), with the
- *   full 5-column matrix collapsed behind "Compare every tier side by side"
- *   → Custom "for those who need more" → CTA.
+ * Narrative flow (top→bottom) — 🆕 PORTED 2026-11-04 from the owner-approved
+ * prototype `prototypes/for_suppliers_2026-11-04.html` (Setnayan-specs; DECISION_LOG
+ * 2026-11-04 "THE THREE MARKETING PAGES GO TO CLOUD BUILD"). The prototype is
+ * "the TOP of the supplier benefits page"; what it does not redraw stays below it:
+ *   hero (aspiring · new · experienced, six trade photos) → Verified only →
+ *   twelve problems suppliers face → plans in one line each (live prices) →
+ *   the shipped deeper sections, unchanged (one home · Setnayan AI · fair by
+ *   design · get discovered · analytics · trust · merit only · reach · the
+ *   tools · get paid) → tier DELTAS + the full matrix ("further down this
+ *   page", #plan-table) → couple-pricing pointer → close ("Set na ’yan.").
+ *   The thesis strip and the old closing CTA are retired — the hero's truths
+ *   line and the close say them now.
  *
  * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
  *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
@@ -55,7 +57,9 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { VendorGrowHero } from '@/app/for-suppliers/_components/vendor-grow-hero';
 import {
-  VendorGrowThesis,
+  VendorGrowVerifiedOnly,
+  VendorGrowProblems,
+  VendorGrowPlanLines,
   VendorGrowHub,
   VendorGrowAI,
   VendorGrowFairPay,
@@ -239,7 +243,16 @@ export default async function ForVendorsPage() {
       />
       <main className="m-surface min-h-dvh">
         <VendorGrowHero fee={fee} />
-        <VendorGrowThesis fee={fee} />
+        <RevealOnView>
+          <VendorGrowVerifiedOnly />
+        </RevealOnView>
+        <VendorGrowProblems fee={fee} />
+        <RevealOnView>
+          <VendorGrowPlanLines
+            prices={{ soloMonthly: p.soloMonthly, proMonthly: p.proMonthly, enterpriseMonthly: p.enterpriseMonthly }}
+            fee={fee}
+          />
+        </RevealOnView>
         <RevealOnView>
           <VendorGrowHub />
         </RevealOnView>
@@ -354,7 +367,9 @@ export default async function ForVendorsPage() {
             </div>
           </div>
         </section>
-        <VendorGrowCTA fee={fee} />
+        <RevealOnView>
+          <VendorGrowCTA />
+        </RevealOnView>
         <VendorGrowStyles />
       </main>
     </>

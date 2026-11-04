@@ -198,7 +198,8 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
-import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { VENUE_CATEGORIES } from '@/lib/supplier-where';
+import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierContactRow, type SupplierTaskRow } from '@/lib/supplier-schedule';
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
@@ -407,10 +408,20 @@ type LiveBlock = {
   parent_block_id?: string | null;
   spot?: string | null;
   time_tba?: boolean | null;
+  /** ⏭ An untimed moment's anchor — "right after the one above" (migration 20271302727358). */
+  follows_block_id?: string | null;
+  sort_order?: number | null;
+  /** 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
   is_optional?: boolean | null;
   responsible_vendor_ids?: string[] | null;
   created_at?: string | null;
   updated_at?: string | null;
+  /** 🏛 Venue hours (migration 20271307658341): the setup / pack-up window and the venue booking that holds them. */
+  ingress_minutes_before?: number | null;
+  egress_minutes_after?: number | null;
+  hours_vendor_id?: string | null;
 };
 
 type HandoverRow = {
@@ -664,6 +675,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myTasksRes,
     myMarksRes,
     myScheduleFacts,
+    myContactsRes,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -707,7 +719,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_blocks')
         .select(
-          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, follows_block_id, sort_order, time_shape, time_or_minutes, is_optional, responsible_vendor_ids, created_at, updated_at, ingress_minutes_before, egress_minutes_after, hours_vendor_id',
         )
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
@@ -715,7 +727,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_suggestions')
         .select(
-          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id',
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id, proposed_ingress_minutes, proposed_egress_minutes',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -742,11 +754,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
         admin
           .from('event_vendors')
-          .select('vendor_id')
+          .select('vendor_id, category')
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
       ]),
+      // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
+      // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
+      supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
     ]),
   );
 
@@ -1297,14 +1312,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           location: b.location,
           spot: b.spot ?? null,
           time_tba: b.time_tba === true,
+          follows_block_id: b.follows_block_id ?? null,
+          sort_order: b.sort_order ?? 0,
+          time_shape: b.time_shape ?? 'at',
+          time_or_minutes: b.time_or_minutes ?? null,
           is_optional: b.is_optional === true,
           responsible_vendor_ids: b.responsible_vendor_ids ?? [],
           created_at: b.created_at ?? null,
           updated_at: b.updated_at ?? null,
+          ingress_minutes_before: b.ingress_minutes_before ?? null,
+          egress_minutes_after: b.egress_minutes_after ?? null,
+          hours_vendor_id: b.hours_vendor_id ?? null,
         })),
         myBookingIds,
+        // 🏛 Their VENUE bookings — a venue sets the hours of the chapters it is booked to.
+        venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
+          .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
+          .map((b) => b.vendor_id),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
+        contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
       })
     : null;
   const scheduleMarks = myMarksRes.error

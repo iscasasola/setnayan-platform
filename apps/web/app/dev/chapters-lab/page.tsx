@@ -12,6 +12,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
  *      time between chapters and a "Time TBA" one under it, + Add a chapter (name and time), a tap opens the chapter's
  *      page (‹ back · the dropdown · Ingress · Event · Egress · Edit), Chapter details, Delete (warning → Continue →
  *      deleting), and Planning Stage's "Final fitting". `?empty=1` none · `?fail=1` the failed read · `?view=1` view only.
+ *      📖 `?defaults=1` (2026-11-03): a NEW wedding's four default chapters as the seed writes them — swipe one left.
  *      Step 3b: Preparation · Bride › "Entourage hair and make-up starts" (8:00) holds three tasks at once in two
  *      places; tap it for the moment sheet (tasks, Who ▾, clash flag, Delete moment's Papic count — the lab answers 4).
  *      `?tasksfail=1` the tasks read failed · `?marchfail=1` the marches read failed · `?moment=1` opens straight on
@@ -25,7 +26,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
 export default async function ChaptersLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string }>;
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string; defaults?: string; held?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -35,7 +36,7 @@ export default async function ChaptersLabPage({
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} held={q.held === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

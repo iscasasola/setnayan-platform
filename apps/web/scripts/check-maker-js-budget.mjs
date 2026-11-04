@@ -53,13 +53,13 @@ export const MAKER_FIRST_LOAD_MEASURED_KB = 481.5;
 // (owner 2026-10-29: one live connection per open TEAM dashboard tab is OK) — the channel itself already loads by
 // import() after the page draws (`event-team-presence-join.ts`); what remains is the context and webpack's entry for
 // that lazy chunk.
-// RAISED 2026-11-04 507.5 → 508.5 KB (owner, verbatim, answering "Raise the Maker size limit by 1 KB": "yes, raise
-// the Maker budget by 1 KB"). Measured, not a feature cost: main @ 066a3f0f built locally with CI's env = 519,669 B
-// gzipped (11 B under 507.5 KB), and PR #7213 merged onto it = 519,651 B (18 B SMALLER than main). CI then read the
-// same merge as 507.5 KB and, on a re-run with no change, 507.6 KB — the bundle job installs with
-// `--frozen-lockfile=false`, so its builds drift by ~100 B, and with main at ~11 B of headroom any PR could flip this
-// check. 1 KB is headroom for that noise, not room for new first-load code: a real addition still has to load late.
-export const MAX_MAKER_FIRST_LOAD_GZIP = 508.5 * 1024;
+// RAISED 2026-11-04 507.5 → 508 KB (owner, verbatim, answering "…or your OK for a +0.5 KB limit": "raise the Maker
+// limit 0.5 KB"; DECISION_LOG row for the controller — the corpus is not in that session). Measured in CI: main
+// 066a3f0f = 507.5 KB (0.0 headroom); PR #7215 (Guests › filtered headings fold again) and PR #7223 (Guests › Show &
+// sort sheet) each first read 507.6 KB and were trimmed back to 507.5 KB alone — together they read ~507.6. The Maker
+// draws the guest list (`seating/_components/seat-list.tsx` → `GuestsScreen`), so its fold state and the ≡ round ship
+// in the Maker's first load; the sheet itself already loads by next/dynamic on the first tap.
+export const MAX_MAKER_FIRST_LOAD_GZIP = 508 * 1024;
 
 /** The manifest entries a cold open of `route` loads: its page and every layout/loading above it. */
 export function firstLoadEntries(pages, route) {

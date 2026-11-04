@@ -232,6 +232,21 @@ export const SCENARIOS: Record<string, Scenario> = {
   '12 quotes, ampersands and a long note survive': {
     guest: { first_name: 'O’Brien "Bo"', last_name: 'Dela Cruz & Sons', display_name: 'The <Dela Cruz> family', notes: 'Line one\nLine two — "quoted" & more', host_note_for_guest: 'Dear Tita — "see you" & <soon>\nLove, us', dietary_restrictions: 'no nuts, no "shell"fish' },
   },
+  /* ✉ 2026-11-02 (owner, "Invited to"): an event with chapters on its invitation — the card's Invited to ▾ lists them, the
+     five fixed blocks are carried unchanged, and "after party only" posts the one chapter ticked. */
+  '13 chapters on the invitation: after party only, the fixed blocks carried': {
+    data: {
+      initialInvited: ['ceremony', 'reception'],
+      inviteChapters: {
+        chapters: [
+          { block_id: 'ch-cer', label: 'Ceremony' },
+          { block_id: 'ch-aft', label: 'After party' },
+        ],
+        notInvited: ['ch-cer'],
+        tag: 'After party only',
+      },
+    },
+  },
 };
 
 /** The card as it draws today — ONE kit, the templates (2026-10-24: the Maker's hand-drawn kit is gone, one card everywhere). */

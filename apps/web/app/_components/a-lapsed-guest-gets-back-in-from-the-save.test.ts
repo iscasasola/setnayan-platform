@@ -95,7 +95,7 @@ test('3b · the Event Hub’s ticket (Me) saves through this component — so it
 test('4 · the door it opens is the Event Hub’s own — no new sign-in method', () => {
   const read = (p: string) => stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
   const door = read('[slug]/_components/get-inside.tsx');
-  assert.match(door, /Upload your QR · Sign in/, 'the Event Hub’s signed-out door moved — re-check where "Get back in" lands');
+  assert.match(door, /<DoorChoices slug=\{slug\} signIn=\{doorSignInHref\(slug\)\} \/>/, 'the Event Hub’s signed-out door moved — re-check where "Get back in" lands');
   const lib = stripComments(readFileSync(join(__dirname, '..', '..', 'lib', 'save-pass-cards.ts'), 'utf8'));
   assert.doesNotMatch(lib, /\/login|signInWith|mintReentryCode|reentryRedeemPath/, 'the save invented its own way in');
 });

@@ -17,7 +17,9 @@
  * Nothing here reads or writes the database: the page reads, `lib/schedule-suggestion-decide.server.ts` applies.
  */
 
-import { TIME_TBA, VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
+import type { TaskContact } from './task-contact';
+import { inRunOrder, isRightAfter, momentClockWords } from './moment-order';
+import { VENUE_TBA, clockWords, wallDay, wallIso, wallTime, shiftWall, momentSection, type ChapterSection } from './schedule-chapters';
 
 /* ── Auto-agree ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -114,10 +116,20 @@ export type SupplierBlockRow = {
   location: string | null;
   spot: string | null;
   time_tba: boolean;
+  /** ⏭ On a moment: the one it comes right after (migration 20271302727358) — its `start_at` is then only an order key. */
+  follows_block_id?: string | null;
+  sort_order?: number | null;
+  /** 🕑 How its clock is meant — "About 3:15 PM" · "2:15/2:30 PM" (migration 20271303051692). */
+  time_shape?: string | null;
+  time_or_minutes?: number | null;
   is_optional: boolean;
   responsible_vendor_ids: string[];
   created_at: string | null;
   updated_at: string | null;
+  ingress_minutes_before?: number | null;
+  egress_minutes_after?: number | null;
+  /** 🏛 The venue booking that holds the chapter's hours (migration 20271307658341). */
+  hours_vendor_id?: string | null;
 };
 
 /** One of this supplier's requests (`event_schedule_suggestions`, their org's own rows). */
@@ -135,7 +147,13 @@ export type SupplierRequestRow = {
   /** Went straight in under the host's Auto-agree (no person decided) — the Answered list says so. */
   auto_agreed?: boolean | null;
   created_at: string;
+  /** 🏛 A venue's hours request: setup / pack-up in minutes. */
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
 };
+
+/** 📇 A task contact the supplier may read (RLS: only on moments they are on) — 4 additions (3). */
+export type SupplierContactRow = { task_id: string; block_id: string; name: string; phone: string };
 
 /** A task row as the supplier reads it — only the who and what of their own crews matter here. */
 export type SupplierTaskRow = { block_id: string; vendor_id: string | null; crew: string | null };
@@ -145,8 +163,13 @@ export type SupplierMoment = {
   label: string;
   start_at: string | null;
   end_at: string | null;
-  /** The time the supplier reads: "6:30 AM", or "Time TBA" in a Time-TBA chapter — never its placeholder 12:00 AM. */
+  /**
+   * The time the supplier reads: "6:30 AM", "Time TBA" in a Time-TBA chapter, or "Right after" for a moment with no
+   * clock of its own — never a placeholder 12:00 AM, never its anchor's time.
+   */
   clock: string;
+  /** ⏭ No clock of its own — "right after the one above"; its `start_at` is only an order key, never shown. */
+  rightAfter: boolean;
   minutes: number | null;
   section: ChapterSection;
   /** Tagged to one of this supplier's bookings: they may ask to edit or delete it. */
@@ -154,6 +177,8 @@ export type SupplierMoment = {
   optional: boolean;
   /** Their crews on it (from the moment's tasks), in the order written. */
   crew: string[];
+  /** 📇 Contacts on this moment's tasks (the bridal-car driver) — only on a moment they are on (the database decides). */
+  contacts: TaskContact[];
   /** Their own request on it still waiting (an edit or a delete), if any. */
   waiting: SupplierRequestRow | null;
 };
@@ -170,6 +195,14 @@ export type SupplierChapter = {
   moments: SupplierMoment[];
   /** Their waiting adds and times into this chapter. */
   waitingAdds: SupplierRequestRow[];
+  /** 🏛 VENUE HOURS (2026-11-04): this supplier is the venue booked to the chapter, so it sets the chapter's hours. */
+  setsHours: boolean;
+  /** The hours are approved and held by this venue (the host asks it to change). */
+  holdsHours: boolean;
+  ingress_minutes_before: number | null;
+  egress_minutes_after: number | null;
+  /** Their hours, sent and waiting for the host. */
+  hoursWaiting: SupplierRequestRow | null;
 };
 
 export type SupplierDay = {
@@ -198,7 +231,14 @@ export function buildSupplierDay(input: {
   myBookingIds: readonly string[];
   tasks: readonly SupplierTaskRow[];
   requests: readonly SupplierRequestRow[];
+  /** 📇 Task contacts RLS let them read; absent = none read. */
+  contacts?: readonly SupplierContactRow[];
+  /** 🏛 Their bookings that are VENUES — a venue sets the hours of the chapters it is booked to. */
+  venueBookingIds?: readonly string[];
 }): SupplierDay {
+  const venueIds = new Set(input.venueBookingIds ?? []);
+  const contactsByBlock = new Map<string, TaskContact[]>();
+  for (const c of input.contacts ?? []) contactsByBlock.set(c.block_id, [...(contactsByBlock.get(c.block_id) ?? []), { name: c.name, phone: c.phone }]);
   const mine = new Set(input.myBookingIds);
   const isMine = (b: SupplierBlockRow) => b.responsible_vendor_ids.some((id) => mine.has(id));
   const open = input.requests.filter((r) => r.status === 'open');
@@ -211,9 +251,6 @@ export function buildSupplierDay(input: {
     crewByBlock.set(t.block_id, list);
   }
 
-  const byStart = (a: { start_at: string | null }, b: { start_at: string | null }) =>
-    (a.start_at ?? '') < (b.start_at ?? '') ? -1 : (a.start_at ?? '') > (b.start_at ?? '') ? 1 : 0;
-
   // A Time-TBA chapter's 00:00 is only its day: it sorts after that day's timed chapters, never first as if at midnight.
   const dayKey = (b: SupplierBlockRow) => (b.time_tba ? `${(b.start_at ?? '').slice(0, 10)}~` : (b.start_at ?? ''));
   const tops = input.blocks
@@ -225,7 +262,8 @@ export function buildSupplierDay(input: {
 
   const chapters: SupplierChapter[] = tops.map((c) => {
     const linked = isMine(c);
-    const kids = input.blocks.filter((b) => b.parent_block_id === c.block_id).slice().sort(byStart);
+    // ⏭ In the run's order: a moment "right after the one above" directly under it (lib/moment-order.ts).
+    const kids = inRunOrder(input.blocks.filter((b) => b.parent_block_id === c.block_id));
     if (linked) {
       for (const s of [c.created_at, c.updated_at]) if (s) stamps.push(s);
     }
@@ -237,7 +275,8 @@ export function buildSupplierDay(input: {
         label: m.label,
         start_at: m.start_at,
         end_at: m.end_at,
-        clock: c.time_tba ? TIME_TBA : m.start_at ? clockWords(m.start_at) : '—',
+        clock: momentClockWords(m, c, clockWords),
+        rightAfter: isRightAfter(m),
         minutes: minutesOf(m.start_at, m.end_at),
         section:
           m.start_at && c.start_at
@@ -246,6 +285,7 @@ export function buildSupplierDay(input: {
         mine: own,
         optional: m.is_optional,
         crew: crewByBlock.get(m.block_id) ?? [],
+        contacts: contactsByBlock.get(m.block_id) ?? [],
         waiting: own ? (open.find((r) => r.block_id === m.block_id && r.kind !== 'new') ?? null) : null,
       };
     });
@@ -259,6 +299,11 @@ export function buildSupplierDay(input: {
       linked,
       moments,
       waitingAdds: open.filter((r) => r.kind === 'new' && r.proposed_parent_block_id === c.block_id),
+      setsHours: c.responsible_vendor_ids.some((id) => venueIds.has(id)),
+      holdsHours: Boolean(c.hours_vendor_id && venueIds.has(c.hours_vendor_id)),
+      ingress_minutes_before: c.ingress_minutes_before ?? null,
+      egress_minutes_after: c.egress_minutes_after ?? null,
+      hoursWaiting: open.find((r) => r.kind === 'hours' && r.block_id === c.block_id) ?? null,
     };
   });
 
@@ -268,7 +313,7 @@ export function buildSupplierDay(input: {
   const otherWaiting = open.filter(
     (r) =>
       (r.kind === 'new' && (!r.proposed_parent_block_id || !chapterIds.has(r.proposed_parent_block_id))) ||
-      (r.kind !== 'new' && (!r.block_id || !ownMomentIds.has(r.block_id))),
+      (r.kind !== 'new' && r.kind !== 'hours' && (!r.block_id || !ownMomentIds.has(r.block_id))),
   );
 
   return { chapters, otherWaiting, stamps };

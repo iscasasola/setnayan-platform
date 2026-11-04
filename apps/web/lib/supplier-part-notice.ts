@@ -26,6 +26,11 @@ export const PART_FIELDS = [
   'ingress_minutes_before',
   'egress_minutes_after',
   'call_lead_minutes',
+  // ⏭ Which moment a "right after" moment follows decides when it happens (20271302727358).
+  'follows_block_id',
+  // 🕑 "About 3:15" · "2:15/2:30" — how its clock is meant is when it happens (20271303051692).
+  'time_shape',
+  'time_or_minutes',
 ] as const;
 
 export type PartMoment = {

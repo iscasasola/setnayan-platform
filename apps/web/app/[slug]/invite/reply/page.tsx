@@ -251,7 +251,8 @@ async function inviteReplyPage({ params, searchParams }: Props) {
       .catch(() => null),
     /* ✉ THE INVITATION'S CHAPTERS AND THIS GUEST'S ANSWERS (Step 5) — the same reads the Event Hub's card uses. */
     Promise.all([
-      readInvitationChapters(admin, event.event_id as string),
+      // ✉ THIS guest's chapters (owner 2026-11-02, "Invited to") — the Maker's sample shows the whole invitation.
+      readInvitationChapters(admin, event.event_id as string, canvas ? undefined : (guest.guest_id as string)),
       canvas ? Promise.resolve(null) : readGuestChapterReplies(admin, guest.guest_id as string),
     ]),
   ]);

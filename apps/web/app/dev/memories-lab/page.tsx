@@ -16,11 +16,14 @@
  *                  the default): the REAL `PhotosOfYouGallery` (the photos they are tagged in) + `YourShotsGallery`
  *                  (their own shots), and no door to everyone's — exactly the props `site-body.tsx` passes when
  *                  `poolGalleryOpen` is false.
+ *   ?story=1       the REAL Story Maker step (`MakeItYours`) on three fixture moments — a moment row deletes by its
+ *                  swipe (owner 2026-11-03, `lab-story-moments.tsx`).
  *   ?guest=all     the same guest under Share all memories: the same two halves + "Everyone's photos".
  */
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
+import { LabStoryMoments } from './lab-story-moments';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { MemoriesChapters } from '@/app/dashboard/(account)/library/_components/memories-chapters';
 import { MemoriesThumb } from '@/app/dashboard/(account)/library/_components/memories-thumb';
@@ -85,6 +88,7 @@ export default async function MemoriesLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  if (sp.story === '1') return <LabStoryMoments />;
   if (sp.guest === 'tagged' || sp.guest === 'all') return <GuestMemoriesLab share={sp.guest === 'all'} />;
   const kind = sp.fail === '1' ? 'fail' : sp.empty === '1' ? 'empty' : 'full';
   const list = albums(kind === 'full' ? 'full' : 'empty');

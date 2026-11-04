@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { ensureChecklistSeeded } from '../checklist-actions';
-import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
@@ -15,7 +15,9 @@ import { createClient } from '@/lib/supabase/server';
 // ended with `revalidatePath` — which Next.js forbids during a render, so this
 // very call 500'd on the first open of every non-wedding schedule. See
 // lib/schedule-seed.server.ts.
-import { seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
+import { seedDefaultChapters, seedNonWeddingRunOfShow } from '@/lib/schedule-seed.server';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { isOnEveryChapter } from '@/lib/supplier-where';
 import {
   scheduleBlockLabelFor,
   SCHEDULE_BLOCK_TYPES,
@@ -120,7 +122,7 @@ import { formatCount } from '@/lib/format-number';
 import { AnnounceButton, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
-import { readChapterBook, readMarchList, readMomentTasks, readTaskPeople } from '@/lib/schedule-chapters.server';
+import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, readTaskPeople } from '@/lib/schedule-chapters.server';
 import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
@@ -220,7 +222,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
-  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes] = await Promise.all([
+  const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
@@ -240,7 +242,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at, proposed_ingress_minutes, proposed_egress_minutes',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
@@ -273,6 +275,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           .eq('direction', 'to_supplier')
           .order('created_at', { ascending: false })
           .limit(200),
+    /* 📇 Each task's contact — a name and a phone (4 additions (3), migration 20271303218631) — in the same round. A
+       refused read is kept as a failure: the task says so, never "no contact". */
+    inMaker ? Promise.resolve(null) : readTaskContacts(supabase, eventId).catch(() => ({ ok: false as const })),
   ]);
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
@@ -323,6 +328,16 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     (eventRow?.event_type ?? 'wedding') !== 'wedding'
   ) {
     scheduleBlocks = await seedNonWeddingRunOfShow(eventId);
+  }
+  /* 📖 EVERY NEW EVENT STARTS WITH FOUR CHAPTERS (owner 2026-11-03): a NEW wedding opened by someone who may write its
+     schedule gets Prep · Ceremony · Cocktail + Reception · After Party, public, with the shipped template moments inside
+     — once, when it has an exact day (`seedDefaultChapters`; migration 20271306532960 remembers which events are new). */
+  if (
+    scheduleBlocks.length === 0 &&
+    (eventRow?.event_type ?? 'wedding') === 'wedding' &&
+    viewerAreaLevel(viewer, 'schedule') === 'edit'
+  ) {
+    scheduleBlocks = await seedDefaultChapters(eventId);
   }
   // A first open that just seeded its day reads its chapters again (that read is not the blocks read, so it is not the
   // memoised GET the seed note above warns about).
@@ -648,6 +663,23 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           .filter((v) => v.standing === 'Booked')
           .map((v) => ({ id: v.vendor_id, name: v.vendor_name }))
       : [];
+  /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
+     and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */
+  if (taskSuppliers.length > 0) {
+    const { data: cats, error: catsErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id, category')
+      .eq('event_id', eventId)
+      .in('vendor_id', taskSuppliers.map((v) => v.id));
+    // Refused: the rows say "Booked" instead of a trade, and no coordinator is listed on every chapter — said in the log.
+    if (catsErr) logQueryError('SchedulePage.supplierTrades', catsErr, { eventId }, 'graceful_degrade');
+    const catOf = new Map(((cats ?? []) as { vendor_id: string; category: string | null }[]).map((c) => [c.vendor_id, c.category]));
+    for (const v of taskSuppliers as { id: string; name: string; trade?: string | null; everyChapter?: boolean }[]) {
+      const cat = catOf.get(v.id) ?? null;
+      v.trade = cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null;
+      v.everyChapter = isOnEveryChapter(null, cat);
+    }
+  }
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
   const momentFacts = new Map(chapterRead?.ok ? chapterRead.value.moments.map((m) => [m.block_id, m]) : []);
   /* ✉ Who replied to each chapter on the invitation (Step 5) — two exact counts and the first names who said yes, per
@@ -688,6 +720,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                   march_key: momentFacts.get(m.block_id)?.march_key ?? null,
                   is_public: m.is_public,
                   vendor_ids: momentFacts.get(m.block_id)?.vendor_ids ?? m.responsible_vendor_ids,
+                  // ⏭ "Right after the one above" (migration 20271302727358): no clock of its own.
+                  time_tba: momentFacts.get(m.block_id)?.time_tba ?? false,
+                  follows_block_id: momentFacts.get(m.block_id)?.follows_block_id ?? null,
+                  // 🕑 "About 3:15" · "2:15/2:30" (migration 20271303051692).
+                  time_shape: momentFacts.get(m.block_id)?.time_shape ?? 'at',
+                  time_or_minutes: momentFacts.get(m.block_id)?.time_or_minutes ?? null,
                   who:
                     m.responsible_vendor_ids
                       .map((id) => supplierName.get(id))
@@ -697,6 +735,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               ),
             venues: [],
             tasks: taskRead?.ok ? taskRead.value : null,
+            contacts: contactRead?.ok ? contactRead.value : null,
             who: { suppliers: taskSuppliers, people: peopleRead?.ok ? peopleRead.value : null },
             marches: marchRead ?? { ok: false },
             asks: asksRes && !asksRes.error ? ((asksRes.data ?? []) as unknown as HostAsk[]) : null,
@@ -719,7 +758,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                     moments: dayMoments.flatMap((m): ViewMoment[] => {
                       if (!m.parent_block_id) return [];
                       const at = momentFacts.get(m.block_id);
-                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null }];
+                      return [{ block_id: m.block_id, parent_block_id: m.parent_block_id, label: m.label, start_at: m.start_at, end_at: m.end_at, is_public: m.is_public, staged: m.staged, audience: m.audience ?? null, responsible_vendor_ids: m.responsible_vendor_ids, location: m.location, spot: at?.spot ?? null, travel_from: at?.travel_from ?? null, travel_to: at?.travel_to ?? null, time_tba: at?.time_tba === true }];
                     }),
                     tasks: taskRead?.ok ? taskRead.value : null,
                     suppliers:
@@ -742,6 +781,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_end_at: s.proposed_end_at,
     proposed_location: s.proposed_location,
     proposed_crew: s.proposed_crew,
+    proposed_ingress_minutes: s.proposed_ingress_minutes ?? null,
+    proposed_egress_minutes: s.proposed_egress_minutes ?? null,
     note: s.note,
   }));
 
@@ -1185,7 +1226,9 @@ function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours';
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;

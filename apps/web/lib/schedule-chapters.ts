@@ -1,3 +1,4 @@
+import { isOrMinutes, isTimeShape, type TimeShape } from './time-shape';
 import { TIME_TBA, isTimeTba } from './time-tba';
 
 /**
@@ -62,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes, hours_vendor_id';
 
 export type Chapter = {
   block_id: string;
@@ -89,6 +90,10 @@ export type Chapter = {
    * drawn — "Time TBA", no call time. Never shown to guests while set (the database refuses it).
    */
   time_tba?: boolean;
+  /** 👷 The suppliers tagged on the chapter itself (`responsible_vendor_ids`, event_vendors ids). */
+  vendor_ids?: string[];
+  /** 🏛 The venue booking that HOLDS the chapter's hours (migration 20271307658341); null = the host sets them. */
+  hours_vendor_id?: string | null;
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -121,6 +126,8 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       is_public: r.is_public === true,
       moments: moments.get(r.block_id) ?? 0,
       time_tba: r.time_tba === true,
+      vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
+      hours_vendor_id: typeof r.hours_vendor_id === 'string' ? r.hours_vendor_id : null,
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }
@@ -511,6 +518,14 @@ export type MomentFacts = {
   march_key: string | null;
   /** 👷 The suppliers it is for (`responsible_vendor_ids`) — the "yours" on their day; the Suppliers and crew row ticks them. */
   vendor_ids: string[];
+  /** ⏭ No clock of its own — "right after the one above" (migration 20271302727358); `start_at` is only its order key. */
+  time_tba: boolean;
+  /** ⏭ The moment it comes right after (same chapter); null when it is timed, or first. */
+  follows_block_id: string | null;
+  /** 🕑 How its clock is meant — 'at' · 'about' · 'or' (migration 20271303051692, lib/time-shape.ts). */
+  time_shape: TimeShape;
+  /** 🕑 On 'or': the second time, minutes after its start. */
+  time_or_minutes: number | null;
 };
 
 /** Every moment's own facts, from the rows the chapter read already holds. */
@@ -527,6 +542,10 @@ export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] 
       travel_to: blankToNull(r.travel_to),
       march_key: isMarchKey(r.march_key) ? r.march_key : null,
       vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
+      time_tba: r.time_tba === true,
+      follows_block_id: typeof r.follows_block_id === 'string' ? r.follows_block_id : null,
+      time_shape: isTimeShape(r.time_shape) ? r.time_shape : 'at',
+      time_or_minutes: isOrMinutes(r.time_or_minutes) ? r.time_or_minutes : null,
     }));
 }
 
@@ -712,7 +731,8 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
 
 /** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
 // 'ask_supplier' — the moment sheet's "Ask a supplier to change their times" (D2, `lib/schedule-ask.server.ts`).
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set', 'ask_supplier'] as const;
+// 📇 `contact_set` (4 additions (3), migration 20271303218631): a task's contact — a name and a phone — kept or removed.
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count', 'march_set', 'march_new', 'for_set', 'ask_supplier', 'contact_set'] as const;
 export type MomentOp = (typeof MOMENT_OPS)[number];
 export function isMomentOp(v: unknown): v is MomentOp {
   return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);
@@ -885,3 +905,48 @@ export function marchNameFrom(raw: unknown): { ok: true; name: string } | { ok: 
   if (name.length > MARCH_NAME_MAX) return { ok: false, error: `Up to ${MARCH_NAME_MAX} letters.` };
   return { ok: true, name };
 }
+
+/* ── 👷 suppliers in a chapter (owner 2026-11-04, prototype frame 2) ─────────────────────────────────────────── */
+
+/** One row of a chapter's "Suppliers in this chapter". */
+export type ChapterSupplier = { id: string; name: string; trade?: string | null; everyChapter?: boolean };
+
+export const CHAPTER_SUPPLIERS_TIP =
+  'The suppliers booked to this chapter. Their call time is the first task they have in it. Coordinators are on every chapter.';
+
+/** "Catering" · "Coordinator · every chapter" · "Booked" (no trade read). */
+export function chapterSupplierLine(s: ChapterSupplier): string {
+  if (s.everyChapter) return 'Coordinator · every chapter';
+  return s.trade ?? 'Booked';
+}
+
+/** The suppliers in a chapter: those on it, its moments or a task in them — then the coordinators. One row each. */
+export function chapterSuppliers(
+  c: Pick<Chapter, 'block_id' | 'vendor_ids'>,
+  moments: readonly { block_id: string; parent_block_id: string; vendor_ids: readonly string[] }[],
+  tasks: readonly { block_id: string; vendor_id: string | null }[] | null,
+  suppliers: readonly ChapterSupplier[],
+): ChapterSupplier[] {
+  const ids = new Set(c.vendor_ids ?? []);
+  const inIt = moments.filter((m) => m.parent_block_id === c.block_id);
+  for (const m of inIt) for (const v of m.vendor_ids) ids.add(v);
+  const momentIds = new Set(inIt.map((m) => m.block_id));
+  for (const t of tasks ?? []) if (t.vendor_id && momentIds.has(t.block_id)) ids.add(t.vendor_id);
+  const on = suppliers.filter((s) => ids.has(s.id) && !s.everyChapter);
+  const everywhere = suppliers.filter((s) => s.everyChapter);
+  return [...on, ...everywhere];
+}
+
+
+/* ── 🏛 venue hours (migration 20271307658341) ─────────────────────────────────────────────────────────────── */
+
+/** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" — a held chapter's hours in one line. */
+export function heldHoursLine(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>): string {
+  const parts = [`${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`];
+  const i = ingressAt(c);
+  const e = egressAt(c);
+  if (i) parts.push(`setup from ${clockWords(i)}`);
+  if (e) parts.push(`out by ${clockWords(e)}`);
+  return parts.join(' · ');
+}
+

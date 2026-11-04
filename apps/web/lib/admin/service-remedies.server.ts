@@ -86,13 +86,14 @@ async function audit(
   // Best-effort, like refundOrder's: the ledger row in `order_service_remedies`
   // is the load-bearing record; this is the cross-surface stream.
   try {
-    await admin.from('admin_audit_log').insert({
+    const { error } = await admin.from('admin_audit_log').insert({
       action: row.action,
       target_id: row.orderId,
       target_table: 'orders',
       actor_user_id: row.adminUserId,
       metadata: row.metadata,
     });
+    if (error) console.error('[service-remedies] admin_audit_log insert refused (non-fatal):', error);
   } catch (e) {
     console.error(`[service-remedies] admin_audit_log insert failed (non-fatal):`, e);
   }
@@ -224,11 +225,13 @@ export async function moveOrderToNextEvent(
     });
   }
 
-  const { data: toEvent } = await admin
+  // Only for the words: a refused read names "your next event" instead.
+  const { data: toEvent, error: toEventErr } = await admin
     .from('events')
     .select('display_name')
     .eq('event_id', toEventId)
     .maybeSingle();
+  if (toEventErr) console.error('[service-remedies] next-event name read refused:', toEventErr);
   const toName = (toEvent as { display_name?: string | null } | null)?.display_name ?? null;
 
   await audit(admin, {
@@ -332,7 +335,9 @@ export async function readRemedyDesk(admin: SupabaseClient, orderIds: readonly s
   ];
   const names = new Map<string, string | null>();
   if (eventIds.length > 0) {
-    const { data: evs } = await admin.from('events').select('event_id, display_name').in('event_id', eventIds);
+    const { data: evs, error: evErr } = await admin.from('events').select('event_id, display_name').in('event_id', eventIds);
+    // Names are only words on the history line; a refused read shows "an earlier event", never hides the history.
+    if (evErr) console.error('[service-remedies] event names read refused:', evErr);
     for (const e of (evs ?? []) as Array<{ event_id: string; display_name: string | null }>) {
       names.set(e.event_id, e.display_name);
     }

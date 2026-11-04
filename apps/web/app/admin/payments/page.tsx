@@ -1272,7 +1272,7 @@ function ServiceRemedyForms({
                 {row.maxCredits !== null ? ` Most you can add: ${formatCount(row.maxCredits)}.` : ''}
               </span>
             </label>
-            {reasonBox('E.g. Live Studio could not start on the day — our encoder failed.')}
+            {reasonBox('E.g. The live video could not start on the day — our encoder failed.')}
             <SubmitButton className={button} pendingLabel="Converting…">
               Convert · tell the couple
             </SubmitButton>
@@ -1299,7 +1299,7 @@ function ServiceRemedyForms({
             <p className={hint}>
               Their next event: <span className="font-medium text-ink">{row.nextEvent.name ?? 'Untitled event'}</span>
             </p>
-            {reasonBox('E.g. Their wedding was called off and they never used Live Studio.')}
+            {reasonBox('E.g. Their wedding was called off before they used it.')}
             <SubmitButton className={button} pendingLabel="Moving…">
               Move · tell the couple
             </SubmitButton>

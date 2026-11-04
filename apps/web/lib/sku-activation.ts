@@ -2506,14 +2506,14 @@ async function orderGrantsSetnayanAi(ctx: ActivationContext): Promise<boolean> {
     ctx.serviceKey === ONBOARDING_SERVICES_SKU
       ? await readOnboardingOrderItems(ctx.admin, ctx.orderId)
       : [];
-  return (
+  const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
     basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??
-      false)
-  );
+      false);
+  return grantsAi;
 }
 
 /**

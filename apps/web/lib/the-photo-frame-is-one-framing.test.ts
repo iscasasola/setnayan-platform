@@ -202,7 +202,7 @@ test('SABOTAGE-PROVEN: the Frame step owns the gestures the contract lists, and 
   assert.match(src, /navigator\.vibrate\(8\)/);
   assert.match(src, /window\.matchMedia\('\(pointer: coarse\)'\)/, 'the How-to line adapts to the device');
   assert.match(src, /Looks good/);
-  assert.match(src, /geo\.layoutMarkInFrame\(fr, shape, mark\.spec/, 'the stage shows the SAME mark layout that is burned in');
+  assert.match(src, /return layoutMarkInFrame\(fr, shape, mark\.spec/, 'the stage shows the SAME mark layout that is burned in');
 });
 
 test('the display sites draw the saved framing', () => {

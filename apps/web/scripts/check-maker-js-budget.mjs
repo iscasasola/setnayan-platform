@@ -53,7 +53,13 @@ export const MAKER_FIRST_LOAD_MEASURED_KB = 481.5;
 // (owner 2026-10-29: one live connection per open TEAM dashboard tab is OK) — the channel itself already loads by
 // import() after the page draws (`event-team-presence-join.ts`); what remains is the context and webpack's entry for
 // that lazy chunk.
-export const MAX_MAKER_FIRST_LOAD_GZIP = 507.5 * 1024;
+// RAISED 2026-11-04 507.5 → 508 KB (owner, verbatim, answering "…or your OK for a +0.5 KB limit": "raise the Maker
+// limit 0.5 KB"; DECISION_LOG row for the controller — the corpus is not in that session). Measured in CI: main
+// 066a3f0f = 507.5 KB (0.0 headroom); PR #7215 (Guests › filtered headings fold again) and PR #7223 (Guests › Show &
+// sort sheet) each first read 507.6 KB and were trimmed back to 507.5 KB alone — together they read ~507.6. The Maker
+// draws the guest list (`seating/_components/seat-list.tsx` → `GuestsScreen`), so its fold state and the ≡ round ship
+// in the Maker's first load; the sheet itself already loads by next/dynamic on the first tap.
+export const MAX_MAKER_FIRST_LOAD_GZIP = 508 * 1024;
 
 /** The manifest entries a cold open of `route` loads: its page and every layout/loading above it. */
 export function firstLoadEntries(pages, route) {

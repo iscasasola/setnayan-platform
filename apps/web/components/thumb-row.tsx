@@ -180,8 +180,9 @@ export function ThumbRow({
   /** ≤ 2 neutral rounds before the field — ⇕ then ☑. */
   left?: readonly (ThumbRound | ThumbNode)[];
   field?: ThumbField | ThumbNode | null;
-  /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
-  right?: readonly (ThumbRound | ThumbMenu)[];
+  /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown; a `ThumbNode` a shipped control that owns its own sheet
+   *  (Guests' "Show & sort", `guests-filter-sheet.tsx`). */
+  right?: readonly (ThumbRound | ThumbMenu | ThumbNode)[];
   /** THE one main verb — terracotta, last. A `ThumbMenu` is a ＋ that opens its choices (Seats' Add ▾ Table · Entrance…). */
   action?: ThumbRound | ThumbNode | ThumbMenu | null;
   /** A mode row's own buttons, in place of the seats. */
@@ -279,8 +280,10 @@ export function ThumbRow({
           ) : (
             <span className={styles.gap} aria-hidden />
           )}
-          {right.map((r) =>
-            'menu' in r ? (
+          {right.map((r, i) =>
+            'node' in r ? (
+              <NodeRound key={`node-${i}`} node={r.node} />
+            ) : 'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
                 <PickMenu
                   label={r.label}

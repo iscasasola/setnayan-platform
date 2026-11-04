@@ -352,7 +352,10 @@ test('every other field lives under More settings, and it starts shut', () => {
   const at = src.indexOf('data="more"');
   assert.ok(at > 0, 'More settings is gone');
   const head = src.slice(src.lastIndexOf('<Fold', at), at + 300);
-  assert.match(head, /defaultOpen=\{discountSeed !== null\}/, 'More settings opens by itself — the wall coming back one row lower');
+  // Since 2026-11-04 More settings is CONTROLLED (its first open plays the reveal sweep — owner "see all animating then
+  // return back to the first one which is price"), so "starts shut" is the state's initial value, not `defaultOpen`.
+  assert.match(head, /open=\{moreOpen\}/, 'More settings stopped reading its one open state');
+  assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(discountSeed !== null\);/, 'More settings opens by itself — the wall coming back one row lower');
   // The prototype's folds, in its order (makerMore()).
   const folds = ['m-price', 'm-disc', 'm-inc', 'm-addons', 'm-gift', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
   let last = at;

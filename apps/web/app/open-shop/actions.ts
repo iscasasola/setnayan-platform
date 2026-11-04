@@ -342,10 +342,19 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // `vendor_profiles.user_id UNIQUE`), so this only ever reuses or creates the
   // one shop; the guard becomes live enforcement when the cap is raised and
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
-  const { data: ownedRows } = await admin
+  const { data: ownedRows, error: ownedError } = await admin
     .from('vendor_profiles')
     .select('vendor_profile_id, services, business_slug, in_business_since_year')
     .eq('user_id', user.id);
+  // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, the insert below runs
+  // over the shop that already exists, and the supplier is shown Postgres's
+  // raw duplicate-key text. Say what happened and let them try again.
+  if (ownedError) {
+    redirect(
+      '/open-shop?error=' +
+        encodeURIComponent("We couldn't check your shop just now. Please try again."),
+    );
+  }
   const owned = (ownedRows ?? []) as Array<{
     vendor_profile_id: string;
     services?: string[];

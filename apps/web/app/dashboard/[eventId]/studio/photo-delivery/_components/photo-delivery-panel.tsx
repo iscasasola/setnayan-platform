@@ -228,7 +228,7 @@ function IdleState({
                photo_delivery_artifacts, so it covers these vendor-delivered
                albums too, not only Papic captures. The Drive folder is what
                lasts; our copy is not. */
-            body: 'Photos arrive in your Drive and stay there — that folder is yours. Setnayan holds the full-resolution originals for 6 months, then keeps a compressed copy in your Memories, free, for life.',
+            body: 'Photos arrive in your Drive and stay there — that folder is yours. Setnayan holds the full-resolution originals until 3 months after your event’s last day, then keeps the 720p copy in your Memories, free, for life.',
           },
         ].map((step) => (
           <li
@@ -445,8 +445,9 @@ function ConnectedState({
                   the two cannot drift. Nothing is ever deleted; the
                   full-resolution original is replaced by a compressed copy. */}
               Your Drive folder holds the originals — that folder is yours.
-              Setnayan holds the full-resolution originals for 6 months, then
-              keeps a compressed copy in your Memories, free, for life.
+              Setnayan holds the full-resolution originals until 3 months after
+              your event&rsquo;s last day, then keeps the 720p copy in your
+              Memories, free, for life.
             </p>
           </header>
           <div className="flex flex-wrap gap-2">

@@ -110,8 +110,9 @@ test('3 · Share hands over the ORIGINAL — never a screen copy', () => {
   // The original is gone: said in words, never silently a smaller file.
   const kept = shareSourceOf(item({ alreadyCompressed: true }), HOST)!;
   assert.equal(kept.what, 'kept-copy');
-  assert.match(shareWords(kept, {}).tip, /wasn’t kept/);
-  assert.match(shareWords(shareSourceOf(item(), HOST)!, { preserved: false }).tip, /Keep full resolution/);
+  // ⚖ The photo rule (2026-11-03): the original is replaced by the 720p copy 3 months after the event's last day.
+  assert.match(shareWords(kept, {}).tip, /original was replaced by the 720p copy/);
+  assert.match(shareWords(shareSourceOf(item(), HOST)!, { preserved: false }).tip, /3 months after the event’s last day/);
   // The account page: your event → the save route; an event you attended → the copy you were given, said so.
   const mine = wallShareSourceOf({ key: 'papic_guest_captures:c9', url: 'U-wall', isClip: false, role: 'couple', eventId: 'e1' })!;
   assert.match(mine.url, /^\/dashboard\/e1\/studio\/papic\/save-photo\?id=c9&src=guest$/);

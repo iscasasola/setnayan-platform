@@ -25,6 +25,13 @@ test('every top-level row puts its name on the fold head’s column (40 px mark 
   assert.equal((row.match(/items-center gap-2 py-2/g) ?? []).length, 2, 'a MakerRow form went back to a different gap');
 });
 
+test('Discounts says, in its ⓘ, that a quote can always go lower', () => {
+  const at = src.indexOf('data="m-disc"');
+  const body = src.slice(at, src.indexOf('<DiscountsEditor', at));
+  assert.match(body, /<InfoTip label="Starting offers"/);
+  assert.ok(body.includes('Starting offers. You can give a bigger discount in any quote.'), 'the Discounts ⓘ line is gone');
+});
+
 test('what a nested fold opens onto starts on the name column, with no extra inset', () => {
   const at = src.indexOf('data-maker-more=""');
   const tag = src.slice(src.lastIndexOf('<div', at), at);

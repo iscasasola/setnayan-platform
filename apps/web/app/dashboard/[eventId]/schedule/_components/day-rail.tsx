@@ -86,6 +86,7 @@ import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 import { useChapters } from './chapters-context';
+import { SwipeDeleteButton, SwipeToDelete, useSwipeReveal } from '@/app/_components/swipe-to-delete';
 import { lockedShopOnMoments } from '@/lib/supplier-part-lock';
 import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
@@ -1017,8 +1018,16 @@ export function ScheduleDay({
                     const width = `calc((100% - 14px) / ${lane.lanes} - ${lane.lanes > 1 ? 4 : 0}px)`;
                     const left = `calc(10px + (100% - 14px) / ${lane.lanes} * ${lane.lane})`;
                     return (
-                      <div
+                      <RailSwipe
                         key={m.block_id}
+                        enabled={Boolean(ch) && canEdit && lens.kind === 'all' && !m.staged && !faded}
+                        label={`Delete ${m.label}`}
+                        top={top(span.startMin)}
+                        height={height}
+                        onDelete={() => ch?.askDelete(m.block_id)}
+                      >
+                      {(sw) => (
+                      <div
                         data-rail-moment={m.block_id}
                         role="button"
                         tabIndex={faded ? -1 : 0}
@@ -1036,6 +1045,7 @@ export function ScheduleDay({
                         onPointerMove={moveDrag}
                         onPointerUp={endDrag}
                         onPointerCancel={cancelDrag}
+                        {...(sw?.rowProps ?? {})}
                         className={`group absolute z-[2] flex min-h-0 overflow-hidden rounded-md text-left transition-[box-shadow,opacity,transform] ${
                           short ? 'flex-row items-center gap-2.5 py-0' : 'flex-col py-2'
                         } pl-3 pr-10 ${
@@ -1055,6 +1065,8 @@ export function ScheduleDay({
                           left,
                           width,
                           touchAction: isSel && canEdit ? 'none' : undefined,
+                          // 🗑 A chapter swipes left to reveal Delete (`RailSwipe`); a selected block keeps the finger.
+                          ...(sw ? { transform: sw.rowStyle.transform, transition: sw.rowStyle.transition, touchAction: isSel && canEdit ? 'none' : 'pan-y' } : {}),
                         }}
                       >
                         <span
@@ -1163,6 +1175,8 @@ export function ScheduleDay({
                           </button>
                         ) : null}
                       </div>
+                      )}
+                      </RailSwipe>
                     );
                   })}
 
@@ -1186,6 +1200,7 @@ export function ScheduleDay({
             <ul data-chapters-tba="" className="ml-[54px] border-t border-ink/10 lg:ml-16 lg:max-w-[720px]">
               {tbaChapters.map((m) => (
                 <li key={m.block_id} className="border-b border-ink/10">
+                  <SwipeToDelete label={`Delete ${m.label}`} disabled={!(Boolean(ch) && canEdit)} hover={Boolean(ch) && canEdit} radiusClass="" onDelete={(close) => { close(); ch?.askDelete(m.block_id); }}>
                   <button
                     type="button"
                     data-chapter-tba={m.block_id}
@@ -1198,6 +1213,7 @@ export function ScheduleDay({
                       <span className="block truncate text-[13px] text-ink/60">{chapterWhere({ location: m.location, spot: null })}</span>
                     </span>
                   </button>
+                  </SwipeToDelete>
                 </li>
               ))}
             </ul>
@@ -1444,6 +1460,48 @@ function EmptyRail({
         <p className="text-[13.5px] text-ink/65">Nothing on the rail yet — tap a time to add the first moment.</p>
       )}
     </div>
+  );
+}
+
+/**
+ * 🗑 A CHAPTER ON THE RAIL SWIPES LEFT TO DELETE (owner 2026-11-03, prototype frame 3) — the shared gesture
+ * (`app/_components/swipe-to-delete.tsx`) on a block that places itself: the revealed Delete sits behind it at the
+ * same height, and asks (the page's warning, then Undo). Off for the Maker, a lens, a staged block and anyone who may
+ * not edit — those blocks are exactly as they were.
+ */
+function RailSwipe({
+  enabled,
+  label,
+  top,
+  height,
+  onDelete,
+  children,
+}: {
+  enabled: boolean;
+  label: string;
+  top: number;
+  height: number;
+  onDelete: () => void;
+  children: (swipe: ReturnType<typeof useSwipeReveal> | null) => React.ReactNode;
+}) {
+  const swipe = useSwipeReveal({ enabled });
+  if (!enabled) return <>{children(null)}</>;
+  return (
+    <>
+      {swipe.tx !== 0 ? (
+        <SwipeDeleteButton
+          label={label}
+          open={swipe.open}
+          onDelete={() => {
+            swipe.close();
+            onDelete();
+          }}
+          className="absolute right-0 z-[1] rounded-md"
+          style={{ top, height }}
+        />
+      ) : null}
+      {children(swipe)}
+    </>
   );
 }
 

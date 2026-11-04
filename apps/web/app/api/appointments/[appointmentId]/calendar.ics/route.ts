@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { buildAppointmentIcs } from '@/lib/calendar-links';
+import { parseVirtualLocation, virtualSummary, virtualValueText } from '@/lib/virtual-meeting';
 import {
   APPOINTMENT_KIND_LABEL,
   humanizeAppointmentType,
@@ -81,7 +82,13 @@ export async function GET(_req: Request, { params }: Params) {
     title: `Setnayan · ${title}`,
     startIso: appt.scheduled_at,
     durationMin: appt.duration_min,
-    location: appt.kind === 'in_person' ? appt.location : null,
+    // A Virtual meeting's place is its app + link/number — the words, never the stored "via|value".
+    location:
+      appt.kind === 'in_person'
+        ? appt.location
+        : [virtualSummary(parseVirtualLocation(appt.location)), virtualValueText(parseVirtualLocation(appt.location))]
+            .filter(Boolean)
+            .join(' · ') || null,
     description: descriptionParts.join(' — '),
   });
 

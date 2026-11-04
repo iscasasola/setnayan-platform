@@ -29,7 +29,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import type { NotificationType } from '@/lib/notifications';
-import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
+import {
+  APPOINTMENT_KIND_LABEL,
+  postedKindToStored,
+  type AppointmentInitiator,
+  type AppointmentKind,
+} from '@/lib/appointments';
+import { readVirtualFields } from '@/lib/virtual-meeting';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { revalidationTarget } from '@/lib/return-path';
 import { safeNext } from '@/lib/safe-next';
@@ -185,11 +191,14 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
   const eventId = str(formData.get('event_id'), 64);
   const vendorProfileId = str(formData.get('vendor_profile_id'), 64);
   const returnPath = safeReturnPath(formData.get('return_path'));
-  const kindRaw = formData.get('kind');
-  const kind =
-    kindRaw === 'in_person' || kindRaw === 'video' || kindRaw === 'voice' ? kindRaw : null;
+  // In-person or Virtual only — a Virtual meeting is stored as 'video'; nothing
+  // new is written as 'voice' (owner 2026-10-28: no calls inside Setnayan).
+  const kind = postedKindToStored(formData.get('kind'));
   const type = str(formData.get('type'), 60);
   if (!eventId || !kind || !type) redirect(returnPath);
+  // A Virtual meeting's app + value — validated; invalid saves NOTHING.
+  const virtual = kind === 'video' ? readVirtualFields(formData) : null;
+  if (virtual && !virtual.ok) redirect(returnPath);
 
   const supabase = await createClient();
   const {
@@ -210,7 +219,12 @@ export async function proposeAppointment(formData: FormData): Promise<void> {
     kind,
     type,
     custom_label: customLabel,
-    location: kind === 'in_person' ? str(formData.get('location'), 300) : null,
+    location:
+      kind === 'in_person'
+        ? str(formData.get('location'), 300)
+        : virtual && virtual.ok
+          ? virtual.location
+          : null,
     scheduled_at: toIso(formData.get('scheduled_at')),
     duration_min: toDuration(formData.get('duration_min')),
     status: 'proposed',
@@ -396,4 +410,52 @@ export async function cancelAppointment(formData: FormData): Promise<void> {
 
   revalidatePath(revalidationTarget(returnPath));
   redirect(returnPath);
+}
+
+export type VirtualLinkState = { ok: boolean; error: string | null; savedAt: number };
+
+/**
+ * setVirtualMeetingLink — either party adds (or fixes) the app + link of a
+ * Virtual meeting IN PLACE (a save never resets the screen: returns state,
+ * never redirects). Validated by `readVirtualFields`; an invalid value saves
+ * NOTHING. RLS scopes the update to the caller's relationship; only a live
+ * (proposed / confirmed) Virtual row — 'video', or the retired 'voice' — is
+ * touched, so an in-person row's address can never be overwritten from here.
+ */
+export async function setVirtualMeetingLink(
+  _prev: VirtualLinkState,
+  formData: FormData,
+): Promise<VirtualLinkState> {
+  const appointmentId = str(formData.get('appointment_id'), 64);
+  const returnPath = safeReturnPath(formData.get('return_path'));
+  if (!appointmentId) return { ok: false, error: 'This meeting could not be found.', savedAt: 0 };
+  const read = readVirtualFields(formData);
+  if (!read.ok) return { ok: false, error: read.error, savedAt: 0 };
+  if (!read.location || read.location.endsWith('|')) {
+    return { ok: false, error: 'Add the link or number first.', savedAt: 0 };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Sign in again to save this.', savedAt: 0 };
+
+  const { data: updated, error } = await supabase
+    .from('event_appointments')
+    .update({ location: read.location, updated_at: new Date().toISOString() })
+    .eq('appointment_id', appointmentId)
+    .in('kind', ['video', 'voice'])
+    .in('status', ['proposed', 'confirmed'])
+    .select('appointment_id');
+  if (error) {
+    console.error('[appointments] set virtual link refused', error);
+    return { ok: false, error: 'Could not save — please try again.', savedAt: 0 };
+  }
+  // A zero-row update is not a save — say so rather than show the link as kept.
+  if (!updated || updated.length === 0) {
+    return { ok: false, error: 'This meeting can no longer be changed.', savedAt: 0 };
+  }
+  revalidatePath(revalidationTarget(returnPath));
+  return { ok: true, error: null, savedAt: Date.now() };
 }

@@ -7,7 +7,9 @@
 
 import { useState } from 'react';
 import { respondAppointment } from './appointments-actions';
-import { APPOINTMENT_KIND_LABEL, type AppointmentKind } from '@/lib/appointments';
+import { MEETING_MODE_LABEL, meetingModeOf, type AppointmentKind } from '@/lib/appointments';
+import { parseVirtualLocation, virtualSummary } from '@/lib/virtual-meeting';
+import { AppointmentJoin } from './appointment-join';
 import { ProposeNewTimeForm } from './propose-new-time-form';
 import { NegotiationCardShell, type NegRow, type NegStatusTone } from './negotiation-card-shell';
 
@@ -15,6 +17,8 @@ export type ChatAppointmentData = {
   appointment_id: string;
   kind: AppointmentKind;
   label: string;
+  /** In-person: the place. Virtual: `"<via>|<value>"` (lib/virtual-meeting.ts). */
+  location?: string | null;
   scheduled_at: string | null;
   status: 'proposed' | 'confirmed' | 'done' | 'cancelled';
   initiated_by: 'couple' | 'vendor' | null;
@@ -63,10 +67,17 @@ export function ChatAppointmentCard({
   const isProposer = data.initiated_by === viewerRole;
   const canAct = data.status === 'proposed' && !isProposer;
   const st = STATUS[data.status];
+  const isVirtual = meetingModeOf(data.kind) === 'virtual';
+  const live = data.status === 'proposed' || data.status === 'confirmed';
 
   const rows: NegRow[] = [
     { label: 'When', value: formatWhen(data.scheduled_at) },
-    { label: 'Format', value: APPOINTMENT_KIND_LABEL[data.kind] },
+    {
+      label: 'Format',
+      value: isVirtual
+        ? virtualSummary(parseVirtualLocation(data.location ?? null))
+        : MEETING_MODE_LABEL.in_person,
+    },
     {
       label: 'Requested by',
       value: isProposer ? 'You' : viewerRole === 'couple' ? 'The supplier' : 'The couple',
@@ -83,7 +94,20 @@ export function ChatAppointmentCard({
     </>
   );
 
-  const footer = canAct ? (
+  // A Virtual meeting's hand-off — the proposer's own app, never an in-app call.
+  const access =
+    isVirtual && live ? (
+      <AppointmentJoin
+        appointmentId={data.appointment_id}
+        location={data.location ?? null}
+        scheduledAt={data.scheduled_at}
+        confirmed={data.status === 'confirmed'}
+        canEdit
+        returnPath={returnPath}
+      />
+    ) : null;
+
+  const actions = canAct ? (
     <>
       <form action={respondAppointment}>
         {hidden}
@@ -128,7 +152,14 @@ export function ChatAppointmentCard({
       statusTone={st.tone}
       statusLabel={st.label}
       rows={rows}
-      footer={footer}
+      footer={
+        access || actions ? (
+          <>
+            {access}
+            {actions}
+          </>
+        ) : null
+      }
     />
   );
 }

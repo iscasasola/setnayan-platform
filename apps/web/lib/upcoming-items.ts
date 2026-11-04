@@ -229,7 +229,7 @@ async function fetchAppointments(
     const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
     const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
     const name = vendor?.name ?? 'your supplier';
-    const where = row.location ? ` · ${row.location}` : ` with ${name}`;
+    const where = row.kind === 'in_person' && row.location ? ` · ${row.location}` : ` with ${name}`;
     return {
       id: `appointment:${row.appointment_id}`,
       source: 'meeting' as const,

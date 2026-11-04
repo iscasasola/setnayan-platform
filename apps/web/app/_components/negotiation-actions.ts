@@ -30,6 +30,8 @@ import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
+import { postedKindToStored } from '@/lib/appointments';
+import { readVirtualFields } from '@/lib/virtual-meeting';
 import {
   signedAmount,
   AMENDMENT_ITEM_KINDS,
@@ -64,9 +66,17 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
 
   if (!chatNegotiationEnabled() || !threadId) redirect(dest);
 
-  const kindRaw = formData.get('kind');
-  const kind =
-    kindRaw === 'in_person' || kindRaw === 'video' || kindRaw === 'voice' ? kindRaw : null;
+  // In-person or Virtual only — Virtual is stored as 'video'; nothing new is
+  // written as 'voice' (owner 2026-10-28: no calls inside Setnayan).
+  const kind = postedKindToStored(formData.get('kind'));
+  // A Virtual meeting's app + value — validated; invalid saves NOTHING.
+  const virtual = kind === 'video' ? readVirtualFields(formData) : null;
+  if (virtual && !virtual.ok) {
+    if (back) {
+      redirect(`${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(virtual.error)}`);
+    }
+    redirect(dest);
+  }
   // A picked DATE (yyyy-mm-dd) + a TIME slot (HH:MM), combined at Manila (+08:00).
   const date = str(formData.get('date'), 10);
   const time = str(formData.get('time'), 5);
@@ -150,6 +160,7 @@ export async function createScheduleRequestFromChat(formData: FormData): Promise
       kind,
       type: 'custom',
       custom_label: label,
+      location: virtual && virtual.ok ? virtual.location : null,
       scheduled_at: scheduledIso,
       status: 'proposed',
       initiated_by: role,

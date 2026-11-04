@@ -144,8 +144,13 @@ export function SwipeToDelete({
   return (
     <Tag className={`group/swipe relative flex items-stretch ${className}`} data-swipe-row="">
       <div className={`relative min-w-0 flex-1 overflow-hidden ${radiusClass}`}>
-        {/* The Delete behind the row — revealed by a left swipe. Phones only: a mouse cannot swipe. */}
-        <div className="absolute inset-y-0 right-0 flex [@media(hover:hover)_and_(pointer:fine)]:hidden" style={{ width: SWIPE_REVEAL_PX }}>
+        {/* The Delete behind the row — revealed by a left swipe. Phones only: a mouse cannot swipe. Not drawn at
+            all while the row is closed and still: a rounded row's anti-aliased corners would otherwise show a red
+            hairline over it. It hides only once the 0.2 s slide back has ended, so a closing row never shows the page behind. */}
+        <div
+          className={`absolute inset-y-0 right-0 flex [@media(hover:hover)_and_(pointer:fine)]:hidden ${tx === 0 && !dragging ? 'invisible [transition:visibility_0s_0.2s]' : ''}`}
+          style={{ width: SWIPE_REVEAL_PX }}
+        >
           <button
             type="button"
             onClick={press}

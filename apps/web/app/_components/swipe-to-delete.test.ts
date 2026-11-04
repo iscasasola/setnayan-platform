@@ -10,7 +10,7 @@
  *
  * SABOTAGE (seen RED, then restored, 2026-11-03): the vertical early-out removed → 1 red · `swipeSettle` threshold at
  * the full width → 3 red · the timer in `deleteWithUndo` writing at once → 5 red ·
- * the one-host gate in `UndoToastHost` dropped → 4b red.
+ * the one-host gate in `UndoToastHost` dropped → 4b red · the closed row's `invisible` red dropped → 4 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,6 +65,8 @@ test('4 · a drag’s click is swallowed, an open row’s tap closes it, scroll 
   assert.match(cap, /if \(tx !== 0\) \{[\s\S]*?setTx\(0\)/);
   assert.match(SRC, /touchAction: 'pan-y'/);
   assert.match(SRC, /transform: tx === 0 && !dragging \? undefined/);
+  // Closed and still, the red is not drawn at all — no hairline at a rounded row's corners.
+  assert.match(SRC, /\$\{tx === 0 && !dragging \? 'invisible \[transition:visibility_0s_0\.2s\]' : ''\}/);
   // Named for whom, and reachable by keyboard on a computer.
   assert.equal((SRC.match(/aria-label=\{label\}/g) ?? []).length, 2, 'the revealed and the hover Delete are both named');
   assert.match(SRC, /group-focus-within\/swipe:opacity-100/);

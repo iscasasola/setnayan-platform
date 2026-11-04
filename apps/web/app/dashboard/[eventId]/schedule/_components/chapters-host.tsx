@@ -824,7 +824,7 @@ function ChapterPage({
                 <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/50 transition-transform ${on ? 'rotate-180' : ''}`} />
               </button>
               {on && backstage ? (
-                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-[12px] uppercase tracking-[0.06em] text-gold-text">
+                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-[12px] uppercase tracking-[0.06em] text-gold-deep">
                   {BACKSTAGE_WORDS} <Tip>{BACKSTAGE_TIP}</Tip>
                 </p>
               ) : null}

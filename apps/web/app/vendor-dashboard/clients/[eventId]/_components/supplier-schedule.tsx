@@ -432,7 +432,7 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
         {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
         {m.section !== 'Event' ? (
-          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-text">
+          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-deep">
             {m.section} · {BACKSTAGE_WORDS}
           </span>
         ) : null}

@@ -62,119 +62,136 @@
  * The purpose paragraph still opens "Setnayan is …" — Google's OAuth review
  * (2026-10-22) needs it, and `google-can-verify-the-home-page.test.ts` holds it.
  * Pinned by `the-front-door-tells-the-truth.test.ts`.
+ *
+ * ─── THE PREMIUM PITCH (owner 2026-10-28) ─────────────────────────────────
+ * Owner, looking at Option B live: *"I don't feel the urge to be part of it"*,
+ * then *"I want the cleanest most premium pitch our website can have"* and
+ * *"we have so many events that we can cater"*. Approved from
+ * `prototypes/front-door-pitch-2026-10-28.html` ("set na yan"). So the
+ * Option-B layout (bullet row, drawn before/after tiles) gives way to four
+ * quiet beats — a turning photo hero (`front-door-pitch-hero.tsx`), the album,
+ * one place, and the close — with the buttons in the owner's words:
+ * *"I-set ang event mo"* and *"i-set na natin yan … the more complete version
+ * of set na yan"*.
+ *
+ * Everything the earlier rulings above protect is kept, by name:
+ *   • "Setnayan" inside the one <h1>, and a <p> opening "Setnayan is …"
+ *     (Google OAuth, 2026-10-22);
+ *   • "Unlimited cameras · photos use Papic credits." with NO number, and no
+ *     overpromise — the album card says photos are ADDED, never how many;
+ *   • the main button `.fd-opening-cta` → `/start`, terracotta; "How it works"
+ *     → `/features` (2026-10-25);
+ *   • Privacy Policy · Terms of Service on the page itself.
+ *   • The print line says prints CAN match the Event Hub — printing in your
+ *     own look is Pro (`lib/print-pieces.ts` `printAccess`), so it is never
+ *     promised as free.
  */
+import Image from 'next/image';
 import Link from 'next/link';
+import { FrontDoorPitchHero } from './front-door-pitch-hero';
 
 export function FrontDoorAnchor() {
   return (
-    <section className="fd-opening" aria-labelledby="fd-opening-h">
-      {/*
-        THE PAGE'S ONLY <h1> — see the shell's `heading` prop note.
-
-        🔑 THE NAME IS INSIDE THE <h1>, AND IT IS TYPED "Setnayan" (2026-10-22).
-        Google refused OAuth brand verification a second time — "the app name
-        'Setnayan' … does not match the app name on your home page". The
-        capitals come from `text-transform` on `.fd-opening-kick`, so the
-        heading reads "Setnayan: Plan any event free…" to a crawler. Guarded by
-        app/google-can-verify-the-home-page.test.ts.
-      */}
-      <h1 id="fd-opening-h" className="fd-opening-h1">
-        <span className="fd-opening-kick">Setnayan</span>
-        <span className="sr-only">: </span>
-        Plan any event free. Every photo in one album.
-      </h1>
-      {/*
-        THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (Google, 2026-10-22),
-        then the pain in the words our guests use. No claim that photos are free.
-      */}
-      <p className="fd-opening-lede">
-        Setnayan is one place for your guest list, RSVPs, budget, suppliers and
-        the Event Hub your guests open — for any event.{' '}
-        <i>Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba.</i>
-      </p>
-      {/*
-        "No credit card" is true: sign-up asks for none, and every payment is
-        GCash or bank transfer after you apply. "No guest limit" is what
-        /help says (lib/help.ts).
-      */}
-      <ul className="fd-opening-trust">
-        <li>Free to start</li>
-        <li>No guest limit</li>
-        <li>No credit card</li>
-        <li>Guests don&rsquo;t sign in</li>
-      </ul>
-      <p className="fd-opening-papic">Unlimited cameras &middot; photos use Papic credits.</p>
-      <div className="fd-opening-acts">
+    <section className="fd-opening fd-pitch" aria-labelledby="fd-opening-h">
+      <FrontDoorPitchHero>
         {/*
-          🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE — BEFORE SIGN-UP (owner
-          2026-10-25). This went to `/onboarding/wedding` alone while the
-          headline said "any event". `/start` is the shipped create-event grid
-          on a public page; each type goes straight to its own
-          `/onboarding/<type>`, and each onboarding asks for the account where
-          it always has. A signed-in visitor is sent on to the full picker.
-
-          🎨 TERRACOTTA, NOT THIS PAGE'S GOLD (owner 2026-10-25: "If for event
-          hub then use the event's color but for setnayan use our template").
-          `.fd-btn-terra` wears `--m-mulberry`, the house main-button token.
+          THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (Google, 2026-10-22).
+          No claim that photos are free — the Papic line below says what they use.
         */}
-        <Link href="/start" className="fd-btn-terra fd-opening-cta">
-          Start your event — free
-        </Link>
-        {/* "How it works" → the Features hub (owner 2026-10-25); /our-story is a
-            manifesto with no steps. */}
-        <Link href="/features" className="fd-opening-alt">
-          How it works
-        </Link>
-      </div>
-      {/*
-        BEFORE → AFTER (Option B). Drawn tiles, aria-hidden — an illustration,
-        not a count: no number here may read as a real figure.
-      */}
-      <div className="fd-opening-ba">
-        <div>
-          <p className="fd-opening-ba-lab">Before</p>
-          <div className="fd-opening-scatter" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <p className="fd-opening-ba-line">Guest photos scattered across phones and group chats.</p>
+        <p className="fd-opening-lede">
+          Setnayan is one place for your guests and RSVPs, your suppliers and the
+          Event Hub your guests open — and every photo they take, in one album.
+        </p>
+        <div className="fd-opening-acts">
+          {/*
+            🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE — BEFORE SIGN-UP (2026-10-25):
+            `/start` is the shipped create-event grid on a public page.
+            🎨 `.fd-btn-terra` wears `--m-mulberry`, the house main-button token.
+          */}
+          <Link href="/start" className="fd-btn-terra fd-opening-cta">
+            I-set ang event mo — free
+          </Link>
+          <Link href="/features" className="fd-opening-alt">
+            How it works
+          </Link>
         </div>
-        <span className="fd-opening-ba-arrow" aria-hidden="true">
-          &rarr;
-        </span>
+      </FrontDoorPitchHero>
+
+      {/* ── THE ALBUM ── the one promise no planner makes. */}
+      <div className="fd-pitch-band fd-pitch-split">
         <div>
-          <p className="fd-opening-ba-lab">After</p>
-          <div className="fd-opening-album" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </div>
-          <p className="fd-opening-ba-line">
-            <b>One album</b> the whole event fills, from the first toast.
+          <p className="fd-pitch-kicker">The album</p>
+          <h2 className="fd-pitch-h2">
+            Every photo. <em>Even the ones you never saw.</em>
+          </h2>
+          <p className="fd-pitch-sub">
+            Your guests take pictures on their own phones. They all land in one
+            album — and each guest gets the ones they&rsquo;re in.
           </p>
+          <p className="fd-opening-papic">Unlimited cameras &middot; photos use Papic credits.</p>
+        </div>
+        <div className="fd-pitch-album" aria-hidden="true">
+          <div className="fd-pitch-photo">
+            <Image src="/event-types/reunion.webp" alt="" fill sizes="(min-width: 1024px) 18vw, 33vw" />
+          </div>
+          <div className="fd-pitch-photo">
+            <Image src="/realstories/maria-juan-g1.jpg" alt="" fill sizes="(min-width: 1024px) 18vw, 33vw" />
+          </div>
+          <div className="fd-pitch-photo">
+            <Image src="/event-types/birthday.webp" alt="" fill sizes="(min-width: 1024px) 18vw, 33vw" />
+          </div>
+          {/* An illustration of the notice, never a count: no number here may read as a real figure. */}
+          <div className="fd-pitch-toast">
+            <span className="fd-pitch-toast-dot">S</span>
+            <span>
+              <b>Tita Baby</b> added new photos
+              <small>You&rsquo;re in some of them</small>
+            </span>
+          </div>
         </div>
       </div>
-      <p className="fd-opening-fine">
-        <i>Set na &rsquo;yan</i> — that&rsquo;s all set. Free to plan, and no
-        commission on your suppliers, ever.
-      </p>
-      {/*
-        THE TWO POLICIES, ON THE HOME PAGE ITSELF (2026-10-22). Google's
-        homepage requirement is a visible link to the privacy policy; Terms
-        sits beside it.
-      */}
-      <p className="fd-opening-legal">
-        <Link href="/privacy">Privacy Policy</Link>
-        <span aria-hidden="true"> · </span>
-        <Link href="/terms">Terms of Service</Link>
-      </p>
+
+      {/* ── ONE PLACE ── what you no longer do, in three lines. */}
+      <div className="fd-pitch-band fd-pitch-ivory">
+        <p className="fd-pitch-kicker">One place</p>
+        <h2 className="fd-pitch-h2">No more ten group chats.</h2>
+        <ol className="fd-pitch-rows">
+          <li>
+            <span className="fd-pitch-n">i.</span>
+            <h3>Your guests, sorted.</h3>
+            <p>Invite on Messenger, Viber or WhatsApp. RSVPs fill your list, and the seat plan keeps up.</p>
+          </li>
+          <li>
+            <span className="fd-pitch-n">ii.</span>
+            <h3>Your suppliers, compared.</h3>
+            <p>Suppliers for every kind of event. Ask, compare and book — no commission on your suppliers, ever.</p>
+          </li>
+          <li>
+            <span className="fd-pitch-n">iii.</span>
+            <h3>Your day, in one look.</h3>
+            <p>One Event Hub your guests open, and prints — invitations to place cards — that can match it.</p>
+          </li>
+        </ol>
+      </div>
+
+      {/* ── THE CLOSE ── the button says go; the line says done. */}
+      <div className="fd-pitch-band fd-pitch-close">
+        <h2 className="fd-pitch-h2">
+          Set na &rsquo;yan. <em>Let&rsquo;s set that.</em>
+        </h2>
+        <Link href="/start" className="fd-btn-terra fd-pitch-cta2">
+          I-set na natin &rsquo;yan
+        </Link>
+        <p className="fd-pitch-fine">Free to plan &middot; No guest limit &middot; Guests don&rsquo;t sign in</p>
+        {/*
+          THE TWO POLICIES, ON THE HOME PAGE ITSELF (Google, 2026-10-22).
+        */}
+        <p className="fd-opening-legal">
+          <Link href="/privacy">Privacy Policy</Link>
+          <span aria-hidden="true"> · </span>
+          <Link href="/terms">Terms of Service</Link>
+        </p>
+      </div>
     </section>
   );
 }

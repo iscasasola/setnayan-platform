@@ -10,8 +10,10 @@
  *
  * WHAT IT HOLDS, read from the RENDERED hero (renderToStaticMarkup — the HTML a stranger
  * and a crawler get), not from the source text:
- *   1. the headline is "Plan any event free. Every photo in one album." — the promise is
- *      ONE ALBUM, not free photos;
+ *   1. the headline is "Your event, beautifully handled." in the server HTML (owner
+ *      2026-10-28, the premium pitch — it replaced 2026-10-25's "Plan any event free.
+ *      Every photo in one album."), and the album promise still says ONE ALBUM, never
+ *      free photos;
  *   2. neither the hero nor the home <title>/description says "never lose a photo" or
  *      "keep every photo" (both overpromise: photos use Papic credits);
  *   3. the Papic line is there and carries NO number (free credits are first-event only;
@@ -59,10 +61,11 @@ test('1 · the headline is the approved one', async () => {
   const text = textOf(h1[1] ?? '');
   assert.match(
     text,
-    /Plan any event free\. Every photo in one album\./,
-    `The front-door headline reads "${text}". Owner 2026-10-25: "Plan any event free. Every photo in one album." ` +
-      '(not "Keep every photo" — photos use Papic credits).',
+    /Your event\s*,\s*beautifully handled\./,
+    `The front-door headline reads "${text}". Owner 2026-10-28 (the premium pitch): "Your event, beautifully handled." ` +
+      '— the server HTML must say "event"; the word turns only after hydration.',
   );
+  assert.match(textOf(await hero()), /in one album/, 'the album promise is gone — it is still ONE ALBUM (not free photos)');
 });
 
 test('2 · no "never lose a photo" / "keep every photo" on the hero or the home <title>', async () => {

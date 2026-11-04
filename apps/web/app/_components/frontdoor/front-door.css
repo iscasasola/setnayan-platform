@@ -2675,103 +2675,109 @@ button.fd-ask.quiet {
   }
 }
 
-/* ── THE OPENING ──────────────────────────────────────────────────────────
-   Added 2026-08-21. The front door had no visible headline — its <h1> was
-   `.fd-sr-only`, so the page opened on the chip bar and the card grid. Owner:
-   *"doesn't it feel like just a youtube rip off?"* A feed with nothing above
-   it is a feed. This is the something above it.
+/* ── THE OPENING — THE PREMIUM PITCH ──────────────────────────────────────
+   2026-10-28 (owner: "the cleanest most premium pitch our website can have",
+   approved from prototypes/front-door-pitch-2026-10-28.html). Replaces the
+   Option-B bullets and drawn tiles with four quiet beats: a turning photo hero,
+   the album, one place, the close. Signed-out only, and signed-out pages are
+   always light (lib/appearance.ts) — so the photo hero's white type is the one
+   place this file paints text on a picture.
 
-   Sits INSIDE `.fd-col`, so it takes the same measure as the feed below and
-   nothing about the existing grid moves. */
+   Sits INSIDE `.fd-col`, so the feed below keeps its grid. On a phone the hero
+   bleeds past `.fd-main`'s 16px gutter to the screen edge. */
 .fd-opening {
-  padding: 40px 0 30px;
+  margin-bottom: 28px;
   border-bottom: 1px solid var(--fd-line);
-  margin-bottom: 20px;
+}
+
+/* 1 · the hero */
+.fd-pitch-hero {
+  position: relative;
+  overflow: hidden;
+  margin-top: 16px;
+  border-radius: var(--m-r-lg);
+  min-height: min(82svh, 760px);
+  display: flex;
+  align-items: flex-end;
+  background: #1a1714;
+  color: #fff;
+  isolation: isolate;
+}
+.fd-pitch-slides,
+.fd-pitch-slide {
+  position: absolute;
+  inset: 0;
+}
+.fd-pitch-slide {
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+.fd-pitch-slide[data-on='true'] {
+  opacity: 1;
+}
+.fd-pitch-slide img {
+  object-fit: cover;
+}
+.fd-pitch-slides::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.2) 52%, rgba(12, 10, 8, 0.86) 100%);
+}
+.fd-pitch-copy {
+  position: relative;
+  z-index: 1;
+  padding: 0 40px 48px;
+  max-width: 760px;
 }
 .fd-opening-kick {
-  /* A <span> inside the <h1> since 2026-10-22 (front-door-anchor.tsx), so it
-     states the block box, line height and letter-case the old <p> got for
-     free, and the h1's tight tracking does not reach it. The markup says
+  /* A <span> inside the <h1> (front-door-anchor.tsx): the markup says
      "Setnayan" — the OAuth consent-screen name — and the capitals are CSS. */
   display: block;
-  margin: 0 0 14px;
-  font-size: 13px;
+  margin: 0 0 16px;
+  font-family: var(--font-hanken), system-ui, sans-serif;
+  font-size: 12px;
   line-height: normal;
-  font-weight: 700;
+  font-weight: 650;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--fd-gold);
+  color: rgba(255, 255, 255, 0.86);
 }
 .fd-opening-h1 {
-  margin: 0 0 16px;
-  /* clamp so the sentence keeps its shape from a phone to a wide desktop; it is
-     one sentence and it must not break into four lines on a small screen. */
-  font-size: clamp(28px, 4.4vw, 46px);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  font-weight: 700;
-  color: var(--fd-ink);
-  max-width: 20ch;
-  text-wrap: balance;
+  margin: 0;
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-weight: 300;
+  font-size: clamp(42px, 6.4vw, 84px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.fd-pitch-word {
+  font-style: italic;
+  display: inline-block;
+  animation: fd-pitch-word 0.6s ease both;
+}
+@keyframes fd-pitch-word {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 .fd-opening-lede {
-  /* 2026-10-22: back in use as the ONE purpose sentence under the headline
-     (Google OAuth review: "explain the purpose of your app"). Set a step
-     smaller than the retired paragraph so the hero keeps its shape. */
-  margin: 0 0 20px;
-  font-size: 15px;
+  margin: 20px 0 0;
+  max-width: 34em;
+  font-size: 17px;
   line-height: 1.5;
-  /* --fd-m1 is 6.14:1 on the white ground; --fd-m2 is 3.55:1 and would FAIL
-     here. This is body copy, not metadata. */
-  color: var(--fd-m1);
-  max-width: 62ch;
-}
-.fd-opening-lede b {
-  color: var(--fd-ink);
-  font-weight: 700;
-}
-/* 2026-10-25 — Option B's trust chips (front-door-anchor.tsx), replacing the
-   three claims. Plain text with a gold dot, never a frame: nothing here is
-   pressable. Same contrast rule as `.fd-opening-lede` (--fd-m1, not --fd-m2). */
-.fd-opening-trust {
-  list-style: none;
-  margin: 0 0 8px;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  font-size: 13.5px;
-  color: var(--fd-m1);
-}
-.fd-opening-trust li {
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.fd-opening-trust li::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-gold);
-}
-/* The one line under the chips — cameras unlimited, photos use Papic credits.
-   No number on purpose (owner 2026-10-25): the free credits are first-event only. */
-.fd-opening-papic {
-  margin: 0 0 22px;
-  font-size: 12.5px;
-  color: var(--fd-m1);
+  color: rgba(255, 255, 255, 0.88);
 }
 .fd-opening-acts {
+  margin-top: 26px;
   display: flex;
+  gap: 22px;
   align-items: center;
-  gap: 18px;
   flex-wrap: wrap;
 }
 .fd-opening-cta {
-  min-height: 48px;
-  padding: 0 24px;
+  min-height: 50px;
+  padding: 0 26px;
   font-size: 15px;
 }
 /* 🎨 THE FRONT DOOR'S MAIN BUTTON IS TERRACOTTA (owner 2026-10-25: "for
@@ -2807,104 +2813,192 @@ html.dark .fd-btn-terra:hover {
   color: var(--fd-cream);
 }
 .fd-opening-alt {
-  /* 44px press with no change to the line it sits on (was 22px tall) —
-     the same `::after` expander the top bar uses. */
   position: relative;
-  font-size: 14.5px;
-  font-weight: 650;
-  /* link slate, 8.22:1 — never the decorative gold, which is 3.48:1 and fails
-     as text. Same rule the doors work closed in #4484. */
-  color: var(--fd-link);
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+  padding-bottom: 2px;
 }
 .fd-opening-alt::after {
+  /* 44px press without growing the line. */
   content: '';
   position: absolute;
-  inset: -11px -8px;
+  inset: -14px -8px;
 }
 .fd-opening-alt:hover {
-  text-decoration: underline;
+  border-bottom-color: #fff;
 }
-/* Before → After (Option B). A divider above, no boxes — the tiles are drawn
-   squares, not frames. Labels in --fd-m2 are metadata (small caps); the lines
-   are body copy in ink. */
-.fd-opening-ba {
-  display: grid;
-  grid-template-columns: 1fr 28px 1fr;
-  gap: 0 10px;
-  align-items: start;
-  max-width: 560px;
-  margin: 22px 0 4px;
-  padding-top: 18px;
-  border-top: 1px solid var(--fd-line);
+
+/* 2–4 · the bands under the hero */
+.fd-pitch-band {
+  padding: 96px 40px;
 }
-.fd-opening-ba-lab {
-  margin: 0 0 10px;
-  font: 700 10px/1 var(--fd-mono);
-  letter-spacing: 0.2em;
+.fd-pitch-kicker {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--fd-m2);
-}
-.fd-opening-ba-arrow {
-  align-self: center;
-  justify-self: center;
   color: var(--fd-gold);
-  font-size: 20px;
-  line-height: 1;
 }
-.fd-opening-ba-line {
-  margin: 10px 0 0;
-  font-size: 13px;
-  line-height: 1.35;
+.fd-pitch-h2 {
+  margin: 0;
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-weight: 300;
+  font-size: clamp(34px, 4.4vw, 58px);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
   color: var(--fd-ink);
 }
-.fd-opening-ba-line b {
-  font-weight: 650;
+.fd-pitch-h2 em {
+  display: block;
+  font-style: italic;
 }
-.fd-opening-scatter {
-  position: relative;
-  height: 64px;
-  max-width: 170px;
-}
-.fd-opening-scatter i {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--m-r-xs);
-  background: var(--fd-line);
-}
-.fd-opening-scatter i:nth-child(1) { left: 4px; top: 6px; transform: rotate(-12deg); }
-.fd-opening-scatter i:nth-child(2) { left: 48px; top: 30px; transform: rotate(9deg); background: var(--fd-invite-line); }
-.fd-opening-scatter i:nth-child(3) { left: 92px; top: 2px; transform: rotate(-5deg); background: var(--fd-chip-hover); }
-.fd-opening-scatter i:nth-child(4) { left: 124px; top: 32px; transform: rotate(14deg); }
-.fd-opening-album {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
-  max-width: 170px;
-}
-.fd-opening-album i {
-  aspect-ratio: 1;
-  border-radius: var(--m-r-xs);
-  background: var(--fd-line);
-}
-.fd-opening-album i:nth-child(2n) { background: var(--fd-invite-line); }
-.fd-opening-album i:nth-child(3n) { background: var(--fd-chip-hover); }
-.fd-opening-fine {
+.fd-pitch-sub {
   margin: 18px 0 0;
-  font-size: 12.5px;
+  max-width: 32em;
+  font-size: 17px;
+  line-height: 1.55;
   color: var(--fd-m1);
 }
-.fd-opening-fine i {
-  font-style: italic;
+.fd-opening-papic {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--fd-m1);
+}
+
+/* the album */
+.fd-pitch-split {
+  display: grid;
+  grid-template-columns: 5fr 6fr;
+  gap: 72px;
+  align-items: center;
+}
+.fd-pitch-album {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-bottom: 30px;
+}
+.fd-pitch-photo {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--m-r-sm);
+  overflow: hidden;
+  background: var(--fd-line);
+}
+.fd-pitch-photo:nth-child(2) {
+  aspect-ratio: 4 / 5.6;
+  margin-top: -28px;
+}
+.fd-pitch-photo img {
+  object-fit: cover;
+}
+.fd-pitch-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  white-space: nowrap;
+  padding: 12px 18px 12px 12px;
+  border-radius: var(--m-r-md);
+  background: var(--fd-cream);
+  color: var(--fd-ink);
+  font-size: 14px;
+  box-shadow: 0 18px 40px -16px rgba(30, 26, 18, 0.35), 0 2px 6px rgba(30, 26, 18, 0.08);
+}
+.fd-pitch-toast b {
   font-weight: 650;
+}
+.fd-pitch-toast small {
+  display: block;
+  font-size: 12px;
+  color: var(--fd-m1);
+}
+.fd-pitch-toast-dot {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--m-r-sm);
+  display: grid;
+  place-items: center;
+  background: var(--fd-gold);
+  color: #fff;
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-size: 17px;
+}
+/* Dark is never painted signed out (lib/appearance.ts); if it ever is, the
+   lightened gold takes the page colour as its label, like .fd-btn-terra. */
+html.dark .fd-pitch-toast-dot {
+  color: var(--fd-cream);
+}
+
+/* one place */
+.fd-pitch-ivory {
+  background: var(--m-ivory);
+  border-radius: var(--m-r-lg);
+}
+.fd-pitch-rows {
+  list-style: none;
+  margin: 44px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--fd-line);
+}
+.fd-pitch-rows li {
+  display: grid;
+  grid-template-columns: 90px 1fr 1.2fr;
+  gap: 6px 16px;
+  align-items: baseline;
+  padding: 32px 0;
+  border-bottom: 1px solid var(--fd-line);
+}
+.fd-pitch-n {
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
   color: var(--fd-gold);
 }
-/* 2026-10-22 — Privacy Policy · Terms of Service under the fine print, so the
-   home page itself links both (Google OAuth homepage review). Link slate, never
-   gold (fails as text); 44px press via the same ::after expander as
-   `.fd-opening-alt`, so the line keeps its height. */
+.fd-pitch-rows h3 {
+  margin: 0;
+  font-family: var(--font-pahina-display), Georgia, serif;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.2;
+  color: var(--fd-ink);
+}
+.fd-pitch-rows p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fd-m1);
+}
+
+/* the close */
+.fd-pitch-close {
+  text-align: center;
+}
+.fd-pitch-cta2 {
+  margin-top: 30px;
+  min-height: 50px;
+  padding: 0 28px;
+  font-size: 15px;
+}
+.fd-pitch-fine {
+  margin: 20px 0 0;
+  font-size: 13px;
+  color: var(--fd-m1);
+}
+/* Privacy Policy · Terms of Service, on the home page itself (Google OAuth
+   homepage review, 2026-10-22). Link colour, never gold (fails as text); 44px
+   press via the ::after expander, so the line keeps its height. */
 .fd-opening-legal {
-  margin: 12px 0 0;
+  margin: 14px 0 0;
   font-size: 12.5px;
   color: var(--fd-m1);
 }
@@ -2921,12 +3015,53 @@ html.dark .fd-btn-terra:hover {
 .fd-opening-legal a:hover {
   text-decoration: underline;
 }
-@media (max-width: 620px) {
-  .fd-opening {
-    padding: 26px 0 22px;
+
+@media (max-width: 900px) {
+  .fd-pitch-split {
+    grid-template-columns: 1fr;
+    gap: 44px;
   }
-  .fd-opening-h1 {
-    max-width: none;
+  .fd-pitch-rows li {
+    grid-template-columns: 44px 1fr;
+  }
+  .fd-pitch-rows p {
+    grid-column: 2;
+  }
+  .fd-pitch-rows h3 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 700px) {
+  /* edge to edge on a phone: undo .fd-main's 16px gutter */
+  .fd-pitch-hero {
+    margin: 0 -16px;
+    border-radius: 0;
+    min-height: calc(100svh - var(--fd-bar, 56px));
+  }
+  .fd-pitch-copy {
+    padding: 0 20px 40px;
+  }
+  .fd-opening-lede {
+    font-size: 16px;
+  }
+  .fd-pitch-band {
+    padding: 72px 4px;
+  }
+  .fd-pitch-ivory {
+    margin: 0 -16px;
+    padding: 72px 20px;
+    border-radius: 0;
+  }
+  .fd-pitch-toast {
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-pitch-slide {
+    transition: none;
+  }
+  .fd-pitch-word {
+    animation: none;
   }
 }
 

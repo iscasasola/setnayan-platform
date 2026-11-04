@@ -215,6 +215,7 @@ export default async function SuppliersLabPage({
     money: moneyStageOf(one('money')),
     today: one('today') ?? null,
     callTimesFail: one('calltimes') === 'fail',
+    ask: one('ask') === '1',
     chapters: one('chapters') === 'none' || one('chapters') === 'fail' ? (one('chapters') as 'none' | 'fail') : null,
     covers: one('covers') === '1',
   };

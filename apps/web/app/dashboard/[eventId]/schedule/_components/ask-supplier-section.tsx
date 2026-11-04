@@ -33,8 +33,11 @@ export function AskSupplierSection({
   asks,
   ask,
   onAsked,
+  askLabel = 'Ask a supplier to change their times',
 }: {
-  moment: ChapterMoment;
+  /** The button's words — "Ask Blue Leaf to change" on a chapter a venue holds (2026-11-04). */
+  askLabel?: string;
+  moment: Pick<ChapterMoment, 'block_id' | 'start_at' | 'end_at' | 'vendor_ids'>;
   chapter: Chapter;
   /** The event's BOOKED suppliers (booking id + shop name). */
   suppliers: readonly { id: string; name: string }[];
@@ -198,7 +201,7 @@ export function AskSupplierSection({
           <ActionButton
             tone="neutral"
             icon={Send}
-            label="Ask a supplier to change their times"
+            label={askLabel}
             data-testid="moment-ask-open"
             onClick={() => {
               setOpen(true);

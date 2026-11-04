@@ -34,6 +34,7 @@ import {
 } from '@/lib/booked-rows';
 import { BookedRowList, WaitingRowItem } from './booked-row';
 import type { ServiceCounts } from '@/lib/supplier-count';
+import { WhereAsk } from './booked-where';
 import { GoToFind } from './go-to-find';
 
 /** Hairline rows, no boxes; a row's details fold open in place. */
@@ -157,7 +158,7 @@ export function BookedBody({
                 <>
                   {' · '}
                   <span className="font-medium text-[rgb(var(--color-warn))]" data-booked-need-where="">
-                    {formatCount(needWhere)} need a chapter
+                    {formatCount(needWhere)} {needWhere === 1 ? 'needs' : 'need'} a chapter
                   </span>
                 </>
               ) : null}
@@ -168,6 +169,8 @@ export function BookedBody({
               </p>
             ) : null}
             <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} counts={counts} />
+            {/* 📖 "Which chapters will they serve?" — for the first booked supplier on no chapter yet (2026-11-04). */}
+            <WhereAsk eventId={eventId} rows={booked} />
           </>
         )}
       </section>

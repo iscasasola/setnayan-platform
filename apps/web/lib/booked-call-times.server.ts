@@ -52,7 +52,7 @@ export async function readBookedSchedule(
   if (vendorIds.length === 0) return { callTimes: out, chapters: [] };
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids, time_tba')
+    .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids, time_tba, block_type')
     .eq('event_id', eventId);
   if (error) {
     logQueryError('readBookedCallTimes', error, { event_id: eventId }, 'graceful_degrade');
@@ -111,7 +111,7 @@ export async function readQuoteWhere(
       .eq('event_id', eventId),
     client
       .from('event_schedule_blocks')
-      .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids, time_tba')
+      .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids, time_tba, block_type')
       .eq('event_id', eventId),
   ]);
   if (vendorsRes.error || blocksRes.error) {

@@ -1,6 +1,6 @@
 /**
  * 🧮 WHO A SUPPLIER COUNTS (owner 2026-11-04, DECISION_LOG "2026-11-04 WHO A SUPPLIER COUNTS…"; migration
- * 20271306341630). Owner, verbatim: *"this way, a supplier can count what they need to give. so for example. exclusive
+ * 20271307968824). Owner, verbatim: *"this way, a supplier can count what they need to give. so for example. exclusive
  * for principal sponsors. we only count the attending principal sponsors."* · *"not counted for will be for service
  * cards with pax only. if they offer a service without pax, then no need to count"*.
  *

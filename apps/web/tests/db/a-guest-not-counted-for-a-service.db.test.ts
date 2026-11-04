@@ -53,7 +53,7 @@ async function newVendor(email: string): Promise<{ uid: string; vpid: string }> 
 }
 
 /**
- * A booking on a PER-HEAD service card — since 20271306341630 only a per-head service counts heads (owner 2026-11-04:
+ * A booking on a PER-HEAD service card — since 20271307968824 only a per-head service counts heads (owner 2026-11-04:
  * *"not counted for will be for service cards with pax only"*), so a tick on a flat-priced booking is refused.
  */
 async function book(ev: string, vpid: string, category: string): Promise<string> {

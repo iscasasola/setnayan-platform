@@ -1,5 +1,5 @@
 /**
- * 🧮 WHO A SUPPLIER COUNTS — the SQL half (owner 2026-11-04; migration 20271306341630). Owner, verbatim: *"this way, a
+ * 🧮 WHO A SUPPLIER COUNTS — the SQL half (owner 2026-11-04; migration 20271307968824). Owner, verbatim: *"this way, a
  * supplier can count what they need to give. so for example. exclusive for principal sponsors. we only count the
  * attending principal sponsors."* · *"not counted for will be for service cards with pax only"*.
  *

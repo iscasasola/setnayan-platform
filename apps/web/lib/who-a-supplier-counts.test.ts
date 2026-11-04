@@ -1,5 +1,5 @@
 /**
- * 🧮 WHO A SUPPLIER COUNTS (owner 2026-11-04; migration 20271306341630). The SQL — the readers' counts, the unbooked
+ * 🧮 WHO A SUPPLIER COUNTS (owner 2026-11-04; migration 20271307968824). The SQL — the readers' counts, the unbooked
  * tick, the flat-priced service, what a supplier can read — is held by tests/db/who-a-supplier-counts.db.test.ts. This
  * file holds the rest:
  *

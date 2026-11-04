@@ -17,7 +17,7 @@ export type { SupplierHeadcount } from '@/lib/supplier-count';
 
 /**
  * 🧮 WHO A SUPPLIER COUNTS — the reads (owner 2026-11-04; `lib/supplier-count.ts` for the rule, migration
- * 20271306341630 for the SQL). Every read is MEASURED: a refused read is `null`, never "everyone attending".
+ * 20271307968824 for the SQL). Every read is MEASURED: a refused read is `null`, never "everyone attending".
  */
 
 type RawService = {

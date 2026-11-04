@@ -63,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes, hours_vendor_id';
 
 export type Chapter = {
   block_id: string;
@@ -90,6 +90,10 @@ export type Chapter = {
    * drawn — "Time TBA", no call time. Never shown to guests while set (the database refuses it).
    */
   time_tba?: boolean;
+  /** 👷 The suppliers tagged on the chapter itself (`responsible_vendor_ids`, event_vendors ids). */
+  vendor_ids?: string[];
+  /** 🏛 The venue booking that HOLDS the chapter's hours (migration 20271307658341); null = the host sets them. */
+  hours_vendor_id?: string | null;
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -122,6 +126,8 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       is_public: r.is_public === true,
       moments: moments.get(r.block_id) ?? 0,
       time_tba: r.time_tba === true,
+      vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
+      hours_vendor_id: typeof r.hours_vendor_id === 'string' ? r.hours_vendor_id : null,
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }
@@ -899,3 +905,48 @@ export function marchNameFrom(raw: unknown): { ok: true; name: string } | { ok: 
   if (name.length > MARCH_NAME_MAX) return { ok: false, error: `Up to ${MARCH_NAME_MAX} letters.` };
   return { ok: true, name };
 }
+
+/* ── 👷 suppliers in a chapter (owner 2026-11-04, prototype frame 2) ─────────────────────────────────────────── */
+
+/** One row of a chapter's "Suppliers in this chapter". */
+export type ChapterSupplier = { id: string; name: string; trade?: string | null; everyChapter?: boolean };
+
+export const CHAPTER_SUPPLIERS_TIP =
+  'The suppliers booked to this chapter. Their call time is the first task they have in it. Coordinators are on every chapter.';
+
+/** "Catering" · "Coordinator · every chapter" · "Booked" (no trade read). */
+export function chapterSupplierLine(s: ChapterSupplier): string {
+  if (s.everyChapter) return 'Coordinator · every chapter';
+  return s.trade ?? 'Booked';
+}
+
+/** The suppliers in a chapter: those on it, its moments or a task in them — then the coordinators. One row each. */
+export function chapterSuppliers(
+  c: Pick<Chapter, 'block_id' | 'vendor_ids'>,
+  moments: readonly { block_id: string; parent_block_id: string; vendor_ids: readonly string[] }[],
+  tasks: readonly { block_id: string; vendor_id: string | null }[] | null,
+  suppliers: readonly ChapterSupplier[],
+): ChapterSupplier[] {
+  const ids = new Set(c.vendor_ids ?? []);
+  const inIt = moments.filter((m) => m.parent_block_id === c.block_id);
+  for (const m of inIt) for (const v of m.vendor_ids) ids.add(v);
+  const momentIds = new Set(inIt.map((m) => m.block_id));
+  for (const t of tasks ?? []) if (t.vendor_id && momentIds.has(t.block_id)) ids.add(t.vendor_id);
+  const on = suppliers.filter((s) => ids.has(s.id) && !s.everyChapter);
+  const everywhere = suppliers.filter((s) => s.everyChapter);
+  return [...on, ...everywhere];
+}
+
+
+/* ── 🏛 venue hours (migration 20271307658341) ─────────────────────────────────────────────────────────────── */
+
+/** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" — a held chapter's hours in one line. */
+export function heldHoursLine(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>): string {
+  const parts = [`${clockWords(c.start_at)}${c.end_at ? ` – ${clockWords(c.end_at)}` : ' onward'}`];
+  const i = ingressAt(c);
+  const e = egressAt(c);
+  if (i) parts.push(`setup from ${clockWords(i)}`);
+  if (e) parts.push(`out by ${clockWords(e)}`);
+  return parts.join(' · ');
+}
+

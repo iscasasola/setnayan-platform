@@ -7,6 +7,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
+import { chapterMove } from '@/lib/chapter-move';
 import {
   CALL_LEAD_CHOICES,
   PHOTO_WHEN,
@@ -270,22 +271,13 @@ export function ChapterSheet({
   /** A new start (date or clock): the chapter, its end and its moments move together. A TBA chapter that gets a clock
    *  leaves TBA in the same save; one that only changes day stays TBA and its moments move by the days. */
   const moveTo = async (day: string, hhmm: string) => {
-    const capped = capChapterDay(day, lastDay);
-    const stillTba = c.time_tba === true && hhmm === '';
-    const clock = stillTba ? TBA_CLOCK : hhmm;
-    const local = wallLocal(capped.day, clock);
-    const iso = wallIso(capped.day, clock);
-    if (!local || !iso) return NOT_SAVED;
-    const delta = Math.round((Date.parse(iso) - Date.parse(c.start_at)) / 60_000);
-    // Leaving TBA sets a clock where there was none: the moments keep their own times (a 00:00 placeholder is no
-    // start to move them from). Every other move carries them.
-    const leavingTba = c.time_tba === true && !stillTba;
-    const answer = await keep(
-      { start_at: local, ...(leavingTba ? { time_tba: '0' } : { with_moments: '1' }) },
-      { start_at: iso, end_at: c.end_at ? shiftWall(c.end_at, delta) : null, time_tba: stillTba },
-    );
-    if (answer.ok && capped.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
-    else if (answer.ok && !leavingTba && delta !== 0 && c.moments > 0) setNote(`${c.label} moved. Its ${c.moments} moment${c.moments === 1 ? '' : 's'} moved with it.`);
+    // ↕ ONE RULE with the desktop board's drag (`lib/chapter-move.ts`, slice 10): the same fields, the same row.
+    // Leaving TBA sets a clock where there was none: the moments keep their own times. Every other move carries them.
+    const move = chapterMove(c, day, hhmm, lastDay);
+    if (!move) return NOT_SAVED;
+    const answer = await keep(move.fields, move.next);
+    if (answer.ok && move.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
+    else if (answer.ok && !move.leavingTba && move.delta !== 0 && c.moments > 0) setNote(`${c.label} moved. Its ${c.moments} moment${c.moments === 1 ? '' : 's'} moved with it.`);
     return answer;
   };
 

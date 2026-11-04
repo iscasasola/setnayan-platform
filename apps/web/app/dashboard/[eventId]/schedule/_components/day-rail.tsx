@@ -670,6 +670,24 @@ export function ScheduleDay({
       </div>
     ) : null;
   const handTools = ch && booked ? ch.setSettingsPart : null;
+  /* 👥 What needs you, for the desktop's people column (slice 10) — the same requests sheet. */
+  useEffect(() => {
+    if (!handTools) return;
+    handTools(
+      'needs',
+      canEdit && requests.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => setSheet({ kind: 'requests' })}
+          data-people-needs={requests.length}
+          className="sn-press flex min-h-12 w-full items-center justify-between border-b border-ink/10 text-left text-[14px] text-ink"
+        >
+          <span>Supplier requests</span>
+          <span className="font-semibold text-sn-accent">{formatCount(requests.length)} need you ›</span>
+        </button>
+      ) : null,
+    );
+  }, [handTools, canEdit, requests.length]);
   useEffect(() => {
     if (handTools) handTools('tools', settingsTools);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- handed up when what it offers changes
@@ -960,7 +978,14 @@ export function ScheduleDay({
               return (
                 <section key={dateKey} aria-label={formatDateHeading(dateKey)} data-day-list-day={dateKey}>
                   {rails.length > 1 ? <h2 className="pb-1 font-display text-base text-ink">{formatDateHeading(dateKey)}</h2> : null}
-                  <DayList rows={list} canEdit={canEdit && lens.kind === 'all'} onOpen={(id) => ch.open(id)} onDelete={(id) => ch.askDelete(id)} />
+                  <DayList
+                    rows={list}
+                    canEdit={canEdit && lens.kind === 'all'}
+                    onOpen={(id) => ch.open(id)}
+                    onDelete={(id) => ch.askDelete(id)}
+                    onMove={(id, min) => ch.moveChapter(id, min)}
+                    onAdd={canEdit ? () => ch.add() : undefined}
+                  />
                 </section>
               );
             }
@@ -1415,6 +1440,7 @@ export function ScheduleDay({
           data={ch ? 'chapter' : 'moment'}
           view="event-day"
           hidden={selected !== null || Boolean(ch?.openId)}
+          inlineOnDesktop={Boolean(ch)}
           onPress={() => openAdd(lastDateKey, topLevel.length > 0 ? snapMinutes(lastEnd, 15) : 14 * 60)}
         />
       ) : null}

@@ -18,7 +18,7 @@
  * 🔒 lib/guest-section-head.test.ts
  */
 import type { GuestRole, GuestSide } from './guests';
-import { roleGroupOf, roleGroupRenameDoor, type RoleGroup, type RoleGroupRenameDoor } from './role-groups';
+import { isHonourAttendant, roleGroupOf, roleGroupRenameDoor, type RoleGroup, type RoleGroupRenameDoor } from './role-groups';
 
 export type SectionHeadRename = RoleGroupRenameDoor | { kind: 'group'; groupId: string };
 
@@ -51,8 +51,17 @@ export function sectionHeadDoors(
   const rest = key.slice(at + 1);
   if (view === 'role') {
     if (rest === 'guest') return { rename: null, add: { roles: ['guest'] } };
+    /* 👥 "Guests of [Role]" (owner 2026-11-01): the +1s a role's holders bring — its word is the role's, renamed on the
+       role's own heading; and a name typed here would have nobody bringing them, so nothing lands here either. */
+    if (rest.startsWith('guests-of:')) return NONE;
+    /* 👯 Honour attendants — one group, both sides (owner 2026-11-01): adds one of its five roles; a category heading,
+       so nothing to rename. The crews below no longer offer them (they are not drawn there). */
+    if (rest === 'honour_attendants') {
+      const honour = ctx.offeredRoles.filter((r) => isHonourAttendant(r));
+      return { rename: null, add: honour.length ? { roles: honour } : null };
+    }
     const grp = rest as RoleGroup;
-    const roles = ctx.offeredRoles.filter((r) => roleGroupOf(r) === grp);
+    const roles = ctx.offeredRoles.filter((r) => roleGroupOf(r) === grp && !isHonourAttendant(r));
     return { rename: roleGroupRenameDoor(grp), add: roles.length ? { roles } : null };
   }
   if (view === 'side') {

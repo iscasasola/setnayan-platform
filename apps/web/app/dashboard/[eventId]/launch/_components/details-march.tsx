@@ -50,6 +50,7 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { formatCount } from '@/lib/format-number';
+import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { MarchTray } from './details-march-tray';
 /* 🗂 R4: the Guests summary row loads with Guests › March only — never with the Maker's march (`view-summary-lazy.tsx`). */
 import { ViewCountRow } from './view-summary-lazy';
@@ -111,7 +112,6 @@ const LAB_NO_RENDER = () => {};
 const LONG_PRESS_MS = 250;
 /* Exported, unchanged: the RSVP stage's hold-to-move wears the same feel (`rsvp-canvas-drag.ts`) — one number, two drags. */
 export const SETTLE_MS = 240;
-export const EDGE_PX = 56;
 
 /**
  * 🪪 A TAP ON A NAME OPENS THEIR GUEST CARD (owner 2026-10-14) — read through the shipped action, loaded at the first tap
@@ -162,8 +162,8 @@ type Drag = {
   oy: number;
   x: number;
   y: number;
+  /** What the list scrolls in — its own box, or the page (`dragScrollerOf`, the one shared edge scroll). */
   scroller: HTMLElement;
-  dir: number;
   /** 🪪 The finger left the tap's slop at some point since the press — so a release is a drop, never a tap. */
   wandered: boolean;
 };
@@ -173,23 +173,6 @@ type Shown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
 type Toast = { said: string; undo: boolean; before: Shown | null; refused?: boolean; /** Which toast this is — a new one restarts the toast's own life. */ id?: number };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-/** The scroller's visible top and bottom — clamped to the screen (a tall box may run past it). */
-function edgesOf(el: HTMLElement): [number, number] {
-  const page = el === document.scrollingElement || el === document.documentElement;
-  if (page) return [0, window.innerHeight];
-  const r = el.getBoundingClientRect();
-  return [Math.max(0, r.top), Math.min(window.innerHeight, r.bottom)];
-}
-
-/** The nearest box that scrolls the march — the body column, else the page. */
-function scrollerOf(el: HTMLElement): HTMLElement {
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    const oy = getComputedStyle(p).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
-  }
-  return (document.scrollingElement as HTMLElement) ?? document.documentElement;
-}
 
 type MarchMakerProps = {
   eventId: string;
@@ -586,10 +569,11 @@ function MarchMakerBody({
   const loop = useCallback(() => {
     const d = drag.current;
     if (!d) return;
-    if (d.dir) {
-      const [top, bottom] = edgesOf(d.scroller);
-      const dist = d.dir < 0 ? top + EDGE_PX - d.y : d.y - (bottom - EDGE_PX);
-      d.scroller.scrollTop += d.dir * Math.min(18, 4 + dist / 4);
+    /* ✋ Near the list's top or bottom edge it scrolls by itself, faster the nearer — the ONE shared edge scroll
+       (`lib/drag-edge-scroll.ts`, owner 2026-11-01), the same as the Maker's and every list's. */
+    const v = dragEdgeStep(d.y, dragBandOf(d.scroller));
+    if (v) {
+      dragScrollBy(d.scroller, v);
       hitRef.current(d);
     }
     raf.current = requestAnimationFrame(loop);
@@ -620,8 +604,8 @@ function MarchMakerBody({
       ghost.dataset.marchGhost = '';
       document.body.appendChild(ghost);
       // A tray name scrolls the MARCH near its edges (the tray itself never scrolls).
-      const scroller = p.source.kind === 'out' && root.current ? scrollerOf(root.current) : scrollerOf(p.el);
-      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0, wandered: false };
+      const scroller = p.source.kind === 'out' && root.current ? dragScrollerOf(root.current) : dragScrollerOf(p.el);
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, wandered: false };
       ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
       setLifted(p.key);
       try {
@@ -656,8 +640,6 @@ function MarchMakerBody({
       if (!d.wandered && Math.hypot(e.clientX - p.x, e.clientY - p.y) > (p.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) d.wandered = true;
       d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.03)`;
       hit(d);
-      const [top, bottom] = edgesOf(d.scroller);
-      d.dir = d.y < top + EDGE_PX && d.y > top - 40 ? -1 : d.y > bottom - EDGE_PX && d.y < bottom + 40 ? 1 : 0;
     },
     [hit, lift, stopAll],
   );
@@ -888,6 +870,11 @@ function MarchMakerBody({
                   setMarchQ(v);
                   if (v) goToFoundWalker(v);
                 },
+              },
+              /* ✕ — the words are gone: the march is whole AT ONCE, not after the search's wait (owner 2026-10-31). */
+              onClear: () => {
+                if (marchQTimer.current) clearTimeout(marchQTimer.current);
+                setMarchQ('');
               },
             }}
             right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}

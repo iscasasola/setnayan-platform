@@ -41,6 +41,8 @@ export const SHIPPED_GUEST_CARD = {
   seats: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'seats'),
   invitation: async (eventId: string, guestId: string): Promise<GuestCardResult> =>
     (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'invitation'),
+  /* 👀 Home › Who's here (2026-10-29) — a face of a guest viewing the Event Hub: the same in-place read. */
+  home: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'home'),
 } as const;
 
 /** The card's layer on <body>: above the Maker's full-screen shell (`z-[80]`), under the card's own dropdowns (`z-[95]`). */

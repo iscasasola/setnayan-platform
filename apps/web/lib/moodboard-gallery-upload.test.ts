@@ -77,8 +77,12 @@ test('the picker offers only the shop’s own shelves', () => {
   const florist = uploadableSlotsForShop(canonicalServicesForSlot('flowers', fallbackInspirationParts()), fallbackInspirationParts());
   assert.ok(florist.length > 0);
   assert.ok(florist.every((s) => s.label.length > 0));
-  assert.equal(uploadableSlotsForShop([], fallbackInspirationParts()).length, 0);
-  assert.equal(uploadableSlotsForShop(null, fallbackInspirationParts()).length, 0);
+  // ⚖ 2026-11-02 (owner, the supplier gate; `libraryUploadVerdict`): a shop that supplies NO shelf — none of its
+  // services, or no services at all — is offered every supplier shelf, never an empty picker.
+  const everyShelf = uploadableSlotsForShop([], fallbackInspirationParts()).map((s) => s.key);
+  assert.ok(everyShelf.length > florist.length, 'a shop with no shelf of its own must be offered every supplier shelf');
+  assert.ok(florist.every((s) => everyShelf.includes(s.key)));
+  assert.deepEqual(uploadableSlotsForShop(null, fallbackInspirationParts()).map((s) => s.key), everyShelf);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

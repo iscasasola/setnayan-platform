@@ -2028,13 +2028,15 @@ button.fd-ask.quiet {
 }
 
 /* ══ WHERE DISCOVER DOES NOT OPEN, THE RAIL DOES NOT OFFER IT (2026-10-21) ══
-   In the app shell middleware bounces `/` to the board while Apple reviews
-   1.0 (`APP_EXCLUDED_MARKETING_PATHS`), so the rail's Discover row — the drawer
-   on a phone, the rail on an iPad — was a press that went nowhere. The server
-   renders `[data-discover-bounced]` into the shell on exactly those requests
-   (app-rail-shell.tsx · `discoverOpensHere()`), and the row and the divider
-   under it leave. `display: none` takes the row out of the tab order and the
-   accessibility tree as well as the paint — a real removal, not a look. */
+   While Apple reviewed 1.0 the app shell bounced `/` to the board, so the
+   rail's Discover row — the drawer on a phone, the rail on an iPad — was a
+   press that went nowhere. Since the owner's 2026-11-02 ruling ("let everything
+   go live") `/` opens in the apps too, `discoverOpensHere()` answers yes on
+   every request, and the server never renders `[data-discover-bounced]` — so
+   the row shows everywhere. The rule stays as the one answer for a shell that
+   ever refuses `/` again: the row and the divider under it leave, and
+   `display: none` takes the row out of the tab order and the accessibility
+   tree as well as the paint — a real removal, not a look. */
 .fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'],
 .fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv {
   display: none;

@@ -8,6 +8,8 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -48,6 +50,7 @@ import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -457,6 +460,8 @@ async function updateVendorStatus(formData: FormData) {
         email: prevRow.contact_email,
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
+        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
+        shopProfileId: prevRow.marketplace_vendor_id ?? null,
       });
     } catch {
       // best-effort — never block the booking-status write on the auto-invite.
@@ -802,6 +807,8 @@ export type FinalizeVendorResult =
   // Off-platform / manual vendors carry no verification concept and never hit
   // this. Grandfathered: already-locked rows return 'already_locked' first.
   | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
+  /** 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 2). */
+  | { status: 'bookings_closed'; vendorId: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -1110,6 +1117,8 @@ export async function finalizeVendor(
   // The read uses the admin client (public RLS on vendor_profiles is
   // verified-only; the couple already proved they own this booking above).
   if (targetVendor.marketplace_vendor_id) {
+    // 🚪 DOOR 2 · BOOKINGS CLOSED (owner 2026-11-02). A closed platform books nobody; the trigger is the backstop.
+    if (!(await areBookingsOpen())) return { status: 'bookings_closed', vendorId };
     const bookable = await isMarketplaceVendorBookable(
       createAdminClient(),
       targetVendor.marketplace_vendor_id,
@@ -1319,13 +1328,17 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .maybeSingle();
     const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
-    const candidates = Array.isArray(
-      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
-    )
-      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
-          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
-        )
-      : [];
+    // 💍 A candidate before December 19, 2026 is not a date this event may take (owner
+    // 2026-11-01, lib/event-date-floor.ts) — dropped before narrowing, so no lock ever
+    // writes it. The founders' events keep every candidate.
+    const candidates = await candidatesOnOrAfterFirstEventDay(
+      Array.isArray((dateRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+            (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+          )
+        : [],
+      () => eventDateFloorExempt(supabase, { eventId }),
+    );
 
     if (!existingDate && candidates.length > 0) {
       // Profile ids of vendors that constrain the date: already-locked

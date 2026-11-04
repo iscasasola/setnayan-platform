@@ -1,6 +1,10 @@
 'use client';
 
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
+import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
+import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
+import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -38,6 +42,7 @@ import {
   Minus,
   MoreHorizontal,
   Navigation,
+  Pencil,
   Package,
   Plus,
   Printer,
@@ -83,8 +88,15 @@ import {
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
+import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
-import { FormRows, SwitchRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { guestSeatView } from '../../guests/seat-view-actions';
+import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
+import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
@@ -146,6 +158,10 @@ import {
   type OracleZone,
   type DropHit,
   DRAFT_ROUND_TYPE,
+  VIP_PLUS_ONE_OPTIONS,
+  cannotFitWords,
+  parseVipPlusOneSeating,
+  type VipPlusOneSeating,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
@@ -222,7 +238,10 @@ import {
 } from '@/lib/seat-plan-details';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
-import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
+import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
+import { VipMark } from './vip-mark';
+import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
+import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
 import { PinCountDoor } from '../../guests/_components/view-summary-cards';
@@ -482,7 +501,22 @@ export function SeatingEditor({
   const roleSet = useMemo(() => resolveRoleSet(roleSetKey), [roleSetKey]);
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
   // server action revalidates and these reconcile to the authoritative data.
-  const [guests, applyGuestOpt] = useOptimistic(guestsProp, (state: SeatingGuest[], op: GuestSeatOp) => {
+  /* ↩ Tables deleted by a swipe (or a Delete), waiting out the Undo window (owner 2026-11-03, "SWIPE LEFT TO DELETE ON
+     EVERY LIST ROW"): gone from the plan at once, and everyone at them shown unseated — exactly what the delete's
+     ON DELETE CASCADE will do when it is written. Undo brings them back with nothing written. */
+  const [heldTables, setHeldTables] = useState<ReadonlySet<string>>(() => new Set());
+  const guestsBase = useMemo(
+    () =>
+      heldTables.size === 0
+        ? guestsProp
+        : guestsProp.map((g) => (g.seated_table_id && heldTables.has(g.seated_table_id) ? { ...g, seated_table_id: null, seat_number: null } : g)),
+    [guestsProp, heldTables],
+  );
+  const tablesBase = useMemo(
+    () => (heldTables.size === 0 ? tablesProp : tablesProp.filter((t) => !heldTables.has(t.table_id))),
+    [tablesProp, heldTables],
+  );
+  const [guests, applyGuestOpt] = useOptimistic(guestsBase, (state: SeatingGuest[], op: GuestSeatOp) => {
     switch (op.type) {
       case 'seat':
         return state.map((g) =>
@@ -511,11 +545,16 @@ export function SeatingEditor({
     }
   });
   const [tables, applyTableOpt] = useOptimistic(
-    tablesProp,
-    (state: EventTableRow[], op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean }) =>
+    tablesBase,
+    (
+      state: EventTableRow[],
+      op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean } | { type: 'vip'; id: string; vip: boolean },
+    ) =>
       op.type === 'delete'
         ? state.filter((t) => t.table_id !== op.id)
-        : state.map((t) => {
+        : op.type === 'vip'
+          ? state.map((t) => (t.table_id === op.id ? { ...t, is_vip: op.vip } : t))
+          : state.map((t) => {
             if (t.table_id !== op.id) return t;
             const next = removedSeatSet(t.removed_seats, t.capacity);
             if (op.removed) next.add(op.seat);
@@ -992,7 +1031,10 @@ export function SeatingEditor({
       addedTableIds: string[];
       seatedGuestIds: string[];
       positions: Record<string, { x: number; y: number } | null>;
-      booths: FloorBoothRow[];
+      /** null = this run moved no booth (Clear all seats) — Undo leaves the booths alone. */
+      booths: FloorBoothRow[] | null;
+      /** 🪑 Seats this run took off — Undo puts exactly these back (lib/seat-plan-scope.ts). */
+      restore?: RestoreSeat[];
     } | null;
     changed: ReadonlySet<string>;
   } | null>(null);
@@ -1314,6 +1356,7 @@ export function SeatingEditor({
 
   const unseat = (guestId: string) => {
     if (!canEdit) return;
+    const was = guests.find((g) => g.guest_id === guestId);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -1321,22 +1364,61 @@ export function SeatingEditor({
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      await runGated(() => unassignGuest(fd));
+      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id) return;
+      /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
+         shipped seat write (`assignGuest`) — the place it was taken from. */
+      const tableId = was.seated_table_id;
+      const seat = was.seat_number;
+      pushUndo({
+        label: `${was.name} is off the seat`,
+        undo: async () => {
+          const back = new FormData();
+          back.set('event_id', eventId);
+          back.set('lock_id', lock.lockId ?? '');
+          back.set('table_id', tableId);
+          back.set('guest_id', guestId);
+          if (seat !== null) back.set('seat_number', String(seat));
+          startTransition(async () => {
+            applyGuestOpt({ type: 'seat', guestId, tableId, seat });
+            await runGated(() => assignGuest(back));
+          });
+        },
+      });
     });
   };
 
-  const removeTable = (tableId: string) => {
-    if (!canEdit) return;
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('lock_id', lock.lockId ?? '');
-    fd.set('table_id', tableId);
-    if (highlightId === tableId) setHighlightId(null);
-    startTransition(async () => {
-      applyTableOpt({ type: 'delete', id: tableId });
-      await runGated(() => deleteTable(fd));
+  /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
+  const removeTables = (tableIds: readonly string[], label: string) => {
+    if (!canEdit || tableIds.length === 0) return;
+    if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
+    const hold = (on: boolean) =>
+      setHeldTables((h) => {
+        const next = new Set(h);
+        for (const id of tableIds) {
+          if (on) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      });
+    deleteWithUndo({
+      label: `${label} deleted`,
+      hide: () => hold(true),
+      restore: () => hold(false),
+      commit: async () => {
+        for (const tableId of tableIds) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lock.lockId ?? '');
+          fd.set('table_id', tableId);
+          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+        }
+        return { ok: true };
+      },
+      failed: `Couldn’t delete ${label}. It’s back — try again.`,
     });
   };
+  const removeTable = (tableId: string) =>
+    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.table_label ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with
@@ -1350,7 +1432,7 @@ export function SeatingEditor({
   // joined unit removes every member (each cascades its own seat assignments).
   const requestRemoveUnit = (u: TableDisplayUnit) => {
     const seated = u.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
-    if (seated === 0) u.members.forEach((m) => removeTable(m.table_id));
+    if (seated === 0) removeTables(u.members.map((m) => m.table_id), u.label);
     else setConfirmDelete({ label: u.label, members: u.members });
   };
 
@@ -1366,8 +1448,9 @@ export function SeatingEditor({
   // walls), (3) the server's role-tier auto-seat fills guests into the layout.
   // Optimistic: the new geometry paints immediately; the server action then
   // persists positions + booths and seats guests in one round-trip.
-  const runAutoArrange = () => {
+  const runAutoArrange = (scope: SeatScope = 'unseated') => {
     setConfirmAuto(false);
+    setAskArrange(false);
     if (!canEdit) return; // view-only: someone else holds the editor lock.
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
@@ -1481,6 +1564,7 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', boothsPayload(nextBooths));
+    fd.set('scope', scope);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
@@ -1506,6 +1590,9 @@ export function SeatingEditor({
               solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
             }. Try a narrower walkway, fewer tables, or a bigger room.`
           : '';
+      // 🪑 What auto arrange could not keep together, or seat at all — SHOWN, never silent (owner 2026-11-02).
+      const fitWords = cannotFitWords(res.cannotFit ?? [], (id) => guests.find((g) => g.guest_id === id)?.name ?? '');
+      const cannotFitNote = fitWords ? ` ⚠ ${fitWords}.` : '';
       // The counts come from the SERVER (tables it added, guests it could not
       // seat) — never from this client's guess — so the toast cannot claim
       // "everyone has a seat" while anyone is still without one.
@@ -1513,10 +1600,10 @@ export function SeatingEditor({
       // the counts are the server's; the tables whose people changed (or that
       // are new) wear a gold ring until the line is dismissed or undone.
       setAutoRun({
-        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote,
+        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote + cannotFitNote,
         undo:
-          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0
-            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore }
+          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0 || (res.restoreSeats?.length ?? 0) > 0
+            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore, restore: res.restoreSeats ?? [] }
             : null,
         changed: new Set(res.changedTableIds),
       });
@@ -1533,10 +1620,11 @@ export function SeatingEditor({
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('intent', 'undo');
-    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions }));
-    fd.set('booths', boothsPayload(run.undo.booths));
+    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions, restore: run.undo.restore ?? [] }));
+    const boothsBack = run.undo.booths;
+    if (boothsBack) fd.set('booths', boothsPayload(boothsBack));
     setAutoRun(null);
-    setBooths(run.undo.booths);
+    if (boothsBack) setBooths(boothsBack);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return;
@@ -1544,7 +1632,43 @@ export function SeatingEditor({
       for (const [id, p] of Object.entries(run.undo!.positions)) if (p) back[id] = p;
       setPositions((p) => ({ ...p, ...back }));
       setDirty(new Set());
-      setNotice('Put back — the seat plan is as it was before Auto arrange.');
+      setNotice(boothsBack ? 'Put back — the seat plan is as it was before Auto arrange.' : 'Put back — every seat is where it was.');
+    });
+  };
+
+  /* 🪑 WHO MOVES (owner 2026-11-02, live on his own event: *"When we click auto seat. We ask if we change all seated or
+     just the unseated ones?"*). With anybody seated, Auto arrange first asks in the house sheet: "Only the unseated (N)"
+     (the default) or "Seat everyone again" (locked seats never move). Nobody seated → nothing to ask, it just runs.
+     🔒 lib/auto-arrange-asks-who-moves.test.ts */
+  const [askArrange, setAskArrange] = useState(false);
+  const seatedNow = guests.filter((g) => Boolean(g.seated_table_id)).length;
+  const askAutoArrange = () => {
+    if (!canEdit || tables.length === 0) return;
+    if (seatedNow === 0) return runAutoArrange('unseated');
+    setAskArrange(true);
+  };
+
+  /* 🧹 CLEAR ALL SEATS (owner 2026-11-02, *"We want to be able to remove all seated"*) — asks first; locked seats stay
+     unless the host picks otherwise; Undo puts every seat back (the same Undo as Auto arrange). */
+  const [askClear, setAskClear] = useState(false);
+  const [clearLocked, setClearLocked] = useState<'keep' | 'clear'>('keep');
+  const runClearAll = () => {
+    setAskClear(false);
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('intent', 'clear');
+    fd.set('keep_locked', clearLocked === 'keep' ? 'true' : 'false');
+    startTransition(async () => {
+      const res = await runGated(() => autoArrange(fd));
+      if (!res) return;
+      const n = res.restoreSeats?.length ?? 0;
+      setAutoRun({
+        text: n > 0 ? `Cleared ${formatCount(n)} ${n === 1 ? 'seat' : 'seats'}` : 'No seats to clear',
+        undo: n > 0 ? { addedTableIds: [], seatedGuestIds: [], positions: {}, booths: null, restore: res.restoreSeats ?? [] } : null,
+        changed: new Set(res.changedTableIds),
+      });
     });
   };
 
@@ -1671,7 +1795,44 @@ export function SeatingEditor({
     { key: 'together', label: 'Sit together' },
     { key: 'group', label: 'Sit with their group' },
   ] as const;
-  const roleRulesList =
+  /* 🪑 "+1s of VIP guests" (owner 2026-11-02, FINAL SEATING PRECEDENCE): ONE dropdown in the seating rules — beside
+     them at the VIP table (default), or all of them together at the table(s) nearest the VIP tables. Optimistic; saved
+     with the rules through savePriorityOrder (its `vip_plus_ones` field). */
+  const [vipPlusOnes, setVipPlusOnes] = useState<VipPlusOneSeating>(() => floorPlan.vip_plus_ones ?? 'beside');
+  const pickVipPlusOnes = (next: VipPlusOneSeating) => {
+    if (!canEdit || next === vipPlusOnes) return;
+    const before = vipPlusOnes;
+    setVipPlusOnes(next);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('vip_plus_ones', next);
+    startTransition(async () => {
+      /* ↩ Not saved (said by runGated): the pick goes back. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setVipPlusOnes(before);
+    });
+  };
+  const vipTableCount = tables.filter((t) => t.is_vip === true).length;
+  const vipPlusOnesRow = (
+    <div data-vip-plus-ones-row="" className="flex min-h-11 items-center gap-2 px-1">
+      <span className="min-w-0 flex-1 text-sm text-ink">
+        +1s of VIP guests{' '}
+        <span className="font-mono text-[11px] text-ink/45">
+          {vipTableCount > 0 ? `${formatCount(vipTableCount)} VIP ${vipTableCount === 1 ? 'table' : 'tables'}` : 'no VIP table yet'}
+        </span>
+      </span>
+      <PickMenu
+        label="+1s of VIP guests"
+        value={vipPlusOnes}
+        options={VIP_PLUS_ONE_OPTIONS}
+        onPick={(k) => pickVipPlusOnes(parseVipPlusOneSeating(k))}
+        dataAttr="data-vip-plus-ones"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    </div>
+  );
+  const roleRulesOnly =
     roleSeatingRows.length === 0 ? (
       <p className="px-1 py-1 text-xs text-ink/55">
         No sponsors, family or entourage on the guest list yet — everyone sits with their group.
@@ -1696,6 +1857,12 @@ export function SeatingEditor({
         ))}
       </ul>
     );
+  const roleRulesList = (
+    <div className="space-y-1">
+      {roleRulesOnly}
+      {vipPlusOnesRow}
+    </div>
+  );
 
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs the
   // solver separates onto different tables (group-aware). Optimistic local list
@@ -1721,17 +1888,20 @@ export function SeatingEditor({
   };
   const removeKeepApart = (rule: KeepApartRule) => {
     if (!canEdit) return;
-    setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id)));
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_a_id', rule.guest_a_id);
     fd.set('guest_b_id', rule.guest_b_id);
-    startTransition(async () => {
-      /* ↩ Not saved (said by runGated): the rule is put back — it still stands. */
-      if ((await runGated(() => removeSeatingConstraint(fd))) === null) {
-        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule]));
-      }
+    /* 👈 The rule's row is its swipe (owner 2026-11-03), with Undo: off at once, written after the window. Not saved
+       (said by runGated): the rule is put back — it still stands. */
+    deleteWithUndo({
+      label: 'Keep-apart rule removed',
+      hide: () => setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id))),
+      restore: () =>
+        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule])),
+      commit: async () => ((await runGated(() => removeSeatingConstraint(fd))) === null ? { ok: false } : { ok: true }),
+      failed: 'Couldn’t remove that rule. It’s back — try again.',
     });
   };
 
@@ -1878,6 +2048,35 @@ export function SeatingEditor({
       await runGated(() => updateTableLabel(fd));
     });
   };
+  /* 🪑 VIP TABLE (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting. Optimistic; a refused
+     save puts the mark back (useOptimistic falls back to the server's rows). */
+  const setTableVip = (t: EventTableRow, vip: boolean) => {
+    if (!canEdit || (t.is_vip === true) === vip) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', t.table_id);
+    fd.set('is_vip', vip ? 'true' : 'false');
+    startTransition(async () => {
+      applyTableOpt({ type: 'vip', id: t.table_id, vip });
+      await runGated(() => updateTableLabel(fd)); // the VIP form (no table_label) — updateTableVip on the label's route
+    });
+  };
+  const VIP_TABLE_OPTIONS = [
+    { key: 'no', label: 'Not VIP' },
+    { key: 'vip', label: 'VIP table' },
+  ] as const;
+  const vipPick = (t: EventTableRow, dataAttr: string) => (
+    <PickMenu
+      label={`${t.table_label}: VIP table`}
+      value={t.is_vip === true ? 'vip' : 'no'}
+      options={VIP_TABLE_OPTIONS.map((o) => ({ ...o, disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+      onPick={(k) => setTableVip(t, k === 'vip')}
+      dataAttr={dataAttr}
+      compact
+      className="shrink-0 border border-ink/15"
+    />
+  );
 
   // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
   // and we surface a notice on overflow). Used by the pick-then-tap flow AND
@@ -2761,11 +2960,21 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
+     tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
+     everything else: an unpicked table, the elements, the booths). Any other press still pans. */
+  const tablePress = (t: EventTableRow): 'tap' | 'drag' => (roomOnly && highlightId === t.table_id ? 'drag' : press);
   const onTapDown =
     (kind: NonNullable<typeof tapRef.current>['kind'], id: string) => (e: React.PointerEvent) => {
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
+      clearSelection();
+      setBoothCardId(tap.id);
+      return;
+    }
     if (!canEdit) return;
     if (tap.kind === 'table') {
       const t = tables.find((x) => x.table_id === tap.id);
@@ -3347,6 +3556,9 @@ export function SeatingEditor({
     if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
     const x = cx - rect.left;
     const y = cy - rect.top;
+    /* 📱 A phone's canvas is narrower than the bubble's room on EITHER side (240 + its offset), so a flip pushed it off
+       the left edge (seen on the first phone drag, 2026-11-01). There the bubble is kept inside the canvas instead. */
+    if (rect.width < 2 * 260) return { x: Math.max(8, Math.min(x, rect.width - 260)), y, flipX: false, flipY: y < 150 };
     return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
   };
   const askConfirmDrop = (commit: () => void, revert: () => void) => {
@@ -3629,6 +3841,10 @@ export function SeatingEditor({
           );
         }
       }
+    } else if (d && !d.moved && roomOnly && d.kind === 'booth' && booths.some((b) => b.booth_id === d.id && boothHasSupplier(b))) {
+      // 🏪 2D is the room: a booth a booked supplier runs opens their card (the 3D walk's), not the booth's dock.
+      clearSelection();
+      setBoothCardId(d.id);
     } else if (d && !d.moved && !pickedId && !pickedGroupId && canEdit) {
       // A tap (no drag) selects the object → its verbs render in the Context Dock
       // (§1.4). Tables + every marker/booth/sign now share the one selection model
@@ -3976,6 +4192,17 @@ export function SeatingEditor({
   const [show3d, setShow3d] = useState(inGuests ? details?.open3d === true : Boolean(details?.lab));
   const [seen3d, setSeen3d] = useState(show3d);
   const in3d = inGuests ? show3d && Boolean(details?.lab) : Boolean(details?.lab);
+  /* 🗺 SEATS 2D IS THE ROOM, LIST IS THE PEOPLE (owner 2026-11-01, DECISION_LOG — supersedes the same-day "2D does the
+     same"): in Guests › Seats the 2D plan edits the ROOM only. A tap on a table only SELECTS it (drag to move) and its
+     verbs are one slim bar in the thumb row (Rotate · Shape ▾ · Seats − N + · ⋯) — never the full table sheet over the
+     map. No guest list and no guest editing here: names show at their seats and a tap on them does nothing (the press
+     goes on to the room, which pans). The picked table drags, on a phone too (`tablePress`). Seats › List holds the people.
+     A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
+     🔒 lib/seats-2d-is-the-room.test.ts */
+  const roomOnly = inGuests && !in3d && view === 'plan';
+  const [boothCardId, setBoothCardId] = useState<string | null>(null);
+  /** The slim bar's ⋯ › Name… — the bar shows the table's name row until it is kept. */
+  const [renamingTable, setRenamingTable] = useState<string | null>(null);
   const seatPlanShowing =
     !details ||
     (inGuests && !in3d) ||
@@ -4859,9 +5086,20 @@ export function SeatingEditor({
               const cap = u.capacity;
               const full = filled >= cap;
               return (
-                <li
+                /* 👈 A table's Delete is its row's swipe (owner 2026-11-03) — the same ask when people sit at it, then Undo. */
+                <SwipeToDelete
                   key={u.key}
-                  className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                  as="li"
+                  label={`Delete ${u.label}`}
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={(close) => {
+                    close();
+                    requestRemoveUnit(u);
+                  }}
+                >
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     pickedGroupId
                       ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
                       : highlightId === u.lead.table_id
@@ -4906,15 +5144,8 @@ export function SeatingEditor({
                       {full ? 'Filled' : 'Open'}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => requestRemoveUnit(u)}
-                    aria-label={`Delete ${u.label}`}
-                    className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -4992,8 +5223,17 @@ export function SeatingEditor({
             {keepApart.map((r) => {
               const violated = isRuleViolated(r);
               return (
-                <li
+                /* 👈 A rule's Remove is its row's swipe (owner 2026-11-03), with Undo. */
+                <SwipeToDelete
                   key={`${r.guest_a_id}|${r.guest_b_id}`}
+                  as="li"
+                  label={`Remove the rule ${guestsById.get(r.guest_a_id)?.name ?? 'Guest'} and ${guestsById.get(r.guest_b_id)?.name ?? 'Guest'}`}
+                  word="Remove"
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={() => removeKeepApart(r)}
+                >
+                <div
                   className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
                   }`}
@@ -5017,16 +5257,8 @@ export function SeatingEditor({
                       </span>
                     ) : null}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeKeepApart(r)}
-                    disabled={!canEdit}
-                    aria-label="Remove keep-apart rule"
-                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -5528,6 +5760,8 @@ export function SeatingEditor({
   const dockInSheet = inGuests && isPhone;
   const dockNode: React.ReactNode = (() => {
     if (dockPrimary === null) return null;
+    // 🗺 2D is the room: a picked table's verbs are the slim thumb bar (`tableBar`), never a dock or a sheet over the map.
+    if (roomOnly && dockPrimary === 'table') return null;
     const edge = computeDockEdge();
 
     // §1.5 view-only honesty — when a table/marker is selected but a peer
@@ -6028,7 +6262,7 @@ export function SeatingEditor({
     if (!details) return;
     // The picked object is the navigator's picked piece; on a phone its part opens.
     setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
-    if (peopleInSheet && seatPieceKey) setPeopleOpen(true);
+    if (peopleInSheet && seatPieceKey && !(roomOnly && highlightId)) setPeopleOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
   }, [seatPieceKey]);
   // The right part shows the guests, the rules, the Guests' map (the Indoor
@@ -6049,6 +6283,32 @@ export function SeatingEditor({
     setDoorOpen(Boolean(floorPlan.published_at));
   }, [floorPlan.published_at]);
   const [doorNote, setDoorNote] = useState<string | null>(null);
+  /* 🪑 HOW GUESTS SEE THEIR SEAT (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 3) — beside the switch
+     above, live like it; a refusal puts the last saved choice back and says so (a save never resets the screen). */
+  const [seatView, setSeatView] = useState<GuestSeatView>(parseGuestSeatView(floorPlan.guest_seat_view));
+  useEffect(() => {
+    setSeatView(parseGuestSeatView(floorPlan.guest_seat_view));
+  }, [floorPlan.guest_seat_view]);
+  const [seatViewNote, setSeatViewNote] = useState<string | null>(null);
+  const pickSeatView = (next: string) => {
+    const v = parseGuestSeatView(next);
+    const was = seatView;
+    if (v === was) return;
+    setSeatView(v);
+    setSeatViewNote(null);
+    startTransition(async () => {
+      try {
+        const res = await guestSeatView(eventId, { kind: 'set', view: v });
+        if (!res.ok) {
+          setSeatView(was);
+          setSeatViewNote(res.error);
+        }
+      } catch {
+        setSeatView(was);
+        setSeatViewNote('That did not save — nothing changed. Please try again.');
+      }
+    });
+  };
   const flipDoor = (open: boolean) => {
     const was = doorOpen;
     setDoorOpen(open);
@@ -6069,7 +6329,7 @@ export function SeatingEditor({
      (`flipDoor`: `publishSeating` / `unpublishSeating`, live, never drafted). */
   const doorStrip = details ? (
     <div data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'} className="shrink-0 border-b border-ink/10 bg-cream px-3">
-      <FormRows data="seat-plan-door">
+      <FormRows data="seat-plan-door" width="auto">
         <SwitchRow
           name="Show guests their seats early"
           about={{
@@ -6087,6 +6347,20 @@ export function SeatingEditor({
           }
           problem={doorNote}
           attrs={{ 'data-seat-plan-door-switch': '' }}
+        />
+        <ChosenRow
+          name="How guests see their seat"
+          about={{
+            words:
+              'What a guest’s seat page shows them. Both: the 2D map first, with the 3D walk beside it. 2D map: the map only. 3D walk: they walk to their seat in 3D (the map shows instead if your room has no 3D walk). Their guest card shows you the same.',
+          }}
+          value={seatView}
+          options={GUEST_SEAT_VIEWS.map((k) => ({ key: k, label: GUEST_SEAT_VIEW_LABEL[k] }))}
+          onPick={pickSeatView}
+          buttonText={GUEST_SEAT_VIEW_SHORT[seatView]}
+          dataAttr="data-seat-plan-guest-view"
+          problem={seatViewNote}
+          attrs={{ 'data-seat-plan-guest-view-row': '' }}
         />
       </FormRows>
     </div>
@@ -6243,9 +6517,12 @@ export function SeatingEditor({
   // room's default Round, placed in open space and seated in the same tap).
   // No drag on a phone.
   const firstNameOf = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/)[0] ?? name;
+  /* 🔢 "Antonio’s +2" under a "+2 · TBA" seat — the seat's own number among its guest's seats, never a fixed "+1"
+     (owner 2026-11-01, DECISION_LOG "SEATS 2D IS THE ROOM"). 🔒 lib/a-second-plus-one-says-plus-two.test.ts */
+  const plusOneIdx = useMemo(() => plusOneSeatIndexes(guests), [guests]);
   const plusOneHint = (g: SeatingGuest) => {
     const by = g.plus_one_of ? guestsById.get(g.plus_one_of) : null;
-    return by ? `${firstNameOf(by.name)}’s +1` : null;
+    return by ? `${firstNameOf(by.name)}’s ${plusOneMark(plusOneIdx.get(g.guest_id) ?? 0)}` : null;
   };
   const openMove = (id: string) => {
     setMoveGuestId(id);
@@ -6582,20 +6859,102 @@ export function SeatingEditor({
      seat tapped is theirs (a blank: they move there; a face: the two trade). A blank tapped with nobody picked raises
      the pop-up bar: Pick a guest ▾. While someone is picked the bar says so, with Cancel. */
   const [faceCard, setFaceCard] = useState<{ id: string; name: string; seated: boolean } | null>(null);
-  /* ⇕ The Seats › List folds, held here so the thumb row's ⇕ opens or folds them all. */
-  const [faceClosed, setFaceClosed] = useState<ReadonlySet<string>>(() => new Set());
+  /* ⇕ The Seats › List's OPEN (= picked) headers, held here so the thumb row's ⇕ opens or folds them all. One opens on
+     arrival, as on Guests › List (`firstOpen`): "To seat" while anyone coming has no seat, else the first table — so a
+     ✎ is never on every header at rest (owner 2026-11-01, "Edit icon only shows when the group is picked"). */
+  const [faceOpen, setFaceOpen] = useState<ReadonlySet<string>>(() => {
+    const first = guests.some((g) => !g.seated_table_id && g.rsvp_status !== 'declined') ? SEAT_LIST_UNSEATED : displayUnits[0]?.key;
+    return new Set(first ? [first] : []);
+  });
   const toggleFaceFold = (k: string) =>
-    setFaceClosed((c) => {
+    setFaceOpen((c) => {
       const n = new Set(c);
       if (n.has(k)) n.delete(k);
       else n.add(k);
       return n;
     });
   const [blankAt, setBlankAt] = useState<{ tableId: string; seat: number } | null>(null);
+  /* 🔁 R4 slice 6a — BEFORE A SEAT CHANGES HANDS (owner 2026-10-29, prototype `assess` / `requestMove`): a swap always
+     asks "Swap Ana (Table 2) with Ben (Table 5)?" — each person, where they sit and why (who placed it), the tickable side
+     effects (their +1 comes along) and the plain warnings (lib/seat-move-assess.ts); a move to a free seat asks only when
+     there is something to say. Done → one line with Undo (swap again / put back). */
+  const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
+  const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
+    guest_id: g.guest_id,
+    name: g.name,
+    plus_one_of: g.plus_one_of ?? null,
+    seated_table_id: g.seated_table_id,
+    seat_number: g.seat_number,
+    tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
+    seat_placed_by: g.seat_placed_by ?? null,
+    seat_placed_at: g.seat_placed_at ?? null,
+  });
+  const assessFor = (moverId: string, tableId: string, seat: number | null, otherId: string | null): MoveAssessment | null => {
+    const mover = guestsById.get(moverId);
+    if (!mover) return null;
+    const other = otherId ? guestsById.get(otherId) ?? null : null;
+    const tableMap = new Map(
+      tables.map((t) => {
+        const removed = removedSeatSet(t.removed_seats, t.capacity);
+        const free = occupantsFor(t).flatMap((g, i) => (g === null && !removed.has(i) ? [i] : []));
+        return [t.table_id, { label: t.link_group_label?.trim() || t.table_label, freeSeats: free }] as const;
+      }),
+    );
+    return assessSeatMove({
+      mover: moveGuestOf(mover),
+      target: { tableId, seat },
+      other: other ? moveGuestOf(other) : null,
+      guests: guests.map(moveGuestOf),
+      tables: tableMap,
+      keepApart,
+      tierLabel: (t) => roleSet.tierLabels[t],
+    });
+  };
+  const doAskedMove = () => {
+    const ask = askMove;
+    setAskMove(null);
+    if (!ask || !canEdit) return;
+    const mover = guestsById.get(ask.moverId);
+    const target = tables.find((t) => t.table_id === ask.tableId);
+    if (!mover || !target) return;
+    const other = ask.otherId ? guestsById.get(ask.otherId) ?? null : null;
+    const along = ask.a.sideEffects.filter((x) => ask.on[x.key]);
+    // What Undo puts back: everyone this moves, where they sat before.
+    const before = [mover, ...along.map((x) => guestsById.get(x.guestId)).filter((g): g is SeatingGuest => Boolean(g))].map((g) => ({
+      id: g.guest_id,
+      tableId: g.seated_table_id,
+      seat: g.seat_number,
+    }));
+    setPickedId(null);
+    if (other) tradeSeats(mover.guest_id, other.guest_id);
+    else seatGuestHere(target, mover.guest_id, ask.seat ?? undefined);
+    for (const x of along) seatGuestHere(target, x.guestId, x.seat);
+    const undo = () => {
+      setMoveNote(null);
+      if (other) return tradeSeats(mover.guest_id, other.guest_id);
+      for (const b of before) {
+        const t = b.tableId ? tables.find((x) => x.table_id === b.tableId) : null;
+        if (t) seatGuestHere(t, b.id, b.seat ?? undefined);
+        else unseat(b.id);
+      }
+    };
+    setMoveNote({
+      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
+      undo,
+    });
+  };
+  const askBefore = (moverId: string, tableId: string, seat: number | null, otherId: string | null): boolean => {
+    const a = assessFor(moverId, tableId, seat, otherId);
+    if (!a || a.quiet) return false;
+    setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
+    return true;
+  };
   const tapFace = (guestId: string) => {
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
+      if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
       tradeSeats(pickedId, guestId);
       return;
     }
@@ -6604,25 +6963,132 @@ export function SeatingEditor({
   };
   const tapBlank = (tableId: string, seat: number) => {
     if (pickedId) {
+      if (askBefore(pickedId, tableId, seat, null)) return;
       place(tableId, seat);
       return;
     }
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
-  const faceOf = (g: SeatingGuest): FaceGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, color: colorFor(g), placed: seatPlacedShort(g.seat_placed_by) });
-  const faceUnits: FaceUnit[] = inGuests
+  const faceOf = (g: SeatingGuest): SeatListGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, side: g.side, placed: seatPlacedShort(g.seat_placed_by) });
+  /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
+     in seat order, "8 of 10 seats" counted from those rows — never typed. */
+  const faceUnits: SeatListUnit[] = inGuests
     ? displayUnits.map((u) => {
-        const slots: FaceSlot[] = u.members.flatMap((m) => {
+        const seats = u.members.flatMap((m) => {
           const removed = removedSeatSet(m.removed_seats, m.capacity);
-          return occupantsFor(m).flatMap((g, i): FaceSlot[] =>
-            removed.has(i) ? [] : g ? [{ kind: 'face', guest: faceOf(g), tableId: m.table_id, seat: i }] : [{ kind: 'blank', tableId: m.table_id, seat: i }],
-          );
+          return occupantsFor(m).flatMap((g, i) => (removed.has(i) ? [] : [{ tableId: m.table_id, seat: i, guest: g ? faceOf(g) : null }]));
         });
-        const seated = slots.filter((x) => x.kind === 'face').length;
-        return { key: u.key, label: u.label, sub: TABLE_TYPE_LABEL[u.lead.table_type], seated, capacity: slots.length, slots };
+        return { key: u.key, label: u.label, seated: seats.filter((x) => x.guest).length, capacity: seats.length, seats, vip: u.members.some((m) => m.is_vip === true) };
       })
     : [];
+  /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
+     plan's own moves, with "before a seat changes hands" asked first where it asks. */
+  const dropSeat = (guestId: string, target: SeatDropTarget) => {
+    if (!canEdit) return;
+    const g = guestsById.get(guestId);
+    if (!g) return;
+    const plan = planSeatDrop({ id: guestId, seated: g.seated_table_id !== null }, target);
+    if (plan.kind === 'unseat') return unseat(guestId);
+    if (plan.kind === 'trade') {
+      if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
+      return tradeSeats(guestId, plan.otherId);
+    }
+    if (plan.kind === 'place') {
+      const t = tables.find((x) => x.table_id === plan.tableId);
+      if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      setPickedId(null);
+      seatGuestHere(t, guestId, plan.seat);
+    }
+  };
+  const unitOfKey = (key: string) => displayUnits.find((u) => u.key === key) ?? null;
+  /* ＋ An empty seat's Add ▾ — who comes and has no seat yet (the shared dropdown; the plan's own `seatGuestHere`). */
+  const seatListAdd = (tableId: string, seat: number) => {
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!t) return null;
+    return (
+      <SeatPickMenu
+        label={`Add a guest to ${t.table_label}, seat ${seat + 1}`}
+        value={null}
+        buttonText="Add"
+        options={
+          comingUnseated.length
+            ? comingUnseated.map((g) => ({ key: g.guest_id, label: g.name }))
+            : [{ key: '-', label: 'Everyone coming has a seat', disabledNote: 'Nobody to add' }]
+        }
+        onPick={(k) => {
+          if (k !== '-') seatGuestHere(t, k, seat);
+        }}
+        dataAttr="data-seat-row-add"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    );
+  };
+  /* ✎ Only on the PICKED (open) table — and only where one name renames it (a linked set is named on 2D). */
+  const seatListPencil = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || !canEdit || u.members.length !== 1) return null;
+    return (
+      <ActionButton
+        tone="neutral"
+        quiet
+        iconOnly
+        icon={Pencil}
+        label={`Rename ${u.label}`}
+        onClick={() => setRenamingTable((cur) => (cur === u.lead.table_id ? null : u.lead.table_id))}
+        data-testid="seat-table-rename"
+      />
+    );
+  };
+  const seatListRename = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || view !== 'list' || renamingTable !== u.lead.table_id || u.members.length !== 1) return null;
+    return (
+      <div className="min-w-0 py-1">
+        <FormRows data="seat-list-name">
+          <TypedRow
+            key={u.lead.table_id}
+            data="seat-list-table-name"
+            attrs={{ 'data-seat-list-table-name': '' }}
+            name="Table name"
+            value={u.lead.table_label}
+            maxLength={64}
+            required
+            onKeep={(label) => {
+              renameTable(u.lead.table_id, label);
+              setRenamingTable(null);
+              return { ok: true as const };
+            }}
+          />
+        </FormRows>
+      </div>
+    );
+  };
+  /* Type ▾ · seats − N + — each table of the unit (a linked set names each), the 2D bar's own Shape list and Counter. */
+  const seatListTools = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u) return null;
+    return u.members.map((m) => (
+      <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/60">{m.table_label}</span> : null}
+        <PickMenu
+          label="Table type"
+          value={m.table_type}
+          options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint], disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+          onPick={(k) => {
+            if (canEdit) changeStyle(m, k as TableType);
+          }}
+          buttonText={TABLE_TYPE_LABEL[m.table_type]}
+          dataAttr="data-seat-list-type"
+          compact
+          className="shrink-0 border border-ink/15"
+        />
+        {dockSeatsStepper(m)}
+        {vipPick(m, 'data-seat-list-vip')}
+      </span>
+    ));
+  };
   const blankTable = blankAt ? tables.find((t) => t.table_id === blankAt.tableId) ?? null : null;
   const seatPop =
     inGuests && (pickedGuest || (blankAt && blankTable)) ? (
@@ -6728,9 +7194,19 @@ export function SeatingEditor({
             icon={Sparkles}
             label={isPending ? 'Arranging…' : 'Auto arrange'}
             hint={canEdit ? 'Seats everyone by the seating rules · Undo after' : 'Tap Edit first — only one person arranges at a time'}
-            onClick={runAutoArrange}
+            onClick={askAutoArrange}
             disabled={!canEdit || tables.length === 0 || isPending}
             emphasized
+          />
+          <MenuRow
+            icon={UserMinus}
+            label="Clear all seats"
+            hint={canEdit ? 'Everyone comes off their seat · Undo after' : 'Tap Edit first'}
+            onClick={() => {
+              setClearLocked('keep');
+              setAskClear(true);
+            }}
+            disabled={!canEdit || seatedNow === 0 || isPending}
           />
           <MenuDivider />
         </>
@@ -6769,7 +7245,7 @@ export function SeatingEditor({
       status={headline.status}
       unseated={unseatedComing}
       onUnseated={openUnseated}
-      onAutoArrange={runAutoArrange}
+      onAutoArrange={askAutoArrange}
       autoDisabled={!canEdit || tables.length === 0}
       autoBusy={isPending}
       rules={phoneRules}
@@ -6880,20 +7356,15 @@ export function SeatingEditor({
     if (view === 'list') {
       const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
       const key = unit ? unit.key : 'unseated';
-      setFaceClosed((c) => {
-        if (!c.has(key)) return c;
-        const n = new Set(c);
-        n.delete(key);
-        return n;
-      });
-      requestAnimationFrame(() => document.querySelector(`[data-seat-face="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
+      requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
     } else if (g.seated_table_id) {
       setSelMarker(null);
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = ['unseated', ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => !faceClosed.has(k));
+  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
+  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -6912,13 +7383,115 @@ export function SeatingEditor({
     if (k === 'sign') return addSign();
     if (k === 'booth') return addBooth();
   };
-  const seatToast = autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null;
+  const seatToast = moveNote
+    ? { text: moveNote.text, onUndo: moveNote.undo, onDismiss: () => setMoveNote(null) }
+    : autoRun
+      ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) }
+      : null;
+  /* 🗺 2D IS THE ROOM — a picked table's ONE slim bar in the thumb row: Rotate · Shape ▾ · Seats − N + · ⋯ (Name… ·
+     Swap with another table… · Link… / Unlink · Delete). Every verb is the shipped one (`rotateTable` · `changeStyle` ·
+     the Counter · `renameTable` · `armSwap` · the link gesture · `doUnlink` · `requestRemoveTable`); nothing new writes. */
+  const barTable = roomOnly && selTable ? selTable : null;
+  const tableBar = barTable
+    ? (() => {
+        const st = barTable;
+        const seatNote = seatNotice && seatNotice.tableId === st.table_id ? { words: seatStepWords(seatNotice.seat, seatNotice.removed), onUndo: undoSeatRemoval } : null;
+        const armed = linkFrom === st.table_id || swapFrom === st.table_id;
+        const more: PickOption[] = [
+          { key: 'name', label: 'Name…' },
+          // 🪑 The table's own VIP setting (owner 2026-11-02) — in the ⋯ so the slim row keeps one line at 390.
+          st.is_vip ? { key: 'vip-off', label: 'Not a VIP table' } : { key: 'vip-on', label: 'Make it a VIP table' },
+          { key: 'swap', label: swapFrom === st.table_id ? 'Stop swapping' : 'Swap with another table…' },
+          st.link_group_id ? { key: 'unlink', label: 'Unlink' } : { key: 'link', label: linkFrom === st.table_id ? 'Stop linking' : 'Link…' },
+          { key: 'delete', label: 'Delete this table' },
+        ];
+        const onMore = (k: string) => {
+          if (!canEdit) return;
+          if (k === 'name') setRenamingTable(st.table_id);
+          else if (k === 'vip-on' || k === 'vip-off') setTableVip(st, k === 'vip-on');
+          else if (k === 'swap') armSwap(st);
+          else if (k === 'unlink') doUnlink(st.table_id);
+          else if (k === 'link') {
+            setSwapFrom(null);
+            setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+          } else if (k === 'delete') requestRemoveTable(st);
+        };
+        return (
+          <div
+            data-seat-table-bar={st.table_id}
+            className="pointer-events-auto flex min-w-0 flex-col gap-1.5 rounded-2xl bg-cream px-1 py-1.5 shadow-lg"
+          >
+            {renamingTable === st.table_id ? (
+              <FormRows data="seat-table-bar-name">
+                <TypedRow
+                  key={st.table_id}
+                  data="seat-table-name"
+                  attrs={{ 'data-seat-table-name': '' }}
+                  name="Table name"
+                  value={st.table_label}
+                  maxLength={64}
+                  required
+                  onKeep={(label) => {
+                    renameTable(st.table_id, label);
+                    setRenamingTable(null);
+                    return { ok: true as const };
+                  }}
+                />
+              </FormRows>
+            ) : null}
+            {/* ONE slim row at 390: Rotate keeps its word (12 Oct "buttons keep their words"), the shape's word is never cut
+                (`shrink-0`), the ⋯ is a 44 px round; on a narrower phone the row wraps rather than cut a word. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+              <ActionButton tone="neutral" quiet icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={() => rotateTable(st, 90)} />
+              <PickMenu
+                label="Shape"
+                value={st.table_type}
+                options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
+                onPick={(k) => {
+                  if (canEdit) changeStyle(st, k as TableType);
+                }}
+                buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
+                dataAttr="data-seat-table-shape"
+                compact
+                className="shrink-0 border border-ink/15"
+              />
+              {dockSeatsStepper(st)}
+              <PickMenu
+                label="More for this table"
+                value={null}
+                options={more}
+                onPick={onMore}
+                dataAttr="data-seat-table-more"
+                compact
+                trigger={<MoreHorizontal aria-hidden className="h-5 w-5" />}
+                className="sn-press ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/70"
+              />
+            </div>
+            {armed && notice ? (
+              <StatusLine tone="info" data="seat-table-armed">
+                {notice}
+              </StatusLine>
+            ) : seatNote ? (
+              <StatusLine tone="info" data="seat-step" action={{ label: 'Undo', onClick: seatNote.onUndo }}>
+                {seatNote.words}
+              </StatusLine>
+            ) : null}
+          </div>
+        );
+      })()
+    : null;
+  /* 🏪 The supplier card a 2D booth opens — the 3D walk's own, inspect-only (no walker here), "View" (they booked them). */
+  const boothCardRow = roomOnly && boothCardId ? booths.find((b) => b.booth_id === boothCardId) ?? null : null;
+  const boothCard = roomOnly ? (
+    <BoothVendorCard booth={boothCardRow ? boothCardFromRow(boothCardRow) : null} onClose={() => setBoothCardId(null)} profileCta="view" />
+  ) : null;
   const seatThumb =
     lens && lens.slot
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
-            {seatPop}
+            {seatPop ?? tableBar}
             <lens.ThumbRow
               name="guests-seats"
               left={
@@ -6928,7 +7501,7 @@ export function SeatingEditor({
                         icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
                         label: facesAllOpen ? 'Collapse all' : 'Expand all',
                         expanded: facesAllOpen,
-                        onClick: () => setFaceClosed(facesAllOpen ? new Set(faceKeys) : new Set()),
+                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
                         testId: 'seats-expand',
                       },
                     ]
@@ -6953,6 +7526,11 @@ export function SeatingEditor({
                     if (v) goToFound(v);
                   },
                 },
+                /* ✕ — the words are gone: the seats are whole AT ONCE, not after the search's wait (owner 2026-10-31). */
+                onClear: () => {
+                  if (seatQTimer.current) clearTimeout(seatQTimer.current);
+                  setSeatQ('');
+                },
               }}
               right={[
                 guestsFilterMenu({
@@ -6961,7 +7539,7 @@ export function SeatingEditor({
                   onFilter: lens.setFilter,
                   hasSides: lens.hasSides,
                   label: 'Show, or open the people',
-                  extras: peopleInSheet
+                  extras: peopleInSheet && !roomOnly
                     ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
                     : [],
                   onExtra: (k) => {
@@ -6975,6 +7553,60 @@ export function SeatingEditor({
           lens.slot,
         )
       : null;
+  const askMoveSheet =
+    inGuests && askMove ? (
+      <Sheet open onClose={() => setAskMove(null)} labelledById="seat-move-ask-title" rise>
+        <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-move-ask={askMove.a.kind}>
+          <h2 id="seat-move-ask-title" className="pr-10 font-display text-lg leading-snug text-ink [overflow-wrap:anywhere]">
+            {askMove.a.title}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {askMove.a.rows.map((r, i) => (
+              <li key={r.guestId} className="flex items-start gap-2" data-seat-move-row={r.guestId}>
+                {i > 0 ? <ArrowLeftRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.8} /> : <span aria-hidden className="w-4 shrink-0" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">
+                    {r.name} <span className="font-normal text-ink/55">({r.where})</span>
+                  </span>
+                  {r.why ? <span className="block text-xs text-ink/60" data-seat-move-why="">{r.why}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {askMove.a.warnings.map((w) => (
+            <p key={w} className="flex items-start gap-2 text-[13px] text-warn-800" data-seat-move-warn="">
+              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" />
+              <span className="[overflow-wrap:anywhere]">{w}</span>
+            </p>
+          ))}
+          {askMove.a.sideEffects.length ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Also</p>
+              {askMove.a.sideEffects.map((x) => (
+                <button
+                  key={x.key}
+                  type="button"
+                  aria-pressed={askMove.on[x.key] === true}
+                  onClick={() => setAskMove((m) => (m ? { ...m, on: { ...m.on, [x.key]: !m.on[x.key] } } : m))}
+                  data-seat-move-also={x.key}
+                  className="sn-press flex min-h-11 items-center gap-3 rounded-xl border border-ink/10 px-3 py-2 text-left text-sm text-ink" // no-card-ok: a pressable choice row (a door), not a container
+                >
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{x.text}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${askMove.on[x.key] ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/55'}`}>
+                    {askMove.on[x.key] ? 'Yes' : 'No'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2 pt-1">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskMove(null)} />
+            <ActionButton tone="brand" main icon={askMove.a.kind === 'swap' ? ArrowLeftRight : Armchair} label={askMove.a.kind === 'swap' ? 'Swap' : 'Move'} onClick={doAskedMove} data-seat-move-go="" />
+          </div>
+        </div>
+      </Sheet>
+    ) : null;
+
   /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
      🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
      🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
@@ -7019,6 +7651,58 @@ export function SeatingEditor({
   const studioPeople = inGuests ? (
     <>
       {faceCardSheet}
+      {askMoveSheet}
+      {askArrange ? (
+        <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
+            <h2 id="seat-arrange-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Auto arrange — who moves?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(seatedNow)} {seatedNow === 1 ? 'guest has' : 'guests have'} a seat.
+              {lockedCount > 0 ? ` ${formatCount(lockedCount)} locked ${lockedCount === 1 ? 'seat stays' : 'seats stay'} either way.` : ''} Undo after.
+            </p>
+            <div className="flex flex-col gap-2">
+              <ActionButton tone="brand" main icon={Sparkles} label={`Only the unseated (${formatCount(unseatedComing)})`} onClick={() => runAutoArrange('unseated')} data-seat-arrange-scope="unseated" className="w-full" />
+              <ActionButton tone="neutral" icon={RotateCcw} label="Seat everyone again" onClick={() => runAutoArrange('all')} data-seat-arrange-scope="all" className="w-full" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+      {askClear ? (
+        <Sheet open onClose={() => setAskClear(false)} labelledById="seat-clear-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-clear-ask="">
+            <h2 id="seat-clear-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Clear all seats?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(clearLocked === 'keep' ? seatedNow - lockedCount : seatedNow)} {seatedNow === 1 ? 'guest comes' : 'guests come'} off their seat. Undo puts every seat back.
+            </p>
+            {lockedCount > 0 ? (
+              <div className="flex min-h-11 items-center gap-2">
+                <span className="min-w-0 flex-1 text-sm text-ink">Locked seats <span className="font-mono text-[11px] text-ink/45">{formatCount(lockedCount)}</span></span>
+                <PickMenu
+                  label="Locked seats"
+                  value={clearLocked}
+                  options={[
+                    { key: 'keep', label: 'Keep them' },
+                    { key: 'clear', label: 'Clear them too' },
+                  ]}
+                  onPick={(k) => setClearLocked(k === 'clear' ? 'clear' : 'keep')}
+                  dataAttr="data-seat-clear-locked"
+                  compact
+                  className="shrink-0 border border-ink/15"
+                />
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskClear(false)} />
+              <ActionButton tone="danger" main icon={UserMinus} label="Clear seats" onClick={runClearAll} data-seat-clear-go="" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+      {boothCard}
       {seatThumb}
       {peopleInSheet ? (
         <Sheet
@@ -7055,7 +7739,7 @@ export function SeatingEditor({
         }}
         tools={
           <StudioSeatPlanTools
-            onAutoArrange={runAutoArrange}
+            onAutoArrange={askAutoArrange}
             autoDisabled={!canEdit || tables.length === 0}
             autoBusy={isPending}
             rules={phoneRules}
@@ -8182,7 +8866,7 @@ export function SeatingEditor({
                   <svg
                     className="absolute inset-0 h-full w-full overflow-visible"
                     viewBox={`${-geo.box.w / 2} ${-geo.box.h / 2} ${geo.box.w} ${geo.box.h}`}
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     style={{ cursor: pickedId || pickedGroupId ? 'pointer' : dragging ? 'grabbing' : 'grab' }}
                   >
                     <path
@@ -8240,6 +8924,8 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            /* 🗺 2D is the room: a name does nothing — the press goes on to the room (pan). */
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
                             /* 🗂 R4: in Guests › Seats a face opens their card (or, with someone picked, they trade). */ else if (inGuests) tapFace(occupant.guest_id);
@@ -8278,6 +8964,7 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
                             /* 🗂 R4: in Guests › Seats a blank seats the picked guest — or asks who sits there. */ else if (inGuests) tapBlank(t.table_id, i);
@@ -8337,6 +9024,7 @@ export function SeatingEditor({
                     we show only a centred number/count badge here instead. */}
                 {showRibbon ? (
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
+                    {t.is_vip ? <VipMark /> : null}
                     <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                     <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                       {formatCount(filled)}/{formatCount(effCap)}
@@ -8345,7 +9033,7 @@ export function SeatingEditor({
                 ) : (
                   <button
                     type="button"
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     aria-label={`${t.table_label} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
@@ -8364,6 +9052,7 @@ export function SeatingEditor({
                       className="flex flex-col items-center"
                       style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
                     >
+                      {t.is_vip ? <VipMark /> : null}
                       <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                       <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                         {formatCount(filled)}/{formatCount(effCap)}
@@ -8569,15 +9258,26 @@ export function SeatingEditor({
         </div>
         </>
         ) : inGuests ? (
-          /* 🗂 R4 · Guests › Seats › List: each table a foldable header, its people a row of faces and blank seats. */
-          <SeatFacesList
+          /* 🪑 S1c · Guests › Seats › List: the Guests list grouped by table — its rows and headers, a row per seat. */
+          <SeatList
             units={faceUnits}
             unseated={comingUnseated.map(faceOf)}
             pickedId={pickedId}
-            onFace={tapFace}
-            onBlank={tapBlank}
-            closed={faceClosed}
+            canEdit={canEdit}
+            open={faceOpen}
             onToggle={toggleFaceFold}
+            onOpenGuest={tapFace}
+            onPick={(id) => {
+              setBlankAt(null);
+              setPickedId((cur) => (cur === id ? null : id));
+            }}
+            onRemove={unseat}
+            onSeatHere={tapBlank}
+            addMenu={seatListAdd}
+            headTools={seatListPencil}
+            renaming={seatListRename}
+            tableTools={seatListTools}
+            onDrop={dropSeat}
             dim={seatDim}
           />
         ) : (
@@ -8601,6 +9301,16 @@ export function SeatingEditor({
                   const open = cap - seated.length;
                   return (
                     <li key={u.key} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                      {/* 👈 The table's Delete is its head's swipe (owner 2026-11-03) — the same ask, then Undo. */}
+                      <SwipeToDelete
+                        label={`Delete ${u.label}`}
+                        radiusClass=""
+                        disabled={!canEdit}
+                        onDelete={(close) => {
+                          close();
+                          requestRemoveUnit(u);
+                        }}
+                      >
                       <div className="flex items-center gap-2 p-3">
                         <span
                           className="h-3 w-3 shrink-0 rounded-full"
@@ -8643,15 +9353,8 @@ export function SeatingEditor({
                           </span>
                           <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => requestRemoveUnit(u)}
-                          aria-label={`Delete ${u.label}`}
-                          className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
+                      </SwipeToDelete>
 
                       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
                         {seated.length === 0 ? (
@@ -8846,7 +9549,7 @@ export function SeatingEditor({
                 confirm later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
               </li>
             </ol>
-            {roleSeatingRows.length > 0 ? (
+            {roleSeatingRows.length > 0 || vipTableCount > 0 ? (
               <div className="mt-3 border-t border-ink/10 pt-3">
                 <p className="text-sm font-semibold text-ink/85">Who sits together</p>
                 <p className="mt-0.5 text-xs text-ink/55">
@@ -8869,7 +9572,10 @@ export function SeatingEditor({
               </button>
               <button
                 type="button"
-                onClick={runAutoArrange}
+                onClick={() => {
+                  setConfirmAuto(false);
+                  askAutoArrange();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 <Sparkles className="h-4 w-4" /> Auto Arrange
@@ -8940,6 +9646,8 @@ export function SeatingEditor({
           })()}
         </GuestPopup>
       ) : null}
+      {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
+      <UndoToastHost />
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {
@@ -8964,7 +9672,7 @@ export function SeatingEditor({
                         icon={Trash2}
                         label={joined ? 'Delete unit' : 'Delete table'}
                         onClick={() => {
-                          confirmDelete.members.forEach((m) => removeTable(m.table_id));
+                          removeTables(confirmDelete.members.map((m) => m.table_id), confirmDelete.label);
                           setConfirmDelete(null);
                         }}
                       />
@@ -8984,7 +9692,7 @@ export function SeatingEditor({
           <SeatPlanPortal name="place" on>
             {placeList}
           </SeatPlanPortal>
-          <SeatPlanPortal name="guests" on={!peopleInSheet}>
+          <SeatPlanPortal name="guests" on={!peopleInSheet && !roomOnly}>
             {guestsNode}
           </SeatPlanPortal>
         </>

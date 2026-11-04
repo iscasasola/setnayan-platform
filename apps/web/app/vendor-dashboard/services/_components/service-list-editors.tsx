@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 /**
  * Repeatable list editors for a service card (service-card redesign · Phase 3b).
@@ -73,6 +74,24 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
   );
 }
 
+/**
+ * A peso worth: numeric, WITHOUT the native spinner. `type="number"` draws ▲▼ arrows in a desktop browser (the walk
+ * caught them in "worth ₱", 2026-11-01) and nudges the value on a scroll-wheel. A text box with the numeric keypad,
+ * a digits-only pattern and a filter that drops anything else keeps the answer a whole number of pesos — what
+ * `parseInclusionRows` (actions.ts) already insists on. 🔒 a-worth-box-has-no-spinner.test.ts
+ */
+const WHOLE_PESOS = {
+  type: 'text',
+  inputMode: 'numeric',
+  pattern: '[0-9]*',
+  autoComplete: 'off',
+  onInput: (e: React.FormEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const digits = el.value.replace(/[^0-9]/g, '');
+    if (digits !== el.value) el.value = digits;
+  },
+} as const;
+
 // ════════════════════════════════════════════════════════════════════════════
 // 1 · InclusionsEditor — FREE items each with an optional stated worth
 // ════════════════════════════════════════════════════════════════════════════
@@ -102,31 +121,44 @@ export function InclusionsEditor({
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
 
   if (bare) {
+    /* ✍ THE MAKER'S LINES ARE ROWS OF THE ONE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it).
+       Each line is two rows — what is included, and its worth — posting `inclusion_label` and `inclusion_worth` exactly
+       as the raw boxes did: every row draws its carrier, filled or not, so the two lists stay index-aligned for
+       `parseInclusionRows`. The worth is an AMOUNT row: it keeps its ₱, opens the numeric keypad, and keeps only whole
+       pesos (`amountDigits`) — no spinner, nothing but digits posted. */
+    const patch = (key: number, next: Partial<InclusionDraft>) =>
+      setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
     return (
-      <div className="space-y-2" data-inclusions-bare="">
-        {rows.map((r, i) => (
-          <div key={r.key} className="flex items-center gap-2">
-            <input
-              name="inclusion_label"
-              defaultValue={r.label}
-              maxLength={80}
-              aria-label={`Included ${i + 1}`}
-              placeholder="e.g. Same-day highlight reel"
-              className="input-field min-w-0 flex-[2]"
-            />
-            <input
-              name="inclusion_worth"
-              defaultValue={r.worth}
-              type="number"
-              min={0}
-              step={1}
-              aria-label="Worth (PHP, optional)"
-              placeholder="worth ₱"
-              className="input-field min-w-0 flex-1"
-            />
-            <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
-          </div>
-        ))}
+      <div data-inclusions-bare="">
+        <FormRows width="short">
+          {rows.map((r, i) => (
+            <Fragment key={r.key}>
+              <TypedRow
+                name={`Included ${i + 1}`}
+                value={r.label}
+                empty="e.g. Same-day highlight reel"
+                maxLength={80}
+                fieldName="inclusion_label"
+                onKeep={(t) => patch(r.key, { label: t })}
+                data="inclusion-label"
+              />
+              <TypedRow
+                name="Worth"
+                value={r.worth}
+                amount
+                empty="Optional"
+                fieldName="inclusion_worth"
+                onKeep={(t) => patch(r.key, { worth: t })}
+                data="inclusion-worth"
+                below={
+                  <div className="flex justify-end pb-2">
+                    <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
+                  </div>
+                }
+              />
+            </Fragment>
+          ))}
+        </FormRows>
         <AddRowButton onClick={add}>Add a line</AddRowButton>
       </div>
     );
@@ -177,9 +209,7 @@ export function InclusionsEditor({
                 <input
                   name="inclusion_worth"
                   defaultValue={r.worth}
-                  type="number"
-                  min={0}
-                  step={1}
+                  {...WHOLE_PESOS}
                   placeholder="worth ₱"
                   className="input-field flex-1"
                 />

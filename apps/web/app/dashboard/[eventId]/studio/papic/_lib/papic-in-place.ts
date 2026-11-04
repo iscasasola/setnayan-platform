@@ -31,6 +31,9 @@ export const PAPIC_DOORS = [
   'armChallengeAction',
   'stopChallengeAction',
   'deleteCoupleChallengeAction',
+  // 📷 Papic by chapter (owner 2026-11-01) — the card's pick and Start now (`_lib/papic-chapter-doors.ts`).
+  'pickPapicChapter',
+  'startPapicChapterNow',
 ] as const;
 export type PapicDoor = (typeof PAPIC_DOORS)[number];
 

@@ -527,7 +527,7 @@ async function ShopHome({
     {/* 👍 Tools in the lower third (v13 Services thumb row: "＋ Add a service") — the same one door every "Add a service"
         link opens (`SERVICE_MAKER_HREF`, the card maker). */}
     <SupplierThumbRow name="services" label="Service actions">
-      <ActionButton tone="brand" main icon={Plus} label="Add a service" href={SERVICE_MAKER_HREF} />
+      <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add a service" href={SERVICE_MAKER_HREF} />
     </SupplierThumbRow>
     </>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { openGuestCard } from '../open-guest-card';
+import { openGuestCard, type GuestCardOpened } from '../open-guest-card';
 import { GuestCard, type GuestCardResult } from './guest-card';
 
 /**
@@ -18,8 +18,13 @@ import { GuestCard, type GuestCardResult } from './guest-card';
  * (`maker-tools.tsx`), so the card's code rides no route's first load.
  * 🔒 `app/dashboard/[eventId]/_components/the-settings-sheet-is-in-homes-graph.test.ts`
  */
-export async function openGuestCardInPlace(eventId: string, guestId: string, at: 'march' | 'seats' | 'invitation'): Promise<GuestCardResult> {
-  const r = await openGuestCard(eventId, guestId, at);
+export async function openGuestCardInPlace(eventId: string, guestId: string, at: 'march' | 'seats' | 'invitation' | 'home'): Promise<GuestCardResult> {
+  return drawOpenedGuestCard(eventId, await openGuestCard(eventId, guestId, at));
+}
+
+/** The one card, drawn from the one read's answer — also the Guest list's tap (`guest-actions-context.tsx`), which sends
+ *  the read and fetches this code TOGETHER so a first tap waits for neither in turn (guest card opens fast, 2026-10-28). */
+export function drawOpenedGuestCard(eventId: string, r: GuestCardOpened): GuestCardResult {
   if (!r.ok) return r;
   return {
     ok: true,

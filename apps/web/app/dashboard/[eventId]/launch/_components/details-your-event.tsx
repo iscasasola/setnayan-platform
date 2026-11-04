@@ -36,6 +36,7 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { coupleNameColumns, nameOrderOf } from '@/lib/typed-names';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { DateClashNote } from './details-date-clash';
+import { TIME_TBA } from '@/lib/time-tba';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
@@ -321,11 +322,14 @@ export function DateEditor({
   nudge = null,
   helpFirst = false,
   ceremonyTime = null,
+  ceremonyTba = false,
 }: {
   eventId: string;
   governed: GovernedDate;
   /** 🕒 The Ceremony block's start, `HH:MM` on the venue's wall clock — as drafted, else live (null = none yet). */
   ceremonyTime?: string | null;
+  /** ⏰ The live ceremony's time is TBA — the box says "Time TBA" and stays empty. */
+  ceremonyTba?: boolean;
   /** Open on "Help me choose" — where the old /find-date lands. */
   helpFirst?: boolean;
   /** The shipped Find your date's matrix, still loading — read only when "Help me choose" opens. */
@@ -446,7 +450,7 @@ export function DateEditor({
           embedded
           saveDate={saveDay}
         />
-        <CeremonyTimeEditor eventId={eventId} initial={ceremonyTime} hasDay={Boolean(governed.dateValue)} />
+        <CeremonyTimeEditor eventId={eventId} initial={ceremonyTime} tba={ceremonyTba} hasDay={Boolean(governed.dateValue)} />
         </>
       ) : (
         <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
@@ -473,7 +477,7 @@ export function DateEditor({
  * block is made on the day if there is none, else its time moves. Ceremony
  * only — the reception's time stays in the Schedule (owner, answer 3).
  */
-function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; initial: string | null; hasDay: boolean }) {
+function CeremonyTimeEditor({ eventId, initial, tba = false, hasDay }: { eventId: string; initial: string | null; tba?: boolean; hasDay: boolean }) {
   const [time, setTime] = useState(initial ?? '');
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -493,7 +497,12 @@ function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; ini
   return (
     <section data-details-ceremony-time="" className="flex flex-col gap-2">
       <label className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium text-ink/70">Ceremony time</span>
+        <span className="text-xs font-medium text-ink/70">
+          Ceremony time
+          {/* ⏰ TIME TBA (follow-up to #7158): the Schedule has no time yet. The box stays empty — never its
+              placeholder 00:00 — and nothing is saved until a time is typed, which clears the TBA at Apply. */}
+          {tba && !time ? <span data-ceremony-time-tba="" className="font-normal text-ink/60"> · {TIME_TBA}</span> : null}
+        </span>
         <input
           type="time"
           value={time}

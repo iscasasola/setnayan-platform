@@ -3,15 +3,14 @@
  * corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR4; the prototype's
  * Booked mode).
  *
- *   [ Team ▾ ]  3 booked · 1 without a price      ← the Booked part's dropdown (Team · Budget · Schedule)
  *   Waiting for their yes   ⓘ   N asked · nothing opens until they agree
  *   Booked                      N booked · N without a price
  *   (one collapsed row each — ONE open at a time, `BookedRowList`)
  *
- * The approved final Suppliers design (owner 2026-10-30): Booked = Team · Budget · Schedule, ONE dropdown on the
- * body's first row (`BookedPartRow`); the Budget and the Schedule are their own parts (`lib/pillar-parts.ts`
- * `bookedParts`), so the small Budget block no longer sits under the rows — `children` is drawn only where a caller
- * still hands one in (a lab).
+ * 🧹 BOOKED IS JUST THE TEAM (owner 2026-11-02, *"and booked-team will just be booked."*): the Team · Budget ·
+ * Schedule parts and their `Team ▾` row are gone — Budget and Schedule are Home's own pages — and the shell's one row
+ * names "Booked" with its count. The small Budget block is not drawn under the rows — `children` is drawn only where
+ * a caller still hands one in (a lab).
  *
  * A SERVER component: headings, counts and the sentences are plain HTML; only
  * a row is a client island (`booked-row.tsx`), because a row folds open and its
@@ -33,9 +32,8 @@ import {
   WAITING_INFO,
   type BookedView,
 } from '@/lib/booked-rows';
-import type { PillarPart } from '@/lib/pillar-parts';
 import { BookedRowList, WaitingRowItem } from './booked-row';
-import { BookedPartRow } from './booked-part-row';
+import { WhereAsk } from './booked-where';
 import { GoToFind } from './go-to-find';
 
 /** Hairline rows, no boxes; a row's details fold open in place. */
@@ -82,14 +80,11 @@ export function BookedBody({
   eventId,
   state,
   dateChangeUnread = false,
-  parts,
   firstOpen = null,
   children,
 }: {
   eventId: string;
   state: BookedBodyState;
-  /** Booked's parts (`bookedParts`) — the "Team ▾" dropdown. Absent (a lab without it) → no dropdown. */
-  parts?: readonly PillarPart[];
   /** A row open on arrival (a lab's `&open=`) — the rest stay closed. */
   firstOpen?: string | null;
   /** The date-change read was refused — said once, never drawn as "no request". */
@@ -113,18 +108,10 @@ export function BookedBody({
     );
   }
 
-  const { waiting, booked, unpriced } = state.view;
-  const countLine = [
-    `${formatCount(booked.length)} booked`,
-    unpriced > 0 ? `${formatCount(unpriced)} without a price` : null,
-    waiting.length > 0 ? `${formatCount(waiting.length)} waiting` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const { waiting, booked, unpriced, needWhere = 0 } = state.view;
   return (
     <div data-booked-body="view">
       <style>{BOOKED_CSS}</style>
-      {parts ? <BookedPartRow current="team" line={countLine} /> : null}
       <div className="space-y-7">
 
       {waiting.length > 0 ? (
@@ -163,6 +150,14 @@ export function BookedBody({
               ) : (
                 ' · every price set'
               )}
+              {needWhere > 0 ? (
+                <>
+                  {' · '}
+                  <span className="font-medium text-[rgb(var(--color-warn))]" data-booked-need-where="">
+                    {formatCount(needWhere)} {needWhere === 1 ? 'needs' : 'need'} a chapter
+                  </span>
+                </>
+              ) : null}
             </p>
             {dateChangeUnread ? (
               <p className="mt-1 text-[12.5px] text-ink/60" role="status" data-booked-date-unread="">
@@ -170,6 +165,8 @@ export function BookedBody({
               </p>
             ) : null}
             <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} />
+            {/* 📖 "Which chapters will they serve?" — for the first booked supplier on no chapter yet (2026-11-04). */}
+            <WhereAsk eventId={eventId} rows={booked} />
           </>
         )}
       </section>

@@ -1667,6 +1667,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // 🧍 A role holder's proxy (owner 2026-10-27): ON the holder, naming the guest who stands in — the pair counts once.
       { kind: 'fk', table: 'guests', column: 'represented_by_guest_id', references: 'guests' },
       { kind: 'column', table: 'guests', column: 'proxy_named_by_guest' },
+      // 🍽 "Not counted for ▾" (owner 2026-11-02): a guest left out of ONE booked service's supplier headcount.
+      { kind: 'table', table: 'guest_not_counted_for' },
+      { kind: 'fk', table: 'guest_not_counted_for', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'guest_not_counted_for', column: 'event_vendor_id', references: 'event_vendors' },
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
@@ -1674,7 +1678,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table needed',
     implementedBy:
-      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). households groups guests with ON DELETE SET NULL.',
+      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). “Not counted for” (2026-11-02): guest_not_counted_for (guest × booked event_vendors row) leaves a guest out of THAT booking’s supplier headcount only — get_vendor_event_brief / get_vendor_catering_metrics / get_vendor_seat_plan read it as owner through guests_not_counted_for_services; no supplier can read the table. households groups guests with ON DELETE SET NULL.',
     writtenBy: 'Guest-list add/import flows · CSV bulk import · plus-one add action',
     guardedBy: 'current_event_ids() — same RLS spine as chain 1',
     traps: 'Not every edge hides a table — this one is a plain FK. Don’t assume every line on this map is a joint.',
@@ -1944,7 +1948,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = an event owned by its people rather than by a group — the default and the overwhelming majority. A WEDDING is owned by the couple, never by a group, and the CHECK below enforces that rather than leaving it to convention.',
     writtenBy: 'Event creation when the host picks a community-class event',
     guardedBy:
-      'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary. A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
+      'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary · concert · open_house · grand_opening · gala_night · date · hangout (widened 2026-10-28, 20271294233183, to match every community_eligible profile — "Your groups" in the create picker). A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
     traps:
       'ON DELETE SET NULL means deleting a group SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
   },
@@ -2656,16 +2660,53 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'block_id', references: 'event_schedule_blocks' },
       { kind: 'fk', table: 'event_schedule_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'vendor_block_scripts', column: 'block_id', references: 'event_schedule_blocks' },
+      // 📖 A moment's parallel tasks (20271300072429) — one per person, supplier or crew; a supplier's task names the
+      // booking (event_vendors), the same id responsible_vendor_ids carries.
+      { kind: 'table', table: 'event_schedule_tasks' },
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'vendor_id', references: 'event_vendors' },
+      // …or a guest group ("Bridesmaids") — the groups a moment's who can name.
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'group_id', references: 'guest_groups' },
+      { kind: 'table', table: 'guest_groups' },
+      { kind: 'column', table: 'event_schedule_blocks', column: 'call_lead_minutes' },
+      // ✉ A guest's answer per invitation chapter (20271301452824) — guests.rsvp_status stays the overall answer.
+      { kind: 'table', table: 'guest_chapter_replies' },
+      { kind: 'fk', table: 'guest_chapter_replies', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'guest_chapter_replies', column: 'guest_id', references: 'guests' },
+      { kind: 'column', table: 'event_schedule_blocks', column: 'on_invitation' },
+      // ✉ A guest taken OFF one invitation chapter (20271302948959, owner 2026-11-02 "Invited to") — the exception; no row =
+      // invited. A row drops that guest's answer to it and the database refuses a later one.
+      { kind: 'table', table: 'guest_chapter_not_invited' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'guest_chapter_not_invited', column: 'guest_id', references: 'guests' },
+      // 🤝 The supplier's part (20271300619930): + My moment names its chapter; Seen / Confirm my times are one row per
+      // supplier org per event; Auto-agree is the event's own setting.
+      { kind: 'fk', table: 'event_schedule_suggestions', column: 'proposed_parent_block_id', references: 'event_schedule_blocks' },
+      { kind: 'table', table: 'event_supplier_schedule_marks' },
+      { kind: 'fk', table: 'event_supplier_schedule_marks', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'events', column: 'supplier_requests_auto_agree' },
+      // 📇 A task's contact (20271303218631) — a name and phone for someone who is not a supplier (the bridal-car
+      // driver). Its own table, read only by the host, the coordinator and that moment's crew.
+      { kind: 'table', table: 'event_schedule_task_contacts' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'task_id', references: 'event_schedule_tasks' },
+      { kind: 'fk', table: 'event_schedule_task_contacts', column: 'block_id', references: 'event_schedule_blocks' },
+      // 📖 A NEW event waiting for its four default chapters (20271306532960, owner 2026-11-03) — one marker per event,
+      // left by a trigger on every events INSERT, claimed once by the app seed (lib/schedule-seed.server.ts).
+      { kind: 'table', table: 'event_default_chapters_pending' },
+      { kind: 'fk', table: 'event_default_chapters_pending', column: 'event_id', references: 'events' },
+      // 🏛 The venue booking that HOLDS a chapter's hours (20271307658341) — set only by apply_venue_hours; while set the
+      // host's change to its start/end/ingress/egress is refused (they ask the venue).
+      { kind: 'fk', table: 'event_schedule_blocks', column: 'hours_vendor_id', references: 'event_vendors' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],
-    title: 'Block → suggestions · scripts',
+    title: 'Block → suggestions · scripts · tasks',
     joint: 'event_schedule_blocks',
-    cardinality: 'A tree of blocks; vendors attach suggestions and scripts to a block',
-    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts hang off a block',
-    writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER)',
+    cardinality: 'A tree of blocks (top-level = a chapter, child = a moment); vendors attach suggestions and scripts to a block; a moment holds parallel tasks',
+    implementedBy: 'parent_block_id for nesting; suggestions + vendor_block_scripts + event_schedule_tasks hang off a block; a supplier\u2019s Seen / Confirm my times / CHANGE LOCK (locked_at) in event_supplier_schedule_marks \u2014 while locked, the *_part_lock triggers refuse a host change to that supplier\u2019s moments and crew lines; guest_chapter_replies answers a chapter on the invitation; guest_chapter_not_invited takes one guest off one (default: every guest on every chapter)',
+    writtenBy: 'the run-of-show editor · advance_schedule_block (SECURITY DEFINER) · a supplier\u2019s request, applied by the host\u2019s one accept path (lib/schedule-suggestion-decide.server.ts) or at once under events.supplier_requests_auto_agree · supplier_mark_schedule (seen \u00b7 confirm \u00b7 lock \u00b7 unlock) / withdraw_schedule_request (SECURITY DEFINER)',
     guardedBy: 'a DB-enforced single-live-block invariant; six RLS policies, ~one per role',
-    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
+    traps: 'Deleting a block CASCADES INTO vendor_block_scripts \u2014 the emcee\u2019s written script for that moment is destroyed, and blocks have no soft-delete. Deleting a chapter (a top-level block) cascades through its moments into their event_schedule_tasks too (and each task\u2019s event_schedule_task_contacts row with it). event_floor_plan.cocktail_schedule_block_id merely SET NULLs, so the two behave differently. An audit scoped to the event_schedule_% prefix sees neither.',
   },
   {
     /**
@@ -3606,6 +3647,84 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'migration 20271291224109 (the backfill, into an empty table only); the admin’s Categories page Services ▾ from ③b (not built yet) — through the service role',
     guardedBy: 'RLS at CREATE TABLE — authenticated SELECT only (anon no grant; no write policy) · triggers inspiration_part_services_keep_categories + inspiration_parts_rehome_keeps_categories double-write inspiration_part_categories · tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts (old = new, the derivation, the double write, RLS, FKs) · tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts (the suggestion door reads these rows)',
     traps: 'Re-homing a part moves its HEADING, not its door: who may add a photo is these rows alone. A service added to the taxonomy reaches NO part until an admin links it. The derived categories are “every service linked” first, then a linked service’s own tile — NOT the plan’s literal “home ∪ tile_id of the services”, which would have renamed the trades of all 11 attire parts on ship day (the Filipiniana & Barongs cross-view has no tile of its own). The cross-view’s ten keys still live in inspiration_category_service_pairs() until ③0-a writes them as secondary_tiles rows.',
+  },
+  {
+    /**
+     * 👀 WHO'S HERE (owner 2026-10-29: *"which guest is viewing the event hub?"*; migration 20271295895751). The Event
+     * Hub's opens, as the event's team sees them on Home: a guest NAMED only through their own pass, everyone else a
+     * number per quarter-hour. The dashboard half (the team on it now) is Realtime presence and stores nothing.
+     *
+     * 🔑 CLAIMED AS ABSENCES: the stranger counter has no person, cookie, hash or device column — the day someone adds
+     * one this joint goes red and the privacy question gets asked again.
+     */
+    id: 'J58',
+    claims: [
+      { kind: 'table', table: 'hub_guest_views' },
+      { kind: 'table', table: 'hub_visitor_buckets' },
+      { kind: 'fk', table: 'hub_guest_views', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'hub_guest_views', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'hub_visitor_buckets', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'hub_guest_views', column: 'last_seen_at' },
+      { kind: 'column', table: 'hub_visitor_buckets', column: 'bucket_start' },
+      { kind: 'column', table: 'hub_visitor_buckets', column: 'opens' },
+      { kind: 'check', table: 'hub_visitor_buckets', name: 'hub_visitor_buckets_quarter_chk', mentions: 'bucket_start' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'guest_id' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'user_id' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'visitor' },
+      { kind: 'no_column', table: 'hub_guest_views', column: 'user_id' },
+    ],
+    chain: 3,
+    pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
+    title: 'Event ↔ Guest (who is viewing the Event Hub — Home › Who’s here)',
+    joint: 'hub_guest_views',
+    cardinality:
+      'One row per guest (their last open, moved at most once per 30 minutes) · one counter per event per quarter-hour for everyone else · both kept a day',
+    implementedBy:
+      'hub_guest_views (guest_id PK → guests CASCADE · event_id · last_seen_at) + hub_visitor_buckets (event_id · bucket_start = a 15-minute bin · opens). Read by event_hub_viewers(event, window) — SECURITY INVOKER, one call, the Home card (home-whos-here-card.tsx). The team half is the private presence channel event-team:{event_id} (event-team-presence.tsx, joined once by the event layout), authorised by event_team_presence_can_access()',
+    writtenBy:
+      'ONLY record_hub_view(event, guest) — SECURITY DEFINER, service role only — from POST /api/hub/seen, which the hub page fires once after it draws (hub-seen-beacon.tsx, once per device per 30 minutes). The guest id comes from the verified pass, never the body; the team’s own looks are dropped',
+    guardedBy:
+      'RLS at CREATE TABLE: SELECT for the team (current_couple_event_ids ∪ current_moderator_event_ids) and, for a named row, only where the caller may read that guest (the guests policies); no INSERT/UPDATE/DELETE grant to any browser role · tests/db/who-is-viewing-the-hub.db.test.ts · lib/whos-here.test.ts',
+    traps:
+      'The card’s window is the debounce (30 min), never less — a 15-minute window would drop a guest who is still looking. The beacon path is exempt from the hub cache-bust cookie (HUB_BUST_EXEMPT_PATHS); without it every open would cost that guest their cached hub. HUB_VIEWS_DISABLED=1 is the kill switch.',
+  },
+  {
+    /**
+     * 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01, DECISION_LOG "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER";
+     * migration 20271300249267). A capture — a guest's or a seat camera's — belongs to a chapter (a top-level schedule
+     * block); the host's two acts on a chapter (Start now, the card's pick) sit beside it. The window is the chapter's own
+     * start → end and who may shoot is its own photo_who — no second copy of either.
+     */
+    id: 'J60',
+    claims: [
+      { kind: 'table', table: 'papic_chapter_captures' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'guest_capture_id', references: 'papic_guest_captures' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'seat_photo_id', references: 'papic_photos' },
+      { kind: 'fk', table: 'papic_chapter_captures', column: 'event_id', references: 'events' },
+      { kind: 'check', table: 'papic_chapter_captures', name: 'papic_chapter_captures_one_capture', mentions: 'seat_photo_id' },
+      { kind: 'table', table: 'papic_chapter_windows' },
+      { kind: 'fk', table: 'papic_chapter_windows', column: 'block_id', references: 'event_schedule_blocks' },
+      { kind: 'column', table: 'papic_chapter_windows', column: 'opened_early_at' },
+      { kind: 'column', table: 'papic_chapter_windows', column: 'picked' },
+      // One fact, one column: who may shoot is the chapter's own photo rule, and its window its own times.
+      { kind: 'column', table: 'event_schedule_blocks', column: 'photo_who' },
+      { kind: 'no_column', table: 'papic_chapter_windows', column: 'photo_who' },
+      { kind: 'no_column', table: 'papic_chapter_windows', column: 'start_at' },
+    ],
+    chain: 21,
+    pair: ['TYPE-PAPIC', 'TYPE-RUNOFSHOW'],
+    title: 'Papic capture → Chapter (the chapter Papic shoots into)',
+    joint: 'papic_chapter_captures',
+    cardinality: 'A capture may sit in more than one chapter (how = added, Memories — Step 7); one picked chapter per event',
+    implementedBy:
+      'papic_chapter_captures (block_id → event_schedule_blocks CASCADE · guest_capture_id → papic_guest_captures CASCADE · seat_photo_id → papic_photos CASCADE, exactly one) + papic_chapter_windows (block_id PK · opened_early_at · picked). Read by papic_event_chapters(event) — SECURITY INVOKER, one call — for the Home card (papic-chapter-row.tsx) and the cameras (papicCameraChapter)',
+    writtenBy:
+      'Links: ONLY the capture lanes, on the service role — /api/papic/guest-capture (record) and recordSeatCapture — after papic_chapter_capture_refusal said yes at the shutter. Windows: the couple, from the card (studio/papic/chapter-actions.ts)',
+    guardedBy:
+      'A BEFORE trigger re-asks papic_chapter_capture_refusal for every captured link (the window, judged by the capture’s own captured_at, and the chapter’s photo_who); no INSERT grant on the links to any browser role; windows written by the couple only (RLS) · tests/db/papic-shoots-into-a-chapter.db.test.ts · lib/papic-chapter.test.ts',
+    traps:
+      'Deleting a CHAPTER deletes its links, never a photo — they fall back to Unsorted (ruled 1 Nov). A refused chapter never loses a shot when the camera was open anyway: it lands event-wide (papicChapterCaptureDecision). Not yet: the photo-URL membership check, Memories by chapter, and the moment-delete count (Step 7).',
   },
 ];
 

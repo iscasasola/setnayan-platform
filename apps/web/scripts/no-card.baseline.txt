@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 640 files · 1736 lines
+# 640 files · 1734 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -340,7 +340,6 @@
 4 apps/web/app/dashboard/[eventId]/paperwork/page.tsx
 1 apps/web/app/dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx
 1 apps/web/app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
-3 apps/web/app/dashboard/[eventId]/schedule/_components/journey-view.tsx
 1 apps/web/app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx
 3 apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx
 2 apps/web/app/dashboard/[eventId]/schedule/_components/ros-p2.tsx
@@ -445,7 +444,6 @@
 1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx
-1 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/claim-link-share.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
 9 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx
@@ -457,7 +455,7 @@
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx
-28 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
+25 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
 8 apps/web/app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/_components/website-pro-lock.tsx
@@ -471,6 +469,7 @@
 2 apps/web/app/dashboard/[eventId]/website/privacy/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/stories/page.tsx
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
+1 apps/web/app/dev/avatar-sheet-lab/sheet-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
 1 apps/web/app/download/page.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx

@@ -31,6 +31,8 @@ const WEB = join(__dirname, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const ACTIONS = 'app/dashboard/[eventId]/schedule/actions.ts';
+// The one accept path moved to lib in Step 4b (2026-11-02) so Auto-agree runs the same code as Approve.
+const DECIDE = 'lib/schedule-suggestion-decide.server.ts';
 const FLOOR = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
@@ -66,7 +68,8 @@ function blockUpdates(src: string): { stmt: string; after: string }[] {
 const WRITERS: [file: string, fn: string][] = [
   [ACTIONS, 'bulkRetimeScheduleBlocks'],
   [ACTIONS, 'setBlockResponsibleParty'],
-  [ACTIONS, 'resolveScheduleSuggestion'],
+  // One Approve and Approve all share one accept path (2026-11-01) — the write lives there.
+  [DECIDE, 'decideSuggestion'],
   [FLOOR, 'floorRetimeFrom'],
 ];
 
@@ -118,9 +121,13 @@ test('⓹ a change in words only is said as one — on the sheet and in the supp
   assert.equal(isNoteOnlySuggestion({ ...words, kind: 'remove' }), false);
 
   const requests = body(read(SHEETS), 'RequestsSheet');
-  assert.equal(requests.match(/isNoteOnlySuggestion\(r\)/g)?.length ?? 0, 2, 'the Asked line and the footnote must both tell a note from a change');
-  const resolve = body(read(ACTIONS), 'resolveScheduleSuggestion');
-  assert.match(resolve, /isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
+  // The Asked line, the footnote and the buttons (Noted, no Decline) all tell a note from a change.
+  assert.ok((requests.match(/isNoteOnlySuggestion\(r\)/g)?.length ?? 0) >= 2, 'the Asked line and the footnote must both tell a note from a change');
+  assert.match(requests, /'a note only'/, 'the Asked line no longer says a note is a note');
+  assert.match(requests, /Nothing on the schedule moves/, 'the footnote no longer says a note moves nothing');
+  // The one accept path (Approve and Approve all both go through it) tells a note from a change in the notice.
+  const resolve = body(read(DECIDE), 'decideSuggestion');
+  assert.match(resolve, /body: accepted[\s\S]*?isNoteOnlySuggestion\(suggestion\)/, 'the supplier is told their note moved the schedule');
 });
 
 test('⓺ a template on a schedule that is no longer empty redraws the page instead of doing nothing', () => {

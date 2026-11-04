@@ -30,14 +30,13 @@ import { createPortal } from 'react-dom';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { STAGE_EDIT_ROW_FIT } from './stage-panel/stage-edit';
 import type { ReactNode } from 'react';
-import type { RsvpAskConfig, RsvpAskField } from '@/lib/rsvp-ask';
+import { rsvpAsksFace, rsvpAsksPick, type RsvpAskConfig, type RsvpAskField } from '@/lib/rsvp-ask';
 import type { GuestsGetIn as GetInValue } from '@/lib/who-can-reply';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 /* The SAME parts Guests › Setup and Studio › RSVP mount (`setup-and-maker-mount-the-same-parts.test.ts`) — never a copy. */
 import { GuestsGetIn, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
 import type { RsvpAsksFrame } from '../../_components/guest-setup/rsvp-asks';
-import { formatCount } from '@/lib/format-number';
 import { StageAnimate } from './stage-panel/stage-animate';
 
 /**
@@ -160,10 +159,8 @@ export function RsvpPictureLookRows({ line, now, onPick }: { line: RsvpAddedName
 
 /* ── ⚙ EDIT, THE FORM'S CARD ───────────────────────────────────────────────────────────────────────────────────── */
 
-/** What the asks' dropdown reads while shut: how many of the six are on. */
-export function rsvpAsksFace(on: number, of: number): string {
-  return on === 0 ? 'None' : `${formatCount(on)} of ${formatCount(of)} on`;
-}
+/** What the asks' dropdown reads while shut — written once, for every door (`lib/rsvp-ask.ts`). */
+export { rsvpAsksFace };
 /** 🎟 How guests get in → row 3: the toolbar's label-inside dropdown (`Dd` stacked), the part's own choices and writer. */
 export const rsvpGetInDd = (row: GuestsGetInFrame) => (
   <Dd stacked small={row.name} label={row.name} data="rsvp-get-in" value={row.value} options={row.options} buttonText={row.buttonText} onPick={row.onPick} />
@@ -179,10 +176,7 @@ export const rsvpAsksDd = (row: RsvpAsksFrame) => (
     picked={row.on}
     options={row.asks}
     buttonText={rsvpAsksFace(row.on.length, row.asks.length)}
-    onPick={(key) => {
-      const field = row.asks.find((a) => a.key === key)?.key;
-      if (field) row.onToggle(field, !row.on.includes(field));
-    }}
+    onPick={rsvpAsksPick(row)}
   />
 );
 

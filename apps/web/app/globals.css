@@ -668,96 +668,6 @@
 }
 
 /*
- * Journey view (event-lifecycle arc, /schedule ?view=journey) — entrance
- * choreography. Pure CSS so the Journey mode stays a server component. Every
- * animation here is frozen to instant by the global prefers-reduced-motion
- * block above, so reduced-motion users still get the fully-rendered page (no
- * JS gate). Stagger is driven by an inline `--journey-delay` custom property
- * the component sets per element, so the arc → phase headers → rows cascade in
- * top-to-bottom.
- *
- *   .journey-rise      — fade + lift for the arc, phase headers, and each row
- *   .journey-rail-fill — the progress bar grows left→right once on mount
- *   .journey-today     — the "you are here" marker pops in, then breathes
- *   .journey-node-pop  — milestone nodes scale-in (uses the `scale` PROPERTY so
- *                        it composes with the node's left/top positioning)
- */
-@keyframes journey-rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.journey-rise {
-  animation: journey-rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--journey-delay, 0ms);
-}
-
-@keyframes journey-rail-grow {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-.journey-rail-fill {
-  transform-origin: left center;
-  animation: journey-rail-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: 160ms;
-}
-
-@keyframes journey-today-in {
-  from {
-    opacity: 0;
-    scale: 0.3;
-  }
-  to {
-    opacity: 1;
-    scale: 1;
-  }
-}
-@keyframes journey-beacon {
-  0%,
-  100% {
-    scale: 1;
-    box-shadow: 0 0 0 0 rgb(var(--color-mulberry) / 0.4);
-  }
-  50% {
-    scale: 1.14;
-    box-shadow: 0 0 0 5px rgb(var(--color-mulberry) / 0);
-  }
-}
-.journey-today {
-  animation:
-    journey-today-in 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both 900ms,
-    journey-beacon 2.6s ease-in-out infinite 1500ms;
-}
-
-@keyframes journey-node-pop {
-  0% {
-    opacity: 0;
-    scale: 0.2;
-  }
-  70% {
-    opacity: 1;
-    scale: 1.18;
-  }
-  100% {
-    opacity: 1;
-    scale: 1;
-  }
-}
-.journey-node-pop {
-  animation: journey-node-pop 440ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  animation-delay: var(--journey-delay, 0ms);
-}
-
-/*
  * ⚓ THE PAGE CLEARS THE ANCHORED DOCK (2026-09-25).
  *
  * The phone's bottom chrome is ONE anchored box now — <BottomDock> in
@@ -6087,6 +5997,11 @@ div:has(> [data-apply-pro-sheet]),
   z-index: var(--sn-z-pop);
   width: max-content;
   max-width: min(18rem, calc(100vw - 32px));
+  /* The bubble wraps in its own width, whatever its trigger does. A tip inside a `whitespace-nowrap` heading (the
+     Categories map's column heads) inherited `nowrap`: its text ran one 1,300-px line out of the 18rem box — off
+     screen when open, and while CLOSED (hidden, still laid out) it widened the page to 1,856 px at 1,280.
+     🔒 lib/a-tip-wraps-in-its-own-width.test.ts */
+  white-space: normal;
   padding-top: 8px;
   opacity: 0;
   visibility: hidden;
@@ -8085,6 +8000,48 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-today-arrow svg { width: 16px; height: 16px; }
 .hc-today.hc-calm :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-ok)); }
 .hc-today.hc-calm .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent); }
+/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — prototype `.ecard`): the countdown and NOW ride
+   the cover band. Every colour is the band's own ink (currentColor), so a paper, image or colour ground all read. */
+.hc-ecard-cd { display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; margin-top: 6px; color: inherit; text-decoration: none; }
+.hc-ecard-n { font-family: Georgia, "Times New Roman", serif; font-size: 56px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-ecard-n.hc-ecard-word { font-size: 34px; }
+.hc-ecard-w { min-width: 0; font-size: 14px; }
+.hc-ecard-d { display: block; margin-top: 2px; font-size: 12px; opacity: 0.8; }
+.hc-now { display: flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 10px; padding: 4px 4px 4px 14px; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 18%, transparent); text-align: left; }
+.hc-now-k { flex: none; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.85; }
+.hc-now-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.hc-now-w { font-weight: 400; opacity: 0.8; }
+.hc-now > :last-child:not(.hc-now-t) { flex: none; }
+.hc-now.hc-calm { padding-right: 14px; }
+/* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
+   the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
+.hc-ecard-plain { background: linear-gradient(180deg, #201d1b 0%, #3a3230 100%); color: #f6efe7; }
+html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
+.hc-ecard-plain .hc-ecard-name { color: #e7c9b6; }
+.hc-ecard-plain .hc-now-k { color: #f0b490; opacity: 1; }
+.hc-now.hc-today-later { gap: 8px; font-size: 13px; }
+/* The section heading with its quiet note at the right (prototype `.k2`) — `home-k2`'s words, laid out in a row. */
+.hc-k2 { display: flex; align-items: center; gap: 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); margin: 6px 0 -4px; }
+.hc-k2 em { margin-left: auto; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.hc-k2-name { font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+/* ✅ Home's one To do (prototype `.nx` · `.todoline`): rows on the page, a hairline between, the plan's own tick. */
+.hc-todo { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.hc-todo-row { display: flex; align-items: center; gap: 6px; min-height: 48px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-todo-row:first-child { border-top: 0; }
+.hc-todo-dot { width: 36px; display: grid; place-items: center; flex: none; }
+.hc-todo-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: color-mix(in srgb, rgb(var(--color-ink)) 30%, transparent); }
+.hc-todo-words { flex: 1; min-width: 0; padding: 6px 0; color: inherit; text-decoration: none; }
+.hc-todo-k { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 14.5px; font-weight: 500; }
+.hc-todo-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-todo-v.hc-todo-late { color: rgb(var(--color-danger)); }
+.hc-todoline { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 4px 0 2px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 70%, transparent); text-decoration: none; }
+.hc-todoline b { color: rgb(var(--color-ink)); font-weight: 600; }
+.hc-todoline-chev, .hc-memline-chev { margin-left: auto; width: 18px; height: 18px; flex: none; color: rgb(var(--color-mulberry)); }
+/* ✨ Memories — one slim line of its own (prototype `.memline`). */
+.hc-memline { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 6px 0; color: inherit; text-decoration: none; }
+.hc-memline-mark { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--sn-gold-100); color: var(--sn-gold-800, rgb(var(--color-ink))); }
+.hc-memline-k { display: block; font-size: 14.5px; font-weight: 500; }
+.hc-memline-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hc-today-later { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (min-width: 768px) {
   .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
@@ -8212,6 +8169,39 @@ html.dark .hc-tiny.hc-tiny-main { color: #161513; }
 /* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
 [data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 .hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+/* 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, DECISION_LOG "EVENT HOME: FRAMES ONLY WHERE YOU ACT"; approved
+ * prototype `home_frames_where_you_act_2026-11-01/`): a heading plus plain tiles sits on the page, unframed (Safari's
+ * Favorites); only a block you act on is a card (Schedule · Budget · Papic). `hc-plain` takes the frame off any Home
+ * widget — the list of which is framed lives in `HOME_FRAMED_WIDGETS` (home-control-faces.ts), never here.
+ * Producers: home-tile.tsx, home-control-row.tsx, home-prints-line.tsx, home-whos-here-card.tsx, home-first-screen.tsx. */
+.hc-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Both selectors: the dark card fill (`html.dark :is(.hc-today, .hc-tile)`, 0-2-1) outranks a bare 0-2-0. */
+:is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain, html.dark :is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.hc-tile.hc-plain { padding-top: 6px; padding-bottom: 4px; }
+.hc-tile.hc-plain.hc-count { padding: 14px 8px 6px; }
+.hc-tile.hc-plain .hc-chip { right: 0; top: 5px; }
+.hc-tile.hc-plain :is(.hc-acts, .hc-side) { right: 0; bottom: 6px; }
+.hc-glance { gap: 10px 14px; }
+.hc-glance > .hc-tile { min-height: 96px; }
+.hc-rule { height: 1px; margin: 4px 0; border: 0; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-ruled { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); padding-top: 4px; }
+/* Your services — plain rows with dividers; the row's own control (a switch, a door) is its frame. */
+.home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.home-svc.hc-plain-list > *:not(:first-child) { border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.home-svc.hc-plain-list :is(.sg-row, .home-tile, .hc-tile, .home-card) { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+.home-svc.hc-plain-list .hc-tiny-slot { right: 0; }
+@media (min-width: 768px) { .home-svc.hc-plain-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; } .home-svc.hc-plain-list > :nth-child(2) { border-top: 0; } }
+/* A section on the page: its small heading, then its content (Who's here). */
+.hc-sect-h { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+/* 📅 THE SCHEDULE CARD (plan §5): a kicker over up to three lines a face, then the doors the owner kept. */
+.hc-sched .hc-faces { margin-top: 2px; }
+.hc-kick { display: block; padding: 4px 0 2px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-line { display: block; min-height: 44px; padding: 7px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-kick + .hc-line { border-top: 0; }
+.hc-line-k { display: block; font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-line-v { display: block; font-size: 12.5px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-sdoors { position: relative; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-sdoors .ab { height: 36px; min-height: 36px; font-size: 13px; }
 @media (prefers-reduced-motion: reduce) {
   /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
   .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }
@@ -10496,6 +10486,12 @@ html.dark .sn-acc-head[data-open] {
   }
 }
 
+/* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";
+   `app/_components/global-clear-field.tsx`). While the app-wide ✕ stands inside a box, the box gives it room at its end
+   (`--sn-clear-room`, never less than the box's own padding) and the browser's own search ✕ steps aside — never two. */
+input[data-clearing] { padding-right: var(--sn-clear-room) !important; }
+input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -10642,3 +10638,4 @@ html.dark .sn-acc-head[data-open] {
     animation-range: normal;
   }
 }
+

@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { marketplaceTenureLine } from '@/lib/marketplace-tenure';
+import { onSetnayanSinceLine } from '@/lib/in-business-since';
+import { eventsByKind } from '@/lib/shop-events-by-kind';
+import { ShopSinceLine } from './_components/shop-since-line';
+import { CheckADateLink } from './_components/check-a-date-link';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -88,6 +91,8 @@ import { VenueMatchedEvents } from './_components/venue-matched-events';
 import { resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
+import { BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import type {
   VendorPackageItemOptionRow,
   VendorPackageItemRow,
@@ -334,6 +339,8 @@ export type PublicVendorRow = {
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
   user_id?: string | null;
+  /** 🏪 Show my page before verification (migration 20271303245624). Absent on the legacy select. */
+  self_published_at?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -443,7 +450,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -454,7 +461,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at)/i.test(
       error.message,
     )
   ) {
@@ -498,7 +505,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // A page a stranger cannot open (lib/own-shop-preview.ts — not live, a demo shop, closed) gets the generic title
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
-  if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false }).open !== 'public') {
+  if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
     return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
@@ -890,11 +897,13 @@ export async function renderVendorBySlug({
   // The membership read runs ONLY when the page is not public, so a stranger's view costs no extra query.
   const isDemoVendor = vendor.is_demo === true;
   const inDemoMode = await isAdminInDemoMode();
-  const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode });
+  // 🏪 While bookings are closed a shop that chose Show my page opens before it is verified (`selfPublishedLive`).
+  const gateBookingsOpen = await areBookingsOpen();
+  const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   const gate =
     publicGate.open === 'public'
       ? publicGate
-      : shopPageGate(vendor, { isTeam: await viewerIsShopTeam(vendor), adminDemoMode: inDemoMode });
+      : shopPageGate(vendor, { isTeam: await viewerIsShopTeam(vendor), adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   if (gate.open === 'nobody') notFound();
   /** Non-null = the owner or a helper is looking at a page couples cannot see yet; the banner says why. */
   const teamPreview = gate.open === 'team' ? gate.reason : null;
@@ -1078,12 +1087,18 @@ export async function renderVendorBySlug({
      probe below: that is flag-gated, and a line hidden behind a switch whose
      production value nobody can read is how a feature ships dark. `created_at`
      arrives with the page's own select, so this costs no extra query. */
-  const marketplaceSince = marketplaceTenureLine(
-    (vendor as { created_at?: string | null }).created_at ?? null,
-    new Date().toISOString(),
-  );
+  /* 🗓 "On Setnayan since Oct 2026" (owner 2026-10-29 "Since is two lines"; supplier website by plan 2026-10-30) —
+     the one phrasing `lib/in-business-since.ts` owns, the same words Your details shows the shop. It replaces the
+     older "On the marketplace since …" sentence on this page and keeps that line's two rules: ungated, and an
+     unreadable stamp says nothing rather than a date. */
+  const onSetnayanSince = onSetnayanSinceLine((vendor as { created_at?: string | null }).created_at ?? null);
 
-  let declaredExp: { years: number | null; weddings: number | null; verified: boolean } | null = null;
+  let declaredExp: {
+    years: number | null;
+    sinceYear: number | null;
+    weddings: number | null;
+    verified: boolean;
+  } | null = null;
   if (vendorExperienceEnabled()) {
     // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
     // pre-migration database answering 42703 (undefined column) degrades instead of
@@ -1113,10 +1128,15 @@ export async function renderVendorBySlug({
     const e = exp as
       | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
       | null;
-    const years = yearsInBusiness(e?.in_business_since_year ?? null, new Date().getFullYear());
+    const nowYear = new Date().getFullYear();
+    const years = yearsInBusiness(e?.in_business_since_year ?? null, nowYear);
+    const rawSince = e?.in_business_since_year ?? null;
+    // The year itself for "In business since 2019" — never a future or pre-1900 year (the yearsInBusiness bounds);
+    // a first-year shop keeps its year ("since 2026") even though it has no "N yrs" to show.
+    const sinceYear = rawSince != null && rawSince >= 1900 && rawSince <= nowYear ? rawSince : null;
     const weddings = e?.weddings_done_approx ?? null;
-    if (years != null || weddings != null) {
-      declaredExp = { years, weddings, verified: !!e?.experience_verified_at };
+    if (years != null || sinceYear != null || weddings != null) {
+      declaredExp = { years, sinceYear, weddings, verified: !!e?.experience_verified_at };
     }
   }
 
@@ -1191,6 +1211,14 @@ export async function renderVendorBySlug({
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
   const eventTypeLabelByKey = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  // "N events ›" + its by-kind sheet (owner 2026-10-30, item 114) — the Track record's OWN rows (receipt-backed, per
+  // kind) plus the shop's own wedding count. No new read: both already arrived above. 60 = that read's limit.
+  const shopEventsByKind = eventsByKind({
+    completed: completedEvents,
+    completedCapped: completedEvents.length >= 60,
+    declaredWeddings: declaredExp?.weddings ?? null,
+    labelFor: (key) => eventTypeLabelByKey.get(key) ?? formatEventTypeLabel(key || null),
+  });
   const servesByService = new Map<string, string>();
   for (const s of activeServices) {
     if (s.coverage_id === null) continue;
@@ -1299,7 +1327,9 @@ export async function renderVendorBySlug({
   // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
   // links already handed out); routing keeps resolving it.
   const viewerTierCaps = tierCaps(effectiveTierState);
-  const premiumLayout = viewerTierCaps.customWebsiteName;
+  // Pro page parts read `premiumPage` (Pro+). Until 2026-11-04 they rode `customWebsiteName`, which then moved down to
+  // Solo (owner, "website applies to solo as well") — the address moved, the Pro page did not.
+  const premiumLayout = viewerTierCaps.premiumPage;
   // 💳 The CONTENT a supplier picks in the My Shop editor renders when the
   // editor let them save it — the one flag-aware question
   // (lib/vendor-feature-gate.ts). While VENDOR_TIER_FEATURE_GATE is off every
@@ -1366,10 +1396,10 @@ export async function renderVendorBySlug({
     tier: effectiveTierState,
     declaredOuterKm: vendor.outer_radius_km ?? null,
   });
-  // Pro+ — their own web address pointing at this page (approved Q4 = A). Read only when the plan shows it; a refused
-  // read shows the Setnayan address alone, which is still true.
+  // Solo+ — their own web address pointing at this page (approved Q4 = A; Solo since owner 2026-11-04). Read only when
+  // the plan shows it (`customWebsiteName`); a refused read shows the Setnayan address alone, which is still true.
   let ownAddress: string | null = null;
-  if (premiumLayout) {
+  if (viewerTierCaps.customWebsiteName) {
     const { data: domainRow, error: domainError } = await admin
       .from('custom_domains')
       .select('domain, verified_at')
@@ -1820,6 +1850,9 @@ export async function renderVendorBySlug({
   // is omitted: the couple can still inquire through the page's own composer,
   // and nothing is mis-filed. Revisit if packages ever gain their own interest
   // kind.
+  // 🚪 BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`): every package still shows its price and
+  // inclusions; only the Book button gives way to a quiet "Bookings open soon". Inquiries stay open.
+  const bookingsOpen = vendorPackages.length > 0 ? await areBookingsOpen() : true;
   const packageAskTargets = new Map<string, PackageAskTarget>();
   if (detailsEnabled && bookable && coupleEventId) {
     for (const pkg of vendorPackages) {
@@ -2492,43 +2525,21 @@ export async function renderVendorBySlug({
                 <span>saved</span>
               </p>
             ) : null}
-            {declaredExp ? (
-              <p
-                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={
-                  declaredExp.verified
-                    ? 'Years in business verified against the supplier’s DTI registration.'
-                    : 'Self-reported by the supplier.'
-                }
-              >
-                {declaredExp.years != null ? <span className="font-medium text-ink">{declaredExp.years} yrs in business</span> : null}
-                {declaredExp.years != null && declaredExp.weddings != null ? <span aria-hidden>·</span> : null}
-                {declaredExp.weddings != null ? <span>{declaredExp.weddings}+ weddings</span> : null}
-                {declaredExp.verified ? (
-                  <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
-                ) : (
-                  <span className="text-ink/40">· self-reported</span>
-                )}
-              </p>
-            ) : null}
             {/*
-              ON THE MARKETPLACE SINCE — platform tenure, which is NOT the same claim
-              as the experience pill above it.
-
-              ⚠ THE LABEL CARRIES THE DISTINCTION. `in_business_since_year` is the
-              credential; `created_at` is only how long they have been here. A bare
-              "Since September 2026" beside "11 yrs in business" would read as a
-              founding date and actively mislead — which is why
-              lib/marketplace-tenure.ts returns a labelled sentence, not a date.
-
-              ⚠ AND IT IS NEVER HIDDEN TO FLATTER A NEW SHOP. Suppressing it would
-              make its presence a badge and its absence a tell. This page already
-              takes that position out loud: "we render the tier even for 'New to
-              Setnayan' (honest, not negative)."
+              🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
+              120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
+              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified or
+              "self-reported"; the declared count inside the events sheet). The two tenures stay told apart by their
+              words — "In business since" is the credential, "On Setnayan since" is only how long they have been here —
+              and the joined-here half is NEVER hidden to flatter a new shop: its absence would be a tell.
             */}
-            {marketplaceSince ? (
-              <p className="text-[11px] text-ink/55">{marketplaceSince}</p>
-            ) : null}
+            <ShopSinceLine
+              sinceYear={declaredExp?.sinceYear ?? null}
+              sinceVerified={declaredExp?.verified ?? false}
+              events={shopEventsByKind}
+              onSetnayanSince={onSetnayanSince}
+              shopName={displayLabel}
+            />
             {/* "Featured in N stories →" — Fable E2 (spec § 3.5). A POINTER to
                 the "Featured in these stories" section further down that ALREADY
                 SHIPS; it builds nothing new. The gate below is byte-identical to
@@ -2639,6 +2650,13 @@ export async function renderVendorBySlug({
                   </a>
                 )}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
+                {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
+                    approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
+                    Available · Not bookable, nothing about other couples' asks. Same `bookable` gate as Inquire. */}
+                <CheckADateLink
+                  href={`/v/${vendor.business_slug ?? slug}/dates`}
+                  className="button-secondary inline-flex items-center gap-2"
+                />
                 {canShowBooth ? (
                   <Link
                     href={`/v/${vendor.business_slug ?? slug}/booth`}
@@ -2701,7 +2719,7 @@ export async function renderVendorBySlug({
                 </ul>
               </div>
             ) : null}
-            {/* 🌐 The page's addresses — Setnayan's on every plan; Pro + Ultra also their own domain → this page. */}
+            {/* 🌐 The page's addresses — Setnayan's on every plan; Solo, Pro + Ultra also their own domain → this page. */}
             <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} />
             {/* ⭐ Pro + Ultra — the pinned best review's first words, beside the facts. */}
             {pinnedLead && pinnedLeadQuote ? (
@@ -3115,6 +3133,7 @@ export async function renderVendorBySlug({
             packages={vendorPackages}
             coupleEventId={coupleEventId}
             isComingSoon={isComingSoon}
+            bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
             /* Flag-dark secondary action: send the configured build to the
@@ -3433,15 +3452,22 @@ export async function renderVendorBySlug({
             `/admin/user-reports` now names this target type, and
             `a-couple-can-report-a-shop.test.ts` asserts the filing path and the
             desk together.
+
+            🔴 A <div>, NEVER A <p>. `ReportPageButton`'s root is a <div> (and its
+            sheet is more <div>s and an <h2>). Inside a <p> the browser's parser
+            closes the <p> early, so the server HTML no longer matches the tree
+            React hydrates — React error #418 on EVERY load of every shop page,
+            light and dark (live walk 2026-11-01, /setnaprod and /v/setnaprod).
+            Held by `no-block-inside-a-paragraph.test.ts`.
           */}
-          <p className="pt-1">
+          <div className="pt-1">
             <ReportPageButton
               targetType="vendor"
               targetId={vendor.vendor_profile_id}
               label="Report this shop"
               className="inline-flex min-h-[44px] items-center text-ink/45 hover:text-ink/70"
             />
-          </p>
+          </div>
         </footer>
       </article>
     </main>
@@ -4359,6 +4385,7 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  bookingsOpen,
   hidePrices,
   paxCount,
   askTargets,
@@ -4366,6 +4393,8 @@ function VendorPackagesSection({
   packages: ReadonlyArray<VendorPackageWithItems>;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
+  bookingsOpen: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
   hidePrices: boolean;
   /** Server-resolved head count, so a per-head upgrade quotes at what it charges. */
@@ -4392,7 +4421,9 @@ function VendorPackagesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         {packages.map((pkg) => {
           let cta: React.ReactNode = null;
-          if (isComingSoon) {
+          if (!bookingsOpen) {
+            cta = <p className="text-xs text-ink/55">{BOOKINGS_OPEN_SOON}</p>;
+          } else if (isComingSoon) {
             cta = (
               <p className="text-xs text-ink/55">
                 Not yet bookable — this supplier is finishing verification.

@@ -136,6 +136,7 @@ import type {
 } from './types';
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
+import { readInvitationChapters } from '@/lib/invitation-chapters.server';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -1193,6 +1194,8 @@ export const loadLiveLayer = cache(
     const beforeTheDay = dayOfPhase === 'pre' || dayOfPhase === 'inactive';
     const draftedBackdrop = event as { rsvp_backdrop?: unknown };
     const scheduleAhead = startAhead(readPublicSchedule(admin, event.event_id));
+    /* ✉ The invitation's chapters (Step 5) — beside the schedule, one indexed read, cached with the page's own reads. */
+    const chaptersAhead = startAhead(readInvitationChapters(admin, event.event_id));
     const backdropAhead =
       beforeTheDay && !('rsvp_backdrop' in draftedBackdrop) ? startAhead(readStoredBackdrop(admin, event.event_id)) : null;
     const watchAhead = startAhead(readWatchLive(admin, event));
@@ -1200,6 +1203,7 @@ export const loadLiveLayer = cache(
     const albumDoorAhead = dayOfPhase === 'live' ? null : startAhead(resolveAlbumDoor(event));
 
     const scheduleBlocks = await scheduleAhead;
+    const invitationChapters = await chaptersAhead;
 
 
     // Spatial backdrop (Wedding_Website_Effects_and_Editing_Spec_2026-06-11
@@ -1309,6 +1313,7 @@ export const loadLiveLayer = cache(
 
     return {
       scheduleBlocks,
+      invitationChapters,
       backdropConfig,
       liveWall,
       liveWallUnreadable,

@@ -20,7 +20,18 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
-import { hubDayWords, hubHref, hubMenuGroup, hubRoleWords, type HubEvent, type HubSegment } from '@/lib/hub-events';
+import { HUB_SEGMENTS, HUB_SEGMENT_LABEL, hubDayWords, hubHref, hubMenuGroup, hubRoleWords, type HubEvent, type HubSegment } from '@/lib/hub-events';
+
+/** A view's key in the one list — never an event id. */
+const VIEW = 'view:';
+/** The view's word on the face (the list says it in full: "The event's pages"). */
+const HUB_SEGMENT_FACE: Readonly<Record<HubSegment, string>> = { setup: 'Set up', crew: 'Crew', pages: 'Pages' };
+/** The one short line under each view in the list (prototype `renderHub`'s own words). */
+const HUB_SEGMENT_HINT: Readonly<Record<HubSegment, string>> = {
+  setup: 'This event’s tools and run of show',
+  crew: 'Phones on the day · the crew QR',
+  pages: 'Guests · seats · schedule — the hosts’ own',
+};
 
 /** Past this many events the open list gets its search row (the prototype's "Find an event"). */
 const SEARCH_FROM = 8;
@@ -34,9 +45,12 @@ export function HubEventMenu({
   seg,
   today,
   info = null,
+  gear = null,
 }: {
   /** ⓘ The event's details, beside the ▾ (`HubEventInfo`). */
   info?: ReactNode;
+  /** ⚙ The Hub's ⚙ (`HubSettings`) — the row's right end, after the ⓘ (prototype `renderViewrow`: "Hub ▾ · ⓘ · ⚙"). */
+  gear?: ReactNode;
   events: readonly HubEvent[];
   selectedId: string | null;
   seg: HubSegment;
@@ -49,6 +63,7 @@ export function HubEventMenu({
   const [finding, setFinding] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   const slot = usePinLeadSlot();
+  const tools = usePinToolsSlot();
   useEffect(() => {
     const onFind = (ev: Event) => {
       const words = (ev as CustomEvent<string>).detail ?? '';
@@ -63,26 +78,37 @@ export function HubEventMenu({
   }, []);
   const selected = events.find((e) => e.eventId === selectedId) ?? null;
 
+  // 🎛 ONE SELECTOR (owner 2026-10-30 "all yes", DECISION_LOG "ONE SELECTOR FOR EVERY PAGE", Q1 — the segmented rows
+  // become the same `Page · View ▾`): the Hub's three views — Set up · Crew · The event's pages — lead this ONE list
+  // (group "Show"), then the events. Was a sliding segmented pill under the row. A search narrows the events only.
   const options = useMemo<PickOption[]>(() => {
     const needle = q.trim().toLowerCase();
-    return events
-      .filter((e) => !needle || `${e.name} ${hubDayWords(e.date, true) ?? ''}`.toLowerCase().includes(needle))
-      .map((e) => ({
-        key: e.eventId,
-        label: e.name,
-        group: hubMenuGroup(e, today),
-        hint: [hubDayWords(e.date) ?? 'Date not set yet', hubRoleWords(e)].join(' · '),
-      }));
+    const views: PickOption[] = needle
+      ? []
+      : HUB_SEGMENTS.map((s) => ({ key: `${VIEW}${s}`, label: HUB_SEGMENT_LABEL[s], group: 'Show', hint: HUB_SEGMENT_HINT[s] }));
+    return [
+      ...views,
+      ...events
+        .filter((e) => !needle || `${e.name} ${hubDayWords(e.date, true) ?? ''}`.toLowerCase().includes(needle))
+        .map((e) => ({
+          key: e.eventId,
+          label: e.name,
+          group: hubMenuGroup(e, today),
+          hint: [hubDayWords(e.date) ?? 'Date not set yet', hubRoleWords(e)].join(' · '),
+        })),
+    ];
   }, [events, q, today]);
 
   if (events.length === 0) return null;
-  const face = selected ? `Hub · ${selected.name}${selected.date ? ` · ${hubDayWords(selected.date)}` : ''}` : 'Hub';
+  // `Hub · <view> · <event>` — the page word never truncates; the event's name gives first (the date is in the ⓘ).
+  const face = selected ? `Hub · ${HUB_SEGMENT_FACE[seg]} · ${selected.name}` : `Hub · ${HUB_SEGMENT_FACE[seg]}`;
   const menu = (
     <span ref={box} className="flex min-w-0 items-center gap-1" data-hub-event-menu="" data-tour="hub-next-days">
       <span className="min-w-0 flex-1">
       <PickMenu
         label="Which event the Hub sets up"
         value={selectedId}
+        picked={[`${VIEW}${seg}`, ...(selectedId ? [selectedId] : [])]}
         buttonText={face}
         options={options}
         compact
@@ -105,11 +131,17 @@ export function HubEventMenu({
         onPick={(k) => {
           setQ('');
           setFinding(false);
-          if (k !== selectedId) router.push(hubHref(k, seg), { scroll: false });
+          if (k.startsWith(VIEW)) {
+            const next = k.slice(VIEW.length) as HubSegment;
+            if (next !== seg) router.push(hubHref(selectedId, next), { scroll: false });
+          } else if (k !== selectedId) router.push(hubHref(k, seg), { scroll: false });
         }}
       />
       </span>
       {info}
+      {/* ⚙ The row's right end: from 701 the bar's right side (`[data-pin-tools]`, after the thumb row's tools) — the house
+          contract "LEFT one menu, RIGHT action rounds" — and on a phone the end of this row. One instance either way. */}
+      {tools ? createPortal(<span className="order-last inline-flex" data-hub-gear-up="">{gear}</span>, tools) : gear}
     </span>
   );
   return slot ? createPortal(menu, slot) : <div className="pb-2" data-hub-menu-row="">{menu}</div>;
@@ -117,6 +149,20 @@ export function HubEventMenu({
 
 /** The width at which the menu lives in the pinned row — the shell's 701 line (`boundary="tab"`). */
 const UP_QUERY = '(min-width: 701px)';
+
+/** The bar's right side while the window is wide enough for it — else null (the ⚙ stays on the row). */
+function usePinToolsSlot(): HTMLElement | null {
+  const [box, setBox] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(UP_QUERY);
+    const read = () => setBox(mq.matches ? document.querySelector<HTMLElement>('[data-pin-tools]') : null);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, []);
+  return box;
+}
 
 /** The pinned row's Hub slot while the window is wide enough for it — else null (the menu is drawn in place). */
 export function usePinLeadSlot(): HTMLElement | null {

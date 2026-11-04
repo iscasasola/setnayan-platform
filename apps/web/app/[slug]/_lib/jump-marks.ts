@@ -26,6 +26,19 @@ export const LIT_LINE = 0.25;
  *  never holds Home past the moment Details crosses its line. */
 export const HOME_PASSED = LIT_LINE;
 
+/**
+ * 👆 WHICH MARK A TAPPED IN-PAGE LINK ASKS FOR — any `<a href="#…">` on the page, not only the bar's own items
+ * (live walk 2026-11-01). The cover's "the day, the details ↓" is a plain `href="#site-details"`; on
+ * /maria-and-jose it lands Details' mark at 96 px with Home's only 178 px above the top — short of `HOME_PASSED`'s
+ * quarter screen (211 px at 844) — so the spy kept Home lit with Details filling the screen, until the guest's next
+ * scroll. A link to a mark is the guest saying where they are going: it pins that mark, exactly as tapping the bar's
+ * own item does. Returns the mark's key, or null for any other href.
+ */
+export function markForInPageHref(href: string | null | undefined, marks: ReadonlyArray<{ key: string; href: string }>): string | null {
+  if (!href || !href.startsWith('#') || href.length < 2) return null;
+  return marks.find((m) => m.href === href)?.key ?? null;
+}
+
 export function litJumpMark(marks: ReadonlyArray<{ key: string; top: number }>, viewportHeight: number, atEnd = false): string | null {
   if (marks.length === 0) return null;
   /* 🏠 HOME IS LIT UNTIL THE GUEST SCROLLS PAST IT (Batch 9 walk W1, 2026-10-16). The first mark is Home. Until its

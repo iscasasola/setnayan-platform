@@ -201,6 +201,6 @@ test('7 · the ⚙’s Requests row opens Asking to join in place on the Guests 
   assert.match(open, /setAsking\(true\)/);
   // Around the ⚙ rows themselves (the page's Setup slot) — the ⚙ sheet keeps its one child and the top row stays exactly
   // as it is (it belongs to the top-row build).
-  assert.match(screen, /const setup = setupRows \? \(\s*<OpenRequestsContext\.Provider value=\{requestsInPlace && !writesOff \? openRequests : null\}>\{setupRows\}<\/OpenRequestsContext\.Provider>/, 'the ⚙ rows cannot reach openRequests');
+  assert.match(screen, /const setup = setupRows \? \(\s*(?:<GuestsExcelContext\.Provider value=\{[^}]*\}>\s*)?<OpenRequestsContext\.Provider value=\{requestsInPlace && !writesOff \? openRequests : null\}>\{setupRows\}<\/OpenRequestsContext\.Provider>/, 'the ⚙ rows cannot reach openRequests');
   assert.match(screen, /<PickWhoContext\.Provider value=\{[^}]*\}>\{setup\}<\/PickWhoContext\.Provider>/, 'the ⚙ sheet no longer draws the wrapped rows');
 });

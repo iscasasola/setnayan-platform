@@ -8,6 +8,7 @@
  */
 import type { HomeControlInput, HomePayLine } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 import { pickHomeNext, type HomeNext } from '@/lib/home-first-screen';
+import type { HomeScheduleFacts } from '@/lib/home-schedule';
 
 const DAY = 86_400_000;
 /** A calendar day `days` from `now` (yyyy-mm-dd). */
@@ -51,9 +52,9 @@ export function fixtureControl(eventId: string, over: Partial<HomeControlInput> 
       open: 3,
       dueThisWeek: 1,
       next: [
-        { id: 't1', title: 'Confirm the caterer’s menu', dueDate: fixtureDay(4, now), daysUntilDue: 4 },
-        { id: 't2', title: 'Final headcount to the venue', dueDate: fixtureDay(20, now), daysUntilDue: 20 },
-        { id: 't3', title: 'Choose the entourage’s colours', dueDate: fixtureDay(27, now), daysUntilDue: 27 },
+        { id: 't1', tick: { kind: 'task', id: 't1' }, title: 'Confirm the caterer’s menu', dueDate: fixtureDay(4, now), daysUntilDue: 4 },
+        { id: 't2', tick: { kind: 'task', id: 't2' }, title: 'Final headcount to the venue', dueDate: fixtureDay(20, now), daysUntilDue: 20 },
+        { id: 't3', tick: { kind: 'task', id: 't3' }, title: 'Choose the entourage’s colours', dueDate: fixtureDay(27, now), daysUntilDue: 27 },
       ],
     },
     ...over,
@@ -63,4 +64,41 @@ export function fixtureControl(eventId: string, over: Partial<HomeControlInput> 
 /** The prototype's "guests + money reads failed" frame — every read that can fail, failed. */
 export function fixtureControlUnread(eventId: string, over: Partial<HomeControlInput> = {}): HomeControlInput {
   return fixtureControl(eventId, { next: UNREAD_NEXT, guests: 'unread', hub: 'unread', suppliers: 'unread', budget: 'unread', checklist: 'unread', ...over });
+}
+
+/**
+ * 📅 THE SCHEDULE WIDGET'S SAMPLE — the approved prototype's own lines (`home_frames_where_you_act_2026-11-01/`, its
+ * "Pretend it is" states; labelled there as sample data): 40 days out, one week out, the day at 9:15 AM.
+ */
+export type FixtureSchedulePhase = 'before' | 'week' | 'day';
+export function fixtureSchedule(phase: FixtureSchedulePhase, pro = false): HomeScheduleFacts & { pro: boolean } {
+  const doors = { toApprove: 2, needYou: 3, oweTimes: 6, pro };
+  if (phase === 'day') {
+    return {
+      chapters: 7,
+      now: [
+        { chapterId: 'c-prep-bride', k: 'Preparation · Bride', v: '9:00 AM · Hair and makeup · Maria' },
+        { chapterId: 'c-prep-groom', k: 'Preparation · Groom', v: '9:30 AM · Suit · Jose' },
+      ],
+      next: [{ chapterId: 'c-ceremony', k: 'Ceremony', v: '2:00 PM · San Agustin Church' }],
+      then: [],
+      ...doors,
+    };
+  }
+  if (phase === 'week') {
+    return {
+      chapters: 7,
+      now: [],
+      next: [{ chapterId: 'c-rehearsal', k: 'Rehearsal', v: 'Fri, Dec 11 · 4:00 PM · San Agustin Church' }],
+      then: [{ chapterId: 'c-prep-bride', k: 'Preparation · Bride', v: 'Sat, Dec 12 · 9:00 AM · Seda Vertis North · Floor 14' }],
+      ...doors,
+    };
+  }
+  return {
+    chapters: 7,
+    now: [],
+    next: [{ chapterId: 'c-tasting', k: 'Food tasting', v: 'Sat, Nov 7 · 2:00 PM · Hain Catering' }],
+    then: [{ chapterId: 'c-fitting', k: 'Final fitting · Maria', v: 'Sat, Nov 21 · 10:00 AM' }],
+    ...doors,
+  };
 }

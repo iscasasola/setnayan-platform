@@ -73,6 +73,10 @@
  *     [&before=1]                    the console as `main` drew it before 22 Oct (no Papic; with &shell=1,
  *                                    main's bar rule too — `/dev/bar-lab`'s `was=1`)
  *     [&shell=1&type=…&needs=…]      the REAL event bar for that type (`/dev/bar-lab`'s gates), phase dayof
+ *   ?sched=before|week|day|none|unread|off  📅 the Schedule widget (owner 2026-11-01, approved
+ *                                    `home_frames_where_you_act_2026-11-01/`): 40 days out (default) · one week out
+ *                                    (Release, Countdown at 7) · the day · no chapters yet · its read failed · absent;
+ *                                    `&plan=pro` — the event owns Pro (Release wears no ◆ PRO)
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -87,6 +91,8 @@ import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { papicCardPhase } from '@/lib/papic-home-card';
+import { PapicChapterRow } from '@/app/dashboard/[eventId]/_components/papic-chapter-row';
+import type { PapicChapter } from '@/lib/papic-chapter';
 import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { labEventBar } from '@/app/dev/bar-lab/lab-event';
@@ -104,7 +110,15 @@ import { notFound } from 'next/navigation';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
+import { fixtureControl, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
+import { planningProgress } from '@/lib/preparation';
+import { labPlanningList } from '../schedule-lab/lab-planning';
+
+/** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
+function labTodoFacts() {
+  const p = planningProgress(labPlanningList().items);
+  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+}
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -132,6 +146,63 @@ import {
 import { OfflineLab } from './offline-lab';
 import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
 import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
+import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
+import { EventTeamPresenceLab } from '@/app/dashboard/[eventId]/_components/event-team-presence';
+import { labOpenMarchCard } from '@/app/dev/details-lab/lab-march-cards';
+import type { HubViewers } from '@/lib/whos-here';
+
+/**
+ * 👀 `?whos=live|alone|joining|failed|unread|nonames|off|busy` — Home › Who's here (owner 2026-10-29) on fixtures: the
+ * REAL card, a stand-in team list (no channel) and a stand-in viewers read. Guest faces open the march lab's guest card
+ * (`labOpenMarchCard` — its ids are maria-and-jose's people).
+ */
+function labWhosHere(eventId: string, mode: string) {
+  const team =
+    mode === 'joining'
+      ? { peers: null, state: 'joining' as const, pulse: 0 }
+      : mode === 'failed'
+        ? { peers: null, state: 'failed' as const, pulse: 0 }
+        : mode === 'alone'
+          ? { peers: [], state: 'live' as const, pulse: 0 }
+          : {
+              peers: [
+                { id: 'u-claire', name: 'Claire', role: 'Co-host' as const, photo: null },
+                { id: 'u-jen', name: 'Jen', role: 'Coordinator' as const, photo: null },
+                ...(mode === 'busy' ? [{ id: 'u-kim', name: 'Kimberly', role: 'Helper' as const, photo: null }, { id: 'u-ric', name: 'Ric', role: 'Host' as const, photo: null }] : []),
+              ],
+              state: 'live' as const,
+              pulse: 0,
+            };
+  const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const names: Array<[string, string | null, string]> = [
+    ['p12', 'Ninong Ricardo', 'Ricardo'],
+    ['p6', 'Tita Carmen', 'Carmen'],
+    ['p11', null, 'Daniel'],
+    ['p10', 'Ate Ana', 'Ana Reyes'],
+    ['p5', 'Tito Fidel', 'Fidel'],
+    ['p7', null, 'Noel'],
+    ['p3', null, 'Eduardo'],
+  ];
+  const viewers: HubViewers | null =
+    mode === 'unread'
+      ? null
+      : {
+          team: true,
+          may_name: mode !== 'nonames',
+          window_minutes: 30,
+          guest_total: mode === 'nonames' ? 0 : mode === 'alone' ? 0 : mode === 'busy' ? 12 : names.length,
+          visitors: mode === 'alone' ? 0 : 30,
+          guests:
+            mode === 'nonames' || mode === 'alone'
+              ? []
+              : names.map(([id, display, first], i) => ({ guest_id: id, first_name: first, last_name: null, display_name: display, photo_url: null, seen_at: ago(i * 3) })),
+        };
+  return (
+    <EventTeamPresenceLab value={team}>
+      <HomeWhosHereCard eventId={eventId} initial={viewers} hubEnabled={mode !== 'off'} openGuest={labOpenMarchCard} />
+    </EventTeamPresenceLab>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -211,7 +282,34 @@ const LAB_HEAD: Record<string, PapicHeadFacts> = {
   onwait: { live: false, draftOn: true, early: false },
   unread: { live: true, draftOn: true, early: null },
 };
-function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string): PapicCardInput {
+/* 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01) — `?card=1&chapter=now|picked|soon|whole|unread|none`: the REAL
+   chapter row on fixture chapters, at a fixed "now" (Tue 10 Nov 2026, 3 PM Manila).
+     now     — "Meeting with caterer" is on now (2 → 4 PM), 12 photos in it
+     picked  — the host picked "Fitting" (tomorrow), shown with Start now
+     soon    — nothing on now, nothing picked: the dropdown says Whole event
+     whole   — the same as soon
+     unread  — the chapters could not be read: the row says so
+     none    — the event has no chapters: no row (as before chapters)
+   `&save=fail` refuses the lab's picks. */
+const LAB_CHAPTER_NOW = Date.parse('2026-11-10T07:00:00Z');
+const LAB_CHAPTERS: PapicChapter[] = [
+  { blockId: '00000000-0000-4000-8000-0000000c4a01', label: 'Meeting with caterer', startAt: '2026-11-10T14:00:00Z', photoWho: 'chapter', opensAt: '2026-11-10T06:00:00Z', closesAt: '2026-11-10T08:00:00Z', openedEarlyAt: null, picked: false, captures: 12 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a02', label: 'Fitting', startAt: '2026-11-11T10:00:00Z', photoWho: 'tagged', opensAt: '2026-11-11T02:00:00Z', closesAt: '2026-11-11T04:00:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a03', label: 'Ceremony', startAt: '2026-12-18T14:00:00Z', photoWho: 'everybody', opensAt: '2026-12-18T06:00:00Z', closesAt: '2026-12-18T07:30:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+];
+function labChapterRow(eventId: string, which: string | undefined, save?: string) {
+  if (!which || which === 'none') return null;
+  const standIn = save === 'fail' ? 'fail' : 'ok';
+  if (which === 'unread') return <PapicChapterRow eventId={eventId} chapters={null} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+  const chapters =
+    which === 'now'
+      ? LAB_CHAPTERS
+      : which === 'picked'
+        ? LAB_CHAPTERS.slice(1).map((c) => ({ ...c, picked: c.label === 'Fitting' }))
+        : LAB_CHAPTERS.slice(1);
+  return <PapicChapterRow eventId={eventId} chapters={chapters} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+}
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string, chapter?: string): PapicCardInput {
   const facts = LAB_HEAD[head ?? 'eventday'] ?? LAB_HEAD.eventday!;
   const startIso = '2026-12-10T16:00:00.000Z';
   const endIso = '2026-12-13T04:00:00.000Z';
@@ -224,6 +322,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
     counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
     buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
+    chapter: labChapterRow(eventId, chapter, save),
     defaultOpen: challenges,
     settings: (
       <>
@@ -262,7 +361,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -519,11 +618,28 @@ export default async function HomeLab({
   /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
      the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
   const days = glanceDays(F.days);
+  /* 📅 The Schedule widget on the prototype's own sample (`fixtureSchedule`) — `?sched=` picks the moment. */
+  const schedPhase = q.sched === 'week' || q.sched === 'day' ? q.sched : 'before';
+  const labSchedule =
+    q.sched === 'off'
+      ? null
+      : unread || q.sched === 'unread'
+        ? ('unread' as const)
+        : q.sched === 'none'
+          ? { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false }
+          : fixtureSchedule(schedPhase, q.plan === 'pro');
+  const weekOut = schedPhase === 'week' && labSchedule !== null && labSchedule !== 'unread';
   const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
     next,
-    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    schedule: labSchedule,
+    countdown: weekOut
+      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
+      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+    /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=
+       preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
+    ...(unread ? {} : { checklist: labTodoFacts() }),
   });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
@@ -539,6 +655,8 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
+        /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */
+        memories={q.sched === 'day' ? '12 photos so far · filling now' : 'Fills on the day · photos, reels and your Thank-you video'}
         /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
         asks={
           q.level === '1' || q.level === 'unread' ? (
@@ -580,7 +698,8 @@ export default async function HomeLab({
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
         prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save) : null}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save, q.chapter) : null}
+        whosHere={q.whos ? labWhosHere(E, q.whos) : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {

@@ -1,0 +1,21 @@
+-- notification_type_supplier_where_changed
+-- ============================================================================
+-- 📍 "ALYSSA & MIGUEL CHANGED WHERE YOU GO" — TO A BOOKED SUPPLIER (owner
+-- 2026-11-01, DECISION_LOG "MANY VENUES PER EVENT; SUPPLIERS PICK THEIR
+-- CHAPTERS; COORDINATORS ARE EVERYWHERE"; corpus
+-- SCHEDULE_CHAPTERS_BUILD_PLAN_2026-11-01.md §12 Step 4): a supplier's Where
+-- may change after booking, and when it does the supplier gets ONE in-app
+-- notice. No email (owner 2026-10-11: no new emails without his word). The
+-- price never changes by itself — the notice says so.
+--
+-- No existing type says it truthfully: `schedule_shifted` reads "Schedule
+-- moved" and is about the clock, not the chapters. Written by the database
+-- itself, in `set_supplier_where` (20271300598766).
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it (same shape as
+-- 20271298460272_mood_board_changed_notification_type.sql).
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_where_changed';

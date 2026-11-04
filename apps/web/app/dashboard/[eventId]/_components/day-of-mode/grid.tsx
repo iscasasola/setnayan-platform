@@ -20,6 +20,8 @@ type Block = {
   start_at: string;
   end_at: string | null;
   location: string | null;
+  /** ⏰ A Time-TBA chapter (migration 20271300482585): listed as "Time TBA", never now, never ranked by time. */
+  time_tba?: boolean | null;
 };
 
 type Props = {
@@ -29,6 +31,8 @@ type Props = {
   nearbyTables: EventTableRow[];
   /** The table read was refused — the Head table card says so instead of hiding. */
   tablesFailed?: boolean;
+  /** 🛑 The schedule read was refused — the banner, Happening now and Up next say so, never "everything looks wrapped". */
+  blocksFailed?: boolean;
   sameDayVendors?: SameDayVendor[];
   /** LIVE_WALL ownership — resolved server-side (eventSkuActive), same predicate
    *  /wall/[eventId] gates on. When false the card hides. Defaults false so a
@@ -52,6 +56,7 @@ export function DayOfModeGrid({
   headTable,
   nearbyTables,
   tablesFailed = false,
+  blocksFailed = false,
   sameDayVendors = [],
   liveWallActive = false,
   broadcast,
@@ -62,7 +67,7 @@ export function DayOfModeGrid({
       aria-label="Day-of event mode"
       className="space-y-4 rounded-2xl border border-terracotta/20 bg-terracotta/[0.03] p-4 sm:p-5"
     >
-      <DayOfModeBanner eventId={eventId} blocks={blocks} />
+      <DayOfModeBanner eventId={eventId} blocks={blocks} failed={blocksFailed} />
 
       {/* ─── THE WRAP-UP DOOR, MOVED UP (2026-08-21) ────────────────────────
           It used to be the LAST element in this section, under seven cards —
@@ -92,7 +97,7 @@ export function DayOfModeGrid({
       </Link>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <WhatsHappeningCard blocks={blocks} />
+        <WhatsHappeningCard blocks={blocks} failed={blocksFailed} />
         <YourTableCard
           eventId={eventId}
           headTable={headTable}
@@ -101,7 +106,7 @@ export function DayOfModeGrid({
         />
         {papic ? <div data-day-papic-slot="">{papic}</div> : null}
         {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
-        <LiveScheduleCard eventId={eventId} blocks={blocks} />
+        <LiveScheduleCard eventId={eventId} blocks={blocks} failed={blocksFailed} />
         <CoordinatorBroadcastCard eventId={eventId} broadcast={broadcast} />
         <GetHelpCard sameDayVendors={sameDayVendors} />
       </div>

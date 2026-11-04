@@ -34,6 +34,8 @@ export async function notifyScheduleRequest(input: {
   itemLabel: string | null;
   proposesChange: boolean;
   note: string;
+  /** Auto-agree put it on the schedule already (Step 4b) — the notice says it is in, not that it waits. */
+  applied?: boolean;
 }): Promise<void> {
   const admin = createAdminClient();
   const [membersRes, seatsRes, eventRes] = await Promise.all([
@@ -77,6 +79,7 @@ export async function notifyScheduleRequest(input: {
     kind: input.kind,
     itemLabel: input.itemLabel,
     proposesChange: input.proposesChange,
+    applied: input.applied === true,
   });
   for (const userId of recipients) {
     await emitNotification({

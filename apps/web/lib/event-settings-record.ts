@@ -50,7 +50,7 @@ export const SETTINGS_ROWS = {
   /* ── Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; reverses call 3) ── */
   'costs-view': { menu: 'suppliers', cluster: 'Costs', writer: 'updatePaxSettings' },
   'supplier-payments': { menu: 'suppliers', cluster: 'Payments', writer: '/vendors' },
-  budget: { menu: 'suppliers', cluster: 'Payments', writer: '/vendors?part=budget' },
+  budget: { menu: 'suppliers', cluster: 'Payments', writer: '/budget' },
   'supplier-photos': { menu: 'suppliers', cluster: 'Photos', writer: 'setVendorCapturesHiddenHere' },
 } as const satisfies Record<string, SettingsRow>;
 

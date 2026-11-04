@@ -91,10 +91,11 @@ test('1b · the march draws the card for the tapped person, with the reader it w
 
 test('2 · the card is THE guest card — `GuestCard`, the Guest list’s panel — read by the one card reader, once', () => {
   assert.match(ACTION, /^'use server';/);
-  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);/, 'the card is not read by the one card reader');
+  // The viewer rides beside the card's reads (a promise of their id — the-card-opens-at-the-tap.test.ts 6).
+  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, userRead\.then\(/, 'the card is not read by the one card reader');
   /* The action answers the card's DATA; the browser draws THE card from it (a drawn answer cannot be sent on the routes the
      march opens on — the-settings-sheet-is-in-homes-graph.test.ts). */
-  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId\) \};/, 'the action no longer answers the card’s data');
+  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId, guestId\) \};/, 'the action no longer answers the card’s data');
   assert.doesNotMatch(stripComments(ACTION), /(?<![\w$.])<[A-Z]/, 'the action draws again — its answer cannot be sent on the Maker, the editor, a Details field or Home');
   assert.match(IN_PLACE, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.r\.read\}/, 'the march draws a card other than THE guest card');
   for (const src of [ACTION, IN_PLACE]) assert.doesNotMatch(src, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
@@ -140,7 +141,15 @@ test('5 · out of the Maker’s first load: only lazy Details pieces import the 
   assert.deepEqual(
     importers.sort(),
     /* 🗂 R4: Guests › Seats' faces open the card too — from the seat plan's own lazy chunk (`seating-lazy.tsx`). */
-    [`${L}/details-march.tsx`, `${L}/details-people.tsx`, `${L}/parent-cards.tsx`, `${L}/studio-prints-six.tsx`, 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'].sort(),
+    [
+      `${L}/details-march.tsx`,
+      `${L}/details-people.tsx`,
+      `${L}/parent-cards.tsx`,
+      `${L}/studio-prints-six.tsx`,
+      'app/dashboard/[eventId]/seating/_components/seating-editor.tsx',
+      // Home › Who's here (2026-10-29) — not the Maker; loaded by next/dynamic on the first tap of a guest's face.
+      'app/dashboard/[eventId]/_components/home-cards/home-whos-here-guest-sheet.tsx',
+    ].sort(),
     'the card sheet is imported outside the (lazy) Details pieces that open a guest’s card',
   );
   assert.doesNotMatch(read('app/dashboard/[eventId]/launch/page.tsx'), /guest-card|loadGuestCard|GuestCardBody/, 'the Maker’s page reads or draws a guest card up front');

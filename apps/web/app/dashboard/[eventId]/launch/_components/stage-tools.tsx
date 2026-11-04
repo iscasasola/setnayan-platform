@@ -380,6 +380,13 @@ export function StageTools({
     return () => window.removeEventListener(RSVP_OPEN_CARD_EVENT, open);
   }, [rsvpOpen]);
   const [playing, setPlaying] = useState(false);
+  /**
+   * ✋ ▶ TAPPED, IT HOLDS (owner 1 Nov 2026, from a screen recording — `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md`
+   * §4, amended): when the canvas says the play reached its end (`rest`) the Maker does NOT return to editing — the
+   * page stands on the finished look with "Exit preview" until a tap or that button (`stopPlay`). `playing` stays on
+   * for the hold, so everything that steps aside for ▶ stays aside; this only says the play itself is over.
+   */
+  const [playRested, setPlayRested] = useState(false);
   /** 👁 ▶ held down: the whole page as a guest — the toolbar and the frame step aside, "Exit preview" brings them back. */
   const [previewing, setPreviewing] = useState(false);
   const previewingRef = useRef(false);
@@ -413,12 +420,7 @@ export function StageTools({
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
   /** 🎬 ▶ is playing the Cover Scene: veil → unveil → entrance has no phases to name, so the status bar stays away. */
   const [coverPlay, setCoverPlay] = useState(false);
-  /* What it had none of stays said a moment after it rests, then goes. */
-  useEffect(() => {
-    if (playing || !seq) return;
-    const id = window.setTimeout(() => setSeq(null), 3500);
-    return () => window.clearTimeout(id);
-  }, [playing, seq]);
+  /* What it had none of stays said for as long as ▶ holds its end, and goes with it (`stopPlay`). */
   const [present, setPresent] = useState<Set<string>>(() => new Set());
   /** The page each drawn part is on, as the canvas filed it (`[data-hub-tab]`) — the canvas is the one truth. */
   const [filed, setFiled] = useState<Record<string, string>>({});
@@ -768,7 +770,8 @@ export function StageTools({
           ? ((d as { skipped: unknown[] }).skipped.filter((x) => typeof x === 'string') as string[]).slice(0, 3)
           : [];
         setSeq({ phase: d.phase, skipped });
-        if (d.phase === 'rest') setPlaying(false);
+        /* ✋ The end is held, not left: Exit preview (or a tap) returns to editing. */
+        if (d.phase === 'rest') setPlayRested(true);
       }
       /* 🗳 THE RSVP STAGE'S SCREENS (`rsvp-canvas-bridge.tsx`) — their own messages, so the work area mounted under
          the stage never hears a tap there as one of its own (`rsvp-canvas-parts.ts`). A tap PICKS the part under it
@@ -1030,11 +1033,15 @@ export function StageTools({
   const stopPlay = useCallback(() => {
     postToCanvas({ source: 'setnayan-editor', t: 'playStop' });
     setPlaying(false);
+    setPlayRested(false);
+    setSeq(null);
   }, []);
   /* ── 👁 the whole page as a guest (▶ held down) ── */
   const enterPreview = useCallback(() => {
     postToCanvas({ source: 'setnayan-editor', t: 'playStop' });
     setPlaying(false);
+    setPlayRested(false);
+    setSeq(null);
     before.current = { picked: pickedRef.current, page: where.current.shownPage ?? null };
     postToCanvas({ source: 'setnayan-editor', t: 'guest', on: true });
     setPreviewing(true);
@@ -1108,6 +1115,7 @@ export function StageTools({
       return;
     }
     if (playing) return stopPlay();
+    setPlayRested(false);
     /* The long press has a twin for whoever never holds a button: the first tap says it (once a visit). */
     if (!holdHintSaid) {
       holdHintSaid = true;
@@ -1143,7 +1151,8 @@ export function StageTools({
     postToCanvas({ source: 'setnayan-editor', t: 'playStage' });
     setPlaying(true);
   };
-  /* While the stage plays, one tap anywhere in the Maker stops it (a tap on the page is the canvas's own). */
+  /* While the stage plays — and while ▶ holds its end — one tap anywhere in the Maker stops it and returns to editing;
+     a tap on the page lands on the catch laid over it (`data-stage-play-catch`, below), and Esc does the same. */
   useEffect(() => {
     if (!playing) return;
     const shell = document.querySelector<HTMLElement>('[data-maker-shell]');
@@ -1160,12 +1169,23 @@ export function StageTools({
       window.setTimeout(() => document.removeEventListener('click', swallow, true), 600);
       stopPlay();
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') stopPlay();
+    };
     document.addEventListener('pointerdown', tap, true);
+    document.addEventListener('keydown', onKey);
     return () => {
       shell?.removeAttribute('data-stage-playing');
       document.removeEventListener('pointerdown', tap, true);
+      document.removeEventListener('keydown', onKey);
     };
   }, [playing, stopPlay]);
+  /* ✋ The hold's one button has the focus (Enter leaves), as the whole-page preview's does. */
+  useEffect(() => {
+    if (!playing || !playRested) return;
+    const t = window.setTimeout(() => document.querySelector<HTMLElement>('[data-stage-exit-preview] button')?.focus({ preventScroll: true }), 0);
+    return () => window.clearTimeout(t);
+  }, [playing, playRested]);
 
   /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
      Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that
@@ -1816,7 +1836,10 @@ export function StageTools({
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
-      {seq && (playing || seq.skipped.length > 0) && !(coverPlay && seq.skipped.length === 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {seq && playing && !(coverPlay && seq.skipped.length === 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {/* ✋ THE PAGE TAKES NO TAP WHILE ▶ PLAYS OR HOLDS — a tap on it is only the way back to editing (a tap inside the
+          canvas's frame never reaches this document, so without this catch it picked a part and the hold stayed). */}
+      {playing && shellEl ? createPortal(<div data-stage-play-catch="" aria-hidden className="absolute inset-0 z-[30]" />, shellEl) : null}
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
       {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
           for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,
@@ -2020,7 +2043,7 @@ export function StageTools({
           place and stays up in the preview, so the button clears it too — it sat UNDER "When yes" there and a tap on
           it changed the screen without leaving the preview (owner 2026-10-10: "has not return button").
           Nothing else of the toolbar is on screen; it returns to the part and the tool held. ══ */}
-      {previewing && shellEl
+      {(previewing || (playing && playRested)) && shellEl
         ? createPortal(
             <div
               data-stage-exit-preview=""
@@ -2039,12 +2062,13 @@ export function StageTools({
                   : { right: 12, top: STAGE_EXIT_EDGE_TOP, flexDirection: 'column', alignItems: 'flex-end' }
               }
             >
-              <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
+              {/* ✋ …and the one button of ▶'s held end (owner 1 Nov 2026): the same pill, back to editing. */}
+              <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={previewing ? exitPreview : stopPlay} className="pointer-events-auto shadow-lg" />
               {/* 👁 SEE AS ▾ — the phone's one See as (owner 2026-10-15, with the host strip removed: "See as on phone
                   YES"). ONE PickMenu beside "Exit preview": the same rows and the same `setSeeAs` as the desktop's
                   dropdown above the preview; a pick redraws the canvas at `?as=` and never leaves the preview. Not on
                   the RSVP stage: that canvas is the reply page, always drawn for a guest who has not replied. */}
-              {maker?.setSeeAs && !rsvpOpen ? (
+              {maker?.setSeeAs && !rsvpOpen && previewing ? (
                 <PickMenu
                   label="See as"
                   value={maker.seeAs ?? SEE_AS_EDITING.key}
@@ -2067,7 +2091,7 @@ export function StageTools({
                   only while it draws a guest: WHICH guest, from this event's own guest-list roles (the man / woman
                   half where the role needs it). A pick redraws the canvas at `?asrole=`; the sample is named for its
                   role and nothing is written. */}
-              {maker?.setSeeAsRole && !rsvpOpen && seeAsDrawsMe(maker.seeAs) && (maker.seeAsRoles?.length ?? 0) > 1 ? (
+              {maker?.setSeeAsRole && !rsvpOpen && previewing && seeAsDrawsMe(maker.seeAs) && (maker.seeAsRoles?.length ?? 0) > 1 ? (
                 <PickMenu
                   label="Role"
                   value={maker.seeAsRole ?? SEE_AS_ANY_ROLE}

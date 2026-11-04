@@ -360,7 +360,12 @@ export function buildEventMenuSections(
     matchPrefix: '__home__',
     alsoMatch: [
       `${base}/studio`,
-      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
+      // 💰 The Budget is Home's page since 2026-11-01 (owner: *"Okay place it in home"*): Home › Budget opens it.
+      `${base}/budget`,
+      // 📅 …and the Schedule (owner 2026-11-02, "BOOKED IS JUST THE TEAM": *"no just schedule"*) — Home › Schedule
+      // opens it, for every event; it is no longer the Maker's Details › Schedule.
+      `${base}/schedule`,
+      ...(maker ? [] : [`${base}/story`]),
     ],
   });
 
@@ -376,15 +381,13 @@ export function buildEventMenuSections(
     alsoMatch: [`${base}/hosts`, `${base}/event-qr`, `${base}/people`, ...seatPages],
   });
 
-  // SUPPLIERS — suppliers + Budget (`yourTeamParts`). "Your Team" until
-  // 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). The old
-  // /budget page lands on the part; its standalone address still lights this row.
+  // SUPPLIERS — "Your Team" until 2026-10-01 (owner: "Home - Guests - Suppliers - Hub - More"). It lit /budget
+  // while the Budget was drawn inside it (2026-09-29 → 2026-11-01); the Budget is Home's page now, so Home lights it.
   put({
     key: 'explore',
     label: 'Suppliers',
     href: `${base}/vendors`,
     icon: PILLAR_TAB_ICON.explore,
-    alsoMatch: [`${base}/budget`],
   });
 
   // HUB — the Event Hub Maker, one row, one word, every phase (key `launch`,
@@ -392,7 +395,7 @@ export function buildEventMenuSections(
   // menu "Home - Guests - Suppliers - Hub - More" for the bar AND the rail. Never
   // the bare "Event Hub" — that is the GUEST site.
   // `matchPrefix` claims the /website family; `/story` is its Post Event;
-  // `/schedule` is Details › Schedule (the page lands there for the couple).
+  // `/schedule` left it on 2026-11-02: the Schedule is Home's own page (the Maker still draws it inside Details).
   if (maker) {
     put({
       key: 'launch',
@@ -400,10 +403,7 @@ export function buildEventMenuSections(
       href: `${base}/launch`,
       icon: PILLAR_TAB_ICON.launch,
       matchPrefix: `${base}/website`,
-      alsoMatch: [
-        `${base}/story`,
-        `${base}/schedule`,
-      ],
+      alsoMatch: [`${base}/story`],
     });
   }
 

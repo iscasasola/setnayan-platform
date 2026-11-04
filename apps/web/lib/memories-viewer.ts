@@ -14,12 +14,17 @@
  *             the route itself refuses anyone else), a clip's kept original, an Event Hub file.
  *   Tag       whoever manages the Memories rules (hosts + the coordinator, `memoriesManagerRole`), on the two photo
  *             tables a tag can name (`photo_tags.source_table`). Re-checked on the server.
- *   Chapter   the same managers (2026-10-30 ruling: "hosts and coordinators … settings AND chapter uploads") — drawn,
- *             but your own chapters are not built (no storage for a photo's chapter yet): it says so instead of acting.
+ *   Chapter   Add to Chapter (Memories by chapter, owner 2026-11-01: "We can add media files inside other chapters on
+ *             memories directly") — on a Papic shot only (a guest capture or a seat photo; a supplier's file or a Hub
+ *             file cannot sit in a chapter). Drawn for the managers and for a chapter's people; it ACTS when the server
+ *             answered that this viewer may move this photo and has a chapter to put it in (`who.chapter`, from
+ *             `lib/memories-chapters.ts`) — else it says why. The database re-checks every add
+ *             (`papic_memories_set_chapter`).
  *   Hide      the hosts, on a Papic file (`canModerate`) — or, on a supplier's file, that supplier's whole delivery
  *             (the shipped switch). Kept, not deleted. A screened frame's slot is Approve; a hidden one's is Show.
  *   Delete    the hosts, on a Papic file — every copy, never a supplier's or an Event Hub file.
  */
+import { ORIGINAL_FROM_DRIVE_LABEL } from '@/lib/papic-originals-reminder-core';
 import { canModerate, type MemoriesItem } from '@/lib/event-memories';
 
 /** 🔒 THE ORDER — the owner's five, destructive last. */
@@ -40,6 +45,9 @@ export type ViewerWho = {
   canTag: boolean;
   /** For a supplier's file: whether the couple has hidden that supplier's whole delivery (null = not a booked supplier). */
   supplierHidden?: boolean | null;
+  /** Add to Chapter for THIS photo: may this viewer move it (a host, or one of its chapter's people), and is there a
+   *  chapter to put it in? Absent = no chapter read (the button explains). */
+  chapter?: { canAdd: boolean; why: string | null } | null;
 };
 
 export type ViewerButton = {
@@ -77,6 +85,8 @@ export function shareSourceOf(
   return { url: item.saveUrl, what: item.alreadyCompressed ? 'kept-copy' : 'original', baseName };
 }
 
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
 /** The Share panel's one line, and its ⓘ — the full-resolution answer in words, never silently a smaller file. */
 export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved'>): { line: string; tip: string } {
   switch (src.what) {
@@ -85,12 +95,12 @@ export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved
         ? { line: 'Full resolution · the original', tip: 'The photo as it was taken — Keep full resolution keeps it for good. Location data is removed before it leaves Setnayan.' }
         : {
             line: 'Full resolution · the original',
-            tip: 'The photo as it was taken, location data removed. Keep full resolution (in ⚙) is off, so after 6 months only a smaller copy stays — share or save it before then.',
+            tip: 'The photo as it was taken, location data removed. Originals are kept until 3 months after the event’s last day; then the 720p copy stays, free, for life. Copy to Google Drive (free) or save it before then.',
           };
     case 'kept-copy':
       return {
-        line: 'The best copy left · 1280 px',
-        tip: 'Full resolution wasn’t kept for this photo — the original was replaced by a smaller copy after 6 months. This is that copy. Keep full resolution (in ⚙) keeps every original.',
+        line: 'The 720p copy, kept for life',
+        tip: `The original was replaced by the 720p copy 3 months after the event. If your Google Drive still holds it and is connected, Download gives you the ${lowerFirst(ORIGINAL_FROM_DRIVE_LABEL)}.`,
       };
     case 'clip-original':
       return { line: 'Full resolution · the original clip', tip: 'The clip as it was recorded.' };
@@ -101,7 +111,7 @@ export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved
     case 'host-save':
       return {
         line: 'Full resolution · the original',
-        tip: 'The photo as it was taken, location data removed. Where Keep full resolution was off and 6 months have passed, the original was replaced by a smaller copy — then this is the best copy left (1280 px).',
+        tip: `The photo as it was taken, location data removed. From 3 months after the event, the original is replaced by the 720p copy — then Download gives you the ${lowerFirst(ORIGINAL_FROM_DRIVE_LABEL)} when your Drive holds it, else the 720p copy.`,
       };
     case 'shared-copy':
       return {
@@ -125,9 +135,14 @@ export function shareExtension(type: string): string {
   return 'jpg';
 }
 
-export const CHAPTER_NOT_YET = 'Chapters you make arrive soon';
-export const CHAPTER_NOT_YET_TIP =
-  'Today Memories follows your schedule’s moments by itself (⚙ › Follow the moments in order). Making your own chapters, and moving a photo into one, comes next.';
+/** No chapter to add it to — chapters are made on the Schedule page. */
+export const CHAPTER_NONE = 'No chapter to add it to yet';
+export const CHAPTER_NONE_TIP =
+  'Chapters are made on your Schedule. Once there is one, a photo can sit in more than one chapter — each chapter decides who sees its photos, and when.';
+/** The viewer is not one of this photo's chapter's people. */
+export const CHAPTER_NOT_IN = 'You can add a photo only from a chapter you are in.';
+/** An Unsorted photo is in no chapter — only the hosts place it (they are the ones who see Unsorted). */
+export const CHAPTER_UNSORTED_HOSTS = 'Only the hosts can put an Unsorted photo in a chapter.';
 
 /** The hidden/screened words for a Share the save route would refuse. */
 export const SHARE_HELD_WHY = 'Show it in Memories first — a hidden photo isn’t shared.';
@@ -150,8 +165,10 @@ export function viewerButtons(
     } else if (key === 'tag') {
       if (who.canTag && isTaggableTable(item.table)) out.push({ key, label: 'Tag', enabled: true, why: null });
     } else if (key === 'chapter') {
-      if ((who.host || who.canTag) && item.memSource !== 'hub') {
-        out.push({ key, label: 'Chapter', enabled: false, why: CHAPTER_NOT_YET });
+      // A Papic shot only — the two tables a chapter link can name (`papic_chapter_captures`).
+      if (isTaggableTable(item.table) && item.memSource !== 'hub' && (who.host || who.canTag || who.chapter?.canAdd)) {
+        const canAdd = who.chapter?.canAdd === true;
+        out.push({ key, label: 'Chapter', enabled: canAdd, why: canAdd ? null : (who.chapter?.why ?? CHAPTER_NONE) });
       }
     } else if (key === 'hide') {
       if (who.host && papicFile) {

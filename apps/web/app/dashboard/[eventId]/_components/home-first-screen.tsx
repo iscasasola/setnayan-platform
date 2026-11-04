@@ -20,7 +20,8 @@ import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
 import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
-import { homeToday, type HomeControlInput } from './home-control-faces';
+import { countdownDoor, homeNowAction, homeToday, homeWaiting, type HomeControlInput } from './home-control-faces';
+import { HomeMemoriesLine, HomeTodoList } from './home-todo-list';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
@@ -48,6 +49,8 @@ export type PapicCardInput = {
   buy?: ReactNode;
   /** Open on arrival — a save's outcome or a purchase error is said inside the open card. */
   defaultOpen?: boolean;
+  /** 📷 The chapter Papic shoots into (owner 2026-11-01) — `PapicChapterRow`, under the counts; null = not drawn. */
+  chapter?: ReactNode;
 };
 
 /** Where each service in the "Your services" row goes — `href:` literals, for the port-controls scan. */
@@ -79,7 +82,12 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
  * event."* Top to bottom, read as the event in time:
  *
  *   the cover → TODAY (one line, the shipped picker's one thing to do — a pointer, not a door)
- *   → ① Countdown · ② Guests · ③ Event Hub · ④ Suppliers · ⑤ Budget · ⑥ Checklist      — THE UPPER PARTS OPEN THEIR PAGE
+ *   → ① Countdown · 📅 Schedule · ② Guests · ③ Event Hub · ④ Suppliers · ⑥ To do · ⑤ Budget — THE UPPER PARTS OPEN THEIR PAGE
+ *   → Papic · Who's here · Prints
+ *
+ * 🧱 FRAMES ONLY WHERE YOU ACT (owner 2026-11-01, approved `home_frames_where_you_act_2026-11-01/`): only the Schedule,
+ * the Budget and Papic are cards; Countdown, the glance row (Guests · Event Hub · Suppliers · To do, closed by a
+ * divider), Who's here, Prints and Your services sit on the page (`HOME_FRAMED_WIDGETS`, `hc-plain`).
  *   → Your services (Papic · Setnayan AI · Live stream · Music · Video booth)             — THE LOWER PARTS GROW IN PLACE
  *
  * One widget per page, and no page appears twice. REMOVED (owner): the "Your next step" card (its verb now sits on the
@@ -140,6 +148,8 @@ export type HomeFirstScreenProps = {
    * Absent = the shipped row (a lab, the app).
    */
   papicCard?: PapicCardInput | null;
+  /** 👀 Who's here (owner 2026-10-29) — the team on the dashboard now and the guests viewing the Event Hub. */
+  whosHere?: ReactNode;
   /** 🧩 Every service as a card that grows in place (the couple's, on the web) — `YourServices` `cards`. */
   serviceCards?: boolean;
   /**
@@ -168,6 +178,8 @@ export type HomeFirstScreenProps = {
    * (`HomePrintsLine`); the tool is the Prints page. Absent / false = no line.
    */
   prints?: boolean;
+  /** ✨ The Memories line's state words (round 3) — what Home already read; null = no line (a lab that leaves it out). */
+  memories?: string | null;
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
@@ -192,34 +204,58 @@ export function HomeFirstScreen({
   papicLeft = null,
   papicSizes = null,
   papicCard = null,
+  whosHere = null,
   serviceCards = false,
   needs = null,
   apple = null,
   hubPick = null,
   prints = false,
+  memories = null,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
-  const today = homeToday(next, control.guests);
+  const today = homeToday(next, control.guests, homeWaiting(control));
+  const nowAction = homeNowAction(today, control);
+  const c = control.countdown;
   return (
+    /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
+    <HomeTodayFold eventId={eventId} kind={next.kind}>
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
-      {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
-          measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink} />
+      {/* 🎴 THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3 — the GCash balance-card shape): the name, the
+          countdown (the Date Finder's door) and NOW, the ONE thing to do with its verb. It still wears the Event Hub's
+          main background (owner 2026-10-07, #6394) and still pins as one line. */}
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink}
+        countdown={{
+          value: c.hasDate ? c.value : '—',
+          days: c.hasDate && /^\d/.test(c.value) ? c.days : null,
+          label: c.hasDate ? c.label : 'No date yet',
+          line: [c.long, c.placeLine].filter(Boolean).join(' · ') || null,
+          href: c.door ?? countdownDoor(eventId),
+        }}
+        now={<HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} action={nowAction} eventId={eventId} />}
+      />
 
-      {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
-      <HomeTodayFold eventId={eventId} kind={next.kind}>
         <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
-          {/* ☀ THE TODAY ASKS — what waits on the hosts, before the Today line (the coordinator's access first). */}
+          {/* ✅ THE ONE TO DO — under the card: the three soonest tasks with their tick, then the plan's state (round 3).
+              The task Now holds is not repeated. */}
+          <HomeTodoList eventId={eventId} checklist={control.checklist} holds={today.holds?.task ?? null} />
+
+          {/* ☀ WHAT WAITS ON THE HOSTS — the access and date asks, each its own line (they join the Requests card next). */}
           <div className="contents" data-home-today-asks="">
             {asks}
           </div>
-          {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
-          <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
+
+          {/* 🎛 YOUR EVENT — the widgets; tap a name to open its page. */}
+          <p className="hc-k2" data-home-your-event="">
+            <span className="hc-k2-name">Your event</span>
+            <em>tap a name to open it</em>
+          </p>
 
           {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
-              (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
+              (owner 2026-10-08; prototype frame 2, its words). Opens the GUESTS' one link + QR (Guests › Invite,
+              `ShareLinkPanel`) — never `/event-qr`, which is the CREW's device-pairing code (`setnayan://crew-pair`).
+              Held by `lib/dashboard-doors-resolve.test.ts`. */}
           {noList ? (
-            <Link href={`/dashboard/${eventId}/event-qr`} className="home-card flex items-center gap-3" data-home-one-qr="">
+            <Link href={`/dashboard/${eventId}/guests/invite`} className="home-card flex items-center gap-3" data-home-one-qr="">
               <QrCode aria-hidden className="h-12 w-12 shrink-0 text-ink" strokeWidth={1.5} />
               <span className="min-w-0">
                 <span className="block font-semibold">One QR for everyone</span>
@@ -238,8 +274,18 @@ export function HomeFirstScreen({
               last tile, so the card follows the row. Your services below no longer draws it. */}
           {papicCard ? <PapicTodayCard card={papicCard} /> : null}
 
-          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it"). */}
-          {prints ? <HomePrintsLine eventId={eventId} /> : null}
+          {/* 👀 WHO'S HERE — after Papic, before Your services (owner 2026-10-29): who of the team is on the dashboard
+              now, and which guests are viewing the Event Hub. */}
+          {whosHere}
+
+
+          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it").
+              A row on the page, a divider above it (owner 2026-11-01: frames only where you act). */}
+          {prints ? (
+            <div className="hc-ruled">
+              <HomePrintsLine eventId={eventId} />
+            </div>
+          ) : null}
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices
@@ -250,6 +296,9 @@ export function HomeFirstScreen({
             papicSizes={papicSizes}
             cards={serviceCards}
           />
+
+          {/* ✨ MEMORIES — one slim line of its own, after the widgets (round 3): everything from the day, in one place. */}
+          {memories ? <HomeMemoriesLine eventId={eventId} line={memories} /> : null}
 
           {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
               "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -279,8 +328,8 @@ export function HomeFirstScreen({
             </details>
           ) : null}
         </div>
-      </HomeTodayFold>
     </section>
+    </HomeTodayFold>
   );
 }
 
@@ -314,10 +363,12 @@ export function YourServices({
   cards?: boolean;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch || apple?.thankYou)) return null;
+  /* 🧱 Frames only where you act (owner 2026-11-01): Your services is a heading plus plain rows with dividers — the
+     row's own control is its frame — closed off from what is above by a divider. */
   return (
-    <nav aria-label="Your services" id="your-services" data-home-services className="flex flex-col">
+    <nav aria-label="Your services" id="your-services" data-home-services className="hc-ruled flex flex-col">
       <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
-      <div className="home-svc">
+      <div className="home-svc hc-plain-list">
         {apple?.papic ? (
           <AppleServiceRow
             marker="papic"
@@ -469,6 +520,7 @@ function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVIC
       headLine={card.headLine ?? null}
       counts={card.counts ?? null}
       buy={card.buy ?? null}
+      chapter={card.chapter ?? null}
       defaultOpen={card.defaultOpen ?? false}
       marker={{ 'data-home-service': 'papic', 'data-home-today-papic': '' }}
     />

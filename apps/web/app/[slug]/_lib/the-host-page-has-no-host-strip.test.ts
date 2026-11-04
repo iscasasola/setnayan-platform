@@ -66,8 +66,8 @@ test('0 · RENDERED: a signed-in host’s own page draws no host strip — and i
       assert.doesNotMatch(asHost.html, re, `${phase}: a signed-in host is drawn ${what}`);
     }
     // Strip only (owner pick): the host body stays — the host meets no stranger’s door; the stranger still does.
-    assert.doesNotMatch(asHost.html, /Confirm your Booking/, `${phase}: the host is handed the stranger’s door — the host body is gone`);
-    assert.match(asStranger.html, /Confirm your Booking/, `${phase}: the stranger lost the door — the comparison is blind`);
+    assert.doesNotMatch(asHost.html, /Open your invitation/, `${phase}: the host is handed the stranger’s door — the host body is gone`);
+    assert.match(asStranger.html, /Open your invitation/, `${phase}: the stranger lost the door — the comparison is blind`);
   }
 });
 
@@ -118,7 +118,8 @@ test('3 · the hold-▶ preview’s row: Exit preview, and exactly ONE See as �
   const menus = row.match(/<PickMenu\b/g)?.length ?? 0;
   const seeAs = row.match(/<PickMenu\s+label="See as"/g)?.length ?? 0;
   console.log(`  hold-▶ row: ${menus} PickMenu, ${seeAs} labelled See as`);
-  assert.match(row, /label="Exit preview" onClick=\{exitPreview\}/, '"Exit preview" left the row');
+  /* (✋ 1 Nov 2026: the same pill also ends ▶ tap's held end — `stopPlay`, `lib/the-tap-preview-holds.test.ts`.) */
+  assert.match(row, /label="Exit preview" onClick=\{previewing \? exitPreview : stopPlay\}/, '"Exit preview" left the row');
   assert.equal(seeAs, 1, 'the row does not hold exactly one See as ▾');
   // 🎭 …plus, under it, the one Role ▾ (owner 2026-10-17, "view it as a father of the bride") — WHICH guest See as
   // draws, not a stage. Any other dropdown is still refused.

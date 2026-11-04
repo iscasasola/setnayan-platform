@@ -11,8 +11,9 @@ import 'server-only';
  *   ④ Suppliers — the dashboard's own "N of M booked" (`countUnlockedCategories` over THIS type's plan groups,
  *                 `planGroupsForEventType`), the quotes waiting on the couple (`SupplierStanding.needsYou`) and who
  *                 replied (`standingRollUp`) — both from `buildBenchStandings`, the Suppliers bench's own derivation.
- *   ⑥ Checklist — the rows the checklist page lists (`readChecklistItems`, filtered by
- *                 `checklistItemAllowedForProfile`), ranked by `rankUrgentChecklistItems` on the page's own anchor.
+ *   ⑥ To do     — Planning Stage's To do filter, read through THE ONE LIST (`fetchPreparationAgenda`, `only: 'todo'`)
+ *                 and counted by its one rule (`planningProgress`) — so the tile and the list cannot disagree (owner
+ *                 2026-11-01, "Checklist merges into Planning Stage"; `lib/the-plan-is-one-list.test.ts`).
  *
  * 🔒 HONEST READS — each answers `'unread'` when its read was refused (Supabase RESOLVES with `{ error }`, it does not
  * throw), so the widget says "Couldn't load", never 0. Held by `home-control-reads-honestly.test.ts`.
@@ -36,12 +37,7 @@ import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-p
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { standingRollUp } from '@/lib/supplier-standing';
 import type { VendorCategory } from '@/lib/vendors';
-import {
-  checklistAnchorDateFor,
-  checklistItemAllowedForProfile,
-  rankUrgentChecklistItems,
-  readChecklistItems,
-} from '@/lib/checklist';
+import { fetchPreparationAgenda, planningProgress, planningRowId } from '@/lib/preparation';
 import type { HomeChecklistFacts, HomeHubFacts, HomeSuppliersFacts } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 import { shortDay } from '@/app/dashboard/[eventId]/_components/home-control-faces';
 
@@ -163,30 +159,47 @@ export async function readHomeSuppliers(
   return { booked, of, toDecide, replied };
 }
 
-/** ⑥ CHECKLIST — null when the plan was never seeded (no percentage exists to state). */
+/** ⑥ TO DO — Planning Stage's To do filter, counted. Null when the plan has nothing to tick yet (no percentage exists). */
 export async function readHomeChecklist(
   supabase: SupabaseClient,
   eventId: string,
   opts: {
     profile: ProfileSlice;
-    event: { event_type: string | null; event_date: string | null; date_candidates?: string[] | null; created_at: string | null };
+    event: {
+      event_type: string | null;
+      event_date: string | null;
+      date_candidates?: string[] | null;
+      date_window_start?: string | null;
+      created_at: string | null;
+    };
   },
 ): Promise<HomeChecklistFacts | 'unread' | null> {
-  const raw = await readChecklistItems(supabase, eventId).catch(() => null);
-  if (raw === null) return 'unread';
-  const rows = raw.filter((r) => checklistItemAllowedForProfile(r.category, r.template_key, opts.profile));
-  if (rows.length === 0) return null;
-  const anchor = checklistAnchorDateFor({
-    event_type: opts.event.event_type,
-    event_date: opts.event.event_date,
-    date_candidates: opts.event.date_candidates ?? null,
+  const agenda = await fetchPreparationAgenda({
+    supabase,
+    eventId,
+    eventDate: opts.event.event_date,
+    ceremonyType: null,
+    now: new Date(),
+    event: opts.event,
+    profile: opts.profile,
+    only: 'todo',
+  }).catch(() => null);
+  if (agenda === null || agenda.unread.length > 0) return 'unread';
+  // Four: Home's To do shows three, and the fourth fills in when Now holds one of them (round 3, Now never repeats).
+  const p = planningProgress(agenda.items, 4);
+  if (p.total === 0) return null;
+  // ✅ The row each To do line ticks (`PlanningTick`) — a task's checklist row or a hand-added step, the same rule as
+  // `preparation-agenda.tsx`'s tickId; null = a computed step with no row (Home opens it instead). Worked out HERE, on
+  // the server, so the shared `lib/preparation.ts` (in the Maker's first load) carries not one byte more.
+  const next = p.next.map((n) => {
+    const item = agenda.items.find((t) => (planningRowId(t) ?? t.id) === n.id);
+    const tick =
+      item?.source === 'task' && item.taskItemId
+        ? { kind: 'task' as const, id: item.taskItemId }
+        : item?.source === 'manual' && item.itemId
+          ? { kind: 'manual' as const, id: item.itemId }
+          : null;
+    return { ...n, tick };
   });
-  const ranked = rankUrgentChecklistItems(rows, anchor, { limit: rows.length, eventCreatedAt: opts.event.created_at });
-  return {
-    done: rows.filter((r) => r.status === 'done').length,
-    total: rows.length,
-    open: ranked.length,
-    next: ranked.slice(0, 3).map((t) => ({ id: t.item_id, title: t.title, dueDate: t.dueDate, daysUntilDue: t.daysUntilDue })),
-    dueThisWeek: ranked.filter((t) => t.daysUntilDue !== null && t.daysUntilDue <= 7).length,
-  };
+  return { done: p.done, total: p.total, open: p.open, next, dueThisWeek: p.dueThisWeek };
 }

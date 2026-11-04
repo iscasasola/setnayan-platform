@@ -54,7 +54,8 @@ test('1 · Where you work says WHY at 0 km, saves in place, and names the next p
   assert.match(s, /!tierMeasured \? \(/, 'an unread plan is not told apart from a 0 km plan');
   assert.doesNotMatch(s, /\b(20|30|50|100) km\b/, 'a plan reach is typed into the component');
 
-  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Solo ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra ${TIER_CAPS.enterprise.serviceRadiusKm}`);
+  // Ultra is nationwide (`Infinity`) since owner 2026-11-04 — said in words, never "Infinity".
+  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Solo ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra nationwide`);
   assert.deepEqual(nextPlanReach('free'), { plan: 'Verified', km: TIER_CAPS.verified.serviceRadiusKm });
   assert.deepEqual(nextPlanReach('solo'), { plan: 'Pro', km: TIER_CAPS.pro.serviceRadiusKm });
   assert.equal(nextPlanReach('enterprise'), null, 'the top plan has no farther plan to name');

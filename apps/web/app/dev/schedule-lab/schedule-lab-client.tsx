@@ -11,8 +11,10 @@
  */
 
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
+import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
+import { MakerContext, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
 import type {
   DayActions,
@@ -57,6 +59,21 @@ const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
     ['p-planner', 'The Wedding Planner'],
   ]),
 );
+
+/* 🔒 `?lock=1` (audit D7): Gaia Florals pressed "Lock my times" — the REAL resolver reads the mark ("· Not taking changes"), and
+   a write to a moment Gaia is on is refused the way the database refuses it (the `*_part_lock` triggers). */
+const LOCKED_SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
+  [
+    { vendor_id: 'v-gaia', vendor_name: 'Gaia Florals', status: 'contracted', marketplace_vendor_id: 'p-gaia', manual_vendor_id: null },
+    { vendor_id: 'v-casa', vendor_name: 'Casa Catering', status: 'contracted', marketplace_vendor_id: 'p-casa', manual_vendor_id: null },
+  ],
+  new Map([
+    ['p-gaia', 'Gaia Florals'],
+    ['p-casa', 'Casa Catering'],
+  ]),
+  new Map([['p-gaia', { seenAt: null, confirmedAt: null, lockedAt: '2026-11-02T03:00:00.000Z' }]]),
+);
+const LOCKED_MOMENTS = new Set(['ingress']);
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
@@ -116,13 +133,16 @@ const str = (fd: FormData, k: string): string | null => {
 
 export default function ScheduleLabClient({
   bare = false,
-  suppliers = SUPPLIERS,
+  suppliers: suppliersIn,
   tags,
   frame = 'page',
   toolsSlot = null,
+  noRequests = false,
 }: {
+  /** 📖 No seeded supplier requests (the chapters lab's `?defaults=1` — a NEW event has none). */
+  noRequests?: boolean;
   /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
-  frame?: 'page' | 'booked';
+  frame?: 'page' | 'line';
   toolsSlot?: string | null;
   /** Only the day — no lab header, no write log (the Suppliers lab draws it under Booked › Schedule). */
   bare?: boolean;
@@ -140,6 +160,11 @@ export default function ScheduleLabClient({
      (the rail must show the edit on its own); each write is recorded on
      `window.__labWrites` with its time, to measure edit → save. */
   const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
+  /* 🗓 `?maker=1&studio=1` — the new Maker's Studio day (`studio-day.tsx`: one timeline row per moment, swipe left to
+     delete — owner 2026-11-03), on the same fixtures. Only `stagesStudio` is said; nothing else of the Maker is drawn. */
+  const [studio] = useState(() => maker && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1');
+  const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
+  const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
   const venueNow = new Date(venueNowMs());
   const todayKey = wallDateKey(venueNow.toISOString());
@@ -157,7 +182,7 @@ export default function ScheduleLabClient({
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
     setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);
-  const reqs = requests ?? seedRequests(dateKey);
+  const reqs = requests ?? (noRequests ? [] : seedRequests(dateKey));
 
   const actions = useMemo<DayActions>(() => {
     const say = (line: string) => setLog((l) => [line, ...l].slice(0, 8));
@@ -170,6 +195,12 @@ export default function ScheduleLabClient({
       if (refuse) {
         say(`✗ ${name} refused · ${shown}`);
         throw new Error('refused by the lab');
+      }
+      if (locked && name !== 'toggleBlockVisibility' && LOCKED_MOMENTS.has(str(fd, 'block_id') ?? str(fd, 'from_block_id') ?? '')) {
+        // The database's own words for a CHANGE LOCK (audit D7) — the one sentence in lib, never retyped here.
+        const line = lockedLine('Gaia Florals');
+        say(`✗ ${name} refused · ${line}`);
+        throw new Error(line);
       }
       say(`✓ ${name} · ${shown}`);
       const w = window as unknown as { __labWrites?: Array<{ at: number; name: string; shown: string }> };
@@ -282,13 +313,18 @@ export default function ScheduleLabClient({
       },
       async resolveScheduleSuggestion(fd) {
         await gate('resolveScheduleSuggestion', fd);
+        if (str(fd, 'decision') === 'accept_all') {
+          const ids = new Set(fd.getAll('suggestion_id').map(String));
+          setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => !ids.has(x.suggestion_id)));
+          return;
+        }
         const id = str(fd, 'suggestion_id');
         setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => x.suggestion_id !== id));
       },
     };
     return Object.fromEntries(Object.entries(all).map(([k, fn]) => [k, quietly(fn)])) as DayActions;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refuse, dateKey, maker]);
+  }, [refuse, dateKey, maker, locked]);
 
   const strip = moments
     .filter((m) => m.parent_block_id === null)
@@ -360,6 +396,7 @@ export default function ScheduleLabClient({
 
       {when === 'live' ? <RunOfShowHeader eventId="lab" initial={strip} canAdvance={false} variant="strip" /> : null}
 
+      <MakerContext.Provider value={studio ? ({ stagesStudio: true } as MakerState) : null}>
       <ScheduleDay
         key={`${role}-${when}`}
         inspectorSlot={maker ? LAB_SLOT : null}
@@ -379,6 +416,7 @@ export default function ScheduleLabClient({
         emcee={null}
         hostPanel={<p className="text-[13px] text-ink/60">Your booked host&rsquo;s segments, questions and a note to them sit here.</p>}
       />
+      </MakerContext.Provider>
 
       {maker ? <aside id={LAB_SLOT} data-lab-slot="" className="rounded-xl bg-white/60 p-2" /> : null}
 

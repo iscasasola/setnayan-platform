@@ -5,7 +5,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
-import { groupIntoChapters } from '@/lib/alaala-chapters';
+import { chapterDays } from '@/lib/papic-chapters';
+import { readMemoriesChapters } from '@/lib/memories-chapters.server';
+import type { MemoriesChapter } from '@/lib/memories-chapters';
 import type { MemoriesChallenge, MemoriesItem, MemoriesLook, MemoriesSource } from '@/lib/event-memories';
 export type { MemoriesItem } from '@/lib/event-memories';
 import { hubImageRefs } from '@/lib/event-memories';
@@ -29,6 +31,12 @@ export type EventMemoriesRead = {
   challenges: MemoriesChallenge[];
   /** The day's moments from the run of show, for "Follow the moments in order" — null without a schedule. */
   chapters: { key: string; label: string; time: string | null; photoIds: string[] }[] | null;
+  /** 📸 Memories by chapter — the chapters THIS viewer may see or add to (`papic_memories_chapters`). Empty when the
+   *  event has none, or the read was refused (then `refused.photos` is set too). */
+  chapterList: MemoriesChapter[];
+  /** How many shots this read held back (a chapter the viewer may not see yet) — taken off the measured count, so the
+   *  number never counts a frame the grid will not draw. */
+  withheldCount: number;
   /** Guests stopped from shooting at this event (Stop · Let shoot again). */
   blockedGuests: string[];
   /** The booked suppliers whose shots can reach Memories, with their whole-delivery switch. */
@@ -44,7 +52,7 @@ export async function readEventMemories(
 ): Promise<EventMemoriesRead> {
   // WHICH capture reads were refused (review of #6851) — any one makes the photos part "couldn't load".
   const status: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> } = { refused: [] };
-  const [photos, hubRes, missionsRes, completionsRes, reportsRes, blockedRes, suppliersRes, blocksRes] = await Promise.all([
+  const [photos, hubRes, missionsRes, completionsRes, reportsRes, blockedRes, suppliersRes, blocksRes, byChapter] = await Promise.all([
     fetchPapicGallery(supabase, eventId, { compressedOnly: true, includeHeld: host, status, viewerIsCouple }),
     Promise.all([
       supabase.from('events').select('landing_page_hero_image_url, our_photos').eq('event_id', eventId).maybeSingle(),
@@ -71,7 +79,11 @@ export async function readEventMemories(
       .eq('event_id', eventId)
       .not('linked_vendor_profile_id', 'is', null),
     fetchScheduleBlocks(supabase, eventId).catch(() => null),
+    readMemoriesChapters(supabase, eventId),
   ]);
+  /* 📸 WHO + WHEN, ENFORCED HERE (migration 20271301555513): the database answers, for this viewer's own session, which
+     chapters they see each photo in and which photos they see in NONE — those are dropped below, before anything is
+     drawn. A refused read fails CLOSED ("couldn't load"), never a gallery that might show what a chapter hides. */
 
   // ── Challenges ────────────────────────────────────────────────────────────
   const [eventRow, widgets] = hubRes;
@@ -105,7 +117,10 @@ export async function readEventMemories(
   if (reportsRes.error) logQueryError('readEventMemories.reports', reportsRes.error, { event_id: eventId }, 'graceful_degrade');
   const reported = new Set(((reportsRes.data ?? []) as { target_id: string }[]).map((r) => r.target_id));
 
-  const items: MemoriesItem[] = photos.map((p) => {
+  // 🔒 A photo the viewer sees in no chapter never leaves this read (a refused read keeps NO chapter-able photo).
+  const chapterFile = (p: { source: string }) => p.source === 'seat' || p.source === 'guest';
+  const allowed = photos.filter((p) => !chapterFile(p) || (!byChapter.refused && !byChapter.withheld.has(p.id)));
+  const items: MemoriesItem[] = allowed.map((p) => {
     const memSource: MemoriesSource = p.source === 'vendor' ? 'suppliers' : p.uploads ? 'uploads' : 'papic';
     const look: MemoriesLook =
       p.held === 'screened' ? 'screened' : reported.has(p.id) ? 'reported' : p.held === 'hidden' ? 'hidden' : 'ok';
@@ -116,6 +131,7 @@ export async function readEventMemories(
       table: p.source === 'seat' ? 'papic_photos' : p.source === 'guest' ? 'papic_guest_captures' : 'vendor_papic_captures',
       challengeId: p.source === 'guest' ? (missionOfCapture.get(p.id) ?? null) : null,
       hubUse: null,
+      chapters: chapterFile(p) ? (byChapter.ofPhoto.get(p.id) ?? { in: [], shotIn: [] }) : null,
     };
   });
 
@@ -158,7 +174,7 @@ export async function readEventMemories(
   // ── The day's moments (the Papic gallery's own rule — `lib/alaala-chapters.ts`) ─────────────────────────
   let chapters: EventMemoriesRead['chapters'] = null;
   if (blocksRes && blocksRes.length > 0 && items.length > 0) {
-    const { days } = groupIntoChapters({
+    const { days } = chapterDays({
       frames: items.map((p) => ({ id: p.id, capturedAt: p.capturedAt })),
       blocks: blocksRes.map((b) => ({
         blockId: b.block_id,
@@ -167,6 +183,7 @@ export async function readEventMemories(
         endAt: b.end_at,
         actualStartAt: b.actual_start_at,
         actualEndAt: b.actual_end_at,
+        timeTba: b.time_tba === true,
       })),
       tz: DEFAULT_EVENT_TZ,
     });
@@ -178,13 +195,15 @@ export async function readEventMemories(
     items: [...items, ...hubItems],
     challenges,
     chapters,
+    chapterList: byChapter.chapters,
+    withheldCount: byChapter.withheld.size,
     blockedGuests: ((blockedRes.data ?? []) as { blocked_guest_id: string | null }[])
       .map((b) => b.blocked_guest_id)
       .filter((g): g is string => typeof g === 'string'),
     suppliers: ((suppliersRes.data ?? []) as { vendor_id: string; linked_vendor_profile_id: string; vendor_name: string | null; papic_captures_hidden: boolean | null }[]).map(
       (v) => ({ vendorProfileId: v.linked_vendor_profile_id, vendorRowId: v.vendor_id, name: (v.vendor_name ?? '').trim() || 'Your supplier', hidden: v.papic_captures_hidden === true }),
     ),
-    refused: { photos: status.refused.length > 0, hub: hubRefused, challenges: challengesRefused, reports: Boolean(reportsRes.error) },
+    refused: { photos: status.refused.length > 0 || byChapter.refused, hub: hubRefused, challenges: challengesRefused, reports: Boolean(reportsRes.error) },
   };
 }
 

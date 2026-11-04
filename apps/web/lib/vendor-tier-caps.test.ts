@@ -1,57 +1,71 @@
 /**
- * Vendor tier CALLS capability (Node built-in test runner via tsx —
- * `pnpm test:unit`).
+ * Vendor tier capability matrix (Node built-in test runner via tsx — `pnpm test:unit`).
  *
- * Locks the 2026-07-13 owner decision ("a service for the paid"): in-thread
- * voice/video calling is unlocked for any PAID plan (Solo+), NOT for Free or
- * the legacy Verified tier. The gate that reads this (resolveThreadCallsEnabled)
- * is flag-dark, but the capability matrix itself must always be correct.
+ * 📐 THE PLAN ALLOWANCES — owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES", verbatim: *"pro reach 100,
+ * ultra nationwide · main categories solo 2 pro 8, ultra unlimited · service cards free 1, solo 3, pro 10, ultra
+ * unlimited · team seats 0,1,5,20 · waitlist 0,0,1,5 · website applies to solo as well"*; corrected the same day:
+ * *"team seats ultra 15 only"*; and "BRANCHES PER PLAN": *"branches 0,0,3,10"*. Free·Verified / Solo / Pro / Ultra.
+ * SUPERSEDED FOR ULTRA the same day by "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR, WITH TRIMMED ALLOWANCES":
+ * categories 15 · service cards 25 · seats 10 · branches 6 · waitlist 3 (reach stays nationwide). Custom in lockstep.
+ *
+ * The stale `calls` capability is GONE (same ruling) — in-app calls were retired 2026-10-28, so no plan buys them.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canUseCalls,
+  canBuyExtraBranches,
   canSeeMarketIntel,
   canUseEditorialFeatures,
   isTierAtLeast,
   isTrueNameTier,
+  reachLadderWords,
   TIER_CAPS,
   VENDOR_TIERS,
   type VendorTier,
 } from './vendor-tier-caps';
 import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 
-const PAID_TIERS: VendorTier[] = ['solo', 'pro', 'enterprise', 'custom'];
-const UNPAID_TIERS: VendorTier[] = ['free', 'verified'];
+const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
+const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'servicesPerLeaf', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
-test('calls: paid tiers (Solo+) can use calls', () => {
-  for (const tier of PAID_TIERS) {
-    assert.equal(canUseCalls(tier), true, `${tier} should allow calls`);
-    assert.equal(TIER_CAPS[tier].calls, true, `${tier}.calls cap should be true`);
+test('allowances · the owner\'s 2026-11-04 numbers, Free·Verified / Solo / Pro / Ultra', () => {
+  const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
+  assert.deepEqual(row('serviceRadiusKm'), [0, 20, 30, 100, Infinity], 'reach: 0·20 / 30 / 100 / nationwide');
+  assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 15], 'main categories: 1 / 2 / 8 / 15 (Ultra trimmed)');
+  assert.deepEqual(row('servicesPerLeaf'), [1, 1, 3, 10, 25], 'service cards per category: 1 / 3 / 10 / 25 (Ultra trimmed)');
+  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 10], 'team seats: 0 / 1 / 5 / 10 (Ultra trimmed; was 15)');
+  assert.deepEqual(row('waitlistAcceptances'), [0, 0, 0, 1, 3], 'waitlist per date: 0 / 0 / 1 / 3 (Ultra trimmed; was 5)');
+  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 3, 6], 'branches: 0 / 0 / 3 / 6 (Ultra trimmed; was 10)');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Solo, Pro, Ultra');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
+});
+
+test('allowances · every numeric allowance is monotonic up the ladder (no rung gives less than the one below)', () => {
+  for (const k of NUMERIC) {
+    for (let i = 1; i < LADDER.length; i++) {
+      assert.ok(TIER_CAPS[LADDER[i]!][k] >= TIER_CAPS[LADDER[i - 1]!][k], `${k}: ${LADDER[i]} < ${LADDER[i - 1]}`);
+    }
   }
 });
 
-test('calls: Free and legacy Verified cannot use calls', () => {
-  for (const tier of UNPAID_TIERS) {
-    assert.equal(canUseCalls(tier), false, `${tier} should NOT allow calls`);
-    assert.equal(TIER_CAPS[tier].calls, false, `${tier}.calls cap should be false`);
-  }
+test('allowances · Custom stays in lockstep with Ultra on every numeric allowance', () => {
+  for (const k of NUMERIC) assert.equal(TIER_CAPS.custom[k], TIER_CAPS.enterprise[k], k);
+  assert.equal(TIER_CAPS.custom.customWebsiteName, TIER_CAPS.enterprise.customWebsiteName);
+  assert.equal(TIER_CAPS.custom.premiumPage, TIER_CAPS.enterprise.premiumPage);
 });
 
-test('calls: unknown / null / undefined tier defaults to no calls (free)', () => {
-  assert.equal(canUseCalls(null), false);
-  assert.equal(canUseCalls(undefined), false);
-  assert.equal(canUseCalls('gibberish'), false);
+test('branches · only Ultra (and Custom) may buy more', () => {
+  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise' || t === 'custom', t);
+  assert.equal(canBuyExtraBranches(null), false);
 });
 
-test('calls: every tier in the matrix declares the calls cap (completeness)', () => {
-  for (const tier of VENDOR_TIERS) {
-    assert.equal(
-      typeof TIER_CAPS[tier].calls,
-      'boolean',
-      `${tier} must declare a boolean calls cap`,
-    );
-  }
+test('calls · the stale capability is gone from every plan', () => {
+  for (const t of VENDOR_TIERS) assert.ok(!('calls' in TIER_CAPS[t]), `${t} still carries a calls cap`);
+});
+
+test('reach ladder words say "nationwide", never "Infinity"', () => {
+  assert.doesNotMatch(reachLadderWords(), /Infinity/);
+  assert.match(reachLadderWords(), /Ultra nationwide$/);
 });
 
 // ── Subscription-ladder contents (Vendor_Subscription_Ladder_2026-07-22 §1/§4) ──
@@ -77,30 +91,30 @@ test('ladder · Solo: expanded reach + analytics, still no Market Intel', () => 
   assert.equal(canSeeMarketIntel('solo'), false);
 });
 
-test('ladder · Pro: Market Intel + up to 3 seats + expanded reach', () => {
+test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
   const c = TIER_CAPS.pro;
   assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
   assert.equal(canSeeMarketIntel('pro'), true);
-  assert.equal(c.agentAccounts, 3, 'Pro = up to 3 agent seats');
+  assert.equal(c.agentAccounts, 5, 'Pro = up to 5 agent seats (owner 2026-11-04; was 3)');
   assert.ok(
     c.serviceRadiusKm > TIER_CAPS.solo.serviceRadiusKm,
     'Pro reach is wider than Solo',
   );
 });
 
-test('ladder · Enterprise: up to 10 seats + 100 km reach + unlimited categories', () => {
+test('ladder · Ultra: up to 10 seats + nationwide reach + 15 categories', () => {
   const c = TIER_CAPS.enterprise;
-  assert.equal(c.agentAccounts, 10, 'Enterprise = up to 10 team seats');
-  assert.equal(c.serviceRadiusKm, 100, 'Enterprise = 100 km reach');
-  assert.equal(c.parentCategories, Infinity, 'Enterprise = unlimited categories');
+  assert.equal(c.agentAccounts, 10, 'Ultra = up to 10 team seats (owner 2026-11-04 "WITH TRIMMED ALLOWANCES"; 15 earlier that day)');
+  assert.equal(c.serviceRadiusKm, Infinity, 'Ultra = nationwide (owner 2026-11-04; was 100 km)');
+  assert.equal(c.parentCategories, 15, 'Ultra = 15 categories (trimmed 2026-11-04; was unlimited)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 
-test('ladder · Custom: unlimited, runs as Enterprise-or-better on every axis', () => {
+test('ladder · Custom: runs as Enterprise-or-better on every axis', () => {
   const c = TIER_CAPS.custom;
   const e = TIER_CAPS.enterprise;
-  assert.equal(c.parentCategories, Infinity, 'Custom = unlimited categories');
-  assert.equal(c.servicesPerLeaf, Infinity, 'Custom = unlimited service listings');
+  assert.ok(c.parentCategories >= e.parentCategories, 'Custom categories >= Enterprise');
+  assert.ok(c.servicesPerLeaf >= e.servicesPerLeaf, 'Custom service listings >= Enterprise');
   assert.ok(c.agentAccounts >= e.agentAccounts, 'Custom seats >= Enterprise');
   assert.ok(c.serviceRadiusKm >= e.serviceRadiusKm, 'Custom reach >= Enterprise');
   assert.equal(c.marketIntel, true, 'Custom keeps Market Intel');

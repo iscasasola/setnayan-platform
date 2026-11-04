@@ -61,7 +61,16 @@ const NotificationsList = dynamic(
  * is written by the database itself (the event_inspiration_assets trigger, 20271299051148), and the Undo it promises
  * lives on Home's Today list (`MoodBoardAsksDoorway`). An owner already on Home sees that line appear at once.
  */
-const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed'];
+/*
+ * 📍 …and so does a host changing a booked supplier's Where (owner 2026-11-01, "SUPPLIERS PICK THEIR CHAPTERS"): the
+ * notice is written by the database itself (`set_supplier_where`, 20271300598766), and a supplier already on that
+ * client's page sees the chapters they are now on without a reload.
+ */
+/*
+ * 🔗 …and so does a couple's answer to a supplier who joined from their link (audit G3): the Today "Waiting for … to
+ * let you in" line goes, and the client appears.
+ */
+const PAGE_CHANGING_TYPES: readonly NotificationType[] = ['cohost_added', 'event_invitation', 'mood_board_changed', 'supplier_where_changed', 'claim_access_answered'];
 
 type Props = {
   userId: string;

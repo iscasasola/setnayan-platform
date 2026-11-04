@@ -36,6 +36,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count, Fill } from '@/components/count';
 import { onTabReturn } from '@/lib/tab-return';
 import { formatPhp } from '@/lib/orders';
+import { keepPesoTyping } from '@/lib/peso-as-you-type';
 import { budgetMeter, shortDate, type NextPayment } from '@/lib/budget-page-view';
 import { setEventBudget } from '../actions';
 import styles from './budget-page.module.css';
@@ -83,6 +84,7 @@ export function BudgetSummary({
   owedPhp,
   owedAtLeast = false,
   partial = false,
+  targetUnread = false,
   next,
   payHref,
   onPay,
@@ -107,6 +109,8 @@ export function BudgetSummary({
    * (an empty line would read "nothing due").
    */
   partial?: boolean;
+  /** 🔌 The target could not be READ — said, never "—" (no target) and never an empty field to type over (audit #44). */
+  targetUnread?: boolean;
   next: NextPayment | null;
   /** Where "Pay ›" goes when there is no `onPay`. */
   payHref: string;
@@ -207,7 +211,11 @@ export function BudgetSummary({
               {flash === 'bad' ? 'not saved' : flash === 'saved' ? 'saved' : ''}
             </span>
           </div>
-          {canEdit ? (
+          {targetUnread ? (
+            <div role="alert" className={`${styles.v} ${styles.vMuted}`} data-budget-target-unread="">
+              <a href={`/dashboard/${eventId}/budget`} className="text-[13px] font-semibold">Couldn’t load the target · Reload</a>
+            </div>
+          ) : canEdit ? (
             <div className={`${styles.v} ${styles.target}`}>
               <span className={styles.pencil} aria-hidden="true">
                 ₱
@@ -217,6 +225,9 @@ export function BudgetSummary({
                 inputMode="numeric"
                 autoComplete="off"
                 aria-label="Target"
+                /* 💱 Whole pesos only, commas as typed — the one money keeper (`keepPesoTyping`). A letter never stands
+                   in the Target ("2,250,000abc", walk 2026-11-01). */
+                onInput={(e) => void keepPesoTyping(e.currentTarget, 0)}
                 value={text}
                 onFocus={() => {
                   focused.current = true;

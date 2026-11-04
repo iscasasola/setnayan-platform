@@ -46,7 +46,7 @@ test('the add doors: no round + (owner 2026-10-25); the four other ways are ONE 
 test('the add sheet says what the name box understands — one example, one Tips fold, for THIS event', () => {
   // ⚖ Owner 2026-10-01: "tips on adding names with the + or other grouping".
   // The words themselves are run through the real parser in lib/quick-add-tips.test.ts.
-  assert.match(PAGE, /tips=\{quickAddTips\(\{ hasSides, offeredRoles: resolveRoleSet\(guestRoleSetKey\)\.offeredRoles \}\)\}/, 'the add sheet is not told what this event can use');
+  assert.match(PAGE, /tips=\{quickAddTips\(\{ hasSides, offeredRoles: resolveRoleSet\(guestRoleSetKey\)\.offeredRoles\b/, 'the add sheet is not told what this event can use');
   const sheet = read('_components', 'add-guest-sheet.tsx');
   assert.match(sheet, /<p className="text-xs text-ink\/55">\{tips\.example\}<\/p>/, 'the one example line is gone');
   assert.match(sheet, /<details\b[\s\S]{0,400}Tips[\s\S]{0,300}\{tips\.tips\.map/, 'the tips are not one fold');

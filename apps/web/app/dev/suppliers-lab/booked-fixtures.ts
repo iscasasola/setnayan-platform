@@ -42,6 +42,7 @@ import { earliestTaggedBlock } from '@/lib/coordinator-broadcasts';
 import type { RosMetaMap } from '@/lib/schedule-ros';
 import type { TaggedMoment } from '@/lib/booked-rows';
 import { PLAN_DATE, seedMoments } from '../schedule-lab/lab-moments';
+import type { WhereChapter } from '@/lib/supplier-where';
 
 /**
  * 📅 WHO IS TAGGED ON WHICH MOMENT — the Schedule lab's own day (`lab-moments.ts`), re-tagged with THIS lab's booked
@@ -69,6 +70,22 @@ export function labCallTimes(): Map<string, TaggedMoment> {
   return out;
 }
 import { withBookedByPayment } from '@/lib/booked-by-payment';
+
+/**
+ * 📍 THE CHAPTERS AND WHO IS ON EACH — the Team rows' Where (owner 2026-11-01, "suppliers pick their chapters";
+ * `lib/supplier-where.ts`). Two venues on one event: Seda hosts Preparation, Reception and the After party; the
+ * church hosts the Ceremony (its venue is the booked church that picked it — nothing typed). Asukal is on none
+ * ("Needs at least 1 chapter"); the hand-added planner (`&paidbyhand=1`) is a coordinator: every chapter.
+ *   &chapters=none   no chapter yet ("Add a chapter in Schedule first")
+ *   &chapters=fail   the Schedule read is refused (said, never "needs a chapter")
+ *   &covers=1        Seda also brings Cake (changed to Reception only) and Catering (follows Seda)
+ */
+export const LAB_CHAPTERS: readonly WhereChapter[] = [
+  { blockId: 'ch-prep', name: 'Preparation', location: 'Seda Vertis North', startAt: '2026-12-18T06:00:00Z', tags: ['v-seda', 'v-lumina'] },
+  { blockId: 'ch-cer', name: 'Ceremony', location: null, startAt: '2026-12-18T14:00:00Z', tags: ['v-santuario', 'v-lumina'] },
+  { blockId: 'ch-rec', name: 'Reception', location: null, startAt: '2026-12-18T18:00:00Z', tags: ['v-seda', 'v-lumina', 'v-bituin'] },
+  { blockId: 'ch-after', name: 'After party', location: 'Seda Vertis North', startAt: '2026-12-18T23:00:00Z', tags: ['v-seda'] },
+];
 
 /** The prototype was drawn in early October 2026; pinned so "by Oct 5" does not drift. */
 export const LAB_BOOKED_NOW = new Date('2026-10-01T04:00:00Z');
@@ -135,6 +152,13 @@ export type LabBookedOptions = {
   paidByHand?: boolean;
   /** `&calltimes=fail` — the Schedule read is refused: every row says it could not check, never "no call time". */
   callTimesFail?: boolean;
+  /** 📍 `&chapters=none|fail` — no chapter yet · the Schedule read refused (`LAB_CHAPTERS`). */
+  chapters?: 'none' | 'fail' | null;
+  /** 📖 `&ask=1` — Bituin is booked on no chapter yet: "Which chapters will they serve?" opens, prefilled from catering's
+   *  usual chapter (2026-11-04). */
+  ask?: boolean;
+  /** 📍 `&covers=1` — Seda also brings Cake and Catering (in-house). */
+  covers?: boolean;
 };
 
 /** The hand-added planner's stored row, its payment, and what the resolver makes of it. */
@@ -228,9 +252,16 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
           : []),
       ].filter((t) => inSeed(o, t.vendorId))
     : [];
-  const facts: BookedFacts[] = o.paidByHand
-    ? [...FACTS, { vendorId: 'v-planner', groupId: 'coordinator', own: true, shopId: null, pricePhp: 60_000, threadId: 't-planner', moneyMoved: true, lockRequestExpiresAt: null }]
+  const base: BookedFacts[] = o.covers
+    ? FACTS.map((f) =>
+        f.vendorId === 'v-seda'
+          ? { ...f, covered: [{ key: 'cake', label: 'Cake' }, { key: 'catering', label: 'Catering' }], coveredWhere: { cake: ['ch-rec'] } }
+          : f,
+      )
     : FACTS;
+  const facts: BookedFacts[] = o.paidByHand
+    ? [...base, { vendorId: 'v-planner', groupId: 'coordinator', own: true, shopId: null, pricePhp: 60_000, threadId: 't-planner', moneyMoved: true, lockRequestExpiresAt: null }]
+    : base;
   const rows = teamRows(team, { eventId: LAB_EVENT, lockHandshakeEnabled: true, now: labBookedNow(o) });
   // Bituin's plan is THEIRS (`event_vendor_payment_plan`), folded as the page folds it.
   const plans = new Map<string, PlanProgress>([
@@ -262,6 +293,15 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
     rooms,
     dateChange,
     callTimes: o.callTimesFail ? null : labCallTimes(),
+    chapters:
+      o.chapters === 'fail'
+        ? null
+        : o.chapters === 'none'
+          ? []
+          : o.ask
+            ? LAB_CHAPTERS.map((c) => ({ ...c, tags: c.tags.filter((t) => t !== 'v-bituin') }))
+            : LAB_CHAPTERS,
+    tradeChapters: new Map([['catering', ['cocktail_reception'] as const], ['cake_maker', ['cocktail_reception'] as const]]),
     now: labBookedNow(o),
   });
 }

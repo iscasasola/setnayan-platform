@@ -12,7 +12,7 @@
 
 import type { PeekToastTone } from '@/app/_components/toast/peek-toast';
 
-const UNDO_WINDOW_MS = 6000;
+export const UNDO_WINDOW_MS = 6000;
 
 export type UndoToast =
   | {

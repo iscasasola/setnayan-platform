@@ -84,6 +84,7 @@ import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
 import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
+import { SupplierChangesRow } from './_components/supplier-changes-row';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
 import { eventSettingsHref } from '@/lib/people-with-access-href';
@@ -225,6 +226,16 @@ export default async function EventDetailsPage({
   // 👥 People with access (owner 2026-10-03) — the ONE place a host sets who
   // can do what. A host sees every person and sets each area; a delegate sees
   // their own access, as words; anyone else, nothing.
+  // 🤝 Auto-agree for supplier changes (Step 4b) — its own small read, so a failure says "not read" on its row and
+  // never takes the page down.
+  const autoAgreeRead: Promise<boolean | null> | null = viewer.isCouple
+    ? Promise.resolve(
+        supabase.from('events').select('supplier_requests_auto_agree').eq('event_id', eventId).maybeSingle(),
+      ).then(
+        (r) => (r.error || !r.data ? null : (r.data as { supplier_requests_auto_agree: boolean | null }).supplier_requests_auto_agree === true),
+        () => null,
+      )
+    : null;
   const accessRead = viewer.isCouple
     ? loadPeopleWithAccess(eventId, user.id).catch((err: unknown) => {
         console.error('[event-details] people with access failed', err);
@@ -451,6 +462,7 @@ export default async function EventDetailsPage({
   const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
+  const autoAgree = autoAgreeRead ? await autoAgreeRead : null;
   const claims = claimsRead ? await claimsRead : null;
   // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
   const claimsWaitingNote =
@@ -936,6 +948,7 @@ export default async function EventDetailsPage({
               flash={accessFlash}
               claims={claims}
             />
+            {viewer.isCouple ? <SupplierChangesRow eventId={eventId} autoAgree={autoAgree} /> : null}
           </RecordFold>
         ) : null}
       </div>

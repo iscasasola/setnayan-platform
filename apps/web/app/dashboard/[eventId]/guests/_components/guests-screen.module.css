@@ -811,7 +811,9 @@ button.pinCount:disabled {
 .accSec {
   border-top: 0;
 }
-.accSec > .fold > div > .g:first-child {
+.accSec > .fold > div > .g:first-child,
+/* 👈 …and when that first row sits in its swipe (`SwipeToDelete`, owner 2026-11-03). */
+.accSec > .fold > div > :global([data-swipe-row]):first-child .g {
   border-top: 0;
 }
 .barWrap {
@@ -948,6 +950,85 @@ button.ico {
 .g.joined {
   border-top: 0;
   padding-top: 0;
+}
+/* 👥 GUESTS OF [ROLE] (owner 2026-11-01, prototype `guests_of_each_role_2026-11-01`) — ↗ goes to a guest's row: a soft
+   accent disc in a 44 px target whose negative margins keep the name's line its own height. */
+.jump {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -12px -8px -12px -6px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  color: rgb(var(--sn-accent));
+  cursor: pointer;
+}
+.jump i {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgb(var(--sn-accent) / 0.12);
+  transition: transform 160ms var(--gs-ease);
+}
+.jump:active i {
+  transform: scale(0.92);
+}
+.jump svg {
+  width: 14px;
+  height: 14px;
+}
+/* The host's "+2 ↓" — their guests are elsewhere in the list; the pill is the way there. (`.pill.plusn`: it must beat
+   the plain pill's own look, which comes later in this file.) */
+.pill.plusn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 7px;
+  white-space: nowrap;
+  background: rgb(var(--sn-accent) / 0.12);
+  color: rgb(var(--sn-accent));
+  font-weight: 600;
+  cursor: pointer;
+}
+.pill.plusn svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-left: 1px;
+}
+/* A jump row: listed so the group reads whole, counted elsewhere — quieter than a counted row. */
+.g.jumprow .nm,
+.g.jumprow .ava {
+  opacity: 0.72;
+}
+/* The row a jump landed on, lit for a moment. */
+.g[data-lit] {
+  border-radius: var(--m-r-sm);
+  animation: gs-lit 1800ms var(--gs-ease) both;
+}
+@keyframes gs-lit {
+  0% {
+    background: transparent;
+    box-shadow: none;
+  }
+  12%,
+  70% {
+    background: rgb(var(--sn-accent) / 0.14);
+    box-shadow: 0 0 0 8px rgb(var(--sn-accent) / 0.14);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .g[data-lit] {
+    animation: none;
+    background: rgb(var(--sn-accent) / 0.14);
+  }
 }
 /* "· +1 of Juanita Sacdalan" — after a named +1's own name, quieter than the name. */
 .of {
@@ -1611,4 +1692,158 @@ button.countBig {
 button.countsDoor[aria-pressed='true'] {
   font-weight: 600;
   text-decoration-thickness: 2px;
+}
+
+/* 👁 The Map's peek (slice 6d): rises just above the thumb row, inside its seat — the map stays in view. */
+.peekSeat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  padding-inline: inherit;
+  animation: gs-peek-up 250ms var(--gs-ease);
+}
+@keyframes gs-peek-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .peekSeat {
+    animation: none;
+  }
+}
+
+/* 🧠 THE MAP AS A MIND MAP (R4 slice 10, prototype v12–v18): the couple in the centre, the groups as hubs on one ring, each
+   group's people as faces around it. Every piece is placed by its centre (`left`/`top` = the world point). */
+.mapcanvas svg.links line {
+  stroke: rgb(var(--color-ink) / 0.14);
+  stroke-width: 1.5;
+}
+.mindCouple,
+.mindHub,
+.mindFace {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+/* A hub's name and its "+N more", one column under it (`guest-map-canvas.tsx`): stacked, never overlapping. */
+.mindUnder {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.mindCouple {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--gs-brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.mindHub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--gs-line);
+  background: var(--gs-paper);
+  color: var(--gs-ink);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.mindHubOn {
+  border-color: var(--gs-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gs-brand) 22%, transparent);
+}
+.mindOther {
+  border-style: dashed;
+}
+.mindLabel {
+  max-width: 140px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgb(var(--color-ink) / 0.6);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.mindMore {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--m-r-full);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-paper);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--gs-ink);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.mindFace {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mindFace.leafNo {
+  opacity: 0.45;
+}
+.mindBack {
+  position: sticky;
+  top: 8px;
+  left: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  margin: 8px 0 0 16px;
+  padding: 0 12px 0 8px;
+  border-radius: var(--m-r-full);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-paper);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gs-ink);
+}
+
+/* ✋ DRAG TO CHANGE ROLE (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE ROLE") — Role grouping only
+   (`guest-role-drag.tsx`). A held name never opens the phone's own copy menu; the lifted row stays as a faint place-
+   holder while its picture follows the finger; the section under the finger lights (it takes them) or greys (it will
+   say why not). No frame is added — the header's own row is tinted. */
+.screen [data-role-drag] .g {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.screen [data-role-drag] .g[data-role-lifted] {
+  opacity: 0.35;
+}
+.sec[data-role-drop='ok'] > .barWrap {
+  background: rgb(var(--color-mulberry) / 0.1);
+  box-shadow: inset 3px 0 0 var(--gs-brand);
+}
+.sec[data-role-drop='no'] > .barWrap {
+  background: rgb(var(--color-ink) / 0.05);
 }

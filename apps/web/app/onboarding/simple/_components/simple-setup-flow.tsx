@@ -21,6 +21,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { nudgeFormRows } from '@/app/_components/form-row';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -54,9 +55,11 @@ type Props = {
   label?: string;
   /** False on a vendor-free type: no Suppliers row (`needRows`). */
   marketplace?: boolean;
+  /** 💍 The founders' (is_internal) account — any date (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
 };
 
-export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', marketplace = false }: Props) {
+export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', marketplace = false, dateExempt = false }: Props) {
   if (!view) {
     return (
       <>
@@ -65,10 +68,10 @@ export function SimpleSetupFlow({ view, steps, start, finish, label = 'event', m
       </>
     );
   }
-  return <Paced view={view} steps={steps} start={start} finish={finish} label={label} marketplace={marketplace} />;
+  return <Paced view={view} steps={steps} start={start} finish={finish} label={label} marketplace={marketplace} dateExempt={dateExempt} />;
 }
 
-function Paced({ view, steps, finish, label, marketplace }: Props & { view: SetupView; label: string; marketplace: boolean }) {
+function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: Props & { view: SetupView; label: string; marketplace: boolean }) {
   const scope = useMemo(() => ({ marketplace }), [marketplace]);
   const [answers, setAnswers] = useState<SetupAnswers>(() => setupDefaults(view));
   const [preset, setPreset] = useState<NeedPreset>(() => defaultPresetFor(view.eventType));
@@ -89,7 +92,13 @@ function Paced({ view, steps, finish, label, marketplace }: Props & { view: Setu
 
   function next() {
     if (step === 0) {
-      // The name is required; ask the browser to say so before moving on.
+      // The name is required. It is a Field-template row (`TypedRow`, whose carrier is a hidden input the browser
+      // does not check), so an empty one shakes and is brought into view — never a silent refusal.
+      if (!name.trim()) {
+        nudgeFormRows(startRef.current ?? undefined);
+        return;
+      }
+      // The rest still ask the browser to say what is wrong before moving on.
       const fields = startRef.current?.querySelectorAll('input') ?? [];
       for (const f of Array.from(fields)) {
         if (!f.checkValidity()) {
@@ -124,7 +133,7 @@ function Paced({ view, steps, finish, label, marketplace }: Props & { view: Setu
           onName={setName}
           where={answers.whereText}
           onWhere={(v) => setAnswers((a) => ({ ...a, whereText: v, where: v.trim() ? 'place' : null }))}
-          when={only ? { value: when, onChange: setWhen } : null}
+          when={only ? { value: when, onChange: setWhen, dateExempt } : null}
           preset={preset}
           onPreset={(p) => {
             setPreset(p);
@@ -136,7 +145,17 @@ function Paced({ view, steps, finish, label, marketplace }: Props & { view: Setu
           fieldNames={{ name: 'display_name', when: 'event_date' }}
           cta={
             only ? (
-              <SubmitButton className="button-primary h-12 w-full" pendingLabel="Making…">
+              <SubmitButton
+                className="button-primary h-12 w-full"
+                pendingLabel="Making…"
+                onClick={(e) => {
+                  // The name is required (it was the raw box's `required`; the Field row's carrier is hidden).
+                  if (!name.trim()) {
+                    e.preventDefault();
+                    nudgeFormRows(startRef.current ?? undefined);
+                  }
+                }}
+              >
                 Make the event
               </SubmitButton>
             ) : (

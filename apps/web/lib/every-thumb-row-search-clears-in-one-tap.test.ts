@@ -73,9 +73,17 @@ describe('every thumb-row search clears in one tap', () => {
   });
 
   it('clears through the input’s own event, keeps the focus where it was, and never raises the keyboard', () => {
-    const btn = ROW.slice(ROW.indexOf('data-thumb-clear'), ROW.indexOf('</button>', ROW.indexOf('data-thumb-clear')));
-    assert.match(btn, /onMouseDown=\{keepFocus\}/, 'a press on the ✕ takes the focus from the field');
-    assert.match(btn, /setTyped\(el, ''\)/, 'the ✕ must clear through the input’s own event (the host hears it)');
-    assert.doesNotMatch(btn, /\.focus\(/, 'the ✕ raised the keyboard');
+    // The row's ✕ is THE shared one (`components/clear-field.tsx`, owner 2026-10-31 "every type box"): its press holds the
+    // focus and its clear is `clearTyped` — so read both, the row's call and the shared button.
+    const at = ROW.indexOf('data-thumb-clear');
+    const call = ROW.slice(ROW.lastIndexOf('<ClearButton', at), ROW.indexOf('/>', at));
+    assert.ok(call.startsWith('<ClearButton'), 'the row’s ✕ is not the shared ClearButton — a hand-made second ✕');
+    assert.match(call, /clearTyped\(el\)/, 'the ✕ must clear through the input’s own event (the host hears it)');
+    assert.match(call, /field\.onClear\?\.\(\)/, 'a host that waits after the last letter is not told at once');
+    assert.doesNotMatch(call, /\.focus\(/, 'the ✕ raised the keyboard');
+    const SHARED = stripComments(readFileSync(join(ROOT, 'components/clear-field.tsx'), 'utf8'));
+    const btn = SHARED.slice(SHARED.indexOf('<button'), SHARED.indexOf('</button>'));
+    assert.match(btn, /onMouseDown=\{holdFocus\}/, 'a press on the ✕ takes the focus from the field');
+    assert.doesNotMatch(SHARED, /\.focus\(/, 'the shared ✕ raised the keyboard');
   });
 });

@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { spreadForDisplay } from '@/lib/table-order';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -157,7 +158,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   // so the 3D room matches what the couple sees in 2D — Number(null) would
   // otherwise stack every un-positioned table in the back-left corner.
   const spread = !(floorPlan.venue_width_m && floorPlan.venue_length_m);
-  const tables: Lab3DTable[] = tablesRaw.map((t, i) => {
+  // 🪑 Two tables stored on one spot are drawn apart, as in 2D (display only — lib/table-order.ts).
+  const tables: Lab3DTable[] = spreadForDisplay(tablesRaw).map((t, i) => {
     const positioned = t.x_pos != null && t.y_pos != null;
     const pos = positioned
       ? { x: Number(t.x_pos), y: Number(t.y_pos) }
@@ -173,6 +175,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       yPct: pos.y,
       rotationDeg: t.rotation_deg ?? 0,
       linkGroupId: t.link_group_id ?? null,
+      vip: t.is_vip === true,
     };
   });
 

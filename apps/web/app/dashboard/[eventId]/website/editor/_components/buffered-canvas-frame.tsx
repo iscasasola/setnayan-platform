@@ -222,10 +222,18 @@ export function dropWarmFrames(state: CanvasFrames, ids: ReadonlySet<string>): C
  * How many stages may be held warm on this device (brief 2026-09-28: at most
  * the current stage plus 3 warm frames; none on a phone whose
  * `navigator.deviceMemory` is ≤ 4, or on a save-data connection). Pure.
+ *
+ * 📱 A PHONE THAT DOES NOT SAY ITS MEMORY KEEPS NONE EITHER (1 Nov 2026, owner in the iOS app: *"when i pick a scene
+ * and go to styles. it resets the whole page"*, intermittent). iPhone and iPad WebKit — Safari and the app's web view —
+ * never expose `navigator.deviceMemory`, so they were read as "big enough" and every Maker open kept a whole second
+ * guest page hidden behind the canvas (measured in WebKit at 390: 2 canvas documents where 1 is on screen, before
+ * Style's look cards add 3 more). iOS reloads a web view whose content process runs out of memory, and that reload is
+ * the page "resetting". Only a phone that SAYS it has more than 4 GB keeps stages warm; the cost is that a stage
+ * switch on an iPhone loads its page when asked, as it already did on small Android phones.
  */
 export function warmCanvasBudget(device: { phone: boolean; deviceMemory?: number | null; saveData?: boolean | null }): number {
   if (device.saveData) return 0;
-  if (device.phone && typeof device.deviceMemory === 'number' && device.deviceMemory <= 4) return 0;
+  if (device.phone && !(typeof device.deviceMemory === 'number' && device.deviceMemory > 4)) return 0;
   return MAX_WARM_FRAMES;
 }
 export const MAX_WARM_FRAMES = 3;

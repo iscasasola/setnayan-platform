@@ -50,6 +50,7 @@ export function HomeSettingsGear({
   landed = null,
   renderKey,
   helper = false,
+  top = false,
 }: {
   eventId: string;
   /** The Home lab's rows, already drawn on its fixture (`/dev/home-lab`) — then nothing is read. Absent = read at the press. */
@@ -66,6 +67,8 @@ export function HomeSettingsGear({
   renderKey?: string;
   /** 🪪 A helper's ⚙ (owner 2026-10-31): the same sheet, holding only "Your access" — its line says so. */
   helper?: boolean;
+  /** 🎴 The event card's seat — by the name at rest, the pinned line once stuck (Home redraw 2026-11-02). */
+  top?: boolean;
 }) {
   const [open, setOpenState] = useState(openAtFirst);
   const [land, setLand] = useState<string | null>(openAtFirst ? landRow : null);
@@ -165,7 +168,12 @@ export function HomeSettingsGear({
   }, [open]);
 
   return (
-    <span data-home-settings-gear="" className="absolute bottom-1 right-4 inline-flex sm:right-6 lg:right-8">
+    <span
+      data-home-settings-gear=""
+      /* 🎴 On the event card (owner-approved Home redraw 2026-11-02) the ⚙ sits by the name at rest and rides the pinned
+         line once the card has stuck — the same ONE mount, only its seat moves. */
+      className={`absolute right-4 inline-flex sm:right-6 lg:right-8 ${top ? 'top-[18px] group-data-[collapsed]/cover:bottom-1 group-data-[collapsed]/cover:top-auto' : 'bottom-1'}`}
+    >
       <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover line={helper ? HOME_HELPER_SHEET : undefined}>
         {got === null ? (
           <p className="px-4 py-6 text-sm text-ink/60" role="status" data-event-settings-opening="">

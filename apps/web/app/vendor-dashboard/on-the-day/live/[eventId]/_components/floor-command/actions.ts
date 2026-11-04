@@ -18,6 +18,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
+import { isTimeTba } from '@/lib/schedule-chapters';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
 import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
@@ -115,6 +116,10 @@ export async function floorRetimeFrom(
 
   const blocks = await fetchScheduleBlocks(ctx.supabase, eventId);
   if (blocks.length === 0) return { ok: false, error: 'No schedule to move.' };
+  // ⏰ A Time-TBA chapter has no time to delay from (its 00:00 is a placeholder) — said, never "moved from 12:00 AM".
+  const from = blocks.find((b) => b.block_id === fromBlockId);
+  const fromTop = from?.parent_block_id ? blocks.find((b) => b.block_id === from.parent_block_id) : from;
+  if (fromTop && isTimeTba(fromTop)) return { ok: false, error: 'That part of the day has no time yet (Time TBA) — nothing to move.' };
 
   let patches;
   try {

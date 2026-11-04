@@ -132,17 +132,22 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   is deeper. Strangers and the canvas are unchanged — the entourage's "(represented by …)" rides the REMEMBERED read
   (the stamp's WHEN list gained the column, migration 20271292712479).
     an invited guest                6 → 7   (10 → 11 on the day) · first view 22 → 23 · with orders 18 → 19 · 26 → 27
+
+  ✉ GUESTS AND RSVP BY CHAPTER (Step 5, 2026-11-02): the day-of layer asks the invitation's chapters
+  (`readInvitationChapters`) BESIDE the public schedule — a second, fenced read of event_schedule_blocks, at the same
+  depth. Remembered with the rest of the layer, so only a view that misses the cache pays it:
+    first view 23 → 24 · the canvas 10 → 11 · after a write 11 → 12 · with orders 27 → 28 — every other view unchanged.
 */
 const PINNED: Record<(typeof VIEWS)[number], { calls: number; depth: number }> = {
-  coldInvitedOnTheDay: { calls: 23, depth: 6 },
+  coldInvitedOnTheDay: { calls: 24, depth: 6 },
   strangerBeforeTheDay: { calls: 3, depth: 3 },
   strangerOnTheDay: { calls: 4, depth: 3 },
   invitedBeforeTheDay: { calls: 7, depth: 4 },
   invitedOnTheDay: { calls: 11, depth: 4 },
-  hostCanvas: { calls: 10, depth: 3 },
-  freshAfterAWrite: { calls: 11, depth: 4 },
+  hostCanvas: { calls: 11, depth: 3 },
+  freshAfterAWrite: { calls: 12, depth: 4 },
   warmAgainAfterTheWrite: { calls: 3, depth: 3 },
-  coldWithOrders: { calls: 27, depth: 7 },
+  coldWithOrders: { calls: 28, depth: 7 },
   strangerWithOrders: { calls: 7, depth: 6 },
   invitedWithOrders: { calls: 19, depth: 6 },
 };
@@ -200,7 +205,8 @@ test('🔒 NOTHING ABOUT ONE GUEST IS REMEMBERED — their own row is read on ev
 test('🎨 THE MAKER’S CANVAS IS NEVER SERVED A REMEMBERED READ — only the shell rides the stamp', () => {
   const canvas = REPORT.hostCanvas;
   for (const table of ['invitation_widgets', 'event_vendors', 'guests', 'event_schedule_blocks', 'march_not_walking', 'event_floor_plan']) {
-    assert.equal(asked(canvas, table), 1, `the canvas did not read ${table} from the database\n${summary(canvas)}`);
+    // ✉ event_schedule_blocks twice: the public schedule and, beside it, the invitation's chapters (Step 5).
+    assert.equal(asked(canvas, table), table === 'event_schedule_blocks' ? 2 : 1, `the canvas did not read ${table} from the database\n${summary(canvas)}`);
   }
 });
 

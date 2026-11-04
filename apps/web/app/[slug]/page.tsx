@@ -1,4 +1,9 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
+import { chaptersForGuest } from '@/lib/invitation-chapters';
+import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
+import { YourScheduleCard } from './_components/your-schedule-card';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -68,7 +73,7 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -568,7 +573,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
   // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
   // `headers()` read below is the live render's alone.
-  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
+  if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
@@ -1474,6 +1479,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1746,6 +1752,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -2136,6 +2143,23 @@ async function invitationBody({
     eventVendorCredits,
   } = guestContext;
 
+  /* 📅 YOUR SCHEDULE on Me (owner 2026-11-01, plan §3 · §3b · §11b): the chapters this guest is invited to, and after
+     Release (Pro) their own lines and exact call time. Started here, awaited where Me is drawn; never in the Maker's
+     canvas. A refused read is said on the card (`unread`), never drawn as no schedule. Nothing live: guests hold no
+     connection — this renders into the cached Event Hub copy. */
+  const yourScheduleAhead = isEditorCanvas
+    ? null
+    : startAhead(
+        readYourSchedule(admin, {
+          eventId: event.event_id,
+          guestId: guest.guest_id,
+          roles: [guest.role as string | null, ...(((guest as { extra_roles?: string[] | null }).extra_roles) ?? [])].filter(
+            (r): r is string => typeof r === 'string' && r.trim().length > 0,
+          ),
+          guestsArriveBy: guestsArriveTime(scheduleBlocks),
+        }).catch((): YourScheduleRead => ({ kind: 'unread' })),
+      );
+
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
@@ -2390,6 +2414,7 @@ async function invitationBody({
       ticketNames={event.display_name}
     />
   );
+  const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
@@ -2456,6 +2481,7 @@ async function invitationBody({
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
       profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
+      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} />}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={
@@ -2522,11 +2548,32 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  /* ✉ …AND ONLY THE CHAPTERS THEY ARE INVITED TO (owner 2026-11-02, "Invited to"): the hosts may take one guest off a part
+     of the day on their card ("after party only"). The reply card, the notices and Details › Schedule all draw from this
+     one narrowed list. A refused read of what they were taken off is `null` — the page then draws as it does with no
+     chapters, never the whole invitation to a guest who was taken off part of it. */
+  const notInvitedHere = invitationChapters && invitationChapters.length > 0 ? await readGuestNotInvited(admin, guest.guest_id) : new Set<string>();
+  const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
+  const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        invitationChapters={guestChapters}
+        /* 🚪 SIGNED IN AND ON THIS LIST (owner 2026-11-03): no door — the server answered with their seat and this is
+           their invitation — plus "Not [first name]? Switch account" under the cover's button. Only when the signed-in
+           account's OWN seat is the guest drawn (a pass held for somebody else has its own line, `heldPassNode`). */
+        switchAccountName={
+          viewerAccount?.id && viewerSeat?.guestId === guest.guest_id && !isEditorCanvas
+            ? (guest.first_name ?? '').trim().split(/\s+/)[0] ?? ''
+            : null
+        }
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({

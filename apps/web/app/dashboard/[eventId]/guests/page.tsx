@@ -1,3 +1,4 @@
+import { readNotCountedNotes } from '@/lib/guest-not-counted.server';
 import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
@@ -36,7 +37,9 @@ import {
 } from '@/lib/guests';
 import {
   filterByRoleGroup,
+  HONOUR_ATTENDANTS_LABEL,
   honoreeRank,
+  isHonourAttendant,
   roleGroupOf,
   ROLE_GROUP_LABELS,
   roleImportanceRank,
@@ -103,6 +106,7 @@ import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
+import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
@@ -424,6 +428,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       .eq('event_id', eventId)
       .maybeSingle(),
   );
+  // 🍽 "Not counted for <service>" — the row's quiet note (owner 2026-11-02). Leaves now, read where the rows are built;
+  // a refused read draws no note (`readNotCountedNotes` logs it), never a "counted for all" it did not measure.
+  const notCountedRead = readNotCountedNotes(supabase, eventId).catch(() => null);
   const rosterRead = Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
       fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true, includeRepresented: true }),
@@ -538,6 +545,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     accountRefByGuest,
     eventPapic,
     storeShell,
+    inviteTagsByGuest,
   ] = await Promise.all([
     userRead,
     roleSetKeyRead,
@@ -552,6 +560,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     accountRefRead,
     eventPapicRead,
     storeShellRead,
+    // 🏷 "After party only" — the rows of guests taken off part of the day (owner 2026-11-02, "Invited to").
+    readInviteTagsByGuest(supabase, eventId),
   ]);
   if (!user) redirect('/login');
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
@@ -874,6 +884,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     lastName: (g) => g.last_name,
     sideLabel: (g) => SIDE_LABELS[g.side],
     roleGroupLabel: (g) => {
+      // 👯 An honour attendant sorts with Honour attendants, above both crews — the List's own section (owner 2026-11-01).
+      if (isHonourAttendant(g.role)) return HONOUR_ATTENDANTS_LABEL;
       const grp = roleGroupOf(g.role);
       // ⚠ A SORT KEY, NOT A HEADING — `ROLE_SECTION_ORDER` ranks by these exact
       // words, so the couple's renames are applied where the heading is DRAWN.
@@ -1025,6 +1037,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     [...placedByGuest.entries()].map(([id, label]) => [id, tableWords(label)]),
   );
   const songsByGuest: Record<string, string[]> = Object.fromEntries(songsByGuestId.entries());
+  const notCountedByGuest: Record<string, string> = (await notCountedRead) ?? {};
   const faceByGuest: Record<string, string> = Object.fromEntries(
     guests
       .map((g) => [g.guest_id, photoDisplayUrls[g.photo_url ?? ''] ?? accountFaceByGuest[g.guest_id]] as const)
@@ -1111,6 +1124,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       groups={groups.map((g) => ({ group_id: g.group_id, label: g.label, team_side: g.team_side }))}
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
+      inviteTagByGuest={inviteTagsByGuest ?? {}}
+      notCountedByGuest={notCountedByGuest}
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
@@ -1309,7 +1324,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       <AddGuestSheet
         eventId={eventId}
         defaultSide={teamFilter === 'all' ? 'both' : teamFilter}
-        tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })}
+        tips={quickAddTips({ hasSides, offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles, groupNames: groups.map((g) => g.label), roleNames })}
+        offeredRoles={resolveRoleSet(guestRoleSetKey).offeredRoles}
       />
       <QuickAddSheet
         eventId={eventId}
@@ -1369,6 +1385,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           className="sn-inspector-shell--card"
           mobileSheet
           hasSelection={Boolean(inspectorBody)}
+          /* 🪪 Whose card `inspector` is — so a tap can open a card IN PLACE (read alone, the address moved with no
+             server render) and this page's own card takes over only for the id the address names. */
+          inspectorId={inspectorBody && inspectedGuest ? inspectedGuest.guest_id : null}
           master={master}
           inspector={inspectorBody}
         />

@@ -18,7 +18,6 @@ import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';
 import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
-import { getRequestPlatform } from '@/lib/request-platform';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -34,14 +33,13 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const view = await getLoginView(params);
-  // 🍎 Inside the phone or desktop app there is nothing behind this card: the
-  // app opens HERE, and middleware (`APP_EXCLUDED_MARKETING_PATHS`) sends "/"
-  // straight back, so a ✕ pointing home did nothing — a dead button on the
-  // first screen App Review sees (Apple check 2026-10-19, row #3). In the app
-  // the card draws no ✕ at all. `getRequestPlatform()` asks the same question
-  // middleware's bounce asks (a `SetnayanApp` user agent or the capacitor
-  // cookie), so the two cannot disagree. The web keeps its ✕ to "/".
-  const inApp = (await getRequestPlatform()) !== 'web';
+  // ✕ (and Escape, and the backdrop) go to Discover ("/") — on the web AND in
+  // the phone and desktop apps. The apps open ON this page; while Apple
+  // reviewed 1.0 middleware bounced "/" straight back here inside them, so a ✕
+  // pointing home did nothing (Apple check 2026-10-19, row #3) and the app drew
+  // no ✕ at all. Since the owner's 2026-11-02 ruling ("let everything go live")
+  // the apps open "/" like the website, so the ✕ is a real way out everywhere.
+  // Held by the-app-login-has-no-dead-close.test.ts, which reads middleware.
 
   // A paper base under the translucent greige dim so a hard load never flashes a
   // stark void behind the backdrop before the card settles.
@@ -51,7 +49,7 @@ export default async function LoginPage({
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
       <SignInCardModal
-        dismissHref={inApp ? null : '/'}
+        dismissHref="/"
         next={view.next}
         signupHref={view.signupHref}
         showOAuth={view.showOAuth}

@@ -43,7 +43,7 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
-import { PORTFOLIO_FREE_BASE, tierCaps } from '@/lib/vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { deepSearchBand } from '@/lib/deep-search-findings';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
@@ -515,6 +515,8 @@ function pageFixture(who: Who): PageClientData {
     // The same question the real page asks — false for every plan while the owner's switch is off.
     personalizeAsks: vendorPaywallApplies(f.tier !== 'free'),
     proAsks: vendorPaywallApplies(f.tier === 'pro'),
+    addressAsks: vendorPaywallApplies(tierCaps(f.tier).customWebsiteName),
+    addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
     badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeTracker(bf), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },
@@ -573,7 +575,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false }: { state: PageLabState; who?: string; draft?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false, domains = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🌐 `&domains=1` on page — two own addresses on the list (one live, one waiting), for the swipe-to-delete rows (2026-11-03). */ domains?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -687,6 +689,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
                 docsIn: d.docsIn,
                 docsTotal: d.docsTotal,
                 measured: d.verifyMeasured,
+                row: d.progress.rows.find((r) => r.key === 'docs')!,
                 section: (
                   <VerifySection
                     businessName={d.businessName}
@@ -720,7 +723,18 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
         {draft ? <LabSeedDraft vendorId={d.vendorId} /> : null}
         <PageParts
           d={d}
-          domainBody={<DomainManager initial={[]} />}
+          domainBody={
+            <DomainManager
+              initial={
+                domains
+                  ? [
+                      { domain_id: 'lab-domain-1', domain: 'sny.lightsandlace.ph', verified: true },
+                      { domain_id: 'lab-domain-2', domain: 'book.lightsandlace.com', verified: false },
+                    ]
+                  : []
+              }
+            />
+          }
           autoReplyBody={
             <AutoReplyCard
               initialEnabled

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import type { ReactNode } from 'react';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
@@ -74,6 +75,7 @@ import {
   HubScreen,
 } from './_components/hub-screen';
 import { HubThumbRow } from './_components/hub-thumb-row';
+import { HubSettings } from './_components/hub-settings';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
@@ -316,6 +318,7 @@ export default async function VendorOnTheDayPage({
       seg={seg}
       today={today}
       info={<HubEventInfo event={selected} title={coupleName} place={place} />}
+      gear={<HubSettings coordinator={isCoordinatorTrade(profile.services)} />}
     />
   );
   const pane = (
@@ -373,6 +376,8 @@ export default async function VendorOnTheDayPage({
         <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
       ) : null}
       {body}
+      {/* ↩ ONE Undo toast for the console — the shot list and issues log delete by swipe with Undo (owner 2026-11-03). */}
+      <UndoToastHost />
     </HubScreen>
   );
 }

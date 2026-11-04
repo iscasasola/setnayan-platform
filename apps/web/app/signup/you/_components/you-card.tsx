@@ -23,6 +23,8 @@ import {
 import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { AccountNameField } from './account-name-field';
+import { DisplayNameField } from './display-name-field';
+import { FormRows } from '@/app/_components/form-row';
 import '@/app/_components/home/home-reskin.css';
 
 /** The columns the card shows — exactly what the page selects, nothing else. */
@@ -118,25 +120,14 @@ export function YouCard({
               }}
             />
 
-            <div className="hr-si-field">
-              <label htmlFor="hr-you-name" className="hr-si-label">
-                Display name
-              </label>
-              <input
-                id="hr-you-name"
-                name="display_name"
-                defaultValue={displayName}
-                maxLength={128}
-                autoComplete="nickname"
-                placeholder="How you want to appear in the app"
-                required
-                className="hr-si-input"
-              />
-            </div>
-
-            {currentSlug === null ? (
-              <AccountNameField suggested={suggestHandle(displayName, email)} />
-            ) : (
+            {/* ✍ The Display name and the @name are rows of the ONE Field template (owner 1 Nov 2026). */}
+            <FormRows width="wide">
+              <DisplayNameField initial={displayName} />
+              {currentSlug === null ? (
+                <AccountNameField suggested={suggestHandle(displayName, email)} />
+              ) : null}
+            </FormRows>
+            {currentSlug === null ? null : (
               <div className="hr-si-field">
                 <span className="hr-si-label">Account name</span>
                 <p style={{ margin: 0 }}>

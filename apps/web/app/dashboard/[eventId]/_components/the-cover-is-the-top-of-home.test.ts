@@ -45,7 +45,7 @@ const NO_BOX_OR_NO_COVER: Readonly<Record<string, string>> = {
   DayPapicRow: 'a prop of DayOfModeGrid',
 };
 
-test('1 · the first screen opens on the cover; the asks sit under it, before the Today line', () => {
+test('1 · the first screen opens on the cover; Now rides it; the asks sit under it', () => {
   const s = src(`${DIR}/home-first-screen.tsx`);
   const body = s.slice(s.indexOf('export function HomeFirstScreen('));
   const open = body.indexOf('<section data-home-first-screen');
@@ -56,7 +56,11 @@ test('1 · the first screen opens on the cover; the asks sit under it, before th
   const asks = body.indexOf('{asks}');
   const today = body.indexOf('<HomeToday ');
   assert.ok(asks > cover, 'the asks render above the cover');
-  assert.ok(asks < today, 'the asks are not first in the Today list');
+  // 🎴 Now rides the event card (owner-approved Home redraw 2026-11-02, round 3): the asks come after the card that
+  // carries it, never above it.
+  const coverEnd = body.indexOf('/>', body.indexOf('now={', cover));
+  assert.ok(today > cover && today < coverEnd, 'Now left the event card');
+  assert.ok(asks > coverEnd, 'the asks render inside or above the event card');
 });
 
 test('2 · Home draws nothing above the cover; the four prompts live only in todayAsks', () => {

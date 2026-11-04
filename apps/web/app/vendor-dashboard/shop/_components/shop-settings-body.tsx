@@ -80,6 +80,7 @@ export async function ShopSettingsBody({ search }: { search: Record<string, stri
         docsIn: d.docsIn,
         docsTotal: d.docsTotal,
         measured: d.verifyMeasured,
+        row: d.progress.rows.find((r) => r.key === 'docs')!,
         section: (
           <VerifySection
             businessName={d.businessName}

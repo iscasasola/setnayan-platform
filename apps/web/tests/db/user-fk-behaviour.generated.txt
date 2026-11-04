@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 247 single-column FKs onto auth.users / public.users
-# CASCADE=67  RESTRICT=1  SET NULL=179
+# 252 single-column FKs onto auth.users / public.users
+# CASCADE=68  RESTRICT=1  SET NULL=183
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -101,8 +101,11 @@ event_playlist_picks.created_by_user_id                   SET NULL     nullable 
 event_playlist_slot_vibes.set_by_user_id                  SET NULL     nullable  -> users
 event_preparation_items.created_by                        SET NULL     nullable  -> users
 event_question_answers.answered_by                        SET NULL     nullable  -> auth.users
+event_schedule_task_contacts.created_by                   SET NULL     nullable  -> auth.users
+event_schedule_tasks.created_by                           SET NULL     nullable  -> auth.users
 event_sponsors.created_by_user_id                         SET NULL     nullable  -> auth.users
 event_stage_notes.author_user_id                          SET NULL     nullable  -> auth.users
+event_type_requests.user_id                               CASCADE      NOT NULL  -> users
 event_vendor_booth_posters.updated_by                     SET NULL     nullable  -> auth.users
 event_vendors.deposit_declined_by_user_id                 SET NULL     nullable  -> auth.users
 event_vendors.lock_answered_by_user_id                    SET NULL     nullable  -> auth.users
@@ -159,6 +162,8 @@ order_refunds.refunded_by_admin_id                        RESTRICT     NOT NULL 
 orders.user_id                                            CASCADE      nullable  -> users
 owner_alerts.acknowledged_by                              SET NULL     nullable  -> users
 paparazzi_seats.claimer_user_id                           SET NULL     nullable  -> auth.users
+papic_chapter_captures.added_by                           SET NULL     nullable  -> auth.users
+papic_chapter_windows.updated_by                          SET NULL     nullable  -> auth.users
 papic_free_grant_claims.user_id                           CASCADE      NOT NULL  -> auth.users
 papic_guest_spend_ceilings.updated_by                     SET NULL     nullable  -> auth.users
 papic_seat_grant_releases.updated_by                      SET NULL     nullable  -> auth.users

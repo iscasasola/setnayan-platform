@@ -46,9 +46,15 @@ export type ChapterBlock = {
   /** Stamped when the block really ran. Already a real instant. */
   actualStartAt?: string | null;
   actualEndAt?: string | null;
+  /**
+   * ⏰ Time TBA (migration 20271300482585): `startAt` is the day at a placeholder 00:00. Such a block makes no planned
+   * window — it would claim every photo from midnight on (follow-up to #7158). If it really ran, its actual times
+   * (real instants) still make one.
+   */
+  timeTba?: boolean;
 };
 
-/** A photo or clip. `capturedAt` is a real instant. */
+/** A photo or clip. `capturedAt` is a real instant. (Grouped by `chapterDays` in `lib/papic-chapters.ts`.) */
 export type Frame = { id: string; capturedAt: string | null };
 
 export type Chapter = {
@@ -117,105 +123,51 @@ function blockWindow(
     const actualEnd = b.actualEndAt ? Date.parse(b.actualEndAt) : NaN;
     return { start: actualStart, end: Number.isFinite(actualEnd) ? actualEnd : null };
   }
+  if (b.timeTba) return null;
   const start = plannedInstant(b.startAt, tz);
   if (start === null) return null;
   const end = b.endAt ? plannedInstant(b.endAt, tz) : null;
   return { start, end };
 }
 
-/**
- * Split an event's frames into days, and each day into chapters.
- *
- * Nothing is ever dropped. A frame with no capture time cannot be placed in
- * time, so it lands in its own trailing chapter rather than disappearing —
- * a gallery that silently loses photographs is the one outcome worse than
- * an ugly one.
- */
-export function groupIntoChapters({
-  frames,
-  blocks,
-  tz,
-}: {
-  frames: Frame[];
-  blocks: ChapterBlock[];
-  tz: string;
-}): { days: ChapterDay[]; undated: Frame[] } {
-  const windows = blocks
+/** One block's real window, ready to test an instant against. */
+export type ScheduleWindow = { block: ChapterBlock; win: { start: number; end: number | null } };
+
+/** Every block that has a usable window — computed ONCE per gallery, never per frame. */
+export function scheduleWindows(blocks: readonly ChapterBlock[], tz: string): ScheduleWindow[] {
+  return blocks
     .map((b) => ({ block: b, win: blockWindow(b, tz) }))
-    .filter((x): x is { block: ChapterBlock; win: { start: number; end: number | null } } =>
-      x.win !== null,
-    );
+    .filter((x): x is ScheduleWindow => x.win !== null);
+}
 
-  const undated: Frame[] = [];
-  // dayKey → chapterKey → chapter
-  const days = new Map<string, Map<string, Chapter>>();
+/**
+ * The block a REAL instant belongs to, or null (a gap). The grouping itself is the ONE engine,
+ * `groupIntoChapters` in `lib/papic-chapters.ts` (Memories by chapter, 2026-11-01: "two copies → one");
+ * this file keeps only the schedule's rules, so the eight-hour hazard above stays contained here.
+ */
+export function scheduleWindowFor(ms: number, windows: readonly ScheduleWindow[]): ScheduleWindow | null {
+  // Every window that contains this instant. An open-ended block contains nothing by itself: a frame after it
+  // lands in a gap chapter named by time of day (the owner's "its own chapter, named by time").
+  const containing = windows.filter(({ win }) => ms >= win.start && (win.end === null ? false : ms < win.end));
+  if (containing.length <= 1) return containing[0] ?? null;
+  // ⚠ OVERLAP IS REAL IN PRODUCTION, not hypothetical: one event has
+  // "Hair & makeup / preparations" 08:00–12:00 overlapping "Vendor ingress
+  // & styling" 10:00–13:00, so an 11:00 frame sits inside both and time
+  // alone cannot choose.
+  //
+  // THE SHORTER WINDOW WINS. A four-hour block is background; a tighter one
+  // is the thing actually happening. Ties break on the later start, then on
+  // block id, so the result is stable rather than dependent on row order.
+  return [...containing].sort((a, b) => {
+    const la = (a.win.end ?? a.win.start) - a.win.start;
+    const lb = (b.win.end ?? b.win.start) - b.win.start;
+    if (la !== lb) return la - lb;
+    if (a.win.start !== b.win.start) return b.win.start - a.win.start;
+    return a.block.blockId < b.block.blockId ? -1 : 1;
+  })[0]!;
+}
 
-  for (const frame of frames) {
-    const ms = frame.capturedAt ? Date.parse(frame.capturedAt) : NaN;
-    if (!Number.isFinite(ms)) {
-      undated.push(frame);
-      continue;
-    }
-    const parts = venueParts(ms, tz);
-    if (!parts) {
-      undated.push(frame);
-      continue;
-    }
-
-    // Every window that contains this instant. An open-ended block runs until
-    // the next one starts, so it is treated as containing anything at or after
-    // its start ONLY when nothing else claims the frame (handled by the sort).
-    const containing = windows.filter(
-      ({ win }) => ms >= win.start && (win.end === null ? false : ms < win.end),
-    );
-
-    let chosen = containing[0] ?? null;
-    if (containing.length > 1) {
-      // ⚠ OVERLAP IS REAL IN PRODUCTION, not hypothetical: one event has
-      // "Hair & makeup / preparations" 08:00–12:00 overlapping "Vendor ingress
-      // & styling" 10:00–13:00, so an 11:00 frame sits inside both and time
-      // alone cannot choose.
-      //
-      // THE SHORTER WINDOW WINS. A four-hour block is background; a tighter one
-      // is the thing actually happening. Ties break on the later start, then on
-      // block id, so the result is stable rather than dependent on row order.
-      chosen = [...containing].sort((a, b) => {
-        const la = (a.win.end ?? a.win.start) - a.win.start;
-        const lb = (b.win.end ?? b.win.start) - b.win.start;
-        if (la !== lb) return la - lb;
-        if (a.win.start !== b.win.start) return b.win.start - a.win.start;
-        return a.block.blockId < b.block.blockId ? -1 : 1;
-      })[0]!;
-    }
-
-    const dayKey = parts.dayKey;
-    if (!days.has(dayKey)) days.set(dayKey, new Map());
-    const chapters = days.get(dayKey)!;
-
-    const key = chosen ? chosen.block.blockId : `gap:${timeOfDayLabel(parts.hour)}`;
-    if (!chapters.has(key)) {
-      chapters.set(key, {
-        key,
-        label: chosen ? chosen.block.label : timeOfDayLabel(parts.hour),
-        startMs: chosen ? chosen.win.start : ms,
-        fromGap: !chosen,
-        frames: [],
-      });
-    }
-    const chapter = chapters.get(key)!;
-    chapter.frames.push(frame);
-    // A gap chapter's start is the earliest frame in it.
-    if (chapter.fromGap && chapter.startMs !== null && ms < chapter.startMs) {
-      chapter.startMs = ms;
-    }
-  }
-
-  const ordered: ChapterDay[] = [...days.entries()]
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([dayKey, chapters]) => ({
-      dayKey,
-      chapters: [...chapters.values()].sort((a, b) => (a.startMs ?? 0) - (b.startMs ?? 0)),
-    }));
-
-  return { days: ordered, undated };
+/** Venue-local day and hour of a real instant — null when it cannot be read. */
+export function venueDayAndHour(ms: number, tz: string): { dayKey: string; hour: number } | null {
+  return venueParts(ms, tz);
 }

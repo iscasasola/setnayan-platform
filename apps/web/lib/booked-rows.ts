@@ -33,13 +33,18 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is a parameter).
  */
+import { keysForGroup, suggestedChapters } from '@/lib/trade-chapters';
+import type { DefaultChapterKey } from '@/lib/schedule';
 import { priceToday } from './price-summary';
+import { timesMarkLine, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
 import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
 import type { PlanProgress } from './vendor-service-payment-schedules';
 import type { TeamRow, TeamRowTone } from './your-team-rows';
+import { canInviteSupplier } from './supplier-invite-eligibility';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
+import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
 
 /** What the page knows about one supplier besides their team row. */
 export type BookedFacts = {
@@ -59,6 +64,10 @@ export type BookedFacts = {
   moneyMoved: boolean;
   /** Deadline of an outstanding ask (`event_vendors.lock_request_expires_at`). */
   lockRequestExpiresAt: string | null;
+  /** 📍 The in-house groups this booking also brings ("Catering" with Seda) — `lib/supplier-where.ts`. */
+  covered?: readonly CoveredGroup[];
+  /** 📍 The in-house groups whose chapters the host changed (`event_vendors.covered_where`). */
+  coveredWhere?: Readonly<Record<string, readonly string[]>> | null;
 };
 
 type VerbTone = ReturnType<typeof cardVerbWords>['tone'];
@@ -164,10 +173,30 @@ export type BookedRow = {
   dateAsk: DateAsk | null;
   /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
   callTime: BookedCallTime | null;
+  /**
+   * ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`, audit G6). `null` = not asked or
+   * nothing pressed (no line); `unread` = the read was refused (said, never "not confirmed").
+   */
+  timesMark?: { kind: 'mark'; line: string; confirmed: boolean } | { kind: 'unread' } | null;
   /** The payment plan's rows, as the Pay sheet holds them (one source) — drawn when the row opens. */
   plan: BookedPlan;
+  /**
+   * 📍 WHERE they go — the chapters they work (owner 2026-11-01, `lib/supplier-where.ts`). `null` = not drawn (the
+   * viewer cannot read the Schedule).
+   */
+  where: SupplierWhere | null;
+  /**
+   * 📖 "Which chapters will they serve?" starts here (owner 2026-11-04, prototype frame 5): the event's chapters this
+   * trade usually serves (`service_categories.default_chapters`, lib/trade-chapters.ts). Empty = no suggestion.
+   */
+  suggestWhere: string[];
   verbs: BookedVerb[];
   threadId: string | null;
+  /**
+   * 🔗 Not on Setnayan yet (`canInviteSupplier`: no shop, `marketplace_vendor_id` null) — the Team row is the ONE door to
+   * their claim link (plan "Sync: … Move its door to the Team row. Until they join, the host enters their times.").
+   */
+  invite: boolean;
 };
 
 /**
@@ -227,6 +256,8 @@ export type BookedView = {
   booked: BookedRow[];
   /** Booked suppliers with no price recorded. */
   unpriced: number;
+  /** 📍 Booked suppliers on no chapter yet, while the event has chapters ("· 2 need a chapter"). */
+  needWhere: number;
 };
 
 /** The pill, the sub line and the line under a waiting row — the prototype's words. */
@@ -301,7 +332,11 @@ function bookedRowOf(
     dateChange: DateChangeView | null;
     now: Date | undefined;
     callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
+    marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined;
     plansKnown: boolean;
+    chapters: readonly WhereChapter[] | null | undefined;
+    venues: ReadonlyMap<string, string>;
+    tradeChapters: ReadonlyMap<string, readonly DefaultChapterKey[]> | null | undefined;
   },
 ): BookedRow {
   const thread = f.threadId !== null;
@@ -325,8 +360,23 @@ function bookedRowOf(
     room: roomLineFor(f, extra.rooms),
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
     callTime: callTimeFor(extra.callTimes, team.vendorId),
+    timesMark: timesMarkFor(extra.marks, f.shopId),
     plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
+    where:
+      extra.chapters === undefined
+        ? null
+        : supplierWhere({
+            vendorId: team.vendorId,
+            groupId: f.groupId,
+            booked: true,
+            chapters: extra.chapters,
+            venues: extra.venues,
+            covered: f.covered,
+            coveredWhere: f.coveredWhere,
+          }),
+    suggestWhere: extra.chapters ? suggestedChapters(extra.chapters, keysForGroup(f.groupId, extra.tradeChapters)) : [],
     threadId: f.threadId,
+    invite: canInviteSupplier({ marketplace_vendor_id: f.shopId }),
   };
   const withVerbs = (next: BookedNext, main: BookedVerb): BookedRow => ({
     ...base,
@@ -438,6 +488,17 @@ export function bookedView(args: {
    * `null` = the Schedule read was refused; `undefined` = nobody asked (no call-time line is drawn).
    */
   callTimes?: ReadonlyMap<string, TaggedMoment> | null;
+  /**
+   * ✅ Seen / Confirm my times by shop (`readScheduleMarks`). `null` = refused; `undefined` = nobody asked (no line).
+   */
+  marks?: ReadonlyMap<string, ScheduleMarkFacts> | null;
+  /**
+   * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
+   * `undefined` = nobody asked (no Where is drawn).
+   */
+  chapters?: readonly WhereChapter[] | null;
+  /** 📖 Each coarse category's default chapters (`readTradeChapters`); `null`/`undefined` = no suggestion. */
+  tradeChapters?: ReadonlyMap<string, readonly DefaultChapterKey[]> | null;
   now?: Date;
 }): BookedView {
   const factsById = new Map(args.facts.map((f) => [f.vendorId, f]));
@@ -455,6 +516,13 @@ export function bookedView(args: {
   });
   const waiting: WaitingRow[] = [];
   const booked: BookedRow[] = [];
+  // Each booked VENUE's name, by its booking — a chapter with no venue typed takes the venue that picked it.
+  const venues = new Map<string, string>(
+    args.rows.flatMap((r) => {
+      const g = factsById.get(r.vendorId)?.groupId;
+      return r.group === 'booked' && g && VENUE_GROUPS.has(g) ? [[r.vendorId, r.name] as const] : [];
+    }),
+  );
   for (const r of args.rows) {
     const f = factsById.get(r.vendorId) ?? fallback(r.vendorId);
     if (r.group === 'asked') waiting.push(waitingRowOf(r, f, args.now));
@@ -465,12 +533,16 @@ export function bookedView(args: {
           dateChange: args.dateChange ?? null,
           now: args.now,
           callTimes: args.callTimes,
+          marks: args.marks,
           plansKnown: args.plans !== null,
+          chapters: args.chapters,
+          venues,
+          tradeChapters: args.tradeChapters,
         }),
       );
     }
   }
-  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length };
+  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length, needWhere: needWhereCount(booked.map((b) => b.where)) };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -557,6 +629,17 @@ export function bookedClock(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' ');
+}
+
+/** ✅ The Team row's "Times confirmed · Nov 2" / "Seen · Nov 2" — keyed by the booking's SHOP (marks are per shop). */
+export function timesMarkFor(
+  marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined,
+  shopId: string | null,
+): NonNullable<BookedRow['timesMark']> | null {
+  if (marks === undefined || !shopId) return null;
+  if (marks === null) return { kind: 'unread' };
+  const mark = timesMarkOf(marks.get(shopId));
+  return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word !== 'Seen' } : null;
 }
 
 export function callTimeFor(

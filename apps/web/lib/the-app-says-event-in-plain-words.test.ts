@@ -93,11 +93,15 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'app/[slug]/_lib/event-words.ts': ['celebration'],
   'lib/invitation-words-draft.ts': ['celebration'],
   'lib/watch-live-occasion.ts': ['celebration'],
+  // the sample event's frozen copy of a wedding's `EventWords` (held equal to eventWordsFromProfile by its own test)
+  'lib/sample-event/hub.ts': ['celebration'],
   // event-type keys / tags
   'lib/checklist-event-type-defs.ts': ['celebration'],
   'lib/event-anchor.ts': ['celebration'],
   'lib/event-brief.ts': ['celebration'],
   'lib/onboarding/type-questions.ts': ['celebration'],
+  // the generic type's KEY — never drawn; it keeps it off the "Kind of event" choices (2026-10-28)
+  'lib/event-type-requests.ts': ['celebration'],
   'lib/papic-challenge-pool.ts': ['celebration'],
   'lib/papic-event-access.ts': ['celebration'],
   'lib/supplier-find.ts': ['celebrations'],

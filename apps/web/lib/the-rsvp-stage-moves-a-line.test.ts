@@ -134,12 +134,14 @@ test('2 · a drop is one edit of the list — every drop there is, and no reply 
 test('3 · the March’s feel by its own numbers: imported, never copied — the hold is this drag’s one difference', () => {
   const DRAG = src(`${L}/rsvp-canvas-drag.ts`);
   const MARCH = src(`${L}/details-march.tsx`);
-  assert.match(DRAG, /import \{ EDGE_PX, SETTLE_MS \} from '\.\/details-march';/);
-  assert.match(MARCH, /export const SETTLE_MS = 240;\s*export const EDGE_PX = 56;/, 'the March’s two numbers are not exported as they were');
+  assert.match(DRAG, /import \{ SETTLE_MS \} from '\.\/details-march';/);
+  assert.match(MARCH, /export const SETTLE_MS = 240;/, 'the March’s settle is not exported as it was');
+  /* The edge scroll is the ONE every list shares (owner 2026-11-01) — `one-drag-edge-scroll.test.ts` holds the rest. */
+  assert.match(DRAG, /import \{ dragBandOf, dragEdgeStep, dragScrollBy \} from '@\/lib\/drag-edge-scroll';/);
   /* Not typed again here. */
   assert.doesNotMatch(DRAG, /\b(240|56)\b/, 'a March number is typed in the drag');
   assert.match(DRAG, /duration: SETTLE_MS/);
-  assert.match(DRAG, /h\.y < EDGE_PX && h\.y > -40 \? -1 : h\.y > win\.innerHeight - EDGE_PX/);
+  assert.match(DRAG, /const v = dragEdgeStep\(h\.y, dragBandOf\(page\)\);/);
   /* The hold: 350 ms, the prototype's own, used for the lift. */
   assert.match(DRAG, /export const RSVP_HOLD_MS = 350;/);
   assert.match(DRAG, /timer: win\.setTimeout\(\(\) => lift\(x, y\), RSVP_HOLD_MS\)/);

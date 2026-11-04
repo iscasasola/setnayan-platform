@@ -9,6 +9,8 @@
  * pure `buildGenericEventInsert`). Inert until PR2's `/onboarding/[type]` route
  * calls it.
  */
+import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
@@ -141,6 +143,21 @@ export async function commitOnboardingEvent(
         displayName: blockingLifeEvent.displayName,
       },
     };
+  }
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): every
+  // date this event is created with — its candidates and its window — on or after it. The
+  // client walks back to the date and says the owner's words beside it.
+  if (
+    eventDatesFloorRefusal(
+      [
+        ...(payload.dateMode === 'window' ? [] : payload.dateCandidates ?? []),
+        ...(payload.dateMode === 'window' ? [payload.windowStart, payload.windowEnd] : []),
+      ],
+      await eventDateFloorExempt(null),
+    )
+  ) {
+    return { ok: false, error: 'event_date_before_first_event' };
   }
 
   // Resolve the profile for a sensible display-name fallback + to confirm the type

@@ -466,6 +466,12 @@ export type NotificationType =
      booking is made by the couple's ask and the supplier's yes. */
   | 'quote_accepted'
   | 'quote_declined'
+  /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
+     "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT
+     on the email allowlist — owner 2026-10-11). Emitted when the event type they
+     named is in the create picker (Admin › Event types). Enum value:
+     20271293446382. */
+  | 'event_type_added'
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
@@ -499,7 +505,47 @@ export type NotificationType =
      (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
      never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES, Low in
      lib/push-levels.ts (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
-  | 'access_more_asked';
+  | 'access_more_asked'
+  /* 📍 THE HOST CHANGED WHERE A BOOKED SUPPLIER GOES (owner 2026-11-01, DECISION_LOG "MANY VENUES PER EVENT; SUPPLIERS
+     PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan §12 Step 4: "a change after booking sends the supplier an
+     in-app notice (no email), and the price never changes by itself"). → the booked shop's owner, one notice per change,
+     opening their client page. Written by the DATABASE (`set_supplier_where`, 20271300598766) in the same statement
+     that changes the set — never emitNotification. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
+  | 'supplier_where_changed'
+  /* 🔗 THE COUPLE ANSWERED A SUPPLIER WHO JOINED FROM THEIR LINK (supplier gate audit G3, 2026-11-02). → the supplier
+     who claimed, one notice per answer: "<event> let you in" (opens their client page) or "… did not let you in".
+     Sent by `answerClaimAccess` (app/dashboard/[eventId]/access-requests/actions.ts) after
+     `answer_claim_access_request`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302590530. */
+  | 'claim_access_answered'
+  /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting
+     notifications if they are changed by user"*). → each booked supplier named on the moment (`responsible_vendor_ids`,
+     before AND after the edit), ONE notice per save however many moments it touched — retimed, edited, re-assigned or
+     removed. Sent by `lib/supplier-part-notify.server.ts` from the host schedule actions. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302920811. */
+  | 'supplier_part_changed'
+  /* 📣 A host or coordinator pressed Release (owner 2026-11-01, plan §3 "Basic, then full"): every guest account on the
+     event is told their own full schedule and call time are on Me. Written by the DATABASE (`release_full_schedule`,
+     20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
+     on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301956127. */
+  | 'schedule_released'
+  /* 🤝 A BOOKED COORDINATOR'S INVITE TO THE EVENT (supplier gate audit 2026-11-02, E1). → the account whose email the
+     invite is for, the moment a planner_coordinator booking is paid (`autoInviteCoordinator`, lib/coordinator-grant.ts),
+     opening `/host/accept/<token>` — so they accept without the couple copying the link. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271303211103. */
+  | 'coordinator_invited'
+  /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
+     SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
+     opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
+     supplier said yes (the moment moved) or no (with their reason). Sent from `lib/schedule-ask.server.ts` and the ONE
+     accept path (`lib/schedule-suggestion-decide.server.ts`). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is
+     why the ask is not `schedule_change_requested`, which is emailed. ⚠ ENUM values in 20271302910538. */
+  | 'schedule_ask'
+  | 'schedule_ask_answered'
+  /* 📸 THE PHOTO RULE'S REMINDERS (owner 2026-11-03, DECISION_LOG "THE PHOTO RULE"): originals are kept until 3 months
+     after the event's LAST day; each host is told at day 60, 80 and 89 — "Copy to Google Drive (free) or Download all".
+     Sent by `lib/papic-originals-reminder.ts`, once per stage per host. ⚠ IN-APP ONLY (owner: no new emails): NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271304032942. */
+  | 'papic_originals_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -617,11 +663,20 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_change_requested: 'Schedule request',
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
+  event_type_added: 'Your event type was added',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
   mood_board_changed: 'Mood Board changed',
   access_more_asked: 'A helper asks for more access',
+  supplier_where_changed: 'Where you go changed',
+  claim_access_answered: 'A couple answered your link',
+  coordinator_invited: 'You’re invited to coordinate',
+  schedule_ask: 'Asked to change your times',
+  schedule_ask_answered: 'A supplier answered your ask',
+  papic_originals_reminder: 'Keep your original photos',
+  supplier_part_changed: 'Your part changed',
+  schedule_released: 'Your full schedule is ready',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -832,6 +887,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_accepted: 'bg-success-100 text-success-900',
   // A no the supplier can answer with another quote → amber, like every other no.
   quote_declined: 'bg-warn-100 text-warn-900',
+  // What they asked for is ready — a settled good thing, like an agreement.
+  event_type_added: 'bg-success-100 text-success-800',
   // Money waiting on a yes → the same action-needed amber as a payment ask. The
   // answer can be yes or no, so it takes amber too rather than claim a verdict
   // the type alone does not carry (same reasoning as part_reopen_answered).
@@ -843,6 +900,20 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   mood_board_changed: 'bg-sky-100 text-sky-800',
   // A helper waits on the hosts' answer → the action-needed amber, like every other ask.
   access_more_asked: 'bg-warn-100 text-warn-900',
+  // News the supplier plans around (which chapters), not a yes or no → the informational sky.
+  supplier_where_changed: 'bg-sky-100 text-sky-800',
+  claim_access_answered: 'bg-sky-100 text-sky-800',
+  // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
+  coordinator_invited: 'bg-warn-100 text-warn-900',
+  // A deadline on the couple's own originals → the action-needed amber.
+  papic_originals_reminder: 'bg-warn-100 text-warn-900',
+  // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
+  schedule_ask: 'bg-warn-100 text-warn-900',
+  // An answer, already settled → the informational sky.
+  schedule_ask_answered: 'bg-sky-100 text-sky-800',
+  supplier_part_changed: 'bg-sky-100 text-sky-800',
+  // News a guest plans their day around, not a yes or no → the informational sky.
+  schedule_released: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1084,6 +1155,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   guest_claim_rejected: 'user-plus',
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
+  event_type_added: 'sparkle',
   vendor_joined: 'user-plus',
   samahan_join: 'user-plus',
   order_quoted: 'receipt',
@@ -1120,6 +1192,13 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_change_requested: 'calendar',
   schedule_shifted: 'calendar',
   mood_board_changed: 'image',
+  supplier_where_changed: 'calendar',
+  supplier_part_changed: 'calendar',
+  schedule_released: 'calendar',
+  coordinator_invited: 'user-plus',
+  schedule_ask: 'calendar',
+  schedule_ask_answered: 'calendar',
+  papic_originals_reminder: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

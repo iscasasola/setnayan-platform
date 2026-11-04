@@ -61,11 +61,22 @@ export async function fetchBlockRosMeta(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<RosMetaMap> {
+  return (await readBlockRosMeta(supabase, eventId)) ?? new Map();
+}
+
+/**
+ * The same read, but a refusal is NULL rather than an empty map — for a caller that must not print "nobody" for
+ * "could not read" (the schedule PDF, `lib/schedule-pdf.ts`).
+ */
+export async function readBlockRosMeta(supabase: SupabaseClient, eventId: string): Promise<RosMetaMap | null> {
   const { data, error } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, responsible_party, responsible_vendor_ids')
     .eq('event_id', eventId);
-  if (error || !data) return new Map();
+  if (error || !data) {
+    console.error('[supabase-error] lib/schedule-ros.ts · from:event_schedule_blocks.select', error?.message ?? 'no rows', { event_id: eventId });
+    return null;
+  }
   const map: RosMetaMap = new Map();
   for (const row of data as Array<{
     block_id: string;
@@ -184,6 +195,8 @@ export type RetimeBlock = {
   start_at: string;
   end_at: string | null;
   sort_order: number;
+  /** ⏰ Time TBA (migration 20271300482585) — `start_at` is a placeholder 00:00; such a chapter is never shifted. */
+  time_tba?: boolean | null;
 };
 
 export type RetimePatch = {
@@ -196,7 +209,9 @@ export type RetimePatch = {
  *  start_at ascending, then sort_order. */
 function orderedTopLevel<T extends RetimeBlock>(blocks: readonly T[]): T[] {
   return blocks
-    .filter((b) => b.parent_block_id === null)
+    // ⏰ A Time-TBA chapter has no clock to shift — "+15 minutes" would turn its placeholder 00:00 into a 12:15 AM
+    // start. It is never in a span, and an anchor on it selects nothing (follow-up to #7158).
+    .filter((b) => b.parent_block_id === null && b.time_tba !== true)
     .sort((a, b) => {
       const at = new Date(a.start_at).getTime();
       const bt = new Date(b.start_at).getTime();
@@ -296,8 +311,31 @@ export function isNoteOnlySuggestion(s: {
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  /** A crew on the request is a change to the supplier's own moment (Step 4b), never words only. */
+  proposed_crew?: readonly string[] | null;
 }): boolean {
   return (
-    s.kind === 'adjust' && !s.proposed_label && !s.proposed_start_at && !s.proposed_end_at && !s.proposed_location
+    s.kind === 'adjust' &&
+    !s.proposed_label &&
+    !s.proposed_start_at &&
+    !s.proposed_end_at &&
+    !s.proposed_location &&
+    !(Array.isArray(s.proposed_crew) && s.proposed_crew.length > 0)
   );
+}
+
+/**
+ * ✅ APPROVE ALL (owner 2026-11-01: *"also have an approve all"*; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §6b). Pinned at the
+ * foot of the Requests sheet once at least `APPROVE_ALL_MIN` CHANGES wait. A suggestion in words is Noted one by one and
+ * is never in it — it changes nothing by itself. `APPROVE_ALL_MAX` bounds one press (the action refuses more).
+ */
+export const APPROVE_ALL_MIN = 2;
+export const APPROVE_ALL_MAX = 100;
+
+/** The requests one "Approve all N" press approves — every change, no suggestion in words. */
+export function approvableTogether<
+  T extends { kind: string; proposed_label: string | null; proposed_start_at: string | null; proposed_end_at: string | null; proposed_location: string | null },
+>(requests: ReadonlyArray<T>): T[] {
+  const changes = requests.filter((r) => !isNoteOnlySuggestion(r));
+  return changes.length >= APPROVE_ALL_MIN ? changes.slice(0, APPROVE_ALL_MAX) : [];
 }

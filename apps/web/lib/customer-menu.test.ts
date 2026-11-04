@@ -73,9 +73,14 @@ test('each tab lights the pages it now holds', () => {
   for (const p of ['/guests', '/hosts', '/event-qr', '/people', '/seating']) {
     assert.ok(lit('guests').includes(`${BASE}${p}`), `Guest list does not light ${p}`);
   }
-  assert.ok(lit('explore').includes(`${BASE}/budget`), 'Your Team does not light /budget');
+  // 💰 The Budget is Home's page since 2026-11-01 (owner: *"Okay place it in home"*) — Home lights it, Suppliers no longer.
+  assert.ok(lit('home').includes(`${BASE}/budget`), 'Home does not light /budget');
+  assert.ok(!lit('explore').includes(`${BASE}/budget`), 'Suppliers still lights /budget — two tabs light one page');
+  // 📅 …and the Schedule (owner 2026-11-02, "BOOKED IS JUST THE TEAM") — Home lights it; the Maker no longer.
+  assert.ok(lit('home').includes(`${BASE}/schedule`), 'Home does not light /schedule');
+  assert.ok(!lit('launch').includes(`${BASE}/schedule`), 'the Maker still lights /schedule — two tabs light one page');
   // The Maker (the seat plan left it for Guests › Seats in R4).
-  for (const p of ['/launch', '/website', '/story', '/schedule']) {
+  for (const p of ['/launch', '/website', '/story']) {
     assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
   }
   assert.ok(!lit('launch').includes(`${BASE}/seating`), 'the Maker still lights the seat plan — two tabs light one page');
@@ -90,7 +95,7 @@ test('Home lights itself and its checklist EXACTLY, and only the service pages i
   assert.equal(home.key, 'home');
   assert.deepEqual(home.activeMatchAlsoExact, [BASE, `${BASE}/checklist`]);
   assert.ok(!(home.activeMatch as string[]).includes(BASE), 'Home claims every event page by prefix');
-  assert.deepEqual(home.activeMatch, [`${BASE}/studio`]);
+  assert.deepEqual(home.activeMatch, [`${BASE}/studio`, `${BASE}/budget`, `${BASE}/schedule`]);
 });
 
 test('after the day, Your Team opens on the suppliers who worked it (the shipped deep link)', () => {

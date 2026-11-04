@@ -55,6 +55,8 @@ import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
 import { EventWordsProvider } from './event-words-provider';
+import { ChapterNotices } from './chapter-notices';
+import { chapterNotices, type InvitationChapter, type StoredChapterReply } from '@/lib/invitation-chapters';
 import { eventWordsFor } from '../_lib/event-words';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -86,6 +88,8 @@ import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
+import { HubSeenBeacon } from './hub-seen-beacon';
+import { hubViewsEnabled } from '@/lib/whos-here';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
 import type { PostEventDraft } from '@/lib/post-event-draft';
@@ -249,6 +253,7 @@ import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
 import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
+import { NotYouSwitch } from './not-you-switch';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
@@ -461,6 +466,14 @@ type SiteBodyProps = {
   // visitors). Hoisted to the page level 2026-05-23 so both identity tiers
   // can render the Schedule widget.
   scheduleBlocks: ScheduleBlockRow[];
+  /**
+   * ✉ GUESTS AND RSVP BY CHAPTER (owner 2026-11-01, plan §3 · §11c, Step 5). The invitation's chapters (`null` = the
+   * read failed or none were read — the page then draws the reply and Details › Schedule as before), this guest's own
+   * answers per chapter, and the names of chapters they said yes to that left the invitation.
+   */
+  invitationChapters?: readonly InvitationChapter[] | null;
+  chapterReplies?: readonly StoredChapterReply[] | null;
+  removedChapterLabels?: ReadonlyMap<string, string>;
   /** Spatial backdrop node (or null) — rendered by InvitationShell behind the page. */
   backdrop?: React.ReactNode;
   /** Live Photo Wall mirror — non-null only during the live window when the event owns LIVE_WALL. */
@@ -553,6 +566,9 @@ type SiteBodyProps = {
    *  (`held-pass-line.tsx`, owner bug 2026-10-19). Drawn under the cover on the host's / a signed-in stranger's page;
    *  the guest tree draws it in Me (page.tsx). Null for everyone else. */
   heldPassSlot?: React.ReactNode;
+  /** 🚪 A SIGNED-IN guest on this list (their account holds this seat): their first name, for "Not [name]? Switch
+   *  account" under the cover's button (owner 2026-11-03, `NotYouSwitch account`). Null for everyone else. */
+  switchAccountName?: string | null;
   /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
@@ -640,6 +656,9 @@ export async function SiteBody({
   ourPhotoUrls,
   widgets: widgetsIn,
   scheduleBlocks,
+  invitationChapters = null,
+  chapterReplies = null,
+  removedChapterLabels,
   backdrop,
   liveWall,
   liveWallUnreadable = false,
@@ -661,6 +680,7 @@ export async function SiteBody({
   makerWayBack = null,
   ownerCapability = null,
   heldPassSlot = null,
+  switchAccountName = null,
   hostOwnGuestId = null,
   hostOwnRsvp = null,
   vendorCapability = null,
@@ -3238,6 +3258,7 @@ export async function SiteBody({
       guest={guest}
       sideLabel={sideLabel}
       scheduleBlocks={scheduleBlocks}
+      invitationChapters={invitationChapters}
       isLive={isLive}
       scheduleEstimated={
         isGuestNowTriggerEnabled() &&
@@ -3360,6 +3381,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
@@ -3382,6 +3404,7 @@ export async function SiteBody({
               displayName={event.display_name}
               {...heroElements}
               rsvp={guestRsvp}
+              switchLine={switchAccountName !== null && event.slug && !isEditorCanvas ? <NotYouSwitch slug={event.slug} account={{ firstName: switchAccountName }} /> : null}
               kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
@@ -3402,6 +3425,15 @@ export async function SiteBody({
             }
           >
 
+          {/* ✉ AFTER THE INVITES WENT OUT (ruled 1 Nov, plan §9 #7): a chapter added since this guest replied asks
+              one Yes / Can't make it; one they said yes to that left the invitation says so, once. Nothing at all
+              when there is neither — and never on the Maker's canvas. */}
+          {isMakerCanvas ? null : (
+            <ChapterNotices
+              action={submitRsvp.bind(null, event.event_id, guest.guest_id)}
+              {...chapterNotices(invitationChapters ?? [], chapterReplies, guest.rsvp_status, removedChapterLabels ?? new Map())}
+            />
+          )}
           {replyCard && tabs.on ? (
             /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page the Welcome draws no Reply card — the cover's
                button opens Me at its Reply (`#me-reply`). */
@@ -3989,6 +4021,7 @@ export async function SiteBody({
                       guest={guest}
                       sideLabel={sideLabel}
                       scheduleBlocks={scheduleBlocks}
+                      invitationChapters={invitationChapters}
                       isLive={isLive}
                       isLimitedPlusOne={isLimitedPlusOne}
                       ourPhotoUrls={ourPhotoUrls}
@@ -4038,6 +4071,7 @@ export async function SiteBody({
                         guest={guest}
                         sideLabel={sideLabel}
                         scheduleBlocks={scheduleBlocks}
+                        invitationChapters={invitationChapters}
                         isLive={isLive}
                         isLimitedPlusOne={isLimitedPlusOne}
                         ourPhotoUrls={ourPhotoUrls}
@@ -4357,6 +4391,9 @@ export async function SiteBody({
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
                 answerWords={readRsvpWords(event.rsvp_ask_config)}
                 /* 🎨 The reply card's style — the RSVP row's `canvas.style`. */
+                /* ✉ The invitation's chapters and this guest's answers (Step 5) — the same reads the reply page uses. */
+                chapters={invitationChapters}
+                chapterReplies={chapterReplies}
                 sceneStyle={sceneStyleOfRow(
                   widgets.find((w) => w.widget_type === 'rsvp'),
                   pageStage,
@@ -4526,6 +4563,10 @@ export async function SiteBody({
           mounted by page.tsx, after the guest's own section, because this
           component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
+      {/* 👀 WHO'S HERE (owner 2026-10-29): one count of this open for the event's team, after the page has drawn and at
+          most once per device per half hour — never on the Maker's canvas or a sample, and never a live connection.
+          The team's own looks are dropped by the route (`app/api/hub/seen/route.ts`). */}
+      {!isEditorCanvas && !event.is_sample && hubViewsEnabled() ? <HubSeenBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         /* 🎬 The opening is the preview tab's and the guests' — never the
            Maker's canvas, where it replayed on every reload (a Guest bars tap

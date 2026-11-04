@@ -26,7 +26,6 @@ import {
   type OurServicesInput,
 } from './our-services';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
-import { yourTeamParts } from './pillar-parts';
 import { DETAILS_ITEM_KEYS } from './maker-details-items';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
@@ -219,15 +218,13 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
   const base = `/dashboard/${EVENT}`;
   return {
     guests: () => row('guests')?.href === `${base}/guests`,
-    // Stage D: Budget is Your Team's part; Schedule and the Mood Board are
-    // Details items, and their old pages land there for the couple.
-    budget: () =>
-      row('explore')?.href === `${base}/vendors` &&
-      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget') &&
-      read(EV, 'budget', 'page.tsx').includes('redirect(yourTeamBudgetHref(eventId))'),
+    // 💰 Budget is Home's page since 2026-11-01 (owner: "Okay place it in home"): Home lights /budget.
+    budget: () => Boolean(row('home')?.alsoMatch?.includes(`${base}/budget`)) && fs.existsSync(path.join(EV, 'budget', 'page.tsx')),
+    // 📅 Home's page since 2026-11-02 ("BOOKED IS JUST THE TEAM") — the Maker still draws it inside Details.
     schedule: () =>
+      Boolean(row('home')?.alsoMatch?.includes(`${base}/schedule`)) &&
       (DETAILS_ITEM_KEYS as readonly string[]).includes('schedule') &&
-      read(EV, 'schedule', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'schedule'"),
+      fs.existsSync(path.join(EV, 'schedule', 'page.tsx')),
     'mood-board': () =>
       (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
       read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
@@ -241,7 +238,8 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
       addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&
       row('launch')?.matchPrefix === `${base}/website`,
     checklist: () =>
-      read(EV, '_components', 'event-dashboard.tsx').includes('href={`${base}/checklist`}'),
+      // The Checklist merged into Planning Stage (owner 2026-11-01): the doorway opens its To do filter.
+      read(EV, '_components', 'event-dashboard.tsx').includes('href={planningTodoHref(eventId)}'),
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),

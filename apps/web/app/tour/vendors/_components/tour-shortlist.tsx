@@ -78,7 +78,7 @@ const CSS = `
 .tsl .v .img .hmatch.strong{color:#2e7d4f}
 .tsl .v .img .hmatch.good{color:var(--gold-deep)}
 .tsl .v .img .hmatch.fair{color:var(--ink-soft)}
-.tsl .v .img .hprice{position:absolute;right:10px;bottom:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:var(--m-r-sm);background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.tsl .v .img .hprice{position:absolute;left:10px;top:10px;z-index:2;font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:#fff;padding:3px 11px;border-radius:var(--m-r-sm);background:rgba(18,20,24,.62);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 .tsl .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .tsl .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .tsl .v .dist{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:3px}

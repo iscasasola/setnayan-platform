@@ -14,7 +14,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MarkSpec } from './photo-mark-geometry';
 import { hasVerifiedBadge } from './verified-badge';
-import { parseStoredAsset } from './uploads';
 
 export type ShopMarkFacts = {
   spec: Extract<MarkSpec, { kind: 'supplier' }>;
@@ -61,6 +60,7 @@ export async function shopMarkFacts(supabase: SupabaseClient, vendorProfileId: s
 
 /** The logo's bytes for the coin, or null (no logo, a legacy URL, or an unreadable object — the coin is then omitted). */
 export async function shopLogoBytes(logoRef: string | null): Promise<Uint8Array | null> {
+  const { parseStoredAsset } = await import('./uploads');
   const parsed = parseStoredAsset(logoRef);
   if (!parsed || parsed.kind !== 'r2') return null;
   try {

@@ -296,7 +296,9 @@ test('(6) where a photo came from is read off its own ref; its square says so in
   const kept = up.slice(up.indexOf('{items.map((item) => (', gallery), up.indexOf('{inFlight.map((item) => (', gallery));
   assert.match(kept, /\{tileNote\?\.\(item\.r2Ref\) \? \(\s*<span data-upload-tile-note=""[^>]*>\s*\{tileNote\(item\.r2Ref\)\}\s*<\/span>\s*\) : null\}/);
   assert.match(kept, /onClick=\{\(\) => removeItem\(item\.id\)\}/);
-  assert.equal((kept.match(/<button\b/g) ?? []).length, 1, 'a kept tile has a second control');
+  // The PICTURE itself may be pressed — tap opens (owner 2026-11-04, "Rows: tap opens, swipe left removes"; the
+  // Photo Frame Template re-opens a framed photo from its tile). That is the tile, not a second control on it.
+  assert.equal((kept.match(/<button\b(?![^>]*data-reframe)/g) ?? []).length, 1, 'a kept tile has a second control');
 
   // THE PAGE works the source out from the story's own refs; the NAME comes from the offer when this render has it,
   // and in the Studio from ONE read of those events' names — made only when the story holds such a photo.

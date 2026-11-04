@@ -1124,7 +1124,21 @@ export function FileUpload({
         const clean = compressImage ? await compressImageForWeb(rawFile) : rawFile;
         const run = sendLib.sendToStorage(
           { file: clean, bucket: 'vendor-verification', pathPrefix: `vendor-originals/${shopId}`, contentType: uploadTypeOf(clean.type) || contentType },
-          { stallMs: stallMs ?? UPLOAD_STALL_MS, responseMs: UPLOAD_RESPONSE_MS, onProgress: () => {}, onStall: () => {} },
+          {
+            stallMs: stallMs ?? UPLOAD_STALL_MS,
+            responseMs: UPLOAD_RESPONSE_MS,
+            onProgress: () => {},
+            // The clean copy stalling is the same silent failure as the public one: recorded the same way.
+            onStall: () => {
+              void trackFailure({
+                eventType: 'UPLOAD_STALLED',
+                elementName: 'File upload (private clean copy)',
+                filePath: 'app/_components/file-upload.tsx',
+                error: `no bytes moved for ${(stallMs ?? UPLOAD_STALL_MS) / 1000}s`,
+                payload: { bucket: 'vendor-verification', action: 'upload stalled', page: window.location.pathname },
+              });
+            },
+          },
         );
         const out = await run.done;
         if (!out.ok) throw new Error(`original copy refused at ${out.step}`);

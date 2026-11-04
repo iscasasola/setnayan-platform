@@ -33,11 +33,12 @@ import {
   vendorThreadToolRows,
 } from './vendor-thread-tools';
 import { supplierQuestionsHref } from './supplier-questions-href';
+import { stripComments } from './strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 /** Source with comments removed — a gate named in a comment explaining its removal must not count. */
-const code = (rel: string) => read(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (rel: string) => stripComments(read(rel));
 
 // ── 1 · the starting sets ──────────────────────────────────────────────────
 

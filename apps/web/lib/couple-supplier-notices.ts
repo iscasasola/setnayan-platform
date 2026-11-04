@@ -67,6 +67,11 @@ export const COUPLE_SUPPLIER_NOTICES = {
   inquiry_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_accepted: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_declined: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  supplier_questions_sent: {
+    to: 'couple',
+    reach: 'app_only',
+    why: 'owner 2026-11-04 "Yes, every supplier": a supplier sent their questions; the hosts answer in that supplier’s room — in the app, no email',
+  },
   schedule_shifted: {
     to: 'supplier',
     reach: 'app_only',

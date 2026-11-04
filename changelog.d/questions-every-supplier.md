@@ -32,3 +32,9 @@ in the app. Widened:
 SPEC IMPACT: `Emcee_Script_System_BUILD_SPEC_2026-07-29.md` § 8 (the questionnaire) now applies to every supplier: the
 couple answers non-host suppliers in that supplier's workspace (Details), and a supplier may send the set from the chat
 before a booking. Decision already recorded in `DECISION_LOG.md` (2026-11-04).
+
+**CI fixes (2026-11-04):** the route budget — `reissuePapicSeat` (dead since the per-seat cards left /crew) is removed
+and the server-action CEILING moves 1227 → 1228 for the two new in-place actions, citing the measured production route
+count (1830 of 2000); the new notice `supplier_questions_sent` is declared `app_only` in `lib/couple-supplier-notices.ts`;
+the PR's test uses the shared `stripComments`; `/dev/questions-lab` joins the no-door baseline like every other lab;
+the exposure baseline is regenerated after merging `main`. SPEC IMPACT: None.

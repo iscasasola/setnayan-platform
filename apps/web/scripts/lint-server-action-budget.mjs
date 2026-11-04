@@ -43,7 +43,13 @@ import { fileURLToPath } from 'node:url';
 // `guestSeatView` — the Seats ⚙ write and the guest card's preview read) instead of the two exports it would have been;
 // the only unimported exports left are the two kept on purpose above. No fresh `vercel build` count for this +1 — the
 // SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1227;
+// 1227 → 1228 (2026-11-04, "Questions for the couple — every supplier"): two new in-place actions, one per side
+// (`messages/[threadId]/questions-actions.ts` · `sendQuestionsToEvent` for the supplier, and
+// `workspace/question-answers-actions.ts` · `saveSupplierAnswers` for the couple), less one dead export removed
+// (`studio/papic/actions.ts` · `reissuePapicSeat`, unreachable since the per-seat cards left /crew). The production
+// build of this PR's previous head ran check-vercel-route-count.mjs at 1830 routes, 170 under its 2000 ceiling
+// (Vercel refuses above 2048); the SUM stays gated there — read that job before merging.
+export const CEILING = 1228;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

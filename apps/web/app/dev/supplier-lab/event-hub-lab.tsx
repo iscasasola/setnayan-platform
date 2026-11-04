@@ -13,6 +13,8 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { eventHubViewOf } from '@/lib/event-hub-views';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
+import type { EventScanService } from '@/lib/supplier-scan.server';
+import type { ScanAnswer } from '@/lib/supplier-scan';
 
 const at = (hhmm: string) => `2026-12-18T${hhmm}:00Z`; // the venue's wall clock in a UTC column
 const block = (id: string, hhmm: string, label: string, run_state: RunOfShowBlock['run_state']): RunOfShowBlock => ({
@@ -46,7 +48,31 @@ const RUN = {
   date: '2026-12-18',
 } as unknown as EventYouRun;
 
-export function EventHubLab({ view: rawView }: { view?: string }) {
+/**
+ * 🎟 `&scan=` on the Scanner view — the supplier claim scanner on lab numbers (prototype
+ * `supplier_scan_2026-10-03_fable.html` frames B · C′): `on` a photo booth in Once, 41 claimed of 118 · `two` a second
+ * service (the service dropdown) · `fresh` no scans yet · `unread` the list could not be read. `&answer=` opens on a
+ * result line: claimed · already · souvenir-desk · not · nosignal · name (a host-approved coordinator's view).
+ */
+const SCAN_SERVICES: Record<string, EventScanService[] | 'unreadable'> = {
+  on: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } }],
+  two: [
+    { coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 41, total: 118, lastNumber: 41, souvenir: false } },
+    { coverageId: 2, label: 'Souvenir / Giveaways', mode: 'once', tally: { claimed: 96, total: 118, lastNumber: 88, souvenir: true } },
+  ],
+  fresh: [{ coverageId: 1, label: 'Photo booth', mode: 'once', tally: { claimed: 0, total: 118, lastNumber: 0, souvenir: false } }],
+  unread: 'unreadable',
+};
+const SCAN_ANSWERS: Record<string, ScanAnswer> = {
+  claimed: { outcome: 'claimed', number: 42, claimed: 42, total: 118 },
+  already: { outcome: 'already', number: 17 },
+  'souvenir-desk': { outcome: 'already', number: null },
+  not: { outcome: 'not_guest' },
+  nosignal: { outcome: 'no_signal' },
+  name: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana Reyes' },
+};
+
+export function EventHubLab({ view: rawView, scan, answer }: { view?: string; scan?: string; answer?: string }) {
   const view = eventHubViewOf(rawView);
   return (
     <div className="min-h-screen bg-paper" data-supplier-lab="event-hub">
@@ -70,7 +96,13 @@ export function EventHubLab({ view: rawView }: { view?: string }) {
           />
         </div>
         {view === 'scanner' ? (
-          <EventHubScanner eventId="ic" run={RUN} floorIsYours />
+          <EventHubScanner
+            eventId="ic"
+            run={scan ? null : RUN}
+            floorIsYours={!scan}
+            scan={scan ? (SCAN_SERVICES[scan] ?? []) : []}
+            scanAnswer={answer ? (SCAN_ANSWERS[answer] ?? null) : null}
+          />
         ) : view === 'announce' ? (
           <EventHubAnnounce
             eventId="ic"

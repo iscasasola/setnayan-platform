@@ -6,6 +6,7 @@ import type { EventYouRun } from '@/lib/events-you-run';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 import { eventHubViewHref } from '@/lib/event-hub-views';
 import type { EventScanService } from '@/lib/supplier-scan.server';
+import type { ScanAnswer } from '@/lib/supplier-scan';
 import { SupplierClaimScanner } from './supplier-scan/supplier-scanner';
 
 /**
@@ -24,12 +25,15 @@ export function EventHubScanner({
   run,
   floorIsYours,
   scan = [],
+  scanAnswer = null,
 }: {
   eventId: string;
   run: EventYouRun | null;
   floorIsYours: boolean;
   /** 🎟 This person's services booked here with the scanner ON, each with its count — or 'unreadable'. */
   scan?: EventScanService[] | 'unreadable';
+  /** The dev lab's result line (its frames only). */
+  scanAnswer?: ScanAnswer | null;
 }) {
   const claims = scan !== 'unreadable' && scan.length > 0;
   const any = floorIsYours || run != null || claims;
@@ -38,7 +42,7 @@ export function EventHubScanner({
       <HubEyebrow about="A guest's invitation QR, scanned at the door or on the floor. Each scan asks Setnayan for one answer — never the guest list.">
         Scanner
       </HubEyebrow>
-      {claims ? <SupplierClaimScanner eventId={eventId} services={scan} /> : null}
+      {claims ? <SupplierClaimScanner eventId={eventId} services={scan} initialAnswer={scanAnswer} /> : null}
       {scan === 'unreadable' ? (
         <p role="alert" className="py-3 text-[14px] text-ink/70" data-event-hub-scan-unread="">
           <strong className="text-ink">We couldn&rsquo;t load your scanner just now.</strong> Reload to try again.

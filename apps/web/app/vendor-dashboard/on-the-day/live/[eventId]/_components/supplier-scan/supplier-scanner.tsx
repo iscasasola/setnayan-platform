@@ -43,7 +43,16 @@ import { supplierScan } from '@/app/_actions/supplier-scan-actions';
 
 type Tally = { claimed: number; total: number; lastNumber: number } | null;
 
-export function SupplierClaimScanner({ eventId, services }: { eventId: string; services: EventScanService[] }) {
+export function SupplierClaimScanner({
+  eventId,
+  services,
+  initialAnswer = null,
+}: {
+  eventId: string;
+  services: EventScanService[];
+  /** The result line to open on — the dev lab's frames only (`/dev/supplier-lab?s=event-hub&view=scanner&scan=…`). */
+  initialAnswer?: ScanAnswer | null;
+}) {
   const [coverageId, setCoverageId] = useState<number>(services[0]!.coverageId);
   const service = services.find((s) => s.coverageId === coverageId) ?? services[0]!;
   // Each service keeps its own count on this screen; a scan moves it at once (a save never resets the screen).
@@ -51,7 +60,7 @@ export function SupplierClaimScanner({ eventId, services }: { eventId: string; s
     Object.fromEntries(services.map((s) => [s.coverageId, s.tally ? { claimed: s.tally.claimed, total: s.tally.total, lastNumber: s.tally.lastNumber } : null])),
   );
   const tally = tallies[service.coverageId] ?? null;
-  const [answer, setAnswer] = useState<ScanAnswer | null>(null);
+  const [answer, setAnswer] = useState<ScanAnswer | null>(initialAnswer);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 

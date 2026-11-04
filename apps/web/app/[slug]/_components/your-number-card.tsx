@@ -1,4 +1,4 @@
-import { readGuestScanNumbers } from '@/lib/supplier-scan.server';
+import { readGuestScanNumbers, type GuestScanNumber } from '@/lib/supplier-scan.server';
 import { scanNumberLabel } from '@/lib/supplier-scan';
 import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 
@@ -27,6 +27,11 @@ export async function YourNumberCard({
   if (preview || guestId === SIMULATED_GUEST_ID) return null;
   const numbers = await readGuestScanNumbers(eventId, guestId);
   if (!numbers || numbers.length === 0) return null;
+  return <YourNumberCardView numbers={numbers} className={className} />;
+}
+
+/** The card as drawn, from numbers already read (the dev lab draws it from fixtures). */
+export function YourNumberCardView({ numbers, className = '' }: { numbers: GuestScanNumber[]; className?: string }) {
   return (
     <section aria-label="Your number" className={className} data-your-number="">
       <ul className="space-y-2">

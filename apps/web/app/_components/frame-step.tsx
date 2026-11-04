@@ -26,6 +26,8 @@
  * (`touch-action:none`, preventDefault on ctrl+wheel and touchmove).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { Explain } from './explain';
 import {
   DEFAULT_FRAMING,
   FRAME_ASPECT,
@@ -73,7 +75,7 @@ const COPY: Record<FramePreviews, Copy> = {
   inspiration: {
     hd: ['Frame your photo', 'Drag to move · pinch to zoom · double-tap to reset'],
     cap: 'The Setnayan mark is stamped inside this square after you save.',
-    info: ['The square is the mood-board tile and the gallery-picker tile: both are square today.'],
+    info: ['The square is the mood-board tile and the Inspiration picker tile: both are square today.'],
   },
   'shop-logo': {
     hd: ['Frame your logo', 'Drag to move · pinch to zoom · double-tap to reset'],
@@ -153,7 +155,6 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
   const [zoomUi, setZoomUi] = useState(1);
   const [hintOff, setHintOff] = useState(false);
   const [snapLines, setSnapLines] = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
-  const [sheet, setSheet] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [frameCss, setFrameCss] = useState({ w: 358, h: 358 });
   const [pvW, setPvW] = useState(358);
@@ -162,6 +163,7 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
 
   const f = useRef<Framing>({ ...(initial ?? DEFAULT_FRAMING) });
   const snap = useRef<SnapState>({ x: false, y: false, z: (initial?.zoom ?? 1) === 1 });
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLCanvasElement | null>(null);
   const pvRef = useRef<HTMLDivElement | null>(null);
@@ -513,14 +515,9 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
     }
   };
 
-  /* Esc backs out, like the ‹. */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
+  /* The step is a full-screen dialog: focus moves into it and is kept there, the page behind does not scroll,
+     focus goes back to the photo on close, and Esc backs out like the ‹ (the shared contract, lib/use-modal-a11y.ts). */
+  useModalA11y({ open: true, onClose: onCancel, containerRef: rootRef });
 
   const gest = touch ? 'Drag to move · pinch to zoom · double-tap to reset' : 'Drag to move · use the slider to zoom · double-click to reset';
   const sub = copy.hd[1]
@@ -535,19 +532,18 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
   const PW = pvW;
   const half = Math.floor((PW - 12) / 2);
   const third = Math.floor((PW - 12) / 3);
-  const cv = (a: number, w: number, extra?: { round?: boolean; mark?: boolean; radius?: number }) => (
+  const cv = (a: number, w: number, extra?: { round?: boolean; mark?: boolean; tile?: boolean }) => (
     <canvas
       data-k="crop"
       data-a={a}
       data-w={w}
       data-mark={extra?.mark === false ? '0' : marked ? '1' : '0'}
-      className="block bg-[#222]"
-      style={{ borderRadius: extra?.round ? '50%' : extra?.radius ?? 0 }}
+      className={`fst-cv block${extra?.round ? ' rounded-full' : extra?.tile ? ' rounded' : ''}`}
     />
   );
   const full = (what: string) => (
     <div className="flex min-w-0 flex-col gap-[5px]">
-      <canvas data-k="full" data-w={PW} className="block rounded-xl bg-[#222]" />
+      <canvas data-k="full" data-w={PW} className="fst-cv block rounded-xl" />
       <span className="fst-cap">
         <b>Full photo</b> · the whole original · dashed = your {what}
         {marked ? ' · the mark is inside it' : ''}
@@ -601,9 +597,9 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
         <>
           <div className="flex min-w-0 flex-col gap-[5px]">
             <div className="grid grid-cols-3 gap-1.5">
-              {cv(1, third, { radius: 10 })}
-              <span style={{ height: third, borderRadius: 10, background: 'linear-gradient(135deg,#F3E6E1,#DDBFB4)' }} />
-              <span style={{ height: third, borderRadius: 10, background: 'linear-gradient(135deg,#E4E0EC,#B9B0CC)' }} />
+              {cv(1, third, { tile: true })}
+              <span className="fst-ph a rounded" style={{ height: third }} />
+              <span className="fst-ph b rounded" style={{ height: third }} />
             </div>
             <span className="fst-cap">
               <b>Portfolio grid</b> · your tile among the others
@@ -618,15 +614,15 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
         <>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex min-w-0 flex-col gap-[5px]">
-              <div className="relative overflow-hidden rounded-[10px]">{cv(1, half)}</div>
+              <div className="relative overflow-hidden rounded">{cv(1, half)}</div>
               <span className="fst-cap">
                 <b>Mood board</b> · the tile a couple saves
               </span>
             </div>
             <div className="flex min-w-0 flex-col gap-[5px]">
-              <div className="relative overflow-hidden rounded-[10px]">{cv(1, half)}</div>
+              <div className="relative overflow-hidden rounded">{cv(1, half)}</div>
               <span className="fst-cap">
-                <b>Gallery picker</b> · picked
+                <b>Inspiration picker</b> · picked
               </span>
             </div>
           </div>
@@ -661,7 +657,7 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
   }, [previews, PW, half, third, marked]);
 
   return (
-    <div className="fst" role="dialog" aria-modal="true" aria-label={copy.hd[0]} data-frame-step={shape}>
+    <div ref={rootRef} tabIndex={-1} className="fst" role="dialog" aria-modal="true" aria-label={copy.hd[0]} data-frame-step={shape}>
       <style>{FST_CSS}</style>
       {toast ? <div className="fst-toast">{toast}</div> : null}
       <div className="fst-hd">
@@ -672,9 +668,13 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
           <span className="text-[17px] font-semibold leading-tight">{copy.hd[0]}</span>
           <span className="text-[12.5px] text-[var(--fst-muted)]">{sub}</span>
         </div>
-        <button type="button" className="fst-ib" aria-label="More about framing" onClick={() => setSheet(true)}>
-          i
-        </button>
+        <Explain title="About framing" label="More about framing" data="frame-step">
+          <ul className="fst-info">
+            {[...copy.info, ...BASE_INFO].map((t) => (
+              <li key={t}>{t}</li>
+            ))}
+          </ul>
+        </Explain>
       </div>
       {reopened ? (
         <div className="fst-reopen">
@@ -745,8 +745,7 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
           />
           <span className="fst-zv">{zoomUi.toFixed(1)}×</span>
         </div>
-        <div className="fst-trow text-[12px] text-[var(--fst-muted)]" style={{ gap: 6 }}>
-          <span className="fst-i">i</span>
+        <div className="fst-trow text-[12px] text-[var(--fst-muted)]">
           <span>{howTo}</span>
         </div>
         <div className="flex gap-2.5">
@@ -765,40 +764,28 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
         </div>
       </div>
 
-      {sheet ? (
-        <div className="fst-sheet" onClick={(e) => e.target === e.currentTarget && setSheet(false)}>
-          <div className="fst-sheet-in">
-            <b className="text-base font-semibold">About framing</b>
-            <ul>
-              {[...copy.info, ...BASE_INFO].map((t) => (
-                <li key={t}>{t}</li>
-              ))}
-            </ul>
-            <button type="button" className="fst-btn fst-sec w-full" style={{ flex: 'none', height: 44 }} onClick={() => setSheet(false)}>
-              Close
-            </button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
 
-/** The prototype's stylesheet for the screen, scoped under `.fst` (light + dark, as the prototype's tokens). */
+/**
+ * The prototype's stylesheet for the screen, scoped under `.fst`. Its colours are the app's tokens (globals.css), so
+ * light and dark follow the app; its corners are the `--m-r-*` scale. The stage stays dark in both themes: it is a
+ * photo light-box, the same near-black the mark's plate shadow uses.
+ */
 const FST_CSS = `
-.fst{--fst-bg:#FBF9F5;--fst-surface:#FFFFFF;--fst-ink:#2C2A29;--fst-muted:#6E675C;--fst-line:#E6E0D6;--fst-line2:#EEE8DE;--fst-gold:#8A6A2C;--fst-gold-soft:#F4ECD8;--fst-accent:#B5532E;--fst-pill:#F0EADF;
+.fst{--fst-bg:rgb(var(--color-cream));--fst-surface:rgb(var(--color-raised));--fst-ink:rgb(var(--color-ink));--fst-muted:rgb(var(--color-ink) / .72);--fst-line:rgb(var(--color-ink) / .14);--fst-line2:rgb(var(--color-ink) / .09);--fst-gold:rgb(var(--color-terracotta));--fst-gold-soft:rgb(var(--color-terracotta) / .14);--fst-accent:rgb(var(--color-mulberry));--fst-pill:rgb(var(--color-ink) / .06);--fst-stage:rgb(20 18 16);
   position:fixed;inset:0;z-index:90;background:var(--fst-surface);color:var(--fst-ink);display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;font-size:15px;line-height:1.5;padding-bottom:env(safe-area-inset-bottom)}
-html.dark .fst{--fst-bg:#1C1A16;--fst-surface:#262320;--fst-ink:#F3EEE6;--fst-muted:#B3ABA0;--fst-line:#3B3731;--fst-line2:#34302A;--fst-gold:#D9B463;--fst-gold-soft:#3A3121;--fst-accent:#D6714A;--fst-pill:#34302A}
+.fst:focus{outline:none}
 .fst-hd{display:flex;align-items:center;gap:10px;padding:max(14px,env(safe-area-inset-top)) 16px 10px}
-.fst-ib,.fst-xb{width:34px;height:34px;border-radius:50%;background:var(--fst-pill);display:grid;place-items:center;border:0;cursor:pointer;flex:none}
-.fst-ib{font-size:15px;font-weight:600;color:var(--fst-gold)}
-.fst-xb{font-size:16px;color:var(--fst-ink)}
-.fst-reopen{margin:0 16px 8px;padding:7px 12px;border-radius:10px;background:var(--fst-gold-soft);color:var(--fst-gold);font-size:12.5px;font-weight:500;line-height:1.35}
-.fst-stage{position:relative;background:#141210;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden;cursor:grab;display:flex;justify-content:center;flex:none}
+.fst-xb{width:34px;height:34px;border-radius:50%;background:var(--fst-pill);display:grid;place-items:center;border:0;cursor:pointer;flex:none;font-size:16px;color:var(--fst-ink)}
+.fst-info{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;list-style:disc}
+.fst-reopen{margin:0 16px 8px;padding:7px 12px;border-radius:var(--m-r-sm);background:var(--fst-gold-soft);color:var(--fst-gold);font-size:12.5px;font-weight:500;line-height:1.35}
+.fst-stage{position:relative;background:var(--fst-stage);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden;cursor:grab;display:flex;justify-content:center;flex:none}
 .fst-stage:active{cursor:grabbing}
 .fst-mask{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle closest-side at center, transparent calc(100% - 1px), rgba(20,18,16,.62) 100%)}
 .fst-mask::after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px rgba(255,253,247,.85)}
-.fst-snap{position:absolute;background:#E9CF86;box-shadow:0 0 4px rgba(233,207,134,.9);pointer-events:none;display:none}
+.fst-snap{position:absolute;background:rgb(233 207 134);box-shadow:0 0 4px rgba(233,207,134,.9);pointer-events:none;display:none}
 .fst-snap.v{top:0;bottom:0;left:50%;width:1px;margin-left:-.5px}.fst-snap.h{left:0;right:0;top:50%;height:1px;margin-top:-.5px}
 .fst-snap.on{display:block}
 .fst-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11.5px;color:rgba(255,253,247,.9);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6);transition:opacity .4s}
@@ -809,21 +796,21 @@ html.dark .fst{--fst-bg:#1C1A16;--fst-surface:#262320;--fst-ink:#F3EEE6;--fst-mu
 .fst-pv-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;letter-spacing:.16em;color:var(--fst-gold);font-weight:500}
 .fst-cap{font-size:11.5px;color:var(--fst-muted);line-height:1.3}
 .fst-cap b{color:var(--fst-ink);font-weight:600}
-.fst-fc{position:relative;background:var(--fst-surface);border:1px solid var(--fst-line);border-radius:18px;overflow:hidden}
-.fst-bar{display:block;height:8px;border-radius:999px;background:var(--fst-pill)}
-.fst-acct{display:flex;align-items:center;gap:12px;padding:12px;background:var(--fst-surface);border:1px solid var(--fst-line);border-radius:16px}
+.fst-cv{background:var(--fst-stage)}
+.fst-ph{display:block}
+.fst-ph.a{background:linear-gradient(135deg,rgb(var(--color-veil)),rgb(var(--color-terracotta) / .35))}
+.fst-ph.b{background:linear-gradient(135deg,rgb(var(--color-ink) / .06),rgb(var(--color-link) / .3))}
+.fst-fc{position:relative;background:var(--fst-surface);border:1px solid var(--fst-line);border-radius:var(--m-r-md);overflow:hidden}
+.fst-bar{display:block;height:8px;border-radius:var(--m-r-full);background:var(--fst-pill)}
+.fst-acct{display:flex;align-items:center;gap:12px;padding:12px;background:var(--fst-surface);border:1px solid var(--fst-line);border-radius:var(--m-r-md)}
 .fst-tools{padding:10px 16px 18px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--fst-line2);margin-top:auto;position:sticky;bottom:0;background:var(--fst-surface)}
 .fst-trow{display:flex;align-items:center;gap:10px}
 .fst-lab{font-size:12.5px;color:var(--fst-muted);flex:none;width:52px}
 .fst input[type=range]{flex:1;accent-color:var(--fst-accent);height:28px;margin:0;min-width:0}
 .fst-zv{font-size:12.5px;color:var(--fst-muted);width:44px;text-align:right;flex:none}
-.fst-i{width:18px;height:18px;border-radius:50%;background:var(--fst-pill);display:grid;place-items:center;font-size:10px;font-weight:600;color:var(--fst-gold);flex:none}
-.fst-btn{height:48px;border-radius:999px;display:grid;place-items:center;font-size:15px;font-weight:500;border:0;cursor:pointer;white-space:nowrap}
-.fst-pri{flex:1;background:var(--fst-accent);color:#fff}
+.fst-btn{height:48px;border-radius:var(--m-r-full);display:grid;place-items:center;font-size:15px;font-weight:500;border:0;cursor:pointer;white-space:nowrap}
+.fst-pri{flex:1;background:var(--fst-accent);color:rgb(var(--color-cream))}
 .fst-pri:disabled{opacity:.5}
 .fst-sec{flex:0 0 96px;background:transparent;border:1.5px solid var(--fst-line);color:var(--fst-ink)}
-.fst-toast{position:fixed;left:16px;right:16px;top:60px;background:var(--fst-ink);color:var(--fst-bg);border-radius:12px;padding:10px 14px;font-size:13.5px;z-index:95;line-height:1.35;pointer-events:none}
-.fst-sheet{position:fixed;inset:0;background:rgba(20,18,16,.45);display:flex;align-items:flex-end;z-index:96}
-.fst-sheet-in{background:var(--fst-surface);width:100%;border-radius:22px 22px 0 0;padding:16px 18px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
-.fst-sheet ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;line-height:1.4;list-style:disc}
+.fst-toast{position:fixed;left:16px;right:16px;top:60px;background:var(--fst-ink);color:var(--fst-bg);border-radius:var(--m-r-md);padding:10px 14px;font-size:13.5px;z-index:95;line-height:1.35;pointer-events:none}
 `;

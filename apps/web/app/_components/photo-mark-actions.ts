@@ -129,10 +129,14 @@ export async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true
       console.error('[supabase-error] photo-mark-actions · supplier_photo_originals.select', error);
       return { ok: false, error: NONE };
     }
-    const orig = parseStoredAsset((data as { original_ref?: string } | null)?.original_ref ?? null);
-    if (!orig || orig.kind !== 'r2' || orig.bucket !== 'setnayan-vendor-verification') return { ok: false, error: NONE };
-    const { presignDisplayUrl } = await import('@/lib/uploads');
-    return { ok: true, url: await presignDisplayUrl(orig.bucket, orig.key, 600) };
+    // The private signer, held to THIS shop's own originals root: a row naming any other bucket or shop signs nothing.
+    const { displayUrlForPrivateStoredAsset } = await import('@/lib/uploads');
+    const url = await displayUrlForPrivateStoredAsset(
+      (data as { original_ref?: string } | null)?.original_ref ?? null,
+      { bucket: 'setnayan-vendor-verification', prefixes: [`vendor-originals/${vendorProfileId}/`] },
+      { ttlSeconds: 600 },
+    );
+    return url ? { ok: true, url } : { ok: false, error: NONE };
   } catch (err) {
     console.error('[photo-mark] getPhotoOriginalUrl failed', err);
     return { ok: false, error: NONE };

@@ -15,7 +15,7 @@
 --                            "Open the seat plan" door on the client page follow it).
 --
 -- ── THE BODIES BELOW ARE THE LATEST DEFINITIONS, EDITED ONLY AT THE GATE ────────────────────────────────────────
--- Both are copied by script from `20271292712479_a_role_holder_can_send_a_proxy.sql`, the latest migration that
+-- Both are copied by script from `20271302857885_a_guest_not_counted_for_a_service.sql`, the latest migration that
 -- defines either (`grep -l "FUNCTION public.get_vendor_seat_plan\|FUNCTION public.get_vendor_event_brief"
 -- supabase/migrations/*.sql`), with only the lines marked 🪑 changed. Every other gate (the fee gate, not_a_vendor,
 -- not_booked, category_not_floor, the brief's withholding) is untouched.
@@ -36,6 +36,7 @@ DECLARE
   v_profile_ids         UUID[];
   v_booked_categories   TEXT[];
   v_my_event_vendor_ids UUID[];
+  v_not_counted         UUID[];
   v_floor_allowed       BOOLEAN;
   v_dietary_allowed     BOOLEAN;
   v_plan                RECORD;
@@ -71,6 +72,9 @@ BEGIN
   IF v_booked_categories IS NULL THEN
     RAISE EXCEPTION 'not_booked' USING ERRCODE = '42501';
   END IF;
+
+  -- 🍽 Guests the couple marked "Not counted for" EVERY one of this supplier's booked services (20271302857885).
+  v_not_counted := public.guests_not_counted_for_services(p_event_id, v_my_event_vendor_ids);
 
   v_floor_allowed := v_booked_categories && ARRAY[
     'venue', 'catering', 'cake_maker', 'mobile_bar', 'photobooth',
@@ -114,7 +118,7 @@ BEGIN
         FROM (
           SELECT g.meal_preference::TEXT AS pref, COUNT(*) AS n
           FROM public.event_seat_assignments a
-          JOIN public.guests g ON g.guest_id = a.guest_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL
+          JOIN public.guests g ON g.guest_id = a.guest_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL AND g.guest_id <> ALL (v_not_counted)
           WHERE a.table_id = et.table_id
           GROUP BY g.meal_preference
         ) m
@@ -195,6 +199,8 @@ DECLARE
   v_profile_ids       UUID[];
   v_booked_categories TEXT[];
   v_my_categories     TEXT[];
+  v_my_booked_ids     UUID[];
+  v_not_counted       UUID[];
   v_lock_request      JSONB;
   v_stage             TEXT;
   v_dietary_allowed   BOOLEAN;
@@ -228,7 +234,8 @@ BEGIN
 
   -- 2 · Stage gate. The LABEL still distinguishes the rungs (callers gate
   -- behaviour on 'booked'); the PAYLOAD no longer does.
-  SELECT ARRAY_AGG(DISTINCT ev.category::TEXT) INTO v_booked_categories
+  SELECT ARRAY_AGG(DISTINCT ev.category::TEXT), ARRAY_AGG(ev.vendor_id)
+  INTO v_booked_categories, v_my_booked_ids
   FROM public.event_vendors ev
   WHERE ev.event_id = p_event_id
     AND ev.marketplace_vendor_id = ANY (v_profile_ids)
@@ -295,6 +302,10 @@ BEGIN
 
   v_share_budget := COALESCE(v_event.share_budget_band, FALSE);
 
+  -- 🍽 Guests the couple marked "Not counted for" EVERY one of this supplier's BOOKED services (20271302857885).
+  -- Before agreement nothing is booked, so nobody is left out (the guest card lists booked services only).
+  v_not_counted := public.guests_not_counted_for_services(p_event_id, v_my_booked_ids);
+
   -- ==========================================================================
   -- FINALIZED FLAG — mirrors `guestListIsClosed()` in
   -- apps/web/lib/guest-list-closed.ts EXACTLY: finalized means the HOST pressed
@@ -315,7 +326,7 @@ BEGIN
     'finalized', v_finalized
   ) INTO v_pax
   FROM public.guests g
-  WHERE g.event_id = p_event_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL;
+  WHERE g.event_id = p_event_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL AND g.guest_id <> ALL (v_not_counted);
 
   -- ==========================================================================
   -- BUDGET BAND — arithmetic byte-for-byte 20271213732174 (see that migration
@@ -443,7 +454,7 @@ BEGIN
       'meal_counts', COALESCE(jsonb_object_agg(m.pref, m.n) FILTER (WHERE m.pref IS NOT NULL), '{}'::jsonb),
       'restriction_notes', (
         SELECT COUNT(*) FROM public.guests g2
-        WHERE g2.event_id = p_event_id AND g2.deleted_at IS NULL AND g2.entry_source <> 'self_added_unlisted' AND NOT g2.passed_away AND g2.represented_by_guest_id IS NULL
+        WHERE g2.event_id = p_event_id AND g2.deleted_at IS NULL AND g2.entry_source <> 'self_added_unlisted' AND NOT g2.passed_away AND g2.represented_by_guest_id IS NULL AND g2.guest_id <> ALL (v_not_counted)
           AND g2.rsvp_status = 'attending'
           AND NULLIF(TRIM(g2.dietary_restrictions), '') IS NOT NULL
       )
@@ -451,7 +462,7 @@ BEGIN
     FROM (
       SELECT g.meal_preference::TEXT AS pref, COUNT(*) AS n
       FROM public.guests g
-      WHERE g.event_id = p_event_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL
+      WHERE g.event_id = p_event_id AND g.deleted_at IS NULL AND g.entry_source <> 'self_added_unlisted' AND NOT g.passed_away AND g.represented_by_guest_id IS NULL AND g.guest_id <> ALL (v_not_counted)
         AND g.rsvp_status = 'attending'
       GROUP BY g.meal_preference
     ) m;

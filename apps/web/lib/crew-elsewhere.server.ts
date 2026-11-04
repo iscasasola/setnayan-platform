@@ -3,6 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { blocksWithAClock } from '@/lib/supplier-schedule';
+import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchDriveSpeed } from '@/lib/platform-settings';
 import { crewElsewhere, type CrewClash, type CrewStint } from '@/lib/crew-elsewhere';
@@ -46,16 +47,22 @@ export async function readCrewElsewhere(input: {
   const candidateIds = [...new Set(rows.map((r) => r.event_id).filter((id) => id !== eventId))];
   if (candidateIds.length === 0) return {};
 
-  const { data: events, error: eventsErr } = await admin
-    .from('events')
-    .select('event_id, event_date, display_name, venue_latitude, venue_longitude')
-    .in('event_id', [eventId, ...candidateIds]);
-  if (eventsErr) {
-    logQueryError('readCrewElsewhere (events)', eventsErr, { event_id: eventId }, 'graceful_degrade');
+  // Two narrow reads: which day and what name, and where (the reception pin).
+  const ids = [eventId, ...candidateIds];
+  const [namesRes, pinsRes] = await Promise.all([
+    admin.from('events').select('event_id, event_date, display_name').in('event_id', ids),
+    admin.from('events').select('event_id, venue_latitude, venue_longitude').in('event_id', ids),
+  ]);
+  if (namesRes.error || pinsRes.error) {
+    logQueryError('readCrewElsewhere (events)', namesRes.error ?? pinsRes.error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  type EventRow = { event_id: string; event_date: string | null; display_name: string | null; venue_latitude: number | string | null; venue_longitude: number | string | null };
-  const byId = new Map(((events ?? []) as EventRow[]).map((e) => [e.event_id, e]));
+  type EventRow = { event_id: string; event_date: string | null; display_name: string | null; venue_latitude?: number | string | null; venue_longitude?: number | string | null };
+  const byId = new Map(((namesRes.data ?? []) as EventRow[]).map((e) => [e.event_id, { ...e }]));
+  for (const p of (pinsRes.data ?? []) as Array<Pick<EventRow, 'event_id' | 'venue_latitude' | 'venue_longitude'>>) {
+    const e = byId.get(p.event_id);
+    if (e) Object.assign(e, { venue_latitude: p.venue_latitude, venue_longitude: p.venue_longitude });
+  }
   const sameDay = candidateIds.filter((id) => byId.get(id)?.event_date === eventDate);
   if (sameDay.length === 0) return {};
 
@@ -64,7 +71,7 @@ export async function readCrewElsewhere(input: {
     supabase.from('event_schedule_blocks').select('block_id, event_id, parent_block_id, start_at, end_at, time_tba').in('event_id', sameDay),
     supabase
       .from('event_schedule_tasks')
-      .select('task_id, event_id, block_id, vendor_id, crew, call_at')
+      .select(`${TASK_COLUMNS}, event_id`)
       .in('event_id', sameDay)
       .in('vendor_id', myBookingIds)
       .not('crew', 'is', null),

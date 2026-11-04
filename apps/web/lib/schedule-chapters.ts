@@ -63,7 +63,7 @@ export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to, march_key, responsible_vendor_ids, follows_block_id, time_shape, time_or_minutes, block_type';
 
 export type Chapter = {
   block_id: string;
@@ -92,6 +92,8 @@ export type Chapter = {
   time_tba?: boolean;
   /** 👷 The suppliers tagged on the chapter itself (`responsible_vendor_ids`, event_vendors ids). */
   vendor_ids?: string[];
+  /** Its kind (`block_type`) — the rail tints a chapter by it (Prep · Ceremony · Reception · After Party). */
+  block_type?: string | null;
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -125,6 +127,7 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       moments: moments.get(r.block_id) ?? 0,
       time_tba: r.time_tba === true,
       vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
+      block_type: typeof r.block_type === 'string' ? r.block_type : null,
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }

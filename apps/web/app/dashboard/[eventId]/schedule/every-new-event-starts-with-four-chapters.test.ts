@@ -129,8 +129,8 @@ test('3b · the tip shows only while the defaults are unfilled; the warning name
   assert.equal(defaultChaptersUnfilled([{ label: 'Despedida', location: null }]), false, 'the tip shows on a schedule the host built');
   assert.equal(defaultChaptersUnfilled([]), false);
   assert.match(DEFAULT_CHAPTERS_TELL, /Your event starts with four chapters\. Fill each one, or swipe one left if you don't have it\./);
-  const host = code('_components/chapters-host.tsx');
-  assert.match(host, /input\.canEdit && defaultChaptersUnfilled\(sorted\)/, 'the tip is not drawn, or is drawn for someone who cannot change the chapters');
+  const line = code('_components/schedule-one-line.tsx');
+  assert.match(line, /chapters\?\.canEdit && defaultChaptersUnfilled\(chapters\.chapters\)/, 'the tip is not drawn, or is drawn for someone who cannot change the chapters');
   const words = code('_components/chapter-sheets.tsx');
   assert.match(words, /taken off \$\{suppliers\.length === 1 \? 'its' : 'their'\} parts/, 'the warning no longer names the suppliers');
   assert.match(words, /No moments are in it yet, so no photos move/, 'an empty chapter’s warning talks about photos it cannot have');

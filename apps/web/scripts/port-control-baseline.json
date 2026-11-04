@@ -5472,10 +5472,12 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwipeToDelete",
         "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
+        "UndoToastHost",
         "ViewReport",
         "YourStorySection"
       ]
@@ -8590,6 +8592,7 @@
       "files": [
         "dashboard/[eventId]/schedule/_components/announce-button.tsx",
         "dashboard/[eventId]/schedule/_components/ask-supplier-section.tsx",
+        "dashboard/[eventId]/schedule/_components/block-swipe.tsx",
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/chapter-sheets.tsx",
         "dashboard/[eventId]/schedule/_components/chapters-context.ts",
@@ -8641,7 +8644,6 @@
         "applyActivityPicks",
         "bulkRetimeScheduleBlocks",
         "createScheduleBlock",
-        "deleteScheduleBlock",
         "loadScheduleTemplate",
         "saveHostAnswers",
         "sendStageNoteFromEvent",
@@ -8660,6 +8662,7 @@
         "Api",
         "AskSupplierSection",
         "BlockCard",
+        "BlockSwipe",
         "BlockTimeEditor",
         "BulkRetimePanel",
         "ByTime",
@@ -8683,7 +8686,6 @@
         "DayActions",
         "DayActionsContext.Provider",
         "DayMoment",
-        "DeletePreparationItemButton",
         "DragState",
         "EmceePicks",
         "EmceePicksUnread",
@@ -8738,6 +8740,7 @@
         "PlanningFilter",
         "PlanningFilterFrame",
         "PlanningTick",
+        "PrepItemSwipe",
         "PrepKind",
         "PreparationAgendaView",
         "PreparationEmptyState",
@@ -8801,6 +8804,7 @@
         "TravelClashGuard",
         "TravelItineraryView",
         "TypedRow",
+        "UndoToastHost",
         "VendorMeetingsSection",
         "VendorSuggestionsQueue",
         "ViewAsBody",
@@ -12104,6 +12108,7 @@
         "DayMoment",
         "DayRole",
         "LabPlaylist",
+        "MakerContext.Provider",
         "PickMenu",
         "PlaylistSlotSection",
         "PreparationAgendaView",
@@ -12553,6 +12558,16 @@
       "actions": [],
       "blocks": [
         "TemplateList"
+      ]
+    },
+    "/dev/swipe-rows-lab/repertoire": {
+      "files": [
+        "dev/swipe-rows-lab/repertoire/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SetList"
       ]
     },
     "/dev/swipe-rows-lab/seating": {
@@ -16017,6 +16032,7 @@
     },
     "/vendor-dashboard/repertoire": {
       "files": [
+        "vendor-dashboard/repertoire/_components/set-list.tsx",
         "vendor-dashboard/repertoire/actions.ts",
         "vendor-dashboard/repertoire/loading.tsx",
         "vendor-dashboard/repertoire/page.tsx"
@@ -16024,14 +16040,17 @@
       "destinations": [],
       "actions": [
         "addRepertoireSong",
-        "removeRepertoireSong",
         "setPerformanceLink"
       ],
       "blocks": [
         "GridPageSkeleton",
         "Link",
+        "PerformanceLinkForm",
+        "SetList",
         "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/reviews": {

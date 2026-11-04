@@ -838,7 +838,7 @@ function ChapterPage({
                       const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id);
                       // 🎭 A backstage line is one supplier's set-up or pack-up: their hours under their name (frame 2).
                       const sub = backstage
-                        ? `${clockWords(m.start_at)}${m.end_at ? ` – ${clockWords(m.end_at)}` : ''}`
+                        ? `${momentClockWords(m, c, clockWords)}${m.end_at && !m.time_tba ? ` – ${clockWords(m.end_at)}` : ''}`
                         : [
                         m.travel_to ? `${m.travel_from ?? 'Here'} → ${m.travel_to}` : null,
                         tasksLine(mine, m, c) || m.who || null,

@@ -8768,6 +8768,7 @@
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
         "SentList",
+        "SettingsRow",
         "SharePdfButton",
         "Sheet",
         "SheetChoice",
@@ -12572,6 +12573,19 @@
         "UndoToastHost"
       ]
     },
+    "/dev/swipe-rows-lab/suppliers": {
+      "files": [
+        "dev/swipe-rows-lab/suppliers/fixtures.ts",
+        "dev/swipe-rows-lab/suppliers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BuildLocked",
+        "PackageItemSwipe",
+        "WorkingNoteSwipe"
+      ]
+    },
     "/dev/thumb-row-lab": {
       "files": [
         "dev/thumb-row-lab/page.tsx"
@@ -14743,6 +14757,7 @@
         "SuggestSheet",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
+        "SupplierTaskRow",
         "SupplierThumbRow",
         "TheyToldYou",
         "TimeRow",

@@ -25,7 +25,10 @@
 import { useEffect, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+// ⚡ The browser client (`@/lib/supabase/client` → supabase-js + its auth client, ~43KB gzipped) is
+// import()ed where it is first used, never statically: this file is in the first load of every signed-in page, and
+// a static import was one of the three edges that put the whole client in the Maker's first load
+// (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Nothing it draws waits on it.
 
 type Props = {
   userId: string;
@@ -47,9 +50,13 @@ export function UnreadMessagesBadge({ userId, initialUnread, href, tour }: Props
     // The poll is loaded once the envelope is on screen (`lib/unread-polls.ts`) — off the first load of every page.
     let stop: (() => void) | null = null;
     let gone = false;
-    void import('@/lib/unread-polls').then(({ pollEnvelope }) => {
-      if (!gone) stop = pollEnvelope({ supabase: createClient(), onValue: setUnread });
-    });
+    // Both chunks are asked for at once; the poll starts when both are in.
+    const client = import('@/lib/supabase/client');
+    void import('@/lib/unread-polls').then(({ pollEnvelope }) =>
+      client.then(({ createClient }) => {
+        if (!gone) stop = pollEnvelope({ supabase: createClient(), onValue: setUnread });
+      }),
+    );
     return () => {
       gone = true;
       stop?.();

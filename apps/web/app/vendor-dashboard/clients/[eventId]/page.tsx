@@ -199,6 +199,7 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
+import { VENUE_CATEGORIES } from '@/lib/supplier-where';
 import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierContactRow, type SupplierTaskRow } from '@/lib/supplier-schedule';
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
@@ -418,6 +419,10 @@ type LiveBlock = {
   responsible_vendor_ids?: string[] | null;
   created_at?: string | null;
   updated_at?: string | null;
+  /** 🏛 Venue hours (migration 20271307658341): the setup / pack-up window and the venue booking that holds them. */
+  ingress_minutes_before?: number | null;
+  egress_minutes_after?: number | null;
+  hours_vendor_id?: string | null;
 };
 
 type HandoverRow = {
@@ -715,7 +720,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_blocks')
         .select(
-          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, follows_block_id, sort_order, time_shape, time_or_minutes, is_optional, responsible_vendor_ids, created_at, updated_at',
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, follows_block_id, sort_order, time_shape, time_or_minutes, is_optional, responsible_vendor_ids, created_at, updated_at, ingress_minutes_before, egress_minutes_after, hours_vendor_id',
         )
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
@@ -723,7 +728,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_suggestions')
         .select(
-          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id',
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at, direction, suggested_by_name, asked_as, answer_note, vendor_profile_id, proposed_ingress_minutes, proposed_egress_minutes',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
@@ -750,7 +755,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
         admin
           .from('event_vendors')
-          .select('vendor_id')
+          .select('vendor_id, category')
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
@@ -1316,8 +1321,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           responsible_vendor_ids: b.responsible_vendor_ids ?? [],
           created_at: b.created_at ?? null,
           updated_at: b.updated_at ?? null,
+          ingress_minutes_before: b.ingress_minutes_before ?? null,
+          egress_minutes_after: b.egress_minutes_after ?? null,
+          hours_vendor_id: b.hours_vendor_id ?? null,
         })),
         myBookingIds,
+        // 🏛 Their VENUE bookings — a venue sets the hours of the chapters it is booked to.
+        venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
+          .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
+          .map((b) => b.vendor_id),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),

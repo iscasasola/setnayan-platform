@@ -24,7 +24,7 @@
  * app/_components/swipe-to-delete.test.ts (the gesture's rules).
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { Trash2, type LucideIcon } from 'lucide-react';
 
 /** px width of the revealed action. */
@@ -171,7 +171,9 @@ export function SwipeToDelete({
             const t = e.touches[0];
             if (!t || disabled) return;
             drag.current = swipeBegin(t.clientX, t.clientY, tx, e.timeStamp);
-            setDragging(true);
+            // 👆 NOTHING visible changes on touch-down (owner 2026-11-04 "i see it needs a double tap?"): iPhone Safari
+            // swallows the click of a tap whose touch-down shows or hides anything — here, the red Delete behind the
+            // row — so every row needed two taps to open. The row only counts as dragging once the swipe is decided.
           }}
           onTouchMove={(e) => {
             const t = e.touches[0];
@@ -179,7 +181,10 @@ export function SwipeToDelete({
             const { drag: next, tx: nextTx } = swipeMove(drag.current, t.clientX, t.clientY, e.timeStamp);
             drag.current = next;
             if (!next.active) setDragging(false);
-            if (nextTx !== null) setTx(nextTx);
+            if (nextTx !== null) {
+              setDragging(true);
+              setTx(nextTx);
+            }
           }}
           onTouchEnd={end}
           onTouchCancel={end}
@@ -229,5 +234,120 @@ export function SwipeToDelete({
         </button>
       ) : null}
     </Tag>
+  );
+}
+
+/* ── The gesture alone, for a row that places itself ───────────────────────────────────────────────────────────────
+ * 📖 Event chapters slice 1 (owner 2026-11-03, approved prototype "Event chapters — 4 Nov 2026", frame 3): the
+ * Schedule's hour rail draws each chapter as an absolutely placed block, so it cannot be wrapped in `SwipeToDelete`.
+ * `useSwipeReveal` is THE SAME gesture (`swipeBegin` · `swipeMove` · `swipeSettle` above — axis lock, hold, snap, the
+ * click guard, no transform at rest, nothing visible on touch-down) handed to the caller; `SwipeDeleteButton` is the
+ * Delete it reveals. The Delete only ASKS — the caller shows its own warning. */
+
+export function useSwipeReveal({ enabled = true, reveal = SWIPE_REVEAL_PX }: { enabled?: boolean; reveal?: number } = {}) {
+  const id = useId();
+  const [tx, setTx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<SwipeDrag>({ ...swipeBegin(0, 0, 0), active: false });
+
+  useEffect(() => {
+    const onOther = (other: string) => {
+      if (other !== id) setTx(0);
+    };
+    openListeners.add(onOther);
+    return () => {
+      openListeners.delete(onOther);
+    };
+  }, [id]);
+
+  const end = () => {
+    const d = drag.current;
+    drag.current = { ...d, active: false };
+    setDragging(false);
+    if (d.horiz) {
+      setTx((t) => {
+        const settled = swipeSettle(t, reveal);
+        if (settled !== 0) announceOpen(id);
+        return settled;
+      });
+    }
+  };
+
+  /** The handlers for the row that moves. */
+  const rowProps = {
+    onTouchStart: (e: ReactTouchEvent) => {
+      const t = e.touches[0];
+      if (!t || !enabled) return;
+      drag.current = swipeBegin(t.clientX, t.clientY, tx, e.timeStamp);
+    },
+    onTouchMove: (e: ReactTouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      const { drag: next, tx: nextTx } = swipeMove(drag.current, t.clientX, t.clientY, e.timeStamp, reveal);
+      drag.current = next;
+      if (!next.active) setDragging(false);
+      if (nextTx !== null) {
+        setDragging(true);
+        setTx(nextTx);
+      }
+    },
+    onTouchEnd: end,
+    onTouchCancel: end,
+    onClickCapture: (e: ReactMouseEvent) => {
+      if (drag.current.moved) {
+        // The click a drag ends in — not a tap. Keep the snapped position.
+        e.preventDefault();
+        e.stopPropagation();
+        drag.current = { ...drag.current, moved: false };
+        return;
+      }
+      if (tx !== 0) {
+        // A tap on an OPEN row closes it instead of opening it.
+        e.preventDefault();
+        e.stopPropagation();
+        setTx(0);
+      }
+    },
+  };
+  /** The row's own movement — none at rest (a transform would frame every `position: fixed` inside the row). */
+  const rowStyle: CSSProperties = {
+    transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
+    transition: dragging ? 'none' : 'transform 0.2s ease',
+    touchAction: 'pan-y',
+  };
+  return { tx, open: tx !== 0, close: () => setTx(0), rowProps, rowStyle, reveal };
+}
+
+/** The Delete `useSwipeReveal` reveals — behind the row, at its right. */
+export function SwipeDeleteButton({
+  label,
+  open,
+  onDelete,
+  reveal = SWIPE_REVEAL_PX,
+  className = '',
+  style,
+}: {
+  /** "Delete After Party" — what a screen reader hears. */
+  label: string;
+  open: boolean;
+  onDelete: () => void;
+  reveal?: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      data-swipe-delete=""
+      onClick={onDelete}
+      aria-label={label}
+      tabIndex={open ? 0 : -1}
+      aria-hidden={open ? undefined : true}
+      className={`flex flex-col items-center justify-center gap-0.5 bg-danger-600 text-white dark:bg-danger-400 ${className}`}
+      style={{ width: reveal, ...style }}
+    >
+      <Trash2 aria-hidden className="h-5 w-5" strokeWidth={2} />
+      <span className="text-[11px] font-semibold leading-tight">Delete</span>
+    </button>
   );
 }

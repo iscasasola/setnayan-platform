@@ -32,6 +32,7 @@ import type { DayMoment, DayRequest } from './day-types';
 import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
 import { ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
+import { heldHoursLine } from '@/lib/schedule-chapters';
 
 const COULD_NOT_SAVE = 'That did not save. Check your connection and try again.';
 
@@ -555,7 +556,7 @@ export function RequestsSheet({
                 <li key={r.suggestion_id} className="border-b border-ink/[0.06] pb-5 pt-4">
                   <Eyebrow>
                     {r.by} ·{' '}
-                    {r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
+                    {r.kind === 'hours' ? 'the chapter’s hours' : r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
                   </Eyebrow>
                   <h3 className="mt-1 font-display text-[21px] leading-tight text-ink">
                     {r.kind === 'new'
@@ -588,6 +589,16 @@ export function RequestsSheet({
                     </div>
                   </div>
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
+                  {r.kind === 'hours' && r.proposed_start_at ? (
+                    <p className="mt-2 text-[12.5px] text-ink/60" data-request-hours="">
+                      {heldHoursLine({
+                        start_at: r.proposed_start_at,
+                        end_at: r.proposed_end_at,
+                        ingress_minutes_before: r.proposed_ingress_minutes ?? null,
+                        egress_minutes_after: r.proposed_egress_minutes ?? null,
+                      })}
+                    </p>
+                  ) : null}
                   {r.proposed_crew?.length ? <p className="mt-1 text-[12.5px] text-ink/60">Their crew: {r.proposed_crew.join(', ')}</p> : null}
                   <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
                   <div className="mt-3.5">
@@ -595,7 +606,9 @@ export function RequestsSheet({
                     <RequestDecision eventId={eventId} suggestionId={r.suggestion_id} noteOnly={isNoteOnlySuggestion(r)} decide={resolveScheduleSuggestion} />
                   </div>
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
-                    {r.kind === 'new'
+                    {r.kind === 'hours'
+                      ? `Approving sets the chapter’s hours and ${r.by} holds them — you ask them to change.`
+                      : r.kind === 'new'
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'

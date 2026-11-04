@@ -69,11 +69,12 @@ test('the seed fails soft, and never throws into a render', () => {
     3,
     'every one of the three failure points must be logged, not swallowed',
   );
-  // 📖 The four default chapters (2026-11-03): the blocks read, the event read, the claim, the chapters, the moments.
+  // 📖 The four default chapters (2026-11-03): the blocks read, the event read, dropping the marker, the claim, the
+  // chapters, putting the marker back, the moments.
   const chapters = seed.slice(seed.indexOf('export async function seedDefaultChapters'));
   assert.equal(
     (chapters.match(/logQueryError\(/g) || []).length,
-    5,
-    'every one of the five failure points of the default chapters must be logged, not swallowed',
+    7,
+    'every one of the seven failure points of the default chapters must be logged, not swallowed',
   );
 });

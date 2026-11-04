@@ -197,7 +197,8 @@ export async function seedDefaultChapters(eventId: string): Promise<ScheduleBloc
   if (existing && existing.length > 0) {
     // The host already has a schedule: this event is no longer waiting for its defaults. (A marker already stamped
     // with a placeholder day is the database's to clear when the date arrives — never touched here.)
-    await admin.from('event_default_chapters_pending').delete().eq('event_id', eventId).is('placeholder_day', null);
+    const { error: dropErr } = await admin.from('event_default_chapters_pending').delete().eq('event_id', eventId).is('placeholder_day', null);
+    if (dropErr) logQueryError('seedDefaultChapters (drop marker)', dropErr, { event_id: eventId }, 'graceful_degrade');
     return [];
   }
   // 📅 An exact day → the chapters go on it. No day yet → the seed's placeholder day, kept on the marker, and the
@@ -228,7 +229,8 @@ export async function seedDefaultChapters(eventId: string): Promise<ScheduleBloc
   if (error) {
     logQueryError('seedDefaultChapters (chapters)', error, { event_id: eventId }, 'graceful_degrade');
     // Give the marker back, unseeded, so the next open tries again.
-    await admin.from('event_default_chapters_pending').upsert({ event_id: eventId, placeholder_day: null });
+    const { error: backErr } = await admin.from('event_default_chapters_pending').upsert({ event_id: eventId, placeholder_day: null });
+    if (backErr) logQueryError('seedDefaultChapters (marker back)', backErr, { event_id: eventId }, 'graceful_degrade');
     return [];
   }
   const idOf = new Map(chapters.map((c) => [c.key, top.find((b) => b.sort_order === c.sort_order)?.block_id]));

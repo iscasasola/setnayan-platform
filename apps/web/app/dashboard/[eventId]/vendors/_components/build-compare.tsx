@@ -60,6 +60,9 @@ import {
   isPlanLoadable,
 } from '@/lib/plans-panel';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
@@ -161,7 +164,12 @@ export function BuildCompare({
   const save = useSaveLoader();
 
   // Stable column order (named builds oldest-first).
-  const orderedBuilds = useMemo(() => sortSavedBuilds(savedBuilds), [savedBuilds]);
+  /* ↩ Builds deleted by a swipe or a column's delete, waiting out the Undo window (owner 2026-11-03). */
+  const [goneBuilds, setGoneBuilds] = useState<ReadonlySet<string>>(() => new Set());
+  const orderedBuilds = useMemo(
+    () => sortSavedBuilds(savedBuilds).filter((b) => !goneBuilds.has(b.build_id)),
+    [savedBuilds, goneBuilds],
+  );
 
   // Columns = saved builds, then the live "Current" plan last.
   const columns = useMemo(() => {
@@ -262,7 +270,7 @@ export function BuildCompare({
     });
   }
 
-  async function onDelete(buildId: string, title: string) {
+  async function onDelete(buildId: string, title: string, close?: () => void) {
     setErr(null);
     // 🔑 A DESTRUCTIVE ACTION MUST ASK, AND THIS ONE DID NOT. `deleteBudgetBuild`
     // is a HARD row delete — no soft-delete column, no undo, and the couple's
@@ -285,13 +293,23 @@ export function BuildCompare({
       cancelLabel: 'Keep it',
       destructive: true,
     });
-    if (!ok) return;
-    startTransition(async () => {
-      const res = await save.run(() => deleteBudgetBuild({ eventId, buildId }), {
-        steps: ['Deleting your build'],
-        hint: 'Saving',
-      });
-      if (!res.ok) setErr(res.error);
+    if (!ok) {
+      close?.();
+      return;
+    }
+    // ↩ Asked, and still an Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): the plan leaves the list
+    // at once and is deleted when the Undo window closes; Undo brings it back with nothing written.
+    deleteWithUndo({
+      label: `“${title}” deleted`,
+      hide: () => setGoneBuilds((g) => new Set(g).add(buildId)),
+      restore: () =>
+        setGoneBuilds((g) => {
+          const next = new Set(g);
+          next.delete(buildId);
+          return next;
+        }),
+      commit: () => deleteBudgetBuild({ eventId, buildId }),
+      failed: `Couldn’t delete “${title}”. It’s back — try again.`,
     });
   }
 
@@ -365,6 +383,7 @@ export function BuildCompare({
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-1 py-2">
       {dialog}
+      <UndoToastHost />
       <div className="space-y-1">
         {/* No card title inside a named section — the section heading ("Your
             plans", `services-takeover.tsx`) is the only title
@@ -465,10 +484,16 @@ export function BuildCompare({
                   lockedGroupIds: lockedGroups,
                 });
                 return (
-                  <li
+                  // 👈 The plan's Delete is the row's swipe (owner 2026-11-03) — the same ask, then Undo.
+                  <SwipeToDelete
                     key={b.build_id}
-                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                    as="li"
+                    label={`Delete ${title}`}
+                    radiusClass=""
+                    onDelete={(close) => void onDelete(b.build_id, title, close)}
+                    disabled={pending}
                   >
+                  <div className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {title}
                     </span>
@@ -515,16 +540,8 @@ export function BuildCompare({
                       <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
                       Load
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(b.build_id, title)}
-                      disabled={pending}
-                      aria-label={`Delete ${title}`}
-                      className="shrink-0 rounded-full p-1 text-ink/35 transition hover:text-danger-600 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-                    </button>
-                  </li>
+                  </div>
+                  </SwipeToDelete>
                 );
               })}
             </ul>

@@ -33,7 +33,7 @@ export function useGuestsExcel(
     if (said.current === state.k) return;
     said.current = state.k;
     if (state.k === 'error') tell.error(state.message);
-    else if (state.k === 'ready') tell.info('Your Excel file is ready — tap Save as Excel again to share or save it.');
+    else if (state.k === 'ready') tell.info('Your Excel file is ready — tap it again to share or save it.');
   }, [state, tell]);
   const label = state.k === 'working' ? 'Preparing Excel…' : state.k === 'ready' ? 'Tap to save Excel' : 'Save as Excel';
   return {

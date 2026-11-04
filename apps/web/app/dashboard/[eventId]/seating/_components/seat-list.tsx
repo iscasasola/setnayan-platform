@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ArrowLeftRight, Armchair, ChevronDown, UserMinus, UserRound } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';
 import { useRowState } from '@/app/dashboard/[eventId]/guests/_components/use-row-state';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
@@ -312,9 +313,10 @@ export function SeatList({
     const meta = where ? `Seat ${formatCount(where.seat + 1)}${g.placed ? ` · ${g.placed}` : ''}` : 'No seat yet';
     const drop = where ? seatDropAttrs({ kind: 'seat', tableId: where.tableId, seat: where.seat, occupantId: g.id }) : {};
     const open = tap(() => onOpenGuest(g.id));
-    return (
+    const key = where ? `${where.tableId}:${where.seat}` : `u:${g.id}`;
+    const row = (
       <div
-        key={where ? `${where.tableId}:${where.seat}` : `u:${g.id}`}
+        key={key}
         className={`${gs.g} ${picked ? gs.picked : ''} ${OVER}`}
         data-seat-row=""
         data-seat-guest={g.id}
@@ -355,12 +357,30 @@ export function SeatList({
               onClick={() => onPick(g.id)}
               data-testid="seat-row-pick"
             />
-            {where ? (
-              <ActionButton tone="danger" icon={UserMinus} label="Remove" name={`Remove ${g.name} from the seat`} onClick={() => onRemove(g.id)} data-testid="seat-row-remove" />
-            ) : null}
           </span>
         ) : null}
       </div>
+    );
+    /* 👈 OFF THE SEAT IS THE ROW'S SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO
+       VISIBLE ✕ ON ROWS"): the row's red Remove left; a left swipe (a computer: the hover button at the row's end) is
+       the same `onRemove` → the editor's `unseat`, whose toast carries the Undo that puts them back on the same chair.
+       A press-and-hold still lifts the row to drag (the swipe lets go of a finger held still, SWIPE_HOLD_MS). */
+    if (!canEdit || !where) return row;
+    return (
+      <SwipeToDelete
+        key={key}
+        label={`Remove ${g.name} from the seat`}
+        word="Remove"
+        icon={UserMinus}
+        radiusClass=""
+        surfaceClass="bg-[var(--gs-paper,rgb(var(--color-cream)))]"
+        onDelete={(close) => {
+          close();
+          onRemove(g.id);
+        }}
+      >
+        {row}
+      </SwipeToDelete>
     );
   };
   const emptyRow = (s: SeatListSeat, table: string) => (

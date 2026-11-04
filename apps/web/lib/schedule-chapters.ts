@@ -310,20 +310,10 @@ export function gapWords(minutes: number): string {
   return h && r ? `${h}h ${r}m` : h ? `${h}h` : `${r}m`;
 }
 
-/**
- * Which part of its chapter a moment is in — Ingress · Event · Egress (plan §3 "Opening a chapter shows Ingress · Event
- * · Egress"). Read from the times, never stored: before the chapter starts is Ingress, at or after it ends is Egress,
- * the rest is the Event. A chapter with no end has no Egress by time.
- */
-export type ChapterSection = 'Ingress' | 'Event' | 'Egress';
-export function momentSection(momentStart: string, c: Pick<Chapter, 'start_at' | 'end_at' | 'time_tba'>): ChapterSection {
-  if (c.time_tba) return 'Event';
-  const t = Date.parse(momentStart);
-  if (!Number.isFinite(t)) return 'Event';
-  if (t < Date.parse(c.start_at)) return 'Ingress';
-  if (c.end_at && t >= Date.parse(c.end_at)) return 'Egress';
-  return 'Event';
-}
+// 🎭 Which part of its chapter a moment is in, and BACKSTAGE — in the leaf `lib/chapter-section.ts` (no imports), so the
+// Event Hub's client bundle reads the rule without carrying this whole module.
+export { BACKSTAGE_TIP, BACKSTAGE_WORDS, isBackstage, momentSection, withoutBackstage, type ChapterSection } from './chapter-section';
+import { momentSection, type ChapterSection } from './chapter-section';
 
 /* ── tasks: who, where, and the clash ─────────────────────────────────────────────────────────────────────────── */
 

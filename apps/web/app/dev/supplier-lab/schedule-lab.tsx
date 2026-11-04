@@ -65,8 +65,12 @@ export function ScheduleLab({ state }: { state?: string }) {
             : b,
         )
       : BLOCKS;
+  // 🎭 …and the venue's own setup moment in Reception's Ingress (backstage, 2026-11-04).
+  const withSetup = venue
+    ? [...blocks, { block_id: 'r0', parent_block_id: 'rec', label: 'Ballroom set-up', start_at: T('14:00'), end_at: T('17:00'), location: null, spot: null, time_tba: false, is_optional: false, responsible_vendor_ids: [VENUE_BOOKING], created_at: T('08:00', '2026-11-01'), updated_at: T('08:00', '2026-11-01') }]
+    : blocks;
   const day = buildSupplierDay({
-    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : blocks,
+    blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : withSetup,
     myBookingIds: venue ? [ME, VENUE_BOOKING] : [ME],
     venueBookingIds: venue ? [VENUE_BOOKING] : [],
     tasks: [

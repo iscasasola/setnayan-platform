@@ -9,7 +9,7 @@ import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { BACKSTAGE_WORDS, chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
 import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
@@ -430,6 +430,12 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         <span className="font-medium">{m.label}</span>
         {m.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">yours</span> : null}
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
+        {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
+        {m.section !== 'Event' ? (
+          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-text">
+            {m.section} · {BACKSTAGE_WORDS}
+          </span>
+        ) : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
         {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
         {/* 📇 A contact on this moment (the bridal-car driver) — only on a moment they are on (4 additions (3)). */}

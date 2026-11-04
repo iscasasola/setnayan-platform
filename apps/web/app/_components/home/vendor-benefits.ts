@@ -7,6 +7,7 @@
  * the vendor-dashboard session ships. Keep the tier assignments in step with the
  * doc + the coded caps in lib/vendor-tier-caps.ts.
  */
+import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
 import { MIN_SERVICES_PER_LEAF, PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
@@ -47,7 +48,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Look credible & trusted',
         items: [
-          { n: 'Verified badge, free', b: 'Pass a 12-doc check free. No copycat can fake your official page.' },
+          { n: 'Verified badge, free', b: `Send your ${REQUIRED_DOC_COUNT} required papers and take a short video call with our team — free. No copycat can fake your official page.` },
           { n: 'Your public page, auto-built', b: 'A clean, search-ready public page, auto-composed from your profile and live the moment you set an address. Ranks on Google and inside Setnayan.' },
           { n: 'Fair merit-based rating', b: 'A Bayesian score protects new suppliers: stars are earned, never bought.' },
           { n: 'Receipt-backed reviews', b: 'Every rating carries a real “booked through Setnayan” verified mark.' },
@@ -86,7 +87,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Bookings pipeline', b: 'Accepted inquiries become tracked booking items on the event.' },
           { n: 'Contract-on-record', b: 'Upload each contract to a timestamped, per-event paper trail.' },
           { n: 'Automated bookings', b: 'Inquiries flow into a live pipeline with quotes and milestones auto-attached.' },
-          { n: 'One-tap RA 8792 contracts', soon: true, b: 'Pull a clause, fill, and both e-sign in-app. No printing.' },
           { n: 'Change-order trail', b: 'Mid-plan add-ons become logged, both-acknowledged change orders.' },
           { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the photos delivered.' },
         ],
@@ -145,6 +145,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Your own funnel metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
           { n: 'Earnings dashboard', b: 'Year-to-date revenue, monthly subtotals and scheduled payouts in one view.' },
           { n: 'Recap sharing', b: 'One-tap share of every wedding you helped create, straight to your Facebook Page.' },
+          { n: 'Logo on the couple’s 3D seat plan', b: 'With the 3D Booth add-on, your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
         ],
       },
     ],
@@ -164,7 +165,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
           { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
-          { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
           { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },

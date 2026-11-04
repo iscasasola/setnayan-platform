@@ -70,7 +70,7 @@ import { AskSupplierSection } from './ask-supplier-section';
 
 const HELD_HOURS_TIP =
   'The venue booked to this chapter sets its hours, including setup and pack-up. Ask them to change; they answer on their schedule. Take the venue off this chapter and you set the hours yourself.';
-import { CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, heldHoursLine, type ChapterSupplier } from '@/lib/schedule-chapters';
+import { BACKSTAGE_TIP, BACKSTAGE_WORDS, CHAPTER_SUPPLIERS_TIP, chapterSupplierLine, chapterSuppliers, heldHoursLine, type ChapterSupplier } from '@/lib/schedule-chapters';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
@@ -668,7 +668,11 @@ function ChapterPage({
   onAddMoment: (section: ChapterSection) => void;
   onOpenMoment: (id: string) => void;
 }) {
+  /* 🎭 Ingress · Event · Egress are all OPEN (owner 2026-11-04, prototype frame 2: "Ingress and Egress are open, one line
+     per supplier, marked Backstage"); a tap folds or unfolds one. `open` is the section last tapped — + Add a moment
+     goes there. */
   const [open, setOpen] = useState<ChapterSection>('Event');
+  const [shut, setShut] = useState<ReadonlySet<ChapterSection>>(() => new Set());
   const ingress = ingressAt(c);
   const egress = egressAt(c);
   const bySection = (k: ChapterSection) =>
@@ -789,13 +793,22 @@ function ChapterPage({
 
       <div className="mt-3 border-t border-ink/10" data-chapter-sections="">
         {sections.map((s) => {
-          const on = open === s.key;
+          const on = !shut.has(s.key);
+          const backstage = s.key !== 'Event';
           return (
-            <section key={s.key} data-chapter-section={s.key}>
+            <section key={s.key} data-chapter-section={s.key} data-backstage={backstage ? '' : undefined}>
               <button
                 type="button"
                 aria-expanded={on}
-                onClick={() => setOpen(s.key)}
+                onClick={() => {
+                  setOpen(s.key);
+                  setShut((was) => {
+                    const next = new Set(was);
+                    if (next.has(s.key)) next.delete(s.key);
+                    else next.add(s.key);
+                    return next;
+                  });
+                }}
                 className="flex min-h-14 w-full items-center gap-3 border-b border-ink/10 text-left"
               >
                 <span
@@ -812,6 +825,11 @@ function ChapterPage({
                 </span>
                 <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/50 transition-transform ${on ? 'rotate-180' : ''}`} />
               </button>
+              {on && backstage ? (
+                <p data-backstage-line="" className="flex items-center gap-1.5 pt-2 text-[12px] uppercase tracking-[0.06em] text-gold-deep">
+                  {BACKSTAGE_WORDS} <Tip>{BACKSTAGE_TIP}</Tip>
+                </p>
+              ) : null}
               {on ? (
                 s.rows.length === 0 ? (
                   <p className="py-3 text-[14px] text-ink/55">Nothing yet.</p>
@@ -819,7 +837,10 @@ function ChapterPage({
                   <ul>
                     {s.rows.map((m) => {
                       const mine = (tasks ?? []).filter((t) => t.block_id === m.block_id);
-                      const sub = [
+                      // 🎭 A backstage line is one supplier's set-up or pack-up: their hours under their name (frame 2).
+                      const sub = backstage
+                        ? `${momentClockWords(m, c, clockWords)}${m.end_at && !m.time_tba ? ` – ${clockWords(m.end_at)}` : ''}`
+                        : [
                         m.travel_to ? `${m.travel_from ?? 'Here'} → ${m.travel_to}` : null,
                         tasksLine(mine, m, c) || m.who || null,
                         m.is_optional ? 'Optional' : null,
@@ -847,7 +868,9 @@ function ChapterPage({
                             ) : (
                               <EyeOff aria-label="Hidden from guests" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
                             )
-                          ) : null}
+                          ) : (
+                            <EyeOff aria-label="Backstage — guests never see this" className="mt-0.5 h-4 w-4 flex-none text-ink/40" />
+                          )}
                         </>
                       );
                       return (

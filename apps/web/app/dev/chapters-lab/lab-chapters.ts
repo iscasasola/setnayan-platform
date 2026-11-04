@@ -1,4 +1,5 @@
 import type { HostAsk } from '@/lib/schedule-ask';
+import { buildDefaultChapters } from '@/lib/schedule';
 import type { Chapter, MomentLike, TaskRow } from '@/lib/schedule-chapters';
 import type { ChapterMoment } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 
@@ -222,3 +223,33 @@ export const LAB_ASKS: HostAsk[] = [
     shop: { business_name: 'Lightbox Studio' },
   },
 ];
+
+/**
+ * 📖 `?defaults=1` — a NEW wedding's day exactly as the seed writes it (owner 2026-11-03, prototype frame 1): the REAL
+ * `buildDefaultChapters` on the lab's day, Catholic, so Prep · Ceremony · Cocktail + Reception · After Party with the
+ * shipped template moments inside. Nothing is written anywhere.
+ */
+export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMoment[] } {
+  const built = buildDefaultChapters('catholic', LAB_EVENT_DAY, { ceremony_type: 'catholic', secondary_ceremony_type: null });
+  const ids = new Map(built.chapters.map((c, i) => [c.key, `00000000-0000-4000-8000-00000000d00${i + 1}`]));
+  const moments: ChapterMoment[] = built.moments.map((mo, i) => ({
+    ...LAB_MOMENT_ROW,
+    block_id: `00000000-0000-4000-8000-0000000e${String(i).padStart(4, '0')}`,
+    parent_block_id: ids.get(mo.parent_key)!,
+    label: mo.label,
+    start_at: mo.start_at,
+    end_at: mo.end_at,
+    location: null,
+    spot: null,
+    notes: null,
+    is_public: false,
+  }));
+  const chapters: Chapter[] = built.chapters.map((c) => ({
+    ...chapter(ids.get(c.key)!, c.label, '00:00', null, null, null),
+    start_at: c.start_at,
+    end_at: c.end_at,
+    is_public: true,
+    moments: moments.filter((mo) => mo.parent_block_id === ids.get(c.key)).length,
+  }));
+  return { chapters, moments };
+}

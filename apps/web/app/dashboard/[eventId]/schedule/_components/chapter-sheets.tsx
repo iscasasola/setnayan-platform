@@ -542,11 +542,7 @@ export function ChapterSheet({
                   {c.label} wasn’t deleted. Nothing was changed — try again.
                 </span>
               ) : (
-                <>
-                  <span className="font-semibold">{c.label}</span>
-                  {c.moments > 0 ? ` and its ${c.moments} moment${c.moments === 1 ? '' : 's'}` : ''} will be deleted. This cannot be
-                  undone. Its photos stay safe in Memories, under Unsorted.
-                </>
+                <ChapterDeleteWords c={c} />
               )}
             </p>
             {stage === 'deleting' ? null : (
@@ -571,6 +567,22 @@ export function ChapterSheet({
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * 🗑 WHAT DELETING A CHAPTER TAKES — the ONE warning, read by the chapter's own Delete chapter and by a swipe left on
+ * the Event Day rail (owner 2026-11-03, prototype frame 3: *"Because deleting a chapter has consequences, the in-page
+ * warning stays"*). Since the same ruling a delete has an Undo (frame 4), so it no longer says it cannot be undone.
+ */
+export function ChapterDeleteWords({ c }: { c: Pick<Chapter, 'label' | 'moments' | 'on_invitation'> }) {
+  return (
+    <>
+      <span className="font-semibold">{c.label}</span>
+      {c.moments > 0 ? ` and its ${c.moments} moment${c.moments === 1 ? '' : 's'}` : ''} will be deleted.
+      {c.on_invitation ? ' It comes off the invitation and out of every reply.' : ''} Its photos stay safe in Memories,
+      under Unsorted. You can undo it for a few seconds.
+    </>
   );
 }
 

@@ -14,7 +14,7 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { ScheduleOneLine } from '@/app/dashboard/[eventId]/schedule/_components/schedule-one-line';
 import { SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/schedule-tools-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_ASKS, LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
+import { LAB_ASKS, LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MARCHES, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO, labDefaultChapters } from './lab-chapters';
 import { labViewAs } from './lab-view-as';
 
 export function LabScheduleChapters({
@@ -27,7 +27,10 @@ export function LabScheduleChapters({
   openMoment = false,
   free = false,
   asks = false,
+  defaults = false,
 }: {
+  /** `?defaults=1`: 📖 a NEW wedding's four default chapters, as the seed writes them (2026-11-03). */
+  defaults?: boolean;
   empty: boolean;
   fail: boolean;
   viewOnly: boolean;
@@ -43,13 +46,14 @@ export function LabScheduleChapters({
   asks?: boolean | 'fail';
 }) {
   const [mounted, setMounted] = useState(false);
+  const [fresh] = useState(labDefaultChapters);
   useEffect(() => setMounted(true), []);
   const input: ChaptersInput = fail
     ? { measured: false }
     : {
         measured: true,
-        chapters: empty ? [] : LAB_SCHEDULE_CHAPTERS,
-        moments: empty ? [] : [...LAB_CHAPTER_MOMENTS, LAB_MOMENT_ROW],
+        chapters: empty ? [] : defaults ? fresh.chapters : LAB_SCHEDULE_CHAPTERS,
+        moments: empty ? [] : defaults ? fresh.moments : [...LAB_CHAPTER_MOMENTS, LAB_MOMENT_ROW],
         // 📖 Step 3b: the run-of-show moment holds three tasks at once in two places; `?clash=1` puts Coord A in the
         // lobby too, at the same time; `?tasksfail=1` is the tasks read failing (said, never "no tasks").
         tasks: tasksFail ? null : empty ? [] : clash ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS,
@@ -75,7 +79,7 @@ export function LabScheduleChapters({
       <ScheduleOneLine
         initial="event-day"
         views={[
-          { key: 'event-day', label: 'Event Day', count: empty ? 0 : 7 },
+          { key: 'event-day', label: 'Event Day', count: empty ? 0 : defaults ? fresh.chapters.length : 7 },
           { key: 'preparation', label: 'Planning Stage', count: empty ? 0 : 1 },
         ]}
         dateLine="Friday 18 December 2026 · 47 days to go"

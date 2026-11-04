@@ -934,6 +934,115 @@ export function buildScheduleSeed(
   return { topLevel, buildChildren };
 }
 
+// ───────────────────  the four default chapters (owner 2026-11-03)  ───────────────────
+//
+// 📖 EVERY NEW EVENT STARTS WITH FOUR CHAPTERS (DECISION_LOG 3 Nov "EVERY EVENT IS BUILT FROM PREBUILT PARTS" + "ALL
+// FOUR PREBUILT PARTS ARE DEFAULT PUBLIC CHAPTERS"; approved prototype "Event chapters — 4 Nov 2026", frame 1):
+// Prep · Ceremony · Cocktail + Reception · After Party, each PUBLIC, After Party on. The host fills them.
+//
+// 🔑 EXTENDED FROM `buildScheduleSeed`, NEVER RE-WRITTEN: the Ceremony chapter and its rite-aware parts, the reception
+// parts and the dance-free rule are that seed's own output. Only the shape changes — Prep is added before, the cocktail
+// hour becomes the first moment of "Cocktail + Reception", and After Party runs "onward" (no end).
+// 🕊 A dance-free rite (`riteIsDanceFree`) keeps the shipped rule: no cocktail hour and no After Party, so its third
+// chapter is plain "Reception" and there are three chapters, not four (open owner call, flagged on the PR).
+
+export type DefaultChapterKey = 'prep' | 'ceremony' | 'cocktail_reception' | 'after_party';
+
+export type DefaultChapter = {
+  key: DefaultChapterKey;
+  label: string;
+  block_type: ScheduleBlockType;
+  start_at: string;
+  /** null = "onward" (After Party). */
+  end_at: string | null;
+  sort_order: number;
+  is_public: true;
+};
+
+export type DefaultChapterMoment = Omit<ScheduleSeedChild, 'parent_key'> & { parent_key: DefaultChapterKey };
+
+/** The words the four default chapters are called — one list, read by the seed and its guards. */
+export const DEFAULT_CHAPTER_LABELS: Readonly<Record<DefaultChapterKey, string>> = {
+  prep: 'Prep',
+  ceremony: 'Ceremony',
+  cocktail_reception: 'Cocktail + Reception',
+  after_party: 'After Party',
+};
+
+export function buildDefaultChapters(
+  ceremonyType: SeedCeremonyType | null,
+  eventDate: string,
+  overlay?: CeremonyOverlayInput | null,
+): { chapters: DefaultChapter[]; moments: DefaultChapterMoment[] } {
+  const seed = buildScheduleSeed(ceremonyType, eventDate, overlay);
+  const danceFree = riteIsDanceFree(overlay ?? { ceremony_type: ceremonyType });
+  const of = (key: ScheduleSeedTopLevel['key']) => seed.topLevel.find((b) => b.key === key);
+  const ceremony = of('ceremony')!;
+  const reception = of('reception')!;
+  const cocktails = of('cocktails');
+  const afterParty = of('after_party');
+
+  const chapters: DefaultChapter[] = [
+    {
+      key: 'prep',
+      label: DEFAULT_CHAPTER_LABELS.prep,
+      block_type: 'pre_ceremony',
+      start_at: anchorIso(eventDate, 7, 0),
+      end_at: anchorIso(eventDate, 12, 0),
+      sort_order: 50,
+      is_public: true,
+    },
+    {
+      key: 'ceremony',
+      label: DEFAULT_CHAPTER_LABELS.ceremony,
+      block_type: 'ceremony',
+      start_at: ceremony.start_at,
+      end_at: ceremony.end_at,
+      sort_order: ceremony.sort_order,
+      is_public: true,
+    },
+    {
+      key: 'cocktail_reception',
+      label: cocktails ? DEFAULT_CHAPTER_LABELS.cocktail_reception : 'Reception',
+      block_type: 'reception',
+      start_at: cocktails ? cocktails.start_at : reception.start_at,
+      end_at: reception.end_at,
+      sort_order: reception.sort_order,
+      is_public: true,
+    },
+  ];
+  if (afterParty && !danceFree) {
+    chapters.push({
+      key: 'after_party',
+      label: DEFAULT_CHAPTER_LABELS.after_party,
+      block_type: 'after_party',
+      start_at: afterParty.start_at,
+      end_at: null,
+      sort_order: afterParty.sort_order,
+      is_public: true,
+    });
+  }
+
+  const parts = seed.buildChildren({ ceremony: '', reception: '' });
+  const moments: DefaultChapterMoment[] = [];
+  if (cocktails) {
+    // The cocktail hour is the first moment of its chapter — private, like every seeded part.
+    moments.push({
+      parent_key: 'cocktail_reception',
+      label: 'Cocktail hour',
+      block_type: 'cocktails',
+      start_at: cocktails.start_at,
+      end_at: cocktails.end_at,
+      sort_order: 5,
+      is_public: false,
+    });
+  }
+  for (const p of parts) {
+    moments.push({ ...p, parent_key: p.parent_key === 'ceremony' ? 'ceremony' : 'cocktail_reception' });
+  }
+  return { chapters, moments };
+}
+
 // ── Overview schedule preview selection ──────────────────────────────────────
 // Pure block-selection for the Overview's Schedule section (owner directive
 // 2026-07-09: "add schedule there"). Lives here — not in the component — so the

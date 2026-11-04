@@ -28,8 +28,8 @@
 import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus } from 'lucide-react';
-import { actionButtonClass } from '@/components/action-button';
+import { ChevronDown, ChevronLeft, Eye, EyeOff, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { useThumbRoom } from '@/lib/thumb-room';
 import {
   TIME_TBA,
@@ -59,7 +59,9 @@ import type { TaskContact } from '@/lib/task-contact';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
-import { ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors } from './chapter-sheets';
+import { ChapterDeleteWords, ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
 
@@ -190,6 +192,61 @@ export function ChaptersHost({
   );
   const [momentDeleting, setMomentDeleting] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  /* 🗑 DELETE, WITH UNDO (owner 2026-11-03, prototype frames 3–4): a deleted chapter is gone from the page AT ONCE and
+     "<chapter> deleted · Undo" peeks for the toast's undo window. The write is sent only when that window closes (or
+     the page is left), so Undo writes nothing and loses nothing — the moments, tasks, replies and supplier parts the
+     database would cascade away are never touched. Closing the tab inside the window keeps the chapter: the safe way
+     round. A refused write brings the chapter back and says so. */
+  const [deleteAsk, setDeleteAsk] = useState<Chapter | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Chapter | null>(null);
+  const [deleteFailed, setDeleteFailed] = useState<string | null>(null);
+  const pendingRef = useRef<Chapter | null>(null);
+  pendingRef.current = pendingDelete;
+  const commitDelete = useRef<(c: Chapter) => void>(() => {});
+  commitDelete.current = (c: Chapter) => {
+    setPendingDelete((p) => (p?.block_id === c.block_id ? null : p));
+    void doors.remove(c.block_id).then((ok) => {
+      if (ok) setChapters((cs) => cs.filter((x) => x.block_id !== c.block_id));
+      else setDeleteFailed(`${c.label} wasn’t deleted. Nothing was changed — try again.`);
+    });
+  };
+  const deleteNow = (c: Chapter) => {
+    // One Undo at a time: a second delete sends the first.
+    const before = pendingRef.current;
+    if (before && before.block_id !== c.block_id) commitDelete.current(before);
+    setDeleteFailed(null);
+    setPendingDelete(c);
+    if (openId === c.block_id) {
+      setOpenId(null);
+      setSheet(null);
+      showScheduleView(chapterStage(c, input.measured ? input.eventDay : null) === 'planning' ? 'preparation' : 'event-day');
+    }
+  };
+  // Leaving the page (or the tab) inside the window sends the delete the host already confirmed.
+  useEffect(() => {
+    const send = () => {
+      const p = pendingRef.current;
+      if (p) commitDelete.current(p);
+    };
+    window.addEventListener('pagehide', send);
+    return () => {
+      window.removeEventListener('pagehide', send);
+      send();
+    };
+  }, []);
+  /** The sheet's own Delete chapter goes through the same window (its warning and Continue are unchanged). */
+  const sheetDoors = useMemo<ChapterDoors>(
+    () => ({
+      ...doors,
+      remove: async (id) => {
+        const c = chapters.find((x) => x.block_id === id);
+        if (c) deleteNow(c);
+        return Boolean(c);
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doors, chapters, openId],
+  );
   // A fresh server answer (a rail write revalidates the page) supersedes what this page laid on the list.
   useEffect(() => {
     if (!input.measured) return;
@@ -217,7 +274,7 @@ export function ChaptersHost({
     () =>
       input.measured
         ? {
-            chapters: sortChapters(chapters),
+            chapters: sortChapters(chapters.filter((c) => c.block_id !== pendingDelete?.block_id)),
             eventDay: input.eventDay,
             canEdit: input.canEdit,
             openId,
@@ -230,9 +287,13 @@ export function ChaptersHost({
               if (input.canEdit) setSheet('new');
             },
             viewAs: input.viewAs ?? null,
+            askDelete: (id) => {
+              const c = chapters.find((x) => x.block_id === id);
+              if (c && input.canEdit) setDeleteAsk(c);
+            },
           }
         : null,
-    [chapters, input, openId],
+    [chapters, input, openId, pendingDelete],
   );
 
   if (!input.measured || !api) {
@@ -246,8 +307,8 @@ export function ChaptersHost({
     );
   }
 
-  const sorted = sortChapters(chapters);
-  const current = openId ? (chapters.find((c) => c.block_id === openId) ?? null) : null;
+  const sorted = sortChapters(chapters.filter((c) => c.block_id !== pendingDelete?.block_id));
+  const current = openId && openId !== pendingDelete?.block_id ? (chapters.find((c) => c.block_id === openId) ?? null) : null;
   const openMoment = momentSheet?.kind === 'edit' ? (moments.find((x) => x.block_id === momentSheet.id) ?? null) : null;
   // ⚠ The moments with a task in two places at once (§3c #5) — flagged on their rows, never refused.
   const clashedMoments = new Set<string>();
@@ -427,14 +488,59 @@ export function ChaptersHost({
           lastDay={input.lastDay}
           mayInvite={input.mayInvite}
           replyCount={input.replyCounts?.[current.block_id]}
-          doors={doors}
+          doors={sheetDoors}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}
-          onDeleted={() => {
-            setChapters((cs) => cs.filter((c) => c.block_id !== current.block_id));
-            back(current);
-          }}
+          onDeleted={() => back(current)}
         />
+      ) : null}
+
+      {/* 🗑 A swipe left on the rail asks here — the SAME words as the chapter's own Delete chapter. */}
+      {deleteAsk ? (
+        <Sheet open onClose={() => setDeleteAsk(null)} labelledById={`swipe-delete-${deleteAsk.block_id}`} title="Delete chapter">
+          <div data-chapter-swipe-delete={deleteAsk.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+            <h3 id={`swipe-delete-${deleteAsk.block_id}`} className="sr-only">
+              Delete {deleteAsk.label}?
+            </h3>
+            <p className="text-[15px] text-ink">
+              <ChapterDeleteWords c={deleteAsk} />
+            </p>
+            <div className="flex justify-end gap-2">
+              <ActionButton tone="neutral" icon={X} label="Cancel" quiet onClick={() => setDeleteAsk(null)} />
+              <ActionButton
+                tone="danger"
+                main
+                icon={Trash2}
+                label="Delete"
+                data-testid="chapter-swipe-delete-continue"
+                onClick={() => {
+                  const c = deleteAsk;
+                  setDeleteAsk(null);
+                  deleteNow(c);
+                }}
+              />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+
+      {pendingDelete ? (
+        <PeekToast
+          key={`deleted:${pendingDelete.block_id}`}
+          tone="ok"
+          data="chapter-deleted"
+          action={{ label: 'Undo', onPress: () => setPendingDelete(null) }}
+          onGone={() => {
+            const p = pendingRef.current;
+            if (p) commitDelete.current(p);
+          }}
+        >
+          {pendingDelete.label} deleted
+        </PeekToast>
+      ) : deleteFailed ? (
+        <PeekToast tone="bad" data="chapter-delete-failed" onGone={() => setDeleteFailed(null)}>
+          {deleteFailed}
+        </PeekToast>
       ) : null}
     </ChaptersContext.Provider>
   );

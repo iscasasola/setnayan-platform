@@ -2690,6 +2690,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'event_schedule_task_contacts' },
       { kind: 'fk', table: 'event_schedule_task_contacts', column: 'task_id', references: 'event_schedule_tasks' },
       { kind: 'fk', table: 'event_schedule_task_contacts', column: 'block_id', references: 'event_schedule_blocks' },
+      // 📖 A NEW event waiting for its four default chapters (20271306532960, owner 2026-11-03) — one marker per event,
+      // left by a trigger on every events INSERT, claimed once by the app seed (lib/schedule-seed.server.ts).
+      { kind: 'table', table: 'event_default_chapters_pending' },
+      { kind: 'fk', table: 'event_default_chapters_pending', column: 'event_id', references: 'events' },
     ],
     chain: 2,
     pair: ['TYPE-RUNOFSHOW', 'TYPE-VENDORS'],

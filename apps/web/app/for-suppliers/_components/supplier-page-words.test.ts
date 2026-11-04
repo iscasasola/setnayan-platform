@@ -71,6 +71,18 @@ test('(2) every allowance the page says is a number TIER_CAPS holds — none is 
     const km = TIER_CAPS[t].serviceRadiusKm;
     assert.ok(reachLine().includes(Number.isFinite(km) ? `${km} km` : 'the whole country'), `reach for ${t} is missing`);
   }
+  // Each plan's line says THAT plan's reach — a number the table holds for some other plan is still a typed one.
+  for (const [t, below] of [['solo', 'verified'], ['pro', 'solo'], ['enterprise', 'pro']] as const) {
+    const km = TIER_CAPS[t].serviceRadiusKm;
+    const line = planLine(t, below);
+    if (km !== TIER_CAPS[below].serviceRadiusKm) {
+      assert.ok(
+        line.toLowerCase().includes(Number.isFinite(km) ? `${km} km reach` : 'nationwide reach'),
+        `${t}'s line "${line}" does not say its own reach (${km})`,
+      );
+    }
+    for (const m of line.matchAll(/(\d+) km/g)) assert.equal(Number(m[1]), km, `${t}'s line names another plan's reach: "${line}"`);
+  }
   // A seat count the table says moved is said; one that did not move is not.
   const moved = TIER_CAPS.pro.agentAccounts !== TIER_CAPS.solo.agentAccounts;
   assert.equal(/team seat/.test(planLine('pro', 'solo')), moved);

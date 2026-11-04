@@ -15,6 +15,7 @@
 
 import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useReveal } from '@/app/_components/marketing/_premium';
+import { formatCount } from '@/lib/format-number';
 import css from './vendor-grow.module.css';
 
 /** Reveals the wrapped section as one quiet fade+rise when it scrolls into view. */
@@ -106,7 +107,7 @@ export function ProblemsList({
       {total > shown ? (
         <div className={css.solvesMore}>
           <button type="button" className={`${css.btn} ${css.btnSecondary}`} aria-expanded={open} onClick={toggle}>
-            {open ? `Show the top ${shown}` : `See all ${total} ›`}
+            {open ? `Show the top ${formatCount(shown)}` : `See all ${formatCount(total)} ›`}
           </button>
         </div>
       ) : null}

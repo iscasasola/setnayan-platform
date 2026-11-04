@@ -19,6 +19,7 @@ import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { COMMISSION_PCT } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { formatCount } from '@/lib/format-number';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { ProblemsList } from './for-vendors-motion';
 import {
@@ -669,7 +670,7 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
       alt: 'A supplier typing a long price list into a chat',
       title: 'Quotes typed into chats',
       pain: 'Prices are typed into chats, changed three times, and nobody knows which version was agreed.',
-      ans: 'Build the quote in the chat — package, per guest or per hour, with inclusions, add-ons and the payment schedule — and send one clear proposal.',
+      ans: 'Build the quote in the chat — package, per guest or per hour, with inclusions, add-ons and the payment schedule — and send one clear quote.',
       demo: { hash: '#quotes', label: 'Build a quote' },
       plan: 'Free',
     },
@@ -684,8 +685,8 @@ function problems(fee: BookingFeeSchedule | null): Problem[] {
     },
     {
       photo: 'supplier-05-payments',
-      alt: 'A caterer checking a bank app for a deposit that has not arrived',
-      title: 'Chasing deposits and balances',
+      alt: 'A caterer checking a bank app for a payment that has not arrived',
+      title: 'Chasing every payment',
       pain: 'You chase the reservation fee, then the progress payment, then the balance — by chat, every time.',
       ans: 'Reservation, progress and balance on one timeline, with proof. Couples pay straight to your GCash or bank; we never hold your money.',
       demo: { hash: '#payments', label: 'See the payment timeline' },
@@ -792,7 +793,7 @@ export function VendorGrowProblems({ fee }: FeeProp) {
                 />
                 <figcaption className={s.cap}>
                   <span className={s.n}>
-                    {String(i + 1).padStart(2, '0')} / {total}
+                    {String(i + 1).padStart(2, '0')} / {formatCount(total)}
                   </span>
                   <span className={s.t}>{p.title}</span>
                   <p className={s.pain}>{p.pain}</p>

@@ -289,7 +289,8 @@ test('every surface that recruits a supplier names the booking fee', () => {
   for (const [what, file] of SELLING_SURFACES) {
     const src = read(file);
     assert.ok(
-      /bookingFeeScheduleSummary\(/.test(src),
+      // `bookingFeeBandsLine(` — the owner's 2026-11-04 wording, same schedule.
+      /bookingFeeScheduleSummary\(|bookingFeeBandsLine\(/.test(src),
       `${what} (${file}) sells to a supplier without naming the booking fee — ` +
         'the owner\'s 2026-08-06 ruling makes "no commission" true only with its second sentence',
     );
@@ -302,7 +303,7 @@ test('a selling surface never types the rate, and never promises it forever', ()
   for (const [what, file] of SELLING_SURFACES) {
     const src = read(file);
     assert.equal(
-      count(src, /\d+% of the first/),
+      count(src, /\d+% of the first|\d+% up to ₱/),
       0,
       `${what} (${file}) re-types the fee schedule instead of deriving it — it will go stale`,
     );

@@ -34,7 +34,7 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
   {
     key: 'fees',
     title: 'How fees work',
-    line: 'Your first booking from Setnayan is on us · a fee only on couples Setnayan brings · locked until settled',
+    line: 'Your first booking through Setnayan is free · a fee only on couples who found you here · locked until settled',
     href: '/help/what-do-suppliers-pay-setnayan',
   },
   {

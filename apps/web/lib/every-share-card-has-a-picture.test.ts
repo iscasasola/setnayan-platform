@@ -121,7 +121,7 @@ test('every page that writes its own share card names its picture', () => {
     'A page declares its own openGraph / twitter object without `images`, which REPLACES the layout\'s brand ' +
       "card — a shared link previews blank. Add `images: BRAND_OG_IMAGES` (twitter: `BRAND_TWITTER_IMAGES`) from lib/brand-og.ts.",
   );
-  for (const f of ['app/(shell)/features/(hub)/page.tsx', 'app/(shell)/tl/features/(hub)/page.tsx', 'app/(shell)/pricing/page.tsx', 'app/(shell)/explore/page.tsx', 'app/for-suppliers/page.tsx']) {
+  for (const f of ['app/(shell)/features/(hub)/page.tsx', 'app/(shell)/tl/features/(hub)/page.tsx', 'app/(shell)/pricing/page.tsx', 'app/(shell)/explore/page.tsx', 'app/(shell)/for-suppliers/page.tsx']) {
     assert.ok(!files.has(f), `${f} — one of the five the live check found blank`);
   }
   const stale = Object.keys(KNOWN).filter((k) => !files.has(k));

@@ -168,6 +168,7 @@ const SWITCH_SWEPT: readonly string[] = [
   'app/login',
   'app/features',
   'app/for-suppliers',
+  'app/(shell)/for-suppliers', // its page.tsx moved into the shell 2026-11-04
   /* admin (2026-10-08) */
   'app/admin',
 ];

@@ -52,6 +52,16 @@ export const FIRST_BOOKING_ON_US = 'Your first booking from Setnayan is on us.';
 /** The same sentence as a mid-sentence clause, without the full stop. */
 export const FIRST_BOOKING_ON_US_CLAUSE = 'your first booking from Setnayan is on us';
 
+/**
+ * THE PUBLIC FEE LINE'S LEAD (owner 2026-11-04, rewording the /for-suppliers
+ * line "Your first booking from Setnayan is on us — after that 5% of the first
+ * ₱100,000, then 1%, minimum ₱50, only on couples we source"). Same fact as
+ * `FIRST_BOOKING_ON_US` — one free booking — said where the fee line itself is
+ * drawn: `<BookingFeeLine>` (`app/_components/booking-fee-line.tsx`) and the
+ * front door's supplier card. Receipts, tours and help keep the sentence above.
+ */
+export const FIRST_BOOKING_FREE = 'Your first booking through Setnayan is free.';
+
 /** Build the order service_key for a lock booking-fee charge. */
 export function bookingFeeLockServiceKey(chargeId: string): string {
   return `${BOOKING_FEE_LOCK_SERVICE_PREFIX}${chargeId}`;

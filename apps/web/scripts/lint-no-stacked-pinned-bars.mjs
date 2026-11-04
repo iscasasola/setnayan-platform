@@ -263,7 +263,9 @@ if (violations.length > 0) {
 // '/features' joined 2026-10-19 (sweep C5): the hub's page.tsx moved into
 // app/(shell)/, but its BODY (<FeaturesPageBody>, every section) still lives in
 // app/features/, which is the directory this scan reads for that route.
-const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features'];
+// '/for-suppliers' joined 2026-11-04 the same way: page.tsx in app/(shell)/,
+// its sections in app/for-suppliers/_components/ — both directories are read.
+const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers'];
 /** Parked under the shared bar: reads the shell's token, directly or in calc(). */
 const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
 

@@ -12,8 +12,18 @@
  * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
  * need more" Custom callout → CTA. The ladder now LEADS with per-plan DELTAS
  * (what each plan adds, once) and keeps the ~90-row matrix behind a disclosure
- * inside the same section. The persistent glass nav +
- * footer are global site-chrome (SiteChrome) — this page renders neither.
+ * inside the same section.
+ *
+ * 🧭 MOVED INTO `app/(shell)/` 2026-11-04 (owner, on his phone: *"the page is on
+ * the wrong shell"*). It used to sit outside the group and wear the older
+ * SiteChrome glass nav + reskin footer, while every other public page wears the
+ * front-door bar + rail from `app/(shell)/layout.tsx`. Only this `page.tsx`
+ * moved — the sections stay in `app/for-suppliers/_components/` (the same split
+ * /features uses) — and the route left `NAV_ROUTES` in site-chrome.tsx, so the
+ * chrome is drawn once. It is full-bleed (`DOORWAY_BLEED_PATHS`): the photo hero
+ * and the dark bands run edge to edge and every section caps its own width.
+ * The URL is unchanged; `/vendors` and `/for-vendors` still 308 here.
+ * Held by `for-suppliers-wears-the-shell.test.ts` beside this file.
  *
  * Narrative flow (top→bottom):
  *   photographic hero → thesis strip (₱0 · 0% commission + booking fee · first-5-free) →
@@ -43,7 +53,7 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { VendorGrowHero } from './_components/vendor-grow-hero';
+import { VendorGrowHero } from '@/app/for-suppliers/_components/vendor-grow-hero';
 import {
   VendorGrowThesis,
   VendorGrowHub,
@@ -58,10 +68,10 @@ import {
   VendorGrowGetPaid,
   VendorGrowCTA,
   VendorGrowStyles,
-} from './_components/vendor-grow-sections';
-import { VendorTierMatrix } from './_components/vendor-tier-matrix';
-import { VendorTierDeltas } from './_components/vendor-tier-deltas';
-import { RevealOnView } from './_components/for-vendors-motion';
+} from '@/app/for-suppliers/_components/vendor-grow-sections';
+import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
+import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
+import { RevealOnView } from '@/app/for-suppliers/_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
@@ -71,9 +81,9 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
 // the admin page and not hardcoded"): the vendor tier prices read the live
-// catalog DB via getVendorPrices(). force-dynamic = always-live prices + the CI
-// build skips the createAdminClient throw (the /pricing pattern).
-export const dynamic = 'force-dynamic';
+// catalog DB via getVendorPrices(). `force-dynamic` now comes from the group
+// layout, `app/(shell)/layout.tsx`, which owns it for every shelled page
+// (`one-shell-mount.test.ts` forbids a page re-declaring it — the /pricing pattern).
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 

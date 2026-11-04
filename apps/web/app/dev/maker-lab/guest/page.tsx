@@ -40,6 +40,7 @@ import { WelcomeGifts } from '@/app/[slug]/_components/guest-doorway-strip';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
 import { HeroBackgroundMedia } from '@/app/[slug]/_components/hero-background-media';
 import { ScheduleWidget } from '@/app/[slug]/_components/schedule-widget';
+import { withoutSkipped } from '@/lib/change-the-schedule';
 import { VenueWidget } from '@/app/[slug]/_components/venue-widget';
 import { HubCanvasFrame } from '@/app/[slug]/_components/hub-canvas-frame';
 import { HubCoverHold, HubPageHold, HubScenes, hubCoverLeaves, hubScrubHoldsAtMost } from '@/app/[slug]/_components/hub-scenes';
@@ -124,6 +125,17 @@ const LAB_BLOCKS = [
   LAB_BLOCK(3, 'Cocktails', '17:30', 'Seda Vertis North', 'cocktails'),
   LAB_BLOCK(4, 'Dinner & dancing', '19:00', 'Seda Vertis North', 'reception'),
 ];
+/**
+ * 🗓 `&after=move|skip` — the guests' schedule after the coordinator's crew changed it (Change the schedule, 2026-11-04):
+ * `move` = Cocktails and everything after it later by 15 min; `skip` = Cocktails skipped — dropped by the SAME
+ * `withoutSkipped` every guest read applies.
+ */
+function labGuestBlocksAfter(after: unknown): typeof LAB_BLOCKS {
+  if (after === 'skip') return withoutSkipped(LAB_BLOCKS.map((b) => (b.label === 'Cocktails' ? { ...b, run_state: 'skipped' } : b)));
+  if (after !== 'move') return LAB_BLOCKS;
+  const from = LAB_BLOCKS.find((b) => b.label === 'Cocktails')!.start_at;
+  return LAB_BLOCKS.map((b) => (b.start_at >= from ? { ...b, start_at: new Date(Date.parse(b.start_at) + 15 * 60_000).toISOString() } : b));
+}
 /** 🎚 The Scrub chain's run of show (`?scrub=1`): eight moments — a list long enough to be scrolled THROUGH, row by row. */
 const LAB_BLOCKS_LONG = [
   LAB_BLOCK(1, 'Guests arrive', '14:30', 'Santuario de San Antonio'),
@@ -887,7 +899,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
           {sp.chapters ? (
             <ScheduleWidget blocks={LAB_INVITE_BLOCKS as never} chapters={LAB_INVITE_CHAPTERS} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
           ) : (
-            <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+            <ScheduleWidget blocks={labGuestBlocksAfter(sp.after) as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
           )}
         </section>
       </HubCanvasFrame>

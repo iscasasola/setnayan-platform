@@ -2,8 +2,10 @@
 
 /**
  * The live schedule updater — the coordinator's two floor actions on the
- * run-of-show: call the next block, and push everything back when the room
- * runs late.
+ * run-of-show: call the next block, and CHANGE THE SCHEDULE (owner 2026-11-04 —
+ * move a part earlier or later with the parts after it, or skip one; it replaced
+ * the +5 · +10 · +15 · +30 push row and "Hold 10 min"). The sheet is
+ * `ChangeTheSchedule`, the same one a crew Member's phone draws.
  *
  * ── WHAT THIS IS NOT ───────────────────────────────────────────────────────
  * Not a timeline. `RunOfShowHeader` (now/next + drift, live over Realtime) and
@@ -21,15 +23,19 @@
 import { useState, useTransition } from 'react';
 import { Clock, Loader2, PlayCircle, SkipForward } from 'lucide-react';
 
-import { RETIME_PRESETS, type AdvanceAction } from '@/lib/floor-command';
+import type { AdvanceAction } from '@/lib/floor-command';
+import type { ChangeablePart } from '@/lib/change-the-schedule';
 import { driftLabel } from '@/lib/run-of-show';
-import { floorAdvanceBlock, floorRetimeFrom } from './actions';
+import { floorAdvanceBlock } from './actions';
+import { ChangeTheSchedule } from './change-the-schedule';
 
 type Props = {
   eventId: string;
   action: AdvanceAction;
   remaining: number;
   driftMinutes: number | null;
+  /** The run of show as the page already read it — the sheet's Part ▾ list. */
+  parts: readonly ChangeablePart[];
   /**
    * DAY-8 · say whose schedule this is, to somebody it is not.
    *
@@ -47,6 +53,7 @@ export function ScheduleUpdater({
   action,
   remaining,
   driftMinutes,
+  parts,
   onLoan = false,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -67,16 +74,6 @@ export function ScheduleUpdater({
     });
   }
 
-  function retime(minutes: number) {
-    if (!actionable) return;
-    setError(null);
-    setNote(null);
-    startTransition(async () => {
-      const res = await floorRetimeFrom(eventId, action.blockId, minutes);
-      if (!res.ok) setError(res.error ?? 'Could not move the schedule.');
-      else setNote(res.message ?? 'Schedule moved.');
-    });
-  }
 
   return (
     <section className="space-y-3">
@@ -129,25 +126,7 @@ export function ScheduleUpdater({
                 : `Finish ${action.label}`}
           </button>
 
-          <div className="space-y-1.5">
-            <p className="text-xs text-ink/55">
-              Running late? Push {action.kind === 'start' ? action.label : action.label} and
-              everything after it.
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {RETIME_PRESETS.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => retime(m)}
-                  disabled={pending}
-                  className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink/80 transition hover:border-terracotta hover:text-ink disabled:opacity-40"
-                >
-                  +{m}m
-                </button>
-              ))}
-            </div>
-          </div>
+          <ChangeTheSchedule eventId={eventId} parts={parts} className="w-full" />
         </>
       )}
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { withoutSkipped } from './change-the-schedule';
 import {
   ceremonyMatches,
   isChineseWedding,
@@ -96,8 +97,9 @@ export type ScheduleBlockRow = {
   /** Day-of run-of-show (migration 20270321980372). run_state is advanced by
    *  advance_schedule_block; actual_start_at is when the block actually went
    *  live (drives the "running ±N min" header). Additive — defaults to
-   *  'upcoming' / null on rows created before the run-of-show feature. */
-  run_state: 'upcoming' | 'live' | 'done';
+   *  'upcoming' / null on rows created before the run-of-show feature.
+   *  `skipped` (20271308380805): Change the schedule › Skip — it did not happen, and guests never see it. */
+  run_state: 'upcoming' | 'live' | 'done' | 'skipped';
   actual_start_at: string | null;
   actual_end_at: string | null;
   /** 👥 Who this moment is for (Studio › Schedule › For ▾, migration
@@ -315,7 +317,10 @@ export async function fetchPublicScheduleBlocks(
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });
   if (error) throw new Error(`fetchPublicScheduleBlocks failed: ${error.message}`);
-  return (data ?? []) as ScheduleBlockRow[];
+  // ⏭ A SKIPPED PART IS NOT ON THE GUESTS' DAY (Change the schedule › Skip, 20271308380805): it will not happen, so the
+  // Event Hub's Details, the pass card's Arrive and Find my seat never name it. Dropped after the read, not in the
+  // fence: the fence's request is pinned condition for condition (the-guests-schedule-has-one-fence.test.ts B4).
+  return withoutSkipped((data ?? []) as ScheduleBlockRow[]);
 }
 
 /**

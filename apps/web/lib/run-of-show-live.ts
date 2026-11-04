@@ -26,7 +26,7 @@ export type BlockChange = {
   old?: Record<string, unknown> | null;
 };
 
-const RUN_STATES: readonly RunState[] = ['upcoming', 'live', 'done'];
+const RUN_STATES: readonly RunState[] = ['upcoming', 'live', 'done', 'skipped'];
 
 function str(v: unknown): string | null {
   return typeof v === 'string' ? v : null;

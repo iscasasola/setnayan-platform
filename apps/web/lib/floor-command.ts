@@ -76,13 +76,13 @@ export function nextAdvanceAction(
 
 /** Blocks that still have to happen — the "N left" readout. */
 export function remainingBlockCount(blocks: readonly RunOfShowBlock[]): number {
-  return blocks.filter((b) => b.run_state !== ('done' satisfies RunState)).length;
+  // A skipped part is not left to do (Change the schedule › Skip) — the same "over" as done.
+  return blocks.filter((b) => b.run_state !== ('done' satisfies RunState) && b.run_state !== ('skipped' satisfies RunState)).length;
 }
 
 // ─── 2. Pushing the schedule ───────────────────────────────────────────────
 
-/** The presets the floor actually uses. Anything finer is a couple-side edit. */
-export const RETIME_PRESETS: readonly number[] = [5, 10, 15, 30];
+// The minutes the floor offers live with the sheet that offers them: `MOVE_MINUTES` (lib/change-the-schedule.ts).
 
 export type RetimeCheck =
   | { ok: true; minutes: number }

@@ -4,13 +4,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
-import { isOnTheDay, scheduleShiftBody, scheduleShiftHref, scheduleShiftTitle } from '@/lib/schedule-shift-notice';
+import {
+  isOnTheDay,
+  scheduleShiftBody,
+  scheduleShiftHref,
+  scheduleShiftTitle,
+  scheduleSkipBody,
+  scheduleSkipTitle,
+} from '@/lib/schedule-shift-notice';
 
 /**
  * ⏱ TELL EVERY BOOKED SUPPLIER THE DAY MOVED (owner, tracker 2026-10-23: YES).
  *
- * Called ONCE per shift — after Running late (`bulkRetimeScheduleBlocks`, when the sheet sends it) or the floor's
- * +N (`floorRetimeFrom`) landed — never once per block. One in-app notice per booked shop (`schedule_shifted`, not
+ * Called ONCE per shift — after Running late (`bulkRetimeScheduleBlocks`, when the sheet sends it) or the day-of
+ * Change the schedule (`changeTheSchedule`, the floor and a crew Member's phone) landed — never once per block. One in-app notice per booked shop (`schedule_shifted`, not
  * on the email allowlist), opening the supplier's event Hub at the schedule. The person who shifted it is not told
  * their own shift.
  *
@@ -28,9 +35,26 @@ export async function notifyScheduleShifted(input: {
   fromLabel: string | null;
   /** Who pressed it — never told about their own shift. */
   actorUserId: string;
+  /** ⏭ Change the schedule › Skip / put back (owner 2026-11-04): the same notice, its own words. */
+  skip?: 'skip' | 'unskip';
+  /**
+   * 👥 The guests holding an account are told too — ONE in-app notice each, nothing re-sent (plan §3 "Time moves") —
+   * when a part they can see changed. In ONE statement in the database (`tell_guests_the_schedule_changed`), never a
+   * loop here: an event's guest list is hundreds.
+   */
+  guests?: { title: string; body: string } | null;
 }): Promise<void> {
   try {
     const admin = createAdminClient();
+    if (input.guests) {
+      const { error: guestsErr } = await admin.rpc('tell_guests_the_schedule_changed', {
+        p_event_id: input.eventId,
+        p_title: input.guests.title,
+        p_body: input.guests.body,
+        p_actor: input.actorUserId,
+      });
+      if (guestsErr) logQueryError('notifyScheduleShifted.guests', guestsErr, { eventId: input.eventId }, 'graceful_degrade');
+    }
     const [bookedRes, eventRes] = await Promise.all([
       admin
         .from('event_vendors')
@@ -59,8 +83,8 @@ export async function notifyScheduleShifted(input: {
     const name = ev?.display_name?.trim() || 'The couple';
     const todayManila = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const href = scheduleShiftHref(input.eventId, isOnTheDay(ev?.event_date ?? null, ev?.event_end_date ?? null, todayManila));
-    const title = scheduleShiftTitle(input.deltaMinutes, input.fromStartAt);
-    const body = scheduleShiftBody(name, input.fromLabel);
+    const title = input.skip ? scheduleSkipTitle(input.fromLabel, input.skip) : scheduleShiftTitle(input.deltaMinutes, input.fromStartAt);
+    const body = input.skip ? scheduleSkipBody(name, input.skip) : scheduleShiftBody(name, input.fromLabel);
     const told = new Set<string>();
     for (const o of (owners ?? []) as { vendor_profile_id: string; user_id: string | null }[]) {
       // One notice per PERSON per shift: a person who owns two booked shops is told once; the actor never.

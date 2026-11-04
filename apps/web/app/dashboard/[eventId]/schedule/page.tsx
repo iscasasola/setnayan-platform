@@ -34,7 +34,6 @@ import { SCHEDULE_TOOLS_SLOT } from './_components/schedule-tools-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { RequestDecision } from './_components/request-decision';
-import { BlockSwipe } from './_components/block-swipe';
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -121,7 +120,7 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BlockSwipe, ScheduleOneLine, ChaptersHost, PlanningChapters, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { ChapterMoment, ChaptersInput } from './_components/chapters-host';
 import type { ReactNode } from 'react';
 import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, readTaskPeople } from '@/lib/schedule-chapters.server';

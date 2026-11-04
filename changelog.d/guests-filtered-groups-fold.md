@@ -14,4 +14,9 @@ did nothing.
 - Measured in `/dev/guests-lab?part=screen` at 390 px, Show = Attending + Group by = Side: before, a header tap left
   `data-open` unchanged and ⇕ stayed "Collapse all"; after, the tap folds and re-opens, ⇕ folds all three headings.
 
-SPEC IMPACT: None.
+- ⚖ The Maker's first-load ceiling is raised 507.5 → 508 KB (owner, 4 Nov: "raise the Maker limit 0.5 KB"):
+  main sat at exactly 507.5 KB, and this PR plus the Show & sort sheet (#7223) together read ~507.6 KB, because the Maker
+  draws the guest list. Reason and numbers are in `scripts/check-maker-js-budget.mjs`.
+
+SPEC IMPACT: DECISION_LOG row needed — "MAKER FIRST-LOAD BUDGET RAISED TO 508 KB" (owner 2026-11-04). The corpus is not
+in this cloud session; for the controller to apply.

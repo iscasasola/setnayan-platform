@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { eventDateToEpoch } from '@/lib/day-of-mode';
 import { MapPin } from 'lucide-react';
@@ -18,6 +18,7 @@ import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { formatCount } from '@/lib/format-number';
 import { ScheduleClockFace, ScheduleOneChapter, type ScheduleMomentView } from './schedule-styles';
+import { withoutBackstage } from '@/lib/chapter-section';
 import { TIME_TBA, guestScheduleByChapter, type GuestScheduleRow, type InvitationChapter } from '@/lib/invitation-chapters';
 
 type Props = {
@@ -71,7 +72,7 @@ type Props = {
 const COMPACT_MOMENTS = 3;
 
 export function ScheduleWidget({
-  blocks,
+  blocks: givenBlocks,
   eventTz,
   nowTrigger = false,
   estimated = false,
@@ -80,6 +81,8 @@ export function ScheduleWidget({
   sceneStyle = null,
   chapters,
 }: Props) {
+  // 🎭 Backstage (a chapter's Ingress · Egress) never reaches a guest, on either path — by chapter or the plain list.
+  const blocks = useMemo(() => withoutBackstage(givenBlocks), [givenBlocks]);
   const byChapter = guestScheduleByChapter(chapters ?? [], blocks);
   const [now, setNow] = useState<Date | null>(null);
   // 🗂 THE DAY AS A CARD (owner 2026-09-21, canvas "3 · Scrolled, replied"):

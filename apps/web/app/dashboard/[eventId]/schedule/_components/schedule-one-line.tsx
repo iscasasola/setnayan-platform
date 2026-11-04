@@ -30,6 +30,10 @@ import { Tip } from './day-ui';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ScheduleViewOnScreen } from './schedule-sheet';
 import { useChapters } from './chapters-context';
+import { Settings } from 'lucide-react';
+import { chapterStage } from '@/lib/schedule-chapters';
+import { formatCount } from '@/lib/format-number';
+import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
 
 export type ScheduleLineView = 'event-day' | 'preparation';
 
@@ -92,6 +96,37 @@ export function ScheduleOneLine({
     window.scrollTo({ top: 0 });
   };
   const current = views.find((v) => v.key === view) ?? views[0];
+  /* 📐 THE 4 NOV ROW (owner 2026-11-04, "Match the 4 Nov prototype", frames 1–2): on the chapters page the one line is
+     [Event Day ▾] 4 chapters · 👤 · ⚙ — the date line, its ⓘ, Announce and Share live in Schedule settings (⚙). Where
+     no chapters are drawn (the Maker, a failed read) the line stays as it was. */
+  const settled = Boolean(chapters);
+  const chapterCount = chapters
+    ? chapters.chapters.filter((c) => chapterStage(c, chapters.eventDay) === (view === 'preparation' ? 'planning' : 'day')).length
+    : 0;
+  const lineParts = (
+    <>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[14px] text-ink/70" data-schedule-date-line="">
+        <span>{dateLine}</span>
+        <Tip>
+          <span className="block space-y-1.5">
+            {info}
+            {notes[view] ? <span className="block">{notes[view]}</span> : null}
+          </span>
+        </Tip>
+      </div>
+      {announce || share ? (
+        <div className="flex flex-wrap items-center gap-2" data-schedule-settings-line="">
+          {announce}
+          {share}
+        </div>
+      ) : null}
+    </>
+  );
+  const hand = chapters?.setSettingsPart;
+  useEffect(() => {
+    if (hand) hand('line', lineParts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handed up when what it shows changes
+  }, [hand, view, dateLine, info, notes, announce, share]);
 
   return (
     <ScheduleViewOnScreen.Provider value={view}>
@@ -119,16 +154,42 @@ export function ScheduleOneLine({
             />
           </span>
           {/* The day's tools are the Event Day's only: `hidden` as a CLASS — a `flex` class beats the attribute. */}
+          {settled ? (
+            <span className="min-w-0 truncate text-[14px] text-ink/60" data-schedule-count="">
+              {formatCount(chapterCount)} chapter{chapterCount === 1 ? '' : 's'}
+            </span>
+          ) : null}
           <span
             id={SCHEDULE_TOOLS_SLOT}
             hidden={view !== 'event-day'}
             className={view === 'event-day' ? 'ml-auto flex min-w-0 items-center' : 'hidden'}
             data-schedule-tools-slot=""
           />
-          {announce ? <span className={`flex shrink-0 items-center${view !== 'event-day' ? ' ml-auto' : ''}`}>{announce}</span> : null}
+          {settled ? (
+            <button
+              type="button"
+              onClick={() => chapters?.openSettings()}
+              aria-label="Schedule settings"
+              data-schedule-settings-open=""
+              className={`sn-press grid h-11 w-11 flex-none place-items-center rounded-full border border-ink/15 text-ink${view !== 'event-day' ? ' ml-auto' : ''}`}
+            >
+              <Settings aria-hidden className="h-5 w-5" strokeWidth={1.8} />
+            </button>
+          ) : announce ? (
+            <span className={`flex shrink-0 items-center${view !== 'event-day' ? ' ml-auto' : ''}`}>{announce}</span>
+          ) : null}
         </div>
 
-        {/* ── THE DATE LINE — everything else about the day is inside its ⓘ. */}
+        {/* 📖 A new event's day opens with what to do with its four chapters (prototype frame 1) — under the one line,
+            only while they are still the defaults, unfilled, and only for someone who may change them. */}
+        {settled && view === 'event-day' && chapters?.canEdit && defaultChaptersUnfilled(chapters.chapters) ? (
+          <p data-default-chapters-tell="" className="mt-2 border-b border-ink/10 pb-2 text-[15px] text-ink">
+            {DEFAULT_CHAPTERS_TELL} <Tip>{DEFAULT_CHAPTERS_TIP}</Tip>
+          </p>
+        ) : null}
+
+        {/* ── THE DATE LINE — everything else about the day is inside its ⓘ (inside ⚙ on the chapters page). */}
+        {settled ? null : (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px] text-ink/60" data-schedule-date-line="">
           <span>{dateLine}</span>
           <Tip>
@@ -139,6 +200,7 @@ export function ScheduleOneLine({
           </Tip>
           {share ? <span className="ml-auto">{share}</span> : null}
         </div>
+        )}
 
         {/* ── THE VIEWS, each drawn once and kept; the moments start right here. */}
         <div className="mt-3">

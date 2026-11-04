@@ -36,6 +36,7 @@ import {
   type Chapter,
   type MomentLike,
   type TaskRow,
+  isBackstage,
 } from './schedule-chapters';
 import { isOnTheGuestsSchedule } from './schedule-audience';
 import { momentClockWords, runRank } from './moment-order';
@@ -250,6 +251,8 @@ export function yourSchedule(i: YourScheduleInput): YourSchedule {
     for (const m of i.moments) {
       if (m.parent_block_id !== c.block_id) continue;
       if (!isOnTheGuestsSchedule({ is_public: m.is_public, audience: m.audience, visibility: m.staged ? 'coordinator_only' : null })) continue;
+      // 🎭 Backstage (the chapter's Ingress · Egress) is never on a guest's schedule — only front-of-house moments.
+      if (isBackstage(m.start_at, c)) continue;
       lines.set(m.block_id, { id: m.block_id, at: m.start_at, rank: rankOf(m.block_id), time: timeOf(m, m.start_at, false), title: m.label, sub: null, mine: false });
     }
     // 📇 The contacts on a moment this guest is ON (4 additions (3)) — they are that moment's crew.

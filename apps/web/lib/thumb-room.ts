@@ -27,7 +27,7 @@
  *
  * 🔒 Held by `lib/a-thumb-row-leaves-room.test.ts` (the arithmetic, the CSS consumers, the mount in ThumbRow).
  */
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 /** The `<html>` custom property every page column reads. */
 export const THUMB_ROOM_VAR = '--sn-thumb-room';
@@ -86,8 +86,21 @@ export function measureThumbRoom(row: HTMLElement): number {
  * without ThumbRow (Build's) calls it on its own row element.
  */
 export function useThumbRoom(rowRef: RefObject<HTMLElement | null>): void {
+  /* 🪝 FOLLOW THE ELEMENT, NOT THE REF OBJECT (owner 2026-11-04, the Schedule's chapter page: *the floating Edit / + Add
+     a moment covers the last lines*). A bar portalled to <body> renders `null` on its first commit (no host yet), so
+     `rowRef.current` was null when this effect ran — and with `[rowRef]` as its only dependency (a ref object never
+     changes) it never ran again: the row floated, `--sn-thumb-room` stayed unset, and the column reserved nothing. The
+     same for a row that is hidden and shown again (the Schedule's + Add pill per view). So every commit checks which
+     element the ref holds now, and the measuring effect re-arms whenever it changes. 🔒 lib/a-thumb-row-leaves-room.test.ts */
+  const [row, setRow] = useState<HTMLElement | null>(null);
+  // No dependency list on purpose: a ref changes without a render dependency. `setRow` fires only when the element
+  // differs, so it settles after one extra render — never a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const row = rowRef.current;
+    const now = rowRef.current;
+    if (now !== row) setRow(now);
+  });
+  useEffect(() => {
     if (!row || typeof window === 'undefined') return;
     const key = {};
     const root = document.documentElement;
@@ -121,5 +134,5 @@ export function useThumbRoom(rowRef: RefObject<HTMLElement | null>): void {
       rooms.delete(key);
       publish();
     };
-  }, [rowRef]);
+  }, [row]);
 }

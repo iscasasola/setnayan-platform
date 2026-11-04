@@ -36,6 +36,7 @@ import {
   setCoarseCategoryCore,
   setPartHiddenCore,
   setOnePerEventCore,
+  setDefaultChapterCore,
   setInfoTextCore,
   setPartServicesCore,
   type WriteResult,
@@ -75,7 +76,8 @@ export type MapOp =
   | { op: 'moveService'; key: string; categoryId: string }
   | { op: 'renamePart'; slotKey: string; label: string }
   | { op: 'hidePart'; slotKey: string; hidden: boolean }
-  | { op: 'onePerEvent'; categoryId: string; on: boolean };
+  | { op: 'onePerEvent'; categoryId: string; on: boolean }
+  | { op: 'defaultChapter'; categoryId: string; key: string; on: boolean };
 
 async function gate(): Promise<{ id: string } | null> {
   const supabase = await createClient();
@@ -126,6 +128,8 @@ export async function mapWrite(op: MapOp): Promise<WriteResult> {
       return asAdmin((a) => setPartHiddenCore(admin, a, str(op.slotKey), op.hidden === true));
     case 'onePerEvent':
       return asAdmin((a) => setOnePerEventCore(admin, a, str(op.categoryId), op.on === true));
+    case 'defaultChapter':
+      return asAdmin((a) => setDefaultChapterCore(admin, a, str(op.categoryId), str(op.key), op.on === true));
     default:
       return { ok: false, error: 'Unknown change.' };
   }

@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { UploadYourQr } from './upload-your-qr';
+import { DoorChoices } from './door-choices';
+import { STRANGER_DOOR_WORDS, doorSignInHref } from './door-choice-words';
 import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 import { RequestKeyInput } from '@/app/_components/request-key-input';
 
-/** 🚪 The stranger's door's words — owner 2026-10-17, verbatim: *"Change the button to 'Confirm your Booking'"*. */
-export const STRANGER_DOOR_WORDS = 'Confirm your Booking';
+/** 🚪 The stranger's door's words — owner 2026-11-03, *"yes Open your invitation"* (it read "Confirm your Booking"). */
+export { STRANGER_DOOR_WORDS };
 
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
@@ -14,14 +15,12 @@ export const STRANGER_DOOR_WORDS = 'Confirm your Booking';
  *
  * Two states, one button each:
  *
- *   · not signed in → **"Confirm your Booking"** (owner 2026-10-17, verbatim: *"Change the button to 'Confirm
- *     your Booking'"* — it read "Get inside") · "Upload your QR · Sign in" — the two
- *     things it actually opens (it once said "Scan your QR · Tap NFC", which
- *     nothing behind it does).
- *     Pressing it opens exactly two things (owner 2026-09-27, the poster QR:
- *     "sign in to enter or upload your qr to login"): Upload your QR (a photo
- *     or screenshot, decoded on the phone) and Sign in. A `<details>`, so it
- *     opens with no script and in every in-app webview;
+ *   · not signed in → ONE button, **"Open your invitation"**, and nothing else on it (owner 2026-11-03,
+ *     DECISION_LOG "THE GUEST DOOR IS ONE BUTTON": *"both buttons does the same thing"* · *"just 1 button
+ *     please"* · *"i also saw sign in"*; it read "Confirm your Booking" with "Upload your QR · Sign in" under
+ *     it, and opened onto a SECOND full "Upload your QR" button). Pressing it shows exactly three choices
+ *     (`DoorChoices`): Scan QR (the live camera) · Upload QR (the phone's picker) · Lost QR? Login. A
+ *     `<details>`, so it opens with no script and in every in-app webview (Messenger);
  *   · signed in, not on this guest list → "You're not on the guest list for
  *     this event yet" + **"Ask to join"**, which goes to the couple's Requests
  *     (`/join/{eventId}`) — never an automatic entry; a name match alone never
@@ -122,27 +121,15 @@ export function GetInside({
       </section>
     );
   }
-  const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
   const door = (
     <details className={`group mx-auto max-w-md${dock && !inFoot ? ' sn-door-dock' : ''}`} data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="text-base">{STRANGER_DOOR_WORDS}</span>
-        {/* Names only what opens underneath (guest text audit 2026-09-30): the
-            button promised "Scan · Tap NFC", and neither is behind it. */}
-        <span className="text-xs font-normal opacity-80">{slug ? 'Upload your QR · Sign in' : 'Sign in'}</span>
       </summary>
-      {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
-          qr to login") — exactly two things: the guest's own QR, read on the
-          phone, or their account. */}
       {inFoot ? <FirstScreenDoor foot /> : dock ? <FirstScreenDoor /> : null}
-      <div className="mt-4 space-y-4">
-        {slug ? <UploadYourQr slug={slug} /> : null}
-        <Link
-          href={signIn}
-          className="flex min-h-[48px] w-full items-center justify-center text-sm font-medium text-ink underline underline-offset-4"
-        >
-          Sign in
-        </Link>
+      {/* Exactly three choices (owner 2026-11-03) — quiet buttons; the ONE primary is the door above. */}
+      <div className="mt-4">
+        <DoorChoices slug={slug} signIn={doorSignInHref(slug)} />
       </div>
     </details>
   );

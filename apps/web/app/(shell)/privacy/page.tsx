@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-10-25 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-11-03 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -1273,10 +1273,9 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-1.5 pt-2 pl-5">
             <li>
               <strong>Photos and video</strong> — the{' '}
-              <strong>full-resolution originals</strong> are kept for{' '}
-              <strong>6 months</strong> from the event&rsquo;s first photo (never
-              less than <strong>3 months</strong> after the event ends), and are
-              then replaced by a compressed copy. That{' '}
+              <strong>full-resolution originals</strong> are kept until{' '}
+              <strong>3 months</strong> after the event&rsquo;s last day, and are
+              then replaced by a 720p copy with small thumbnails. That{' '}
               <strong>compressed copy of your Memories stays online, free, for life</strong> —
               we do not delete your photos, and there is no end date on those
               Memories. If you connect Google Drive, every original is also saved to a

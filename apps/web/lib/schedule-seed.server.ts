@@ -4,7 +4,14 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { buildRunOfShowSeed } from '@/lib/schedule-run-of-show';
-import { insertScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
+import {
+  anchorIso,
+  buildDefaultChapters,
+  insertScheduleBlocks,
+  sortScheduleBlocks,
+  type ScheduleBlockRow,
+  type SeedCeremonyType,
+} from '@/lib/schedule';
 
 /**
  * schedule-seed.server.ts — the first-open Run-of-Show seed for NON-WEDDING
@@ -137,4 +144,106 @@ export async function seedNonWeddingRunOfShow(
     from trying — only the throw.
   */
   return inserted;
+}
+
+/**
+ * 📖 THE FOUR DEFAULT CHAPTERS — the first-open seed for a NEW wedding (owner 2026-11-03, "ALL FOUR PREBUILT PARTS ARE
+ * DEFAULT PUBLIC CHAPTERS"; approved prototype "Event chapters — 4 Nov 2026", frame 1). Same shape and the same rules
+ * as `seedNonWeddingRunOfShow` above: called by the Schedule page DURING its render, fail-soft (a failure leaves the
+ * schedule as it was and logs loudly), no `revalidatePath`, and it HANDS BACK what it wrote (never a re-read).
+ *
+ * It writes only when ALL of these hold:
+ *   · the viewer may write this schedule (the RLS-gated read below; the page passes only a host or an Edit delegate);
+ *   · the event is a wedding — a non-wedding keeps its own per-type program (`seedNonWeddingRunOfShow`);
+ *   · with an EXACT day the chapters go on it; with none yet they go on the seed's placeholder day, stamped on the
+ *     marker, and the database moves them onto the real day the moment one is set, by any path (20271306532960 §2);
+ *   · the event is NEW: it still holds its `event_default_chapters_pending` marker (migration 20271306532960). An event
+ *     made before this shipped has none, and the marker is CLAIMED (deleted, or stamped) before anything is written — so two tabs
+ *     opening at once seed once, and a host who deletes all four never gets them back;
+ *   · the schedule is empty (a block already there drops the marker and writes nothing — never over the host's rows).
+ * A failed chapter write puts the marker back, so the next open tries again.
+ */
+export async function seedDefaultChapters(eventId: string): Promise<ScheduleBlockRow[]> {
+  if (!eventId) return [];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id')
+    .eq('event_id', eventId)
+    .limit(1);
+  if (existingErr) {
+    logQueryError('seedDefaultChapters (existing blocks)', existingErr, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+
+  const { data: ev, error: evErr } = await supabase
+    .from('events')
+    .select('event_type, event_date, event_date_precision, ceremony_type, secondary_ceremony_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (evErr) {
+    logQueryError('seedDefaultChapters (event row)', evErr, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  if (!ev || ((ev.event_type as string | null) ?? 'wedding') !== 'wedding') return [];
+
+  const admin = createAdminClient();
+  if (existing && existing.length > 0) {
+    // The host already has a schedule: this event is no longer waiting for its defaults. (A marker already stamped
+    // with a placeholder day is the database's to clear when the date arrives — never touched here.)
+    const { error: dropErr } = await admin.from('event_default_chapters_pending').delete().eq('event_id', eventId).is('placeholder_day', null);
+    if (dropErr) logQueryError('seedDefaultChapters (drop marker)', dropErr, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  // 📅 An exact day → the chapters go on it. No day yet → the seed's placeholder day, kept on the marker, and the
+  // database moves them onto the real day the moment one is set (migration 20271306532960 §2).
+  const day = typeof ev.event_date === 'string' && ev.event_date_precision === 'day' ? ev.event_date : null;
+  const placeholder = day ? null : anchorIso(null, 0, 0).slice(0, 10);
+
+  // 🔑 CLAIM FIRST — one seed per event, however many opens race: only a marker not yet seeded is claimed.
+  const claim = day
+    ? admin.from('event_default_chapters_pending').delete().eq('event_id', eventId).is('placeholder_day', null).select('event_id')
+    : admin.from('event_default_chapters_pending').update({ placeholder_day: placeholder }).eq('event_id', eventId).is('placeholder_day', null).select('event_id');
+  const { data: claimed, error: claimErr } = await claim;
+  if (claimErr) {
+    logQueryError('seedDefaultChapters (claim)', claimErr, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  if (!claimed || claimed.length === 0) return [];
+
+  const rites = {
+    ceremony_type: (ev.ceremony_type as string | null) ?? null,
+    secondary_ceremony_type: (ev.secondary_ceremony_type as string | null) ?? null,
+  };
+  const { chapters, moments } = buildDefaultChapters((rites.ceremony_type as SeedCeremonyType | null) ?? null, day ?? placeholder, rites);
+  const { blocks: top, error } = await insertScheduleBlocks(
+    admin,
+    chapters.map(({ key: _key, ...c }) => ({ ...c, event_id: eventId, parent_block_id: null })),
+  );
+  if (error) {
+    logQueryError('seedDefaultChapters (chapters)', error, { event_id: eventId }, 'graceful_degrade');
+    // Give the marker back, unseeded, so the next open tries again.
+    const { error: backErr } = await admin.from('event_default_chapters_pending').upsert({ event_id: eventId, placeholder_day: null });
+    if (backErr) logQueryError('seedDefaultChapters (marker back)', backErr, { event_id: eventId }, 'graceful_degrade');
+    return [];
+  }
+  const idOf = new Map(chapters.map((c) => [c.key, top.find((b) => b.sort_order === c.sort_order)?.block_id]));
+  const rows = moments.flatMap(({ parent_key, ...m }) => {
+    const parent = idOf.get(parent_key);
+    return parent ? [{ ...m, event_id: eventId, parent_block_id: parent }] : [];
+  });
+  if (rows.length === 0) return top;
+  const { blocks: parts, error: partsErr } = await insertScheduleBlocks(admin, rows);
+  if (partsErr) {
+    // The chapters stand (the host fills them by hand); their template moments are said in the log.
+    logQueryError('seedDefaultChapters (moments)', partsErr, { event_id: eventId }, 'graceful_degrade');
+    return top;
+  }
+  return sortScheduleBlocks([...top, ...parts]);
 }

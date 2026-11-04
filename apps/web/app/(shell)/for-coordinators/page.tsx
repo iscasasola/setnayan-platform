@@ -331,9 +331,9 @@ const PROBLEMS: readonly ProblemScene[] = [
     photo: `${PHOTOS}/problem-receipts.webp`,
     alt: 'A tired couple with a pile of receipts',
     title: 'Supplier deposits on scraps of paper',
-    pain: 'Who is booked, who is paid and who still needs a deposit lives in a notebook.',
+    pain: 'Who is booked, who is paid and who still needs a first payment lives in a notebook.',
     answer:
-      'Track every booked supplier and deposit for the couple. Keep private notes for yourself and notes the couple can read. You lock a supplier or handle a payment only where the couple allowed it.',
+      'Track every booked supplier and payment for the couple. Keep private notes for yourself and notes the couple can read. You book a supplier or handle a payment only where the couple allowed it.',
     tag: 'Free',
   },
 ];
@@ -455,8 +455,8 @@ export default function ForCoordinatorsPage() {
               <div className="fc-ft">
                 <b>The couple invites you</b>
                 <span>
-                  From your booking in their event — or the invite is made for them when they mark your
-                  downpayment.
+                  From your booking in their event — or the invite is made for them when they mark your first
+                  payment.
                 </span>
               </div>
               <div className="fc-ui" aria-hidden="true">

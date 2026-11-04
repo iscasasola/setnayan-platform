@@ -16,7 +16,8 @@ import { stripComments } from '@/lib/strip-comments';
  * remaining "your team" a host could read.
  *
  * 🔑 WHAT IS NOT A HOST'S SUPPLIER LIST, and is allow-listed below by path:
- *   · a SUPPLIER's own staff — vendor-dashboard/ and the for-suppliers pitch
+ *   · a SUPPLIER's own staff — vendor-dashboard/, the for-suppliers pitch and the for-coordinators
+ *     pitch ("Your team" there is the coordinator's own staff under their shop, one helper free)
  *     ("Add your team" there means their crew, with their own logins), and the
  *     banner on a shop's own page that only its owner and helpers are shown
  *     before couples can see it ("Only you and your team can see this.",
@@ -38,6 +39,7 @@ const WEB = join(HERE, '..');
 const NOT_THE_HOSTS_SUPPLIERS = [
   /^app\/vendor-dashboard\//,
   /^app\/for-suppliers\//,
+  /^app\/\(shell\)\/for-coordinators\//,
   /^lib\/own-shop-preview\.ts$/,
   /^app\/v\/\[slug\]\/_components\/team-preview-banner\.tsx$/,
   /^app\/admin\/_components\/what-you-change\.tsx$/,

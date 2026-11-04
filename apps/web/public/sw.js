@@ -302,6 +302,7 @@ function isDayOfGuestNavigation(url) {
     'explore',
     'favicon.ico',
     'features',
+    'for-coordinators',
     'for-suppliers',
     'forgot-password',
     'guest-list',

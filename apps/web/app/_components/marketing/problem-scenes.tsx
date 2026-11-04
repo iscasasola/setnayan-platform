@@ -20,6 +20,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import { formatCount } from '@/lib/format-number';
+
 import './photo-page.css';
 
 export type ProblemScene = {
@@ -53,7 +55,7 @@ export function ProblemScenes({
   const [open, setOpen] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const total = items.length;
-  const pad = String(total).length < 2 ? 2 : String(total).length;
+  const shown = (n: number) => formatCount(n).padStart(2, '0');
 
   useEffect(() => {
     const root = list.current;
@@ -102,7 +104,7 @@ export function ProblemScenes({
               />
               <figcaption>
                 <span className="pp-n">
-                  {String(i + 1).padStart(pad, '0')} / {String(total).padStart(pad, '0')}
+                  {shown(i + 1)} / {shown(total)}
                 </span>
                 <span className="pp-t">{it.title}</span>
                 <p className="pp-pain">{it.pain}</p>
@@ -126,7 +128,7 @@ export function ProblemScenes({
       {total > initial ? (
         <div className="pp-solves-more">
           <button type="button" className="m-btn m-btn-ghost" aria-expanded={open} onClick={toggle}>
-            {open ? `Show the top ${initial}` : `See all ${total} ›`}
+            {open ? `Show the top ${formatCount(initial)}` : `See all ${formatCount(total)} ›`}
           </button>
         </div>
       ) : null}

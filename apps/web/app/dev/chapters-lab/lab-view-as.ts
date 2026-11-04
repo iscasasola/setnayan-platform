@@ -85,7 +85,19 @@ const tasks: TaskRow[] = [
   task('lab-t9', '00000000-0000-4000-8000-0000000m0009', { vendor_id: 'v-photo', crew: 'Lead' }, 'Candids during dinner', null),
 ];
 
-export function labViewAs(pro: boolean): ViewAsInput {
+/**
+ * 👤 Slice 6: three made-up guests for View as › a named guest — a bridesmaid (the bridesmaids' task is hers), a plain
+ * guest, and one the hosts took off the Reception (she is asked to the Ceremony only) — and `released` for "after Release"
+ * (`?released=1`).
+ */
+export const LAB_RECEPTION = LAB_CHAPTERS[4]!.block_id;
+export const LAB_PEOPLE = [
+  { guest_id: 'g-cara', name: 'Cara Lim', roles: ['bridesmaid'], groupIds: [], notInvited: [] },
+  { guest_id: 'g-rey', name: 'Tito Rey Santos', roles: [], groupIds: [], notInvited: [] },
+  { guest_id: 'g-nena', name: 'Lola Nena Cruz', roles: [], groupIds: [], notInvited: [LAB_RECEPTION] },
+];
+
+export function labViewAs(pro: boolean, released = false): ViewAsInput {
   return {
     pro,
     proHref: '/dev/chapters-lab?upgrade=1',
@@ -95,12 +107,15 @@ export function labViewAs(pro: boolean): ViewAsInput {
       suppliers: [
         { vendor_id: 'v-hmua', name: 'Glow HMUA', booked: true },
         { vendor_id: 'v-photo', name: 'Lightbox Studio', booked: true },
-        { vendor_id: 'v-coord', name: 'The Planning Desk', booked: true },
+        { vendor_id: 'v-coord', name: 'The Planning Desk', booked: true, everyChapter: true },
         { vendor_id: 'v-flor', name: 'Bloom & Co.', booked: true },
         { vendor_id: 'v-banq', name: 'Hotel Aurora banquets', booked: true },
       ],
       groups: {},
       roleNames: { bridesmaid: 'Bridesmaid' },
+      people: LAB_PEOPLE,
+      released: pro && released,
+      guestsArriveBy: '1:00 PM',
     },
   };
 }

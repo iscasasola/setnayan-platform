@@ -27,6 +27,9 @@ import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { sampleOpensHere } from '@/lib/sample-event/switch.server';
+import { FrontDoorLanding, frontPageSample } from './front-door-landing';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -79,6 +82,19 @@ export async function FrontDoor({ q }: { q?: string }) {
     ? await Promise.all([resolveShellSearchContext(searchQuery, user.id, commandItems), searchDiscoverEvents(searchQuery)])
     : [null, null];
 
+  /*
+    🏠 SIGNED OUT, `/` IS THE 4 NOV FRONT PAGE (prototypes/front_page_2026-11-04.html; DECISION_LOG 2026-11-04).
+    Two more reads, both for a stranger only and both remembered across requests: the event types the strip
+    shows (`event_type_vocab`, the roster /start reads), and whether the Maria and Jose sample opens here —
+    it is built dark, and while it is closed the page does not mention it (DECISION_LOG 2026-11-02: "with the
+    sample switch off '/' falls back to the plain page"). A typed search still replaces every section below
+    the hero, as it always has, so it pays only for the sample answer the hero's buttons need.
+  */
+  const signedOut = !account.signedIn;
+  const [sampleOpen, eventTypes]: [boolean, ReadonlyArray<{ key: string; label: string }>] = signedOut
+    ? await Promise.all([sampleOpensHere().catch(() => false), searchQuery ? [] : getCreatableEventTypes()])
+    : [false, []];
+
   return (
     <>
     <FrontDoorShell
@@ -93,7 +109,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         docblock for the fuller reasoning behind dropping the old always-on
         opening.
       */
-      heading={account.signedIn ? undefined : <FrontDoorAnchor />}
+      heading={account.signedIn ? undefined : <FrontDoorAnchor sampleOpen={sampleOpen} />}
       /*
         🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
         is Discover · Find suppliers · Features · How it works · Sign in signed
@@ -132,6 +148,11 @@ export async function FrontDoor({ q }: { q?: string }) {
         than on five of them.
       */
       search={account.signedIn ? false : undefined}
+      /*
+        Signed out, the front page runs edge to edge: the hero's photo fills the content column and each
+        section keeps its own gutter (front-door-landing.css). Signed in, Discover keeps the measured column.
+      */
+      bleed={signedOut}
     >
       {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
       {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
@@ -150,7 +171,9 @@ export async function FrontDoor({ q }: { q?: string }) {
         className={
           account.signedIn
             ? 'sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]'
-            : undefined
+            : searchQuery
+              ? 'fl-gutter'
+              : undefined
         }
       >
       {searchQuery ? (
@@ -175,6 +198,20 @@ export async function FrontDoor({ q }: { q?: string }) {
             commandItems={commandItems}
           />
         )
+      ) : signedOut ? (
+        /* The 4 Nov front page — the shipped shelves ride inside it, unchanged, as #shelves. */
+        <FrontDoorLanding
+          eventTypes={eventTypes}
+          sample={sampleOpen ? frontPageSample(new Date()) : null}
+          shelves={
+            <FrontDoorFeed
+              data={data}
+              storeShell={await isStoreShellRequest()}
+              beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
+              afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
+            />
+          }
+        />
       ) : (
         <>
           <FrontDoorFeed

@@ -67,7 +67,8 @@ test('the signed-out home renders the hero as its heading', () => {
   const src = stripComments(readFileSync(path.join(APP, '_components/frontdoor/front-door.tsx'), 'utf8'));
   assert.match(
     src,
-    /heading=\{\s*account\.signedIn\s*\?\s*undefined\s*:\s*<FrontDoorAnchor\s*\/>\s*\}/,
+    // Props are allowed (the hero is told whether the sample opens); the hero itself must stay the heading.
+    /heading=\{\s*account\.signedIn\s*\?\s*undefined\s*:\s*<FrontDoorAnchor\b[^>]*\/>\s*\}/,
     'front-door.tsx no longer hands <FrontDoorAnchor /> to the shell as the signed-OUT heading. ' +
       'That hero is the home page a Google reviewer sees (signed out); if it moved, move this guard with it.',
   );
@@ -107,15 +108,31 @@ test('the home page says what the app does, in one sentence naming it', async ()
   assert.doesNotMatch(purpose, /\b(website|site|celebrations?)\b/i, 'House words: "Event Hub", "event".');
 });
 
+/*
+  🔁 MOVED, NOT LOOSENED (4 Nov 2026). The links sat inside the hero until the 4 Nov front page
+  (prototypes/front_page_2026-11-04.html) moved them to the page's own footer, `FrontDoorFooter` — so the
+  guard reads that footer, rendered, AND checks the signed-out home really draws it (through the landing
+  that `front-door.tsx` renders for a stranger). Both halves must hold, or the links are not on the page.
+*/
 test('the home page links the Privacy Policy and the Terms', async () => {
-  const hrefs = hrefsOf(await renderHero());
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { FrontDoorFooter } = await import('./_components/frontdoor/front-door-landing');
+  const hrefs = hrefsOf(renderToStaticMarkup(React.createElement(FrontDoorFooter)));
   for (const want of ['/privacy', '/terms']) {
     assert.ok(
       hrefs.includes(want),
-      `The signed-out hero has no link to ${want} (found ${JSON.stringify(hrefs)}). The drawer's small ` +
-        'print is off-screen on a phone; Google requires the home page to link the privacy policy.',
+      `The signed-out home page's footer has no link to ${want} (found ${JSON.stringify(hrefs)}). The drawer's ` +
+        'small print is off-screen on a phone; Google requires the home page to link the privacy policy.',
     );
   }
+  const landing = stripComments(readFileSync(path.join(APP, '_components/frontdoor/front-door-landing.tsx'), 'utf8'));
+  const door = stripComments(readFileSync(path.join(APP, '_components/frontdoor/front-door.tsx'), 'utf8'));
+  assert.match(landing, /<FrontDoorFooter\s*\/>/, 'the signed-out landing no longer draws <FrontDoorFooter /> — the links left the page');
+  assert.match(
+    door,
+    /signedOut\s*\?\s*\([\s\S]*?<FrontDoorLanding\b/,
+    'front-door.tsx no longer renders <FrontDoorLanding> for a signed-out visitor — the footer (and its policy links) left the home page',
+  );
 });
 
 test("the home page's <title> starts with the app name", () => {

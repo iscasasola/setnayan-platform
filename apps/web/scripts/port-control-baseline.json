@@ -14246,7 +14246,7 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/signup?as=vendor",
+        "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",

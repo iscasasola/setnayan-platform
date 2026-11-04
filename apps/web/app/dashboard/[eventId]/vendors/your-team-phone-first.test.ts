@@ -206,7 +206,7 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.match(
     SLOT,
     // 📍 the call times and the chapters (Where) come from ONE Schedule read (owner 2026-11-01).
-    /bookedView\(\{\s*rows,\s*facts,\s*money: list\.suppliers,\s*plans,\s*rooms,\s*dateChange: dateChange\.ok \? dateChange\.view : null,\s*callTimes: schedule === undefined \? undefined : schedule === null \? null : schedule\.callTimes,\s*(?:marks,\s*)?chapters: schedule === undefined \? undefined : schedule === null \? null : schedule\.chapters,\s*\}\)/,
+    /bookedView\(\{\s*rows,\s*facts,\s*money: list\.suppliers,\s*plans,\s*rooms,\s*dateChange: dateChange\.ok \? dateChange\.view : null,\s*callTimes: schedule === undefined \? undefined : schedule === null \? null : schedule\.callTimes,\s*(?:marks,\s*)?chapters: schedule === undefined \? undefined : schedule === null \? null : schedule\.chapters,\s*(?:tradeChapters: trade\.ok \? trade\.byCategory : null,\s*)?\}\)/,
   );
   assert.match(SLOT, /buildBudgetList\(money\)/, 'the body totals money itself instead of reading the one list');
   // A SERVER body around client rows; which verbs a row has is the module's answer.

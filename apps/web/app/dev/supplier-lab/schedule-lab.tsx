@@ -41,13 +41,34 @@ const ASKED: ScheduleAsk[] = [
   { suggestion_id: 'ask2', block_id: 'c2', vendor_profile_id: 'vp-lumina', suggested_by_name: 'Ana', asked_as: 'coordinator', proposed_start_at: T('16:10'), proposed_end_at: T('16:25'), note: 'The priest needs ten more minutes.', status: 'open', answer_note: null, created_at: T('08:30', '2026-11-02') },
 ];
 
+/** 🏛 The shop's second booking on this event — as the Reception venue (lab only). */
+const VENUE_BOOKING = 'ev-venue';
+
 export function ScheduleLab({ state }: { state?: string }) {
   const unlinked = state === 'unlinked';
   const hostTag = state === 'hosttag';
-  const blocks = hostTag ? BLOCKS.map((b) => (b.block_id === 'p2' ? { ...b, responsible_vendor_ids: [...b.responsible_vendor_ids, ME] } : b)) : BLOCKS;
+  // 🏛 `&state=venue` — this shop is the VENUE booked to Reception: it sets the chapter's hours. `&state=held` — they are
+  // approved and held (2026-11-04).
+  const venue = state === 'venue' || state === 'held';
+  const blocks = hostTag
+    ? BLOCKS.map((b) => (b.block_id === 'p2' ? { ...b, responsible_vendor_ids: [...b.responsible_vendor_ids, ME] } : b))
+    : venue
+      ? BLOCKS.map((b) =>
+          b.block_id === 'rec'
+            ? {
+                ...b,
+                responsible_vendor_ids: [...b.responsible_vendor_ids, VENUE_BOOKING],
+                ingress_minutes_before: 300,
+                egress_minutes_after: 330,
+                hours_vendor_id: state === 'held' ? VENUE_BOOKING : null,
+              }
+            : b,
+        )
+      : BLOCKS;
   const day = buildSupplierDay({
     blocks: unlinked ? BLOCKS.map((b) => ({ ...b, responsible_vendor_ids: b.responsible_vendor_ids.filter((id) => id !== ME) })) : blocks,
-    myBookingIds: [ME],
+    myBookingIds: venue ? [ME, VENUE_BOOKING] : [ME],
+    venueBookingIds: venue ? [VENUE_BOOKING] : [],
     tasks: [
       { block_id: 'p1', vendor_id: ME, crew: 'Team A' },
       { block_id: 'c2', vendor_id: ME, crew: 'Team A' },

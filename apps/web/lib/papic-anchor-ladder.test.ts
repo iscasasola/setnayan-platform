@@ -62,11 +62,11 @@ test('Papic is THREE packs — 150 · 1,000 · 3,000 (owner 2026-11-03)', () => 
 });
 
 test('the per-credit rate never rises through the owner’s ladder', () => {
-  // ₱90/150 = 0.60 · ₱490/1,000 = 0.49 · ₱990/3,000 = 0.33.
+  // ₱99/150 = 0.66 · ₱499/1,000 = 0.499 · ₱999/3,000 = 0.333 (final price sheet 2026-11-04; was 0.60 · 0.49 · 0.33).
   const expectedBands: [number, number][] = [
-    [150, 0.6],
-    [1_000, 0.49],
-    [3_000, 0.33],
+    [150, 0.66],
+    [1_000, 0.499],
+    [3_000, 0.333],
   ];
   for (const [shots, rate] of expectedBands) {
     assert.ok(

@@ -48,10 +48,11 @@ export const PAPIC_ANCHOR_SHOTS: readonly number[] = [
 /** `[shots, pesos]` — the anchor prices as they stand today (the seed, not a rule). */
 export const PAPIC_ANCHORS_DEFAULT: readonly (readonly [number, number])[] = [
   // ⚠ The seed, never a price: the catalogue (`platform_retail_catalog_v2`) is the source of truth. These are the
-  //   owner's 2026-11-03 prices (migration `*_papic_is_three_packs_and_no_signup_price.sql`).
-  [150, 90],
-  [1_000, 490],
-  [3_000, 990],
+  //   owner's 2026-11-04 final price sheet (migration `*_the_final_price_sheet.sql`; was ₱90 / ₱490 / ₱990 from
+  //   `*_papic_is_three_packs_and_no_signup_price.sql`).
+  [150, 99],
+  [1_000, 499],
+  [3_000, 999],
 ] as const;
 
 /** True when this rung is one the owner types into rather than one that computes. */

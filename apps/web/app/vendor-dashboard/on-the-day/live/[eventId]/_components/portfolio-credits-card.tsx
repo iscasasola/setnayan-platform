@@ -1,9 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
@@ -52,6 +53,8 @@ export function PortfolioCreditsCard({
   const toast = useToast();
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
+  const [packCode, setPackCode] = useState<string | null>(packs?.[0]?.code ?? null);
+  const pack = packs?.find((p) => p.code === packCode) ?? null;
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -95,20 +98,22 @@ export function PortfolioCreditsCard({
                 </option>
               ))}
           </select>
-          {packs && packs.length > 0 ? (
-            <select
-              name="pack"
-              className="rounded-lg border px-2 py-1.5 text-xs"
-              style={{ borderColor: 'var(--m-line)' }}
-              aria-label="Pack"
-              defaultValue={packs[0]!.code}
-            >
-              {packs.map((p) => (
-                <option key={p.code} value={p.code}>
-                  {p.title} · {formatCount(p.credits)} credits · {peso(p.pricePhp)}
-                </option>
-              ))}
-            </select>
+          {packs && packs.length > 0 && pack ? (
+            <>
+              {/* The pack: the couple's three (owner 2026-11-04). One dropdown — PickMenu, never a raw <select>. */}
+              <input type="hidden" name="pack" value={pack.code} />
+              <PickMenu
+                label="Pack"
+                value={pack.code}
+                compact
+                options={packs.map((p) => ({
+                  key: p.code,
+                  label: `${p.title} · ${formatCount(p.credits)} credits · ${peso(p.pricePhp)}`,
+                }))}
+                onPick={(key) => setPackCode(key)}
+                dataAttr="data-portfolio-credits-pack"
+              />
+            </>
           ) : null}
           <SubmitButton
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-xs font-medium text-cream hover:bg-terracotta-800"

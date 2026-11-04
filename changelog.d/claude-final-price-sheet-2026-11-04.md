@@ -27,5 +27,12 @@ Supersedes #7213 (its commits are carried here). All figures live in the catalog
   - In the app, a booking fee that carries the gift is refused on the web rail.
   - Doc: `build-sessions/APPLE-IAP-PRICES-2026-11-04.md`.
 - **Copy sweep**: every customer surface reads the catalogue. The guard is `lib/no-record-of-the-older-prices.test.ts`, with a reasoned allowlist.
+- **CI repair after merging main**:
+  - The on-the-day pack picker is a PickMenu, not a raw `<select>`.
+  - The admin Papic editor's seed now holds the sheet's ₱99 / ₱499 / ₱999. It still held ₱90 / ₱490 / ₱990, and the catalogue is unchanged.
+  - The dev money lab reads a pack list.
+  - Two structural tests now accept the shared wallet writer and the `{ giftPrice }` argument.
+  - The App Store names "Papic 1000" are allowlisted as identifiers.
+  - The secret-scan false positives are pinned.
 
 SPEC IMPACT: None. The rulings are already recorded in the corpus `DECISION_LOG.md` 2026-11-04 rows ("FINAL PRICE SHEET", "STORAGE BY THE YEAR", "SUPPLIER PRICE SHEET", "SIX OWNER ANSWERS", "DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN", "GIFT PRICES", "EVERY 4-WEEK PURCHASE HAS A YEARLY PRICE = 10×", "ULTRA = ₱5,990 PER 4 WEEKS / ₱59,900 PER YEAR"); this PR implements them.

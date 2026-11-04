@@ -143,7 +143,9 @@ test('the quote’s count comes from the shared derivation, not a local formula'
     'and the promise must stay gated on the basis contract — else a switched-off quote would still quote a count',
   );
   assert.match(body, /bookingFeePhp\(args\.amountCentavos \/ 100, schedule\)/);
-  assert.match(body, /setnayanGiftForFee\(feeCentavos, ladder\)/);
+  // Final price sheet (2026-11-04): the shared derivation also takes the shop's gift-price standing — the PHOTOS stay
+  // the same, only what a Verified-and-up shop is charged changes. Still the shared call, never a local formula.
+  assert.match(body, /setnayanGiftForFee\(feeCentavos, ladder(?:, \{ giftPrice \})?\)/);
   // No rung price typed into the quote path.
   assert.doesNotMatch(body, /15_?000|\b70\b|0\.7\b/);
 });

@@ -107,8 +107,9 @@ export type ChapterMoment = {
 
 /** Who a task can name: the event's booked suppliers, its people (null = that read failed — said), and the crews used. */
 export type TaskWhoList = {
-  /** `trade` ("Photographer") and `everyChapter` (a coordinator) feed a chapter's "Suppliers in this chapter". */
-  suppliers: { id: string; name: string; trade?: string | null; everyChapter?: boolean }[];
+  /** `trade` ("Photographer") and `everyChapter` (a coordinator) feed a chapter's "Suppliers in this chapter". `locked` 🔒 —
+   *  the supplier pressed Lock my times (audit D7): the moment sheet says so before a change. */
+  suppliers: { id: string; name: string; trade?: string | null; everyChapter?: boolean; locked?: boolean }[];
   people: TaskPeople | null;
   crews: { vendorId: string; crew: string }[];
 };

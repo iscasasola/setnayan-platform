@@ -198,8 +198,10 @@ test('the chooser offers the shop’s own words, and keeps the legacy list below
   // ⚠ NARROWED, NEVER REMOVED — the 52 stay one tap below. A chooser that
   // dropped them would read as "Setnayan does not do that" to a shop growing
   // into something it does not yet cover.
-  assert.match(door, /SERVICE_GROUPS\.map/, 'the legacy kinds were removed from the chooser');
-  assert.match(door, /leadWithOwnWords/, 'the legacy pills stopped being re-banded');
+  // Since 2026-11-04 the kinds one tap below are the LIVE taxonomy, not the hard-coded 52 (owner: "why is it that i
+  // only see these categories when we have a whole spectrum"); lib/service-card-kind-groups.test.ts pins the build.
+  assert.match(door, /liveKindGroups\(\{/, 'the kinds below the shop’s own words were removed from the chooser');
+  assert.match(door, /leadWithOwnWords/, 'the kinds below stopped being re-banded');
 });
 
 test('a leaf-filed card can still be copied — the [category] route accepts it', () => {

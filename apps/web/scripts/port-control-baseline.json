@@ -3452,6 +3452,7 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3473,6 +3474,9 @@
         "CoupleFreeWindowRow",
         "Link",
         "PageMasthead",
+        "ShopGiftHoldRow",
+        "ShopGiftLedgerRow",
+        "ShopGiftsLedger",
         "SubmitButton",
         "VendorGiftRow"
       ]
@@ -6945,6 +6949,7 @@
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
+        "AwayCarriers",
         "CaptureBar",
         "CardBoxProps",
         "CardDoorProps",
@@ -8712,10 +8717,12 @@
         "Lens",
         "LensChip",
         "Link",
+        "LockedMomentFacts",
         "MarchList",
         "MarchRow",
         "MiniTour",
         "MinutesRow",
+        "MomentDoors",
         "MomentInspector",
         "MomentLayer",
         "MomentPapic",
@@ -12457,7 +12464,10 @@
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
-        "SettingsView"
+        "QuoteShopGiftNote",
+        "SettingsView",
+        "ShopGiftsLedger",
+        "ShopGiftsSection"
       ]
     },
     "/dev/suppliers-lab": {
@@ -13630,6 +13640,7 @@
         "BookedWhere",
         "Link",
         "PrintButton",
+        "QuoteShopGiftNote",
         "QuoteWhereFact",
         "SubmitButton"
       ]
@@ -14242,7 +14253,7 @@
       "destinations": [
         "/api/vendor/instagram/connect",
         "/dashboard",
-        "/signup?as=vendor",
+        "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
@@ -16141,12 +16152,14 @@
         "Fragment",
         "GridCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionDraft",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",
@@ -16481,6 +16494,7 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16506,12 +16520,16 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
         "Column",
+        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16523,6 +16541,8 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
+        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",

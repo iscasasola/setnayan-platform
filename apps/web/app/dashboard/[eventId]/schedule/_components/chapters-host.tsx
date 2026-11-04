@@ -64,6 +64,7 @@ import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 import type { HostAsk } from '@/lib/schedule-ask';
+import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
@@ -320,6 +321,15 @@ export function ChaptersHost({
       if (clashesForMoment(mo.block_id, tasks, all, chapters, names).size > 0) clashedMoments.add(mo.block_id);
     }
   }
+  /** 👷 Who a delete takes off their parts: the suppliers on the chapter itself, on its moments, or on a task in them. */
+  const suppliersOn = (c: Chapter): string[] => {
+    const ids = new Set(c.vendor_ids ?? []);
+    const inIt = moments.filter((m) => m.parent_block_id === c.block_id);
+    for (const m of inIt) for (const v of m.vendor_ids) ids.add(v);
+    const momentIds = new Set(inIt.map((m) => m.block_id));
+    for (const t of tasks ?? []) if (t.vendor_id && momentIds.has(t.block_id)) ids.add(t.vendor_id);
+    return who.suppliers.filter((s) => ids.has(s.id)).map((s) => s.name);
+  };
   const patch = (id: string, next: Partial<Chapter>) => setChapters((cs) => cs.map((c) => (c.block_id === id ? { ...c, ...next } : c)));
   const back = (c: Chapter | null) => {
     setOpenId(null);
@@ -331,7 +341,16 @@ export function ChaptersHost({
   return (
     <ChaptersContext.Provider value={api}>
       {/* The views stay mounted (each drawn once by the server) — a chapter's page lays over them, never a request. */}
-      <div hidden={current !== null}>{children}</div>
+      <div hidden={current !== null}>
+        {/* 📖 A new event's day opens with what to do with its four chapters (prototype frame 1) — only while they are
+            still the defaults, unfilled, and only for someone who may change them. */}
+        {input.canEdit && defaultChaptersUnfilled(sorted) ? (
+          <p data-default-chapters-tell="" className="mb-2 border-b border-ink/10 pb-2 text-[14px] text-ink">
+            {DEFAULT_CHAPTERS_TELL} <Tip>{DEFAULT_CHAPTERS_TIP}</Tip>
+          </p>
+        ) : null}
+        {children}
+      </div>
       {current ? (
         <ChapterPage
           key={`page:${current.block_id}`}
@@ -489,6 +508,7 @@ export function ChaptersHost({
           mayInvite={input.mayInvite}
           replyCount={input.replyCounts?.[current.block_id]}
           doors={sheetDoors}
+          deleteSuppliers={suppliersOn(current)}
           onPatch={(next) => patch(current.block_id, next)}
           onClose={() => setSheet(null)}
           onDeleted={() => back(current)}
@@ -503,7 +523,7 @@ export function ChaptersHost({
               Delete {deleteAsk.label}?
             </h3>
             <p className="text-[15px] text-ink">
-              <ChapterDeleteWords c={deleteAsk} />
+              <ChapterDeleteWords c={deleteAsk} suppliers={suppliersOn(deleteAsk)} />
             </p>
             <div className="flex justify-end gap-2">
               <ActionButton tone="neutral" icon={X} label="Cancel" quiet onClick={() => setDeleteAsk(null)} />

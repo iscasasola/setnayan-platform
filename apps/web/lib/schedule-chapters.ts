@@ -90,6 +90,8 @@ export type Chapter = {
    * drawn — "Time TBA", no call time. Never shown to guests while set (the database refuses it).
    */
   time_tba?: boolean;
+  /** 👷 The suppliers tagged on the chapter itself (`responsible_vendor_ids`, event_vendors ids). */
+  vendor_ids?: string[];
 };
 
 type BlockRow = Record<string, unknown> & { block_id: string; parent_block_id?: string | null };
@@ -122,6 +124,7 @@ export function chaptersFromBlocks(rows: readonly BlockRow[]): Chapter[] {
       is_public: r.is_public === true,
       moments: moments.get(r.block_id) ?? 0,
       time_tba: r.time_tba === true,
+      vendor_ids: Array.isArray(r.responsible_vendor_ids) ? r.responsible_vendor_ids.filter((v): v is string => typeof v === 'string') : [],
     }))
     .sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
 }

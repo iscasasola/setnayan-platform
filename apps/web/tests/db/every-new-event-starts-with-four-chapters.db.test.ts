@@ -6,7 +6,10 @@
  *   2 · the marker writes no chapter: the schedule stays empty until the app's seed (`seedDefaultChapters`) claims it;
  *   3 · claiming it is one DELETE … RETURNING — a second claim finds nothing (two opens seed once);
  *   4 · it is service-only: no browser role reads or writes it;
- *   5 · it goes with its event.
+ *   5 · it goes with its event;
+ *   6 · 📅 an UNDATED event's chapters, seeded on the placeholder day, move onto the real day the moment an exact date
+ *       is set — by any path — with their moments; a chapter the host put on another day stays; the marker goes;
+ *   7 · a refused move never refuses the date.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -82,4 +85,74 @@ test('5 · the marker goes with its event', async () => {
   const id = await newEvent('Deleted Event');
   await db.query(`DELETE FROM public.events WHERE event_id = $1`, [id]);
   assert.equal(await markers(id), 0);
+});
+
+async function undatedEventWithChapters(name: string, placeholder: string): Promise<{ id: string; chapter: string; moment: string; other: string }> {
+  await db.exec(`RESET ROLE`).catch(() => {});
+  const id = (
+    await db.query<{ event_id: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting) VALUES ($1,'wedding','catholic','banquet_hall') RETURNING event_id`,
+      [name],
+    )
+  ).rows[0]!.event_id;
+  // What the app seed does for an undated event: stamp the claim with the placeholder day, then write the chapters on it.
+  await db.query(`UPDATE public.event_default_chapters_pending SET placeholder_day = $2 WHERE event_id = $1`, [id, placeholder]);
+  const chapter = (
+    await db.query<{ block_id: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, label, start_at, end_at, is_public, sort_order) VALUES ($1,'Ceremony',$2,$3,true,100) RETURNING block_id`,
+      [id, `${placeholder}T13:30:00Z`, `${placeholder}T15:30:00Z`],
+    )
+  ).rows[0]!.block_id;
+  const moment = (
+    await db.query<{ block_id: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, parent_block_id, label, start_at, end_at, is_public, sort_order) VALUES ($1,$2,'Procession',$3,$4,false,10) RETURNING block_id`,
+      [id, chapter, `${placeholder}T13:30:00Z`, `${placeholder}T13:45:00Z`],
+    )
+  ).rows[0]!.block_id;
+  const other = (
+    await db.query<{ block_id: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, label, start_at, is_public, sort_order) VALUES ($1,'Final fitting',$2,false,10) RETURNING block_id`,
+      [id, `2099-01-05T10:00:00Z`],
+    )
+  ).rows[0]!.block_id;
+  return { id, chapter, moment, other };
+}
+
+async function startOf(blockId: string): Promise<string> {
+  const r = await db.query<{ s: Date }>(`SELECT start_at AS s FROM public.event_schedule_blocks WHERE block_id = $1`, [blockId]);
+  return new Date(r.rows[0]!.s).toISOString();
+}
+
+test('6 · the date arrives — the placeholder chapters and their moments move onto it; the host’s own day stays', async () => {
+  const e = await undatedEventWithChapters('Undated Wedding', '2099-06-01');
+  await db.query(`UPDATE public.events SET event_date = DATE '2099-12-18', event_date_precision = 'day' WHERE event_id = $1`, [e.id]);
+  assert.equal(await startOf(e.chapter), '2099-12-18T13:30:00.000Z', 'the chapter stayed on the placeholder day');
+  assert.equal(await startOf(e.moment), '2099-12-18T13:30:00.000Z', 'the moment did not move with its chapter');
+  assert.equal(await startOf(e.other), '2099-01-05T10:00:00.000Z', 'a chapter the host put on its own day moved');
+  assert.equal(await markers(e.id), 0, 'the marker stayed after the move');
+  // A later date change is no longer this trigger's (the shipped Apply path moves the schedule from here).
+  await db.query(`UPDATE public.events SET event_date = DATE '2099-12-19' WHERE event_id = $1`, [e.id]);
+  assert.equal(await startOf(e.chapter), '2099-12-18T13:30:00.000Z');
+});
+
+test('6b · a month, not a day, moves nothing yet', async () => {
+  const e = await undatedEventWithChapters('Month Only', '2099-06-01');
+  await db.query(`UPDATE public.events SET event_date = DATE '2099-12-01', event_date_precision = 'month' WHERE event_id = $1`, [e.id]);
+  assert.equal(await startOf(e.chapter), '2099-06-01T13:30:00.000Z');
+  assert.equal(await markers(e.id), 1);
+});
+
+test('7 · a refused move never refuses the date', async () => {
+  const e = await undatedEventWithChapters('Refused Move', '2099-06-01');
+  // Make the move fail: a CHECK that any shift of this block breaks.
+  await db.exec(`ALTER TABLE public.event_schedule_blocks ADD CONSTRAINT zz_test_pin CHECK (label <> 'Ceremony' OR start_at < '2099-07-01') NOT VALID`);
+  try {
+    await db.query(`UPDATE public.events SET event_date = DATE '2099-12-18', event_date_precision = 'day' WHERE event_id = $1`, [e.id]);
+    const d = (await db.query<{ d: Date }>(`SELECT event_date AS d FROM public.events WHERE event_id = $1`, [e.id])).rows[0]!.d;
+    assert.equal(new Date(d).toISOString().slice(0, 10), '2099-12-18', 'the date was refused over its schedule');
+    assert.equal(await startOf(e.chapter), '2099-06-01T13:30:00.000Z', 'half a move landed');
+    assert.equal(await markers(e.id), 1, 'the marker went though nothing moved — the next date would not try again');
+  } finally {
+    await db.exec(`ALTER TABLE public.event_schedule_blocks DROP CONSTRAINT zz_test_pin`);
+  }
 });

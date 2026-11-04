@@ -129,7 +129,7 @@ test('4 · Delete chapter warns before it deletes', () => {
   assert.equal(removes.length, 1, 'a chapter can be removed from more than one place');
   const continueAt = sheet.indexOf('label="Continue"');
   const removeAt = sheet.indexOf('doors.remove(');
-  const warnAt = sheet.indexOf('<ChapterDeleteWords c={c} />');
+  const warnAt = sheet.indexOf('<ChapterDeleteWords c={c}');
   assert.ok(warnAt > 0 && continueAt > warnAt && removeAt > continueAt, 'the chapter is removed without the warning and Continue');
   assert.match(sheet, /\? \(\s*<>[\s\S]*?\) : \(\s*<div data-chapter-delete=\{stage\}/, 'the warning is not its own stage');
   // The warning says what goes and what stays — ONE warning, read by the sheet and by a swipe on the rail (2026-11-03).

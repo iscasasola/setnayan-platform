@@ -229,7 +229,10 @@ export function ChapterSheet({
   onClose,
   onDeleted,
   replyCount,
+  deleteSuppliers = [],
 }: {
+  /** 👷 Who Delete chapter takes off their parts, by name (the host reads them; the warning says them). */
+  deleteSuppliers?: readonly string[];
   chapter: Chapter;
   venues: string[];
   used: string[];
@@ -542,7 +545,7 @@ export function ChapterSheet({
                   {c.label} wasn’t deleted. Nothing was changed — try again.
                 </span>
               ) : (
-                <ChapterDeleteWords c={c} />
+                <ChapterDeleteWords c={c} suppliers={deleteSuppliers} />
               )}
             </p>
             {stage === 'deleting' ? null : (
@@ -575,13 +578,23 @@ export function ChapterSheet({
  * the Event Day rail (owner 2026-11-03, prototype frame 3: *"Because deleting a chapter has consequences, the in-page
  * warning stays"*). Since the same ruling a delete has an Undo (frame 4), so it no longer says it cannot be undone.
  */
-export function ChapterDeleteWords({ c }: { c: Pick<Chapter, 'label' | 'moments' | 'on_invitation'> }) {
+export function ChapterDeleteWords({
+  c,
+  suppliers = [],
+}: {
+  c: Pick<Chapter, 'label' | 'moments' | 'on_invitation'>;
+  /** The suppliers on this chapter or its moments, by name — they are taken off their parts (and told, as shipped). */
+  suppliers?: readonly string[];
+}) {
+  const who = joinChapterNames([...suppliers]);
   return (
     <>
       <span className="font-semibold">{c.label}</span>
       {c.moments > 0 ? ` and its ${c.moments} moment${c.moments === 1 ? '' : 's'}` : ''} will be deleted.
-      {c.on_invitation ? ' It comes off the invitation and out of every reply.' : ''} Its photos stay safe in Memories,
-      under Unsorted. You can undo it for a few seconds.
+      {c.on_invitation ? ' It comes off the invitation and out of every reply.' : ''}
+      {suppliers.length > 0 ? ` ${who} ${suppliers.length === 1 ? 'is' : 'are'} taken off ${suppliers.length === 1 ? 'its' : 'their'} parts.` : ''}
+      {c.moments > 0 ? ' Its photos stay safe in Memories, under Unsorted.' : ' No moments are in it yet, so no photos move.'} You can undo it for a few
+      seconds.
     </>
   );
 }

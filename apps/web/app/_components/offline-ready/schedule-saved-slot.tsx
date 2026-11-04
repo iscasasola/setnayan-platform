@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { createPortal } from 'react-dom';
+
+import { useHydrated } from '@/lib/use-hydrated';
 
 import { ScheduleSavedMark } from './schedule-saved-mark';
 
@@ -32,8 +34,8 @@ type SlotFacts = {
   eventEndDate: string | null;
 };
 
+/** Read once hydrated (`useHydrated` — the server and the hydration pass both draw nothing, so they match). */
 function readSlot(): SlotFacts | null {
-  if (typeof document === 'undefined') return null;
   const el = document.querySelector<HTMLElement>(`[${SCHEDULE_COPY_SLOT}]`);
   const d = el?.dataset;
   if (!el || !d?.snCopyVersion || !d.snCopyViewer || !d.snCopyEvent || !d.snCopyPath) return null;
@@ -49,8 +51,8 @@ function readSlot(): SlotFacts | null {
 }
 
 export function ScheduleSavedSlot() {
-  const [slot, setSlot] = useState<SlotFacts | null>(null);
-  useEffect(() => setSlot(readSlot()), []);
+  const hydrated = useHydrated();
+  const slot = useMemo(() => (hydrated ? readSlot() : null), [hydrated]);
   if (!slot) return null;
   return createPortal(
     <ScheduleSavedMark

@@ -205,6 +205,7 @@ import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
 import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
+import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 
@@ -1345,6 +1346,28 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         lockedAt: (myMarksRes.data as { locked_at: string | null } | null)?.locked_at ?? null,
       };
   const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  // 🚗 ONE CREW, TWO EVENTS (slice 5, owner 2026-11-04): their crews' moments here, against the same crews on their
+  // other events that day. Only when this event's crews were read — an unread crew list is never "no clash".
+  const timedHere = new Map(blocksWithAClock(everyBlock).map((b) => [b.block_id, b]));
+  const crewHere = myTasksRes.error
+    ? []
+    : ((myTasksRes.data ?? []) as Array<SupplierTaskRow & { call_at: string | null }>).flatMap((t) => {
+        const b = timedHere.get(t.block_id);
+        const startIso = t.call_at ?? b?.start_at ?? null;
+        return b && t.crew && t.vendor_id && myBookingIds.includes(t.vendor_id) && startIso
+          ? [{ blockId: t.block_id, crew: t.crew, startIso, endIso: b.end_at ?? null }]
+          : [];
+      });
+  const crewElsewhere = myTasksRes.error || factsEvent.error
+    ? null
+    : await readCrewElsewhere({
+        admin,
+        supabase,
+        vendorProfileId: profile.vendor_profile_id,
+        eventId,
+        eventDate: factsRow?.event_date ?? null,
+        here: crewHere,
+      });
   const supplierPart = {
     day: supplierDay,
     autoAgree: factsRow?.supplier_requests_auto_agree === true,
@@ -1354,6 +1377,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     tasksRead: !myTasksRes.error,
     answered: suggestions.filter((r) => r.status !== 'open').slice(0, 6),
     asked: askedOfThem,
+    elsewhere: crewElsewhere,
   };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link

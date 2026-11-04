@@ -10,10 +10,12 @@ added a migration went red at once — 5 PRs on 5 Nov, cleared by hand in #7272.
   project (`gen-schema-snapshot.ts` → two SELECTs via `supabase db query --linked`;
   no URL is built or printed). Job timeout 15 → 20 min to leave room for it.
 - New `scripts/refresh-prod-schema-snapshot.sh`: if the file changed, commit it
-  plus a changelog fragment on `bot/prod-schema-snapshot` (rebuilt from the
-  deployed commit each time), push with `AUTOMERGE_PAT` (a GITHUB_TOKEN push fires
-  no CI), open or update ONE PR and arm auto-merge (merge commit). Re-proposes
-  nothing when the bot branch already carries the same snapshot.
+  plus a changelog fragment on `bot/prod-schema-snapshot`, push with
+  `AUTOMERGE_PAT` (a GITHUB_TOKEN push fires no CI), open or update ONE PR and arm
+  auto-merge (merge commit). Never force-pushes: while the PR is open it merges
+  `main` in and adds a commit; a branch whose PR is closed is deleted and started
+  again. Re-proposes nothing when the bot branch already carries the same
+  snapshot, and refuses to push if the branch would touch any other file.
 - It never fails the deploy: every error becomes a `::warning::` + exit 0, and the
   step also has `continue-on-error` and a 6-minute timeout.
 - The ceiling and the check are unchanged; only the freshness test's failure

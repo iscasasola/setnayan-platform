@@ -305,7 +305,8 @@ jobs:
       # does); no URL is built or printed. If the file changed, the script opens
       # or updates ONE PR from `bot/prod-schema-snapshot` (snapshot + changelog
       # fragment only) with auto-merge armed — pushed with AUTOMERGE_PAT, because
-      # a PR pushed with GITHUB_TOKEN fires no CI and could never merge.
+      # a PR pushed with GITHUB_TOKEN fires no CI and could never merge. It never
+      # force-pushes: an open PR gets `main` merged in plus a new commit.
       #
       # 🔑 IT NEVER FAILS THE DEPLOY. It runs only AFTER the hook and the marker,
       # the script turns every error into a ::warning:: and exits 0, and

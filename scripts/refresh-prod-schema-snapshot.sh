@@ -11,13 +11,17 @@
 # next deploy tries again (and, at worst, the freshness test names the manual
 # command — exactly the state before this script existed).
 #
+# 🔑 IT NEVER FORCE-PUSHES (repo rule). While its PR is open it brings `main` in
+# with a merge commit and adds a commit on top. A bot branch whose PR is already
+# merged or closed is deleted and started again from the deployed commit.
+#
 # Environment:
 #   BOT_PUSH_TOKEN   AUTOMERGE_PAT. REQUIRED to push/open the PR: a PR opened or
 #                    pushed with the default GITHUB_TOKEN fires NO workflows, so
 #                    its required checks would never run and it could never merge.
 #   GITHUB_REPOSITORY  owner/repo (set by Actions).
-#   DRY_RUN=1        do everything locally (generate, diff, commit on a throwaway
-#                    branch) but never push, open, or arm anything.
+#   DRY_RUN=1        do everything locally (generate, diff, commit on the local
+#                    bot branch) but never push, open, or arm anything.
 #   SNAPSHOT_GENERATE_CMD  override the generator command (dry-run proofs only).
 #
 # Local dry run (no prod access needed when the generator is overridden):
@@ -27,8 +31,10 @@ set -uo pipefail
 
 SNAP='supabase/security/prod-schema.snapshot.txt'
 BRANCH='bot/prod-schema-snapshot'
+FRAG_GLOB='changelog.d/bot-prod-schema-snapshot-*.md'
 GEN_CMD="${SNAPSHOT_GENERATE_CMD:-npx --yes tsx@4.22.3 apps/web/scripts/gen-schema-snapshot.ts}"
 DRY_RUN="${DRY_RUN:-0}"
+BOT=(-c user.name='prod-schema-snapshot-bot' -c user.email='prod-schema-snapshot-bot@users.noreply.github.com')
 
 warn() { echo "::warning title=prod schema snapshot not refreshed::$*"; }
 # Any unexpected failure: warn and leave with 0 so the deploy job stays green.
@@ -63,12 +69,63 @@ repo_n="$(find supabase/migrations -maxdepth 1 -name '*.sql' | wc -l | tr -d ' '
 echo "Snapshot changed: ledger ${ledger_n} (head ${head_v}) · ${cols_n} columns · ${nn_n} NOT NULL · repo files ${repo_n}"
 git --no-pager diff --stat -- "$SNAP"
 
-# ── 3. Commit on the bot branch, rebuilt from this run's commit every time ──
-# Rebuilding from the deployed commit (not stacking on the old bot branch) keeps
-# the PR to exactly two files and never conflicts with anything already on main.
+# ── 3. What is already proposed? ─────────────────────────────────────────────
+if [ "$DRY_RUN" != "1" ] && [ -z "${BOT_PUSH_TOKEN:-}" ]; then
+  warn "AUTOMERGE_PAT is not set. A PR pushed with the default GITHUB_TOKEN runs no CI and can never merge, so none was opened. Refresh by hand: pnpm --filter @setnayan/web schema:snapshot"
+  git checkout -q -- "$SNAP"
+  exit 0
+fi
+if [ -n "${BOT_PUSH_TOKEN:-}" ]; then export GH_TOKEN="$BOT_PUSH_TOKEN"; fi
+
+pr=''
+if [ -n "${GH_TOKEN:-}" ]; then
+  pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+fi
+remote=''
+if git fetch -q origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" 2>/dev/null; then
+  remote="refs/remotes/origin/${BRANCH}"
+fi
+
+# Same snapshot already on the bot branch → do not churn CI with another push.
+if [ -n "$remote" ] && git diff --quiet "$remote" -- "$SNAP"; then
+  git checkout -q -- "$SNAP"
+  if [ -n "$pr" ]; then
+    echo "✓ PR #${pr} already proposes this exact snapshot — not pushing again."
+    if [ "$DRY_RUN" != "1" ]; then
+      gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --auto --merge \
+        || warn "could not arm auto-merge on #${pr}; it will wait for a human."
+    fi
+  else
+    echo "::notice title=prod schema snapshot::${BRANCH} already carries this snapshot but has no open PR (closed without merging?) — not reopening it."
+  fi
+  exit 0
+fi
+
+# ── 4. Commit on the bot branch ──────────────────────────────────────────────
+generated="$(mktemp)"
+cp "$SNAP" "$generated"
+git checkout -q -- "$SNAP"
+
+if [ -n "$pr" ] && [ -n "$remote" ]; then
+  mode='update'
+  git switch -q -C "$BRANCH" "$remote"
+  # Bring main in with a MERGE COMMIT (never a force-push). On a conflict main's
+  # side wins: the only files this branch owns are the snapshot, overwritten
+  # just below, and its own fragments, removed just below.
+  git "${BOT[@]}" merge -q --no-edit -X theirs "$start_ref"
+  for f in $FRAG_GLOB; do
+    [ -e "$f" ] || continue
+    git cat-file -e "${start_ref}:${f}" 2>/dev/null || git rm -q -- "$f"
+  done
+else
+  mode='fresh'
+  git switch -q -C "$BRANCH" "$start_ref"
+fi
+
+cp "$generated" "$SNAP"
+rm -f "$generated"
 today="$(date -u +%Y-%m-%d)"
 fragment="changelog.d/bot-prod-schema-snapshot-${head_v}.md"
-git switch -q -C "$BRANCH"
 cat > "$fragment" <<EOF
 ## ${today} · chore(security): refresh the prod schema snapshot (automatic, read-only)
 
@@ -86,47 +143,37 @@ PR at once, as it did when the snapshot fell 41 behind.
 SPEC IMPACT: None.
 EOF
 git add -- "$SNAP" "$fragment"
-git -c user.name='prod-schema-snapshot-bot' \
-    -c user.email='prod-schema-snapshot-bot@users.noreply.github.com' \
-    commit -q -m "chore(security): refresh the prod schema snapshot (ledger ${ledger_n}, head ${head_v})" \
-              -m "Generated read-only by deploy-prod.yml after db push. See scripts/refresh-prod-schema-snapshot.sh."
-echo "Committed on ${BRANCH}:"
-git --no-pager show --stat --format='  %h %s' HEAD
+git "${BOT[@]}" commit -q \
+  -m "chore(security): refresh the prod schema snapshot (ledger ${ledger_n}, head ${head_v})" \
+  -m "Generated read-only by deploy-prod.yml after db push. See scripts/refresh-prod-schema-snapshot.sh."
 
-# ── 4. Is the same snapshot already proposed? Then do not churn CI. ─────────
-remote_sha=''
-if git fetch -q origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" 2>/dev/null; then
-  remote_sha="$(git rev-parse "refs/remotes/origin/${BRANCH}")"
-  if git diff --quiet "refs/remotes/origin/${BRANCH}" HEAD -- "$SNAP"; then
-    echo "✓ ${BRANCH} already carries this exact snapshot — not pushing again."
-    proposed_already=1
-  fi
+# The PR must hold the snapshot and ONE fragment — nothing else, ever.
+extra="$(git diff --name-only "$start_ref" HEAD | grep -vxF -e "$SNAP" -e "$fragment" || true)"
+if [ -n "$extra" ]; then
+  warn "the bot branch would change more than the snapshot and its fragment (${extra//$'\n'/, }) — not pushing."
+  git switch -q --detach "$start_ref"
+  exit 0
 fi
+echo "Committed on ${BRANCH} (${mode}). Diff against the deployed commit:"
+git --no-pager diff --stat "$start_ref" HEAD
 
 if [ "$DRY_RUN" = "1" ]; then
-  echo "DRY RUN — would push ${BRANCH} and open/update its PR with auto-merge armed. Pushed nothing."
+  echo "DRY RUN — would push ${BRANCH} (${mode}, no force) and open/update its PR with auto-merge armed. Pushed nothing."
   git switch -q --detach "$start_ref"
   exit 0
 fi
 
-if [ -z "${BOT_PUSH_TOKEN:-}" ]; then
-  warn "AUTOMERGE_PAT is not set. A PR pushed with the default GITHUB_TOKEN runs no CI and can never merge, so none was opened. Refresh by hand: pnpm --filter @setnayan/web schema:snapshot"
-  exit 0
+# ── 5. Push with the PAT (so the PR's checks run). Never a force-push. ───────
+# The empty extraheader drops the GITHUB_TOKEN header actions/checkout
+# persisted, so the push is attributed to the PAT and fires `pull_request`.
+push_url="https://x-access-token:${BOT_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+if [ "$mode" = 'fresh' ] && [ -n "$remote" ]; then
+  # Its PR is merged or closed: retire the old branch, then start it again.
+  git -c http.https://github.com/.extraheader= push -q "$push_url" --delete "$BRANCH"
+  echo "Deleted the stale ${BRANCH} (its PR is no longer open)."
 fi
-export GH_TOKEN="$BOT_PUSH_TOKEN"
-
-# ── 5. Push (with the PAT, so the PR's checks actually run) ─────────────────
-if [ -z "${proposed_already:-}" ]; then
-  # The empty extraheader drops the GITHUB_TOKEN header actions/checkout
-  # persisted, so the push is attributed to the PAT and fires `pull_request`.
-  # Force is safe: this branch is owned by this script alone, and the lease
-  # refuses if anything else moved it since the fetch above.
-  git -c http.https://github.com/.extraheader= push -q \
-    --force-with-lease="refs/heads/${BRANCH}:${remote_sha}" \
-    "https://x-access-token:${BOT_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-    "HEAD:refs/heads/${BRANCH}"
-  echo "Pushed ${BRANCH}."
-fi
+git -c http.https://github.com/.extraheader= push -q "$push_url" "HEAD:refs/heads/${BRANCH}"
+echo "Pushed ${BRANCH}."
 
 # ── 6. Open or update ONE PR, then arm auto-merge (merge commit) ────────────
 body="Automatic, read-only refresh of \`${SNAP}\` from production, made by \`deploy-prod.yml\` right after \`supabase db push\` succeeded.
@@ -140,7 +187,6 @@ If a check on this PR is red, it is telling the truth about production (for exam
 
 Workflow run: ${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID:-local}"
 
-pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
 if [ -z "$pr" ]; then
   url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
     --title "chore(security): refresh the prod schema snapshot (automatic)" --body "$body")"

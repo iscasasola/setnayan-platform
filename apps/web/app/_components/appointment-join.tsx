@@ -112,7 +112,6 @@ export function AppointmentJoin({
   const text = virtualValueText(place);
   return (
     <div className="flex min-w-0 flex-col gap-1" data-meeting-readonly>
-      <p className="text-[11px] font-medium text-ink/60">{virtualSummary(place)}</p>
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="min-w-0 truncate text-[11px] text-ink/75">{text}</span>
         <button

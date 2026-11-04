@@ -90,6 +90,7 @@ export function VirtualMeetingFields({
         <label className={labelClassName}>
           {meta.field}
           <input
+            // field-ok: one box inside the meeting composers, styled like their Title / Date / Time boxes beside it; its label, keyboard and check follow the Via pick live
             type={meta.inputMode === 'tel' ? 'tel' : 'url'}
             inputMode={meta.inputMode}
             name="virtual_value"
@@ -119,7 +120,7 @@ export function VirtualMeetingFields({
             href={createHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-ink/15 px-2.5 text-xs font-medium text-ink/75 hover:bg-ink/[0.04]"
+            className="inline-flex h-8 items-center gap-1.5 self-start rounded-lg border border-ink/15 px-2.5 text-xs font-medium text-ink/75 hover:bg-ink/[0.04]" // no-card-ok: a pressable link-button that opens the app's new-meeting page
           >
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Create a {meta.label} link

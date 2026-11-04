@@ -19,6 +19,7 @@ import {
   layoutInside,
   layoutMark,
   layoutMarkInFrame,
+  NAME_FLOOR,
   type MarkMeasure,
   type MarkSpec,
 } from './photo-mark-geometry';
@@ -94,7 +95,8 @@ test('the verified text lines are in the bytes (ivory ink inside the plate)', as
       if (data[i]! > 150 && data[i + 1]! > 150) ink += 1;
     }
   }
-  assert.ok(ink > name.width, `the shop name should be drawn in ivory, found ${ink} px`);
+  // A bare plate scores 0 here (grey 128 darkens to ~70); half a pixel per column of name is ink, not noise.
+  assert.ok(ink > name.width / 2, `the shop name should be drawn in ivory, found ${ink} px over ${Math.round(name.width)}`);
 });
 
 test('the overlay never asks the host for a font — no <text> element', () => {
@@ -130,6 +132,32 @@ test('the long-name rules: the name is cut with an ellipsis, the address never i
   assert.ok(name.text.endsWith('…'));
   assert.equal(addr.text, 'setnayan.com/v/the-extremely-long-shop-name-events-and-styling-company');
   assert.ok(l.plate.width <= 0.6 * 1200 + 1, 'the plate grows to 0.6·S at most');
+});
+
+test('SABOTAGE-PROVEN: "Bloom & Vine Studio" shows WHOLE on a normal photo — the name shrinks before any ellipsis', () => {
+  const STUDIO: MarkSpec = { kind: 'supplier', verified: true, shopName: 'Bloom & Vine Studio', slug: 'bloom-vine', hasLogo: true };
+  // Normal phone photos: 4:3, 3:4, square, at camera and at upload-compressed sizes.
+  for (const [w, h] of [
+    [1200, 1600],
+    [1600, 1200],
+    [1080, 1080],
+    [2048, 1536],
+    [720, 960],
+  ] as const) {
+    const l = layoutMark(w, h, STUDIO, serverMeasure);
+    assert.equal(l.tier, 'full', `${w}×${h}`);
+    const name = l.lines.find((x) => x.font === 'name')!;
+    assert.equal(name.text, 'Bloom & Vine Studio', `${w}×${h}: the name was cut`);
+    const S = Math.min(w, h);
+    const normal = Math.max(14, Math.round(0.036 * S));
+    assert.ok(name.px >= Math.round(NAME_FLOOR * normal), `${w}×${h}: name below the 0.7× floor (${name.px} < ${normal})`);
+    const safe = { left: l.safe.left, top: l.safe.top, width: l.safe.size, height: l.safe.size };
+    assert.ok(layoutInside(l, safe), `${w}×${h}: the plate escapes`);
+  }
+  // Past the floor the name still takes an ellipsis rather than shrinking into illegibility.
+  const huge = layoutMark(1200, 1200, LONG, serverMeasure).lines.find((x) => x.font === 'name')!;
+  assert.ok(huge.text.endsWith('…'));
+  assert.ok(huge.px >= Math.round(NAME_FLOOR * Math.round(0.036 * 1200)));
 });
 
 test('the mark stays inside the frame at ANY framing (square, wide, circle)', () => {

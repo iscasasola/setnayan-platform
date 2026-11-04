@@ -16,7 +16,7 @@
  *
  * WHY A MEASURE CALLBACK: the two painters measure text differently (canvas
  * `measureText` over the loaded FontFace; opentype advance widths over the same
- * TTF on the server). The RULES — ellipsis on the name, the address shrinking to
+ * TTF on the server). The RULES — the name shrinking to a 0.7× floor before any ellipsis, the address shrinking to
  * an 80 % floor, the plate growing to 0.6·S — are here once; only the ruler is
  * injected. Both rulers read the SAME bundled files (`public/logo-fonts/jost.ttf`,
  * `cormorant.ttf`), so the two paths agree to within kerning.
@@ -138,6 +138,9 @@ function trackedWidth(measure: MarkMeasure, text: string, px: number, em: number
   return Math.max(0, w - em);
 }
 
+/** The shop name's readable floor: it shrinks to 0.7× its size before it takes an ellipsis. */
+export const NAME_FLOOR = 0.7;
+
 function ellipsize(measure: MarkMeasure, text: string, font: MarkFont, px: number, max: number, em = 0): string {
   const width = (t: string) => (em ? trackedWidth(measure, t, px, em) : measure(t, font, px));
   if (width(text) <= max) return text;
@@ -200,6 +203,25 @@ function plateLayout(
     aw = measure(addr.t, 'addr', fAddr);
   }
 
+  // 🔒 THE SHOP NAME SHRINKS BEFORE IT IS EVER CUT (controller, 2026-11-04:
+  // "Bloom & Vine Studio" must show whole on a normal photo). Like the address,
+  // the plate may first grow to 0.6·S for it; then the name steps down to a
+  // readable floor of 0.7× its size; only past that floor does it take an "…".
+  const nameSrc = src.find((l) => l.k === 'name');
+  let fNameUsed = fName;
+  if (nameSrc) {
+    const nameFloor = Math.max(10, Math.round(NAME_FLOOR * fName));
+    let nw = measure(nameSrc.t, 'name', fNameUsed);
+    if (nw > col) {
+      maxPlate = Math.max(maxPlate, Math.min(0.6 * S, nw + 2 * padX + sealsW + gap));
+      col = maxPlate - 2 * padX - sealsW - gap;
+    }
+    while (nw > col && fNameUsed > nameFloor) {
+      fNameUsed -= 1;
+      nw = measure(nameSrc.t, 'name', fNameUsed);
+    }
+  }
+
   const sized: Array<{ text: string; font: MarkFont; px: number; h: number; w: number; tracking: number }> = [];
   for (const l of src) {
     if (l.k === 'caps') {
@@ -207,8 +229,8 @@ function plateLayout(
       const text = ellipsize(measure, l.t, 'caps', fCap, col, em);
       sized.push({ text, font: 'caps', px: fCap, h: fCap, w: trackedWidth(measure, text, fCap, em), tracking: em });
     } else if (l.k === 'name') {
-      const text = ellipsize(measure, l.t, 'name', fName, col);
-      sized.push({ text, font: 'name', px: fName, h: fName, w: measure(text, 'name', fName), tracking: 0 });
+      const text = ellipsize(measure, l.t, 'name', fNameUsed, col);
+      sized.push({ text, font: 'name', px: fNameUsed, h: fNameUsed, w: measure(text, 'name', fNameUsed), tracking: 0 });
     } else {
       sized.push({ text: l.t, font: 'addr', px: fAddr, h: fAddr, w: measure(l.t, 'addr', fAddr), tracking: 0 });
     }

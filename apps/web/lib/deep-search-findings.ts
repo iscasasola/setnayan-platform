@@ -7,9 +7,9 @@
  *   promises a heading the result or the file does not carry.
  *
  * ── THE PRICE IS NEVER TYPED HERE ──────────────────────────────────────────
- * The band words are BUILT from the one price source the run action charges from: the 2026-07-25 band matrix
- * (`VENDOR_ADDON_TIER_PRICES_PHP.deep_search_about_you`) while `NEXT_PUBLIC_VENDOR_ADDON_TIERED_PRICING` is on, else
- * the admin catalogue row (`vendor_billing_catalog.vendor_deep_search`, read by the caller). Who gets the free search
+ * The band words are BUILT from the one price source the run action charges from: the two catalogue rows of the band
+ * (`vendor_billing_catalog.vendor_deep_search` for Pro/Ultra, `vendor_deep_search_entry` for Free/Verified/Solo — owner
+ * 2026-11-04), read by the caller (`fetchVendorAddonBandPrices`). Who gets the free search
  * each 28 days is `deepSearchHasFreeAllowance` (Pro and up) — the old "1 free on Solo" line was wrong (owner note 2).
  *
  * ── HOW LONG A SEARCH IS KEPT ───────────────────────────────────────────────
@@ -20,7 +20,6 @@
  *
  * PURE: no I/O, no env read (the caller passes the flag's answer).
  */
-import { VENDOR_ADDON_TIER_PRICES_PHP } from '@/lib/vendor-addon-tier-pricing';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 
@@ -54,23 +53,11 @@ export function deepSearchCounts(d: VendorDossier): Record<Exclude<DeepSearchFin
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 
 /**
- * The per-search price on each side of the band. Tiered (the flag on): the matrix's two figures. Flat (the flag off):
- * the catalogue's one price for everyone — `catalogPhp` must be the caller's READ of the catalogue, never a literal.
- */
-export function deepSearchBand(input: { tiered: boolean; catalogPhp: number }): { entryPhp: number; growthPhp: number } {
-  if (input.tiered) {
-    const b = VENDOR_ADDON_TIER_PRICES_PHP.deep_search_about_you;
-    return { entryPhp: b.entry, growthPhp: b.growth };
-  }
-  return { entryPhp: input.catalogPhp, growthPhp: input.catalogPhp };
-}
-
-/**
  * The band in words, for the card's ⓘ: "₱1,000 a search on Free and Solo · ₱500 on Pro and Ultra, with 1 free every
  * 28 days on Pro and Ultra." One price for everyone reads "₱500 a search on every plan, with 1 free …".
  */
 export function deepSearchBandWords(band: { entryPhp: number; growthPhp: number }, periodDays: number): string {
-  const entry = `${TIER_LABEL.free} and ${TIER_LABEL.solo}`;
+  const entry = `${TIER_LABEL.free}, Verified and ${TIER_LABEL.solo}`;
   const growth = `${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}`;
   const free = `1 free every ${periodDays} days on ${growth}`;
   return band.entryPhp === band.growthPhp

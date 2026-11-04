@@ -18,7 +18,6 @@ import {
   branchAutoRadiusKm,
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -55,7 +54,7 @@ type BranchManager = {
  * an error string so the inline form can show it. Returns the manager context
  * or an error result.
  */
-async function requireBranchManager(): Promise<
+async function requireBranchManager(opts: { buying: boolean } = { buying: true }): Promise<
   BranchManager | { error: BranchActionState }
 > {
   const supabase = await createClient();
@@ -103,8 +102,12 @@ async function requireBranchManager(): Promise<
   // one flag-aware question: while VENDOR_TIER_FEATURE_GATE is off any shop may
   // add a branch (paying the branch's own fee, below); while on, this is where
   // a non-Enterprise shop is asked for the plan — the final action, try-first.
-  if (vendorPaywallApplies(isTierAtLeast(tier, 'enterprise'))) {
-    return { error: err('Extra branches are part of Ultra. Pick Ultra on the Plans page to add one.') };
+  // ⚖ ULTRA ONLY, UNCONDITIONALLY, FOR ANYTHING THAT CHARGES (owner 2026-11-04, SUPPLIER PRICE SHEET: *"Extra
+  // branch 1990 (applies for ultra only)"*). Adding or renewing a branch is a purchase, so it is refused here for every
+  // other plan whatever VENDOR_TIER_FEATURE_GATE says — a price rule is not a try-first paywall. Cancelling a branch a
+  // shop already holds is not a purchase and stays open to it (`buying: false`).
+  if (opts.buying && !isTierAtLeast(tier, 'enterprise')) {
+    return { error: err('Extra branches are sold with Ultra only. Pick Ultra on the Plans page to add one.') };
   }
 
   return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id };
@@ -347,7 +350,7 @@ export async function cancelBranch(
   _prev: BranchActionState,
   formData: FormData,
 ): Promise<BranchActionState> {
-  const ctx = await requireBranchManager();
+  const ctx = await requireBranchManager({ buying: false });
   if ('error' in ctx) return ctx.error;
   const { supabase, vendorProfileId } = ctx;
 

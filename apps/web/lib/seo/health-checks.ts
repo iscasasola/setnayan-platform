@@ -1,4 +1,4 @@
-import { skuBackedLiterals, parsePesoLiteral } from '@/lib/public-price-literals';
+import { skuBackedLiterals, parsePesoLiteral, type PriceLiteral } from '@/lib/public-price-literals';
 import { FEATURE_PAGES, featurePaths } from '@/lib/feature-pages';
 
 /**
@@ -60,6 +60,12 @@ export type HealthCheckInput = {
   llmsText: string;
   /** Live active priced SKUs — platform_retail_catalog_v2 (retail) + vendor_billing_catalog (vendor). */
   catalog: CatalogRow[];
+  /**
+   * The SKU-backed literals Check 5 verifies. Defaults to the declared inventory (`skuBackedLiterals()`); a test
+   * passes its own so the check can be watched failing even while the inventory holds no SKU-backed figure at all
+   * (it holds none since 2026-11-04 — the demo's two were deleted, not re-typed).
+   */
+  literals?: readonly (PriceLiteral & { sku: string })[];
   /** Env presence flags — the owner-action nags. */
   env: {
     googleSiteVerification?: string;
@@ -325,7 +331,8 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
   // llms.txt drift: never let both sides of a check be hand-maintained.
   const priceBySku = new Map(input.catalog.map((r) => [r.sku_code, r.price_php]));
   const literalDrift: string[] = [];
-  for (const lit of skuBackedLiterals()) {
+  const declaredLiterals = input.literals ?? skuBackedLiterals();
+  for (const lit of declaredLiterals) {
     const want = priceBySku.get(lit.sku);
     if (want === undefined) continue; // SKU absent from the active set — Check 1's job.
     const have = parsePesoLiteral(lit.literal);
@@ -343,7 +350,7 @@ export function runSeoHealthChecks(input: HealthCheckInput): SeoHealthResult {
       : {
           check: 'hardcoded public price literals',
           status: 'ok',
-          detail: `all ${skuBackedLiterals().length} declared SKU-backed literal(s) match the catalog`,
+          detail: `all ${declaredLiterals.length} declared SKU-backed literal(s) match the catalog`,
         },
   );
 

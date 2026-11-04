@@ -442,8 +442,8 @@ export default async function PricingPage() {
                       <i aria-hidden className="mr-1.5 align-[2px] text-[11px] not-italic text-terracotta-700">
                         ◆
                       </i>
-                      <InfoTip label="Event Hub Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 500 MB of media, prints in your look. One unlock covers everyone on the event.`}
+                      <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
+                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 500 MB of media, prints in your look${prices.plus != null ? ' — and everything in Event Plus, Setnayan AI included' : ''}. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
@@ -530,6 +530,23 @@ export default async function PricingPage() {
                       figure={<Figure php={prices.musicMaker} />}
                     />
                   ) : null}
+                </ul>
+              </>
+            ) : null}
+
+            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own — it comes inside Event
+                Plus and Event Pro. `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the row
+                below stops drawing; Event Plus, read from its own row, is where the planner is bought. */}
+            {prices.plus != null ? (
+              <>
+                <Moment>Help planning</Moment>
+                <ul className="m-0 list-none p-0">
+                  <PriceRowShell
+                    name="Event Plus"
+                    tip="Setnayan AI — suggests verified suppliers by fit, then watches your deadlines, budget and dates — with Papic credits for your guests’ cameras. Event Pro includes everything in Event Plus."
+                    what="Setnayan AI and Papic credits, for this event."
+                    figure={<Figure php={prices.plus} />}
+                  />
                 </ul>
               </>
             ) : null}

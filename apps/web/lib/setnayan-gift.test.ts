@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import {
   GIFT_CAP_CREDITS,
   GIFT_SHARE_OF_FEE_PCT,
+  giftChargeAtGiftPrice,
   giftLadderFrom,
   giftQuoteCopy,
   setnayanGiftForFee,
@@ -199,4 +200,49 @@ test('SAID IN PHOTOGRAPHS — and the COUPLE is never told pesos', () => {
   // No gift ⇒ say NOTHING. Never "0 photos", which advertises an absence.
   assert.equal(giftQuoteCopy({ credits: 0, chargeCentavos: 0 }, 'couple'), null);
   assert.equal(giftQuoteCopy(null, 'supplier'), null);
+});
+
+// 💝 GIFT PRICE (owner 2026-11-04) — an invented gift ladder beside the list one.
+const GIFT_LADDER: GiftRung[] = [
+  { credits: 100, priceCentavos: 10_000, giftPriceCentavos: 9_000 },
+  { credits: 1_000, priceCentavos: 50_000, giftPriceCentavos: 45_000 },
+  { credits: GIFT_CAP_CREDITS, priceCentavos: 1_000_000, giftPriceCentavos: 900_000 },
+];
+
+test('💝 the gift price charges the SAME photos less; absent the option, the list charge', () => {
+  for (const fee of [25_000, 100_000, 1_234_600, 50_000_000, 999_999_999]) {
+    const list = setnayanGiftForFee(fee, GIFT_LADDER);
+    const gift = setnayanGiftForFee(fee, GIFT_LADDER, { giftPrice: true });
+    assert.equal(gift.credits, list.credits, 'the couple gets the same photos');
+    assert.equal(gift.capped, list.capped);
+    assert.ok(gift.chargeCentavos <= list.chargeCentavos, 'never above the list');
+    if (list.credits > 0) assert.ok(gift.chargeCentavos < list.chargeCentavos, `cheaper at fee ${fee}`);
+  }
+  // exactly on a rung → that rung's gift price; at the cap → the top rung's gift price
+  assert.equal(giftChargeAtGiftPrice(1_000, GIFT_LADDER), 45_000);
+  assert.equal(setnayanGiftForFee(999_999_999, GIFT_LADDER, { giftPrice: true }).chargeCentavos, 900_000);
+  // between rungs → interpolated, rounded half up: 550 credits = 9,000 + 450×36,000/900 = 27,000
+  assert.equal(giftChargeAtGiftPrice(550, GIFT_LADDER), 27_000);
+});
+
+test('💝 a ladder with any rung missing its gift price charges the list price — never a guess', () => {
+  const holed = GIFT_LADDER.map((r, i) => (i === 1 ? { ...r, giftPriceCentavos: null } : r));
+  assert.equal(giftChargeAtGiftPrice(550, holed), null);
+  assert.deepEqual(setnayanGiftForFee(100_000, holed, { giftPrice: true }), setnayanGiftForFee(100_000, holed));
+  const flat = GIFT_LADDER.map((r, i) => (i === 1 ? { ...r, giftPriceCentavos: 9_000 } : r));
+  assert.equal(giftChargeAtGiftPrice(550, flat), null, 'a gift price that does not rise is refused');
+});
+
+test('💝 giftLadderFrom reads gift_price_php off the row', () => {
+  const ladder = giftLadderFrom(
+    [
+      { service_code: 'PAPIC_GUEST_A', retail_price_php: 100, gift_price_php: '90', is_active: true },
+      { service_code: 'PAPIC_GUEST_B', retail_price_php: 500, gift_price_php: null, is_active: true },
+    ],
+    [
+      { service_code: 'PAPIC_GUEST_A', points: 100, is_active: true },
+      { service_code: 'PAPIC_GUEST_B', points: 1000, is_active: true },
+    ],
+  );
+  assert.deepEqual(ladder.map((r) => r.giftPriceCentavos), [9_000, null]);
 });

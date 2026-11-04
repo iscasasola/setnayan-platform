@@ -45,7 +45,6 @@ test('the paid-from-day-one add-ons are NEVER free under this perk', () => {
     'ai_chatbot_basic',
     'ai_chatbot_advanced',
     'deep_search_about_you',
-    'deep_search_market',
   ] as const) {
     assert.equal(isAddonFreeDuringFirst5(sku), false, sku);
     assert.equal(

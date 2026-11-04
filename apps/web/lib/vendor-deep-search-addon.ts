@@ -36,13 +36,13 @@ export const VENDOR_DEEP_SEARCH_SKU_CODE = 'vendor_deep_search';
 export const VENDOR_DEEP_SEARCH_PERIOD_DAYS = 28;
 
 /**
- * Fallback ₱500 / search price. The live catalog value wins; this is the
+ * Fallback per-search price (the Pro/Ultra row's, 2026-11-04). The live catalog value wins; this is the
  * last-resort figure used only when the `vendor_deep_search` row is missing or
  * unreadable (e.g. the seeding migration hasn't been applied, or a CI build with
  * no service-role key). Never hardcode this in UI copy — read via
  * {@link fetchVendorDeepSearchPricePhp}.
  */
-export const VENDOR_DEEP_SEARCH_FALLBACK_PHP = 500;
+export const VENDOR_DEEP_SEARCH_FALLBACK_PHP = 499;
 
 /** A positive finite price, or the fallback when the catalog value is missing/invalid. */
 function coercePrice(value: number | null | undefined, fallback: number): number {

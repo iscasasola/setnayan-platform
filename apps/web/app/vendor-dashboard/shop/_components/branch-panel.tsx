@@ -61,7 +61,8 @@ export async function BranchPanel({
   // told findable shops they were hidden.
   const reachHidden = !hasRing && isVendorSearchGateEnabled();
   const reachPaywall = vendorPaywallApplies(false) && !storeShell;
-  const branchPaywall = vendorPaywallApplies(isEnterprise);
+  // ⚖ Branches are SOLD to Ultra only (owner 2026-11-04) — not a try-first paywall, so the flag does not soften it.
+  const branchPaywall = !isEnterprise;
   const from = city ?? 'your headquarters';
   // The shipped sentence, word for word — now the ⓘ of How far you go (house rule: one line visible, the rest in ⓘ).
   const reachNote = hasRing
@@ -128,12 +129,12 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Part of Ultra — plan it here; adding asks for Ultra"
+                label="Extra branches are sold with Ultra only"
                 text="ENTERPRISE"
                 size="xs"
               />
-              Extra branches are part of Ultra — each gets its own team and
-              calendar. Plan one here; adding it asks for the plan.
+              Extra branches are sold with Ultra only — each gets its own team and
+              calendar.
             </p>
           ) : null}
           <BranchManager
@@ -142,6 +143,7 @@ export async function BranchPanel({
             autoRadiusKm={branchAutoRadius}
             initialCenter={branchMapCenter}
             pay={branchPay}
+            canAdd={isEnterprise}
           />
         </>
       )}

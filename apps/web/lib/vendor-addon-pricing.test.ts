@@ -16,12 +16,11 @@ test('first cycle (trial unused) is ₱0 — the free intro', () => {
   assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: false, cyclePricePhp: 1500 }), 0);
 });
 
-test('after the trial → ₱1,500 (catalog fallback when no price passed)', () => {
+test('after the trial → the catalog fallback when no price passed', () => {
   assert.equal(
     resolveVendorAiAddonPricePhp({ trialUsed: true }),
     VENDOR_AI_ADDON_FALLBACK_PHP,
   );
-  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true }), 1500);
 });
 
 test('after the trial → uses the admin-managed catalog price when present', () => {
@@ -30,13 +29,13 @@ test('after the trial → uses the admin-managed catalog price when present', ()
   assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 1800 }), 1800);
 });
 
-test('after the trial → invalid/zero catalog price falls back to ₱1,500', () => {
-  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 0 }), 1500);
-  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: -5 }), 1500);
-  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: null }), 1500);
+test('after the trial → invalid/zero catalog price falls back to the fallback', () => {
+  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 0 }), VENDOR_AI_ADDON_FALLBACK_PHP);
+  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: -5 }), VENDOR_AI_ADDON_FALLBACK_PHP);
+  assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: null }), VENDOR_AI_ADDON_FALLBACK_PHP);
   assert.equal(
     resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: Number.NaN }),
-    1500,
+    VENDOR_AI_ADDON_FALLBACK_PHP,
   );
 });
 
@@ -97,7 +96,7 @@ test('band injection sets the RENEWAL price', () => {
   assert.equal(resolveVendorAiAddonPricePhp({ trialUsed: true, cyclePricePhp: 1500 }), 1500);
 });
 
-test('flag OFF: a null/absent catalog price still falls back to ₱1,500', () => {
+test('flag OFF: a null/absent catalog price still falls back to the fallback', () => {
   // The flag-off path passes the catalog value through untouched, so the
   // pre-existing fallback must be unchanged.
   assert.equal(

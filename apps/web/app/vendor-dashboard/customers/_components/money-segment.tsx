@@ -35,8 +35,7 @@ import { ShopWalletSheet, type ShopWalletSheetData } from './shop-wallet-sheet';
 import { fetchShopWallet, fetchShopWalletEventPots, fetchShopWalletPackMeta } from '@/lib/shop-wallet.server';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SHOP_WALLET_HREF, eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
-import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
-import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '@/lib/vendor-papic-credits';
+import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
@@ -262,10 +261,10 @@ async function readWalletSheet(
   wallet: Awaited<ReturnType<typeof fetchShopWallet>>,
 ): Promise<ShopWalletSheetData> {
   const packOrderIds = wallet.entries.filter((e) => e.kind === 'pack_order' && e.orderId).map((e) => e.orderId as string);
-  const [packMeta, rooms, pricePhp, settings, storeShell, papicOn] = await Promise.all([
+  const [packMeta, rooms, packs, settings, storeShell, papicOn] = await Promise.all([
     fetchShopWalletPackMeta(supabase, packOrderIds),
     fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => null),
-    fetchVendorPapicPackPricePhp(admin),
+    fetchShopPapicPacks(admin),
     fetchPlatformSettings(supabase),
     isStoreShellRequest(),
     isVendorPapicCaptureEnabled(),
@@ -294,7 +293,7 @@ async function readWalletSheet(
         sub: eventPotSub(pot),
         href: `/vendor-dashboard/on-the-day/live/${pot.eventId}/papic`,
       })) ?? null,
-    buy: { openRails: openRailOptions(settings), pricePhp, packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS, papicOn },
+    buy: { openRails: openRailOptions(settings), packs, papicOn },
     storeShell,
   };
 }

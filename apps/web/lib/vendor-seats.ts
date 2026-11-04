@@ -21,10 +21,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Extra-seat fee FALLBACK (owner 2026-07-02 · ₱250 / 28-day). The canonical,
  * admin-managed price lives in the `vendor_billing_catalog` row
  * `vendor_extra_seat` (price in PHP). Read it with {@link fetchSeatFeePhp};
- * this literal keeps the flow working at ₱250 if the seeding migration hasn't
+ * this literal keeps the flow working if the seeding migration hasn't
  * been applied yet or RLS hides the row.
  */
-export const SEAT_FEE_PHP = 250;
+// 💲 2026-11-04 (owner, final price sheet): ₱990 per 4 weeks, Ultra only — moves WITH the `vendor_extra_seat` row.
+export const SEAT_FEE_PHP = 990;
 
 /** The catalog sku_code the extra-seat fee is read from (seeded by migration). */
 export const SEAT_SKU_CODE = 'vendor_extra_seat';

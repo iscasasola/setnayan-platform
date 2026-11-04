@@ -58,6 +58,11 @@ export type GiftRung = {
   credits: number;
   /** The rung's REGULAR retail price, in whole centavos. */
   priceCentavos: number;
+  /**
+   * 💝 The rung's GIFT price (`gift_price_php`, owner 2026-11-04 "GIFT PRICES"), in whole centavos — what a
+   * Verified-and-up shop pays per rung. `null`/absent ⇒ unknown, and the charge falls back to the list price.
+   */
+  giftPriceCentavos?: number | null;
 };
 
 /** The gift for one fee. `credits` 0 ⇒ no gift at all, and `chargeCentavos` 0. */
@@ -76,6 +81,8 @@ const NO_GIFT: SetnayanGift = Object.freeze({ credits: 0, chargeCentavos: 0, cap
 export type GiftCatalogRow = {
   service_code?: string | null;
   retail_price_php?: number | string | null;
+  /** 💝 The supplier's gift price (2026-11-04). Optional: a read without it charges the list price. */
+  gift_price_php?: number | string | null;
   is_active?: boolean | null;
   retired_at?: string | null;
 };
@@ -119,7 +126,11 @@ export function giftLadderFrom(
     const php = Number(c.retail_price_php);
     if (credits === undefined || !Number.isFinite(php) || php <= 0) continue;
     if (credits > GIFT_CAP_CREDITS) continue; // the 100,000 rung is off the gift ladder
-    rungs.push({ credits, priceCentavos: Math.round(php * 100) });
+    const gift = c.gift_price_php == null ? NaN : Number(c.gift_price_php);
+    const rung: GiftRung = { credits, priceCentavos: Math.round(php * 100) };
+    // Only a row that CARRIES the column says anything about it; an older read leaves the rung unchanged.
+    if ('gift_price_php' in c) rung.giftPriceCentavos = Number.isFinite(gift) && gift > 0 ? Math.round(gift * 100) : null;
+    rungs.push(rung);
   }
   rungs.sort((a, b) => a.credits - b.credits);
 
@@ -164,13 +175,52 @@ function roundRatio(n: number, d: number): number {
 }
 
 /**
+ * 💝 THE GIFT PRICE OF `credits` (owner 2026-11-04, "GIFT PRICES"): read off the GIFT-price ladder at those
+ * credits, interpolated between the bracketing rungs and rounded half up — the same arithmetic as SQL
+ * `setnayan_gift_for_fee(BIGINT, UUID)`. `null` when any rung lacks a gift price, the gift prices do not rise
+ * with the credits, or `credits` is off the ladder: the caller then charges the list price.
+ */
+export function giftChargeAtGiftPrice(credits: number, ladder: readonly GiftRung[]): number | null {
+  if (!Number.isInteger(credits) || credits <= 0 || ladder.length === 0) return null;
+  const g = ladder.map((r) => r.giftPriceCentavos);
+  if (g.some((x) => typeof x !== 'number' || !Number.isFinite(x) || x <= 0)) return null;
+  for (let i = 1; i < ladder.length; i += 1) {
+    if (ladder[i]!.credits === ladder[i - 1]!.credits || (g[i] as number) <= (g[i - 1] as number)) return null;
+  }
+  for (let i = 0; i < ladder.length; i += 1) {
+    const lo = ladder[i]!;
+    if (credits === lo.credits) return g[i] as number;
+    const hi = ladder[i + 1];
+    if (hi && credits > lo.credits && credits < hi.credits) {
+      const glo = g[i] as number;
+      const ghi = g[i + 1] as number;
+      return glo + roundRatio((credits - lo.credits) * (ghi - glo), hi.credits - lo.credits);
+    }
+  }
+  return null;
+}
+
+/**
  * The gift a given booking fee buys.
  *
  * @param feeCentavos the booking fee in whole centavos — from `bookingFeePhp`
  *   (× 100) or the SQL mirror `booking_fee_centavos`, never re-derived here.
  * @param ladder the LIVE gift ladder (`giftLadderFrom`).
+ * @param opts.giftPrice 💝 the shop is Verified-and-up (owner 2026-11-04): the SAME credits, charged at the gift
+ *   price (`giftChargeAtGiftPrice`), never above the list charge. Free (or absent) pays the list charge.
  */
 export function setnayanGiftForFee(
+  feeCentavos: number,
+  ladder: readonly GiftRung[],
+  opts?: { giftPrice?: boolean },
+): SetnayanGift {
+  const listed = setnayanGiftAtListPrice(feeCentavos, ladder);
+  if (!opts?.giftPrice || listed.credits <= 0) return listed;
+  const gift = giftChargeAtGiftPrice(listed.credits, ladder);
+  return gift === null ? listed : { ...listed, chargeCentavos: Math.min(listed.chargeCentavos, gift) };
+}
+
+function setnayanGiftAtListPrice(
   feeCentavos: number,
   ladder: readonly GiftRung[],
 ): SetnayanGift {
@@ -301,6 +351,8 @@ export type GiftQuoteBasis = {
   schedule: BookingFeeSchedule;
   /** The live credit ladder, read from the catalogue. */
   ladder: GiftRung[];
+  /** 💝 This shop pays the gift price (Verified-and-up, owner 2026-11-04) — the same answer the bill uses. */
+  giftPrice?: boolean;
 };
 
 /**
@@ -316,7 +368,7 @@ export function previewGiftForTotal(
 ): SetnayanGift | null {
   if (!basis || !Number.isFinite(totalCentavos) || totalCentavos <= 0) return null;
   const feeCentavos = Math.round(bookingFeePhp(totalCentavos / 100, basis.schedule) * 100);
-  const gift = setnayanGiftForFee(feeCentavos, basis.ladder);
+  const gift = setnayanGiftForFee(feeCentavos, basis.ladder, { giftPrice: basis.giftPrice === true });
   return gift.credits > 0 ? gift : null;
 }
 

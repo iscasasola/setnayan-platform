@@ -78,14 +78,15 @@ export const CUSTOM_SKU_CODES = Object.freeze({
  */
 export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   base: 11000,
-  branch: 1000,
+  // 2026-11-04 FINAL SHEET: the Custom card prices a branch from `vendor_additional_branch`, now ₱1,990.
+  branch: 1990,
   // Rounded off their -1 charm endings 2026-08-27 (owner: "make the whole
   // number 500, 2500") — the third such rounding that day, after Live Studio
   // ₱2,999 -> ₱3,000 and Thank You ₱2,499 -> ₱2,500. These move WITH their
   // catalog rows in the same change; `fallback-prices-match-the-catalog` fails
   // the build if they ever disagree.
   reachNationwide: 2500,
-  seat: SEAT_FEE_PHP, // 250
+  seat: SEAT_FEE_PHP,
   slot: 500,
   domain: 500,
   // Owner 2026-08-29, asked what going past the 10-customers-per-date ceiling

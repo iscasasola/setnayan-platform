@@ -128,7 +128,7 @@ test('replay applies every migration incl. the ledger + SKU (no unapplied files)
   assert.equal(replay.applied, replay.total, 'all migrations accounted for');
 });
 
-test('the pack SKU is in the price table, active, at the owner’s ₱500, a SHOP purchase', async () => {
+test('the pack SKU is in the price table, at the owner’s ₱500, a SHOP purchase — RETIRED 2026-11-04', async () => {
   const r = await db.query<{ price_php: string; offering_type: string; is_active: boolean; title: string }>(
     `SELECT price_php::text, offering_type, is_active, title
        FROM public.vendor_billing_catalog WHERE sku_code = 'vendor_papic_portfolio_pack'`,
@@ -141,7 +141,9 @@ test('the pack SKU is in the price table, active, at the owner’s ₱500, a SHO
   // shop-scoped, non-recurring offering type; nothing widened a CHECK.
   assert.equal(row.offering_type, 'vendor_addon_metered');
   assert.match(row.title, /for your shop/, 'the title must say the credits go to the shop');
-  assert.equal(row.is_active, true);
+  // Owner 2026-11-04 ("SIX OWNER ANSWERS"): suppliers buy the couple's Papic packs; this row is retired,
+  // kept (never deleted) so an order minted before today still activates through its own key.
+  assert.equal(row.is_active, false);
 
   /*
    * 🚨 THIS USED TO READ `assert.match(row.title, /25/)`, AND THAT IS WHY THE

@@ -5,8 +5,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, compOrderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { appendLedger } from '@/lib/ledger';
@@ -157,7 +155,6 @@ export async function sponsorPhotoChallenge(
   // free"*. The flag still decides the PRICE BAND (below); who may buy is a
   // rule of its own, enforced unconditionally inside
   // `photoChallengePurchaseEligibility` and re-asserted by the SQL RPC.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
   const eligibility = photoChallengePurchaseEligibility({
     tier,
     verification,
@@ -204,9 +201,8 @@ export async function sponsorPhotoChallenge(
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
       ? Number((skuRow as { price_php: number | string }).price_php)
       : null;
-  const listPricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('papic_challenge', tier)
-    : resolveVendorPhotoChallengePricePhp(cyclePricePhp);
+  // 2026-11-04: one price for every plan, read from the catalogue row (no typed band any more).
+  const listPricePhp = resolveVendorPhotoChallengePricePhp(cyclePricePhp);
 
   // ── "Free until your 6th booking" (owner 2026-07-25, flag-dark) ────────────
   // While the vendor is inside their first 5 bookings — the same window in which

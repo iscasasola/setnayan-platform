@@ -6,7 +6,7 @@
  *   ① THE ARITHMETIC, on the REAL ladder the migrations seed (which is
  *     production's — tests/db/papic-ladder.expected.ts). The owner's own sanity
  *     numbers are asserted here and nowhere else, so no rung price is re-typed:
- *     ₱4,500 → 150 · ₱20k → 809 · ₱49,500 and above → 3,000, the charge stopping at the top pack's ₱990
+ *     ₱4,950 → 150 · ₱20k → 790 · ₱49,950 and above → 3,000, the charge stopping at the top pack's ₱999 (2026-11-04)
  *     (the three packs, 2026-11-03; was ₱50k → 1,078 · ₱1M → 8,661 · ₱4.54M → 50,000 on the seventeen-rung ladder).
  *   ② THE MIRROR — the TS the quote uses and the SQL the bill uses agree at
  *     every amount swept. Two copies of a rule drift; this is the fence.
@@ -74,7 +74,7 @@ async function sqlGiftForBooking(bookingPhp: number): Promise<Gift> {
 /** The live ladder as the TS reads it — the SAME two tables, no typed price. */
 async function tsLadder(): Promise<GiftRung[]> {
   const c = await db.query<GiftCatalogRow>(
-    `SELECT service_code, retail_price_php, is_active, retired_at
+    `SELECT service_code, retail_price_php, gift_price_php, is_active, retired_at
        FROM public.platform_retail_catalog_v2 WHERE service_code LIKE 'PAPIC_GUEST%'`,
   );
   const t = await db.query<GiftTierRow>(
@@ -253,10 +253,11 @@ test("① the owner's sanity numbers, from the live catalog — nothing re-typed
   // proportionally along the live packs, and now stops at the TOP PACK ON SALE (3,000) — the 50,000 rung is off sale.
   // Was ₱4,750 → 100 · ₱20k → 429 · ₱50k → 1,078 · ₱100k → 2,420 · ₱500k → 4,878 · ₱1M → 8,661 · ₱4.54M → 50,000.
   const expected: Array<[number, number]> = [
-    [4_500, 150], // the floor: fee ₱225, 40% ₱90, exactly the 150-credit pack
-    [4_750, 161],
-    [20_000, 809],
-    [49_500, 3_000], // fee ₱2,475, 40% ₱990, exactly the 3,000 pack — the cap
+    // 💲 2026-11-04 (FINAL PRICE SHEET: 150 ₱99 · 1,000 ₱499 · 3,000 ₱999). Was ₱4,500 → 150 · ₱20k → 809 · ₱49,500 → 3,000.
+    [4_950, 150], // the floor: fee ₱247.50, 40% ₱99, exactly the 150-credit pack
+    [5_000, 152],
+    [20_000, 790],
+    [49_950, 3_000], // fee ₱2,497.50, 40% ₱999, exactly the 3,000 pack — the cap
     [1_000_000, 3_000],
   ];
   for (const [booking, photos] of expected) {
@@ -264,19 +265,19 @@ test("① the owner's sanity numbers, from the live catalog — nothing re-typed
     assert.equal(g.credits, photos, `₱${booking.toLocaleString()} booking → ${photos} photos`);
   }
   // THE FLOOR: one peso below ₱4,500 there is no gift at all, and no charge.
-  const below = await sqlGiftForBooking(4_499);
+  const below = await sqlGiftForBooking(4_949);
   assert.deepEqual(below, { credits: 0, charge_centavos: 0, capped: false });
 });
 
 test('① the charge is 40% of the fee (floored) until the cap, then the top pack’s price — never more', async () => {
   const capPrice = await rungPriceCentavos(TOP_PACK_CREDITS);
-  for (const booking of [4_500, 4_750, 20_000, 49_000]) {
+  for (const booking of [4_950, 5_000, 20_000, 49_000]) {
     const fee = await sqlFeeCentavos(booking);
     const g = await sqlGiftForFee(fee);
     assert.equal(g.charge_centavos, Math.floor((fee * GIFT_SHARE_OF_FEE_PCT) / 100));
     assert.equal(g.capped, false);
   }
-  for (const booking of [49_500, 5_000_000, 10_000_000]) {
+  for (const booking of [49_950, 5_000_000, 10_000_000]) {
     const g = await sqlGiftForBooking(booking);
     assert.equal(g.credits, TOP_PACK_CREDITS);
     assert.equal(g.charge_centavos, capPrice, 'above the cap the supplier pays the top pack, not 40%');
@@ -305,6 +306,41 @@ test('② the TS the quote uses == the SQL the bill uses, at every amount swept'
     checked += 1;
   }
   assert.ok(checked > 150, `swept ${checked} amounts`);
+});
+
+test('② 💝 GIFT PRICE (2026-11-04): a Verified-and-up shop is charged the gift price for the SAME photos; Free pays the list — TS == SQL', async () => {
+  const ladder = await tsLadder();
+  assert.ok(ladder.every((r) => typeof r.giftPriceCentavos === 'number' && r.giftPriceCentavos > 0), 'every rung has a gift price');
+  const free = await newVendor('giftprice-free@gift.test');
+  const pro = await newVendor('giftprice-pro@gift.test');
+  await db.query(`UPDATE public.vendor_profiles SET tier_state = 'pro' WHERE vendor_profile_id = $1`, [pro.vendorProfileId]);
+  const two = async (fee: number, vendor: string): Promise<Gift> => {
+    const r = await db.query<{ credits: number; charge_centavos: string; capped: boolean }>(
+      `SELECT credits, charge_centavos, capped FROM public.setnayan_gift_for_fee($1::bigint, $2::uuid)`,
+      [fee, vendor],
+    );
+    const row = r.rows[0]!;
+    return { credits: Number(row.credits), charge_centavos: Number(row.charge_centavos), capped: row.capped };
+  };
+  let cheaper = 0;
+  for (let booking = 0; booking <= 4_000_000; booking += booking < 200_000 ? 3_119 : 97_222) {
+    const fee = await sqlFeeCentavos(booking);
+    const list = await sqlGiftForFee(fee);
+    const asFree = await two(fee, free.vendorProfileId);
+    const asPro = await two(fee, pro.vendorProfileId);
+    assert.deepEqual(asFree, list, `Free pays the list at ₱${booking}`);
+    assert.equal(asPro.credits, list.credits, `the couple's photos never move with the supplier's plan (₱${booking})`);
+    assert.ok(asPro.charge_centavos <= list.charge_centavos, `the gift price never exceeds the list (₱${booking})`);
+    const ts = setnayanGiftForFee(fee, ladder, { giftPrice: true });
+    assert.deepEqual({ credits: ts.credits, charge_centavos: ts.chargeCentavos, capped: ts.capped }, asPro, `gift-price parity at ₱${booking}`);
+    if (asPro.charge_centavos < list.charge_centavos) cheaper += 1;
+  }
+  assert.ok(cheaper > 20, `the gift price was cheaper on ${cheaper} amounts`);
+  // At the cap the Verified-and-up shop pays the top pack's GIFT price, read from the row.
+  const top = ladder[ladder.length - 1]!;
+  const capped = await two(1_000_000_000, pro.vendorProfileId);
+  assert.equal(capped.credits, top.credits);
+  assert.equal(capped.charge_centavos, top.giftPriceCentavos);
 });
 
 test('② the bill clause the TS mints == the one the SQL mints', async () => {
@@ -378,7 +414,7 @@ test('④ a card that said YES: the charge carries the gift BESIDE the fee, and 
   const fee = await sqlFeeCentavos(20_000);
   assert.equal(c.amount, fee, 'amount_charged_centavos STAYS the booking fee alone');
   assert.equal(c.offered, true);
-  assert.equal(c.credits, 809, '₱20,000 → 809 free photos (under the 3,000-pack cap)');
+  assert.equal(c.credits, 790, '₱20,000 → 790 free photos (under the 3,000-pack cap)');
   assert.equal(c.gift, Math.floor((fee * 40) / 100), 'the gift costs 40% of the fee');
 
   // The SQL minter (the path an amended booking takes) bills fee + gift.
@@ -387,7 +423,7 @@ test('④ a card that said YES: the charge carries the gift BESIDE the fee, and 
   assert.ok(order, 'an order exists for the charge');
   assert.equal(Number(order.requested_total_php) * 100, fee + c.gift, 'the supplier pays fee + gift');
   assert.ok(
-    order.description.includes(setnayanGiftBillClause(fee, 809, c.gift)),
+    order.description.includes(setnayanGiftBillClause(fee, 790, c.gift)),
     `the bill names the photos: ${order.description}`,
   );
 });
@@ -502,7 +538,7 @@ test('⑥ pending: a price change re-sizes the gift; paid: it is frozen and a de
   const eventId = await newEvent('freeze-6');
   const evId = await newBooking(eventId, vendorProfileId, 20_000, { serviceId: card });
   await openCharge(evId);
-  assert.equal((await chargesFor(evId))[0]!.credits, 809);
+  assert.equal((await chargesFor(evId))[0]!.credits, 790);
 
   // The supplier flips the card to NO after the bill opened — the snapshot holds.
   await db.query(`UPDATE public.vendor_services SET includes_setnayan_gift = false WHERE vendor_service_id = $1`, [card]);
@@ -583,6 +619,8 @@ test('⑦ the quote names a count only when the bill will carry it', async () =>
 test('⑦ every new function is server-only — no browser role may call it', async () => {
   const fns = [
     'public.setnayan_gift_for_fee(bigint)',
+    'public.setnayan_gift_for_fee(bigint,uuid)',
+    'public.vendor_pays_gift_price(uuid)',
     'public.setnayan_gift_offered_on(uuid)',
     'public.setnayan_gift_bill_clause(bigint,integer,bigint)',
     'public.booking_fee_grant_setnayan_gift(uuid,uuid)',

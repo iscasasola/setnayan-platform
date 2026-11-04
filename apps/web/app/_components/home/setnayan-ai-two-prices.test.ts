@@ -181,7 +181,8 @@ test('the savings comparator quotes the REGULAR price, not the sign-up one', () 
   const src = read('app/_components/home/HomeOverlays.tsx');
   assert.match(
     src,
-    /const mine = pricing\.aiRegularPhp;/,
+    // 2026-11-04: once Setnayan AI is off sale on its own, the figure is Event Plus's (still never the sign-up one).
+    /const mine = pricing\.aiRegularPhp > 0 \? pricing\.aiRegularPhp : pricing\.plusPhp;/,
     'the savings comparator must value Setnayan AI at the REGULAR price — using ' +
       'the sign-up price inflates every "you save X" on the panel and contradicts ' +
       'the headline figure shown beside it',

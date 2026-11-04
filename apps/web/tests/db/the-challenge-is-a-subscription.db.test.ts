@@ -345,13 +345,14 @@ test('a shop cannot be BORN holding a window either', async () => {
 // 4. THE PRICE
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('the catalogue row is a 28-day subscription at ₱2,500, not a per-event fee', async () => {
+test('the catalogue row is a 28-day subscription at ₱1,490, not a per-event fee', async () => {
+  // Owner 2026-11-04 (SUPPLIER PRICE SHEET): photo challenge ₱1,490. Was ₱2,500 (2026-08-28).
   const r = await db.query<{ price: string; type: string; active: boolean }>(
     `SELECT price_php::text AS price, offering_type AS type, is_active AS active
        FROM public.vendor_billing_catalog WHERE sku_code = 'vendor_photo_challenge'`,
   );
   assert.equal(r.rows.length, 1, 'ONE row — the sku_code is also the orders.service_key');
-  assert.equal(Number(r.rows[0]!.price), 2500);
+  assert.equal(Number(r.rows[0]!.price), 1490);
   assert.equal(r.rows[0]!.type, 'vendor_addon_recurring');
   assert.equal(r.rows[0]!.active, true, 'a retired row would block the sale outright');
 });

@@ -64,8 +64,11 @@ test('the intent is written only AFTER every check a web checkout makes (and own
     /coordinatorMoneyScopeAllowed\(/,
     /resolveServiceSellability\(/,
     /papicCreditsMatch\(/,
-    /setnayanAiTierInApp\(/,
-    /if \(!iapProductFitsAiTier\(product, sai\.tier\)\) return startRefusal\('not_on_sale'\);/,
+    // 🗑 The Setnayan AI tier checks left with the AI products (2026-11-04, sold with Event Plus / Event Pro only).
+    // 💰 Plus ⊂ Pro: Pro is not sold in the app to an event that owns Plus (no upgrade product yet), and Plus is not
+    // sold to an event that already has Pro.
+    /if \(await eventOwnsSku\(admin, eventId, 'EVENT_PLUS'\)\) return startRefusal\('not_on_sale'\);/,
+    /product\.kind === 'event-plus'\) \{\s*if \(\(await eventHubOwnership\(admin, eventId, 'owned'\)\)\.full\) return startRefusal\('owned'\);/,
     /eventIsOver\(/,
     /eventOwnsSku\(/,
   ]) {

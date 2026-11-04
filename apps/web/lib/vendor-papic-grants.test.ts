@@ -31,7 +31,7 @@ function stubClient(byTable: Record<string, Result>): SupabaseClient {
   const build = (table: string) => {
     const result = byTable[table] ?? { data: null, error: null };
     const builder: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'in', 'gt', 'is', 'order', 'limit']) {
+    for (const m of ['select', 'eq', 'in', 'gt', 'is', 'order', 'limit', 'like']) {
       builder[m] = () => builder;
     }
     builder.maybeSingle = async () => result;
@@ -133,7 +133,19 @@ test('spend and left fold BOTH doors: on-the-day capture AND portfolio imports',
     vendor_papic_capture_grants: { data: null }, // → no paid Unli upgrade
     vendor_papic_captures: { data: [{ media_type: 'photo' }, { media_type: 'photo' }] }, // 2 pts spent
     vendor_papic_portfolio_credit_grants: { data: [{ credits: 60 }] }, // credits held
-    vendor_billing_catalog: { data: { price_php: '500.00', is_active: true } },
+    // 🛍 2026-11-04: the shop buys the couple's packs — read from the couple catalogue + tiers (invented figures).
+    platform_retail_catalog_v2: {
+      data: [
+        { service_code: 'PAPIC_GUEST_A', title: 'Pack A', retail_price_php: '11.00', is_active: true, retired_at: null },
+        { service_code: 'PAPIC_GUEST_B', title: 'Pack B', retail_price_php: '22.00', is_active: false, retired_at: null },
+      ],
+    },
+    papic_pass_tiers: {
+      data: [
+        { service_code: 'PAPIC_GUEST_A', points: 7, is_active: true, is_topup: false },
+        { service_code: 'PAPIC_GUEST_B', points: 70, is_active: true, is_topup: false },
+      ],
+    },
     vendor_papic_portfolio_photos: {
       data: [
         { credits_spent: 1, hidden_at: null },
@@ -150,7 +162,7 @@ test('spend and left fold BOTH doors: on-the-day capture AND portfolio imports',
   assert.equal(r.credits, 60);
   assert.equal(r.spent, 4, 'capture spend (2) + portfolio spend (2, the hidden row excluded)');
   assert.equal(r.left, 56, '58 (capture-only left) minus 2 more spent importing');
-  assert.equal(r.packPricePhp, 500);
+  assert.deepEqual(r.packs, [{ code: 'PAPIC_GUEST_A', title: 'Pack A', credits: 7, pricePhp: 11 }], 'only the pack on sale, read from the catalogue');
   assert.equal(r.offerPack, true, '60 credits is under a pack’s worth (100)');
 });
 

@@ -29,9 +29,11 @@ export const PAPIC_LADDER_EXPECTED: readonly (readonly [number, number])[] = [
   // have those prices"*. Seeded by migration
   // `*_papic_is_three_packs_and_no_signup_price.sql`; every other rung is off
   // sale (deactivated, never deleted). Was seventeen rungs, ₱95 → ₱31,625.
-  [150, 90],
-  [1_000, 490],
-  [3_000, 990],
+  // ⚖ OWNER 2026-11-04 (DECISION_LOG "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"): Papic 150 ₱99 ·
+  // Papic 1000 ₱499 · Papic 3000 ₱999 (migration *_the_final_price_sheet.sql). Was ₱90 / ₱490 / ₱990.
+  [150, 99],
+  [1_000, 499],
+  [3_000, 999],
 ] as const;
 
 /** The regular rate the whole ladder is discounted against: ₱1 buys one shot. */

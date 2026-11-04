@@ -406,10 +406,12 @@ export function storeShellHidesHref(href: string | null | undefined, currentUrl:
  * re-parsing a service_key here.
  */
 export function storeShellRefusesPayable(
-  payable: { isBookingFee: boolean },
+  payable: { isBookingFee: boolean; carriesGift?: boolean },
   storeShell: boolean,
 ): boolean {
-  return storeShell && !payable.isBookingFee;
+  // 💝 Owner 2026-11-04 ("they can purchase inside apple as well"): a booking fee whose bill carries the Setnayan gift
+  // (Papic credits — digital) is NOT paid on the web rail inside the app; the gift is an Apple purchase there.
+  return storeShell && (!payable.isBookingFee || payable.carriesGift === true);
 }
 
 /**

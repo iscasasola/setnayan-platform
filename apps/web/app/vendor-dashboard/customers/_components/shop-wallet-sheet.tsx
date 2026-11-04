@@ -11,6 +11,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import type { OpenRail } from '@/lib/payment-channels';
+import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 import {
   buyVendorPapicPortfolioPack,
   type BuyVendorPapicPortfolioPackState,
@@ -49,9 +50,9 @@ export type ShopWalletSheetData = {
   pots: readonly { key: string; title: string; sub: string; href: string }[] | null;
   buy: {
     openRails: readonly OpenRail[];
-    /** null = the pack SKU is missing/inactive. */
-    pricePhp: number | null;
-    packCredits: number;
+    /** The couple's Papic packs, on sale to the shop too (owner 2026-11-04), read from the catalogue.
+     *  null/empty = unreadable or none on sale → "Pack unavailable". */
+    packs: readonly ShopPapicPack[] | null;
     /** The owner's Papic switch (`isVendorPapicCaptureEnabled`). Off ⇒ no pack is sold —
      *  owner 2026-10-25: "No. Papic needs to be on." The balance still shows. */
     papicOn: boolean;
@@ -152,7 +153,10 @@ function BuyAPack({
   const [state, formAction] = useActionState(buyVendorPapicPortfolioPack, IDLE);
   const handled = useRef<BuyVendorPapicPortfolioPackState | null>(null);
   const { openRails } = buy;
+  const packs = buy.packs ?? [];
   const [rail, setRail] = useState<string | null>(openRails[0]?.id ?? null);
+  const [packCode, setPackCode] = useState<string | null>(packs[0]?.code ?? null);
+  const pack = packs.find((p) => p.code === packCode) ?? null;
 
   useEffect(() => {
     if (state === handled.current) return;
@@ -165,15 +169,15 @@ function BuyAPack({
   return (
     <div className="mt-5" data-shop-wallet-buy="">
       <p className="home-k2">Buy a pack</p>
-      {buy.pricePhp != null ? (
+      {pack ? (
         <p className="mt-1 text-[13.5px] text-ink/60">
-          {peso(buy.pricePhp)} · {count(buy.packCredits)} credits · lands in this wallet when the payment is approved ·
-          never expires while your shop exists.
+          {pack.title} · {count(pack.credits)} credits · {peso(pack.pricePhp)} · lands in this wallet when the payment is
+          approved · never expires while your shop exists.
         </p>
       ) : null}
       {openRails.length === 0 ? (
         <PaymentsPausedNote className="mt-2" />
-      ) : buy.pricePhp == null ? (
+      ) : !pack ? (
         <>
           <div className="mt-3">
             <ActionButton tone="brand" main disabled icon={ShoppingBag} label="Pack unavailable" />
@@ -183,7 +187,18 @@ function BuyAPack({
           </p>
         </>
       ) : (
-        <form action={formAction} className="mt-3 flex items-center gap-2">
+        <form action={formAction} className="mt-3 flex flex-wrap items-center gap-2">
+          {/* The pack: the couple's three (owner 2026-11-04). One dropdown, never a pill row. */}
+          <input type="hidden" name="pack" value={pack.code} />
+          <PickMenu
+            label="Pack"
+            value={pack.code}
+            compact
+            className="!min-h-11"
+            options={packs.map((p) => ({ key: p.code, label: `${p.title} · ${peso(p.pricePhp)}` }))}
+            onPick={(key) => setPackCode(key)}
+            dataAttr="data-shop-wallet-pack"
+          />
           {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
           <input type="hidden" name="channel" value={rail ?? ''} />
           <PickMenu
@@ -199,7 +214,7 @@ function BuyAPack({
             tone="brand"
             main
             icon={<ShoppingBag aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-            label={`Buy ${count(buy.packCredits)} credits · ${peso(buy.pricePhp)}`}
+            label={`Buy ${pack.title} · ${peso(pack.pricePhp)}`}
             pendingLabel="Starting…"
             className="flex-1"
           />

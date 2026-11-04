@@ -11,6 +11,7 @@ import {
   type BuyVendorPapicPortfolioPackState,
 } from '../papic/portfolio-pack-actions';
 import { formatCount } from '@/lib/format-number';
+import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
@@ -32,8 +33,7 @@ export function PortfolioCreditsCard({
   credits,
   left,
   offerPack,
-  packPricePhp,
-  packCredits,
+  packs,
   openRails,
 }: {
   eventId: string;
@@ -42,9 +42,8 @@ export function PortfolioCreditsCard({
   /** What's left to spend, across both doors (capture + portfolio import). `null` = unlimited. */
   left: number | null;
   offerPack: boolean;
-  /** `null` = the pack SKU is missing/inactive — render "unavailable", not a stale number. */
-  packPricePhp: number | null;
-  packCredits: number;
+  /** The couple's Papic packs on sale to the shop (2026-11-04); `null`/empty = render "unavailable", never a number. */
+  packs: readonly ShopPapicPack[] | null;
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the buy form gives way to PaymentsPausedNote (the server action
    *  refuses the same case). */
@@ -96,15 +95,28 @@ export function PortfolioCreditsCard({
                 </option>
               ))}
           </select>
+          {packs && packs.length > 0 ? (
+            <select
+              name="pack"
+              className="rounded-lg border px-2 py-1.5 text-xs"
+              style={{ borderColor: 'var(--m-line)' }}
+              aria-label="Pack"
+              defaultValue={packs[0]!.code}
+            >
+              {packs.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.title} · {formatCount(p.credits)} credits · {peso(p.pricePhp)}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <SubmitButton
             className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-xs font-medium text-cream hover:bg-terracotta-800"
             pendingLabel="Starting…"
-            disabled={packPricePhp == null}
+            disabled={!packs || packs.length === 0}
           >
             <ShoppingBag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {packPricePhp == null
-              ? 'Pack unavailable'
-              : `Buy ${formatCount(packCredits)} credits · ${peso(packPricePhp)}`}
+            {!packs || packs.length === 0 ? 'Pack unavailable' : 'Buy'}
           </SubmitButton>
         </form>
       ) : null}

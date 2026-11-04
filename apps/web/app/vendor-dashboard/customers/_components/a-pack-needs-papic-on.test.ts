@@ -25,5 +25,5 @@ test('the wallet sheet hides Buy while Papic is off, and the page reads the swit
   assert.match(sheet, /if \([^)]*!buy\.papicOn[^)]*\) return null;/, 'BuyAPack draws while Papic is off');
   const segment = read('app/vendor-dashboard/customers/_components/money-segment.tsx');
   assert.match(segment, /isVendorPapicCaptureEnabled\(\)/, 'the money page never reads the Papic switch');
-  assert.match(segment, /packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS, papicOn \}/, 'papicOn is not handed to the sheet');
+  assert.match(segment, /buy: \{ openRails: openRailOptions\(settings\), packs, papicOn \}/, 'papicOn is not handed to the sheet');
 });

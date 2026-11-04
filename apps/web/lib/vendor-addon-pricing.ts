@@ -28,13 +28,13 @@ export const VENDOR_AI_ADDON_SKU_CODE = 'vendor_ai_addon';
 export const VENDOR_AI_ADDON_PERIOD_DAYS = 28;
 
 /**
- * Fallback ₱1,500 / 28-day renewal price. The live catalog value wins; this is
+ * Fallback 28-day renewal price (the Pro/Ultra row's, 2026-11-04). The live catalog value wins; this is
  * the last-resort figure used only when the `vendor_ai_addon` row is missing or
  * unreadable (e.g. the seeding migration hasn't been applied, or a CI build with
  * no service-role key). Never hardcode this in UI copy — read via
  * {@link fetchVendorAiAddonPricePhp}.
  */
-export const VENDOR_AI_ADDON_FALLBACK_PHP = 1500;
+export const VENDOR_AI_ADDON_FALLBACK_PHP = 1490;
 
 export type VendorAiAddonPriceInputs = {
   /** Has this vendor already consumed its one-time free first cycle? */

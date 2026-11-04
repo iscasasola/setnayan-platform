@@ -6,6 +6,7 @@ import { ONBOARDING_SERVICES_SKU, readBasketLinesForPayer } from './onboarding-o
 import { isVatInclusiveServiceKey, orderGrossOwed } from './orders';
 import { getEffectiveVatRatePct } from './platform-settings';
 import { isBookingFeeOrder, payBackLink } from './pay-back-link';
+import { chargeIdFromBookingFeeLockServiceKey } from './booking-fee-lock';
 
 export type { PayableStatus };
 
@@ -80,6 +81,13 @@ export type Payable = {
    * `storeShellRefusesPayable` in lib/store-shell.ts.
    */
   isBookingFee: boolean;
+  /**
+   * 💝 A booking fee whose bill also carries the Setnayan gift (`booking_fee_charges.gift_centavos > 0`) — Papic
+   * credits, a DIGITAL product. Owner 2026-11-04: in the iPhone app a gift is bought through Apple, never through the
+   * booking-fee order, so the store shell refuses this bill (`storeShellRefusesPayable`). An unreadable charge answers
+   * `true` — the app refuses rather than take web money for a digital gift; the web is unaffected.
+   */
+  carriesGift: boolean;
 };
 
 type OrderRow = {
@@ -186,9 +194,10 @@ export async function fetchPayableByReference(
   // needs to know WHICH celebration their money is for.
   // Every read here is best-effort: a payment page must still render when the
   // decoration cannot be fetched.
-  const [who, lines] = await Promise.all([
+  const [who, lines, carriesGift] = await Promise.all([
     fetchWho(supabase, order),
     fetchRows(supabase, order),
+    isBookingFee ? bookingFeeCarriesGift(supabase, order.service_key) : Promise.resolve(false),
   ]);
 
   return {
@@ -213,7 +222,24 @@ export async function fetchPayableByReference(
     }),
     requiresReference: isBookingFee,
     isBookingFee,
+    carriesGift,
   };
+}
+
+/** 💝 Does this booking-fee order's charge carry the Setnayan gift? Unreadable ⇒ `true` (see `Payable.carriesGift`). */
+async function bookingFeeCarriesGift(supabase: SupabaseClient, serviceKey: string | null): Promise<boolean> {
+  const chargeId = chargeIdFromBookingFeeLockServiceKey(serviceKey);
+  if (!chargeId) return true;
+  const { data, error } = await supabase
+    .from('booking_fee_charges')
+    .select('gift_centavos')
+    .eq('charge_id', chargeId)
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.error('[supabase-error] payable-by-reference: booking fee gift', error);
+    return true;
+  }
+  return Number((data as { gift_centavos?: number | string | null }).gift_centavos ?? 0) > 0;
 }
 
 /**

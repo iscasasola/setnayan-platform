@@ -44,6 +44,7 @@ export default async function PricingPlanPage() {
     liveWatch: prices.liveWatch,
     patiktok: prices.patiktok,
     ai: prices.ai,
+    plus: prices.plus,
   };
   return (
     <main className="bg-cream text-ink">

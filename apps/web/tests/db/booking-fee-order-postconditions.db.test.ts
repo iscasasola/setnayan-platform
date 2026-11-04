@@ -713,7 +713,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   assert.ok(res.status === 'ordered');
   const feePhp = bookingFeePhp(20_000); // ₱1,000
   const giftPhp = Math.floor(feePhp * 100 * 0.4) / 100; // 40% of the fee, ₱400 — under the top pack's ₱990, so not capped
-  assert.equal(res.giftCredits, 809, '₱20,000 → 809 free photos (the three packs, 2026-11-03)');
+  assert.equal(res.giftCredits, 790, '₱20,000 → 790 free photos (the final price sheet, 2026-11-04)');
   assert.equal(res.amountPhp, feePhp + giftPhp, 'the supplier pays fee + gift');
 
   // The fee column stays the fee — the gift rides beside it.
@@ -723,7 +723,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   const [order] = await ordersForCharge(res.chargeId);
   assert.ok(order);
   assert.equal(Number(order.requested_total_php), feePhp + giftPhp);
-  assert.match(order.description, /\+ your Setnayan gift for your couple: 809 free Papic photos, ₱400/);
+  assert.match(order.description, /\+ your Setnayan gift for your couple: 790 free Papic photos, ₱400/);
   assert.match(order.description, /^Setnayan booking fee \(/);
 
   const [payment] = await paymentsLinkedToChargeOrder(res.chargeId);

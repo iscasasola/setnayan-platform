@@ -3,7 +3,7 @@
  * BY PART"; migration 20271282742262).
  *
  *   · the eleven parts are catalogue rows at the owner's prices (BIG ₱1,000 · SMALL ₱500), on sale, with NO sign-up
- *     price (onboarding keeps its one offer), and Full Pro is the one price ₱6,590 (2026-10-28), no sign-up override;
+ *     price (onboarding keeps its one offer), and Full Pro is the one price ₱5,690 (Event Pro, owner's final sheet 2026-11-04; was ₱6,590), no sign-up override;
  *   · THE CAP, measured on real rows: the event's paid part orders — read the way the render reads them
  *     (`event_entitlement_facts`) — priced from the catalogue, fed to the one cap function (`hubOwnershipFrom`):
  *     ₱4,500 paid is not everything; ₱5,000 is everything ONLY for parts bought before the old-cap cutover (owner
@@ -80,12 +80,12 @@ test('the eleven parts keep the owner’s prices but are OFF SALE — Event Hub 
   for (const p of HUB_PARTS) assert.ok(r.rows.some((x) => x.code === p.sku), `${p.name} has no catalogue row`);
 });
 
-test('Full Pro is the one price ₱6,590, with no sign-up override (2026-10-28)', async () => {
+test('Full Pro (Event Pro) is the one price ₱5,690, with no sign-up override (2026-11-04)', async () => {
   const r = await db.query<{ php: string; signup: string | null }>(
     `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup FROM public.platform_retail_catalog_v2
       WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
-  assert.equal(Number(r.rows[0]!.php), 6590);
+  assert.equal(Number(r.rows[0]!.php), 5690);
   assert.equal(r.rows[0]!.signup, null);
 });
 
@@ -152,7 +152,7 @@ async function capOf(eventId: string, mode: 'active' | 'owned') {
   }
 }
 
-test('₱4,500 of parts is not everything; the rest is the one price less it (₱6,590 − ₱4,500 = ₱2,090)', async () => {
+test('₱4,500 of parts is not everything; the rest is the one price less it (₱5,690 − ₱4,500 = ₱1,190)', async () => {
   const id = await eventWith([
     { part: 'reveal', status: 'paid' },
     { part: 'background', status: 'paid' },
@@ -163,7 +163,7 @@ test('₱4,500 of parts is not everything; the rest is the one price less it (�
   const o = await capOf(id, 'active');
   assert.equal(o.paidPhp, 4500);
   assert.equal(o.full, false);
-  assert.equal(hubRestToEverything(o), 2090);
+  assert.equal(hubRestToEverything(o), 1190);
   assert.equal(o.parts.has('motion'), false);
 });
 
@@ -202,7 +202,7 @@ test('⚖ the SAME ₱5,000 of parts bought AFTER the cutover is not everything 
   const o = await capOf(id, 'active');
   assert.equal(o.paidPhp, 5000);
   assert.equal(o.full, false, 'a part total after the cutover was measured against the old cap');
-  assert.equal(hubRestToEverything(o), 1590);
+  assert.equal(hubRestToEverything(o), 690);
 });
 
 test('⚖ an old-week order still under review owns nothing yet — the old cap follows the same status rule', async () => {
@@ -248,5 +248,5 @@ test('🪄 the retired Animated Monogram reads as Logo & QR — owned, and count
   const o = await capOf(id, 'active');
   assert.equal(o.parts.has('logo_qr'), true, 'a monogram owner does not own Logo & QR');
   assert.equal(o.paidPhp, 1500, 'the monogram did not count at Logo & QR’s web value');
-  assert.equal(hubRestToEverything(o), 5090);
+  assert.equal(hubRestToEverything(o), 4190);
 });

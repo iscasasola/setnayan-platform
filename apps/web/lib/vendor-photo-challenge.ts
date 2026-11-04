@@ -54,7 +54,8 @@ export const VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS = 28;
  * is how an unreadable catalog quietly sells a 28-day subscription for the old
  * per-event fee.
  */
-export const VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP = 2500;
+// 💲 2026-11-04 (owner, final price sheet): ₱1,490 — moves WITH the `vendor_photo_challenge` row.
+export const VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP = 1490;
 
 /** A positive finite price, or the fallback when the catalog value is missing/invalid. */
 function coercePrice(value: number | null | undefined, fallback: number): number {

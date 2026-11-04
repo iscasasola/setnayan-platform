@@ -101,7 +101,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
                 { key: 'r2', title: `${shop.tier === 'pro' ? 'Pro' : 'Solo'} plan`, line: 'Tue 1 Sep 2026 · lab price', receiptId: null },
               ]
       }
-      papicPackPrice={500}
+      papicPackPrice={99}
       featured={shop.tier === 'pro'}
     />
   );
@@ -154,7 +154,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       feeRow={bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
       gives={planGivesLines(tier, false)}
       receipts={[]}
-      papicPackPrice={500}
+      papicPackPrice={99}
       featured={tier === 'pro'}
       gift={gift ? { line: giftPlanLine(gift) } : { line: giftEndedLine('Pro', '2027-01-31') }}
       photosLine={portfolioPlanRowLine({

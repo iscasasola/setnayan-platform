@@ -21,20 +21,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { VENDOR_3D_BOOTH_FALLBACK_PHP } from './vendor-3d-booth-pricing';
-import { VENDOR_ADDON_TIER_PRICES_PHP, resolveVendorAddonPricePhp } from './vendor-addon-tier-pricing';
+import { VENDOR_ADDON_BAND_SKU_CODES, vendorAddonSkuCode } from './vendor-addon-tier-pricing';
 import { RETAIL } from './llms-txt-guard-input';
 
-const FLAT = 3000;
+const FLAT = 1490; // owner 2026-11-04, final price sheet (was ₱3,000)
 
-test('the fallback and BOTH matrix bands are the one flat price', () => {
+test('the fallback is the one flat price, and BOTH bands name the same catalogue row', () => {
   assert.equal(VENDOR_3D_BOOTH_FALLBACK_PHP, FLAT, 'fallback');
-  assert.equal(VENDOR_ADDON_TIER_PRICES_PHP.ads_3d_plan.entry, FLAT, 'entry band');
-  assert.equal(VENDOR_ADDON_TIER_PRICES_PHP.ads_3d_plan.growth, FLAT, 'growth band');
+  // 2026-11-04: the band holds catalogue ROWS, not prices — one row on both sides is one price.
+  assert.equal(VENDOR_ADDON_BAND_SKU_CODES.ads_3d_plan.entry, VENDOR_ADDON_BAND_SKU_CODES.ads_3d_plan.growth);
 });
 
 test('no tier can be quoted a different number', () => {
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom', null, undefined]) {
-    assert.equal(resolveVendorAddonPricePhp('ads_3d_plan', tier), FLAT, String(tier));
+    assert.equal(vendorAddonSkuCode('ads_3d_plan', tier), 'vendor_3d_booth', String(tier));
   }
 });
 

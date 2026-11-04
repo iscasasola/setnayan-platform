@@ -56,8 +56,10 @@ export type TwoPrices = { regular: number; signup: number | null };
 export type AiBand = 'A' | 'B' | 'C' | 'D';
 
 export type OurPrices = {
-  /** Event Hub Pro — COUPLE_WEBSITE_PRO. */
+  /** Event Pro — COUPLE_WEBSITE_PRO. */
   pro: TwoPrices | null;
+  /** Event Plus — EVENT_PLUS (Setnayan AI + Papic credits, owner 2026-11-04). Absent until its row is on sale. */
+  plus: number | null;
   /** The Event Hub Pro parts that have an active, priced row, in `HUB_PARTS` order. */
   hubParts: Array<{ id: string; name: string; php: number }>;
   /** Papic credit rungs (PAPIC_GUEST*), cheapest first — the label is the row's own words ("add 100 credits"). */
@@ -70,7 +72,13 @@ export type OurPrices = {
   thankYou: number | null;
   /** Music Maker — PAKANTA. */
   musicMaker: number | null;
-  /** Setnayan AI by event-type band (AI_TIER_SKU), each through the shared two-price resolver. */
+  /**
+   * Setnayan AI by event-type band (AI_TIER_SKU) — ONLY while `SETNAYAN_AI` itself is on sale.
+   * ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own; it comes inside Event Plus
+   * and Event Pro. The B · C · D rows are inactive BY DESIGN (price sources), so their `is_active` cannot say
+   * whether the product is sold — the A row (`SETNAYAN_AI`, the sellable one) is the switch for the whole ladder.
+   * With that row off sale this is `{}` and no page draws an AI figure.
+   */
   ai: Partial<Record<AiBand, TwoPrices>>;
 };
 
@@ -118,7 +126,8 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
   const patiktokPhp = php('PATIKTOK_COMPILER');
 
   const ai: Partial<Record<AiBand, TwoPrices>> = {};
-  for (const band of ['A', 'B', 'C', 'D'] as const) {
+  const aiOnSale = row('SETNAYAN_AI') != null; // the customer catalogue carries ACTIVE rows only
+  for (const band of aiOnSale ? (['A', 'B', 'C', 'D'] as const) : []) {
     const code = AI_TIER_SKU[band];
     const r = code === 'SETNAYAN_AI' ? row('SETNAYAN_AI') : code ? extraByCode.get(code) : undefined;
     const prices = twoPrices(r ?? null);
@@ -127,6 +136,7 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
 
   return {
     pro: twoPrices(row('COUPLE_WEBSITE_PRO') ?? null),
+    plus: php('EVENT_PLUS'),
     hubParts,
     papicRungs,
     liveWatch: php('LIVE_STUDIO'),

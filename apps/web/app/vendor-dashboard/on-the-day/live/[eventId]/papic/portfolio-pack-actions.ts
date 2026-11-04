@@ -10,15 +10,18 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
-import {
-  VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
-  VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
-} from '@/lib/vendor-papic-credits';
+import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
+import { shopPapicPackServiceKey } from '@/lib/vendor-papic-credits';
 import { formatCount } from '@/lib/format-number';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 
 /**
+ * 🛍 2026-11-04 — THE SHOP BUYS THE COUPLE'S PACKS (owner, "SIX OWNER ANSWERS" (4)). The form names a pack
+ * (`pack` = `PAPIC_GUEST_150` · `PAPIC_GUEST_1K` · `PAPIC_GUEST`); its price and credits are READ from the couple
+ * catalogue (`fetchShopPapicPacks`), never sent by the client, and the order is keyed
+ * `shopPapicPackServiceKey(code)` so the activation hook lands that rung's credits in the shop wallet. The ₱500
+ * `vendor_papic_portfolio_pack` is retired and is no longer minted here.
+ *
  * Buy ONE Papic credit pack INTO THE SHOP WALLET — apply-then-pay, the same
  * shape every vendor add-on order uses (mirrors booth-addon-actions.ts /
  * photo-challenge-actions.ts). The activation hook (`grantVendorPapicPortfolioPack`,
@@ -94,13 +97,16 @@ export async function buyVendorPapicPortfolioPack(
     return err('Papic credit packs are not on sale right now.');
   }
 
-  // Re-read the authoritative price from the admin-managed catalog — the
-  // client never sends a price. `null` covers missing/inactive/unreadable.
+  // Re-read the authoritative price + credits from the admin-managed catalog — the
+  // client names a pack, never a price. `null` covers missing/inactive/unreadable.
   const admin = createAdminClient();
-  const pricePhp = await fetchVendorPapicPackPricePhp(admin);
-  if (pricePhp == null) {
-    return err('The Papic credit pack is temporarily unavailable. Please try again later.');
+  const packs = await fetchShopPapicPacks(admin);
+  const asked = String(formData.get('pack') ?? '').trim();
+  const pack = packs?.find((p) => p.code === asked) ?? null;
+  if (!pack) {
+    return err('That Papic pack is not on sale right now. Please try again later.');
   }
+  const pricePhp = pack.pricePhp;
 
   // The rail kill switch (lib/rail-for-new-order.ts): never mint an order
   // nobody can pay into. A free grant needs no rail; only a paid mint gets here.
@@ -115,10 +121,10 @@ export async function buyVendorPapicPortfolioPack(
       orderRowFor(
         { userId: user.id, eventId: null, vendorProfileId },
         {
-          service_key: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+          service_key: shopPapicPackServiceKey(pack.code),
           // The /pay page's title (lib/payable-by-reference.ts reads
-          // orders.description) — the prototype's pay-page words.
-          description: `Papic credit pack — ${formatCount(VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS)} credits for your shop`,
+          // orders.description) — the pack's own name.
+          description: `${pack.title} — ${formatCount(pack.credits)} credits for your shop`,
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,

@@ -63,8 +63,9 @@ import {
   sealServerResolvedTotal,
   type OrderChargeAuthority,
 } from '@/lib/order-charge-math';
-import { FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
+import { EVENT_PLUS_SKU, FULL_PRO_SKU, HUB_PARTS_ORDER_KEY, hubPart, hubPartOfSku, hubPartsCharge, type HubPartId } from '@/lib/hub-parts';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
+import { eventOwnsSku } from '@/lib/entitlements';
 
 export {
   chargeOverchargesDisplayedPrice,
@@ -172,6 +173,35 @@ export async function resolveOrderChargeCentavos(
   if (eventId && (serviceKey === FULL_PRO_SKU || partKey)) {
     const hub = await resolveHubProCharge(admin, eventId, serviceKey, input.hubParts ?? []);
     if (hub) return hub;
+  }
+
+  // ── (1c) Setnayan AI is not sold on its own (owner 2026-11-04) ─────────────
+  // "Setnayan ai no separate purchase will be part of event plus and event pro". The retail resolver below does not
+  // read `is_active`, so a retired AI row would still price — refused HERE while its catalogue row is off sale. The
+  // catalogue decides (an admin re-activating the row sells it again); events that bought AI keep it.
+  if (serviceKey.startsWith(SETNAYAN_AI_SKU)) {
+    const { data: aiRow, error: aiErr } = await admin
+      .from('platform_retail_catalog_v2')
+      .select('is_active')
+      .eq('service_code', serviceKey)
+      .maybeSingle();
+    if (aiErr) return { ok: false, refusal: 'read_error', detail: `platform_retail_catalog_v2: ${aiErr.message}` };
+    if (aiRow && (aiRow as { is_active?: boolean | null }).is_active !== true) {
+      return { ok: false, refusal: 'no_price_source', detail: 'Setnayan AI comes with Event Plus and Event Pro' };
+    }
+  }
+
+  // ── (1d) 💎 Event Plus (owner 2026-11-04) — once per event, never under Pro ──
+  // Pro already includes everything Plus has, and a second Plus would charge twice for one unlock.
+  if (serviceKey === EVENT_PLUS_SKU) {
+    if (!eventId) return { ok: false, refusal: 'no_price_source', detail: 'Event Plus is sold for an event only' };
+    let holds;
+    try {
+      holds = await Promise.all([eventHubOwnership(admin, eventId, 'owned'), eventOwnsSku(admin, eventId, EVENT_PLUS_SKU)]);
+    } catch (e) {
+      return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
+    }
+    if (holds[0].full || holds[1]) return { ok: false, refusal: 'already_owned', detail: serviceKey };
   }
 
   // ── (2) The retail catalog ────────────────────────────────────────────────

@@ -134,15 +134,14 @@ test('Google DNS-TXT verification counts as configured without the env var', () 
 // fail is decorative, which is precisely how llms.txt drifted for three weeks.
 
 test('a declared literal that no longer matches its SKU FAILS, naming file + SKU', () => {
-  const catalog: CatalogRow[] = skuBackedLiterals().map((l) => ({
-    sku_code: l.sku,
-    price_php:
-      // The monogram demo frame's ₱500 is the Logo & QR part since 2026-10-22 (the standalone monogram retired into it).
-      l.sku === 'COUPLE_HUB_PART_LOGO_QR' ? 1750 : Number(l.literal.replace(/[₱,]/g, '')),
-    source: 'retail',
-  }));
+  // The inventory holds no SKU-backed figure since 2026-11-04 (the demo's two were deleted, not re-typed), so the
+  // check is fed a planted one — a check nobody has watched fail is decorative.
+  const literals = [
+    { file: 'app/_components/app-store/studio-card-demo.tsx', literal: '₱500', sku: 'COUPLE_HUB_PART_LOGO_QR', reason: 'planted' },
+  ];
+  const catalog: CatalogRow[] = [{ sku_code: 'COUPLE_HUB_PART_LOGO_QR', price_php: 1750, source: 'retail' }];
 
-  const res = runSeoHealthChecks({ llmsText: '', catalog, env: {} });
+  const res = runSeoHealthChecks({ llmsText: '', catalog, env: {}, literals });
   const check = res.findings.find((f) => f.check === 'hardcoded public price literals');
 
   assert.equal(check?.status, 'fail');

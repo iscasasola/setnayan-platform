@@ -56,6 +56,13 @@ export type PricingData = {
    *  branch on. Derived here so no consumer re-invents the comparison, and so
    *  "there is a sign-up price" can never be inferred from a stale literal. */
   aiHasSignupPrice: boolean;
+  /**
+   * Event Plus (EVENT_PLUS) — where Setnayan AI is bought now that it is not sold on its own (owner 2026-11-04,
+   * final price sheet: "Setnayan AI comes inside Event Plus and Event Pro"). `''` / 0 when its row is not on sale
+   * or unreadable — the surface then draws no figure, the same rule as `aiPrice`.
+   */
+  plusPrice: string;
+  plusPhp: number;
   /** recurrence suffix for the AI tier (e.g. "/28 days" or "/mo") */
   aiPeriod: string;
   /** Vendor tier prices (28-day + annual), resolved from the live catalog —
@@ -167,7 +174,12 @@ export async function getHomePricingData(): Promise<PricingData> {
   const ai = catalog.find((s) => s.service_code === 'SETNAYAN_AI');
   const { regularPhp, introPhp, hasSignupPrice } = resolveAiPrices(ai);
 
+  const plusRow = catalog.find((s) => s.service_code === 'EVENT_PLUS');
+  const plusPhp = plusRow && Number(plusRow.retail_price_php) > 0 ? Number(plusRow.retail_price_php) : 0;
+
   return {
+    plusPrice: plusPhp > 0 ? peso(plusPhp) : '',
+    plusPhp,
     aiPrice: regularPhp > 0 ? peso(regularPhp) : '',
     aiIntroPrice: introPhp > 0 ? peso(introPhp) : '',
     aiRegularPhp: regularPhp,

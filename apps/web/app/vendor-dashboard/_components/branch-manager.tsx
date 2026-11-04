@@ -61,6 +61,12 @@ type Props = {
   /** Where the pin map opens before the vendor pans (HQ, or a PH fallback). */
   initialCenter: LatLng;
   pay: PayInfo;
+  /**
+   * May this shop BUY a branch? Ultra (and Custom) only — owner 2026-11-04, "Extra branch … applies for ultra only".
+   * Off → the Add button is not drawn (the server refuses it too, `branches/actions.ts`); branches already held stay
+   * listed and can be cancelled.
+   */
+  canAdd: boolean;
 };
 
 export function BranchManager({
@@ -69,6 +75,7 @@ export function BranchManager({
   autoRadiusKm,
   initialCenter,
   pay,
+  canAdd,
 }: Props) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
@@ -81,7 +88,8 @@ export function BranchManager({
 
   return (
     <div className="space-y-4">
-      {/* Add-branch trigger + inline expander */}
+      {/* Add-branch trigger + inline expander — Ultra only (owner 2026-11-04). */}
+      {canAdd ? (
       <div>
         <button
           type="button"
@@ -109,6 +117,7 @@ export function BranchManager({
           />
         </Collapsible>
       </div>
+      ) : null}
 
       {/* How to pay — shown whenever a branch is awaiting payment */}
       {hasPending ? (

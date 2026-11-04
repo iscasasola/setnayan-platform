@@ -49,6 +49,13 @@ export type HubPartId = (typeof HUB_PART_IDS)[number];
 /** The one Full Pro unlock — everything, and the only key to the footer. */
 export const FULL_PRO_SKU = 'COUPLE_WEBSITE_PRO';
 
+/**
+ * 💎 EVENT PLUS (owner 2026-11-04, FINAL PRICE SHEET): Setnayan AI + 100 Papic credits. What an event PAID for Plus
+ * counts toward Event Pro at Plus's catalogue (web) value — "upgrading from Plus pays the difference" — exactly as a
+ * paid part counts toward THE CAP. Plus alone never unlocks a Hub part.
+ */
+export const EVENT_PLUS_SKU = 'EVENT_PLUS';
+
 export type HubPart = {
   id: HubPartId;
   /** Its catalogue row — the price is read from there, never from here. */
@@ -313,6 +320,11 @@ export function hubOwnershipFrom(input: {
    * a part bought after the cutover counts only toward today's price. Absent or unread → no grandfather.
    */
   legacy?: { capPhp: number; paidParts: Iterable<HubPartId> } | null;
+  /**
+   * 💎 Event Plus was PAID for on this event (an order — never a comp): its catalogue price (`prices.get(EVENT_PLUS_SKU)`)
+   * counts toward today's Full Pro price, so the upgrade charges only the difference. Unread price → counts 0.
+   */
+  plusPaid?: boolean;
 }): HubOwnership {
   const sumOf = (ids: Iterable<HubPartId>) => {
     let sum = 0;
@@ -322,7 +334,9 @@ export function hubOwnershipFrom(input: {
     }
     return sum;
   };
-  const paid = sumOf(input.paidParts);
+  const plusPhp = input.plusPaid ? input.prices.get(EVENT_PLUS_SKU) : undefined;
+  const paid =
+    sumOf(input.paidParts) + (typeof plusPhp === 'number' && Number.isFinite(plusPhp) && plusPhp > 0 ? plusPhp : 0);
   const fullPrice = typeof input.fullPrice === 'number' && Number.isFinite(input.fullPrice) && input.fullPrice > 0 ? input.fullPrice : null;
   if (input.fullHeld || (fullPrice !== null && paid >= fullPrice)) return everyHubPart(fullPrice, paid);
   const legacyCap = input.legacy?.capPhp;

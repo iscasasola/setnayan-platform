@@ -21,6 +21,8 @@ export type PlanPrices = {
   liveWatch: number | null;
   patiktok: { php: number; perDay: boolean } | null;
   ai: Partial<Record<AiBand, TwoPrices>>;
+  /** Event Plus — EVENT_PLUS. Where Setnayan AI is bought once it is no longer sold on its own (owner 2026-11-04). */
+  plus?: number | null;
 };
 
 /** Event types, in the prototype's words — each prices Setnayan AI by its band (`AI_TIER_SKU`). */
@@ -149,7 +151,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           k: 'pro',
           q: 'Do you want the Event Hub to look like yours?',
           line: 'Your photos, music, themes and logo.',
-          item: 'Event Hub Pro',
+          item: 'Event Pro',
           tip:
             'Everything: your photos, music, themes and logo on the Event Hub, the cinematic reveal, 500 MB of your own media, prints in your look, no Setnayan mark. ' +
               (p.pro.signup != null
@@ -174,7 +176,17 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           tool: true,
           php: at(ai),
         }
-      : null,
+      : p.plus != null
+        ? {
+            k: 'ai',
+            q: 'Do you want help choosing suppliers?',
+            line: 'A team suggested by fit, and your plan watched.',
+            item: 'Event Plus',
+            tip: `Setnayan AI suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. It comes with Event Plus, ${peso(p.plus)}, with Papic credits for your guests — and with Event Pro.`,
+            tool: true,
+            php: p.plus,
+          }
+        : null,
     p.patiktok
       ? {
           k: 'patiktok',

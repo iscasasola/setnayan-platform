@@ -154,6 +154,9 @@ export type LabBookedOptions = {
   callTimesFail?: boolean;
   /** 📍 `&chapters=none|fail` — no chapter yet · the Schedule read refused (`LAB_CHAPTERS`). */
   chapters?: 'none' | 'fail' | null;
+  /** 📖 `&ask=1` — Bituin is booked on no chapter yet: "Which chapters will they serve?" opens, prefilled from catering's
+   *  usual chapter (2026-11-04). */
+  ask?: boolean;
   /** 📍 `&covers=1` — Seda also brings Cake and Catering (in-house). */
   covers?: boolean;
 };
@@ -290,7 +293,15 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
     rooms,
     dateChange,
     callTimes: o.callTimesFail ? null : labCallTimes(),
-    chapters: o.chapters === 'fail' ? null : o.chapters === 'none' ? [] : LAB_CHAPTERS,
+    chapters:
+      o.chapters === 'fail'
+        ? null
+        : o.chapters === 'none'
+          ? []
+          : o.ask
+            ? LAB_CHAPTERS.map((c) => ({ ...c, tags: c.tags.filter((t) => t !== 'v-bituin') }))
+            : LAB_CHAPTERS,
+    tradeChapters: new Map([['catering', ['cocktail_reception'] as const], ['cake_maker', ['cocktail_reception'] as const]]),
     now: labBookedNow(o),
   });
 }

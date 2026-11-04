@@ -540,7 +540,12 @@ export type NotificationType =
      accept path (`lib/schedule-suggestion-decide.server.ts`). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is
      why the ask is not `schedule_change_requested`, which is emailed. ⚠ ENUM values in 20271302910538. */
   | 'schedule_ask'
-  | 'schedule_ask_answered';
+  | 'schedule_ask_answered'
+  /* 📸 THE PHOTO RULE'S REMINDERS (owner 2026-11-03, DECISION_LOG "THE PHOTO RULE"): originals are kept until 3 months
+     after the event's LAST day; each host is told at day 60, 80 and 89 — "Copy to Google Drive (free) or Download all".
+     Sent by `lib/papic-originals-reminder.ts`, once per stage per host. ⚠ IN-APP ONLY (owner: no new emails): NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271304032942. */
+  | 'papic_originals_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -669,6 +674,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   coordinator_invited: 'You’re invited to coordinate',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
+  papic_originals_reminder: 'Keep your original photos',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -899,6 +905,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   claim_access_answered: 'bg-sky-100 text-sky-800',
   // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
   coordinator_invited: 'bg-warn-100 text-warn-900',
+  // A deadline on the couple's own originals → the action-needed amber.
+  papic_originals_reminder: 'bg-warn-100 text-warn-900',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1190,6 +1198,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   coordinator_invited: 'user-plus',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',
+  papic_originals_reminder: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

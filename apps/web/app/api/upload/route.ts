@@ -417,8 +417,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const admin = createAdminClient();
       // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
       // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with
-      // NO per-camera payment — skip both the presign paid-gate and the daily
-      // quota probe. Fail toward the normal metered gate on a read error.
+      // NO per-camera payment — skip both the presign paid-gate and the credits
+      // probe. Fail toward the normal metered gate on a read error.
       const unlocked = await eventHasPapicUnlock(
         admin,
         seat.event_id as string,
@@ -458,10 +458,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           );
         }
       }
-      // Capture-POINTS presign gate (Papic v3 · brief PR-3): 1 photo = 1 pt ·
-      // 1 clip = 7 pts, budget resolved by the RPC from papic_tier_config
-      // (free/mini/roll 20 · ltd 70 · unlimited ∞ — admin-editable, never
-      // hardcoded here). At 0 remaining we refuse the URL — no URL ⇒ no orphan
+      // Capture-CREDITS presign gate: the price comes from papicCaptureCost and
+      // the balance is the camera's own credits (if any) plus the event's ONE
+      // shared pool — there is no per-day budget (retired, owner 5 Nov 2026).
+      // At 0 remaining we refuse the URL — no URL ⇒ no orphan
       // R2 bytes; the record-layer reserve (papic/actions) is the authoritative
       // backstop. Fail-CLOSED on any RPC failure EXCEPT function-not-found
       // (resolvePointsGate — the seam-cutover carve-out), so a metering outage
@@ -592,45 +592,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           // mounted on the page below (app/papic/seat/[token]/page.tsx), so the
           // sentence can never name a control that is not on the screen.
           const buyOffered = papicGuestBuyEnabled();
-          /*
-            ⛔ THE HONEST SENTENCE IS NOT HARDCODED EITHER. A per-day budget is
-            REAL in this schema — `papic_tier_config.points_per_day` minus
-            `papic_seat_day_usage.points_used WHERE usage_date = CURRENT_DATE`,
-            which resets with no job at all because tomorrow is a different row.
-            "It refills tomorrow" is TRUE on a tier that carries one, and
-            `ltd` (70) / `roll` (200) / `unlimited` (500) are one `is_active`
-            flip away from being held by real guests. Swapping one hardcoded
-            claim for the opposite hardcoded claim is the same defect facing the
-            other way — so ASK THIS SEAT'S OWN TIER.
-
-            Today every one of the 23 production seats is on `free`, whose
-            `points_per_day` is NULL, `papic_seat_day_usage` holds zero rows
-            ever, and the only functions that read the daily budget
-            (`papic_camera_points_remaining`, and `papic_reserve_camera_points`
-            until it was dropped 2026-09-18) had no caller anywhere — not in apps/, not in a policy, a view, a
-            CHECK or another function. So this reads false for everybody today
-            and the copy says so; the day that changes, the copy changes with it
-            and nobody has to remember.
-
-            Fails to FALSE on an unreadable row: claiming an allowance comes back
-            when it may not is the error that ends the conversation.
-          */
-          let dailyBudget = false;
-          try {
-            const seatTier = (seat as { tier?: string | null }).tier ?? null;
-            if (seatTier) {
-              const { data: tierRow } = await admin
-                .from('papic_tier_config')
-                .select('points_per_day')
-                .eq('tier_code', seatTier)
-                .maybeSingle();
-              dailyBudget =
-                typeof (tierRow as { points_per_day?: number | null } | null)
-                  ?.points_per_day === 'number';
-            }
-          } catch {
-            dailyBudget = false;
-          }
+          // 🛑 NO PER-DAY BUDGET. Owner, 5 Nov 2026, on the per-seat daily
+          // budget: "retire. we do not have papic seat anymore" (DECISION_LOG
+          // 2026-09-16 "ONE POOL OF CREDITS, SHARED BY EVERYBODY"). This used to
+          // read `papic_tier_config.points_per_day` for this seat's tier to decide
+          // whether to mention a daily allowance. Nothing enforced that allowance
+          // (both of its readers were dropped), so the sentence has nothing to
+          // look up: what ran out stays spent until somebody adds credits.
+          // Guard: lib/papic-no-daily-budget.test.ts.
           // ⬇ AND TELL THE COUPLE, who are the only people who can act on a
           // spent pot. Only for the POOL cause: a guest whose OWN camera is
           // spent is not the couple's problem to solve, and a notice that fires
@@ -643,16 +612,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           }
           return NextResponse.json(
             {
-              error: `${exhaustionHeadline(cause)} ${exhaustionDetail(cause, { buyOffered, dailyBudget })}`,
+              error: `${exhaustionHeadline(cause)} ${exhaustionDetail(cause, { buyOffered })}`,
               code: 'camera_points_exhausted',
               // 🔑 A LOG LINE NEVER CHANGED A PIXEL. Every consumer of this
               // route reads `code` and throws `error` away, so the sentence
               // above could never reach a screen on its own. This field is the
               // machine-readable half the camera renders from.
               reason: cause,
-              // The camera renders its own copy from the same two inputs, so the
-              // screen and this body can never drift apart.
-              dailyBudget,
             },
             { status: 409 },
           );

@@ -98,18 +98,17 @@ const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a cl
 // to show and no ceiling to announce — only how many are tagged so far.
 const ROLL_MAX = 24; // most-recent shots kept in the session roll strip
 
-// Server cap codes — the presign route and recordSeatCapture both signal
-// "this seat is out of capture allowance today". Either rolls the optimistic
-// count back and marks the shot capped (no retry). Papic v3 collapses the old
-// per-kind caps (camera_*/daily_*) into ONE capture-points budget — both seams
-// now return camera_points_exhausted; the legacy codes are kept so a stale
-// client/server pairing during rollout still renders as capped, not failed.
+// Server cap codes — the presign route and recordSeatCapture both signal "the
+// credits can't cover this shot" (the camera's own, if any, plus the event's ONE
+// shared pool). Either rolls the optimistic count back and marks the shot capped
+// (no retry). Both seams return camera_points_exhausted; the two camera_* codes
+// are older names kept so a stale pairing still renders as capped, not failed.
+// The daily_* codes went with the per-day budget (retired, owner 5 Nov 2026) —
+// no server has emitted them since Papic v3.
 const CAP_CODES: ReadonlySet<string> = new Set([
   'camera_points_exhausted',
   'camera_photo_cap',
   'camera_video_cap',
-  'daily_photo_quota',
-  'daily_video_quota',
 ]);
 function isCapCode(code: string | null | undefined): boolean {
   return code != null && CAP_CODES.has(code);
@@ -464,17 +463,6 @@ export function PapicSeatCapture({
     pot for a guest who plainly has a camera of her own.
   */
   const [outOfShotsCause, setOutOfShotsCause] = useState<PapicExhaustionCause | null>(null);
-  /*
-    ⛔ AND THE HONEST SENTENCE IS NOT HARDCODED EITHER. A per-day budget is real
-    in this schema (`papic_tier_config.points_per_day` − `papic_seat_day_usage`
-    for CURRENT_DATE, which resets with no job because tomorrow is a different
-    row). It is NULL on every tier a real guest holds today and nothing reads it
-    — but "it refills tomorrow" would be TRUE on a tier that carries one, so the
-    server derives this per seat and sends it rather than either side assuming.
-    False until told otherwise: claiming an allowance comes back when it may not
-    is the error that ends the conversation.
-  */
-  const [dailyBudget, setDailyBudget] = useState(false);
   const hasOwnCameraRef = useRef<boolean | null>(null);
   /** The seat's own `valid_from` ('YYYY-MM-DD'), echoed by the presign 403 on
    *  a `capture_not_started` refusal — carried here so the later catch block
@@ -559,23 +547,20 @@ export function PapicSeatCapture({
         }),
       });
       if (!presignRes.ok) {
-        // The presign route refuses to mint a URL once a per-camera seat is at
-        // its per-kind daily cap. Surface that as the SAME cap signal
-        // recordSeatCapture returns.
+        // The presign route refuses to mint a URL once the camera's credits and
+        // the event's shared pool can't cover the shot. Surface that as the SAME
+        // cap signal recordSeatCapture returns.
         let code: string | undefined;
         let reason: string | undefined;
-        let presignDailyBudget: boolean | undefined;
         let windowStartsAt: string | null | undefined;
         try {
           ({
             code,
             reason,
-            dailyBudget: presignDailyBudget,
             windowStartsAt,
           } = (await presignRes.json()) as {
             code?: string;
             reason?: string;
-            dailyBudget?: boolean;
             windowStartsAt?: string | null;
           });
         } catch {
@@ -589,7 +574,6 @@ export function PapicSeatCapture({
           if (reason === 'own_camera' || reason === 'event_pool') {
             setOutOfShotsCause(reason);
           }
-          if (typeof presignDailyBudget === 'boolean') setDailyBudget(presignDailyBudget);
           throw new Error(code);
         }
         // ⚠ WINDOW REFUSALS MUST BE TERMINAL, NOT RETRIED. Both codes are
@@ -1839,10 +1823,7 @@ export function PapicSeatCapture({
                 )}
                 {outOfShots ? (
                   <p className="mt-1 text-xs text-cream/75">
-                    {exhaustionDetail(outOfShotsCause ?? 'event_pool', {
-                      buyOffered,
-                      dailyBudget,
-                    })}
+                    {exhaustionDetail(outOfShotsCause ?? 'event_pool', { buyOffered })}
                   </p>
                 ) : null}
               </div>

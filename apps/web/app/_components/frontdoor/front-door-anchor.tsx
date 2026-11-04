@@ -21,13 +21,10 @@
  * The Privacy and Terms links left the hero with the prototype; they now sit in the page's own footer
  * (`front-door-landing.tsx`), which the same guard reads.
  *
- * ─── THE SAMPLE LEADS ONLY WHEN IT OPENS ──────────────────────────────────────────────────────────────────
- * The main button is the sample — "Try Maria and Jose's wedding" (DECISION_LOG 2026-11-02 "THE SAMPLE IS THE
- * FRONT PAGE'S CENTREPIECE") — and "Set up your event — free" is second. But `/sample` is built dark: with
- * `platform_settings.sample_event_enabled` off it is a 404 for a stranger. The same ruling says "with the
- * sample switch off '/' falls back to the plain page", so then the main button is "Set up your event — free"
+ * ─── NO SAMPLE OR DEMO BUTTONS (owner, CLOUD_BOARD 5 Nov: "just do not add buttons") ─────────────────────────
+ * The prototype led with "Try Maria and Jose's wedding" → /sample. The owner ruled the marketing pages carry no
+ * demo or sample buttons — not hidden behind a switch, not added. So the main button is "Set up your event — free"
  * (→ /start, the public type picker — owner 2026-10-25) and "How it works" (→ /features) stays beside it.
- * The caller asks `sampleOpensHere()` once and hands the answer in.
  *
  * Signed in, this is not rendered at all (`front-door.tsx`).
  */
@@ -37,7 +34,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { HeroStage, HeroWord } from './front-door-hero';
 import { HERO_SLIDES } from './front-door-landing-data';
 
-export function FrontDoorAnchor({ sampleOpen = false }: { sampleOpen?: boolean }) {
+export function FrontDoorAnchor() {
   return (
     <section className="fl-hero" aria-labelledby="fd-opening-h">
       <HeroStage slides={HERO_SLIDES}>
@@ -60,25 +57,12 @@ export function FrontDoorAnchor({ sampleOpen = false }: { sampleOpen?: boolean }
             <i>Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba.</i>
           </p>
           <div className="fl-ctas">
-            {sampleOpen ? (
-              <>
-                <Link href="/sample" className="fd-btn-terra fd-opening-cta fl-btn">
-                  Try Maria and Jose&rsquo;s wedding
-                </Link>
-                <Link href="/start" className="fl-btn fl-btn-line">
-                  Set up your event — free
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link href="/start" className="fd-btn-terra fd-opening-cta fl-btn">
-                  Set up your event — free
-                </Link>
-                <Link href="/features" className="fd-opening-alt">
-                  How it works
-                </Link>
-              </>
-            )}
+            <Link href="/start" className="fd-btn-terra fd-opening-cta fl-btn">
+              Set up your event — free
+            </Link>
+            <Link href="/features" className="fd-opening-alt">
+              How it works
+            </Link>
           </div>
           {/*
             "No credit card" is true: sign-up asks for none, and every payment is GCash or bank transfer after

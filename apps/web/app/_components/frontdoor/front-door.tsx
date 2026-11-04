@@ -28,7 +28,6 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { sampleOpensHere } from '@/lib/sample-event/switch.server';
 import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 
@@ -85,11 +84,10 @@ export async function FrontDoor({ q }: { q?: string }) {
 
   /*
     🏠 SIGNED OUT, `/` IS THE 4 NOV FRONT PAGE (prototypes/front_page_2026-11-04.html; DECISION_LOG 2026-11-04).
-    Two more reads, both for a stranger only and both remembered across requests: the event types the strip
-    shows (`event_type_vocab`, the roster /start reads), and whether the Maria and Jose sample opens here —
-    it is built dark, and while it is closed the page does not mention it (DECISION_LOG 2026-11-02: "with the
-    sample switch off '/' falls back to the plain page"). A typed search still replaces every section below
-    the hero, as it always has, so it pays only for the sample answer the hero's buttons need.
+    Two more reads, for a stranger only: the event types the strip shows (`event_type_vocab`, the roster /start
+    reads, remembered across requests), and the plan prices below. A typed search still replaces every section
+    below the hero, as it always has, and pays for neither. The Maria and Jose section draws from fixtures (no read)
+    and carries NO button into /sample (owner, CLOUD_BOARD 5 Nov: "just do not add buttons").
   */
   /*
     💰 …and the two plan prices, from `platform_retail_catalog_v2` — the price list Admin edits — never typed:
@@ -99,14 +97,9 @@ export async function FrontDoor({ q }: { q?: string }) {
   */
   const signedOut = !account.signedIn;
   const landing = signedOut && !searchQuery;
-  const [sampleOpen, eventTypes, planPrices]: [boolean, ReadonlyArray<{ key: string; label: string }>, PlanPrices] =
-    signedOut
-      ? await Promise.all([
-          sampleOpensHere().catch(() => false),
-          landing ? getCreatableEventTypes() : [],
-          landing ? fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([])) : planPricesFrom([]),
-        ])
-      : [false, [], planPricesFrom([])];
+  const [eventTypes, planPrices]: [ReadonlyArray<{ key: string; label: string }>, PlanPrices] = landing
+    ? await Promise.all([getCreatableEventTypes(), fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([]))])
+    : [[], planPricesFrom([])];
 
   return (
     <>
@@ -122,7 +115,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         docblock for the fuller reasoning behind dropping the old always-on
         opening.
       */
-      heading={account.signedIn ? undefined : <FrontDoorAnchor sampleOpen={sampleOpen} />}
+      heading={account.signedIn ? undefined : <FrontDoorAnchor />}
       /*
         🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
         is Discover · Find suppliers · Features · How it works · Sign in signed
@@ -216,7 +209,7 @@ export async function FrontDoor({ q }: { q?: string }) {
         <FrontDoorLanding
           eventTypes={eventTypes}
           planPrices={planPrices}
-          sample={sampleOpen ? frontPageSample(new Date()) : null}
+          sample={frontPageSample(new Date())}
           shelves={
             <FrontDoorFeed
               data={data}

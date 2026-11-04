@@ -503,11 +503,7 @@
   color: rgb(var(--ink-soft));
   line-height: 1.5;
 }
-.fd .fl-who-copy .fl-btn {
-  margin-top: 6px;
-}
-.fd .fl-custom,
-.fd .fl-afterword {
+.fd .fl-custom {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
@@ -520,10 +516,6 @@
   margin: 24px 0 0;
   padding-top: 18px;
   border-top: 1px solid var(--m-line-soft);
-}
-.fd .fl-afterword {
-  margin: 12px 0 0;
-  font-size: 13px;
 }
 
 /* ── 2b · THE SHELVES — the shipped feed, inside the section's gutter ─────────────────────────── */

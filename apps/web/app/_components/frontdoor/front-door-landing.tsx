@@ -16,12 +16,11 @@
  *
  * Signed in, none of this renders: a member's `/` is Discover, unchanged (`front-door.tsx`).
  *
- * ─── THE SAMPLE OPENS OR IT IS NOT MENTIONED ─────────────────────────────────────────────────────────────
- * `/sample` is built dark — a 404 for a stranger while `platform_settings.sample_event_enabled` is off. The
- * 2026-11-02 ruling says "with the sample switch off '/' falls back to the plain page", so the caller asks
- * `sampleOpensHere()` once and hands `sample` in only when it opens; otherwise the #sample section and every
- * link into `/sample` are simply not drawn. Its names, its date and its guests are the fixtures'
- * (`lib/sample-event/*`), never typed here.
+ * ─── MARIA AND JOSE, WITH NO BUTTON INTO THE SAMPLE ─────────────────────────────────────────────────────────
+ * The owner ruled the marketing pages carry no demo or sample buttons — "just do not add buttons" (CLOUD_BOARD,
+ * 5 Nov), not hidden behind a switch either. So the #sample section shows the two guests' pages (the shipped Hub,
+ * as the prototype's screenshots) and what each one sees, and links nowhere into `/sample`; no other section does
+ * either. Its names, its date and its guests are the fixtures' (`lib/sample-event/*`), never typed here.
  *
  * ─── NO PRICE IS TYPED HERE ──────────────────────────────────────────────────────────────────────────────
  * Event Plus and Event Pro are read from `platform_retail_catalog_v2` (`planPricesFrom`, below): Event Pro is
@@ -66,8 +65,6 @@ export type FrontPagePersona = {
   title: string;
   line: string;
   points: string[];
-  href: string;
-  go: string;
   shot: string;
   alt: string;
 };
@@ -89,7 +86,6 @@ export function frontPageSample(now: Date): FrontPageSample | null {
     const g = readSampleGuest(p.guestKey);
     if (!g) continue;
     const name = sampleGuestName(g);
-    const href = `/sample/hub/${p.guestKey}`;
     const lower = p.title.charAt(0).toLowerCase() + p.title.slice(1);
     if (p.key === 'guest') {
       personas.push({
@@ -104,8 +100,6 @@ export function frontPageSample(now: Date): FrontPageSample | null {
           'Her table and seat, and who she sits with',
           'The whole program, the march and what to wear',
         ],
-        href,
-        go: 'Open as the cousin →',
         shot: 'real-cousin',
         alt: `The real Event Hub page ${name}, ${lower}, opens: her invitation, ticket, table, the program, the entourage and the dress code`,
       });
@@ -124,8 +118,6 @@ export function frontPageSample(now: Date): FrontPageSample | null {
           'What to wear for her role',
           'An earlier call time, and her seat at the VIP table',
         ],
-        href,
-        go: 'Open as the sister →',
         shot: 'real-sister',
         alt: `The real Event Hub page ${name}, the ${role.toLowerCase()}, opens: her role, her place in the march, what to wear, her call time and her VIP seat`,
       });
@@ -257,7 +249,7 @@ export function FrontDoorLanding({
   eventTypes: readonly { key: string; label: string }[];
   /** Event Plus and Event Pro from the price list (`planPricesFrom`). */
   planPrices: PlanPrices;
-  /** The sample's two guests — null whenever `/sample` does not open for this visitor. */
+  /** The sample's two guests, from its fixtures — null only if the fixtures cannot be read. */
   sample: FrontPageSample | null;
   /** The shipped Discover shelves, rendered by the caller. */
   shelves: ReactNode;
@@ -270,7 +262,6 @@ export function FrontDoorLanding({
   const plusCount = plusItems.length + freeItems.length;
   const proCount = PRO_PEEK.length + PRO_MORE.length + plusCount;
 
-  const solveHref = (s: Solve) => (sample && s.sample ? s.sample : s.href);
   const total = SOLVES.length;
 
   return (
@@ -296,7 +287,7 @@ export function FrontDoorLanding({
         </section>
       ) : null}
 
-      {/* ════ ONE EVENT HUB, PERSONAL FOR EVERY GUEST — the centrepiece, while the sample opens ════ */}
+      {/* ════ ONE EVENT HUB, PERSONAL FOR EVERY GUEST — the centrepiece, with no button into the sample ════ */}
       {sample ? (
         <section className="fl-sec fl-reveal" id="sample" aria-labelledby="h-sample">
           <Head
@@ -305,11 +296,10 @@ export function FrontDoorLanding({
             title="Same event. Each guest sees their own."
             lede={
               <>
-                Try Maria and Jose&rsquo;s wedding as three people. Open the real pages. Nothing to sign in, nothing
-                saved. Date: <span className="fl-nw">{sample.dateLabel}</span>.
+                Maria and Jose&rsquo;s wedding, seen by two of their guests — the real pages. Date:{' '}
+                <span className="fl-nw">{sample.dateLabel}</span>.
               </>
             }
-            more={{ href: '/sample', label: 'See another guest' }}
           />
           <PersonaViewer options={sample.personas.map((p) => ({ key: p.key, label: p.option }))}>
             <div className="fl-phone">
@@ -333,9 +323,6 @@ export function FrontDoorLanding({
                   <h3>{p.title}</h3>
                   <p className="fl-line">{p.line}</p>
                   <Dots items={p.points} />
-                  <Link className="fd-btn-terra fl-btn" href={p.href}>
-                    {p.go}
-                  </Link>
                 </div>
               ))}
             </div>
@@ -346,12 +333,6 @@ export function FrontDoorLanding({
             </span>{' '}
             <Link className="fl-more" href="/features/event-hub">
               See the Event Hub Maker
-            </Link>
-          </p>
-          <p className="fl-afterword">
-            <span>Free works fully in the sample. Plus ◆ and Pro ◆ show what they unlock, and nothing is sold there.</span>{' '}
-            <Link className="fl-more" href="/for-suppliers">
-              The supplier side
             </Link>
           </p>
         </section>
@@ -391,7 +372,7 @@ export function FrontDoorLanding({
                   <p className="fl-with">With Setnayan</p>
                   <p className="fl-ans">{s.answer}</p>
                   <div className="fl-act">
-                    <Link className="fl-go" href={solveHref(s)}>
+                    <Link className="fl-go" href={s.href}>
                       {s.action} <i aria-hidden="true">›</i>
                     </Link>
                     <SolveTagLine tag={s.tag} />
@@ -605,11 +586,6 @@ export function FrontDoorLanding({
           <Link className="fd-btn-terra fl-btn" href="/start">
             Set up your event — free
           </Link>
-          {sample ? (
-            <Link className="fl-btn fl-btn-line" href="/sample">
-              Try the sample first
-            </Link>
-          ) : null}
         </div>
         <p className="fl-fine">Free to plan · No guest limit · Guests don&rsquo;t sign in</p>
       </section>

@@ -48,11 +48,9 @@ export const HERO_SLIDES: readonly HeroSlide[] = [
 /**
  * One problem, then what happens instead.
  *
- * ⚠ WHERE "TRY IT" GOES. The prototype points most of these at `/sample/dashboard/…`. Those pages are
- * the sample's slice S3 and DO NOT EXIST yet (`app/sample/[...rest]` answers 404), and every `/sample`
- * address is a 404 while the sample switch is off. So each row carries the feature's own page
- * (`/features/<slug>`, which ships) and, only where a shipped sample page really shows the thing, a
- * `sample` address that is used while the sample is open. When S3 lands, point the rest at it.
+ * ⚠ WHERE "TRY IT" GOES. The prototype points most of these at `/sample/dashboard/…`. The owner ruled the marketing
+ * pages carry no demo or sample buttons (CLOUD_BOARD, 5 Nov: "just do not add buttons"), so each row opens its
+ * feature's own page (`/features/<slug>`), which ships.
  */
 export type SolveTag = { kind: 'free' } | { kind: 'fine'; text: string } | null;
 
@@ -63,15 +61,12 @@ export type Solve = {
   pain: string;
   answer: string;
   action: string;
-  /** The shipped feature page — always reachable. */
+  /** The shipped feature page. */
   href: string;
-  /** A shipped sample page that shows it — used only while the sample is open. */
-  sample?: string;
   tag: SolveTag;
 };
 
 const FREE: SolveTag = { kind: 'free' };
-const COUSIN_HUB = '/sample/hub/sample-guest-bride-cousin';
 
 export const SOLVES: readonly Solve[] = [
   {
@@ -154,7 +149,6 @@ export const SOLVES: readonly Solve[] = [
     answer: 'One Event Hub with your invitation, your QR and your details — free, with three free themes.',
     action: 'See an Event Hub',
     href: '/features/event-hub',
-    sample: COUSIN_HUB,
     tag: FREE,
   },
   {
@@ -183,9 +177,8 @@ export const SOLVES: readonly Solve[] = [
     title: 'Five apps for one event',
     pain: 'A Filipino event runs on five to eight apps — a spreadsheet, Canva, group chats, a photo app, Facebook Live.',
     answer: 'One link and one account, from the Save the Date to the day after.',
-    action: 'Walk through a sample event',
+    action: 'See every feature',
     href: '/features',
-    sample: '/sample',
     tag: FREE,
   },
   {
@@ -264,9 +257,8 @@ export const SOLVES: readonly Solve[] = [
     title: 'An invitation that feels like a form',
     pain: 'A link opens to a plain page. There is no moment.',
     answer: 'Guests tap to unveil your invitation, and your music starts.',
-    action: 'Open a sample invitation',
+    action: 'See the Event Hub',
     href: '/features/event-hub',
-    sample: COUSIN_HUB,
     tag: null,
   },
   {

@@ -21,9 +21,8 @@
  *   4. the main button opens `/start` — the public event-type picker, before sign-up
  *      (owner 2026-10-25) — which draws the SHIPPED create-event grid and routes each
  *      type by the same rule as the signed-in picker; "How it works" opens /features.
- *      That is the hero while the Maria and Jose sample is CLOSED (the default, and what
- *      these renders get). While it opens, the main button is the sample (2026-11-02,
- *      "Try Maria and Jose's wedding") and "Set up your event — free" → /start is second (4e);
+ *      There is no sample or demo button, open or closed (owner, CLOUD_BOARD 5 Nov: "just do
+ *      not add buttons") — 4e;
  *   5. the main button wears the house terracotta token (`--m-mulberry`), not the gold.
  *
  * 🛡 Comments are stripped before any source match (`lib/strip-comments.ts`).
@@ -150,18 +149,15 @@ test('4d · every public picker tile goes straight to /onboarding/<type> — no 
   assert.equal(startHrefFor({ key: 'debut', onboardingHref: null }, true), '/onboarding/debut');
 });
 
-test('4e · while the sample opens, it is the main button and /start stays the second', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { FrontDoorAnchor } = await import('./front-door-anchor');
-  const html = renderToStaticMarkup(React.createElement(FrontDoorAnchor, { sampleOpen: true }));
-  const { href, cls } = mainButton(html);
-  assert.equal(href, '/sample', `with the sample open the main button goes to ${href} — 2026-11-02: "Try Maria and Jose's wedding" → /sample`);
-  assert.match(cls, /\bfd-btn-terra\b/, 'the sample button must wear the house terracotta');
-  const start = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].find((m) => m[1] === '/start');
-  assert.ok(start, 'with the sample open the hero lost "Set up your event — free" → /start');
-  assert.match(textOf(start[2] ?? ''), /Set up your event — free/);
-  // Closed (the default): no door into /sample at all — it would be a 404 for a stranger.
-  assert.doesNotMatch(await hero(), /href="\/sample/, 'the closed-sample hero links into /sample, which 404s');
+test('4e · no sample or demo button anywhere on the front page', async () => {
+  // Owner, CLOUD_BOARD 5 Nov: the marketing pages carry no demo or sample buttons — "just do not add buttons" —
+  // not hidden behind a switch either. Rendered hero, and every source file the signed-out page is built from.
+  assert.doesNotMatch(await hero(), /href="\/sample/, 'the hero links into /sample');
+  for (const f of ['front-door-anchor.tsx', 'front-door-landing.tsx', 'front-door-landing-data.ts', 'front-door.tsx']) {
+    const src = stripComments(readFileSync(path.join(HERE, f), 'utf8'));
+    assert.doesNotMatch(src, /['"`]\/sample(\/|['"`#?])/, `${f} links into /sample — no sample or demo buttons on the marketing pages`);
+    assert.doesNotMatch(src, /sampleOpensHere/, `${f} gates a sample door behind the switch — the owner said no buttons at all`);
+  }
 });
 
 test('4c · "How it works" opens the Features hub', async () => {

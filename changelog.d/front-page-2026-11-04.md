@@ -9,12 +9,12 @@ MARKETING PAGES GO TO CLOUD BUILD"), ported onto the shipped front door. Signed-
   Papic line (no number on the hero). The hero rule from the owner ("images are too cut"): phone covers at
   `var(--px) 28%`; from 1024px a photo with `--dr` shows its full height, anchored right; 2.5 % zoom.
   Only the first photo loads with the page.
-- **The sample leads only when it opens.** `/sample` is built dark; with the switch off the main button is
-  "Set up your event — free" → /start and "How it works" stays, and no link into `/sample` is drawn
-  (2026-11-02: "with the sample switch off '/' falls back to the plain page").
+- **No sample or demo buttons** (owner, CLOUD_BOARD 5 Nov: "just do not add buttons" — not behind a switch
+  either). The main button is "Set up your event — free" → /start, with "How it works" beside it; the Maria and
+  Jose section shows the two guests' pages and links nowhere into `/sample`; no other section does either.
 - **Sections** (`front-door-landing.tsx`): #events (from `event_type_vocab` via `getCreatableEventTypes`,
   count read, never typed) · #sample (names, date, roles and march place from the Maria and Jose
-  fixtures) · #shelves (the shipped `FrontDoorFeed`, unchanged) · #solves (20 problems) · #coordinators
+  fixtures, no buttons) · #shelves (the shipped `FrontDoorFeed`, unchanged) · #solves (20 problems) · #coordinators
   (→ /for-coordinators) · #suppliers (→ /for-suppliers) · #plans (Event Pro = Event Hub Pro,
   `COUPLE_WEBSITE_PRO`; Event Plus = `EVENT_PLUS` from the price-sheet PR #7262 — both read from
   `platform_retail_catalog_v2`; a row not on sale prints "per event" and no figure) · close · a footer

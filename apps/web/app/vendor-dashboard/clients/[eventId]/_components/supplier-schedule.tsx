@@ -9,7 +9,7 @@ import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { BACKSTAGE_WORDS, chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
 import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
@@ -24,6 +24,8 @@ import {
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
 import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 import { markDay } from '@/lib/supplier-schedule-marks';
+import type { CrewClash } from '@/lib/crew-elsewhere';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🤝 THE SUPPLIER'S SCHEDULE VIEW — their part of the day (owner 2026-11-01, DECISION_LOG "SUPPLIERS GIVE THEIR PART FROM
@@ -82,6 +84,7 @@ export function SupplierSchedule({
   tasksRead,
   answered,
   asked = [],
+  elsewhere = {},
   lab = false,
 }: {
   eventId: string;
@@ -98,6 +101,8 @@ export function SupplierSchedule({
   answered: SupplierRequestRow[];
   /** 🗓 What a host or the coordinator asked of THEM, still open (D2); null = could not be read (said). */
   asked?: ScheduleAsk[] | null;
+  /** 🚗 Their crews on their OTHER events today, keyed by the moment here (slice 5); null = could not be checked (said). */
+  elsewhere?: Record<string, CrewClash[]> | null;
   lab?: boolean;
 }) {
   const send = useMemo(() => (lab ? labSend : realSend(eventId)), [lab, eventId]);
@@ -255,6 +260,19 @@ export function SupplierSchedule({
         </InfoTip>
       </div>
 
+      {/* 🚗 ONE CREW, TWO EVENTS (slice 5): said once here, and on each moment it touches. Only the supplier sees it. */}
+      {elsewhere === null ? (
+        <p data-crew-elsewhere="unread" className="text-sm text-warn-900">
+          Your other events today couldn’t be checked for crew clashes.
+        </p>
+      ) : clashCount(elsewhere) > 0 ? (
+        <p role="status" data-crew-elsewhere={clashCount(elsewhere)} className="text-sm font-semibold text-warn-900">
+          {clashCount(elsewhere) === 1
+            ? 'A crew of yours is also needed at another event today. See the moment marked below.'
+            : `Your crews are also needed at other events today on ${formatCount(clashCount(elsewhere))} moments. See the moments marked below.`}
+        </p>
+      ) : null}
+
       {said ? (
         <p role={said.tone === 'bad' ? 'alert' : 'status'} className={`text-sm ${said.tone === 'bad' ? 'font-semibold text-danger-700' : 'text-success-900'}`}>
           {said.words}
@@ -311,11 +329,11 @@ export function SupplierSchedule({
                         onClick={() => setSheet({ kind: 'moment', chapter: c, moment: m })}
                         className="sn-press my-1 flex min-h-11 w-full items-start gap-3 rounded-xl border border-ink/15 px-3 py-2 text-left"
                       >
-                        <MomentLine m={m} tasksRead={tasksRead} />
+                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
                       </button>
                     ) : (
                       <div data-their-moment={m.block_id} aria-disabled="true" className="flex min-h-11 items-start gap-3 px-3 py-2 opacity-55">
-                        <MomentLine m={m} tasksRead={tasksRead} />
+                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
                       </div>
                     )}
                   </li>
@@ -422,7 +440,11 @@ function labelOf(day: SupplierDay, blockId: string | null): string | null {
   return null;
 }
 
-function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean }) {
+function clashCount(elsewhere: Record<string, CrewClash[]>): number {
+  return Object.values(elsewhere).filter((l) => l.length > 0).length;
+}
+
+function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: boolean; clashes: readonly CrewClash[] }) {
   return (
     <>
       <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.clock}</span>
@@ -430,8 +452,19 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         <span className="font-medium">{m.label}</span>
         {m.mine ? <span className="ml-1.5 text-xs font-semibold text-terracotta-700">yours</span> : null}
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
+        {/* 🎭 Setup and pack-up are backstage (2026-11-04): the supplier sees them; guests never do. */}
+        {m.section !== 'Event' ? (
+          <span data-backstage-moment="" className="block text-[11px] uppercase tracking-[0.06em] text-gold-deep">
+            {m.section} · {BACKSTAGE_WORDS}
+          </span>
+        ) : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
         {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
+        {clashes.map((c) => (
+          <span key={`${c.crew}|${c.eventName}|${c.theirStartIso}`} data-crew-clash={c.kind} className="block text-xs font-medium text-warn-900">
+            {c.words}
+          </span>
+        ))}
         {/* 📇 A contact on this moment (the bridal-car driver) — only on a moment they are on (4 additions (3)). */}
         {m.contacts.map((c) => (
           <span key={`${c.name}|${c.phone}`} data-moment-contact="" className="block text-xs text-ink/70">

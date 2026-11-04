@@ -220,19 +220,17 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       );
   // 📍 Each supplier's Where (owner 2026-11-04, migration 20271308641275): the chapters they are on, and a Where request
   // still waiting either way. Read-only; a refused read is said on the row, never "no chapter".
-  const [chaptersRead, whereAsksRead] = await Promise.all([
-    admin
-      .from('event_schedule_blocks')
-      .select('block_id, parent_block_id, label, start_at, responsible_vendor_ids')
-      .eq('event_id', eventId)
-      .is('parent_block_id', null),
-    admin
-      .from('event_schedule_suggestions')
-      .select('suggestion_id, kind, status, direction, where_vendor_id, proposed_block_ids')
-      .eq('event_id', eventId)
-      .eq('kind', 'where')
-      .eq('status', 'open'),
-  ]);
+  const chaptersRead = await admin
+    .from('event_schedule_blocks')
+    .select('block_id, parent_block_id, label, start_at, responsible_vendor_ids')
+    .eq('event_id', eventId)
+    .is('parent_block_id', null);
+  const whereAsksRead = await admin
+    .from('event_schedule_suggestions')
+    .select('suggestion_id, kind, status, direction, where_vendor_id, proposed_block_ids')
+    .eq('event_id', eventId)
+    .eq('kind', 'where')
+    .eq('status', 'open');
   if (chaptersRead.error) logQueryError('admin/events/[eventId]:chapters for Where', chaptersRead.error);
   if (whereAsksRead.error) logQueryError('admin/events/[eventId]:Where requests', whereAsksRead.error);
   const whereChapters = chaptersRead.error ? null : whereChaptersFrom((chaptersRead.data ?? []) as WhereBlockRow[]);

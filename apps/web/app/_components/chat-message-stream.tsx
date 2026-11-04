@@ -1307,6 +1307,12 @@ export function ChatMessageStream({
               : null;
             // The live card's "What changed since version N-1" — from `quoteChanges`, the one diff.
             const quoteDiff = isLatestProposal && quoteVersion ? changesSincePrevious(quoteVersion) : null;
+            /*
+              4 Nov 2026 · A REPLACED QUOTE IS COMPACT (approved prototype "Chat · an updated quote"):
+              "Quote · version N", the total, "Replaced by a newer quote", the date. Its lines and
+              its View quote live in "See every version" on the live card — never twice.
+            */
+            const replaced = card?.status === 'superseded';
             return (
               <li
                 key={m.message_id}
@@ -1348,9 +1354,13 @@ export function ChatMessageStream({
                             Accepted · booked". When the note below already
                             opens with the status, the price line does not
                             repeat it. */}
-                        {quoteState.note?.startsWith(statusLabelOf(card.status))
-                          ? null
-                          : ` · ${statusLabelOf(card.status)}`}
+                        {replaced ? null : (
+                          <>
+                            {quoteState.note?.startsWith(statusLabelOf(card.status))
+                              ? null
+                              : ` · ${statusLabelOf(card.status)}`}
+                          </>
+                        )}
                       </p>
                       {quoteState.note ? (
                         <p className="mt-0.5 text-xs text-ink/60">{quoteState.note}</p>
@@ -1364,10 +1374,11 @@ export function ChatMessageStream({
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
                       {/* The card's lines — one component with the supplier's "As they see it" preview. */}
-                      <QuoteCardLines items={items} />
+                      {replaced ? null : <QuoteCardLines items={items} />}
                       {quoteDiff && quoteVersion?.previous ? (
                         <QuoteWhatChanged changes={quoteDiff} sinceVersion={quoteVersion.previous.version} />
                       ) : null}
+                      {replaced ? null : (
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}
@@ -1501,6 +1512,7 @@ export function ChatMessageStream({
                           ) : null
                         ) : null}
                       </div>
+                      )}
                       {isLatestProposal && quoteVersions && m.proposal_id ? (
                         <QuoteVersionsRow
                           versions={versionsNewestFirst(quoteVersions, m.proposal_id)}

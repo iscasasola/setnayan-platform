@@ -226,3 +226,11 @@ test('the couple accepts the update through the existing respondToProposal, and 
   assert.equal(count(s, /<form action=\{respondToProposal\}/g), 1);
   assert.equal(count(s, /Accept the update/g), 1);
 });
+
+test('a replaced quote is compact — no lines, no buttons, no "· Superseded" beside the price (prototype)', () => {
+  const s = read(STREAM);
+  assert.equal(count(s, /const replaced = card\?\.status === 'superseded';/g), 1);
+  assert.equal(count(s, /\{replaced \? null : <QuoteCardLines items=\{items\} \/>\}/g), 1, 'a replaced card draws its lines');
+  assert.equal(count(s, /\{replaced \? null : \(\s*<div className="mt-2 flex flex-wrap items-center gap-2">/g), 1, 'a replaced card draws buttons');
+  assert.equal(count(s, /\{replaced \? null : \(\s*<>\s*\{quoteState\.note\?\.startsWith/g), 1, 'a replaced card repeats its status');
+});

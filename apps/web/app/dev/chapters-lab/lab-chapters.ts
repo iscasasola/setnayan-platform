@@ -249,6 +249,7 @@ export function labDefaultChapters(): { chapters: Chapter[]; moments: ChapterMom
     start_at: c.start_at,
     end_at: c.end_at,
     is_public: true,
+    block_type: c.block_type,
     moments: moments.filter((mo) => mo.parent_block_id === ids.get(c.key)).length,
   }));
   return { chapters, moments };

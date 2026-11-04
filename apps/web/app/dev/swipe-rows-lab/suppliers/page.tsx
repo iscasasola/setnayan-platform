@@ -3,7 +3,8 @@
  * DELETE ON EVERY LIST ROW"), on fixtures, for the screenshots. Dev only — 404s in production (first statement).
  *
  *   ?part=team     the REAL `BuildLocked` ("Your team") on a model built by the REAL `buildPlanBudgetModel` from two
- *                  fixture candidates in the build — each "ready to lock" row is `TeamCandidateSwipe`. Needs
+ *                  fixture candidates in the build (`./fixtures`, unpriced) — each "ready to lock" row is
+ *                  `TeamCandidateSwipe`. Needs
  *                  NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=1 (the flag the page itself reads).
  *   ?part=package  a booked package's Included lines in the REAL `PackageItemSwipe`; the line body mirrors the
  *                  package page's markup (that page draws it inline and reads the database).
@@ -18,17 +19,13 @@ import { buildPlanBudgetModel } from '@/lib/vendors-plan-budget';
 import { BuildLocked } from '@/app/dashboard/[eventId]/vendors/_components/build-locked';
 import { PackageItemSwipe } from '@/app/dashboard/[eventId]/vendors/packages/[bookingId]/_components/package-item-swipe';
 import { WorkingNoteSwipe } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-note-swipe';
+import { LAB_TEAM_ROWS } from './fixtures';
 
 const EVENT = 'S89E-LABSUPPLIER';
 
 /* The shipped rows' own grounds, copied so the lab draws what the pages draw — they are counted where they ship. */
 const PACKAGE_ROW = 'flex items-start gap-3 rounded-lg border border-success-200/50 bg-success-50/30 p-3'; // no-card-ok: mirrors the package page's Included line (counted there), lab only
 const NOTE_ROW = 'rounded-lg border border-ink/10 bg-cream/80 px-3 py-2.5'; // no-card-ok: mirrors working-folder-notes' shared note (counted there), lab only
-
-const ROWS = [
-  { vendor_id: 'v-cater', vendor_name: 'Juan Carlo Catering', category: 'catering', status: 'considering', total_cost_php: 90_000 },
-  { vendor_id: 'v-photo', vendor_name: 'Lumière Studio', category: 'photography', status: 'considering', total_cost_php: 65_000 },
-];
 
 const ITEMS = [
   { id: 'lab-i1', label: 'Flowers', text: 'Bridal bouquet' },
@@ -47,7 +44,7 @@ export default async function SwipeRowsSuppliersLab({ searchParams }: { searchPa
   let body: React.ReactNode = null;
   if (part === 'team') {
     const model = buildPlanBudgetModel({
-      vendorRows: ROWS as never,
+      vendorRows: LAB_TEAM_ROWS as never,
       estimatedBudgetCentavos: null,
       daysUntilWedding: 120,
       ceremonyType: null,

@@ -152,14 +152,14 @@ function recordShopGiftDelivery(
   delivery: Awaited<ReturnType<typeof deliverShopGiftsForBooking>>,
 ): void {
   try {
-    const summary = `[shop-gifts] ${delivery.status} · booking ${eventVendorId} · door ${door}` +
-      (delivery.credits ? ` · ${delivery.credits} credits` : '') +
-      (delivery.detail ? ` · ${delivery.detail}` : '');
+    // The counts travel as data, never inside the sentence — a log line is grepped, not read.
+    const summary = `[shop-gifts] ${delivery.status} · booking ${eventVendorId} · door ${door}`;
+    const facts = { credits: delivery.credits, detail: delivery.detail };
     if (delivery.status !== 'short' && delivery.status !== 'error') {
-      console.info(summary);
+      console.info(summary, facts);
       return;
     }
-    console.error(summary);
+    console.error(summary, facts);
     Sentry.captureMessage(summary, {
       level: 'error',
       tags: { feature: 'shop-gifts', door },

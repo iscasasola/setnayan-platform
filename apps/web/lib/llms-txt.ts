@@ -38,7 +38,7 @@ import { isBookingFeeEnabled } from './booking-fee-gate';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 import { mobileAppAnswer } from './where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
-import { MIN_SERVICES_PER_LEAF, PORTFOLIO_FREE_BASE, TIER_CAPS, TIER_LABEL, WHITELIST_PER_DATE_ALL_PLANS } from './vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, TIER_CAPS, TIER_LABEL, WHITELIST_PER_DATE_ALL_PLANS } from './vendor-tier-caps';
 
 export type RetailRow = {
   service_code: string;
@@ -611,18 +611,18 @@ The visual mood board — palette, location feel, dress codes — is included fr
 
 | Tier | Cost | Public profile | Verified badge | Commission |
 |---|---|---|---|---|
-| Verified | free, for good | Listed in marketplace · real business name shown from day 1 · ${TIER_CAPS.verified.serviceRadiusKm} km reach · 1 category | Yes | 0% |
-| Solo | ${V('solo_vendor_annual')} / year OR ${V('solo_vendor_monthly')} / 28-day prepaid block | 1 category · solo operator (no agent seats) · custom website + slug · ${TIER_CAPS.solo.serviceRadiusKm} km reach + booking analytics | Yes | 0% |
-| Pro | ${V('pro_vendor_annual')} / year OR ${V('pro_vendor_monthly')} / 28-day prepaid block | 3 categories + 3 agent seats · premium tools · Market Intel + featured placement + wider reach | Yes | 0% |
-| ${TIER_LABEL.enterprise} | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories + unlimited team + extended radius (100 km) · priority placement + read API | Yes | 0% |
+| Verified | free, for good | Listed in marketplace · real business name shown from day 1 · ${TIER_CAPS.verified.serviceRadiusKm} km reach · ${TIER_CAPS.verified.parentCategories} category · ${TIER_CAPS.verified.servicesPerLeaf} service card per category | Yes | 0% |
+| Solo | ${V('solo_vendor_annual')} / year OR ${V('solo_vendor_monthly')} / 28-day prepaid block | ${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.servicesPerLeaf} service cards per category · ${TIER_CAPS.solo.agentAccounts} team seat · own web address · ${TIER_CAPS.solo.serviceRadiusKm} km reach + booking analytics | Yes | 0% |
+| Pro | ${V('pro_vendor_annual')} / year OR ${V('pro_vendor_monthly')} / 28-day prepaid block | ${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.servicesPerLeaf} service cards per category · ${TIER_CAPS.pro.agentAccounts} team seats · ${TIER_CAPS.pro.branchesIncluded} branches included · ${TIER_CAPS.pro.serviceRadiusKm} km reach · Market Intel + featured placement | Yes | 0% |
+| ${TIER_LABEL.enterprise} | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories · unlimited service cards · ${TIER_CAPS.enterprise.agentAccounts} team seats · ${TIER_CAPS.enterprise.branchesIncluded} branches included · nationwide reach · priority placement + read API | Yes | 0% |
 
 Commission is 0% on every tier: couples pay suppliers directly and Setnayan never sits between them at checkout. ${supplierFee}
 
 Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free, for good — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
 
-Every tier, the free one included, can sell the same way: answer every couple with no weekly limit, take as many bookings a day as the supplier sets, put up at least ${MIN_SERVICES_PER_LEAF} service cards per category, hold up to ${WHITELIST_PER_DATE_ALL_PLANS} couples for one date, and show ${PORTFOLIO_FREE_BASE} portfolio photos free. A plan's price buys reach — service area, categories, team seats, search visibility and its own web address — never the ability to take bookings.
+Every tier, the free one included, can sell the same way: answer every couple with no weekly limit, take as many bookings a day as the supplier sets, hold up to ${WHITELIST_PER_DATE_ALL_PLANS} couples for one date, and show ${PORTFOLIO_FREE_BASE} portfolio photos free. A plan's price buys reach — service area, categories, service cards per category, team seats, branches, search visibility and its own web address — never the ability to take bookings.
 
-All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge — manual renewal with a 7-day email + dashboard reminder before expiry. Pro and ${TIER_LABEL.enterprise} vendors can add branches at ${V('vendor_additional_branch')} per 28-day block per branch.
+All three paid tiers are available as 28-day prepaid blocks (13 cycles per year, not calendar months) or annual prepaid blocks at a discount. No recurring auto-charge — manual renewal with a 7-day email + dashboard reminder before expiry. Pro includes ${TIER_CAPS.pro.branchesIncluded} branches and ${TIER_LABEL.enterprise} ${TIER_CAPS.enterprise.branchesIncluded}; only ${TIER_LABEL.enterprise} can add more, at ${V('vendor_additional_branch')} per 28-day block per branch.
 
 ## Answering couples (included free)
 

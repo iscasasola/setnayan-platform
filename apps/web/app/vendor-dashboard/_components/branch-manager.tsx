@@ -61,6 +61,15 @@ type Props = {
   /** Where the pin map opens before the vendor pans (HQ, or a PH fallback). */
   initialCenter: LatLng;
   pay: PayInfo;
+  /**
+   * Fee-free branches the plan still includes (owner 2026-11-04, "branches 0,0,3,10" — Pro 3 · Ultra 10), read by the
+   * server from `TIER_CAPS` and the shop's own included branches. > 0 → Add needs no payment.
+   */
+  includedLeft?: number;
+  /** The plan's included total, for the line under Add. */
+  includedTotal?: number;
+  /** May the paid flow sell one more (Ultra; any plan while the plan switch is off)? */
+  canBuyMore?: boolean;
 };
 
 export function BranchManager({
@@ -69,6 +78,9 @@ export function BranchManager({
   autoRadiusKm,
   initialCenter,
   pay,
+  includedLeft = 0,
+  includedTotal = 0,
+  canBuyMore = true,
 }: Props) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
@@ -99,6 +111,9 @@ export function BranchManager({
             autoRadiusKm={autoRadiusKm}
             initialCenter={initialCenter}
             openRails={pay.open}
+            includedLeft={includedLeft}
+            includedTotal={includedTotal}
+            canBuyMore={canBuyMore}
             onDone={() => {
               setAdding(false);
               setFormKey((k) => k + 1);
@@ -177,6 +192,9 @@ function AddBranchForm({
   autoRadiusKm,
   initialCenter,
   openRails,
+  includedLeft,
+  includedTotal,
+  canBuyMore,
   onDone,
   toastSuccess,
   toastError,
@@ -185,6 +203,9 @@ function AddBranchForm({
   autoRadiusKm: number;
   initialCenter: LatLng;
   openRails: readonly OpenRail[];
+  includedLeft: number;
+  includedTotal: number;
+  canBuyMore: boolean;
   onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
@@ -307,7 +328,28 @@ function AddBranchForm({
         Coverage area <span className="font-medium text-ink">~{autoRadiusKm} km</span> around this pin — set automatically for your plan.
       </div>
 
-      {openRails.length > 0 ? (
+      {includedLeft > 0 ? (
+        <>
+          {/* 📐 Included in the plan (owner 2026-11-04, "branches 0,0,3,10") — no fee, no order, live once added. */}
+          <SubmitButton className="button-primary w-full" pendingLabel="Adding…">
+            Add branch · included in your plan
+          </SubmitButton>
+          <p className="text-center text-[11px] text-ink/45">
+            {includedLeft} of {includedTotal} included {includedTotal === 1 ? 'branch' : 'branches'} left · no fee — it is live once added.
+          </p>
+        </>
+      ) : !canBuyMore ? (
+        <>
+          <SubmitButton className="button-primary w-full" pendingLabel="Checking…">
+            Add branch
+          </SubmitButton>
+          <p className="text-center text-[11px] text-ink/45">
+            {includedTotal > 0
+              ? `Your plan’s ${includedTotal} included branches are in use — more branches are part of Ultra.`
+              : 'Branches come with Pro and Ultra.'}
+          </p>
+        </>
+      ) : openRails.length > 0 ? (
         <label className="block space-y-1">
           <span className="block text-xs font-medium text-ink/70">Pay with</span>
           <select name="channel" className="input-field cursor-pointer">
@@ -323,16 +365,20 @@ function AddBranchForm({
         <PaymentsPausedNote />
       )}
 
-      <SubmitButton
-        className="button-primary w-full"
-        pendingLabel="Starting…"
-        disabled={openRails.length === 0}
-      >
-        Purchase · {peso(feePhp)} / 28 days
-      </SubmitButton>
-      <p className="text-center text-[11px] text-ink/45">
-        Apply-then-pay — the branch activates once our team confirms your payment.
-      </p>
+      {includedLeft > 0 || !canBuyMore ? null : (
+        <>
+          <SubmitButton
+            className="button-primary w-full"
+            pendingLabel="Starting…"
+            disabled={openRails.length === 0}
+          >
+            Purchase · {peso(feePhp)} / 28 days
+          </SubmitButton>
+          <p className="text-center text-[11px] text-ink/45">
+            Apply-then-pay — the branch activates once our team confirms your payment.
+          </p>
+        </>
+      )}
     </form>
   );
 }
@@ -398,6 +444,11 @@ function BranchRow({
           >
             {STATUS_LABEL[branch.status]}
           </span>
+          {branch.included_in_plan ? (
+            <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
+              Included in plan
+            </span>
+          ) : null}
           {branch.status === 'pending_payment' && branch.reference_code ? (
             <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink/70">
               Ref <span className="font-mono font-semibold">{branch.reference_code}</span>

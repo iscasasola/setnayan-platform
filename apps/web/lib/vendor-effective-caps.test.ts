@@ -31,8 +31,9 @@ test('custom with no plan: returns the Enterprise-clone base caps', () => {
 
 test('custom overlay raises seats / reach / slots / photos', () => {
   const caps = vendorEffectiveCaps('custom', COMP);
-  assert.equal(caps.agentAccounts, 15); // max(10, 15)
-  assert.equal(caps.serviceRadiusKm, 300); // composed km
+  assert.equal(caps.agentAccounts, Math.max(tierCaps('custom').agentAccounts, 15)); // max(base, 15)
+  // Reach: the Ultra clone is nationwide (Infinity) since owner 2026-11-04, so a composed 300 km never lowers it.
+  assert.equal(caps.serviceRadiusKm, Infinity);
   assert.equal(caps.slotsPerDay, Infinity); // no plan limit on any plan (2026-10-23) — composed slots cannot lower it
   assert.equal(caps.portfolioPhotos, 800);
 });
@@ -51,8 +52,8 @@ test('custom overlay never lowers a base axis below the Enterprise clone', () =>
     photos: 50,
   });
   const base = tierCaps('custom');
-  assert.equal(caps.agentAccounts, base.agentAccounts); // 10, not 2
-  assert.equal(caps.serviceRadiusKm, base.serviceRadiusKm); // 100, not 10
+  assert.equal(caps.agentAccounts, base.agentAccounts); // the base, not 2
+  assert.equal(caps.serviceRadiusKm, base.serviceRadiusKm); // nationwide, not 10
   assert.equal(caps.slotsPerDay, base.slotsPerDay); // no plan limit, not 1
   assert.equal(caps.portfolioPhotos, base.portfolioPhotos); // the free base
 });

@@ -42,7 +42,10 @@ import {
   type Framing,
   type SnapState,
 } from '@/lib/photo-frame';
-import type { Box, MarkLayout, MarkSpec } from '@/lib/photo-mark-geometry';
+import { layoutMarkInFrame, type Box, type MarkLayout, type MarkSpec } from '@/lib/photo-mark-geometry';
+// The painter is STATIC: this whole step is loaded on first use (FileUpload's next/dynamic), so it rides in this
+// chunk. A separate lazy chunk would add an entry to the webpack runtime every page loads.
+import * as markPainter from '@/lib/photo-mark-canvas';
 
 export type FramePreviews = 'service-card' | 'service-video' | 'portfolio' | 'inspiration' | 'shop-logo';
 
@@ -119,7 +122,7 @@ function paintView(
   rect: Box,
   layout: MarkLayout | null,
   logo: CanvasImageSource | null,
-  painter: typeof import('@/lib/photo-mark-canvas') | null,
+  painter: typeof markPainter | null,
 ) {
   if (!canvas || cssW <= 0 || cssH <= 0) return null;
   const dpr = DPR();
@@ -167,8 +170,7 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLCanvasElement | null>(null);
   const pvRef = useRef<HTMLDivElement | null>(null);
-  const painterRef = useRef<typeof import('@/lib/photo-mark-canvas') | null>(null);
-  const geoRef = useRef<typeof import('@/lib/photo-mark-geometry') | null>(null);
+  const painterRef = useRef<typeof markPainter | null>(null);
   const logoRef = useRef<HTMLImageElement | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -179,10 +181,8 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
     (async () => {
       try {
         if (mark) {
-          const [painter, geo] = await Promise.all([import('@/lib/photo-mark-canvas'), import('@/lib/photo-mark-geometry')]);
-          await painter.ensureMarkFonts();
-          painterRef.current = painter;
-          geoRef.current = geo;
+          await markPainter.ensureMarkFonts();
+          painterRef.current = markPainter;
           if (mark.logoDataUrl) {
             const logo = new Image();
             logo.src = mark.logoDataUrl;
@@ -260,12 +260,11 @@ export function FrameStep({ src, isVideo = false, shape, previews, mark, initial
   /** The mark laid out inside the frame, in original pixels (the SAME call `markPhotoFile` makes). */
   const layoutFor = useCallback(
     (fr: Box): MarkLayout | null => {
-      const geo = geoRef.current;
       const painter = painterRef.current;
-      if (!mark || !geo || !painter) return null;
+      if (!mark || !painter) return null;
       const probe = document.createElement('canvas').getContext('2d');
       if (!probe) return null;
-      return geo.layoutMarkInFrame(fr, shape, mark.spec, painter.canvasMeasure(probe));
+      return layoutMarkInFrame(fr, shape, mark.spec, painter.canvasMeasure(probe));
     },
     [mark, shape],
   );

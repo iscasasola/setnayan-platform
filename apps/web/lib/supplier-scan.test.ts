@@ -131,3 +131,8 @@ test('6 · Unlimited and Group session: their words, and prints kept within 1–
   assert.ok(isSessionMode('group_session'));
   assert.ok(!isSessionMode('unlimited'));
 });
+
+test('7 · Roaming: scan the guests in frame, then shoot; the count is Shots · Ready · Claimed', () => {
+  assert.equal(scanAnswerWords({ outcome: 'added', number: 231, guests: 2, mode: 'roaming' }).title, '#0231 · 2 guests · shoot');
+  assert.equal(tallyWords('roaming', { claimed: 5, total: 118, ready: 2, sessions: 9 }), 'Shots 9 · Ready 2 · Claimed 5');
+});

@@ -572,6 +572,38 @@ export async function setPartHiddenCore(admin: AdminDb, actorId: string, slotKey
   return { ok: true, message: hidden ? 'Hidden from couples — its photos stay.' : 'Shown to couples again.' };
 }
 
+// ── Usual chapters (owner 2026-11-04) ───────────────────────────────────────────
+
+const CHAPTER_KEYS = ['prep', 'ceremony', 'cocktail_reception', 'after_party'] as const;
+const CHAPTER_WORDS: Record<(typeof CHAPTER_KEYS)[number], string> = {
+  prep: 'Prep',
+  ceremony: 'Ceremony',
+  cocktail_reception: 'Cocktail + Reception',
+  after_party: 'After Party',
+};
+
+/**
+ * 📖 A category's USUAL CHAPTERS (`service_categories.default_chapters`, migration 20271307273159) — what "Which
+ * chapters will they serve?" is prefilled with when a couple books one of these (prototype "Event chapters — 4 Nov
+ * 2026", frame 5). One chapter on or off per press, kept in chapter order. Only a prefill: the couple confirms.
+ */
+export async function setDefaultChapterCore(admin: AdminDb, actorId: string, categoryId: string, key: string, on: boolean): Promise<WriteResult> {
+  if (!(CHAPTER_KEYS as readonly string[]).includes(key)) return { ok: false, error: 'Unknown chapter.' };
+  const { data: before } = await admin.from('service_categories').select('id, tier, default_chapters').eq('id', categoryId).maybeSingle();
+  const b = before as { id: string; tier: number; default_chapters: string[] | null } | null;
+  if (!b || b.tier !== 2) return { ok: false, error: 'That category no longer exists.' };
+  const had = new Set(b.default_chapters ?? []);
+  if (had.has(key) === on) return { ok: true, message: 'No change.' };
+  if (on) had.add(key);
+  else had.delete(key);
+  const next = CHAPTER_KEYS.filter((k) => had.has(k));
+  const { error } = await admin.from('service_categories').update({ default_chapters: next, updated_at: now() }).eq('id', categoryId);
+  if (error) return { ok: false, error: error.message };
+  await audit(admin, { action: 'taxonomy.set_default_chapters', target_table: 'service_categories', target_id: categoryId, before_json: { default_chapters: b.default_chapters ?? [] }, after_json: { default_chapters: next }, actor_user_id: actorId });
+  const word = CHAPTER_WORDS[key as (typeof CHAPTER_KEYS)[number]];
+  return { ok: true, message: on ? `${word} — on: a booking starts on it.` : `${word} — off.` };
+}
+
 // ── One per event (owner 2026-10-29) ────────────────────────────────────────────
 
 /**

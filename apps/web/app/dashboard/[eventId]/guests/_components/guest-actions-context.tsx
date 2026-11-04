@@ -140,3 +140,15 @@ export function useOpenRequests(): (() => void) | null {
 export function usePickWho(): (() => void) | null {
   return useContext(PickWhoContext);
 }
+
+/**
+ * 📤 ⚙ › DOWNLOAD AS EXCEL (owner 3 Nov, "so fix their locations" — the filter only filters). The Guests screen hands its
+ * shipped save (`useGuestsExcel`: the phone's share sheet / a download) to the ⚙ rows; the row draws only where this is
+ * provided — not on the phone's failed copy (there is no fresh list to write), not outside the Guests screen.
+ * 🔒 guests/_components/the-filter-sheet-only-filters.test.ts
+ */
+export const GuestsExcelContext = createContext<{ label: string; save: () => void } | null>(null);
+
+export function useGuestsExcelSave(): { label: string; save: () => void } | null {
+  return useContext(GuestsExcelContext);
+}

@@ -46,6 +46,8 @@ export type WhereChapter = {
   location: string | null;
   startAt: string | null;
   tags: readonly string[];
+  /** The chapter's `block_type` (a default chapter's kind — `pre_ceremony`, `ceremony`, `reception`, `after_party`); null = not read. */
+  kind?: string | null;
 };
 
 /** A block as read: only top-level rows (`parent_block_id` null) are chapters. */
@@ -56,6 +58,7 @@ export type WhereBlockRow = {
   start_at: string | null;
   location?: string | null;
   responsible_vendor_ids?: readonly string[] | null;
+  block_type?: string | null;
 };
 
 /** Every block of an event → its chapters, in time order. One read of the blocks feeds it. */
@@ -68,6 +71,7 @@ export function whereChaptersFrom(rows: readonly WhereBlockRow[]): WhereChapter[
       location: typeof r.location === 'string' && r.location.trim() ? r.location.trim() : null,
       startAt: r.start_at ?? null,
       tags: r.responsible_vendor_ids ?? [],
+      kind: r.block_type ?? null,
     }))
     .sort((a, b) => ((a.startAt ?? '') < (b.startAt ?? '') ? -1 : (a.startAt ?? '') > (b.startAt ?? '') ? 1 : 0));
 }
@@ -192,6 +196,12 @@ export function supplierWhere(args: {
     inHouse: inHouseWhere(args.covered ?? [], args.coveredWhere, picked, args.chapters),
   };
 }
+
+/** 📖 The ask once a supplier is booked (owner 2026-11-04, prototype frame 5). */
+export const WHERE_ASK_WORDS = {
+  question: 'Which chapters will they serve?',
+  info: 'Their call times, headcount and Event Hub follow these chapters. Each trade starts on its usual ones — change them here, or later on their row.',
+} as const;
 
 /** How many booked rows still need a chapter — the count line's "· 2 need a chapter". */
 export function needWhereCount(wheres: readonly (SupplierWhere | null)[]): number {

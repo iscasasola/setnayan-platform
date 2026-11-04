@@ -17,13 +17,22 @@ Binding prototype: `prototypes/for_coordinators_2026-11-04.html` (Setnayan-specs
    An unreadable switch reads OFF, so the page says less rather than promising something that is switched off. The headings count what is shown: "Nine tools" / "Twelve problems" with every switch on, down to "Eight tools" / "Nine problems" with all four off.
 4. **Real links instead of demo buttons accepted** — and per the board, no demo/sample buttons anywhere.
 
+**And the board's 5 Nov "TRUE-CLAIMS CHECK": the day-of desk is "Free" only while the app says so.** `lib/vendor-specialization-gate.ts` still keeps the coordinator's floor-command kit (cue the show · requests inbox · seat scanner) behind the Solo plan while `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL` is unset — against the owner's 4 Nov "keep it free"; that fix is pending his OK. The page asks the gate's own `specializationFreeWindowActive` (a fifth switch, `dayOfFree`). While it says no:
+- the day-of desk leaves the free kit and the free line;
+- cue-the-show and the requests inbox are tagged `TIER_LABEL[SPECIALIZATION_MIN_TIER]` + " plan and up" (today "Solo plan and up"; never typed);
+- the seat-scanner sentence drops;
+- the hero says "Your shop and your dashboard cost you nothing." instead of naming the day's tools;
+- the "Not free, said plainly" line names the day-of desk and its plan.
+
+When the gate fix lands, all of it reads "Free" again with no edit to this page. A test pins each piece, and each was sabotage-checked red.
+
 The footer "For coordinators" link stays. This PR owns the shared hero and problem-scene pieces (`PhotoHeroSlides`, `ProblemScenes`, `photo-page.css`) for the front page and For Suppliers to reuse.
 
 ### Screenshots: 390 and 1280, light and dark
 
 Local dev server, dummy env (every database read fails the normal way; this page reads nothing). Reduced motion on, so every section is shown at rest.
 
-The table below is the page with **every switch ON** (commit `998bf4c0`; since then only the order of problem 12's sentences changed). The same 24 views with **every switch OFF** — what the dummy env renders, because it can read no switch — are in `build-sessions/assets/for-coordinators-2026-11-04/switches-off/`: "Eight tools", "Nine problems", 9 scenes, 0 px sideways scroll, no page errors.
+The table below is the page with **every switch ON** (commit `998bf4c0`; since then only the order of problem 12's sentences changed). The same 24 views with **every switch OFF** are in `build-sessions/assets/for-coordinators-2026-11-04/switches-off/`: "Seven tools", "Nine problems", 9 scenes, cue-the-show and the inbox tagged "Solo plan and up", 0 px sideways scroll, no page errors. That is what the dummy env renders, because it can read no switch. For the day-of desk it is also what production shows today.
 
 ⚠ **Dark is forced for the review.** A signed-out visitor always sees Light, and `/for-coordinators` is not on `DARK_READY` (`lib/appearance.ts`). So production shows only the light page. The dark shots show what it will look like once the public pages join the dark rollout; the page is built from tokens, so it needs no change then.
 
@@ -114,7 +123,7 @@ The For Suppliers sections on `main` are the older editorial design (serif + mon
 
 ### Where I stopped (for whoever continues — read `CLOUD_BOARD.md` in Setnayan-specs first)
 
-**Done.** The page is built and registered. The owner's four answers of 2026-11-04 are all applied (above): the migration, the copy, the four live switches with one test per line, and the real links. Screenshots exist for every switch on and every switch off. The whole preflight was clean on `00881fa0`; a re-run on the switch work is recorded below. Everything is pushed.
+**Done.** The page is built and registered. The owner's four answers of 2026-11-04 are all applied (above): the migration, the copy, the four live switches with one test per line, and the real links. The board's true-claims fix for the day-of desk is applied too. Screenshots exist for every switch on and every switch off. The whole preflight was clean on `00881fa0`; a re-run on the switch work is recorded below. Everything is pushed.
 
 **Next, exact steps:**
 1. When #7272 (schema snapshot) merges, merge `origin/main` into this branch with a merge commit (never force-push). If #7263 has merged by then, this PR's base retargets to `main` by itself.
@@ -122,7 +131,7 @@ The For Suppliers sections on `main` are the older editorial design (serif + mon
 3. If another migration replaced `business_slug_is_reserved` meanwhile, re-copy its body into `20271308786674` (plus `for-coordinators`) — `grep -l "FUNCTION public.business_slug_is_reserved" supabase/migrations/*.sql | sort | tail -1`.
 4. Re-run `pnpm preflight --base origin/<base>` whole, paste its table here, push.
 
-**Waiting on the owner:** his OK on the screenshots. Nothing else. Owner check, optional, prod read: `select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';` should be 0 before the migration applies.
+**Waiting on the owner:** his OK on the screenshots, and the separate gate fix that makes the day-of desk free as he ruled. This page follows that fix by itself. Nothing else. Owner check, optional, prod read: `select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';` should be 0 before the migration applies.
 
 ### `pnpm preflight --base origin/claude/for-suppliers-in-the-shell` (whole run)
 

@@ -9,6 +9,8 @@
  *                                   it (2026-11-01): the REAL `PreparationAgendaView` on `lab-planning.ts` (the real
  *                                   wedding template, dated, folded, with two hand-added rows). A tick or a date save
  *                                   here reaches the real action and is REFUSED (no sign-in) — the row says so.
+ *   ?view=playlist                 the REAL playlist moment sections on fixture picks (`lab-playlist.tsx`) — the pick
+ *                                   row's swipe-to-delete (owner 2026-11-03).
  *
  * Why it exists: the rail is drag, drop, sheets and a bottom panel — layout that
  * no unit test lays out (a green suite once shipped a Save button below the
@@ -21,10 +23,12 @@ import { notFound } from 'next/navigation';
 import { PreparationAgendaView } from '@/app/dashboard/[eventId]/schedule/_components/preparation-agenda';
 import ScheduleLabMount from './schedule-lab-mount';
 import { LAB_PLAN_DATE, labPlanningList } from './lab-planning';
+import { LabPlaylist } from './lab-playlist';
 
 export default async function ScheduleLabPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  if (q.view === 'playlist') return <LabPlaylist />;
   if (q.view !== 'preparation') return <ScheduleLabMount />;
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl bg-cream px-4 pb-24 pt-3 sm:px-6" data-lab="planning-stage">

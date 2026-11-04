@@ -4,7 +4,7 @@ import { useId, useMemo, useState } from 'react';
 import { CalendarPlus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
-import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { TimeRow } from '@/app/_components/form-row-time';
 import {
@@ -16,6 +16,7 @@ import {
   TIME_TBA,
   VENUE_TBA,
   callLeadWords,
+  clockWords,
   capChapterDay,
   chapterWindowFlags,
   egressAt,
@@ -31,6 +32,7 @@ import {
   wallIso,
   wallLocal,
   wallTime,
+  heldHoursLine,
   type Chapter,
 } from '@/lib/schedule-chapters';
 import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
@@ -229,7 +231,13 @@ export function ChapterSheet({
   onClose,
   onDeleted,
   replyCount,
+  deleteSuppliers = [],
+  heldBy = null,
 }: {
+  /** 🏛 The venue that holds this chapter's hours (by name) — its hours are a fact here, not fields. */
+  heldBy?: string | null;
+  /** 👷 Who Delete chapter takes off their parts, by name (the host reads them; the warning says them). */
+  deleteSuppliers?: readonly string[];
   chapter: Chapter;
   venues: string[];
   used: string[];
@@ -328,6 +336,16 @@ export function ChapterSheet({
                 onKeep={(t) => keep({ label: t.trim() }, { label: t.trim() })}
                 data="chapter-name"
               />
+              {/* 🏛 VENUE HOURS (2026-11-04): a venue holds them — one fact row, never a field the host can change. */}
+              {heldBy ? (
+                <FactRow
+                  name="Hours"
+                  value={heldHoursLine(c)}
+                  where={`🔒 ${heldBy} holds these hours — ask them to change on the chapter’s page.`}
+                  data="chapter-held-hours"
+                />
+              ) : null}
+              {heldBy ? null : (
               <DateRow
                 name="Date"
                 value={wallDay(c.start_at)}
@@ -335,6 +353,8 @@ export function ChapterSheet({
                 onKeep={(d) => moveTo(d, c.time_tba ? '' : wallTime(c.start_at))}
                 data="chapter-date"
               />
+              )}
+              {heldBy ? null : (
               <TimeRow
                 name="Starts"
                 value={c.time_tba ? '' : wallTime(c.start_at)}
@@ -344,7 +364,8 @@ export function ChapterSheet({
                 onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : goTba())}
                 data="chapter-start"
               />
-              {c.time_tba ? null : (
+              )}
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Ends"
                 value={wallTime(c.end_at)}
@@ -394,7 +415,7 @@ export function ChapterSheet({
                 onKeep={(t) => keep({ spot: t.trim() }, { spot: t.trim() || null })}
                 data="chapter-spot"
               />
-              {c.time_tba ? null : (
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Ingress from"
                 about={{ words: 'When suppliers can start setting up here. Leave it blank for no ingress.' }}
@@ -409,7 +430,7 @@ export function ChapterSheet({
                 data="chapter-ingress"
               />
               )}
-              {c.time_tba ? null : (
+              {c.time_tba || heldBy ? null : (
               <TimeRow
                 name="Egress until"
                 about={{ words: 'When everything must be out. Leave it blank for no egress. It can be after midnight.' }}
@@ -542,11 +563,7 @@ export function ChapterSheet({
                   {c.label} wasn’t deleted. Nothing was changed — try again.
                 </span>
               ) : (
-                <>
-                  <span className="font-semibold">{c.label}</span>
-                  {c.moments > 0 ? ` and its ${c.moments} moment${c.moments === 1 ? '' : 's'}` : ''} will be deleted. This cannot be
-                  undone. Its photos stay safe in Memories, under Unsorted.
-                </>
+                <ChapterDeleteWords c={c} suppliers={deleteSuppliers} />
               )}
             </p>
             {stage === 'deleting' ? null : (
@@ -571,6 +588,32 @@ export function ChapterSheet({
         )}
       </div>
     </Sheet>
+  );
+}
+
+/**
+ * 🗑 WHAT DELETING A CHAPTER TAKES — the ONE warning, read by the chapter's own Delete chapter and by a swipe left on
+ * the Event Day rail (owner 2026-11-03, prototype frame 3: *"Because deleting a chapter has consequences, the in-page
+ * warning stays"*). Since the same ruling a delete has an Undo (frame 4), so it no longer says it cannot be undone.
+ */
+export function ChapterDeleteWords({
+  c,
+  suppliers = [],
+}: {
+  c: Pick<Chapter, 'label' | 'moments' | 'on_invitation'>;
+  /** The suppliers on this chapter or its moments, by name — they are taken off their parts (and told, as shipped). */
+  suppliers?: readonly string[];
+}) {
+  const who = joinChapterNames([...suppliers]);
+  return (
+    <>
+      <span className="font-semibold">{c.label}</span>
+      {c.moments > 0 ? ` and its ${c.moments} moment${c.moments === 1 ? '' : 's'}` : ''} will be deleted.
+      {c.on_invitation ? ' It comes off the invitation and out of every reply.' : ''}
+      {suppliers.length > 0 ? ` ${who} ${suppliers.length === 1 ? 'is' : 'are'} taken off ${suppliers.length === 1 ? 'its' : 'their'} parts.` : ''}
+      {c.moments > 0 ? ' Its photos stay safe in Memories, under Unsorted.' : ' No moments are in it yet, so no photos move.'} You can undo it for a few
+      seconds.
+    </>
   );
 }
 

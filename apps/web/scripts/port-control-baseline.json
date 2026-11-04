@@ -12479,6 +12479,16 @@
         "TeamRowFacts"
       ]
     },
+    "/dev/swipe-rows-lab/proposals": {
+      "files": [
+        "dev/swipe-rows-lab/proposals/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "TemplateList"
+      ]
+    },
     "/dev/thumb-row-lab": {
       "files": [
         "dev/thumb-row-lab/page.tsx"
@@ -15837,6 +15847,7 @@
     "/vendor-dashboard/proposals": {
       "files": [
         "vendor-dashboard/proposals/_components/reuse-inbox.tsx",
+        "vendor-dashboard/proposals/_components/template-list.tsx",
         "vendor-dashboard/proposals/actions.ts",
         "vendor-dashboard/proposals/loading.tsx",
         "vendor-dashboard/proposals/page.tsx",
@@ -15848,7 +15859,6 @@
       ],
       "actions": [
         "createProposal",
-        "deleteTemplate",
         "saveTemplate",
         "vendorDeclineReuseForm",
         "vendorQuoteReuseForm"
@@ -15859,6 +15869,9 @@
         "ListPager",
         "ReuseActionResult",
         "SubmitButton",
+        "SwipeToDelete",
+        "TemplateList",
+        "UndoToastHost",
         "VendorReuseInbox"
       ]
     },

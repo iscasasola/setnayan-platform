@@ -53,6 +53,8 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/website/photo-moments/_components/photo-moments-editor.tsx', 'editor field — a photo moment’s card of inputs inside its editor'],
   ['app/dashboard/[eventId]/story/_components/editorial-editor.tsx', 'editor field — a custom column’s name + body and a wish’s fields inside the editorial editor'],
   ['app/dashboard/[eventId]/launch/_components/rsvp-line-list.tsx', 'editor field — the Maker Edit row’s Earlier · Later · Group · Remove for the picked line'],
+  ['app/_components/proposal-maker.tsx', 'editor field — a quote line’s ✕ DROPS it (reversible, “Put back”) and a payment’s ✕ removes a draft installment, both inside the quote editor'],
+  ['app/_components/amendment-builder.tsx', 'editor field — a draft change item (type, words, ₱) inside the amendment form, written on Send'],
 ]);
 
 const SKIP_DIR = /^(admin|dev|prototypes?|node_modules|\.next|tests?|__tests__|e2e)$/;

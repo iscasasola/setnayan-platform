@@ -816,6 +816,21 @@ export default async function GuestsLabPage({
           seatedAt: proxyMode === 'holder' ? null : 'Principal Sponsors 1',
         }
       : {};
+    /* 🍽 `&counted=none|one` — "Not counted for ▾" above Passed Away (owner 2026-11-02): three booked services, nothing
+       ticked (counted for all) or the caterer ticked. Absent → no row, as a card drawn without the read. */
+    const countedMode = sp.counted === 'none' || sp.counted === 'one' ? sp.counted : null;
+    const notCountedData = countedMode
+      ? {
+          notCounted: {
+            services: [
+              { id: 'ev-cater', label: 'Catering', shop: 'Kusina ni Lola' },
+              { id: 'ev-booth', label: 'Photo Booth', shop: 'Snap Box Manila' },
+              { id: 'ev-cake', label: 'Cake', shop: 'Sweet Layers' },
+            ],
+            picked: countedMode === 'one' ? ['ev-cater'] : [],
+          },
+        }
+      : {};
     const baseCardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
     /* 🔁 `&rsvp=pending` — a guest who has not replied: the Access row's Give this spot… is offered (owner 2026-11-02). */
     const cardGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
@@ -842,7 +857,7 @@ export default async function GuestsLabPage({
         <GuestCard
           frame={panelFrame ? 'panel' : 'page'}
           eventId={EVENT}
-          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, ...notCountedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
           invitationBase="https://www.setnayan.com/maria-and-jose"
           photoDisplayUrl={null}
           returnTo={labBack}
@@ -1037,6 +1052,8 @@ export default async function GuestsLabPage({
                     }
                     tables={tables}
                     tableByGuest={tableByGuest}
+                    /* 🍽 `&counted=one` — two guests' rows carry the quiet "Not counted for …" note (owner 2026-11-02). */
+                    notCountedByGuest={sp.counted === 'one' ? { 'g-mj-3': 'Not counted for Catering', 'g-mj-5': 'Not counted for Catering, Photo Booth' } : undefined}
                     songsByGuest={{}}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}

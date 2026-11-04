@@ -9,7 +9,8 @@ import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { chapterWhen, clockWords, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { chapterWhen, clockWords, egressMinutesFrom, endIsoFrom, ingressMinutesFrom, shiftWall, wallDay, wallIso, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
+import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
   crewFromText,
@@ -106,6 +107,7 @@ export function SupplierSchedule({
     | { kind: 'moment'; chapter: SupplierChapter; moment: SupplierMoment | null }
     | { kind: 'times' }
     | { kind: 'suggest' }
+    | { kind: 'hours'; chapter: SupplierChapter }
     | null
   >(null);
   const [said, setSaid] = useState<{ tone: 'ok' | 'bad'; words: string } | null>(null);
@@ -275,6 +277,27 @@ export function SupplierSchedule({
                   {chapterWhen({ start_at: c.start_at ?? '', end_at: c.end_at, time_tba: c.time_tba })} · {c.where}
                 </span>
               </div>
+              {/* 🏛 VENUE HOURS (2026-11-04): the venue booked to a chapter sets its hours; once approved, they are held. */}
+              {c.setsHours ? (
+                <div data-venue-hours={c.block_id} className="mt-1 flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-2">
+                  <span className="min-w-0 text-[13px] text-ink/70">
+                    {c.hoursWaiting
+                      ? `Your hours are waiting for the host · ${venueHoursLine(c.hoursWaiting.proposed_start_at, c.hoursWaiting.proposed_end_at, c.hoursWaiting.proposed_ingress_minutes ?? null, c.hoursWaiting.proposed_egress_minutes ?? null)}`
+                      : c.holdsHours
+                        ? `🔒 Your hours · ${venueHoursLine(c.start_at, c.end_at, c.ingress_minutes_before, c.egress_minutes_after)}`
+                        : 'You’re the venue: set this chapter’s hours.'}
+                  </span>
+                  {c.hoursWaiting ? null : (
+                    <ActionButton
+                      tone="neutral"
+                      icon={Clock}
+                      label={c.holdsHours ? 'Change hours' : 'Set hours'}
+                      data-testid="venue-hours-open"
+                      onClick={() => setSheet({ kind: 'hours', chapter: c })}
+                    />
+                  )}
+                </div>
+              ) : null}
               <ul className="mt-1 divide-y divide-ink/10">
                 {c.moments.length === 0 && c.waitingAdds.length === 0 ? (
                   <li className="py-2 text-xs text-ink/55">No moments yet.</li>
@@ -368,6 +391,15 @@ export function SupplierSchedule({
           onSent={(r) => after(r, 'Sent. The host or coordinator approves your times.') && setSheet(null)}
         />
       ) : null}
+      {sheet?.kind === 'hours' ? (
+        <VenueHoursSheet
+          chapter={sheet.chapter}
+          autoAgree={autoAgree}
+          send={send}
+          onClose={() => setSheet(null)}
+          onSent={(r) => after(r, 'Sent. Once the host approves, the hours are yours to change.') && setSheet(null)}
+        />
+      ) : null}
       {sheet?.kind === 'suggest' ? (
         <SuggestSheet
           options={others}
@@ -400,6 +432,12 @@ function MomentLine({ m, tasksRead }: { m: SupplierMoment; tasksRead: boolean })
         {m.optional ? <span className="ml-1.5 text-xs text-ink/55">if kept</span> : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/60">{m.crew.join(', ')}</span> : null}
         {m.mine && !tasksRead ? <span className="block text-xs text-ink/50">Your crew on it couldn’t be read.</span> : null}
+        {/* 📇 A contact on this moment (the bridal-car driver) — only on a moment they are on (4 additions (3)). */}
+        {m.contacts.map((c) => (
+          <span key={`${c.name}|${c.phone}`} data-moment-contact="" className="block text-xs text-ink/70">
+            Contact: {contactLine(c)}
+          </span>
+        ))}
         {m.waiting ? <span className="block text-xs text-warn-900">{waitingWords(m.waiting, m.label)} · Waiting for the host</span> : null}
       </span>
     </>
@@ -539,7 +577,9 @@ function MyMomentSheet({
   const chapter = chapters.find((c) => c.block_id === chapterId) ?? chapter0;
   const [label, setLabel] = useState(moment?.label ?? '');
   // A new moment in a Time-TBA chapter starts blank — its stored 00:00 is only the day, never a 12:00 AM to prefill.
-  const [time, setTime] = useState((moment || !chapter.time_tba ? wallTime(moment?.start_at ?? chapter.start_at) : '') || '');
+  // ⏭ A moment "right after the one above" has no clock of its own — its stored start is its anchor's, never prefilled.
+  const baseTime = moment ? (moment.rightAfter ? '' : wallTime(moment.start_at)) : !chapter.time_tba ? wallTime(chapter.start_at) : '';
+  const [time, setTime] = useState(baseTime || '');
   const [minutes, setMinutes] = useState(String(moment?.minutes ?? MOMENT_MINUTES_DEFAULT));
   const [section, setSection] = useState<ChapterSection>(moment?.section ?? 'Event');
   const [crew, setCrew] = useState((moment?.crew ?? []).join(', '));
@@ -574,7 +614,9 @@ function MyMomentSheet({
     }
     const fields: Fields = { block_id: moment.block_id, chapter_of_block: chapter.block_id, note: note.trim() };
     if (label.trim() !== moment.label) fields.proposed_label = label.trim();
-    const timeChanged = time !== wallTime(moment.start_at) || minutes !== String(moment.minutes ?? MOMENT_MINUTES_DEFAULT);
+    const timeChanged = moment.rightAfter
+      ? time !== ''
+      : time !== wallTime(moment.start_at) || minutes !== String(moment.minutes ?? MOMENT_MINUTES_DEFAULT);
     if (timeChanged) Object.assign(fields, { time, minutes, section });
     const crewNow = crewFromText(crew).join(', ');
     if (crewNow && crewNow !== moment.crew.join(', ')) fields.crew = crewNow;
@@ -778,6 +820,93 @@ function MyTimesSheet({
                 fields[`arrive_${id}`] = times[id]!.arrive;
                 fields[`done_${id}`] = times[id]!.done;
               }
+              const r = await send(fields);
+              setBusy(false);
+              if (!r.ok) return setProblem(r.error);
+              onSent(r);
+            }}
+          />
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/* ── 🏛 Venue hours — Starts · Ends · Setup from · Pack-up until (migration 20271307658341) ─────────────────── */
+
+/** "5:00 PM – 10:00 PM · setup from 1:00 PM · out by 11:30 PM" */
+export function venueHoursLine(start: string | null, end: string | null, ingress: number | null, egress: number | null): string {
+  if (!start) return 'Time TBA';
+  const parts = [`${clockWords(start)}${end ? ` – ${clockWords(end)}` : ' onward'}`];
+  if (ingress !== null) parts.push(`setup from ${clockWords(shiftWall(start, -ingress))}`);
+  if (egress !== null) parts.push(`out by ${clockWords(shiftWall(start, egress))}`);
+  return parts.join(' · ');
+}
+
+function VenueHoursSheet({
+  chapter: c,
+  autoAgree,
+  send,
+  onClose,
+  onSent,
+}: {
+  chapter: SupplierChapter;
+  autoAgree: boolean;
+  send: Send;
+  onClose: () => void;
+  onSent: (r: SupplierScheduleAnswer) => void;
+}) {
+  const headingId = useId();
+  const day = wallDay(c.start_at);
+  const startIso0 = c.start_at && !c.time_tba ? c.start_at : null;
+  const [starts, setStarts] = useState(startIso0 ? wallTime(startIso0) : '');
+  const [ends, setEnds] = useState(c.end_at ? wallTime(c.end_at) : '');
+  const [setup, setSetup] = useState(startIso0 && c.ingress_minutes_before !== null ? wallTime(shiftWall(startIso0, -c.ingress_minutes_before)) : '');
+  const [packUp, setPackUp] = useState(startIso0 && c.egress_minutes_after !== null ? wallTime(shiftWall(startIso0, c.egress_minutes_after)) : '');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <Sheet open onClose={onClose} labelledById={headingId} title={`${c.label} · hours`}>
+      <div data-venue-hours-sheet={c.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
+        <h3 id={headingId} className="sr-only">
+          {c.label} hours
+        </h3>
+        <p className="text-[13px] text-ink/60">
+          You are the venue, so you set this chapter’s hours and its setup and pack-up. {whereItGoesWords(autoAgree)}
+        </p>
+        <FormRows width="short">
+          <TimeRow name="Starts" value={starts} onKeep={(t) => (setStarts(t), { ok: true })} data="venue-hours-starts" />
+          <TimeRow name="Ends" value={ends} clearable onKeep={(t) => (setEnds(t), { ok: true })} data="venue-hours-ends" />
+          <TimeRow name="Setup from" value={setup} clearable onKeep={(t) => (setSetup(t), { ok: true })} data="venue-hours-setup" />
+          <TimeRow name="Pack-up until" value={packUp} clearable onKeep={(t) => (setPackUp(t), { ok: true })} data="venue-hours-packup" />
+        </FormRows>
+        {problem ? (
+          <p role="alert" className="text-[13px] font-semibold text-danger-700">
+            {problem}
+          </p>
+        ) : null}
+        <div className="sticky bottom-0 -mx-4 flex justify-end bg-cream px-4 pt-2">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Clock}
+            label={busy ? 'Sending…' : autoAgree ? 'Save' : 'Send'}
+            disabled={busy}
+            data-testid="venue-hours-send"
+            onClick={async () => {
+              const startIso = wallIso(day, starts);
+              if (!startIso) return setProblem('Give the chapter a start time.');
+              const fields: Fields = {
+                request: 'hours',
+                chapter_id: c.block_id,
+                chapter_label: c.label,
+                start_at: startIso,
+                end_at: endIsoFrom(startIso, ends) ?? '',
+                ingress_minutes: String(ingressMinutesFrom(startIso, setup) ?? ''),
+                egress_minutes: String(egressMinutesFrom(startIso, packUp) ?? ''),
+              };
+              setBusy(true);
+              setProblem(null);
               const r = await send(fields);
               setBusy(false);
               if (!r.ok) return setProblem(r.error);

@@ -36,17 +36,39 @@ export function onlyInvitationChapters<Q extends { eq: unknown; is: unknown; neq
     .neq('visibility', 'coordinator_only') as unknown as Q;
 }
 
-/** The invitation's chapters for one event, in the day's order. `null` = the read failed (said, never drawn as none). */
-export async function readInvitationChapters(admin: Client, eventId: string): Promise<InvitationChapter[] | null> {
-  const { data, error } = await onlyInvitationChapters(
-    admin.from('event_schedule_blocks').select(INVITATION_CHAPTER_FIELDS).eq('event_id', eventId),
-  ).order('start_at', { ascending: true });
-  if (error || !data) {
+/**
+ * The invitation's chapters for one event, in the day's order. `null` = the read failed (said, never drawn as none).
+ * Given a `guestId`, it is THAT guest's invitation (owner 2026-11-02, "Invited to"): the chapters the hosts took them off
+ * are left out — and if that read fails the whole answer is `null`, never the full list (a guest is never asked about,
+ * nor shown, a part of the day they were taken off because a read did not happen).
+ */
+export async function readInvitationChapters(admin: Client, eventId: string, guestId?: string): Promise<InvitationChapter[] | null> {
+  const [{ data, error }, notInvited] = await Promise.all([
+    onlyInvitationChapters(admin.from('event_schedule_blocks').select(INVITATION_CHAPTER_FIELDS).eq('event_id', eventId)).order('start_at', {
+      ascending: true,
+    }),
+    guestId ? readGuestNotInvited(admin, guestId) : Promise.resolve(new Set<string>()),
+  ]);
+  if (error || !data || notInvited === null) {
     if (error) logQueryError('readInvitationChapters', error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  return invitationChapters(data as unknown as Parameters<typeof invitationChapters>[0]);
+  return invitationChapters(data as unknown as Parameters<typeof invitationChapters>[0], notInvited);
 }
+
+/**
+ * ✉ The chapters ONE guest was taken off (`guest_chapter_not_invited`, 20271302948959) — the exception; none = invited to
+ * every chapter on the invitation. `null` = the read failed (the caller never treats that as "invited to all").
+ */
+export async function readGuestNotInvited(admin: Client, guestId: string): Promise<Set<string> | null> {
+  const { data, error } = await admin.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId);
+  if (error || !data) {
+    if (error) logQueryError('readGuestNotInvited', error, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
+  return new Set((data as { block_id: string }[]).map((r) => r.block_id));
+}
+
 
 /** One guest's own answers, chapter by chapter. `null` = the read failed. */
 export async function readGuestChapterReplies(admin: Client, guestId: string): Promise<StoredChapterReply[] | null> {
@@ -148,7 +170,7 @@ export async function readChapterCounts(
           .eq('event_id', eventId)
           .eq('block_id', blockId)
           .is('guests.deleted_at', null);
-      const [yes, no, names] = await Promise.all([
+      const [yes, no, names, off] = await Promise.all([
         base().eq('attending', true),
         base().eq('attending', false),
         supabase
@@ -160,6 +182,14 @@ export async function readChapterCounts(
           .is('guests.deleted_at', null)
           .order('replied_at', { ascending: true })
           .limit(YES_NAMES_SHOWN),
+        /* ✉ Who the hosts took off it (owner 2026-11-02). Their answers to it are already gone (20271302948959), so the
+           two counts above never count them; this only says how many. A refused read leaves it unsaid, never 0. */
+        supabase
+          .from('guest_chapter_not_invited')
+          .select('guest_id, guests!inner(deleted_at)', { count: 'exact', head: true })
+          .eq('event_id', eventId)
+          .eq('block_id', blockId)
+          .is('guests.deleted_at', null),
       ]);
       if (yes.error || no.error || names.error || yes.count === null || no.count === null) {
         logQueryError('readChapterCounts', (yes.error ?? no.error ?? names.error)!, { event_id: eventId }, 'graceful_degrade');
@@ -171,7 +201,7 @@ export async function readChapterCounts(
       }[])
         .map(({ guests: g }) => (g?.display_name ?? '').trim() || `${g?.first_name ?? ''} ${g?.last_name ?? ''}`.trim())
         .filter(Boolean);
-      out.set(blockId, { yes: yes.count, no: no.count, yesNames });
+      out.set(blockId, { yes: yes.count, no: no.count, yesNames, ...(off.error || off.count === null ? {} : { notInvited: off.count }) });
     }),
   );
   return out;

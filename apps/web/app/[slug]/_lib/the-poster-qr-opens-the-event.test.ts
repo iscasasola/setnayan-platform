@@ -3,8 +3,8 @@
  * Poster QR. will go to the event. sign in to enter or upload your qr to
  * login."*).
  *
- *   · the door offers exactly two things: Upload your QR · Sign in;
- *   · "Upload your QR" decodes a picture of the guest's personal QR IN THE
+ *   · the door offers exactly three things (owner 2026-11-03): Scan QR · Upload QR · Lost QR? Login;
+ *   · "Upload QR" decodes a picture of the guest's personal QR IN THE
  *     BROWSER (`jsqr`) and goes to THIS event's key — anything else is refused
  *     with one plain line; the picture is never sent anywhere;
  *   · on an "Only my Guest List" event there is no "Ask to join" anywhere — the
@@ -82,15 +82,17 @@ test('8 · the upload decodes in the browser with the repo’s jsqr, and never p
   assert.match(src, /catch \{\s*setSaid\(UNREADABLE_QR\)/);
 });
 
-test('8 · the door offers exactly two things: Upload your QR · Sign in', async () => {
+test('8 · the door offers exactly three things: Scan QR · Upload QR · Lost QR? Login (owner 2026-11-03)', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GetInside } = await import('../_components/get-inside');
   const html = renderToStaticMarkup(
     React.createElement(GetInside, { slug: 'rosa-ben', eventId: 'e-1', signedInNotListed: false, theOrganizer: 'the couple' }),
   );
-  assert.match(html, /Upload your QR/);
+  assert.match(html, />Scan QR</);
+  assert.match(html, />Upload QR</);
   assert.match(html, /type="file"[^>]*accept="image\/\*"/);
-  assert.match(html, />Sign in</);
+  assert.match(html, /href="\/login\?next=%2Frosa-ben"[^>]*>Lost QR\? Login</);
+  assert.doesNotMatch(html, />Sign in</, 'a separate "Sign in" beside the three');
   assert.doesNotMatch(html, /Ask to join/, 'a stranger is offered a request');
 });
 

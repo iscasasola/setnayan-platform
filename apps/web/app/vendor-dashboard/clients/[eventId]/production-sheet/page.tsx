@@ -13,6 +13,7 @@ import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { formatCount } from '@/lib/format-number';
+import { crewMealLines, crewMealTotal, mealsWords } from '@/lib/crew-meals';
 
 export const metadata = { title: 'Production Sheet · Supplier' };
 
@@ -162,6 +163,13 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
     );
   }
   const rulesMeasured = !ruleRowsError && ruleRows !== null;
+
+  // 🍱 THE CREW MEALS THE HOST SET (owner 2026-11-02, 4 additions (4); migration 20271303132255): each booked supplier
+  // whose crew the event feeds, with the host's number. Names and counts only. A refused read is said — never "none".
+  const { data: crewRows, error: crewError } = await supabase.rpc('get_vendor_crew_meals', { p_event_id: eventId });
+  if (crewError) logQueryError('VendorProductionSheet.crewMeals', crewError, { eventId }, 'graceful_degrade');
+  const crewMeals = crewError ? null : crewMealLines(crewRows as Record<string, unknown>[] | null);
+  const crewTotal = crewMeals ? crewMealTotal(crewMeals) : 0;
   const rules = (ruleRows ?? []) as PortionRule[];
 
   const mealEntries = Object.entries(metrics.meal_counts).sort((a, b) => b[1] - a[1]);
@@ -271,6 +279,38 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
             </ul>
           )}
         </div>
+      </div>
+
+      {/* 🍱 Crew meals — what the host set per booked supplier (4 additions (4)). */}
+      <div className="sn-tile p-4 sm:p-6" data-crew-meals="">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold">Crew meals</h2>
+          {crewMeals && crewMeals.length > 0 ? (
+            <span className="text-lg font-semibold tabular-nums" data-crew-meals-total="">
+              {formatCount(crewTotal)}
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1 text-xs text-ink/50">The suppliers the couple marked as fed by you, and how many from each.</p>
+        {crewMeals === null ? (
+          <p role="alert" className="mt-3 text-sm text-ink/70">
+            The crew meals couldn&rsquo;t be read just now — reload to try again.
+          </p>
+        ) : crewMeals.length === 0 ? (
+          <p className="mt-3 text-sm text-ink/55">The couple hasn&rsquo;t marked any supplier&rsquo;s crew as fed by you yet.</p>
+        ) : (
+          <ul className="mt-3 space-y-1.5">
+            {crewMeals.map((l) => (
+              <li key={`${l.name}|${l.category}`} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0">
+                  {l.name}
+                  {l.fromListing ? <span className="ml-1.5 text-xs text-ink/50">from their listing</span> : null}
+                </span>
+                <span className="font-semibold tabular-nums">{mealsWords(l.meals)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Portion rules × live counts */}

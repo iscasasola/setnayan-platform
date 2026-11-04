@@ -24,6 +24,7 @@
  *             (the shipped switch). Kept, not deleted. A screened frame's slot is Approve; a hidden one's is Show.
  *   Delete    the hosts, on a Papic file — every copy, never a supplier's or an Event Hub file.
  */
+import { ORIGINAL_FROM_DRIVE_LABEL } from '@/lib/papic-originals-reminder-core';
 import { canModerate, type MemoriesItem } from '@/lib/event-memories';
 
 /** 🔒 THE ORDER — the owner's five, destructive last. */
@@ -84,6 +85,8 @@ export function shareSourceOf(
   return { url: item.saveUrl, what: item.alreadyCompressed ? 'kept-copy' : 'original', baseName };
 }
 
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
 /** The Share panel's one line, and its ⓘ — the full-resolution answer in words, never silently a smaller file. */
 export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved'>): { line: string; tip: string } {
   switch (src.what) {
@@ -92,12 +95,12 @@ export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved
         ? { line: 'Full resolution · the original', tip: 'The photo as it was taken — Keep full resolution keeps it for good. Location data is removed before it leaves Setnayan.' }
         : {
             line: 'Full resolution · the original',
-            tip: 'The photo as it was taken, location data removed. Keep full resolution (in ⚙) is off, so after 6 months only a smaller copy stays — share or save it before then.',
+            tip: 'The photo as it was taken, location data removed. Originals are kept until 3 months after the event’s last day; then the 720p copy stays, free, for life. Copy to Google Drive (free) or save it before then.',
           };
     case 'kept-copy':
       return {
-        line: 'The best copy left · 1280 px',
-        tip: 'Full resolution wasn’t kept for this photo — the original was replaced by a smaller copy after 6 months. This is that copy. Keep full resolution (in ⚙) keeps every original.',
+        line: 'The 720p copy, kept for life',
+        tip: `The original was replaced by the 720p copy 3 months after the event. If your Google Drive still holds it and is connected, Download gives you the ${lowerFirst(ORIGINAL_FROM_DRIVE_LABEL)}.`,
       };
     case 'clip-original':
       return { line: 'Full resolution · the original clip', tip: 'The clip as it was recorded.' };
@@ -108,7 +111,7 @@ export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved
     case 'host-save':
       return {
         line: 'Full resolution · the original',
-        tip: 'The photo as it was taken, location data removed. Where Keep full resolution was off and 6 months have passed, the original was replaced by a smaller copy — then this is the best copy left (1280 px).',
+        tip: `The photo as it was taken, location data removed. From 3 months after the event, the original is replaced by the 720p copy — then Download gives you the ${lowerFirst(ORIGINAL_FROM_DRIVE_LABEL)} when your Drive holds it, else the 720p copy.`,
       };
     case 'shared-copy':
       return {

@@ -75,6 +75,8 @@ export type CardPickProps = {
   about?: string;
   /** What the button says while the value is not one of the options (see `CardTitleProps`). */
   unlisted?: { key: string; text: string };
+  /** The `id` of the form it posts with, when it is drawn OUTSIDE it (the card's "Not counted for ▾", above Passed Away). */
+  form?: string;
 };
 /**
  * 🪪 THE TITLE — one dropdown whose pick carries woman or man ("Atty. (Woman)" · "Atty. (Man)", owner 2026-10-17;

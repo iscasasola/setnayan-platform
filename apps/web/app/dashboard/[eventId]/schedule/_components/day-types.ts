@@ -32,7 +32,7 @@ export type DayRequest = {
   suggestion_id: string;
   block_id: string | null;
   /** add · change (or, with no proposed fields, a suggestion in words) · delete. */
-  kind: 'adjust' | 'new' | 'remove';
+  kind: 'adjust' | 'new' | 'remove' | 'hours';
   by: string;
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -40,6 +40,9 @@ export type DayRequest = {
   proposed_location: string | null;
   /** Their crew on it — "Team A, Second shooter" (Step 4b, the supplier's Who on our side). */
   proposed_crew?: string[] | null;
+  /** 🏛 A venue's hours (kind `hours`): setup / pack-up in minutes from the chapter's start. */
+  proposed_ingress_minutes?: number | null;
+  proposed_egress_minutes?: number | null;
   note: string;
 };
 

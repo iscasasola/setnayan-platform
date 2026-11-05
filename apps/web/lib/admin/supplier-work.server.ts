@@ -234,11 +234,11 @@ async function readCards(admin: Admin): Promise<SupplierWorkItem[] | 'failed'> {
 }
 
 async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 'absent'> {
-  // ⚠ Built against PR #7001's schema (migration 20271294233183 · `event_type_requests`). Before it merges this
-  // table is not in the database and the kind reads as `absent` — said, never drawn as "no asks".
+  // PR #7001's schema (migration 20271294233183 · `event_type_requests`, asker = `user_id`). If the table is missing
+  // the kind reads as `absent` — said, never drawn as "no asks".
   const { data, error } = await admin
     .from('event_type_requests')
-    .select('request_id, requested_by, label, status, event_type, created_at')
+    .select('request_id, user_id, label, status, event_type, created_at')
     .in('status', ['pending', 'linked'])
     .order('created_at', { ascending: true })
     .limit(LIMIT);
@@ -249,7 +249,7 @@ async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 
   }
   const rows = (data ?? []) as Array<{
     request_id: string;
-    requested_by: string;
+    user_id: string;
     label: string;
     status: 'pending' | 'linked';
     event_type: string | null;
@@ -270,7 +270,7 @@ async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 
     }
   }
   const names = new Map<string, string>();
-  const ids = [...new Set(rows.map((r) => r.requested_by))];
+  const ids = [...new Set(rows.map((r) => r.user_id))];
   if (ids.length > 0) {
     const { data: people, error: pErr } = await admin.from('users').select('user_id, display_name').in('user_id', ids);
     if (pErr) logQueryError('supplierWork.types.names', pErr, {}, 'graceful_degrade');
@@ -282,13 +282,13 @@ async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 
     key: `types:${r.request_id}`,
     kind: 'types' as const,
     title: `Event type request · “${r.label}”`,
-    line: `From ${names.get(r.requested_by) ?? 'a host'}${r.status === 'linked' ? ' · added, not in the picker yet' : ''}`,
+    line: `From ${names.get(r.user_id) ?? 'a host'}${r.status === 'linked' ? ' · added, not in the picker yet' : ''}`,
     at: r.created_at,
     requestId: r.request_id,
     label: r.label,
     status: r.status,
     eventType: r.event_type,
-    askedBy: names.get(r.requested_by) ?? 'a host',
+    askedBy: names.get(r.user_id) ?? 'a host',
     coverage: r.status === 'linked' && r.event_type && groups && tiles ? coverageByGroup(r.event_type, groups, tiles) : null,
   }));
 }

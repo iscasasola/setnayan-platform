@@ -45,7 +45,10 @@
  *            `viber://…${…}`, `whatsapp://…`, `https://wa.me/${…}`,
  *            `https://m.me/${…}` — or one built by concatenation
  *            (`'mailto:' + x`). A STATIC `mailto:` to Setnayan's own address is
- *            not a shop's door and is allowed. Zero tolerance: no bill.
+ *            not a shop's door and is allowed. Two bills, each the OWNER's
+ *            scoping, never an argued case: GUEST_CONTACT_BILL (a guest is not
+ *            a shop, 2026-09-14) and BOOKED_SUPPLIER_CALL_BILL (a supplier
+ *            already BOOKED here, 2026-11-04 — Call · Video call · Viber).
  *   Rule 2 · A contact FIELD printed as a JSX expression — `{x.contact_email}`,
  *            `{ev.contact_phone ?? ev.contact_email}`, `value={c.contact_email}`
  *            — outside an exact-match bill (CONTACT_TEXT_BILL), where each line
@@ -258,7 +261,51 @@ const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = 
   ],
 ]);
 
+/**
+ * BOOKED_SUPPLIER_CALL_BILL — Rule 1's second owner-scoped exemption: the chat head's Call and Video call · Viber, on
+ * a thread with a supplier the couple has BOOKED.
+ *
+ * Owner 2026-11-04 (DECISION_LOG "SIX OWNER ANSWERS", item 2): *"We can call and video call suppliers as well on the
+ * chat"*; 2026-11-05: *"yes for the video and voice call, have a button for it."*
+ *
+ * WHY IT DOES NOT UNDO THE RULE. The rule protects the booking fee on a SOURCED client: a couple who finds a shop here
+ * must not book it around the platform. A BOOKED supplier was booked HERE — the fee, the record, the lock and the
+ * price freeze already exist; a phone call cannot take any of them away. So the exemption is keyed on the BOOKING, and
+ * this bill does not only count the two links — it PROVES the key (`gates`), exactly as CONTACT_TEXT_BILL does:
+ *   · the file that SPELLS the links (`lib/booked-supplier-call.ts`) is billed for exactly two;
+ *   · the ONE caller of its builder is the reader, and the reader fetches the phone only after a CONFIRMED booking
+ *     answered (`bookingGate` below) — an unbooked thread never even reads the number;
+ *   · a typed number in a MESSAGE is still the contact filter's to block, booked or not
+ *     (`lib/a-booked-supplier-is-the-only-call.test.ts` executes both).
+ */
+const BOOKED_SUPPLIER_CALL_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'lib/booked-supplier-call.ts',
+    {
+      count: 2,
+      why:
+        'The chat head\'s Call (tel:) and Video call · Viber (viber://chat) to a supplier the couple has BOOKED on this ' +
+        'event (owner 2026-11-04, "SIX OWNER ANSWERS" item 2). Built only from a BookedSupplierCall, which only ' +
+        'readBookedSupplierCall makes, and only after a confirmed event_vendors row answered.',
+    },
+  ],
+]);
+/** The reader that keys the exemption: a confirmed booking, THEN the phone — never the phone without it. */
+const BOOKED_CALL_READER = 'lib/booked-supplier-call.server.ts';
+const BOOKED_CALL_GATE =
+  /\.from\('event_vendors'\)[\s\S]*?\.in\('status', CONFIRMED_VENDOR_STATUSES[\s\S]*?\.is\('archived_at', null\)[\s\S]*?if \(!bookings \|\| bookings\.length === 0\) return \{ kind: 'not_booked' \};[\s\S]*?\.from\('vendor_profiles'\)\s*\.select\('contact_phone'\)/;
+
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'lib/booked-supplier-call.server.ts',
+    {
+      count: 1,
+      why:
+        'The BOOKED supplier\'s business phone for the chat head\'s Call · Video call · Viber (owner 2026-11-04). ' +
+        'Read on the service role, and only AFTER a confirmed event_vendors row for this shop on this event answered ' +
+        '(BOOKED_CALL_GATE proves the order); an unbooked thread never fetches it.',
+    },
+  ],
   [
     'app/dashboard/[eventId]/vendors/packages/actions.ts',
     {
@@ -482,7 +529,7 @@ test('Rule 1 — no couple-facing or public surface computes a mailto:/tel:/sms:
   const billedSeen = new Map<string, number>();
   for (const [f, src] of STRIPPED) {
     const found = dynamicSchemes(src);
-    const billed = GUEST_CONTACT_BILL.get(f);
+    const billed = GUEST_CONTACT_BILL.get(f) ?? BOOKED_SUPPLIER_CALL_BILL.get(f);
     if (billed) {
       billedSeen.set(f, found.length);
       // A billed file may carry EXACTLY what its line says. One more is a new
@@ -499,11 +546,11 @@ test('Rule 1 — no couple-facing or public surface computes a mailto:/tel:/sms:
   }
   // Exact in the other direction too: a bill line that no longer matches real
   // code is a permission nobody is using, and it must be deleted on purpose.
-  for (const [f, billed] of GUEST_CONTACT_BILL) {
+  for (const [f, billed] of [...GUEST_CONTACT_BILL, ...BOOKED_SUPPLIER_CALL_BILL]) {
     if (!billedSeen.has(f)) {
       hits.push(
         `${f}  →  billed for ${billed.count} contact link(s) but the file is not ` +
-          'reachable/scanned any more. Delete the GUEST_CONTACT_BILL line.',
+          'reachable/scanned any more. Delete its bill line.',
       );
     }
   }
@@ -530,6 +577,28 @@ test('Rule 1 matches the shapes it claims to, and exempts only a constant', () =
   for (const b of bites) assert.equal(dynamicSchemes(b).length, 1, `did not bite: ${b}`);
   assert.equal(dynamicSchemes('`<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>`').length, 0);
   assert.equal(dynamicSchemes('href="mailto:iscasasolaii@gmail.com"').length, 0);
+});
+
+test('the booked-supplier call is keyed on the BOOKING — one builder, one caller, the phone read only once booked', () => {
+  // The bill above lets ONE file spell tel:/viber:. That is only safe if nothing but the booked reader feeds it.
+  const reader = STRIPPED.get(BOOKED_CALL_READER);
+  assert.ok(reader, `${BOOKED_CALL_READER} is no longer reached from a couple entry point — did the chat head stop mounting it?`);
+  assert.match(
+    reader!,
+    BOOKED_CALL_GATE,
+    'the reader no longer reads the shop phone ONLY after a confirmed, un-archived booking answered — the exemption ' +
+      'is keyed on the booking and nothing else (owner 2026-11-04, "SIX OWNER ANSWERS" item 2)',
+  );
+  // Exactly one place builds the links, and it is the reader — in every source file, couple-facing or not.
+  const builders = FILES.filter((f) => /\bsupplierCallLinks\(/.test(stripComments(readFileSync(path.join(WEB, f), 'utf8'))));
+  assert.deepEqual(
+    builders.sort(),
+    ['lib/booked-supplier-call.server.ts', 'lib/booked-supplier-call.ts'],
+    'supplierCallLinks( is called from somewhere other than the booked reader — a tel:/viber: built without the booking',
+  );
+  // And the gate regex bites: a reader that fetches the phone first is refused.
+  const swapped = reader!.replace("if (!bookings || bookings.length === 0) return { kind: 'not_booked' };", '');
+  assert.doesNotMatch(swapped, BOOKED_CALL_GATE, 'the gate cannot fail — it proves nothing');
 });
 
 test("Rule 5 — no couple-facing or public surface links to a shop's own website", () => {
@@ -731,5 +800,6 @@ test('no couple-facing or public surface still promises the retired sentences', 
 test('the bill and the exclusions carry reasons', () => {
   for (const [f, b] of CONTACT_TEXT_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const [f, b] of SHOP_CONTACT_READ_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
+  for (const [f, b] of BOOKED_SUPPLIER_CALL_BILL) assert.ok(b.why.length > 40, `${f} has no real reason`);
   for (const t of STAFF_OR_SHOP_OWN_TREES) assert.ok(t.why.length > 20, `${t.prefix} has no reason`);
 });

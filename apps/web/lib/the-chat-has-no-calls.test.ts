@@ -4,6 +4,12 @@
  *
  * Executed where it can be (the registries), counted where it must be read (the pages). The call SERVER code stays in
  * place, unused by the chat, for the owner to decide on — so this guard also fails if it silently disappears.
+ *
+ * 📞 WHAT IT DOES NOT FORBID (owner 2026-11-04, DECISION_LOG "SIX OWNER ANSWERS" item 2: *"We can call and video call
+ * suppliers as well on the chat"*): a hand-off OUT of the app — `tel:` and Viber — to a BOOKED supplier, in the chat
+ * head's `BookedCallRow` (`app/_components/chat/booked-call-row.tsx`). That is the phone's own dialler, not a call in
+ * the chat; the last test below holds it to exactly that, and `lib/a-booked-supplier-is-the-only-call.test.ts` holds
+ * it to booked suppliers only.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,5 +55,18 @@ test('neither thread page mounts a call, reads the calls gate, or draws a phone 
 test('the call server code is LEFT IN PLACE, unused by the chat — the owner decides whether to delete it', () => {
   for (const rel of ['app/_actions/thread-call-actions.ts', 'app/_components/thread-call-room.tsx', 'lib/thread-calls-gate.ts']) {
     assert.ok(existsSync(join(WEB, rel)), `${rel} was deleted — that is the owner's call, not this slice's`);
+  }
+});
+
+test('the ONE call affordance left is the hand-off OUT to a booked supplier — never an in-app call', () => {
+  const row = read('app/_components/chat/booked-call-row.tsx');
+  assert.doesNotMatch(row, /thread-call-launcher|thread-call-room|thread-call-actions|ThreadCallLauncher|startThreadCall/, 'the hand-off row starts an in-app call');
+  // Its doors are the phone's own apps, from the booked reader's links — and nothing else.
+  assert.deepEqual([...row.matchAll(/href=\{([^}]*)\}/g)].map((m) => m[1]), ['tel', 'viber'], 'the hand-off row opens something other than tel:/Viber');
+  for (const rel of PAGES) {
+    const s = read(rel);
+    // Mounted only in the HEAD (its `below` slot), never as a ＋ tool or a panel.
+    const mounts = s.match(/<BookedCallRow\b/g) ?? [];
+    if (mounts.length) assert.match(s, /below=\{\s*<BookedCallRow\b/, `${rel} mounts the hand-off somewhere other than the chat head`);
   }
 });

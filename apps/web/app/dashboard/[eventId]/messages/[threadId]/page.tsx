@@ -31,6 +31,8 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallRow } from '@/app/_components/chat/booked-call-row';
+import { readBookedSupplierCall } from '@/lib/booked-supplier-call.server';
 import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
@@ -129,6 +131,14 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // 📵 No calls in the chat (owner 2026-10-28, "remove both voice and video call") — the calls-gate read is gone
   // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
+  // 📞 …but a BOOKED supplier can be phoned or Viber-called OUT of the app (owner 2026-11-04, "SIX OWNER ANSWERS"
+  // item 2) — the head's Call · Video call · Viber. Booked first, phone second, and the phone only once booked
+  // (`lib/booked-supplier-call.server.ts`). The thread above was read under the viewer's own session and checked
+  // against this event, which is what lets the service-role read below run.
+  const bookedCallRead = readBookedSupplierCall(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+  });
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
@@ -506,6 +516,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRows,
     receipts,
     eventDay,
+    bookedCall,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -522,6 +533,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     conversationRowsRead,
     receiptsRead,
     eventDayRead,
+    bookedCallRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -695,6 +707,17 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                     </span>
                   ) : null}
                 </>
+              }
+              // 📞 Call · Video call · Viber on a BOOKED supplier; one hint line on a live, unbooked one.
+              below={
+                <BookedCallRow
+                  call={blocked ? { kind: 'unknown' } : bookedCall}
+                  showHint={
+                    !blocked &&
+                    thread.archived_at == null &&
+                    (thread.inquiry_status === 'accepted' || thread.inquiry_status === 'pending')
+                  }
+                />
               }
               actions={
                 <ChatThreadMenu

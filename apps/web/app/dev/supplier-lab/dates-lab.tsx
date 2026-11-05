@@ -24,6 +24,7 @@ import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
+import { PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -229,17 +230,37 @@ const LAB_TOASTS = {
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
 };
 
-export async function DatesLab({ state, toast, open, gear = false }: { state: DatesState; toast?: string; open?: string; gear?: boolean }) {
+/**
+ * `place` — 📣 `&place=promote` draws the Shortlist code as Shop › Promote draws it (2026-11-05: the shop's marketing
+ * codes moved there; `place="promote"`, Promote's own dropdown). Without it, the Customers › QR codes look.
+ */
+export async function DatesLab({
+  state,
+  toast,
+  open,
+  gear = false,
+  place = 'customers',
+}: {
+  state: DatesState;
+  toast?: string;
+  open?: string;
+  gear?: boolean;
+  place?: 'customers' | 'promote';
+}) {
   const base = `/dev/supplier-lab?s=${state}`;
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
   if (state.startsWith('qr')) {
-    const modeOptions = [
-      { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
-      { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
-      { key: 'dates', label: 'Check a date · free', href: '/dev/supplier-lab?s=qr-dates' },
-      { key: 'page', label: 'My page', href: '/dev/supplier-lab?s=qr-page' },
-    ];
+    // 📣 Shop › Promote's own dropdown (2026-11-05): Shortlist · Check a date · My page, each to its lab state.
+    const LAB_PROMOTE_HREF = { shortlist: '/dev/supplier-lab?s=qr&place=promote', dates: '/dev/supplier-lab?s=qr-dates', page: '/dev/supplier-lab?s=qr-page' } as const;
+    const promoteOptions = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: LAB_PROMOTE_HREF[key] }));
+    const modeOptions =
+      place === 'promote'
+        ? promoteOptions
+        : [
+            { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
+            { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
+          ];
     if (state === 'qr-page' || state === 'qr-dates') {
       // 🚪 The shop's two permanent codes + the door sticker under them, on fixtures: the sticker's real files (SVG +
       // PDF, every code × size) as data: URIs, drawn by the shipped `lib/door-sticker-print.ts` with a lab shop's badges.
@@ -262,7 +283,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
             mode={state === 'qr-page' ? 'page' : 'dates'}
             place="promote"
             backHref="/dev/supplier-lab?s=dates"
-            modeOptions={modeOptions}
+            modeOptions={promoteOptions}
             canShare
             setupHref="/dev/supplier-lab?s=qr"
             shortlist={null}
@@ -282,6 +303,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
         {state === 'qr' || state === 'qr-fail' ? (
           <QrCodes
             mode="shortlist"
+            place={place}
             backHref="/dev/supplier-lab?s=dates"
             modeOptions={modeOptions}
             canShare

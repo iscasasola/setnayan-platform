@@ -22,6 +22,11 @@ Owner, 4 Nov: the three marketing pages go to cloud build; the binding prototype
 - **No demo / sample buttons** (owner, 4–5 Nov: *"do not add buttons now"* · *"just do not add buttons"*). The
   prototype's "See the demo shop" and the twelve "See it on the demo shop" links are not built — not hidden behind
   a switch, not added. `supplier-page-words.test.ts` fails if a `/sample` link or a "demo shop" line appears.
+- **Plans list every tool and climb** (owner, 5 Nov: *"list all tools · complete all the features · same as the
+  Plans"*). Free says what it covers (run the business with your own clients, your page built, gifts); Verified is
+  "Everything in Free, plus" being seen within its reach; each paid plan builds on the one below. Each card lists
+  its tools — first four, then "See all N tools" — from `VENDOR_TIER_SECTIONS`, the same list the full table
+  draws (`planTools()`); tools marked `soon` are not sold.
 - Photos: `apps/web/public/marketing/2026-11-04/` (18 files, same names as the corpus; the folder is shared
   with the front page and /for-coordinators).
 

@@ -21,12 +21,16 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import {
   HERO_SLIDES,
   MARKETING_PHOTOS,
   OPEN_SHOP_HREF,
+  freePlanLine,
   planLine,
+  planTools,
   reachLine,
+  verifiedPlanLine,
   seatsLine,
 } from './supplier-page-words';
 
@@ -57,6 +61,7 @@ test('(1) no demo or sample button anywhere on the page — and the doors it doe
 
 test('(2) every allowance the page says is a number TIER_CAPS holds — none is typed', () => {
   const lines = [
+    verifiedPlanLine(),
     planLine('solo', 'verified'),
     planLine('pro', 'solo'),
     planLine('enterprise', 'pro'),
@@ -91,6 +96,15 @@ test('(2) every allowance the page says is a number TIER_CAPS holds — none is 
     }
     for (const m of line.matchAll(/(\d+) km/g)) assert.equal(Number(m[1]), km, `${t}'s line names another plan's reach: "${line}"`);
   }
+  // The lines CLIMB (owner, 5 Nov): Free says what it covers, then each plan is "Everything in <below>, plus: …".
+  assert.match(freePlanLine(), /bring in your own clients/, 'Free no longer says you run the business with your own clients');
+  assert.match(freePlanLine(), /Not shown in search/, 'Free no longer says it is hidden from search');
+  assert.ok(verifiedPlanLine().startsWith('Everything in Free, plus:'), verifiedPlanLine());
+  const vkm = TIER_CAPS.verified.serviceRadiusKm;
+  assert.ok(verifiedPlanLine().includes(Number.isFinite(vkm) ? `within ${vkm} km` : 'anywhere in the country'), 'Verified does not say its own reach');
+  for (const [t, below, name] of [['solo', 'verified', 'Verified'], ['pro', 'solo', 'Solo'], ['enterprise', 'pro', 'Pro']] as const) {
+    assert.ok(planLine(t, below).startsWith(`Everything in ${name}`), `${t}'s line does not build on ${name}: "${planLine(t, below)}"`);
+  }
   // A seat count the table says moved is said; one that did not move is not.
   const moved = TIER_CAPS.pro.agentAccounts !== TIER_CAPS.solo.agentAccounts;
   assert.equal(/team seat/.test(planLine('pro', 'solo')), moved);
@@ -105,6 +119,52 @@ test('(2b) the components draw these words and type no allowance of their own', 
   assert.doesNotMatch(port, /\b(one|five|ten|\d+) (team )?seats? on\b/i, 'a seat count is typed into the ported sections');
   assert.doesNotMatch(port, /₱\s*[1-9]/, 'a peso figure is typed into the ported sections');
   for (const fn of ['planLine(', 'seatsLine()', 'reachLine()', 'ownAddressFrom()']) assert.ok(port.includes(fn), `${fn} is no longer drawn`);
+});
+
+test('(1b) true claims (CLOUD_BOARD check, 5 Nov): no calls, four papers, the 3D logo from Solo, no e-sign', () => {
+  const files = [
+    'app/(shell)/for-suppliers/page.tsx',
+    'app/for-suppliers/_components/vendor-grow-hero.tsx',
+    'app/for-suppliers/_components/vendor-grow-sections.tsx',
+    'app/for-suppliers/_components/vendor-tier-deltas.tsx',
+    'app/for-suppliers/_components/vendor-tier-matrix.tsx',
+    'app/_components/home/vendor-benefits.ts',
+  ];
+  for (const f of files) {
+    const src = code(f);
+    assert.doesNotMatch(src, /in-app (video|audio)|video & audio call/i, `${f}: in-app calls left the chat on 28 Oct`);
+    assert.doesNotMatch(src, /12-doc|12 papers|twelve papers/i, `${f}: verification is four papers and a video call, not twelve`);
+    assert.doesNotMatch(src, /e-sign/i, `${f}: contracts are uploaded PDFs — nobody e-signs in the app`);
+  }
+  const solo = VENDOR_TIER_SECTIONS.find((x) => x.tier === 'solo')!.groups.flatMap((g) => g.items.map((i) => i.n));
+  const pro = VENDOR_TIER_SECTIONS.find((x) => x.tier === 'pro')!.groups.flatMap((g) => g.items.map((i) => i.n));
+  assert.ok(solo.some((n) => /3D seat plan/.test(n)), 'the 3D seat-plan logo opens from Solo (with the 3D Booth add-on)');
+  assert.ok(!pro.some((n) => /3D seat plan/.test(n)), 'the 3D seat-plan logo is listed as a Pro tool again');
+});
+
+test('(2c) every plan lists its tools, from the one shared list (owner, 5 Nov: "list all tools")', () => {
+  const by = Object.fromEntries(planTools().map((p) => [p.plan, p.tools]));
+  assert.deepEqual(Object.keys(by), ['free', 'verified', 'solo', 'pro', 'enterprise']);
+  assert.ok(by.free!.some((t) => /Build your own Setnayan page/.test(t)), 'Free no longer names the page');
+  assert.ok(by.free!.some((t) => /gifts/i.test(t)), 'Free no longer names gift sending');
+  assert.ok(by.free!.some((t) => /Import past clients/.test(t)), 'Free no longer names importing your clients');
+  const vkm = TIER_CAPS.verified.serviceRadiusKm;
+  assert.ok(by.verified![0]!.includes(Number.isFinite(vkm) ? `within ${vkm} km` : 'anywhere'), 'Verified does not lead with being seen');
+  const shared = new Set(VENDOR_TIER_SECTIONS.flatMap((x) => x.groups.flatMap((g) => g.items)).map((i) => i.n));
+  const soon = new Set(VENDOR_TIER_SECTIONS.flatMap((x) => x.groups.flatMap((g) => g.items.filter((i) => i.soon))).map((i) => i.n));
+  for (const [plan, tools] of Object.entries(by)) {
+    assert.ok(tools.length > 0, `${plan} lists no tools`);
+    for (const t of tools) {
+      assert.ok(!soon.has(t), `${plan} sells a tool that is not built yet: "${t}"`);
+      assert.doesNotMatch(t, /switched off|Infinity|NaN|undefined/, `${plan}: "${t}"`);
+    }
+    if (plan === 'solo' || plan === 'pro' || plan === 'enterprise') {
+      for (const t of tools) assert.ok(shared.has(t), `${plan} lists "${t}", which is not in the shared plan list`);
+    }
+  }
+  // Nothing is listed twice across the ladder.
+  const all = Object.values(by).flat();
+  assert.equal(new Set(all).size, all.length, 'a tool is listed under two plans');
 });
 
 test('(3) every photo is on disk, with the owner’s hero shifts', () => {

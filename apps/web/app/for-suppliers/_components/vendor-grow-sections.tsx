@@ -29,7 +29,10 @@ import {
   firstRungWith,
   fromPlan,
   ownAddressFrom,
+  freePlanLine,
   planLine,
+  planTools,
+  verifiedPlanLine,
   reachLine,
   seatsLine,
   widerFrom,
@@ -518,7 +521,7 @@ export function VendorGrowTools() {
       <CardGrid>
         <GridCard icon="▦" title="Custom QR" body="Add your services to anyone — in or out of the app. Dedicated codes whether they've inquired or already paid." />
         <GridCard icon="₱" title="Price your way" body="Build services priced by fixed package, per guest, or per hour — with inclusions, add-ons and custom payment schedules." />
-        <GridCard icon="📞" title="In-app video & audio calls" body="Meet couples face-to-face right in the thread. Peer-to-peer and never recorded." />
+        {/* "In-app video & audio calls" was here — calls left the chat on 28 Oct (CLOUD_BOARD true-claims check, 5 Nov). */}
         <GridCard icon="★" title="Printable review QR" body="Print it, place it at the event — collect real reviews from real guests on the day." />
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />
@@ -804,17 +807,16 @@ export type PlanLinePrices = {
 
 export function VendorGrowPlanLines({ prices, fee }: { prices: PlanLinePrices; fee: BookingFeeSchedule | null }) {
   // Free and Verified are free by what they are, not by a price row; the three paid plans read the catalog.
-  const rows: { name: string; line: string; price: string | null }[] = [
-    { name: TIER_LABEL.free, line: 'Every tool, free. Hidden from search until Verified.', price: '₱0' },
-    {
-      name: 'Verified',
-      line: 'Papers approved: DTI or SEC, BIR 2303, permit, bank proof. Now couples can find you.',
-      price: '₱0',
-    },
-    { name: TIER_LABEL.solo, line: planLine('solo', 'verified'), price: prices.soloMonthly },
-    { name: TIER_LABEL.pro, line: planLine('pro', 'solo'), price: prices.proMonthly },
-    { name: TIER_LABEL.enterprise, line: planLine('enterprise', 'pro'), price: prices.enterpriseMonthly },
+  const tools = Object.fromEntries(planTools().map((t) => [t.plan, t.tools]));
+  const rows: { key: string; name: string; line: string; price: string | null }[] = [
+    { key: 'free', name: TIER_LABEL.free, line: freePlanLine(), price: '₱0' },
+    { key: 'verified', name: 'Verified', line: verifiedPlanLine(), price: '₱0' },
+    { key: 'solo', name: TIER_LABEL.solo, line: planLine('solo', 'verified'), price: prices.soloMonthly },
+    { key: 'pro', name: TIER_LABEL.pro, line: planLine('pro', 'solo'), price: prices.proMonthly },
+    { key: 'enterprise', name: TIER_LABEL.enterprise, line: planLine('enterprise', 'pro'), price: prices.enterpriseMonthly },
   ];
+  /** How many tools show before "See all". */
+  const FIRST = 4;
   return (
     <section className={s.sec} id="plans" aria-labelledby="fs-h-plans">
       <div className={s.wrap}>
@@ -832,13 +834,35 @@ export function VendorGrowPlanLines({ prices, fee }: { prices: PlanLinePrices; f
           </p>
         </div>
         <dl className={s.tiers}>
-          {rows.map((r) => (
-            <div key={r.name}>
-              <dt>{r.name}</dt>
-              <dd>{r.line}</dd>
-              {r.price ? <span className={s.price}>{r.price}</span> : <span className={`${s.price} ${s.priceNone}`}>Price unavailable</span>}
-            </div>
-          ))}
+          {rows.map((r) => {
+            const list = tools[r.key] ?? [];
+            return (
+              <div key={r.key}>
+                <dt>{r.name}</dt>
+                <dd>{r.line}</dd>
+                {r.price ? <span className={s.price}>{r.price}</span> : <span className={`${s.price} ${s.priceNone}`}>Price unavailable</span>}
+                {list.length > 0 ? (
+                  <div className={s.tools}>
+                    <ul>
+                      {list.slice(0, FIRST).map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
+                    </ul>
+                    {list.length > FIRST ? (
+                      <details className={s.toolsMore}>
+                        <summary>See all {formatCount(list.length)} tools</summary>
+                        <ul>
+                          {list.slice(FIRST).map((t) => (
+                            <li key={t}>{t}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </dl>
         <p className={`${s.fine} ${s.feeFine}`}>
           <BookingFeeLine fee={fee} /> Your own clients are free, always.

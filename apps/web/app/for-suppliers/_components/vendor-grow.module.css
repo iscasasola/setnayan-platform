@@ -228,6 +228,15 @@
 .tiers dt { grid-area: dt; font-weight: 600; font-size: 16px; color: rgb(var(--color-ink)); }
 .tiers dd { grid-area: dd; margin: 0; font-size: 14px; color: rgb(var(--ink-soft)); }
 .price { grid-area: price; font-size: 20px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: rgb(var(--color-ink)); }
+.tools { grid-column: 1 / -1; margin-top: 8px; font-size: 14px; line-height: 1.4; color: rgb(var(--color-ink)); }
+.tools ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.tools li { display: flex; gap: 9px; align-items: flex-start; }
+.tools li::before { content: ''; flex: none; width: 6px; height: 6px; margin-top: 7px; border-radius: var(--m-r-full); background: rgb(var(--color-terracotta)); }
+.toolsMore { margin-top: 6px; }
+.toolsMore > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; font-weight: 600; color: rgb(var(--color-link)); }
+.toolsMore > summary::-webkit-details-marker { display: none; }
+.toolsMore > summary:hover { color: rgb(var(--color-link-600)); text-decoration: underline; }
+.toolsMore[open] > summary { margin-bottom: 4px; }
 .priceNone { font-size: 13px; font-weight: 500; letter-spacing: 0; color: rgb(var(--ink-soft)); }
 .feeFine { margin-top: 14px; }
 

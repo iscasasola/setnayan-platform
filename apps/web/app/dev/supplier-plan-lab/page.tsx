@@ -12,7 +12,7 @@
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
  *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
- *   ?s=gifts           Plan › Your gifts (supplier gift stock, 2026-11-04)  &unverified=1 (list price) · &fail=1 (unread)
+ *   ?s=gifts           Shop › Promote › Your gifts (supplier gift stock, 2026-11-04; on Plan until 2026-11-05)  &unverified=1 (list price) · &fail=1 (unread)
  *                      &buy=1 opens nothing by itself — press "Buy gifts"
  *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)

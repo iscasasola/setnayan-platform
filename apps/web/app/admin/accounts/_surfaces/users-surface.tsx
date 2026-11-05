@@ -72,7 +72,8 @@ type BlacklistRow = {
   blacklisted_at: string;
 };
 
-type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool' | 'blacklisted';
+// 'team_pool' filter retired 2026-11-05 with the service-credit pool it was named for (owner: "retire").
+type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'blacklisted';
 
 /**
  * UsersSurface — the Users LIST body, re-homed byte-identical from
@@ -175,8 +176,6 @@ export async function UsersSurface({
       query = query.eq('account_type', filter);
     } else if (filter === 'internal') {
       query = query.eq('is_internal', true);
-    } else if (filter === 'team_pool') {
-      query = query.eq('is_team_member', true);
     }
 
     if (q.length > 0) {
@@ -192,6 +191,32 @@ export async function UsersSurface({
 
   /** The flattened list, for the lookups below that genuinely need an array. */
   const listedUsers = userRows ?? [];
+
+  // "Add to team" opens a two-admin approval (§ 9.1 — is_team_member is an
+  // admin role) and grants nothing by itself. Without this read the button
+  // would look exactly as it did before it was pressed. null = not measured:
+  // the button then stays as it was, and a second press is refused by the
+  // one-pending-request check in toggleTeamMember, never doubled.
+  let pendingTeamGrants: Set<string> | null = null;
+  const teamCandidates = listedUsers.filter((u) => !u.is_team_member && !u.is_internal).map((u) => u.user_id);
+  if (teamCandidates.length > 0) {
+    const { data: pending, error: pendingErr } = await admin
+      .from('admin_approval_requests')
+      .select('target_user_id')
+      .eq('action_type', 'grant_team_member')
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+      .in('target_user_id', teamCandidates);
+    if (pendingErr) {
+      console.error('[UsersSurface] pending team-member requests read failed', pendingErr.message);
+    } else {
+      pendingTeamGrants = new Set(
+        ((pending ?? []) as Array<{ target_user_id: string | null }>)
+          .map((r) => r.target_user_id)
+          .filter((id): id is string => !!id),
+      );
+    }
+  }
 
   // Fetch comp grants for the expanded user (if the panel is open AND the
   // user shows up in the current list — protects against stale ?expand
@@ -368,7 +393,6 @@ export async function UsersSurface({
           <option value="customer">Couples (customer)</option>
           <option value="vendor">Suppliers</option>
           <option value="internal">🟣 Internal (§ 10a)</option>
-          <option value="team_pool">🟢 Team Pool (§ 10b)</option>
           <option value="blacklisted">🚫 Blacklisted</option>
         </select>
         <button type="submit" className="button-secondary">Apply</button>
@@ -391,6 +415,7 @@ export async function UsersSurface({
           expandUserId={expandUserId}
           expandedGrants={expandedGrants}
           services={compGrantServices}
+          pendingTeamGrants={pendingTeamGrants}
         />
       )}
       <MiniTour tourKey="admin_users_v1" />
@@ -427,6 +452,7 @@ function UsersTable({
   expandUserId,
   expandedGrants,
   services,
+  pendingTeamGrants,
 }: {
   rows: UserRow[] | null;
   readError: { message?: string } | null;
@@ -435,6 +461,7 @@ function UsersTable({
   expandUserId: string | null;
   expandedGrants: CompGrantRow[] | null;
   services: ServiceOption[] | null;
+  pendingTeamGrants: Set<string> | null;
 }) {
   // The one expanded user, resolved BEFORE the table renders — the grants panel
   // is a sibling of the table now, not a row inside it. See the file docblock:
@@ -541,6 +568,14 @@ function UsersTable({
                       <span className="text-xs text-ink/55">Locked (internal)</span>
                     ) : (
                       <>
+                        {!u.is_team_member && pendingTeamGrants?.has(u.user_id) ? (
+                          <Link
+                            href="/admin/approvals"
+                            className="rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+                          >
+                            Team · waiting on 2nd admin
+                          </Link>
+                        ) : (
                         <form action={toggleTeamMember}>
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <input
@@ -556,9 +591,10 @@ function UsersTable({
                             }`}
                             pendingLabel="…"
                           >
-                            {u.is_team_member ? 'Remove from pool' : 'Add to pool'}
+                            {u.is_team_member ? 'Remove from team' : 'Add to team'}
                           </SubmitButton>
                         </form>
+                        )}
                         <form action={confirmUserEmail}>
                           <input type="hidden" name="user_id" value={u.user_id} />
                           <SubmitButton

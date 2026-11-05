@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { BellRing, ChevronDown, ChevronRight, ListOrdered, Loader2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
@@ -32,6 +33,9 @@ export function YourNumbers({
   const [open, setOpen] = useState<number | null>(null);
   const [line, setLine] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  // Opening the list glides its head up when it runs past the bottom — the app-wide reveal-on-open (owner 2026-11-04).
+  const listHead = useRef<HTMLButtonElement>(null);
+  const intendList = useRevealOnOpen(shown, () => ({ head: listHead.current }));
 
   const load = useCallback(async () => {
     setRows('loading');
@@ -73,8 +77,12 @@ export function YourNumbers({
   return (
     <section aria-label="Your numbers" data-your-numbers={shown ? 'open' : 'closed'}>
       <button
+        ref={listHead}
         type="button"
-        onClick={() => setShown((v) => !v)}
+        onClick={() => {
+          intendList();
+          setShown((v) => !v);
+        }}
         aria-expanded={shown}
         className="sn-press flex min-h-12 w-full items-center gap-3 border-b border-ink/10 py-2 text-left"
       >
@@ -103,13 +111,14 @@ export function YourNumbers({
               const isOpen = open === r.number;
               const st = numberState(r);
               return (
-                <li key={r.number} data-your-number-row={r.number} data-state={st}>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(isOpen ? null : r.number)}
-                    aria-expanded={isOpen}
-                    className="sn-press flex min-h-[56px] w-full items-center gap-3 py-2 text-left"
-                  >
+                <NumberRow
+                  key={r.number}
+                  number={r.number}
+                  state={st}
+                  isOpen={isOpen}
+                  onToggle={() => setOpen(isOpen ? null : r.number)}
+                  head={
+                    <>
                     <span className="w-16 flex-none font-pahina text-xl tabular-nums text-ink">{scanNumberLabel(r.number)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14px] text-ink">
@@ -119,8 +128,9 @@ export function YourNumbers({
                       <span className={`block truncate text-[12.5px] ${st === 'ready' ? 'font-medium text-ink' : 'text-ink/60'}`}>{numberStateWords(r)}</span>
                     </span>
                     <ChevronRight aria-hidden className={`h-4 w-4 flex-none text-sn-accent transition-transform ${isOpen ? 'rotate-90' : ''}`} strokeWidth={2} />
-                  </button>
-                  {isOpen ? (
+                    </>
+                  }
+                >
                     <div className="space-y-2 pb-3 pl-16" data-your-number-open={r.number}>
                       <p className="text-[13px] text-ink/65">
                         {[`Ordered ${formatWallClock(r.firstAt)}`, r.readyAt ? `Ready ${formatWallClock(r.readyAt)}` : null, r.receivedAt ? `Received ${formatWallClock(r.receivedAt)}` : null]
@@ -131,8 +141,7 @@ export function YourNumbers({
                         <ActionButton tone="brand" main icon={BellRing} label="Ready" name={`${scanNumberLabel(r.number)} is ready`} disabled={pending} onClick={() => ready(r)} />
                       ) : null}
                     </div>
-                  ) : null}
-                </li>
+                </NumberRow>
               );
             })}
           </ul>
@@ -144,5 +153,41 @@ export function YourNumbers({
         </p>
       ) : null}
     </section>
+  );
+}
+
+/** One number: a tap opens it in place, and its head glides up when the opening runs past the bottom (app-wide). */
+function NumberRow({
+  number,
+  state,
+  isOpen,
+  onToggle,
+  head,
+  children,
+}: {
+  number: number;
+  state: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  head: ReactNode;
+  children: ReactNode;
+}) {
+  const row = useRef<HTMLLIElement>(null);
+  const intend = useRevealOnOpen(isOpen, () => ({ head: row.current }));
+  return (
+    <li ref={row} data-your-number-row={number} data-state={state}>
+      <button
+        type="button"
+        onClick={() => {
+          intend();
+          onToggle();
+        }}
+        aria-expanded={isOpen}
+        className="sn-press flex min-h-[56px] w-full items-center gap-3 py-2 text-left"
+      >
+        {head}
+      </button>
+      {isOpen ? children : null}
+    </li>
   );
 }

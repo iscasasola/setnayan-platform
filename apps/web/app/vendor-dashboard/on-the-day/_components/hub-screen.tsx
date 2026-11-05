@@ -178,7 +178,7 @@ export function HubRunOfShow({
   const rest = (blocks?.length ?? 0) - shown.length;
   return (
     <div data-hub-ros="">
-      <HubEyebrow about="Edited by the hosts before the day; on the day it runs on the Event Hub, where you can move, hold or cancel a moment.">
+      <HubEyebrow about="Edited by the hosts before the day. On the day the coordinator runs it — Change the schedule moves a part earlier or later with the parts after it, or skips one.">
         Run of show
       </HubEyebrow>
       {blocks == null ? (
@@ -190,8 +190,13 @@ export function HubRunOfShow({
           <div key={b.block_id} className="grid min-h-12 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 border-b border-ink/10 py-2">
             <span className="text-[13.5px] tabular-nums text-ink/65">{formatWallClock(b.start_at) || '—'}</span>
             <span className="min-w-0">
-              <span className="block truncate text-[14.5px] text-ink">{b.label}</span>
-              {b.location ? <span className="block truncate text-[12.5px] text-ink/60">{b.location}</span> : null}
+              {/* 🗓 A skipped part stays in the list, struck, so the crew sees what will not happen (Change the schedule). */}
+              <span className={`block truncate text-[14.5px] ${b.run_state === 'skipped' ? 'text-ink/55 line-through' : 'text-ink'}`}>{b.label}</span>
+              {b.run_state === 'skipped' ? (
+                <span className="block truncate text-[12.5px] text-ink/60" data-hub-ros-skipped="">Skipped</span>
+              ) : b.location ? (
+                <span className="block truncate text-[12.5px] text-ink/60">{b.location}</span>
+              ) : null}
             </span>
           </div>
         ))

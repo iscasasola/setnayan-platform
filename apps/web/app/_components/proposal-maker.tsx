@@ -59,6 +59,8 @@ import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-se
 import type { QuoteEventBrief } from '@/lib/quote-event-brief';
 import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
+import { QuoteShopGifts, type QuoteShopGiftsBuy } from '@/app/_components/quote-shop-gifts';
+import type { ShopGiftQuoteBasis } from '@/lib/shop-gifts';
 
 /**
  * Vendor Proposal Maker — the in-thread quote editor.
@@ -309,7 +311,19 @@ export function ProposalMaker({
   askedCardId = null,
   todayIso = '',
   labSeed = null,
+  shopGifts = null,
+  shopGiftsBuy = null,
+  labGiftCodes,
 }: {
+  /** DEV LAB ONLY: gifts already on the quote, so the lab draws the filled block. The thread page never passes it. */
+  labGiftCodes?: string[];
+  /**
+   * 🎁 THE SHOP'S OWN GIFTS (owner 2026-11-04): its gift stock, the live packs and the fee schedule, resolved once on
+   * the server (`fetchShopGiftQuoteBasis`). Null → nothing on sale, and the block is not drawn.
+   */
+  shopGifts?: ShopGiftQuoteBasis | null;
+  /** Buying gifts from inside the quote; null where the shop cannot buy here. */
+  shopGiftsBuy?: QuoteShopGiftsBuy | null;
   /**
    * DEV LAB ONLY (`/dev/supplier-chat-lab`, no session, no database): what the first open would have read — the lines
    * a card seeds and the catalogue's extras — handed in, so the lab draws a filled quote without a server call. The
@@ -537,6 +551,8 @@ export function ProposalMaker({
     one did not, so "Update this quote" silently reset a decision the supplier
     had already made, and nothing errored.
   */
+  // 🎁 The packs this quote gives from the shop's own stock — one entry per pack, sent as `shopGiftCodes`.
+  const [shopGiftCodes, setShopGiftCodes] = useState<string[]>(() => labGiftCodes ?? []);
   const [giftSwitch, setGiftSwitch] = useState<boolean | null>(() =>
     openingGiftSwitch({
       revisionAnswer: revision?.giftSwitch,
@@ -750,8 +766,13 @@ export function ProposalMaker({
           an older client omits the field, and that reads as NULL.
         */
         serviceCardIds: cards.filter((c) => pickedCards[c.id]).map((c) => c.id),
+        /*
+          🎁 THE SHOP'S OWN GIFTS, one code per pack. The send action re-judges them against a fresh read of the
+          stock and the limit (`writeQuoteShopGifts`) — this list is a request, never a grant.
+        */
+        shopGiftCodes,
       }),
-    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch],
+    [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes],
   );
 
   /* ── Line mutation helpers ────────────────────────────────────────────── */
@@ -1897,6 +1918,15 @@ export function ProposalMaker({
           framed={false}
         />
           </div>
+        ) : null}
+        {shopGifts ? (
+          <QuoteShopGifts
+            basis={shopGifts}
+            totalCentavos={netPayable}
+            codes={shopGiftCodes}
+            onChange={setShopGiftCodes}
+            buy={shopGiftsBuy}
+          />
         ) : null}
       </div>
       {/* Payment schedule — self-balancing, pays to ₱0 (§ 8) */}

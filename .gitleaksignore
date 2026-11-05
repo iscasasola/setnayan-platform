@@ -170,3 +170,12 @@ d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:gener
 # keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.
 045d5a6cf21d4db8ef8a115dfda7ab4f3914e476:apps/web/tests/db/a-service-they-cannot-use-becomes-credits-or-moves.db.test.ts:generic-api-key:291
 045d5a6cf21d4db8ef8a115dfda7ab4f3914e476:apps/web/tests/db/a-service-they-cannot-use-becomes-credits-or-moves.db.test.ts:generic-api-key:309
+#
+# Supplier gifts slice 1 (2026-11-05): lists of Papic pack service codes in the gift tests and the chat lab's
+# fixture (PAPIC_GUEST_150 / _1K and the like), read as a keyword plus a high-entropy value. Catalogue codes,
+# not credentials. Pinned for their introducing commits.
+35a51bda60308dd5499e274d9805ec28d53d24d6:apps/web/lib/shop-gifts.test.ts:generic-api-key:107
+35a51bda60308dd5499e274d9805ec28d53d24d6:apps/web/lib/shop-gifts.test.ts:generic-api-key:53
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/app/dev/supplier-chat-lab/page.tsx:generic-api-key:104
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:106
+ee0f2f6657145722d48a78ecd38e0e9cdfa5193f:apps/web/lib/shop-gifts.test.ts:generic-api-key:52

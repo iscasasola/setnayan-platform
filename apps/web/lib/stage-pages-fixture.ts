@@ -143,7 +143,7 @@ export function stageProps(c: StageCase, rows?: InvitationWidgetRow[], more: Par
     /* 💎 The film's own song, film and closing gallery are Music's, Reveal's and Photos' (owner 2026-10-22). */
     ...(film ? { hubParts: ['reveal', 'photos', 'music'] as const } : {}),
     ...(c.reader === 'anonymous'
-      ? { identity: { kind: 'anonymous', reason: null, publicCandidCameraActive: false, publicAlbumHref: null, signedInNotListed: false } as SiteBodyFixtureProps['identity'] }
+      ? { identity: { kind: 'anonymous', reason: null, publicCandidCameraActive: false, publicAlbumHref: null, signedInNotListed: false, seatUnread: false } as SiteBodyFixtureProps['identity'] }
       : {}),
     ...more,
   };

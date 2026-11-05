@@ -12,9 +12,9 @@
  *   ?send=fail      Send fails on the server → "Not sent · Try again"; default: it succeeds after 600 ms
  *   ?delay=<ms>     the server takes this long to answer (default 0) — what the instant open is measured against
  *   ?expiry=1       the event was 80 days ago → the files-rule line "These files go on <date>. Save any you need."
- *   ?call=booked    (couple) the head's Call · Video call · Viber — a BOOKED supplier with a mobile on file
- *   ?call=landline  (couple) booked, a landline on file → Call only
- *   ?call=unbooked  (couple) the one hint line, "Calls open once you've booked."   (default: no call row, as before)
+ *   ?call=booked    the head's Call · Video call · Viber — booked, a mobile on file (either side)
+ *   ?call=landline  booked, a landline on file → Call only
+ *   ?call=unbooked  the one hint line, in the side's voice   (default: no call row, as before)
  *
  * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading
  * boundary that 404s in production would stream a 200 first — `the-press-commits-now.test.ts`). It draws the same
@@ -28,7 +28,7 @@ import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { BookedCallRow } from '@/app/_components/chat/booked-call-row';
-import type { BookedSupplierCall } from '@/lib/booked-supplier-call';
+import type { BookedCall } from '@/lib/booked-call';
 import { BackButton } from '@/app/_components/back-button';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
@@ -56,9 +56,9 @@ const LAB_MENU_LINKS = [
 
 /**
  * The head's call row, as `readBookedSupplierCall` answers it — FIXTURE values, typed out (a made-up 0917 number), never
- * built: `supplierCallLinks(` has one caller, the booked reader (`lib/no-door-out-of-the-app.test.ts`).
+ * built: `phoneCallLinks(` is called only by the booked readers (`lib/no-door-out-of-the-app.test.ts`).
  */
-const LAB_CALLS: Record<string, BookedSupplierCall> = {
+const LAB_CALLS: Record<string, BookedCall> = {
   booked: {
     kind: 'booked',
     links: { tel: 'tel:+639170000000', viber: 'viber://chat?number=%2B639170000000', display: '+63 917 000 0000' },
@@ -99,7 +99,7 @@ async function LabThread({ params, searchParams }: LabProps) {
   const booked = one('booked') === '1';
   const delay = Math.min(Number(one('delay')) || 0, 10000);
   const sendFails = one('send') === 'fail';
-  const call = side === 'couple' ? LAB_CALLS[one('call')] : undefined;
+  const call = LAB_CALLS[one('call')];
   if (delay > 0) await new Promise((r) => setTimeout(r, delay));
 
   const thread = LAB_THREADS.find((t) => t.id === threadId) ?? LAB_THREADS[0];
@@ -132,7 +132,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                     <span className="whitespace-nowrap">~230 guests</span>
                   </>
                 }
-                below={call ? <BookedCallRow call={call} showHint /> : undefined}
+                below={call ? <BookedCallRow call={call} showHint side={side} /> : undefined}
                 actions={<ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={LAB_MENU_LINKS} />}
               />
             }

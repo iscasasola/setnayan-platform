@@ -6,10 +6,11 @@
  * place, unused by the chat, for the owner to decide on — so this guard also fails if it silently disappears.
  *
  * 📞 WHAT IT DOES NOT FORBID (owner 2026-11-04, DECISION_LOG "SIX OWNER ANSWERS" item 2: *"We can call and video call
- * suppliers as well on the chat"*): a hand-off OUT of the app — `tel:` and Viber — to a BOOKED supplier, in the chat
- * head's `BookedCallRow` (`app/_components/chat/booked-call-row.tsx`). That is the phone's own dialler, not a call in
- * the chat; the last test below holds it to exactly that, and `lib/a-booked-supplier-is-the-only-call.test.ts` holds
- * it to booked suppliers only.
+ * suppliers as well on the chat"*; 2026-11-05 *"supplier side. only for booked"*): a hand-off OUT of the app — `tel:`
+ * and Viber — between a couple and a BOOKED supplier, in the chat head's `BookedCallRow`
+ * (`app/_components/chat/booked-call-row.tsx`), on both thread pages. That is the phone's own dialler, not a call in
+ * the chat; the last test below holds it to exactly that, and `lib/only-a-booking-opens-a-call.test.ts` holds it to
+ * booked suppliers only.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +67,7 @@ test('the ONE call affordance left is the hand-off OUT to a booked supplier — 
   for (const rel of PAGES) {
     const s = read(rel);
     // Mounted only in the HEAD (its `below` slot), never as a ＋ tool or a panel.
-    const mounts = s.match(/<BookedCallRow\b/g) ?? [];
-    if (mounts.length) assert.match(s, /below=\{\s*<BookedCallRow\b/, `${rel} mounts the hand-off somewhere other than the chat head`);
+    assert.equal((s.match(/<BookedCallRow\b/g) ?? []).length, 1, `${rel} should mount the hand-off exactly once`);
+    assert.match(s, /below=\{\s*<BookedCallRow\b/, `${rel} mounts the hand-off somewhere other than the chat head`);
   }
 });

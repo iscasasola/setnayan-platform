@@ -32,7 +32,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { BookedCallRow } from '@/app/_components/chat/booked-call-row';
-import { readBookedSupplierCall } from '@/lib/booked-supplier-call.server';
+import { readBookedSupplierCall } from '@/lib/booked-call.server';
 import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
@@ -133,7 +133,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
   // 📞 …but a BOOKED supplier can be phoned or Viber-called OUT of the app (owner 2026-11-04, "SIX OWNER ANSWERS"
   // item 2) — the head's Call · Video call · Viber. Booked first, phone second, and the phone only once booked
-  // (`lib/booked-supplier-call.server.ts`). The thread above was read under the viewer's own session and checked
+  // (`lib/booked-call.server.ts`). The thread above was read under the viewer's own session and checked
   // against this event, which is what lets the service-role read below run.
   const bookedCallRead = readBookedSupplierCall(createAdminClient(), {
     eventId: thread.event_id,
@@ -712,6 +712,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
               below={
                 <BookedCallRow
                   call={blocked ? { kind: 'unknown' } : bookedCall}
+                  side="couple"
                   showHint={
                     !blocked &&
                     thread.archived_at == null &&

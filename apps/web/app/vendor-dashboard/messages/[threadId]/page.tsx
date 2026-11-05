@@ -99,6 +99,8 @@ import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallRow } from '@/app/_components/chat/booked-call-row';
+import { readBookedCoupleCall } from '@/lib/booked-call.server';
 import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
@@ -234,6 +236,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // 📞 Call · Video call · Viber to the couple — only once this shop is BOOKED on the event (owner 2026-11-05,
+  // "supplier side. only for booked"). The thread was just proven to be this shop's own, which is what lets the
+  // service-role read run; the phone is the account phone of the HOST who opened the conversation, and is read only
+  // after the booking answered (`lib/booked-call.server.ts`).
+  const bookedCallRead = readBookedCoupleCall(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+    openedByUserId: thread.created_by_user_id ?? null,
+  });
 
   /*
     📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a
@@ -1017,6 +1029,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     dayAnswer,
     receipts,
     eventFileDay,
+    bookedCall,
   ] = await Promise.all([
     composerFeeStandingRead,
     composerPapicStandingRead,
@@ -1043,6 +1056,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     dayAnswerRead,
     receiptsRead,
     eventFileDayRead,
+    bookedCallRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1598,6 +1612,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     </span>
                   ) : null}
                 </>
+              }
+              // 📞 Call · Video call · Viber to the couple once booked; one hint line on a live, unbooked conversation.
+              below={
+                <BookedCallRow
+                  call={blocked ? { kind: 'unknown' } : bookedCall}
+                  side="vendor"
+                  showHint={
+                    !blocked &&
+                    thread.archived_at == null &&
+                    (thread.inquiry_status === 'accepted' || thread.inquiry_status === 'pending')
+                  }
+                />
               }
               actions={
                 <>

@@ -102,7 +102,10 @@ test('2 · the page seeds them once, through the one fail-soft seed, for someone
 test('3 · swipe left only asks; the delete has an Undo; the one removal waits for the window', () => {
   const rail = code('_components/day-rail.tsx');
   assert.match(rail, /from '@\/app\/_components\/swipe-to-delete'/, 'the rail grew its own swipe gesture');
-  assert.match(rail, /onDelete=\{\(\) => ch\?\.askDelete\(m\.block_id\)\}/, 'a swipe on a rail chapter does not ask');
+  // 📋 Slice 8: a chapter on the day is a row of the day LIST (`day-list.tsx`) — its swipe still only ASKS.
+  assert.match(rail, /onDelete=\{\(id\) => ch\.askDelete\(id\)\}/, 'a swipe on a day chapter does not ask');
+  const list = web('app/dashboard/[eventId]/schedule/_components/day-list.tsx');
+  assert.match(list, /<SwipeToDelete label=\{\`Delete \$\{r\.chapter\.label\}\`\} onDelete=\{\(close\) => \{ close\(\); onDelete\(r\.id\); \}\}/, 'a day chapter does not swipe with the shared gesture');
   // The Time TBA row uses the ONE shared row (main's `SwipeToDelete`): off for anyone who may not edit, and it asks.
   assert.match(rail, /<SwipeToDelete label=\{`Delete \$\{m\.label\}`\} disabled=\{!\(Boolean\(ch\) && canEdit\)\}/, 'a Time TBA chapter does not swipe');
   assert.match(rail, /onDelete=\{\(close\) => \{ close\(\); ch\?\.askDelete\(m\.block_id\); \}\}/, 'a swipe on a Time TBA chapter does not ask');
@@ -131,8 +134,8 @@ test('3b · the tip shows only while the defaults are unfilled; the warning name
   assert.equal(defaultChaptersUnfilled([{ label: 'Despedida', location: null }]), false, 'the tip shows on a schedule the host built');
   assert.equal(defaultChaptersUnfilled([]), false);
   assert.match(DEFAULT_CHAPTERS_TELL, /Your event starts with four chapters\. Fill each one, or swipe one left if you don't have it\./);
-  const host = code('_components/chapters-host.tsx');
-  assert.match(host, /input\.canEdit && defaultChaptersUnfilled\(sorted\)/, 'the tip is not drawn, or is drawn for someone who cannot change the chapters');
+  const line = code('_components/schedule-one-line.tsx');
+  assert.match(line, /chapters\?\.canEdit && defaultChaptersUnfilled\(chapters\.chapters\)/, 'the tip is not drawn, or is drawn for someone who cannot change the chapters');
   const words = code('_components/chapter-sheets.tsx');
   assert.match(words, /taken off \$\{suppliers\.length === 1 \? 'its' : 'their'\} parts/, 'the warning no longer names the suppliers');
   assert.match(words, /No moments are in it yet, so no photos move/, 'an empty chapter’s warning talks about photos it cannot have');

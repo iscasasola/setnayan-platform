@@ -195,8 +195,10 @@ test('1 · /1 (build 5) + switch ON → no door · /2 + switch ON → the doors 
   assert.deepEqual(doorsFor(app(''), true), NONE, 'no token');
   assert.deepEqual(doorsFor(app(' SetnayanIAP/0'), true), NONE);
   // The 1.1 build announces exactly the token that sells; Android never claims one.
+  // Other capability tokens may follow it (`SetnayanPush/1`, lib/native-push.ts),
+  // but the IAP token itself is exactly /2.
   const cfg = readFileSync(join(WEB, '..', 'mobile', 'capacitor.config.ts'), 'utf8');
-  assert.match(cfg, /ios:\s*\{[\s\S]*?appendUserAgent:\s*'SetnayanApp SetnayanSignIn\/1 SetnayanIAP\/2'/);
+  assert.match(cfg, /ios:\s*\{[\s\S]*?appendUserAgent:\s*'SetnayanApp SetnayanSignIn\/1 SetnayanIAP\/2(?: [^'\s]+)*'/);
 });
 
 /* ═══ 2 · HOME — the doors exist only where Apple sells ═══════════════════ */

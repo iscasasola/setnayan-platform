@@ -640,7 +640,7 @@ export function ServicesStep({
    * 🔑 FLOORED, NEVER ROUNDED. Rounding 29.6% up to "30% off" claims a discount
    * we did not give, on the one screen where somebody is about to hand over
    * money. Flooring can only ever under-state our own offer, which is the safe
-   * direction — and it is the same reasoning as the banner's "at least 10%".
+   * direction.
    * Zero when there is nothing to show, and the label omits it rather than
    * printing "0% off".
    */
@@ -649,33 +649,11 @@ export function ServicesStep({
   return (
     <div className={['flex flex-col gap-4', className].filter(Boolean).join(' ')}>
       {/*
-        ── THE DISCOUNT HAS TO BE READABLE, AND SO DOES ITS DEADLINE ─────────
-        Owner, 2026-08-28: *"Onboarding discount should be visible and easy to
-        understand that this discount only applies on onboarding."*
-
-        🔑 A DISCOUNT NOBODY NOTICES IS A DISCOUNT WE PAID FOR AND DID NOT SELL,
-        and one whose deadline is not stated is one somebody feels tricked by
-        later. So it is said three times, in the three places a person actually
-        looks: here before they choose, on each item as they choose it, and on
-        the total when they are about to agree.
-
-        ⚖ "AT LEAST 10%" IS DELIBERATE. The owner's rule is 10% (*"10% for all
-        purchase on onboarding"*), and Setnayan AI already carries a deeper
-        sign-up price — 40%, and 44% on the birthday tier. Advertising a flat
-        "10% off" beside a card giving 40% would understate our own offer;
-        promising more than 10% would over-claim on the Papic rungs. The floor is
-        the honest word for a floor.
+        ⚖ NO SET-UP DISCOUNT BANNER (owner 2026-11-03, "drop the 40% on all then"). This used to promise
+        "Anything you add here is at least 10% off" to every couple, unconditionally — a typed promise that
+        outlives the discount. The total below still names a saving if one ever exists (savingPhp > 0),
+        because that line is computed from the same quote the charge uses.
       */}
-      {interactive && (
-        <p className="rounded-[var(--m-r-lg)] border border-terracotta/30 bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
-          <span className="font-semibold">
-            Anything you add here is at least 10% off.
-          </span>{' '}
-          This is a set-up price — it ends when you finish. You can always add these
-          later from your studio, at the normal price.
-        </p>
-      )}
-
       {/* ── CARD 1 · PAPIC — already on, free, informational ─────────────── */}
       <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
         {solemn ? (

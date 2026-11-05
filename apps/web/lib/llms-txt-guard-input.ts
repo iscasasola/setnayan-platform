@@ -79,7 +79,10 @@ export const RETAIL: RetailRow[] = [
   // applies it, prod still reads 3500.00 — re-check with: select
   // retail_price_php, is_active from public.platform_retail_catalog_v2 where
   // service_code = 'COUPLE_WEBSITE_PRO'.
-  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 6590, is_active: true },
+  // 💰 FINAL PRICE SHEET (owner 2026-11-04): Event Pro ₱5,690 and the new Event Plus ₱2,990 (Setnayan AI comes inside
+  // both). Moves in the SAME PR as the catalogue migration — re-check with the select above.
+  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5690, is_active: true },
+  { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
   // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
   // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
   { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
@@ -93,31 +96,16 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Hub Pro · Post Event', retail_price_php: 500, is_active: false },
   { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Hub Pro · Your own scenes', retail_price_php: 500, is_active: false },
   { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Hub Pro · Custom address', retail_price_php: 500, is_active: false },
-  // ── THE PAPIC LADDER, owner 2026-08-26 ──────────────────────────────────
-  // ⚠ SIXTEEN ROWS, and this fixture is the SECOND hand-typed copy of the
-  // catalog that this file's own docblock warns about. When a rung's price or
-  // is_active changes in prod, it changes here in the SAME PR — otherwise the
-  // suite passes green while llms-txt.ts throws MissingSkuError on rebuild and
-  // production serves the fallback stub.
-  { service_code: 'PAPIC_GUEST_100', title: 'Papic — add 100 credits', retail_price_php: 95, is_active: true },
-  { service_code: 'PAPIC_GUEST_200', title: 'Papic — add 200 credits', retail_price_php: 189, is_active: true },
-  { service_code: 'PAPIC_GUEST_300', title: 'Papic — add 300 credits', retail_price_php: 282, is_active: true },
-  { service_code: 'PAPIC_GUEST_400', title: 'Papic — add 400 credits', retail_price_php: 373, is_active: true },
-  { service_code: 'PAPIC_GUEST_500', title: 'Papic — add 500 credits', retail_price_php: 465, is_active: true },
-  { service_code: 'PAPIC_GUEST_1K', title: 'Papic — add 1,000 credits', retail_price_php: 929, is_active: true },
-  { service_code: 'PAPIC_GUEST_2K', title: 'Papic — add 2,000 credits', retail_price_php: 1845, is_active: true },
-  { service_code: 'PAPIC_GUEST', title: 'Papic — add 3,000 credits', retail_price_php: 2214, is_active: true },
-  { service_code: 'PAPIC_GUEST_4K', title: 'Papic — add 4,000 credits', retail_price_php: 2952, is_active: true },
-  { service_code: 'PAPIC_GUEST_5K', title: 'Papic — add 5,000 credits', retail_price_php: 3690, is_active: true },
-  { service_code: 'PAPIC_GUEST_7K', title: 'Papic — add 7,000 credits', retail_price_php: 5166, is_active: true },
-  { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 credits', retail_price_php: 5950, is_active: true },
-  { service_code: 'PAPIC_GUEST_30K', title: 'Papic — add 30,000 credits', retail_price_php: 14232, is_active: true },
-  { service_code: 'PAPIC_GUEST_50K', title: 'Papic — add 50,000 credits', retail_price_php: 19766, is_active: true },
-  // The 100,000 anchor (owner 2026-08-29). Its price here is the FIXTURE's,
-  // not production's — this file only proves the ladder renders every rung it
-  // declares, and pinning a live figure in a fixture is how the last drift
-  // started. The real price lives in the catalog.
-  { service_code: 'PAPIC_GUEST_100K', title: 'Papic — add 100,000 credits', retail_price_php: 31625, is_active: true },
+  // ── THE THREE PAPIC PACKS, owner 2026-11-03 ─────────────────────────────
+  // ⚠ This fixture is the SECOND hand-typed copy of the catalog that this file's
+  // own docblock warns about. When a pack's price or is_active changes in prod,
+  // it changes here in the SAME PR (`llms-fixture-matches-the-catalog.db.test.ts`).
+  // The fourteen retired rungs are off sale and absent from llms.txt, so they are
+  // absent here too.
+  // 💰 Final price sheet 2026-11-04: ₱99 · ₱499 · ₱999, named "Papic 150" · "Papic 1000" · "Papic 3000".
+  { service_code: 'PAPIC_GUEST_150', title: 'Papic 150', retail_price_php: 99, is_active: true },
+  { service_code: 'PAPIC_GUEST_1K', title: 'Papic 1000', retail_price_php: 499, is_active: true },
+  { service_code: 'PAPIC_GUEST', title: 'Papic 3000', retail_price_php: 999, is_active: true },
   // ₱2,500, ONE-TIME (once per event) since 2026-09-02 (LS6, migration
   // 20271194920190) — supersedes the ₱1,500/day row from earlier the same day
   // (migration 20271192082215). This row is the SECOND hand-typed copy of the
@@ -125,7 +113,7 @@ export const RETAIL: RetailRow[] = [
   // replayed catalog precisely so a reprice cannot land in one place only. It
   // moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
-  { service_code: 'LIVE_STUDIO', title: 'Live Watch', retail_price_php: 3300, is_active: true },
+  { service_code: 'LIVE_STUDIO', title: 'Live Watch', retail_price_php: 1990, is_active: true }, // final price sheet 2026-11-04
   // ♻️ BACK ON SALE 2026-09-03 (LS8, migration 20271200509567) at ₱3,000 / DAY.
   // It was deactivated the day before by LS6 for one reason — its ₱1,500 was set to
   // SUM with LIVE_STUDIO into a ₱3,000 hosted total, and that pairing broke when
@@ -144,7 +132,7 @@ export const RETAIL: RetailRow[] = [
   // under-describing a live product. The retirement pairing documented in
   // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
   { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Watch — hosted channel', retail_price_php: 3000, is_active: true },
-  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 3300, is_active: true },
+  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2990, is_active: true }, // final price sheet 2026-11-04
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
   // PAPIC_ADDON_STORIES: this file is a SECOND hand-typed copy of the catalog and
@@ -153,12 +141,10 @@ export const RETAIL: RetailRow[] = [
   { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: false },
   // FREE since 2026-10-26 (owner, "make it free for now") — the row is off only so nothing quotes a price.
   { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You (Papic Add-on)', retail_price_php: 2500, is_active: false },
-  // ⚠ 6,000 IS BACK ON THE LADDER (owner 2026-08-26, ₱2,400) after being retired
-  // on 2026-08-11. It was the fixture's example of a retired SKU; that role now
-  // belongs to PAPIC_ADDON_STORIES and LIVE_WALL below, so the 'a retired SKU
-  // must not be advertised' guard still has real cases to catch.
-  { service_code: 'PAPIC_GUEST_6K', title: 'Papic — add 6,000 credits', retail_price_php: 4428, is_active: true },
-  { service_code: 'PAPIC_GUEST_20K', title: 'Papic — add 20,000 credits', retail_price_php: 9488, is_active: true },
+  // 🗑 RETIRED 2026-11-03 (Papic is three packs): two of the fourteen rungs taken off sale that day, kept as
+  // inactive rows so the "a retired SKU must not be advertised" guard has Papic cases to catch.
+  { service_code: 'PAPIC_GUEST_6K', title: 'Papic — add 6,000 credits', retail_price_php: 4428, is_active: false },
+  { service_code: 'PAPIC_GUEST_20K', title: 'Papic — add 20,000 credits', retail_price_php: 9488, is_active: false },
   // is_active:false since 2026-08-11 — taken off sale (PR #4354, migration
   // 20271132214645) because the ₱2,000 add-on sold nothing: the story maker is
   // owner-locked FREE and no code read whether it was bought. Prod-verified.
@@ -168,12 +154,14 @@ export const RETAIL: RetailRow[] = [
   // its fallback stub. A fixture is a SECOND hand-typed copy of the catalog —
   // when a SKU's is_active changes in prod, it must change here in the same PR.
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
-  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1980, is_active: true },
+  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 2490, is_active: true }, // final price sheet 2026-11-04
   // SEATING_3D is FREE for couples since 2026-09-05 (owner) — deactivated in
   // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
   // #5185). Kept listed, inactive, same convention as KWENTO below.
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: false },
-  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 3300, is_active: true },
+  // 🗑 OFF SALE 2026-11-04 (owner: "Setnayan ai no separate purchase will be part of event plus and event pro") — a
+  // NEGATIVE fixture now, like the rows below; the price it carried is deliberately not repeated here.
+  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 1, is_active: false },
   // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
   // was RETIRED the same day ("we do not need pabati. retire it because it is
   // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named
@@ -223,13 +211,14 @@ export const RETAIL: RetailRow[] = [
 ];
 
 export const VENDOR = [
-  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 1000, is_active: true },
-  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 10400, is_active: true },
-  { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 2500, is_active: true },
-  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 26000, is_active: true },
-  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 10000, is_active: true },
-  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 104000, is_active: true },
-  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 1000, is_active: true },
+  // 💰 Final price sheet 2026-11-04: per 4 weeks / per year (year = 10×). Extra branch ₱1,990, Ultra only.
+  { sku_code: 'solo_vendor_monthly', title: 'Solo (28d)', price_php: 990, is_active: true },
+  { sku_code: 'solo_vendor_annual', title: 'Solo (yr)', price_php: 9900, is_active: true },
+  { sku_code: 'pro_vendor_monthly', title: 'Pro (28d)', price_php: 2490, is_active: true },
+  { sku_code: 'pro_vendor_annual', title: 'Pro (yr)', price_php: 24900, is_active: true },
+  { sku_code: 'enterprise_vendor_monthly', title: 'Ent (28d)', price_php: 5990, is_active: true },
+  { sku_code: 'enterprise_vendor_annual', title: 'Ent (yr)', price_php: 59900, is_active: true },
+  { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 1990, is_active: true },
 ];
 
 export const INPUT_FOR_GUARDS: LlmsTxtInput = { retail: RETAIL, vendor: VENDOR, refreshedOn: '2026-07-31' };

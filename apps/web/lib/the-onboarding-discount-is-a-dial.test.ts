@@ -58,7 +58,7 @@ test('⛔ bad data can never charge somebody MORE for buying early', () => {
   assert.equal(setupPricePhp(1000, null, 0), 1000, 'no discount is the retail price, never more');
 });
 
-test('⚠ a percentage we cannot read falls to the DEFAULT, never to zero', () => {
+test('⚠ a percentage we cannot read falls to the DEFAULT (0 since 2026-11-03), never to an invented one', () => {
   // A settings read that fails must not silently retract a discount the screen
   // is advertising — nor invent a huge one.
   for (const bad of [null, undefined, '', 'abc', NaN, -1, 91, 1000]) {

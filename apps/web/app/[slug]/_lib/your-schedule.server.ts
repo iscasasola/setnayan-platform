@@ -29,9 +29,13 @@ import { websiteProActiveFor } from './hub-look';
  */
 export type YourScheduleRead = { kind: 'ok'; schedule: YourSchedule } | { kind: 'unread' };
 
-/** The block columns the card reads: a chapter's (`CHAPTER_FIELDS`) and a moment's fence and place. */
+/**
+ * The block columns the card reads: a chapter's and a moment's fence and place. 🎭 NEVER a chapter's setup or pack-up
+ * (`ingress_minutes_before` · `egress_minutes_after`) — backstage never reaches a guest (2026-11-04,
+ * lib/a-guest-never-sees-backstage.test.ts).
+ */
 export const YOUR_SCHEDULE_BLOCK_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id, time_shape, time_or_minutes';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, audience, visibility, travel_from, travel_to, follows_block_id, time_shape, time_or_minutes';
 
 type BlockRow = {
   block_id: string;

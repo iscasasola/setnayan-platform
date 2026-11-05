@@ -62,11 +62,9 @@ const SCREENS: Array<[seg: string, file: string, maker: RegExp]> = [
   ['details', 'profile/_components/details-screen.tsx', /figures=\{detailsFigures\(/],
   ['services', 'shop/page.tsx', /figures=\{servicesFigures\(/],
   ['page', 'website/page.tsx', /figures=\{pageFigures\(/],
-  // 📣 Promote (2026-11-05) draws its row WITHOUT figures, as the albums sub-screen does: part 1 holds only the QR codes,
-  // and nothing on it is counted yet — a typed figure would be a lie. Its first figure arrives with the gifts stock
-  // (part 2), read by the page; when it does, this line becomes `figures=\{promoteFigures\(`. Until then a `figures=` on
-  // this row with no reader behind it fails here.
-  ['promote', 'shop/promote/page.tsx', /^<ShopSegments\s+on="promote"\s+gearBody=\{shopGearBody\(search\)\}\s*\/>$/],
+  // 📣 Promote (2026-11-05) — part 1 drew its row WITHOUT figures (only the QR codes, nothing counted). Part 2 brought
+  // the gift stock, and with it the row's one figure: `promoteFigures(` fed by the gifts section's own read.
+  ['promote', 'shop/promote/page.tsx', /figures=\{promoteFigures\(\{\s*giftCredits:\s*gifts\.stock\b/],
   ['gallery', 'collections/page.tsx', /figures=\{galleryFigures\(/],
   ['insights', 'performance/page.tsx', /figures=\{pinFigures\}/],
 ];

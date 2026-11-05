@@ -13,7 +13,7 @@ export type ShopSegment = 'details' | 'services' | 'page' | 'promote' | 'gallery
 
 /**
  * 📣 + PROMOTE (owner 2026-11-05): the shop's marketing tools in ONE place — its QR codes first (moved from Customers ›
- * QR codes), then gifts and prints. It sits right after Page, "beside the website" in the owner's words.
+ * QR codes), then the gift stock (moved from the Plan page, part 2), then prints. It sits right after Page, "beside the website" in the owner's words.
  */
 export const SHOP_SEGMENT_ORDER: readonly ShopSegment[] = ['details', 'services', 'page', 'promote', 'gallery', 'insights'];
 
@@ -42,7 +42,7 @@ export const SHOP_SEGMENT_HINT: Readonly<Record<ShopSegment, string>> = {
   details: 'Name · what you do · documents',
   services: 'Cards · tools · scanner, set once',
   page: 'What couples see',
-  promote: 'QR codes to share',
+  promote: 'QR codes · gifts for couples',
   gallery: 'Photos and videos · albums',
   insights: 'How you stand · what to improve · badges',
 };

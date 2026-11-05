@@ -16609,6 +16609,34 @@
         "VoiceSuggestResult"
       ]
     },
+    "/vendor-dashboard/shop/promote": {
+      "files": [
+        "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
+        "vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx",
+        "vendor-dashboard/shop/promote/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "formAction"
+      ],
+      "blocks": [
+        "ActionButton",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
+        "Counter",
+        "DatesRow",
+        "Fold",
+        "InfoTip",
+        "PaymentsPausedNote",
+        "PickMenu",
+        "QrCodes",
+        "Sheet",
+        "ShopGiftsSection",
+        "ShopGiftsSectionData",
+        "ShopSegments",
+        "SupplierSubmit"
+      ]
+    },
     "/vendor-dashboard/subscription": {
       "files": [
         "vendor-dashboard/subscription/_components/ai-addon-card.tsx",
@@ -16618,7 +16646,6 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
-        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16644,16 +16671,12 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
-        "BuyGiftsSheet",
-        "BuyVendorPapicPortfolioPackState",
         "Column",
-        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
-        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16665,8 +16688,6 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
-        "Sheet",
-        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",

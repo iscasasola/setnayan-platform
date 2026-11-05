@@ -28,7 +28,7 @@ import {
   VENDOR_TIER_SECTIONS,
   customTierDialLabels,
 } from '@/app/_components/home/vendor-benefits';
-import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 
 /*
  * ⚠ CUSTOM'S "FROM" PRICE IS NOW A PROP, AND THE REGEX THAT USED TO FIND IT IS
@@ -146,7 +146,7 @@ function buildFeatureGroups(): Group[] {
 
 /** Numeric "Plans & limits" rows straight from TIER_CAPS. Infinity → "All" /
  *  "Unlimited"; 0 → —. */
-function buildLimitsGroup(): Group {
+function buildLimitsGroup(branchPrice: string | null): Group {
   const cap = (col: Col) => TIER_CAPS[col];
   const km = (n: number) => (n === Infinity ? 'Nationwide' : n === 0 ? NO.kind : `${n} km`);
   const num = (n: number, unit = '') =>
@@ -184,6 +184,16 @@ function buildLimitsGroup(): Group {
       row('Team seats', (c, col) =>
         col === 'custom' ? CUSTOM : c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)),
       ),
+      // 🏬 Branches beyond the main shop (owner 2026-11-04, "BRANCHES PER PLAN": "branches 0,0,3,10") and who may buy
+      // more (Ultra only) — both read from TIER_CAPS / canBuyExtraBranches; the fee is the live catalogue price.
+      row('Branches included', (c) => (c.branchesIncluded === 0 ? NO : val(num(c.branchesIncluded)))),
+      row('Extra branches', (_c, col) =>
+        canBuyExtraBranches(col) ? val(branchPrice ? `${branchPrice} each` : 'Yes') : NO,
+      ),
+      // ⏳ Waiting list — couples a shop may take off it for one booked-out date (owner 2026-11-04: 0 · 0 · 1 · 5).
+      row('Waiting list / date', (c) => (c.waitlistAcceptances === 0 ? NO : val(num(c.waitlistAcceptances)))),
+      // 🌐 The shop's own web address → its page (Solo and up since owner 2026-11-04).
+      row('Your own web address', (c) => (c.customWebsiteName ? YES : NO)),
       // ⛔ "Bookable slots / day", "Portfolio photos" and "Answer matched couples /
       // week" were rows here until 2026-10-23. The owner ruled that plans price
       // REACH, never the things that earn a booking fee ("We want everybody to be
@@ -295,7 +305,7 @@ export function VendorTierMatrix({
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
     () => [
-      buildLimitsGroup(),
+      buildLimitsGroup(prices.branch),
       ...buildFeatureGroups(),
       // "Custom adds" is a block of rows that are YES on Custom and — on every
       // other column. With the column hidden it would be a block of dashes

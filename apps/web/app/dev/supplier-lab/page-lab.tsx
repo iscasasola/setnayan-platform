@@ -43,7 +43,7 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
-import { PORTFOLIO_FREE_BASE, tierCaps } from '@/lib/vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
@@ -515,6 +515,8 @@ function pageFixture(who: Who): PageClientData {
     // The same question the real page asks — false for every plan while the owner's switch is off.
     personalizeAsks: vendorPaywallApplies(f.tier !== 'free'),
     proAsks: vendorPaywallApplies(f.tier === 'pro'),
+    addressAsks: vendorPaywallApplies(tierCaps(f.tier).customWebsiteName),
+    addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
     storeShell: false,
     plans: pagePlanLines(),
     badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeTracker(bf), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },

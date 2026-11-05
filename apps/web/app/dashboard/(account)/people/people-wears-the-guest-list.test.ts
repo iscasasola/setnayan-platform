@@ -57,7 +57,11 @@ test('🔴 People draws with the Guest list’s own stylesheet and button — im
   for (const cls of ['gs.g', 'gs.ava', 'gs.who', 'gs.nmt', 'gs.meta', 'gs.acts']) {
     assert.ok(row.includes(cls), `a person's row no longer wears the Guest row's ${cls}`);
   }
-  assert.ok((row.match(/<ActionButton /g) ?? []).length >= 4, 'a row verb is drawn as something other than the shared button');
+  // Send again / ✎ Edit are the shared button; Remove / Withdraw is the row's swipe since 2026-11-03 (owner, "SWIPE LEFT
+  // TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS") — the ONE shared swipe, reaching the same onRemove.
+  assert.ok((row.match(/<ActionButton /g) ?? []).length >= 2, 'a row verb is drawn as something other than the shared button');
+  assert.match(row, /<SwipeToDelete\b[\s\S]{0,200}onDelete=\{onRemove\}/, 'Remove / Withdraw is no longer the row’s swipe');
+  assert.doesNotMatch(row, /<ActionButton tone="danger"[^>]*onClick=\{onRemove\}/, 'a visible Remove / Withdraw is back on the row');
   // The sections fold the Guest list's way, and the thumb row is its glass row.
   for (const cls of ['gs.sec', 'gs.barWrap', 'gs.bar', 'gs.ico', 'gs.lab', 'gs.fold', 'gs.stick']) {
     assert.ok(ROSTER.includes(cls), `the roster lost the Guest list's ${cls}`);

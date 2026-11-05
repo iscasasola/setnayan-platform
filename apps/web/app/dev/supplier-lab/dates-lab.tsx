@@ -21,6 +21,7 @@ import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
+import { PROMOTE_QR_MODES, SUPPLIER_QR_MODE_LABEL } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -226,15 +227,34 @@ const LAB_TOASTS = {
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
 };
 
-export async function DatesLab({ state, toast, open, gear = false }: { state: DatesState; toast?: string; open?: string; gear?: boolean }) {
+/**
+ * `place` — 📣 `&place=promote` draws the Shortlist code as Shop › Promote draws it (2026-11-05: the shop's marketing
+ * codes moved there; `place="promote"`, Promote's own dropdown). Without it, the Customers › QR codes look.
+ */
+export async function DatesLab({
+  state,
+  toast,
+  open,
+  gear = false,
+  place = 'customers',
+}: {
+  state: DatesState;
+  toast?: string;
+  open?: string;
+  gear?: boolean;
+  place?: 'customers' | 'promote';
+}) {
   const base = `/dev/supplier-lab?s=${state}`;
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
   if (state.startsWith('qr')) {
-    const modeOptions = [
-      { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
-      { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
-    ];
+    const modeOptions =
+      place === 'promote'
+        ? PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `/dev/supplier-lab?s=qr&place=promote&mode=${key}` }))
+        : [
+            { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
+            { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
+          ];
     const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
     const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(state === 'qr-issued' ? lockUrl : shortUrl, 220);
@@ -243,6 +263,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
         {state === 'qr' || state === 'qr-fail' ? (
           <QrCodes
             mode="shortlist"
+            place={place}
             backHref="/dev/supplier-lab?s=dates"
             modeOptions={modeOptions}
             canShare

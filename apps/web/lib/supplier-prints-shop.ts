@@ -1,0 +1,69 @@
+import { shopInitials } from '@/lib/shop-initials';
+import { shopBadges, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
+import { checkADateUrl } from '@/lib/check-a-date';
+import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
+import { myPagePath, myPageUrl, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import type { PrintQr, PrintShop } from '@/lib/supplier-prints-svg';
+
+/**
+ * 🖨 THE FACTS A PRINT CARRIES — every one READ, never typed (prototype "Your facts": "These come from your shop — change
+ * them there and every print follows. Nothing on a print is typed or moved here").
+ *
+ *   name     — `business_name`
+ *   line     — the shop's own services, in their kind words ("Photo & video · Sound · Lights"), at most three; the
+ *              tagline when the shop lists no service; nothing when it has neither (never a filler)
+ *   ini      — `shopInitials(name)` (the shop's logo goes in the circle in a later part)
+ *   handle   — `setnayan.com/v/<slug>` (the card back)
+ *   seal · rating · badges — `shopBadges(facts)` from facts read AT PRINT TIME (`readShopBadgeFacts`, the badge
+ *              print's own read): a badge un-earned since is not printed; one earned since is
+ *
+ * And the QR: the address of the code the supplier picked, built by the SAME helpers the Promote codes use —
+ * Check a date `checkADateUrl` · Shortlist `buildVendorInviteUrl` (any event, all services) · My page `myPageUrl`.
+ *
+ * Pure. 🔒 lib/supplier-prints.test.ts
+ */
+
+export function printLine(services: readonly string[], tagline: string | null | undefined, kindLabel: (k: string) => string): string {
+  const words = [...new Set(services.map((s) => kindLabel(s).trim()).filter(Boolean))].slice(0, 3);
+  if (words.length) return words.join(' · ');
+  return tagline?.trim() ?? '';
+}
+
+/** `setnayan.com/v/<slug>` — the site's host without `www.` and the scheme. */
+export function printHandle(origin: string, slug: string): string {
+  const host = origin.replace(/^https?:\/\//, '').replace(/\/+$/, '').replace(/^www\./, '');
+  return `${host}${myPagePath(slug)}`;
+}
+
+export function printShopFrom(o: {
+  name: string;
+  slug: string;
+  services: readonly string[];
+  tagline: string | null;
+  facts: ShopBadgeFacts;
+  kindLabel: (k: string) => string;
+  origin: string;
+}): PrintShop {
+  const name = o.name.trim() || 'Your shop';
+  return {
+    name,
+    line: printLine(o.services, o.tagline, o.kindLabel),
+    ini: shopInitials(name),
+    handle: printHandle(o.origin, o.slug),
+    verified: o.facts.verified,
+    rating: cardRecordRatingFromTrusted(o.facts.trusted),
+    badges: shopBadges(o.facts),
+  };
+}
+
+/** The address the printed code opens — the shop's real one, from the helpers its Promote codes already use. */
+export function printQrUrl(mode: PromoteQrMode, origin: string, slug: string): string {
+  if (mode === 'shortlist') return buildVendorInviteUrl(slug, { eventType: null, category: null });
+  if (mode === 'page') return myPageUrl(origin, slug);
+  return checkADateUrl(origin, slug);
+}
+
+export function printQr(mode: PromoteQrMode, origin: string, slug: string): PrintQr {
+  return { mode, url: printQrUrl(mode, origin, slug) };
+}

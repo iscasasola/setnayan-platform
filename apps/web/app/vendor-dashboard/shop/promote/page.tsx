@@ -15,6 +15,7 @@ import { QrCodes, type QrPick } from '../../invite/_components/qr-codes';
 import { promoteFigures } from '@/lib/shop-section-figures';
 import { ShopGiftsSection } from './_components/shop-gifts-section';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
+import { ShopPrintsSection } from './_components/shop-prints-section';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -35,10 +36,15 @@ export const dynamic = 'force-dynamic';
  * PART 2 — 🎁 YOUR GIFTS MOVED here from the Plan page, same component, same words, same behaviour (`ShopGiftsSection`:
  * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
  * that read's `stock.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
- * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts. Prints join in a later part.
+ * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts.
+ *
+ * PART 3 — 🖨 PRINTS (owner APPROVED the 15 looks, 5 Nov 2026 — Setnayan-specs `prototypes/supplier_prints_2026-11-05/`):
+ * a row "Calling card + tarps" → one sheet: Design ▾ (15 looks) · QR on your prints ▾ (the codes above: Check a date ·
+ * Shortlist · My page) · the 7 pieces, each with Save (a print-ready file, `/api/vendor/prints`) · See it in use (the
+ * look + QR placed on real event photos). `ShopPrintsSection`; the drawing is `lib/supplier-prints-svg.ts`.
  *
  * Server component: every word arrives read. 🔒 lib/supplier-qr-codes.test.ts · shop/the-shop-sections-are-v13.test.ts ·
- * shop/promote/gifts-live-on-promote.test.ts
+ * shop/promote/gifts-live-on-promote.test.ts · lib/supplier-prints.test.ts · lib/supplier-prints-decode.test.ts
  */
 export default async function ShopPromotePage({
   searchParams,
@@ -122,6 +128,7 @@ export default async function ShopPromotePage({
       <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
       {body}
       <ShopGiftsSection data={gifts} />
+      <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" />
     </section>
   );
 }

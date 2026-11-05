@@ -236,6 +236,11 @@
 .fd .fl-sep {
   opacity: 0.5;
 }
+/* The Papic line takes its own row, as drawn on a phone — which also anchors its closed ⓘ popover at the
+   copy's left edge, so the popover never hangs past a 320px screen (measured: it widened the page to 332px). */
+.fd .fl-truths-papic {
+  flex-basis: 100%;
+}
 
 /* ── shared section frame ──────────────────────────────────────────────────────────────────────── */
 
@@ -344,7 +349,9 @@
   width: 150px;
   aspect-ratio: 4 / 5;
   border-radius: var(--m-r-md);
-  overflow: hidden;
+  /* Rounded by clip-path, NOT overflow: a tile in a sliding row is half off-screen by design, and an overflow
+     clip makes the tile itself the clipping box (the-page-never-scrolls-sideways.spec.ts reads it that way). */
+  clip-path: inset(0 round var(--m-r-md));
   background: #1d1a15;
 }
 .fd .fl-et img {
@@ -743,6 +750,9 @@
 
 .fd .fl-sup {
   display: grid;
+  /* One column held to the band's width: the crew strip inside is max-content wide, and an auto column would
+     grow to fit it, putting the strip's clipping box past the screen edge. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   background: #15130f;
   color: #fbfaf7;
@@ -755,6 +765,7 @@
   border-top: 0;
 }
 .fd .fl-crew {
+  min-width: 0;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
@@ -781,7 +792,8 @@
   max-width: 220px;
   aspect-ratio: 3 / 4;
   border-radius: var(--m-r-md);
-  overflow: hidden;
+  /* clip-path, not overflow — see .fl-et. */
+  clip-path: inset(0 round var(--m-r-md));
   background: #24211b;
 }
 .fd .fl-tile img {
@@ -1013,6 +1025,7 @@
 .fd .fl-addons {
   margin-top: 28px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
 }
 .fd .fl-addons > .fl-fg {
@@ -1038,7 +1051,8 @@
   display: block;
   aspect-ratio: 4 / 5;
   border-radius: var(--m-r-lg);
-  overflow: hidden;
+  /* clip-path, not overflow — see .fl-et. */
+  clip-path: inset(0 round var(--m-r-lg));
   scroll-snap-align: start;
   color: #fbfaf7;
   text-decoration: none;

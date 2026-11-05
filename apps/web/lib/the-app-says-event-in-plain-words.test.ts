@@ -96,7 +96,6 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   // the sample event's frozen copy of a wedding's `EventWords` (held equal to eventWordsFromProfile by its own test)
   'lib/sample-event/hub.ts': ['celebration'],
   // event-type keys / tags
-  'lib/front-page-photos.ts': ['celebration'],
   'lib/checklist-event-type-defs.ts': ['celebration'],
   'lib/event-anchor.ts': ['celebration'],
   'lib/event-brief.ts': ['celebration'],

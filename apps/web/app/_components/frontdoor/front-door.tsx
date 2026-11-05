@@ -30,6 +30,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
+import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -97,7 +99,7 @@ export async function FrontDoor({ q }: { q?: string }) {
   */
   const signedOut = !account.signedIn;
   const landing = signedOut && !searchQuery;
-  const [eventTypes, planPrices]: [ReadonlyArray<{ key: string; label: string }>, PlanPrices] = landing
+  const [eventTypes, planPrices]: [ReadonlyArray<{ key: string; label: string; heroPhotoUrl: string | null }>, PlanPrices] = landing
     ? await Promise.all([getCreatableEventTypes(), fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([]))])
     : [[], planPricesFrom([])];
 
@@ -209,6 +211,8 @@ export async function FrontDoor({ q }: { q?: string }) {
         <FrontDoorLanding
           eventTypes={eventTypes}
           planPrices={planPrices}
+          /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
+          floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
           sample={frontPageSample(new Date())}
           shelves={
             <FrontDoorFeed

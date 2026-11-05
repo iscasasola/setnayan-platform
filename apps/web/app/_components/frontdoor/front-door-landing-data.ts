@@ -278,12 +278,22 @@ export const SOLVES_SHOWN_FIRST = 5;
 
 /* ─── FOR COORDINATORS ───────────────────────────────────────────────────────────────────────── */
 
-/** The four free day-of tools (DECISION_LOG 2026-11-04, "DAY-OF DESKS STAY FREE — NO END DATE"). */
-export const COORDINATOR_TOOLS: readonly { title: string; line: string }[] = [
-  { title: 'One login for every event you run', line: 'Each client’s event opens from your dashboard.' },
-  { title: 'One schedule, each supplier sees their part', line: 'Suppliers ask for time changes. You approve.' },
-  { title: 'Door check-in and the seat scanner', line: 'Scan a pass, see the guest, send them to their seat.' },
-  { title: 'Free voice and video calls', line: 'Talk to the couple inside the chat.' },
+/**
+ * The coordinator's day-of tools, and whether each is free TODAY.
+ *
+ * ⚖ The owner ruled the day-of desks free with no end date (DECISION_LOG 2026-11-04, "DAY-OF DESKS STAY FREE").
+ * But the code still paywalls the coordinator's floor kit — the live schedule, the requests inbox, the seat
+ * scanner — behind Solo while the free-until date is unset (`lib/vendor-specialization-gate.ts`; CLOUD_BOARD
+ * "TRUE-CLAIMS CHECK", 5 Nov). So a row marked `floorKit` says "Free" only while that same gate makes it free
+ * (`specializationFreeWindowActive`, read by the caller); the page never promises what the app does not do.
+ *
+ * ⛔ The prototype's fourth row, "Free voice and video calls — talk to the couple inside the chat", is NOT here:
+ * calls left chat on 28 Oct, and a test enforces it.
+ */
+export const COORDINATOR_TOOLS: readonly { title: string; line: string; floorKit: boolean }[] = [
+  { title: 'One login for every event you run', line: 'Each client’s event opens from your dashboard.', floorKit: false },
+  { title: 'One schedule, each supplier sees their part', line: 'Suppliers ask for time changes. You approve.', floorKit: true },
+  { title: 'Door check-in and the seat scanner', line: 'Scan a pass, see the guest, send them to their seat.', floorKit: true },
 ];
 
 /* ─── FOR SUPPLIERS ──────────────────────────────────────────────────────────────────────────── */

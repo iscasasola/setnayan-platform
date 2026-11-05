@@ -77,7 +77,12 @@ export function FrontDoorAnchor() {
             <span className="fl-sep" aria-hidden="true">·</span>
             <span>Guests don&rsquo;t sign in</span>
             <span className="fl-sep" aria-hidden="true">·</span>
-            <InfoTip label="Unlimited cameras · photos use Papic credits." ariaLabel="About Papic credits" align="start">
+            <InfoTip
+              label="Unlimited cameras · photos use Papic credits."
+              ariaLabel="About Papic credits"
+              align="start"
+              className="fl-truths-papic"
+            >
               Every guest&rsquo;s phone can be a camera. Each photo they take into your album uses Papic credits.
               Your first event comes with free credits, Plus and Pro bring more, and you can buy more any time.
             </InfoTip>

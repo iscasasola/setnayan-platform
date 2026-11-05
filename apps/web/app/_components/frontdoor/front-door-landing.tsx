@@ -31,7 +31,8 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
-import { eventTypePhoto, marketingPhoto } from '@/lib/front-page-photos';
+import { marketingPhoto } from '@/lib/front-page-photos';
+import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { readSampleEvent, readSampleGuest, SAMPLE_EVENT_ID } from '@/lib/sample-event/snapshot';
 import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event/hub';
 import { marchOrdinal } from '@/lib/march-place';
@@ -192,10 +193,8 @@ function Head({
 function EventTypeRow({ types, reverse }: { types: readonly EventTypeTile[]; reverse?: boolean }) {
   const tile = (t: EventTypeTile, dup: boolean) => (
     <figure className={dup ? 'fl-et fl-et-dup' : 'fl-et'} key={`${dup ? 'b' : 'a'}-${t.key}`}>
-      {t.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={t.photo} alt="" loading="lazy" decoding="async" width={440} height={550} />
-      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={t.photo} alt="" loading="lazy" decoding="async" width={880} height={1100} />
       <figcaption>{t.label}</figcaption>
     </figure>
   );
@@ -237,24 +236,31 @@ function PlainList({ items }: { items: readonly string[] }) {
 
 /* ─── The landing ──────────────────────────────────────────────────────────────────────────────── */
 
-export type EventTypeTile = { key: string; label: string; photo: string | null };
+export type EventTypeTile = { key: string; label: string; photo: string };
 
 export function FrontDoorLanding({
   eventTypes,
   planPrices,
+  floorKitFree = false,
   sample,
   shelves,
 }: {
   /** The creatable event types, in the roster's order (`getCreatableEventTypes`). */
-  eventTypes: readonly { key: string; label: string }[];
+  eventTypes: readonly { key: string; label: string; heroPhotoUrl: string | null }[];
   /** Event Plus and Event Pro from the price list (`planPricesFrom`). */
   planPrices: PlanPrices;
+  /**
+   * Is the coordinator's floor kit (live schedule · requests inbox · seat scanner) free right now? The caller asks
+   * the paywall's own rule (`specializationFreeWindowActive`). Defaults to false — never claim free on a guess.
+   */
+  floorKitFree?: boolean;
   /** The sample's two guests, from its fixtures — null only if the fixtures cannot be read. */
   sample: FrontPageSample | null;
   /** The shipped Discover shelves, rendered by the caller. */
   shelves: ReactNode;
 }) {
-  const tiles: EventTypeTile[] = eventTypes.map((t) => ({ key: t.key, label: t.label, photo: eventTypePhoto(t.key) }));
+  // The app's one photo rule (`eventTypePhotoSrc`, #7271): an admin upload first, else the repo's 4 Nov render.
+  const tiles: EventTypeTile[] = eventTypes.map((t) => ({ key: t.key, label: t.label, photo: eventTypePhotoSrc(t) }));
   const half = Math.ceil(tiles.length / 2);
 
   const freeItems = FREE_GROUPS.flatMap((g) => g.items);
@@ -396,7 +402,7 @@ export function FrontDoorLanding({
         <div className="fl-co-copy">
           <p className="fl-kicker">For coordinators</p>
           <h2 id="h-coord">
-            You run the day. <em>The tools are free.</em>
+            You run the day.{floorKitFree ? <> <em>The tools are free.</em></> : null}
           </h2>
           <p className="fl-lede">
             The couple invites you to their event and opens the parts you need. Everything you run, in one place.
@@ -404,7 +410,8 @@ export function FrontDoorLanding({
           <ul className="fl-co-tools">
             {COORDINATOR_TOOLS.map((t) => (
               <li key={t.title}>
-                <span className="fl-free">Free</span>
+                {/* "Free" only where the app makes it free today — the floor kit follows the paywall's own rule. */}
+                <span className="fl-free">{!t.floorKit || floorKitFree ? 'Free' : ''}</span>
                 <b>{t.title}</b>
                 <span className="fl-d">{t.line}</span>
               </li>

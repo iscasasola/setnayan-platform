@@ -4,7 +4,7 @@ Slice 4 of 5 of the supplier claim scanner (stacked on slice 3). Owner ruling: D
 PHOTOGRAPHER MODE: TAP/SCAN BEFORE THE SHOT, GROUPS INCLUDED" — pre-link by scanning/tapping the guest(s) BEFORE the
 photo; no unlinked prints; counter "Shots · Ready · Claimed".
 
-- **Migration `20271310667150`**: the mode `roaming` — settings, claims and sessions CHECKs widen. It is the Group
+- **Migration `20271318682476`**: the mode `roaming` — settings, claims and sessions CHECKs widen. It is the Group
   session's shot with no station, so slice 3's functions already run it (open · scan in · Done · Ready · pickup).
 - **Scanner**: Roaming in the Shop › Services dropdown; the shot panel says "Scan the guests in frame, then take the
   photo"; the result line reads "#0231 · 2 guests · shoot"; the count "Shots 64 · Ready 8 · Claimed 57".

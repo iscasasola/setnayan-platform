@@ -111,6 +111,7 @@ app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-c
 app/vendor-dashboard/on-the-day/page.tsx "Get verified" → /vendor-dashboard/profile	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/on-the-day/page.tsx "Photos" → /vendor-dashboard/clients/[eventId]/editorial-media	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/on-the-day/page.tsx "Recap capture" → /vendor-dashboard/clients/[eventId]/editorial-media	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/page.tsx "create your own" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/services/_components/canvas-maker.tsx "Start another from this" → /vendor-dashboard/services/new/[category]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/services/_components/services-manager.tsx "Edit · every field" → /vendor-dashboard/services/[serviceId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/services/_components/services-manager.tsx "Set up off-season offer" → /vendor-dashboard/services/[serviceId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

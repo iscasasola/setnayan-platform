@@ -12,6 +12,7 @@ import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_components/crew-screens';
 import { CrewWaitingRefresh } from './_components/crew-waiting-refresh';
 import { SeatScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner';
+import { ChangeTheSchedule } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule';
 
 export const metadata: Metadata = { title: 'Crew · Event Hub', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,9 @@ export const dynamic = 'force-dynamic';
  * phone saw the coordinator's unreleased prep (`visibility = 'coordinator_only'`), which the shop itself may not read.
  * 🚪 The scanner is drawn only for a coordinator shop's crew (`crewRoleOpens(role, coordinator)`): its door refuses
  * every other shop, and a door that never opens is said in words instead.
+ * 🗓 A Member of the coordinator's crew also gets Change the schedule as a REQUEST (owner 2026-11-04; 2026-11-05 (D):
+ * crew changes are requests the coordinator / hosts approve with one tap) — drawn only when `crew_schedule_door` says
+ * 'ok', filed by `crew_request_schedule_move` (same gates).
  * 🔒 app/join/crew/the-crew-sees-only-the-event-hub.test.ts · tests/db/crew-pass-sees-only-its-event.db.test.ts
  */
 export default async function CrewJoinPage({ params }: { params: Promise<{ token: string }> }) {
@@ -85,7 +89,8 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
   // ── The pass is proven: ONE event's name and, for a Member, its run of show. ──
   const role = crewRoleOf(pass.crew_role);
   const admin = createAdminClient();
-  const [eventRes, shopRes, blocksRes] = await Promise.all([
+  const member = crewRoleReadsRunOfShow(role);
+  const [eventRes, shopRes, blocksRes, doorRes] = await Promise.all([
     admin.from('events').select('display_name, event_date, venue_name').eq('event_id', eventId).maybeSingle(),
     admin.from('vendor_profiles').select('business_name, services').eq('vendor_profile_id', pass.vendor_profile_id).maybeSingle(),
     crewRoleReadsRunOfShow(role)
@@ -100,13 +105,18 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
           .order('start_at', { ascending: true })
           .order('sort_order', { ascending: true })
       : Promise.resolve({ data: null, error: null }),
+    // 🗓 May this phone ask to change the schedule? The database's ONE answer — the same function the request asks, on
+    // this phone's own session — so the button is drawn exactly when the request would be filed.
+    member ? supabase.rpc('crew_schedule_door', { p_event_id: eventId }) : Promise.resolve({ data: null, error: null }),
   ]);
+  if (doorRes.error) logQueryError('CrewJoin.scheduleDoor', doorRes.error, { eventId }, 'graceful_degrade');
   if (blocksRes.error) logQueryError('CrewJoin.runOfShow', blocksRes.error, { eventId }, 'graceful_degrade');
   if (shopRes.error) logQueryError('CrewJoin.shop', shopRes.error, { eventId }, 'graceful_degrade');
   const shop = shopRes.data as { business_name: string | null; services: string[] | null } | null;
   // A refused shop read keeps the scanner: it is only a hint here — the scanner's own door is the boundary and says
   // its own refusal — while hiding it would take a coordinator crew's one tool away on a blip.
   const coordinator = shopRes.error ? true : isCoordinatorTrade(shop?.services);
+  const blocks = blocksRes.error ? null : ((blocksRes.data ?? []) as RunOfShowBlock[]);
   const ev = eventRes.data as { display_name: string | null; event_date: string | null; venue_name: string | null } | null;
   const ends = new Date(pass.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return (
@@ -119,7 +129,8 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
       name={pass.display_name}
       role={role}
       coordinator={coordinator}
-      blocks={blocksRes.error ? null : ((blocksRes.data ?? []) as RunOfShowBlock[])}
+      blocks={blocks}
+      changer={doorRes.data === 'ok' && blocks ? <ChangeTheSchedule eventId={eventId} parts={blocks} via="crew" /> : null}
       endsWords={`ends ${ends}`}
     />
   );

@@ -155,7 +155,8 @@ async function seedAboveCeiling(vendorProfileId: string, n: number): Promise<voi
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('an unrelated save does NOT lower a number the supplier already chose', async () => {
-  const { vendorProfileId } = await newVendor('keep', 'solo'); // solo waitlist ceiling = 1
+  // Pro, not Solo, since owner 2026-11-04 ("waitlist 0,0,1,5"): Solo has no waitlist now; Pro's ceiling is the 1.
+  const { vendorProfileId } = await newVendor('keep', 'pro'); // pro waitlist ceiling = 1
   await seedAboveCeiling(vendorProfileId, 3);
   assert.equal(await storedWaitlist(vendorProfileId), 3, 'seeding must actually land');
 
@@ -173,7 +174,7 @@ test('an unrelated save does NOT lower a number the supplier already chose', asy
 });
 
 test('changing the number IS agreeing to the ceiling', async () => {
-  const { vendorProfileId } = await newVendor('touch', 'solo');
+  const { vendorProfileId } = await newVendor('touch', 'pro'); // ceiling 1 (owner 2026-11-04)
   await seedAboveCeiling(vendorProfileId, 3);
 
   await db.query(

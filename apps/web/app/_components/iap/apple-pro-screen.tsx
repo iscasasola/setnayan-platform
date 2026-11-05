@@ -10,7 +10,8 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
 const PRO = iapProductForServiceKey('COUPLE_WEBSITE_PRO');
 
 /**
- * 🍎 EVENT HUB PRO, BOUGHT THROUGH APPLE — the page the Maker's "Unlock Pro and
+ * 🍎 EVENT PRO (was "Event Hub Pro"; renamed and re-productised as `event_pro` by the owner's 2026-11-04 price
+ * sheet), BOUGHT THROUGH APPLE — the page the Maker's "Unlock Pro and
  * Apply" opens in the iPhone app (owner 2026-10-18, ruling 2: Pro is offered
  * ONLY at ✓ Apply). It plays the part the web's Pro page plays: it sells, then
  * sends the couple back to the Maker with `?apply=1`, where the held ◆ changes
@@ -38,7 +39,10 @@ type AppleProScreenProps = {
 
 /**
  * Everything (Full Pro) — the one product the app sells for the Event Hub (owner 2026-10-26: "just have the upgrade
- * event hub pro"; the part-by-part Apple products of 2026-10-22 are retired, never attached to a version).
+ * event hub pro"; the part-by-part Apple products of 2026-10-22 are retired, never attached to a version). Since
+ * 2026-11-04 that product is `event_pro` ("Event Pro") — `PRO` is looked up by its catalogue code, so the id is never
+ * typed here. Event Plus is NOT offered on this screen: it is reached from "Unlock Pro and Apply", and Plus does not
+ * unlock the held Pro changes.
  */
 function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps, 'eventId' | 'back'> & { sample: AppleProScreenProps['sample'] }) {
   const router = useRouter();
@@ -75,8 +79,8 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
     return (
       <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-on="">
         <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-          Event Hub Pro is on
-          <PaidMark state="unlocked" bare label="Event Hub Pro" size="xs" />
+          Event Pro is on
+          <PaidMark state="unlocked" bare label="Event Pro" size="xs" />
         </h1>
         <p className="text-sm text-ink/70">For this event, and everyone on it.</p>
         <button type="button" onClick={() => router.push(`${back}${sep}apply=1`)} className="button-primary sn-press mt-2 min-h-11 w-full">
@@ -90,7 +94,7 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
     return (
       <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-pending="">
         <h1 className="font-serif text-2xl text-ink">{IAP_COPY.pendingTitle}</h1>
-        <p className="text-sm text-ink/70">{screen.askToBuy ? IAP_COPY.askToBuy : pendingLine('Event Hub Pro', false)}</p>
+        <p className="text-sm text-ink/70">{screen.askToBuy ? IAP_COPY.askToBuy : pendingLine('Event Pro', false)}</p>
         <p className="text-sm text-ink/70">{IAP_COPY.pendingRestore}</p>
         <button type="button" onClick={() => router.push(back)} className="button-primary sn-press mt-2 min-h-11 w-full">
           OK
@@ -101,8 +105,8 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
   return (
     <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-pro-buy="">
       <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-        Event Hub Pro
-        <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+        Event Pro
+        <PaidMark state="try" bare label="Event Pro" size="xs" />
       </h1>
       <p className="text-sm text-ink/70">One unlock for this event — it covers everyone on it. Your Pro changes go live as soon as it is on.</p>
       {screen?.kind === 'cancelled' ? (

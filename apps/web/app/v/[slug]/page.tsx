@@ -1327,7 +1327,9 @@ export async function renderVendorBySlug({
   // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
   // links already handed out); routing keeps resolving it.
   const viewerTierCaps = tierCaps(effectiveTierState);
-  const premiumLayout = viewerTierCaps.customWebsiteName;
+  // Pro page parts read `premiumPage` (Pro+). Until 2026-11-04 they rode `customWebsiteName`, which then moved down to
+  // Solo (owner, "website applies to solo as well") — the address moved, the Pro page did not.
+  const premiumLayout = viewerTierCaps.premiumPage;
   // 💳 The CONTENT a supplier picks in the My Shop editor renders when the
   // editor let them save it — the one flag-aware question
   // (lib/vendor-feature-gate.ts). While VENDOR_TIER_FEATURE_GATE is off every
@@ -1394,10 +1396,10 @@ export async function renderVendorBySlug({
     tier: effectiveTierState,
     declaredOuterKm: vendor.outer_radius_km ?? null,
   });
-  // Pro+ — their own web address pointing at this page (approved Q4 = A). Read only when the plan shows it; a refused
-  // read shows the Setnayan address alone, which is still true.
+  // Solo+ — their own web address pointing at this page (approved Q4 = A; Solo since owner 2026-11-04). Read only when
+  // the plan shows it (`customWebsiteName`); a refused read shows the Setnayan address alone, which is still true.
   let ownAddress: string | null = null;
-  if (premiumLayout) {
+  if (viewerTierCaps.customWebsiteName) {
     const { data: domainRow, error: domainError } = await admin
       .from('custom_domains')
       .select('domain, verified_at')
@@ -2717,7 +2719,7 @@ export async function renderVendorBySlug({
                 </ul>
               </div>
             ) : null}
-            {/* 🌐 The page's addresses — Setnayan's on every plan; Pro + Ultra also their own domain → this page. */}
+            {/* 🌐 The page's addresses — Setnayan's on every plan; Solo, Pro + Ultra also their own domain → this page. */}
             <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} />
             {/* ⭐ Pro + Ultra — the pinned best review's first words, beside the facts. */}
             {pinnedLead && pinnedLeadQuote ? (

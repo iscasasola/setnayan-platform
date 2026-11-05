@@ -140,11 +140,14 @@ export function ScheduleAddPill({
   data,
   hidden = false,
   view,
+  inlineOnDesktop = false,
 }: {
   label: string;
   onPress: () => void;
   data: string;
   hidden?: boolean;
+  /** 🖥 A desktop draws this add as the last row of the list instead (slice 10) — no floating pill there. */
+  inlineOnDesktop?: boolean;
   /** The view this pill belongs to — it shows only while that view is on screen. */
   view?: string;
 }) {
@@ -156,7 +159,7 @@ export function ScheduleAddPill({
   if (!host || hidden || (view && onScreen !== null && onScreen !== view)) return null;
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto"
+      className={`pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto${inlineOnDesktop ? ' xl:hidden' : ''}`}
       data-schedule-add-host=""
       data-safe-x=""
     >

@@ -24,7 +24,7 @@ import {
 import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, BRANCH_FEE_PHP, type VendorBranchView } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
-import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { fetchCorrectionRequests, identityLockOf, type LockedIdentityFieldKey, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
@@ -247,8 +247,9 @@ export async function loadDetailsData(
     const own = await ownRead;
     let branchFeePhp = BRANCH_FEE_PHP;
     let branchPay: PayInfo = { accounts: [], open: [] };
-    // Only an Enterprise shop's manager can buy a branch, so only it pays for the fee + rails reads.
-    if (isTierAtLeast(own.tier_state ?? null, 'enterprise')) {
+    // Only an Ultra shop's manager can BUY a branch (owner 2026-11-04 — Pro's are included, no fee), so only it pays
+    // for the fee + rails reads.
+    if (canBuyExtraBranches(own.tier_state ?? null)) {
       const [fee, settings] = await Promise.all([
         fetchBranchFeePhp(supabase).catch((err) => {
           logQueryError('VendorDetails.branchFee', err, { vendorId });
@@ -419,7 +420,7 @@ export async function loadDetailsData(
       outerRadiusKm: own.outer_radius_km ?? null,
       branches,
       branchFeePhp,
-      branchAutoRadius: branchAutoRadiusKm(),
+      branchAutoRadius: branchAutoRadiusKm(own.tier_state ?? null),
       branchPay,
       isVerified,
       tierMeasured: ownMeasured,

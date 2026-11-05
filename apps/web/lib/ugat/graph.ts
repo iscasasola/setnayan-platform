@@ -3787,7 +3787,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'guest_souvenir_claims', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'fk', table: 'guest_souvenir_claims', column: 'coverage_id', references: 'vendor_coverages' },
       { kind: 'column', table: 'guest_souvenir_claims', column: 'scan_number' },
-      // Count only: the claim keeps no copy of the guest's name.
+      // The claim keeps no copy of the guest's name — the first name is read live (supplier_scan_first_name).
       { kind: 'no_column', table: 'supplier_scan_claims', column: 'guest_name' },
       // Ordered → Received (slice 2): the claim's state, and "#0042 is ready" as ONE guest's line in the one channel.
       { kind: 'check', table: 'supplier_scan_claims', name: 'supplier_scan_claims_state_check', mentions: 'state' },
@@ -3807,7 +3807,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'supplier_scan_shop_for: the shop’s owner/team or its live day-of grantee, booked (contracted · deposit_paid · delivered · complete), the service among the booking’s requested services when it names any, scanner ON; the token a listed guest of THIS event · no browser write policy on claims or counters · suppliers have no SELECT on claims (counts via supplier_scan_tally) · tests/db/a-supplier-scan-claims-once.db.test.ts · lib/supplier-scan.test.ts',
     traps:
-      'A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier never reads a name; a host-approved coordinator sees one only because the action re-reads the guest row under their own RLS.',
+      'A souvenir is ONE pile per event (guest_souvenir_claims.guest_id is UNIQUE): the couple’s desk and a souvenir supplier count the same giveaway, so two different souvenir suppliers at one event would share it. A removal leaves its number unused — the gap is the visible mark of a correction. The supplier reads only the guest’s FIRST name (owner 2026-11-05), from supplier_scan_first_name — the booked shop, only after its claim is recorded; a host-approved coordinator sees the full name only because the action re-reads the guest row under their own RLS.',
   },
 ];
 

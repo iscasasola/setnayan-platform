@@ -71,6 +71,7 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   'souvenir-desk': { outcome: 'already', number: null },
   not: { outcome: 'not_guest' },
   nosignal: { outcome: 'no_signal' },
+  first: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana' },
   name: { outcome: 'claimed', number: 42, claimed: 42, total: 118, name: 'Ana Reyes' },
   ordered: { outcome: 'ordered', number: 42 },
   'not-ready': { outcome: 'not_ready', number: 42 },

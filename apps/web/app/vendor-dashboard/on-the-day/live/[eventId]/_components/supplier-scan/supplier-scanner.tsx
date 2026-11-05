@@ -155,8 +155,8 @@ export function SupplierClaimScanner({
         <Explain title="Scanner" label="About the scanner">
           Each guest you scan gets the next number — the same number shows on their Event Hub. In Once, a guest is
           counted one time; a second scan says “Already claimed”. In Ordered → Received, the first scan orders, Ready
-          on the number tells the guest it is waiting, and the second scan hands it over. You see numbers and counts,
-          never names. The mode is set once per service, under Shop › Services.
+          on the number tells the guest it is waiting, and the second scan hands it over. You see the number and the
+          guest’s first name. The mode is set once per service, under Shop › Services.
         </Explain>
       </div>
 

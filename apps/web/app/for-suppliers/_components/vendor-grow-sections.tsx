@@ -536,7 +536,8 @@ export function VendorGrowTools() {
       <CardGrid>
         <GridCard icon="▦" title="Custom QR" body="Add your services to anyone — in or out of the app. Dedicated codes whether they've inquired or already paid." />
         <GridCard icon="₱" title="Price your way" body="Build services priced by fixed package, per guest, or per hour — with inclusions, add-ons and custom payment schedules." />
-        <GridCard icon="📞" title="In-app video & audio calls" body="Meet couples face-to-face right in the thread. Peer-to-peer and never recorded." />
+        {/* ⛔ "In-app video & audio calls" was a card here until 2026-11-04 — in-app calls were retired 2026-10-28 and
+            the `calls` plan capability removed (owner, "SUPPLIER PLAN ALLOWANCES"). Do not re-add it. */}
         <GridCard icon="★" title="Printable review QR" body="Print it, place it at the event — collect real reviews from real guests on the day." />
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />

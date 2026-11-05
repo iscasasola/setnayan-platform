@@ -49,3 +49,19 @@ export function scheduleShiftBody(eventName: string, fromLabel: string | null): 
     ? `${eventName} shifted the day from ${fromLabel} on. Open the schedule for the new times.`
     : `${eventName} shifted the day. Open the schedule for the new times.`;
 }
+
+/**
+ * ⏭ Change the schedule › Skip (owner 2026-11-04) rides the same `schedule_shifted` notice — never a second type — with
+ * its own words: "Skipped: Cake cutting" · "Back on: Cake cutting".
+ */
+export function scheduleSkipTitle(label: string | null, op: 'skip' | 'unskip'): string {
+  const name = label?.trim() || 'A part of the day';
+  return op === 'skip' ? `Skipped: ${name}` : `Back on: ${name}`;
+}
+
+/** The line under it. */
+export function scheduleSkipBody(eventName: string, op: 'skip' | 'unskip'): string {
+  return op === 'skip'
+    ? `${eventName}'s schedule changed — that part won't happen; the rest keeps its times.`
+    : `${eventName}'s schedule changed — that part is back at its time.`;
+}

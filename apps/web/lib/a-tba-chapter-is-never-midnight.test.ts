@@ -220,8 +220,11 @@ test('the floor command (and every bulk retime) never shifts a TBA chapter, and 
   // From a timed chapter: the timed ones move; the TBA chapter is never in the span (also with a negative shift).
   assert.deepEqual(computeRetimePatches(rows, 'prep', 15).map((p) => p.block_id), ['prep', 'rites']);
   assert.ok(!computeRetimePatches(rows, 'prep', -15).some((p) => p.block_id === 'tba'));
-  const floor = fs.readFileSync(path.join(WEB_ROOT, 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts'), 'utf8');
+  // The floor's +N became "Change the schedule" (owner 2026-11-04); both its doors (floor + crew phone) write through
+  // `lib/change-the-schedule.server.ts`, so that is where the TBA chapter is refused — and said.
+  const floor = fs.readFileSync(path.join(WEB_ROOT, 'lib/change-the-schedule.server.ts'), 'utf8');
   assert.match(floor, /isTimeTba\(fromTop\)/, 'the floor says why a TBA chapter cannot be delayed from');
+  assert.match(floor, /\.filter\(\(b\) => !isTimeTba\(b\)\)/, 'a move from a timed part carries a TBA chapter along');
 });
 
 test("Memories' photo windows leave a TBA chapter out — it never claims the photos from midnight on", () => {
@@ -267,6 +270,8 @@ const WEB = path.resolve(__dirname, '..');
 
 /** file → why it may read `start_at` without the flag. Every line is a reason, never a shrug. */
 const ALLOWED: Record<string, string> = {
+  'app/admin/events/[eventId]/page.tsx':
+    "Admin › Suppliers' schedule names each supplier's chapters (Where); start_at only orders the names — no clock is drawn",
   'app/api/live/run-of-show/[eventId]/route.ts':
     "guests' live lines only — fenced by onlyWhatGuestsMaySee a few lines down; the database refuses a public TBA chapter",
   'app/dashboard/[eventId]/schedule/actions.ts': "the Schedule's own write door — #7151 set TBA there; it draws nothing",

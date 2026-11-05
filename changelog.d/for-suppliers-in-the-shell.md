@@ -25,6 +25,12 @@ minimum ₱50, only on couples we source". Same facts, plainer words.
   to be on screen; the plan ladder is ~7,400 px tall at 390 px, so that never fit an 844-px screen and every
   plan card stayed at opacity 0. The threshold is now capped by what the screen can show
   (`a-tall-section-still-reveals.test.ts`).
+- **True claims (CLOUD_BOARD 5 Nov sweep).** The "In-app video & audio calls" card is gone (calls left chat
+  28 Oct; same change, word for word, as #7257 so the two merge cleanly). The Verified row says the
+  `REQUIRED_DOC_COUNT` required papers plus a short video call with our team, not "a 12-doc check". The
+  "both e-sign in-app" contracts row is gone (contracts are an uploaded PDF on record). The 3D seat-plan logo
+  row moved from Pro to Solo, "with the 3D Booth add-on" (paid plans, Solo+). Guard:
+  `lib/the-supplier-page-claims-what-ships.test.ts`.
 - Regenerated with their generators: `scripts/port-control-baseline.json`, `lib/ugat/screens.generated.json`.
 
 Not changed: the hero paragraph still uses `supplierCommissionPromise()` ("…your first booking from Setnayan

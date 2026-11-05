@@ -81,6 +81,8 @@ test('2 · the card: ONE tick dropdown, directly ABOVE Passed Away, posting with
   assert.equal((between.match(/data-card-[a-z-]+=""/g) ?? []).length, 1, 'another row sits between "Not counted for" and Passed Away');
   // ONE PickMenu dropdown (the card kit's Pick → `CardPick` → the shared PickMenu), several ticked, never a pill row.
   assert.match(between, /<K\.Pick\s+name=\{NOT_COUNTED_FIELD\}\s+label="Not counted for"\s+multi\s+form=\{formId\}/);
+  // Each service says whether it is booked yet (owner 2026-11-04): "<shop> · Booked" · "<shop> · Quoted · applies once booked".
+  assert.match(between, /hint: serviceHint\(s\)/);
   assert.match(between, /<input type="hidden" name=\{NOT_COUNTED_POSTED\} value="1" form=\{formId\} \/>/, 'the marker is not posted');
   assert.match(between, /emptyText=\{COUNTED_FOR_ALL\}/, 'nothing ticked must read as counted for all');
   assert.doesNotMatch(between, /<K\.Chips|<Chips|role="radiogroup"/, 'a pill row instead of the PickMenu dropdown');
@@ -100,10 +102,15 @@ test('2 · the card: ONE tick dropdown, directly ABOVE Passed Away, posting with
   assert.match(data, /\n\s*notCountedRead,\n\s*\]\);/);
 });
 
-test('2 · the reads offer only BOOKED services, and a refused read offers nothing', () => {
+test('2 · the reads offer every PER-HEAD supplier on the event (any status), and a refused read offers nothing', () => {
+  // Owner 2026-11-04: *"on cale-ice it asked for venue, and no option for catering"* → every supplier on the event, booked
+  // or not; *"not counted for will be for service cards with pax only"* → only per-head ones. Both are decided in SQL
+  // (`get_event_service_counts`: not archived · `event_vendor_counts_per_head`), held by who-a-supplier-counts.db.test.ts.
   const server = read('lib/guest-not-counted.server.ts');
-  assert.match(server, /\.in\('status', \[\.\.\.COUNTED_BOOKING_STATUSES\]\)/);
-  assert.match(server, /\.is\('archived_at', null\)/);
+  assert.match(server, /const counts = await readEventServiceCounts\(supabase, eventId\);\s*if \(!counts\) return null;/);
+  assert.doesNotMatch(server, /COUNTED_BOOKING_STATUSES|\.in\('status'/, 'the list went back to booked-only');
+  const counts = read('lib/supplier-count.server.ts');
+  assert.match(counts, /supabase\.rpc\('get_event_service_counts', \{ p_event_id: eventId \}\)/);
   const card = server.slice(server.indexOf('export async function readGuestNotCounted'));
   assert.match(card.slice(0, 900), /if \(error\) \{[\s\S]{0,160}return null;/, 'a refused tick read is drawn as "counted for all"');
   assert.match(card.slice(0, 900), /if \(!services\) return null;/, 'a refused services read is drawn as "counted for all"');

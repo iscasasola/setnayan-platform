@@ -2,13 +2,13 @@ import { Star, Reply, Flag, BadgeCheck } from 'lucide-react';
 import {
   REVIEW_AXIS_LABEL,
   VENDOR_REPLY_MAX_CHARS,
-  REVIEW_FLAG_REASON_LABEL,
   type ReviewAxis,
   type ReviewWithCouple,
 } from '@/lib/reviews';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatCount } from '@/lib/format-number';
 import { postVendorReply, submitFlagAsFake } from '../../reviews/actions';
+import { FlagReasonPick } from './flag-reason-pick';
 
 /**
  * 💬 REPLY TO A REVIEW, IN PLACE — Shop › Page › Reviews and stories (owner 2026-11-06, verbatim: *"Use fable to decide.
@@ -18,7 +18,7 @@ import { postVendorReply, submitFlagAsFake } from '../../reviews/actions';
  * LIFTED, not redrawn, from the retired `/vendor-dashboard/reviews` page: the review card (stars · couple · the
  * platform-stamped Verified pill · date · the words · the four axes), the ONE public reply form (`postVendorReply`,
  * up to `VENDOR_REPLY_MAX_CHARS`, final once posted — the DB trigger `lock_vendor_reply` refuses any change), the
- * existing reply read-only, and Flag as fake (`submitFlagAsFake`, a `<details>` — no client script). The reply form
+ * existing reply read-only, and Flag as fake (`submitFlagAsFake`, a `<details>`; the reason is a PickMenu island, `flag-reason-pick.tsx`). The reply form
  * keeps its `id="reply_<review_id>"`, so a link to one review still lands on its box.
  *
  * Reviews needing a reply come first. A refused read is said — never "no reviews". Reviews are permanent (Vendor
@@ -160,24 +160,7 @@ function FlagForm({ reviewId }: { reviewId: string }) {
         <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Flag review as fake</p>
         <form action={submitFlagAsFake} className="space-y-2">
           <input type="hidden" name="review_id" value={reviewId} />
-          <select name="reason" required className="input-field w-full py-1.5 text-xs" defaultValue="">
-            <option value="" disabled>
-              Select a reason…
-            </option>
-            {(Object.entries(REVIEW_FLAG_REASON_LABEL) as Array<[string, string]>).map(([key, label]) => (
-              <option key={key} value={`${key}: ${label}`}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-ink/45">Setnayan HQ will review this within 48 hours. You can only flag a review once.</p>
-          <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-md bg-danger-600 px-3 py-2 text-xs font-medium text-white hover:bg-danger-700 disabled:opacity-60"
-            pendingLabel="Flagging…"
-          >
-            <Flag className="h-3.5 w-3.5" strokeWidth={2} />
-            Submit flag
-          </SubmitButton>
+          <FlagReasonPick />
         </form>
       </div>
     </details>

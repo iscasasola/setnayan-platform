@@ -3261,6 +3261,7 @@
       "files": [
         "admin/disputes/_components/deposit-disputes-section.tsx",
         "admin/disputes/_components/payment-disputes-section.tsx",
+        "admin/disputes/_components/quote-versions-evidence.tsx",
         "admin/disputes/actions.ts",
         "admin/disputes/loading.tsx",
         "admin/disputes/page.tsx"
@@ -3283,6 +3284,9 @@
         "PaymentDisputesSection",
         "PolicyEvidence",
         "ProofImage",
+        "QuoteVersionsByVendor",
+        "QuoteVersionsEvidence",
+        "QuoteWhatChanged",
         "StatsBanner",
         "SubmitButton",
         "TierChip"
@@ -6948,6 +6952,7 @@
         "Asking",
         "AutosaveForm",
         "AutosaveOutcome",
+        "AwayCarriers",
         "CaptureBar",
         "CardBoxProps",
         "CardDoorProps",
@@ -8639,7 +8644,8 @@
         "/api/schedule/[seg]/export",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/paperwork"
+        "/dashboard/[seg]/paperwork",
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
         "applyActivityPicks",
@@ -8735,6 +8741,7 @@
         "PageMasthead",
         "PaidMark",
         "PeekToast",
+        "PersonCard",
         "PickMenu",
         "PillThumb",
         "PlanningChapters",
@@ -8770,6 +8777,7 @@
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
         "SentList",
+        "SettingsRow",
         "SharePdfButton",
         "Sheet",
         "SheetChoice",
@@ -12584,6 +12592,19 @@
         "UndoToastHost"
       ]
     },
+    "/dev/swipe-rows-lab/suppliers": {
+      "files": [
+        "dev/swipe-rows-lab/suppliers/fixtures.ts",
+        "dev/swipe-rows-lab/suppliers/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BuildLocked",
+        "PackageItemSwipe",
+        "WorkingNoteSwipe"
+      ]
+    },
     "/dev/thumb-row-lab": {
       "files": [
         "dev/thumb-row-lab/page.tsx"
@@ -14755,7 +14776,9 @@
         "SuggestSheet",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
+        "SupplierTaskRow",
         "SupplierThumbRow",
+        "SupplierWhereRow",
         "TheyToldYou",
         "TimeRow",
         "TypedRow",
@@ -16163,12 +16186,14 @@
         "Fragment",
         "GridCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
         "InclusionDraft",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",

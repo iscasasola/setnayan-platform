@@ -91,7 +91,7 @@ import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { ActionButton } from '@/components/action-button';
 
-export const metadata = { title: 'Event Hub · Supplier' };
+export const metadata = { title: 'Hub · Supplier' };
 
 /**
  * 🗓 THE SUPPLIER'S HUB — /vendor-dashboard/on-the-day (supplier dashboard v13, owner "Approved." 2026-10-29; prototype
@@ -264,7 +264,7 @@ export default async function VendorOnTheDayPage({
             <CalendarClock aria-hidden className="mx-auto h-8 w-8" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.5} />
             <p className="mt-3 text-base font-medium text-ink">No events yet</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-ink/65">
-              When a couple books you, their event lands here — set up its tools and crew ahead, and its Event Hub opens
+              When a couple books you, their event lands here — set up its tools and crew ahead, and its Hub opens
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
             </p>
             <div className="mt-4 flex justify-center">
@@ -580,7 +580,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
 
   return (
     <div className="space-y-5" data-hub-day="">
-      <HubEyebrow about={`Today's tools, open ${HUB_OPEN_WINDOW_PLAIN}. The Event Hub has the run of the day itself.`}>
+      <HubEyebrow about={`Today's tools, open ${HUB_OPEN_WINDOW_PLAIN}. The Hub has the run of the day itself.`}>
         The Day
       </HubEyebrow>
       {/* 🪑 Find a guest's seat — today's booked event's shipped scanner, one row (S9, owner 2026-10-29). */}
@@ -735,10 +735,10 @@ async function crewBody({
   if (!open) {
     return (
       <div>
-        <HubEyebrow about="Crew join the Event Hub of a day your shop works. This event has no booked day for your shop.">
+        <HubEyebrow about="Crew join the Hub of a day your shop works. This event has no booked day for your shop.">
           Crew for the day
         </HubEyebrow>
-        <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Event Hub for a crew to join.</p>
+        <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Hub for a crew to join.</p>
       </div>
     );
   }
@@ -890,7 +890,7 @@ function pagesBody({
             href={`${base}/schedule`}
             access={access}
           />
-          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${base}/launch`} access={access} />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="The Maker" line="The guests’ page for the event" href={`${base}/launch`} access={access} />
         </HubPageRows>
       </div>
     );

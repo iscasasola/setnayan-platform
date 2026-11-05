@@ -45,7 +45,7 @@ import { deriveRunOfShow } from '@/lib/run-of-show';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 
-export const metadata = { title: 'Live · Event Hub' };
+export const metadata = { title: 'Live · Hub' };
 
 /**
  * The launched day-of console.
@@ -199,7 +199,7 @@ export default async function VendorOnTheDayLivePage({
         gate={feeGate}
         threadId={booking.threadId}
         backHref="/vendor-dashboard/on-the-day"
-        backLabel="Back to the Event Hub"
+        backLabel="Back to the Hub"
       />
     );
   }

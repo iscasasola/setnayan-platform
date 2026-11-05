@@ -112,7 +112,7 @@ export function CrewPanel({
       <div className="flex items-center justify-between gap-2 pt-4">
         <p className="home-k2">Crew for the day</p>
         <Explain title="Crew for the day">
-          Your crew scan the QR with any phone and land on your Event Hub for this event only — just the tools their
+          Your crew scan the QR with any phone and land on your Hub for this event only — just the tools their
           role allows. Member = {crewToolsWords('member', coordinator)}; Helper = {crewToolsWords('helper', coordinator)}.
           {coordinator ? '' : ' The seat scanner is for a coordinator’s crew.'} No Today, Customers, Shop or money. A new
           phone waits for your Allow; the pass ends after the event.
@@ -158,7 +158,7 @@ export function CrewPanel({
             options={[
               { key: 'member', label: CREW_ROLE_LABEL.member, hint: crewToolsWords('member', coordinator) },
               { key: 'helper', label: CREW_ROLE_LABEL.helper, hint: crewToolsWords('helper', coordinator) },
-              { key: 'remove', label: 'Remove from the crew', hint: 'This phone leaves the Event Hub now' },
+              { key: 'remove', label: 'Remove from the crew', hint: 'This phone leaves the Hub now' },
             ]}
             onPick={(k) => (k === 'remove' ? decide(p, { status: 'removed' }) : decide(p, { role: k as CrewRole }))}
           />
@@ -192,7 +192,7 @@ export function CrewPanel({
               dataAttr="data-crew-qr-more"
               options={[
                 { key: 'replace', label: 'Replace the QR', hint: 'The printed one stops working; phones already in stay in' },
-                { key: 'off', label: 'Turn the crew QR off', hint: 'Every phone on the crew leaves the Event Hub' },
+                { key: 'off', label: 'Turn the crew QR off', hint: 'Every phone on the crew leaves the Hub' },
               ]}
               onPick={(k) => run(() => write({ kind: k === 'replace' ? 'replace' : 'off' }))}
             />

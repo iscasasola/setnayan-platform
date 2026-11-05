@@ -19,7 +19,7 @@ export function LabFactSheets({
   open,
   writeFail = false,
   readFail = false,
-  landDateAt,
+  landDateCookie,
   children,
 }: {
   options: LabFactOptions;
@@ -27,10 +27,11 @@ export function LabFactSheets({
   writeFail?: boolean;
   readFail?: boolean;
   /**
-   * 🗓 The lab's stand-in for `updateEventDate`'s redraw: a saved date is put into this address word, so the lab page
-   * draws again with the day — as the real save draws Home again (owner 2026-11-05). Absent = nothing is redrawn.
+   * 🗓 The lab's stand-in for `updateEventDate`'s write + redraw: a saved date is kept in this lab cookie and the page
+   * is drawn again (`router.refresh()`, what the real save's revalidate does) — so the lab page reads the day as the
+   * real Home reads the event's row (owner 2026-11-05). Absent = nothing is kept or redrawn.
    */
-  landDateAt?: string;
+  landDateCookie?: string;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -52,13 +53,9 @@ export function LabFactSheets({
             clash: [{ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception venue', href: '/dev/suppliers-lab?mode=booked' }],
           };
         }
-        if (landDateAt) {
-          const url = new URL(window.location.href);
-          url.searchParams.set(landDateAt, date);
-          url.searchParams.delete('nodate');
-          // …and the opener's own word (`?date=find`): the sheet stays open by its state, and its close has nothing to undo.
-          url.searchParams.delete('date');
-          router.replace(`${url.pathname}?${url.searchParams.toString()}`, { scroll: false });
+        if (landDateCookie) {
+          document.cookie = `${landDateCookie}=${date}; path=/; SameSite=Lax`;
+          router.refresh();
         }
         return { ok: true, date, precision };
       },
@@ -72,7 +69,7 @@ export function LabFactSheets({
         return { ...ok, intent: 'date_change', message: 'Withdrawn. Your date stays as it is.' };
       },
     }),
-    [options, writeFail, readFail, landDateAt, router],
+    [options, writeFail, readFail, landDateCookie, router],
   );
   useEffect(() => {
     if (!open) return;

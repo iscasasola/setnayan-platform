@@ -64,7 +64,8 @@
  *   ?nodate=1[&date=find]            🗓 a couple with no date yet ("No date yet"); the Countdown opens the REAL date sheet.
  *   ?picked=YYYY-MM-DD               🗓 …and the same Home once a day is picked there: the date saves to the event at once
  *                                    (owner 2026-11-05, "it shouldn't rely on the hub"), so the cover and the countdown
- *                                    read it with no Apply. The lab's date door lands here (the lab has no database).
+ *                                    read it with no Apply. The lab's date door keeps the day in the `lab_home_date`
+ *                                    cookie and redraws (the lab has no database); `?picked=` sets it by hand.
  *   ?paid=cale|none|mix|pending|unread   🧾 every paid service + Event Hub Pro (owner 2026-10-14):
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
@@ -116,6 +117,7 @@ import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
@@ -406,7 +408,8 @@ export default async function HomeLab({
         : F0;
   /* 🗓 `?nodate=1` / `?picked=` — the event's date as the lab's date door left it (owner 2026-11-05): no date yet, or the
      day just picked, worded by the REAL `homeCoverWords` and counted down by the REAL `homeFacts`. */
-  const pickedDay = q.picked && /^\d{4}-\d{2}-\d{2}$/.test(q.picked) ? q.picked : null;
+  const dayOf = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const pickedDay = dayOf(q.picked) ?? (q.nodate === '1' ? dayOf((await cookies()).get('lab_home_date')?.value) : null);
   const labDated = pickedDay
     ? homeFacts({ eventDate: pickedDay, precision: 'day', timezone: null, guests: { stats: LAB_NO_GUEST_STATS, measured: false }, money: 'hidden' })
     : null;
@@ -682,7 +685,7 @@ export default async function HomeLab({
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
-    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateAt="picked">
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, venues: 'none' }} open={null} landDateCookie="lab_home_date">
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}

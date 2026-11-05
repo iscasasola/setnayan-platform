@@ -315,15 +315,11 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'other event-scoped supplier record (bookings, change orders, the payment ' +
     'ledger) — none of which the export reaches today either — and belongs ' +
     'with them the day that whole class is covered, not as a special case.',
-  // ── added 2026-08-05 with the table itself ──
-  event_stage_notes:
-    'Not the subject’s data to export. A stage note is an operational instruction about ' +
-    'the WEDDING, written by a coordinator TO a supplier ("hold the toast — the father is ' +
-    'still parking"). The requester appears only as `author_user_id`, an actor stamp. ' +
-    'Exporting it would hand one person a channel between two OTHER parties on someone ' +
-    'else’s event — the recipient supplier’s inbox — which is more disclosure than the ' +
-    'right of access asks for. The subject’s own authorship is already evidenced by the ' +
-    'event membership and booking records that ARE exported.',
+  // event_stage_notes LEFT this list on 2026-11-05: the export now reads the
+  // notes the subject WROTE, author-scoped (stage_notes_sent). The old reason —
+  // "a channel between two OTHER parties" — described an event-scoped read; read
+  // by author it is the person's own words, the same shape as
+  // event_vendor_working_notes, which has always been exported.
 
   // event_vendors and event_vendor_payments LEFT this list on 2026-09-11: the
   // export now reads them (the couple's payment ledger, and the supplier each
@@ -435,23 +431,12 @@ const KNOWN_GAPS: Record<string, string> = {
     'TODO(RA10173-backlog): target_user_id is the SUBJECT the two-admin motion is ABOUT — a decision record concerning them, which they are entitled to know exists.',
   vendor_admin_motions:
     'TODO(RA10173-backlog): target_user_id is the SUBJECT the vendor motion is ABOUT — same reasoning as admin_approval_requests.',
-  account_deletion_requests:
-    'TODO(RA10173-backlog): the subject’s own erasure requests — arguably the most export-worthy audit trail we hold.',
   blocked_users: 'TODO(RA10173-backlog): the subject’s own block list — their stated preference.',
-  chat_thread_reads: 'TODO(RA10173-backlog): read receipts — behavioural data about the subject.',
   chat_threads:
     'TODO(RA10173-backlog): thread metadata (counterparty, timestamps); message BODIES are already exported.',
-  comp_grants: 'TODO(RA10173-backlog): comps issued to the subject — a commercial record about them.',
   coordinator_feature_recommendations:
     'TODO(RA10173-backlog): recommendations the subject authored as coordinator.',
-  couple_event_type_notify_signups:
-    'TODO(RA10173-backlog): the subject’s waitlist signup — a marketing-contact record.',
-  couple_wedding_type_notify_signups:
-    'TODO(RA10173-backlog): the subject’s waitlist signup — a marketing-contact record.',
   creator_applications: 'TODO(RA10173-backlog): the subject’s own creator-program application.',
-  creator_chapters: 'TODO(RA10173-backlog): creator content the subject authored.',
-  discount_code_eligible_users:
-    'TODO(RA10173-backlog): targeting-list membership — the subject is the target.',
   discount_code_redemptions: 'TODO(RA10173-backlog): the subject’s own redemption history.',
   event_action_log:
     'TODO(RA10173-backlog): actor-stamped activity log — export shape pending (mixes several actors per event).',
@@ -459,16 +444,14 @@ const KNOWN_GAPS: Record<string, string> = {
   event_blocked_users: 'TODO(RA10173-backlog): per-event block entries naming the subject.',
   event_egift_methods: 'TODO(RA10173-backlog): the subject’s own e-gift payout handles (financial identifiers).',
   event_inspiration_assets: 'TODO(RA10173-backlog): uploads the subject contributed.',
-  // Newly VISIBLE 2026-07-21 (second pass): both were suppressed by the blanket
-  // `.*_by` alternative in the deleted STAFF_ACTOR_FK. Neither is an operator
-  // stamp — both name the couple/host member who acted.
+  // Newly VISIBLE 2026-07-21 (second pass): suppressed by the blanket `.*_by`
+  // alternative in the deleted STAFF_ACTOR_FK. Not an operator stamp — it names
+  // the couple/host member who acted. (Its twin, event_preparation_items, is
+  // exported since 2026-11-05.)
   event_journey_steps:
     'TODO(RA10173-backlog): completed_by is the couple/host member who completed a planning step — their own progress record, not a staff stamp.',
-  event_preparation_items:
-    'TODO(RA10173-backlog): created_by is the couple member who added a prep item (source_tag `couple_manual`) — their own to-do text.',
   event_manual_vendors: 'TODO(RA10173-backlog): vendor contact details the subject typed in themselves.',
   event_meaningful_dates: 'TODO(RA10173-backlog): personal dates the subject recorded.',
-  event_moderators: 'TODO(RA10173-backlog): coordinator/moderator grants naming the subject.',
   event_playlist_picks: 'TODO(RA10173-backlog): music picks the subject made — taste data.',
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
@@ -477,20 +460,16 @@ const KNOWN_GAPS: Record<string, string> = {
   event_walkthrough_zones: 'TODO(RA10173-backlog): walkthrough notes the subject authored.',
   feature_reviews: 'TODO(RA10173-backlog): the subject’s own feature feedback.',
   force_majeure_flags: 'TODO(RA10173-backlog): flags raised by or about the subject.',
-  founder_seats: 'TODO(RA10173-backlog): the subject’s founder-seat grant — an entitlement record.',
   founder_time_log:
     'TABLE DROPPED 2026-09-19 (S40 orphan sweep, migration 20271233873951) — the never-built weekly founder self-report; 0 rows, 0 readers, 0 writers in the 4 months it existed. Nothing to export. Entry stays because this guard’s parser unions every historical CREATE TABLE and does not read DROP TABLE (see docblock note 5); same pattern as user_ai_subscription below.',
   guest_checkins: 'TODO(RA10173-backlog): the subject’s own check-in events (time + place).',
   guest_claims: 'TODO(RA10173-backlog): the subject’s claim of a guest identity.',
-  guest_saved_vendors:
-    'TODO(RA10173-backlog): the subject’s saved vendors — cross-event taste data (see the privacy memo on this table).',
   guest_souvenir_claims: 'TODO(RA10173-backlog): the subject’s souvenir claims.',
   supplier_scan_claims:
     'TODO(RA10173-backlog): the scans a supplier’s crew member made (scanned_by_user_id) — and, for the guest, their ' +
     'claims, which reach no account export because a guest is not an account (same gap as guest_souvenir_claims).',
   guests:
     'TODO(RA10173-backlog): the guest row for the subject themselves — export shape pending (a guest row is also the HOST’s stored data about them).',
-  help_messages: 'TODO(RA10173-backlog): support correspondence the subject wrote.',
   kwento_assignments: 'TODO(RA10173-backlog): assignments naming the subject.',
   lead_token_holds: 'TODO(RA10173-backlog): token holds tied to the subject’s vendor account.',
   manpower_gigs: 'TODO(RA10173-backlog): gigs the subject posted or accepted.',
@@ -503,7 +482,6 @@ const KNOWN_GAPS: Record<string, string> = {
   // See 20271011873973 and apps/web/tests/db/schema-drift.db.test.ts.
   manual_payment_logs:
     'TODO(RA10173-backlog): manual QR/bank payment rows for the subject’s events (reference_number + amount + status). Reachable only via event_id — there is no direct subject key and nothing staff-authored on the row.',
-  notifications: 'TODO(RA10173-backlog): the subject’s notification history — a real omission.',
   panood_camera_operators: 'TODO(RA10173-backlog): operator assignments naming the subject.',
   paparazzi_seats: 'TODO(RA10173-backlog): seats claimed by the subject.',
   people: 'TODO(RA10173-backlog): person records the subject stewards — overlaps the alaga export; shape pending.',
@@ -512,8 +490,6 @@ const KNOWN_GAPS: Record<string, string> = {
   photo_delivery_jobs: 'TODO(RA10173-backlog): delivery jobs the subject requested.',
   push_subscriptions:
     'TODO(RA10173-backlog): the subject’s own push endpoints — export shape pending (device tokens are credentials, so metadata-only like face_enrollments).',
-  receipts: 'TODO(RA10173-backlog): the subject’s BIR receipts — orders/payments ship, receipts do not.',
-  referral_codes: 'TODO(RA10173-backlog): the subject’s own referral code.',
   referral_redemptions: 'TODO(RA10173-backlog): redemptions by or crediting the subject.',
   scan_events: 'TODO(RA10173-backlog): QR scans involving the subject — time + place behavioural data.',
   stewardship_transfers: 'TODO(RA10173-backlog): hand-over history involving the subject.',
@@ -531,8 +507,6 @@ const KNOWN_GAPS: Record<string, string> = {
   // prune them all at once and is deliberately NOT bundled into this change.
   user_ai_subscription: 'TODO(RA10173-backlog): table DROPPED 2026-08-01 — nothing to export.',
   user_devices: 'TODO(RA10173-backlog): the subject’s devices — same credential caveat as push_subscriptions.',
-  user_face_profiles:
-    'TODO(RA10173-backlog): account-level face profile — must ship METADATA ONLY, mirroring guest_face_enrollments.',
   user_follows: 'TODO(RA10173-backlog): who the subject follows — social graph.',
   user_reports: 'TODO(RA10173-backlog): reports the subject FILED (reports filed ABOUT them are a separate call).',
   vendor_ad_subscriptions: 'TODO(RA10173-backlog): the subject’s vendor ad subscriptions.',
@@ -547,7 +521,6 @@ const KNOWN_GAPS: Record<string, string> = {
     'rather than deleted only because the migration parser cannot see a DROP.',
   vendor_contracts: 'TODO(RA10173-backlog): contracts the subject is a party to.',
   vendor_creator_offers: 'TODO(RA10173-backlog): offers the subject made or received.',
-  vendor_date_waitlist: 'TODO(RA10173-backlog): waitlist entries naming the subject.',
   vendor_disputes: 'TODO(RA10173-backlog): disputes the subject raised (staff fields need stripping first).',
   vendor_event_access_grants: 'TODO(RA10173-backlog): access grants the subject issued or holds.',
   vendor_feature_recommendations: 'TODO(RA10173-backlog): recommendations the subject authored.',
@@ -555,12 +528,10 @@ const KNOWN_GAPS: Record<string, string> = {
   vendor_ig_connections: 'TODO(RA10173-backlog): the subject’s linked IG account (OAuth material needs stripping).',
   vendor_invites: 'TODO(RA10173-backlog): invites the subject sent or received.',
   vendor_lock_proposals: 'TODO(RA10173-backlog): proposals the subject authored.',
-  vendor_member_token_wallets: 'TODO(RA10173-backlog): the subject’s vendor token balance.',
   vendor_recommendations: 'TODO(RA10173-backlog): recommendations naming the subject.',
   vendor_review_appeals: 'TODO(RA10173-backlog): appeals the subject filed.',
   vendor_reviews: 'TODO(RA10173-backlog): reviews the subject wrote — clearly their own words.',
   vendor_subscriptions: 'TODO(RA10173-backlog): the subject’s vendor subscription history.',
-  vendor_team_members: 'TODO(RA10173-backlog): team membership naming the subject.',
   vendor_token_purchases: 'TODO(RA10173-backlog): the subject’s token purchases — a commercial record.',
 };
 
@@ -613,7 +584,11 @@ const KNOWN_GAPS: Record<string, string> = {
 // Deliberate, not a rubber stamp: the vibe is taste data the subject chose, in the
 // same class as `event_playlist_picks` directly above it in KNOWN_GAPS, so it gets
 // the same honest "not yet decided" rather than an invented exclusion reason.
-const KNOWN_GAP_CEILING = 90;
+//
+// Lowered 90 → 68 on 2026-11-05: 19 gaps moved into the export (the sort of the
+// 39 undecided tables in lib/export-completeness.ts), and the ceiling is pinned
+// to the real count so the slack cannot be spent on a new gap.
+const KNOWN_GAP_CEILING = 68;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

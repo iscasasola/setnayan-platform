@@ -15,6 +15,8 @@ import { ProgressRing } from '@/app/_components/progress-ring';
 import { forgetStreamKey } from '@/lib/desktop-stream-key';
 import { goLivePanood, endPanoodBroadcast } from './actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useConfirm } from '@/app/_components/confirm-dialog';
+import { GO_LIVE_CONFIRM } from '@/lib/live-studio-go-live-confirm';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -72,6 +74,7 @@ export function GoLiveCard({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
+  const { confirm, dialog } = useConfirm();
 
   // Broadcast-readiness donut ("Energy, not skin" reskin 2026-07-09). A dense,
   // legible read of the go-live status this card ALREADY derives from its
@@ -90,7 +93,9 @@ export function GoLiveCard({
       ? 'Ready'
       : `${formatCount(readyCount)} of ${formatCount(prerequisites.length)} set`;
 
-  function handleGoLive() {
+  // Owner 2026-11-05 (item 11): ask once before going on air — see lib/live-studio-go-live-confirm.ts.
+  async function handleGoLive() {
+    if (!(await confirm(GO_LIVE_CONFIRM))) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
@@ -127,6 +132,7 @@ export function GoLiveCard({
       aria-labelledby="go-live-heading"
       className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
     >
+      {dialog}
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">

@@ -14387,7 +14387,6 @@
         "CardShell",
         "ClaimWaitLines",
         "Collapsible",
-        "ComingSoon",
         "Connected",
         "ContractDraftBody",
         "CorrectionRequestResult",
@@ -15513,7 +15512,8 @@
         "ShopNotice",
         "StylistLibraryActions",
         "StylistLibraryEditor",
-        "Uint8Array"
+        "Uint8Array",
+        "UploadStylistAssetResult"
       ]
     },
     "/vendor-dashboard/more": {
@@ -16847,14 +16847,16 @@
         "vendor/claim/[token]/finalize/page.tsx"
       ],
       "destinations": [
-        "/login"
+        "/login",
+        "/vendor/claim/[seg]"
       ],
       "actions": [],
       "blocks": [
         "DoorShell",
         "ErrorShell",
         "FormPageSkeleton",
-        "Link"
+        "Link",
+        "NotASupplierShell"
       ]
     },
     "/vendor/fit/[ref]": {

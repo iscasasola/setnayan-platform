@@ -1,0 +1,21 @@
+-- Drop the claim flow's flat 1-token burn, `claim_unlock_vendor_event`.
+--
+-- The token wallet is RETIRED (2026-05-11, locked decision). This RPC burned
+-- one wallet token when a supplier claimed a couple's manual record; its only
+-- caller was `applyClaimAutoLink` (apps/web/lib/vendor-invite-actions.ts),
+-- removed in the same PR as this file (supplier sign-up fixes, 2026-11-05).
+-- With no wallet it could only fail and be swallowed, or spend a leftover
+-- retired token.
+--
+-- Nothing else depends on it: no SQL body, policy, trigger, view, default or
+-- CHECK names it (tests/db/ugat-both-ends.db.test.ts says so once the app call
+-- is gone). The supplier's `vendor_event_unlocks` row for the claimed event is
+-- written by `unlock_vendor_event_free`, which finalize already calls
+-- (lib/claimed-couple-is-a-customer.server.ts) — so dropping this changes no
+-- reader of that table.
+--
+-- Same shape as 20271234329420_drop_retired_token_wallet_supplies_vertical.sql,
+-- which dropped the other retired token-wallet RPCs. The names in
+-- tests/db/anon-rpc-surface.db.test.ts's "closed" list stay: a dropped
+-- function is not callable, so that check still holds.
+DROP FUNCTION IF EXISTS public.claim_unlock_vendor_event(uuid, uuid);

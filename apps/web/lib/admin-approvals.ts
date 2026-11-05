@@ -12,7 +12,9 @@
 
 export type ApprovalActionType =
   | 'grant_internal_account'
-  | 'grant_team_pool'
+  // 'grant_team_pool' is RETIRED (owner 2026-11-05: "retire. we already have our pool = papic credits").
+  // No pool table or monthly draw was ever built, so the grant gave nothing a team member could use. It is
+  // no longer offered or executed; the database CHECK still allows the value so old rows stay readable.
   | 'promote_to_admin'
   | 'approve_vendor_partnership'
   | 'approve_comp_grant'
@@ -55,6 +57,7 @@ export type ApprovalActionType =
  * the pending/decided lists readable without exposing them as creatable grants.
  */
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
+  grant_team_pool: 'Team Pool eligibility (retired)',
   approve_vendor_partnership: 'Approve supplier partnership',
   approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
@@ -79,15 +82,8 @@ export const APPROVAL_ACTIONS: ApprovalActionMeta[] = [
     type: 'grant_internal_account',
     label: 'Grant Internal account',
     description:
-      'Owner/spouse tier (§10a) — permanent unlimited-use grant, bypasses billing. Sets the account internal and clears any team-pool eligibility.',
+      'Owner/spouse tier (§10a) — permanent unlimited-use grant, bypasses billing. Sets the account internal and clears the team-member flag.',
     badge: '🟣 Internal',
-  },
-  {
-    type: 'grant_team_pool',
-    label: 'Grant Team Pool eligibility',
-    description:
-      'Non-owner team member (§10b) — ongoing shared-pool draw rights. Sets the account team-pool eligible and clears any internal flag.',
-    badge: '🟢 Team Pool',
   },
   {
     type: 'promote_to_admin',
@@ -116,5 +112,6 @@ export function approvalActionBadge(type: string): string {
   if (type === 'approve_fraud_wipe_ban') return '⛔ Fraud ban';
   if (type === 'approve_vendor_partnership') return '🤝 Partnership';
   if (type === 'approve_comp_grant') return '💸 Comp';
+  if (type === 'grant_team_pool') return 'Retired';
   return approvalActionMeta(type)?.badge ?? type;
 }

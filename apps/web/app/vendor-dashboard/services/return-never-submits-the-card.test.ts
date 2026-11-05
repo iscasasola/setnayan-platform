@@ -59,3 +59,17 @@ test('other keys, and Return while an IME is composing, are left alone', () => {
   assert.equal(returnShouldMoveOn('a', 'INPUT', 'text'), false);
   assert.equal(returnShouldMoveOn('Enter', 'INPUT', 'text', true), false);
 });
+
+// 2026-11-05 — THE OLDER CARD FORM, shown while the canvas-maker flag is off, carried no guard: a price + Return
+// submitted it exactly as the maker's did before 2026-11-04.
+const WIZARD = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/services/_components/service-wizard.tsx'), 'utf8'));
+
+test('the older card form (canvas maker off) stops Return too', () => {
+  assert.match(
+    WIZARD,
+    /<form ref=\{formRef\} action=\{commitVendorService\} onKeyDown=\{returnMovesOn\}/,
+    'service-wizard.tsx no longer stops Return — a price + Return creates the card again',
+  );
+  assert.match(WIZARD, /import \{ markReturnAsNext, returnMovesOn \} from '@\/lib\/return-moves-on';/);
+  assert.match(WIZARD, /markReturnAsNext\(formRef\.current\)/);
+});

@@ -84,6 +84,9 @@ const COL_RANK: Record<Col, number> = {
 // benefit available at Enterprise is available at Custom too.
 const SOURCE_TO_COL: Record<string, Col> = {
   free: 'verified',
+  // ⚖ 2026-11-05 clean split: Verified is its own section now. The matrix keeps ONE "Free · Verified" column (a
+  // shop is free either way), so both sections start in it; their group headings keep them apart.
+  verified: 'verified',
   solo: 'solo',
   pro: 'pro',
   enterprise: 'enterprise',
@@ -126,7 +129,7 @@ function buildFeatureGroups(): Group[] {
       // Free tier carries its own sub-headers; the paid tiers collapse to one
       // "<Tier> adds" section so their added benefits stay grouped.
       const title =
-        section.tier === 'free' ? (group.h ?? 'Free · Verified') : `${section.name} adds`;
+        section.tier === 'free' || section.tier === 'verified' ? (group.h ?? 'Free · Verified') : `${section.name} adds`;
       if (!bySection.has(title)) {
         bySection.set(title, []);
         order.push(title);

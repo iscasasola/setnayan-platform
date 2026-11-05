@@ -61,12 +61,16 @@ import { VendorGrowHero } from '@/app/for-suppliers/_components/vendor-grow-hero
 import {
   VendorGrowVerifiedOnly,
   VendorGrowProblems,
-  VendorGrowPackage,
-  VendorGrowPlanLines,
   VendorGrowCTA,
 } from '@/app/for-suppliers/_components/vendor-grow-sections';
 import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
-import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
+import {
+  SupplierSpecialTools,
+  TradeEco,
+  TradeMarketing,
+  TradePlans,
+  TradeRewards,
+} from '@/app/_components/marketing/trade/trade-widgets';
 import { RevealOnView } from '@/app/for-suppliers/_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
@@ -239,38 +243,18 @@ export default async function ForVendorsPage() {
           <VendorGrowVerifiedOnly />
         </RevealOnView>
         <VendorGrowProblems fee={fee} />
+        {/* ══ THE FIVE SHARED WIDGETS (controller's prototype, artifact WAh2zYfLCurgknopQBf9WV v3; owner 5 Nov:
+            build them here, shared with /for-coordinators). They replace the plan lines, the "Your package" section
+            (folded into Marketing) and the per-plan deltas; the full matrix lives inside Plans, behind a fold. */}
         <RevealOnView>
-          <VendorGrowPackage />
+          <TradeEco trade="supplier" />
         </RevealOnView>
         <RevealOnView>
-          <VendorGrowPlanLines
+          <TradePlans
+            trade="supplier"
             prices={{ soloMonthly: p.soloMonthly, proMonthly: p.proMonthly, enterpriseMonthly: p.enterpriseMonthly }}
             fee={fee}
-          />
-        </RevealOnView>
-        {/* THE TIER LADDER, AS DELTAS — each plan says what it ADDS, once.
-            The ~90-row × 5-column MATRIX is still here, behind a disclosure
-            inside this same section, because a grid is what the owner asked for
-            on 2026-07-04 and a vendor comparing two specific plans wants one.
-            What changed is which of the two a person reads first: the matrix
-            restated every benefit in every column above it, ~360 of ~450 cells
-            being restatement of the ~90 that carry information.
-
-            Both are built from the SAME canonical data (VENDOR_TIER_SECTIONS +
-            TIER_CAPS + VENDOR_CUSTOM_TIER), and every price — including Custom's
-            "from" floor and the branch dial, which used to be typed into the
-            shared constant — reads the live catalog via getVendorPrices. */}
-        <RevealOnView>
-          <VendorTierDeltas
-            prices={{
-              soloMonthly: p.soloMonthly,
-              proMonthly: p.proMonthly,
-              enterpriseMonthly: p.enterpriseMonthly,
-              customFrom: p.customFrom,
-              branch: p.branch,
-            }}
-            feeSchedule={fee}
-            matrix={
+            fullTable={
               <VendorTierMatrix
                 feeSchedule={fee}
                 prices={{
@@ -283,6 +267,15 @@ export default async function ForVendorsPage() {
               />
             }
           />
+        </RevealOnView>
+        <RevealOnView>
+          <SupplierSpecialTools />
+        </RevealOnView>
+        <RevealOnView>
+          <TradeMarketing lede="Everything a supplier hands out at a bridal fair, a booth or the event itself, made from your shop." />
+        </RevealOnView>
+        <RevealOnView>
+          <TradeRewards lede="Run your service for your clients and their guests inside Setnayan, and every booking, review and milestone earns you a badge. Most come with a gift for your next client: more for their guests to enjoy, on us." />
         </RevealOnView>
         {/*
           THE RETURN LEG — added 2026-09-22 at the owner's instruction.

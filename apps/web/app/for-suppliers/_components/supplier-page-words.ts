@@ -98,7 +98,7 @@ export function verifiedPlanLine(): string {
  * A paid plan's line: "Everything in <below>, plus: …" — what MOVES at this rung (its own web address the first
  * time, reach, team seats, waitlists the first time). A row that reads the same as the rung below is not said.
  */
-export function planLine(t: VendorTier, below: VendorTier): string {
+function movedParts(t: VendorTier, below: VendorTier): string[] {
   const here = TIER_CAPS[t];
   const was = TIER_CAPS[below];
   const parts: string[] = [];
@@ -107,7 +107,21 @@ export function planLine(t: VendorTier, below: VendorTier): string {
   if (here.agentAccounts !== was.agentAccounts) {
     parts.push(`${inWords(here.agentAccounts)} team seat${here.agentAccounts === 1 ? '' : 's'}`);
   }
-  if (here.waitlistAcceptances > 0 && was.waitlistAcceptances === 0) parts.push('waitlists');
+  if (here.branchesIncluded !== was.branchesIncluded) {
+    parts.push(`${inWords(here.branchesIncluded)} branch${here.branchesIncluded === 1 ? '' : 'es'}`);
+  }
+  if (here.waitlistAcceptances > 0 && was.waitlistAcceptances === 0) parts.push('a waiting list');
+  return parts;
+}
+
+/** What a paid plan adds over the one below, as one sentence: "100 km reach, five team seats, three branches." */
+export function planAdds(t: VendorTier, below: VendorTier): string {
+  const parts = movedParts(t, below);
+  return parts.length ? `${capFirst(parts.join(', '))}.` : `Everything in ${planName(below)}.`;
+}
+
+export function planLine(t: VendorTier, below: VendorTier): string {
+  const parts = movedParts(t, below);
   const lead = `Everything in ${planName(below)}`;
   return parts.length ? `${lead}, plus: ${parts.join(', ')}.` : `${lead}.`;
 }
@@ -123,62 +137,30 @@ export const HERO_SLIDES: readonly { key: string; dr: string; alt: string }[] = 
 ];
 
 /*
- * EVERY TOOL, PER PLAN (owner, 5 Nov: *"Free — Website. Gift Sending. list all tools · Verified — you can now be
- * seen. upgraded website · complete all the features · same as the Plans"*).
- *
- * 🔑 ONE LIST, NOT TWO. Every tool comes from `VENDOR_TIER_SECTIONS` — the list the full plan table further down
- * this page already draws — so the plan cards and the table can never disagree. The only things said here that
- * the list does not hold are the owner's two Free lines (the page, the gifts) and Verified's three (live, found,
- * badge), and each is a true statement about what ships:
- *   · the page — a shop's Setnayan page is built on Free and stays HIDDEN until Setnayan approves the shop
- *     (owner ruling 2026-07-27), so Free "builds" it and Verified puts it live;
- *   · the gifts — a supplier can put a Papic gift on a quote or a service card (`lib/papic-on-a-quote.ts`,
- *     `lib/setnayan-gift.ts`);
- *   · Verified's reach is `TIER_CAPS.verified.serviceRadiusKm`.
- * The shared list's "Get found" group, its "Verified badge" and its "public page" line move UP from Free to
- * Verified, because being seen is what Verified adds. A tool marked `soon` is not listed — a plan card sells what
- * ships. The list's own fee line (written with no schedule, so it reads "no booking fee while it is switched off")
- * is left out too: the plans' fine print says the fee from the LIVE schedule, right under the cards.
+ * EVERY TOOL, PER PLAN (owner, 5 Nov: *"list all tools · complete all the features · same as the Plans"*). One
+ * list — `VENDOR_TIER_SECTIONS` — read by this page's plans widget, the matrix and the deltas alike.
  */
-export type PlanTools = { plan: string; tools: string[] };
+export type PlanGroup = { h: string; items: { n: string; b: string }[] };
+export type PlanTools = { plan: VendorTier; tools: string[]; groups: PlanGroup[] };
 
-const VERIFIED_FROM_FREE_GROUPS = new Set(['Get found']);
-const VERIFIED_FROM_FREE_ITEMS = new Set(['Verified badge, free', 'Your public page, auto-built']);
-
-function shipped(tier: VendorTier): { group: string | undefined; name: string }[] {
-  const section = VENDOR_TIER_SECTIONS.find((x) => x.tier === tier);
-  if (!section) return [];
-  const feeLine = supplierCommissionShort(null);
-  return section.groups.flatMap((g) =>
-    g.items.filter((i) => !i.soon && i.n !== feeLine).map((i) => ({ group: g.h, name: i.n })),
-  );
-}
-
+/**
+ * Every plan's shipped tools, grouped as the shared list groups them (`VENDOR_TIER_SECTIONS` — Free and Verified
+ * are their own sections since the owner's 2026-11-05 clean split). `soon` rows are not listed; nor is the list's
+ * own fee line (written with no schedule — the plans section says the fee from the LIVE schedule under the cards).
+ */
 export function planTools(): PlanTools[] {
-  const freeAll = shipped('free');
-  const movesUp = (t: { group: string | undefined; name: string }) =>
-    (t.group !== undefined && VERIFIED_FROM_FREE_GROUPS.has(t.group)) || VERIFIED_FROM_FREE_ITEMS.has(t.name);
-  const km = TIER_CAPS.verified.serviceRadiusKm;
-  return [
-    {
-      plan: 'free',
-      tools: [
-        'Build your own Setnayan page — ready to go live the day you’re Verified',
-        'Send gifts to your couples — Papic photos on your quotes and service cards',
-        ...freeAll.filter((t) => !movesUp(t)).map((t) => t.name),
-      ],
-    },
-    {
-      plan: 'verified',
-      tools: [
-        `Seen by couples planning events ${Number.isFinite(km) ? `within ${km} km` : 'anywhere in the country'}`,
-        ...freeAll.filter(movesUp).map((t) => t.name),
-      ],
-    },
-    { plan: 'solo', tools: shipped('solo').map((t) => t.name) },
-    { plan: 'pro', tools: shipped('pro').map((t) => t.name) },
-    { plan: 'enterprise', tools: shipped('enterprise').map((t) => t.name) },
-  ];
+  const feeLine = supplierCommissionShort(null);
+  const order: VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
+  return order.map((plan) => {
+    const section = VENDOR_TIER_SECTIONS.find((x) => x.tier === plan);
+    const groups: PlanGroup[] = (section?.groups ?? [])
+      .map((g) => ({
+        h: g.h ?? '',
+        items: g.items.filter((i) => !i.soon && i.n !== feeLine).map((i) => ({ n: i.n, b: i.b })),
+      }))
+      .filter((g) => g.items.length > 0);
+    return { plan, groups, tools: groups.flatMap((g) => g.items.map((i) => i.n)) };
+  });
 }
 
 /*
@@ -191,7 +173,8 @@ export function planTools(): PlanTools[] {
  * (marketplace · compare · suppliers) are the couple's way TO the supplier, not something a package carries.
  * A paid tool is not listed as included — it is what a GIFT is for.
  */
-const NOT_A_PACKAGE_TOOL: ReadonlySet<FeatureSlug> = new Set<FeatureSlug>(['marketplace', 'compare', 'suppliers']);
+// …and 'event-hub': "Event Hub" is a couple-side word for the front page only (owner, 5 Nov) — not on these pages.
+const NOT_A_PACKAGE_TOOL: ReadonlySet<FeatureSlug> = new Set<FeatureSlug>(['marketplace', 'compare', 'suppliers', 'event-hub']);
 
 export function packageTools(): { slug: FeatureSlug; name: string; line: string }[] {
   return FEATURE_PAGES.filter(

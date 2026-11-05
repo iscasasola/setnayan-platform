@@ -9,6 +9,7 @@
  */
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
+import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
 
 /*
@@ -19,7 +20,7 @@ import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
  */
 const many = (n: number, one: string, more: string) => (n === 1 ? `${n} ${one}` : `${n} ${more}`);
 
-export type VendorTier = 'free' | 'solo' | 'pro' | 'enterprise';
+export type VendorTier = 'free' | 'verified' | 'solo' | 'pro' | 'enterprise';
 
 export type VendorBenefit = { n: string; soon?: boolean; b: string };
 export type VendorTierGroup = { h?: string; items: VendorBenefit[] };
@@ -35,11 +36,102 @@ export type VendorTierSection = {
 };
 
 export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
+  /*
+   * ⚖ FREE vs VERIFIED — THE CLEAN SPLIT (owner 2026-11-05, DECISION_LOG): *"fix it separate the features of
+   * verified from free properly"* · *"get paid your way also on verified"*. Free = build your shop and run your own
+   * clients; Verified = you can now be seen. One source for the plans widget on /for-suppliers and
+   * /for-coordinators, the full matrix and the per-plan deltas. Listing only — whether any of these become real
+   * feature gates for Free is a separate owner call.
+   */
   {
     tier: 'free',
-    name: 'Free · Verified',
-    tagline: 'The whole business: get found, get trusted, get booked. Keep 100%.',
+    name: 'Free',
+    tagline: 'Build your shop and run your own clients. Couples can’t find you in search until you’re Verified.',
     groups: [
+      {
+        h: 'Your Setnayan page',
+        items: [
+          { n: 'Your public page, auto-built', b: 'Composed from your profile and ready for Google; it goes live to couples the day you’re Verified.' },
+          { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
+          { n: `${many(TIER_CAPS.verified.servicesPerLeaf, 'service card', 'service cards')} per category`, b: `Put up ${many(TIER_CAPS.verified.servicesPerLeaf, 'service', 'services')} in ${TIER_CAPS.verified.parentCategories === 1 ? 'the category' : 'each category'} you cover.` },
+        ],
+      },
+      {
+        h: 'Gifts for your clients',
+        items: [
+          { n: 'Give your clients a gift', b: 'Papic, Event Plus, Event Pro, Live Watch, Music Maker or Patiktok — added on a quote or a service card.' },
+          { n: 'Free gifts as you earn badges', b: 'Badges you complete give your next clients a gift: Papic 150, Event Plus, Event Pro, even a free booking fee.' },
+        ],
+      },
+      {
+        h: 'Bring your business with you',
+        items: [
+          { n: 'Import past clients free', b: 'Pull your existing bookings into one dashboard: free, no fee.' },
+          { n: 'Past weddings become reviews', b: 'Your old clients confirm and leave a verified review.' },
+          { n: 'Claim-QR + “verified wedding” pill', b: 'A one-scan claim turns a past event into proof on your profile.' },
+        ],
+      },
+      {
+        h: 'Run your own bookings',
+        items: [
+          { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
+          { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
+          { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
+          { n: 'Send package quotes', b: 'Draft, save and send quotes with package line items to booked couples.' },
+          { n: 'Headcount that quotes itself', b: 'Catering covers auto-compute from the couple’s live guest list.' },
+          { n: 'Bookings pipeline', b: 'Bookings you add or accept become tracked items on the event.' },
+          { n: 'Contract-on-record', b: 'Upload each contract to a timestamped, per-event paper trail.' },
+          { n: 'Change-order trail', b: 'Mid-plan add-ons become logged, both-acknowledged change orders.' },
+          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the photos delivered.' },
+        ],
+      },
+      {
+        h: 'Know your numbers',
+        items: [
+          { n: 'Price-position meter', b: 'Know if you’re under-priced, on-market, or premium for your category.' },
+          { n: 'Profile score & fix-it tips', b: 'A ranked checklist of what’s holding your profile back.' },
+        ],
+      },
+      {
+        h: 'On the couple’s event',
+        items: [
+          { n: 'Credited to guests on the day', b: 'You’re shown as one of “the suppliers who made this day”.' },
+          { n: 'Appear in the couple’s planner + budget', b: 'You sit inside the couple’s planning workspace, not just search.' },
+          { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },
+          { n: 'Couple referral rewards', soon: true, b: 'Happy couples refer; when their referral books you, both get a perk.' },
+          { n: 'One profile, every life event', soon: true, b: 'Reviews, calendar and history carry across weddings, debuts, christenings and more.' },
+        ],
+      },
+      {
+        h: 'Marketing tools',
+        items: [
+          { n: 'Calling cards and tarpaulins, designed for you', b: 'Made from your shop in five sizes. Download and print anywhere.' },
+          { n: 'QR codes, NFC taps and direct links', b: 'For inquiries, bookings, checking a date, your page and your crew.' },
+        ],
+      },
+      {
+        h: 'Apply for Verified',
+        items: [
+          { n: 'Apply for Verified, free', b: 'Upload four papers (DTI or SEC · BIR 2303 · business permit · bank proof) and take a short video call with our team.' },
+        ],
+      },
+    ],
+  },
+  {
+    tier: 'verified',
+    name: 'Verified',
+    tagline: 'You can now be seen. Everything in Free, plus:',
+    groups: [
+      {
+        h: 'Be seen',
+        items: [
+          { n: 'Couples can find you in search', b: `Shown to couples planning events within ${TIER_CAPS.verified.serviceRadiusKm} km of you.` },
+          { n: 'The Verified seal', b: 'On your page, your service cards and your prints.' },
+          { n: 'Your service cards go live', b: 'Every card your plan allows is shown to couples.' },
+          { n: 'Off-season promo surfacing', b: 'We flag your lean months so your off-peak deal gets surfaced.' },
+          { n: 'Auto-shared to our socials', b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
+        ],
+      },
       {
         h: 'Get found',
         items: [
@@ -55,7 +147,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
         h: 'Look credible & trusted',
         items: [
           { n: 'Verified badge, free', b: 'Upload four papers (DTI or SEC · BIR 2303 · business permit · bank proof) and take a short video call with our team — free. No copycat can fake your official page.' },
-          { n: 'Your public page, auto-built', b: 'A clean, search-ready public page, auto-composed from your profile and live the moment you set an address. Ranks on Google and inside Setnayan.' },
           { n: 'Fair merit-based rating', b: 'A Bayesian score protects new suppliers: stars are earned, never bought.' },
           { n: 'Receipt-backed reviews', b: 'Every rating carries a real “booked through Setnayan” verified mark.' },
           { n: 'Right-of-reply on reviews', b: 'Post one public, professional reply under any review. Your side shows.' },
@@ -69,44 +160,17 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
         ],
       },
       {
-        h: 'Bring your business with you',
+        h: 'Answer and book',
         items: [
-          { n: 'Import past clients free', b: 'Pull your existing bookings into one dashboard: free, no fee.' },
-          { n: 'Past weddings become reviews', b: 'Your old clients confirm and leave a verified review.' },
-          { n: 'Claim-QR + “verified wedding” pill', b: 'A one-scan claim turns a past event into proof on your profile.' },
-        ],
-      },
-      {
-        h: 'Run every booking',
-        items: [
-          // ⚖ PLANS PRICE REACH, NEVER INCOME (owner 2026-10-23). Everything that leads to a booking is on every
-          // plan, so these four live on Free and no paid tier re-sells them. Numbers read from the plan table.
           { n: 'Answer every couple', b: 'No weekly limit on answering, on any plan.' },
-          { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
-          { n: `${many(TIER_CAPS.verified.servicesPerLeaf, 'service card', 'service cards')} per category`, b: `Put up ${many(TIER_CAPS.verified.servicesPerLeaf, 'service', 'services')} in ${TIER_CAPS.verified.parentCategories === 1 ? 'the category' : 'each category'} you cover.` },
-          { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
-          { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
-          { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },
-          { n: 'Send package quotes', b: 'Draft, save and send quotes with package line items to booked couples.' },
-          { n: 'Headcount that quotes itself', b: 'Catering covers auto-compute from the couple’s live guest list.' },
-          { n: 'Bookings pipeline', b: 'Accepted inquiries become tracked booking items on the event.' },
-          { n: 'Contract-on-record', b: 'Upload each contract to a timestamped, per-event paper trail.' },
           { n: 'Automated bookings', b: 'Inquiries flow into a live pipeline with quotes and milestones auto-attached.' },
-          { n: 'Change-order trail', b: 'Mid-plan add-ons become logged, both-acknowledged change orders.' },
-          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the photos delivered.' },
         ],
       },
       {
         h: 'Get paid your way',
         items: [
-          // Was '0% commission at launch' with a HAND-TYPED 5% / 1% / ₱100,000 —
-          // two ways to go stale in one row, and the launch half was already
-          // false the day a supplier was billed ₱837.50. Both derive now.
-          // A module constant has no render to read the live schedule in, so it
-          // names the fee WITHOUT a rate (null) rather than printing the code
-          // default (audit 2026-10-12, item 5). Pages that can read the live
-          // rate print it beside this — the /for-suppliers matrix footer.
+          { n: FIRST_BOOKING_FREE.replace(/\.$/, ''), b: 'Your first booking that came through Setnayan carries no booking fee.' },
           { n: supplierCommissionShort(null), b: supplierCommissionPromise(null) },
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
@@ -114,25 +178,8 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Reserve with a first payment, lock-free', b: 'A recorded first payment holds the date; the money settles straight to you.' },
           { n: 'No-show first payment protection', b: 'A frozen, couple-agreed cancellation policy makes a forfeited first payment defensible.' },
           { n: 'Money in calendar & cash-flow view', b: 'Every upcoming milestone due-date across all booked events on one timeline.' },
-        ],
-      },
-      {
-        h: 'Know your numbers',
-        items: [
-          { n: 'Price-position meter', b: 'Know if you’re under-priced, on-market, or premium for your category.' },
-          { n: 'Profile score & fix-it tips', b: 'A ranked checklist of what’s holding your profile back.' },
-        ],
-      },
-      {
-        h: 'Seen & supported',
-        items: [
-          { n: 'Credited to guests on the day', b: 'You’re shown as one of “the suppliers who made this day”.' },
-          { n: 'Appear in the couple’s planner + budget', b: 'You sit inside the couple’s planning workspace, not just search.' },
-          { n: 'Off-season promo surfacing', b: 'We flag your lean months so your off-peak deal gets surfaced.' },
-          { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },
-          { n: 'Auto-shared to our socials', b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
-          { n: 'Couple referral rewards', soon: true, b: 'Happy couples refer; when their referral books you, both get a perk.' },
-          { n: 'One profile, every life event', soon: true, b: 'Reviews, calendar and history carry across weddings, debuts, christenings and more.' },
+          { n: 'Gift prices', b: 'Gifts for your clients at the gift price, not the list price.' },
+          { n: 'Paid plans open to you', b: 'Solo, Pro and Ultra open once you’re Verified.' },
         ],
       },
     ],
@@ -140,7 +187,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'solo',
     name: 'Solo',
-    tagline: 'Operate friction-free. Everything in Free, plus a personalized page and your own business analytics.',
+    tagline: 'Operate friction-free. Everything in Verified, plus your own web address, a personalized page and your own business analytics.',
     groups: [
       {
         items: [

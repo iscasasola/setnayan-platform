@@ -65,6 +65,13 @@ export const ATTIRE_STYLES = [
   'mermaid',
   'a_line',
   'tulle_dress',
+  /* 🎂 The celebrant's and the officiant's own designs (owner 2026-11-04, his renders — `ROLE_DESIGNS`,
+     lib/attire-designs.ts): a lola's terno, a girl's party dress, a priest's alb and stole — and a woman's shirt dress,
+     her "Smart casual": one colour, so it is not the men's `smart_casual` (shirt · pants, two dots). */
+  'elder_filipiniana',
+  'party_dress',
+  'priest',
+  'shirt_dress',
 ] as const;
 export type AttireStyle = (typeof ATTIRE_STYLES)[number];
 
@@ -85,6 +92,10 @@ export const ATTIRE_STYLE_LABEL: Record<AttireStyle, string> = {
   mermaid: 'Mermaid',
   a_line: 'A-line',
   tulle_dress: 'Tulle dress',
+  elder_filipiniana: 'Filipiniana (lola)',
+  party_dress: 'Party dress',
+  priest: 'Alb and stole',
+  shirt_dress: 'Shirt dress',
 };
 
 export function isAttireStyle(v: unknown): v is AttireStyle {

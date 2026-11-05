@@ -20,6 +20,13 @@
  * when a man of honor is on the guest list (or the column already holds a pick — `shownColumns`), and then the row is
  * named for him too: "Maid, Matron & Man of Honor".
  *
+ * 🎂 THE EVENT TYPE PICKS THE PRINCIPALS (2026-11-04, so dress codes work for a debut, a birthday, a christening, an
+ * anniversary): the bride's and the groom's rows are drawn only where the event's own role set offers them, and the
+ * celebrant's wherever it offers a celebrant — `opts.offered`, the ONE per-type list every guest picker already reads
+ * (`resolveRoleSetForEvent` → `RoleSet.offeredRoles`, lib/role-sets.ts). The role set is the one list of WHO each type has; the only type list here is the owner's five below. Without
+ * `opts` (the dev lab, an old caller) the rows are exactly as before: the bride and the groom always, the celebrant
+ * when one is on the guest list. A role already on the guest list is always drawn, whatever the set says.
+ *
  * Pure, client-safe.
  */
 import { ATTIRE_ROWS, HONOUR_ROW_OF, HONOUR_ROW_ROLES, honourRowLabel, isHonourRole, isHonourRowKey, shownColumns } from './attire-rows';
@@ -79,12 +86,40 @@ export function studioRowLabel(row: { tier: 'roles' | 'groups'; key: string }, n
 /** The two honour rows, in `ATTIRE_ROWS` order (the maid of honor's, then the best man's). */
 const HONOUR_ROWS = ATTIRE_ROWS.filter((r) => r.tier === 'roles' && isHonourRowKey(r.key));
 
+/** 🎂 The event types whose Studio shows "The celebrant" before anyone is tagged — the owner's five (2026-11-05, (J)). */
+export const CELEBRANT_FROM_THE_START: readonly string[] = ['debut', 'birthday', 'christening', 'anniversary', 'graduation'];
+
+/**
+ * 🎂 The celebrant row's columns (owner 2026-11-05, (L)): only the column(s) of the celebrants' own woman-or-man, once
+ * EVERY celebrant's is known — one unknown, or nobody tagged yet, draws both (absent: every column).
+ */
+export function celebrantColumns(celebrants: ReadonlyArray<'woman' | 'man' | null> | null | undefined): Array<0 | 1> | undefined {
+  if (!celebrants || celebrants.length === 0 || celebrants.some((g) => g === null)) return undefined;
+  const row = ATTIRE_ROWS.find((r) => r.tier === 'roles' && r.key === 'celebrant')!;
+  const at = (g: 'woman' | 'man') => row.who.findIndex((w) => (w === 'f' || w === 'girl') === (g === 'woman')) as 0 | 1;
+  return [...new Set(celebrants.map((g) => at(g!)))].sort() as Array<0 | 1>;
+}
+
 export function studioAttireRows(
   tally: ReadonlyArray<{ role: GuestRole; count?: number }>,
   config: object | null,
   names?: RoleNames | null,
+  opts?: {
+    offered?: readonly GuestRole[] | null;
+    /** 🎂 The event's type (`EventTypeProfile.eventType`) — one of `CELEBRANT_FROM_THE_START` shows the celebrant untagged. */
+    eventType?: string | null;
+    /** 🎂 Each celebrant on the guest list, woman or man (`womanOrManOf`; null = not known yet). */
+    celebrants?: ReadonlyArray<'woman' | 'man' | null> | null;
+  },
 ): StudioAttireRowData[] {
   const roles = new Set<string>(tally.map((t) => t.role));
+  /* 🎂 The principals' rows. The celebrant's: someone on the guest list is the celebrant, or the event is one of the
+     owner's five (`CELEBRANT_FROM_THE_START`). The bride's and the groom's: on the guest list, or offered by this event's
+     role set — so a debut, a birthday or a funeral never shows a bride (no set given: as shipped, always). */
+  const offered = opts?.offered ? new Set<string>(opts.offered) : null;
+  const fromTheStart = Boolean(opts?.eventType && CELEBRANT_FROM_THE_START.includes(opts.eventType));
+  const principal = (role: 'bride' | 'groom' | 'celebrant', shipped: boolean) =>
+    roles.has(role) || (role === 'celebrant' ? fromTheStart : offered ? offered.has(role) : shipped);
   /* A group is drawn for the people it dresses — an honour attendant has a row of their own. */
   const groups = new Set(tally.filter((t) => !isHonourRole(t.role)).map((t) => roleGroupOf(t.role)));
   /* 👗 How many hold it — "8 people" under the role's name (2026-10-14 blocks). */
@@ -92,9 +127,20 @@ export function studioAttireRows(
   const callOf = (tier: 'roles' | 'groups', key: string) =>
     formatCallTime((((config as Record<string, unknown> | null)?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
   const out: StudioAttireRowData[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: studioRowLabel({ tier: 'roles', key: 'celebrant' }), paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: studioRowLabel({ tier: 'roles', key: 'bride' }), paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: studioRowLabel({ tier: 'roles', key: 'groom' }), paletteKey: 'groom', arrives: callOf('roles', 'groom') });
+  if (principal('celebrant', false)) {
+    const columns = celebrantColumns(opts?.celebrants);
+    out.push({
+      tier: 'roles',
+      key: 'celebrant',
+      label: studioRowLabel({ tier: 'roles', key: 'celebrant' }),
+      paletteKey: null,
+      arrives: callOf('roles', 'celebrant'),
+      people: countOf((r) => r === 'celebrant'),
+      ...(columns ? { columns } : {}),
+    });
+  }
+  if (principal('bride', true)) out.push({ tier: 'roles', key: 'bride', label: studioRowLabel({ tier: 'roles', key: 'bride' }), paletteKey: 'bride', arrives: callOf('roles', 'bride') });
+  if (principal('groom', true)) out.push({ tier: 'roles', key: 'groom', label: studioRowLabel({ tier: 'roles', key: 'groom' }), paletteKey: 'groom', arrives: callOf('roles', 'groom') });
   for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
     /* 👯 The honour rows stand at the head of the entourage — just before the Bridesmaids and the Groomsmen. */
     if (group === 'bridesmaids') {

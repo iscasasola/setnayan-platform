@@ -119,6 +119,7 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'lib/schedule-release.server.ts': "the Schedule's Release — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
   'app/[slug]/_lib/your-schedule.server.ts': "the guest's Your schedule honours Release only on Pro (plan §3b) — not an Event Hub part",
   'lib/schedule-view-as.server.ts': "the Schedule's View as a guest, a role or a supplier — Pro by the owner's 1 Nov ruling (plan §3b; Suppliers by time is Free, 2 Nov), and not an Event Hub part",
+  'app/api/schedule/[eventId]/export/route.ts': "one View as person's day as a PDF (POST) — Pro like the view it prints (owner 2026-11-04, slice 6), and not an Event Hub part",
 };
 
 test('(2) "everything" is asked only where everything is the answer', () => {

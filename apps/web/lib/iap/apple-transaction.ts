@@ -8,7 +8,8 @@
  */
 
 import { verifyAppleJws, APPLE_ROOT_CA_G3_SHA256, type JwsRefusal } from './apple-jws';
-import { iapProductById, type IapProduct } from './products';
+import { type IapProduct } from './products';
+import { iapProductForDelivery } from './products-delivery';
 
 /** The iPhone app's bundle id — `appId` in apps/mobile/capacitor.config.ts. */
 export const APP_BUNDLE_ID = 'com.setnayan.app';
@@ -65,7 +66,8 @@ export function readAppleTransaction(
   const bundleId = str(payload.bundleId);
   if (!transactionId || !bundleId) return { ok: false, reason: 'bad_shape' };
   if (bundleId !== APP_BUNDLE_ID) return { ok: false, reason: 'wrong_app' };
-  const product = iapProductById(str(payload.productId));
+  // A retired Papic pack still DELIVERS an already-charged transaction (its intent row predates the retirement).
+  const product = iapProductForDelivery(str(payload.productId));
   if (!product) return { ok: false, reason: 'unknown_product' };
   if (payload.type !== 'Consumable') return { ok: false, reason: 'not_consumable' };
   const quantity = num(payload.quantity);

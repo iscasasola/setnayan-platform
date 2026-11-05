@@ -12,8 +12,15 @@
 
 export type ApprovalActionType =
   | 'grant_internal_account'
-  | 'grant_team_pool'
+  // 'grant_team_pool' is RETIRED (owner 2026-11-05: "retire. we already have our pool = papic credits").
+  // No pool table or monthly draw was ever built, so the grant gave nothing a team member could use. It is
+  // no longer offered or executed; the database CHECK still allows the value so old rows stay readable.
   | 'promote_to_admin'
+  // Vendor Agreement § 9.1 — "Promote a user to any admin role". Sets
+  // users.is_team_member = TRUE, which isAdminProfile (lib/admin/admin-predicate.ts)
+  // treats as admin. Opened by "Add to team" on the Users list (toggleTeamMember)
+  // or from the picker; "Remove from team" stays single-admin, on purpose.
+  | 'grant_team_member'
   | 'approve_vendor_partnership'
   | 'approve_comp_grant'
   // Anti-fraud § 5 — the irreversible fraud wipe + permanent ban routes through
@@ -55,6 +62,7 @@ export type ApprovalActionType =
  * the pending/decided lists readable without exposing them as creatable grants.
  */
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
+  grant_team_pool: 'Team Pool eligibility (retired)',
   approve_vendor_partnership: 'Approve supplier partnership',
   approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
@@ -79,15 +87,8 @@ export const APPROVAL_ACTIONS: ApprovalActionMeta[] = [
     type: 'grant_internal_account',
     label: 'Grant Internal account',
     description:
-      'Owner/spouse tier (§10a) — permanent unlimited-use grant, bypasses billing. Sets the account internal and clears any team-pool eligibility.',
+      'Owner/spouse tier (§10a) — permanent unlimited-use grant, bypasses billing. Sets the account internal and clears the team-member flag.',
     badge: '🟣 Internal',
-  },
-  {
-    type: 'grant_team_pool',
-    label: 'Grant Team Pool eligibility',
-    description:
-      'Non-owner team member (§10b) — ongoing shared-pool draw rights. Sets the account team-pool eligible and clears any internal flag.',
-    badge: '🟢 Team Pool',
   },
   {
     type: 'promote_to_admin',
@@ -95,6 +96,13 @@ export const APPROVAL_ACTIONS: ApprovalActionMeta[] = [
     description:
       'Sets account type to admin — full console access (and is_admin() RLS). Privilege escalation; irreversible damage potential.',
     badge: 'Admin',
+  },
+  {
+    type: 'grant_team_member',
+    label: 'Add to team',
+    description:
+      'Sets the team-member flag — full Setnayan HQ console access, the same as an admin. Privilege escalation under § 9.1. Removing someone from the team needs only one admin.',
+    badge: '🟢 Team',
   },
 ];
 
@@ -116,5 +124,6 @@ export function approvalActionBadge(type: string): string {
   if (type === 'approve_fraud_wipe_ban') return '⛔ Fraud ban';
   if (type === 'approve_vendor_partnership') return '🤝 Partnership';
   if (type === 'approve_comp_grant') return '💸 Comp';
+  if (type === 'grant_team_pool') return 'Retired';
   return approvalActionMeta(type)?.badge ?? type;
 }

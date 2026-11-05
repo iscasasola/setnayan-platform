@@ -14,6 +14,8 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { shortDayWords, waitlistMessage } from '@/lib/day-check';
+import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import {
   changeOrderAnsweredNotice,
@@ -30,6 +32,7 @@ import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
+import { whereAskRefusalWords } from '@/lib/supplier-where';
 import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
 import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
@@ -456,6 +459,9 @@ export async function deleteClientNote(formData: FormData) {
  *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
  *   'answer'          — Accept / Decline what a HOST or the COORDINATOR asked of them (D2, owner 2026-11-02;
  *                       `answerScheduleAsk`, lib/schedule-ask.server.ts): `decision` accept | decline, `reason` on a No.
+ *   'where'           — 📍 Where (owner 2026-11-04, "They can pick and we can also pick for them"): the chapters a
+ *                       booked supplier serves, sent as ONE request (`supplier_ask_where`, migration 20271308641275)
+ *                       the host OKs; Auto-agree applies it at once. The host hears it in the app only.
  *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
  *                       by the database until they unlock. Their own requests still go through.
  *
@@ -467,7 +473,7 @@ export async function deleteClientNote(formData: FormData) {
  * and the screen never resets; the old Customer-card forms keep their redirect.
  */
 export type SupplierScheduleAnswer =
-  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done' }
+  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done'; /** 📍 the request written, for Take back */ suggestionId?: string }
   | { ok: false; error: string };
 
 const NOT_YOURS_WORDS = 'That isn’t yours, so you can only suggest a change to it in words.';
@@ -500,7 +506,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const request = formData.get('request');
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
-  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours';
+  const sheetAsk =
+    request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours' || request === 'where';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -633,6 +640,34 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     });
     if (!r.ok) return { ok: false, error: r.code === '42501' ? 'Only the venue booked to this chapter can set its hours.' : NOT_SENT_WORDS };
     return done({ ok: true, outcome: r.outcome });
+  }
+
+  // ── 📍 Where — the chapters they serve, as one request (migration 20271308641275) ──────────────────────────────────
+  // The database decides who may ask and what (`supplier_ask_where`: their own booked booking, chapters of this event,
+  // at least one, a real change). Then the ONE accept path settles it exactly like every other ask.
+  if (request === 'where') {
+    const vendorId = nullIfBlank(formData.get('vendor_id'), 64);
+    const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
+    if (!vendorId) return { ok: false, error: NOT_SENT_WORDS };
+    const { data, error } = await supabase.rpc('supplier_ask_where', { p_vendor_id: vendorId, p_block_ids: ids });
+    const asked = (data ?? null) as { suggestion_id?: string; names?: string } | null;
+    if (error || !asked?.suggestion_id) return { ok: false, error: whereAskRefusalWords(error?.message ?? '') };
+    const outcome = await settleAfterAsking(eventId, asked.suggestion_id);
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName,
+        kind: 'adjust',
+        itemLabel: 'Where',
+        proposesChange: true,
+        note: `Asks to work ${asked.names ?? ''}`,
+        applied: outcome === 'applied',
+        where: { names: asked.names || 'their chapters', suggestionId: asked.suggestion_id },
+      });
+    } catch (e) {
+      console.error('[suggestScheduleChange] where notify failed:', e);
+    }
+    return done({ ok: true, outcome: outcome === 'words' ? 'waits' : outcome, suggestionId: asked.suggestion_id });
   }
 
   // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
@@ -1904,4 +1939,58 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
       query: { ask: ok ? 'withdrawn' : 'error' },
     }),
   );
+}
+
+/**
+ * "WAITING LIST" ON A FULL DAY (owner 2026-11-04, DAY CHECK BEFORE ACCEPT — `lib/day-check.ts`). Where Agree would
+ * be refused because the day is full, the supplier can instead put the asking couple on the shop's EXISTING waiting
+ * list (`vendor_date_waitlist` — the row the couple's own "Join the waitlist" writes, so the shipped "a slot opened →
+ * tell them first" path reaches them) and tell them so in their chat, politely.
+ *
+ * 🔑 The RPC decides, not this action: `vendor_waitlist_the_ask` carries `vendor_agree_to_lock`'s ownership gate and
+ * refuses (`not_full`) unless the SAME verdict the panel drew says the day is full. The message rides the shipped
+ * send path (`sendChatMessageCore` — its gates, its notice); no email is added. The ask itself is left as it is —
+ * turning it down stays the supplier's own, separate answer.
+ *
+ * 🪟 IN PLACE (house rule "a save never resets the screen"): no redirect — the answer RETURNS (`{ status }`) to the
+ * form's own `useActionState` (`_components/waitlist-form.tsx`), which says it under the button, and the page is
+ * revalidated so the line reads the day again.
+ */
+export async function vendorWaitlistTheAsk(
+  _prev: { status: string } | null,
+  formData: FormData,
+): Promise<{ status: string }> {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+  const back = lockAnswerReturnTo(formData.get('return_to'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_waitlist_the_ask', { p_event_vendor_id: eventVendorId });
+  const env = (data ?? {}) as { status?: string; event_id?: string; date?: string; vendor_profile_id?: string };
+  let flag = error ? 'error' : typeof env.status === 'string' ? env.status : 'error';
+  if (error) console.error('[vendorWaitlistTheAsk] rpc failed:', error.message);
+
+  // Tell them in their chat — only on a fresh add (an `already` was told the first time).
+  if (flag === 'ok' && typeof env.event_id === 'string' && typeof env.date === 'string' && typeof env.vendor_profile_id === 'string') {
+    const { data: thread } = await supabase
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', env.event_id)
+      .eq('vendor_profile_id', env.vendor_profile_id)
+      .maybeSingle();
+    const threadId = (thread as { thread_id?: string } | null)?.thread_id ?? null;
+    const sent = threadId
+      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)) }).catch(() => null)
+      : null;
+    if (!sent?.ok) flag = 'ok_unsent';
+  }
+
+  revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
+  return { status: flag };
 }

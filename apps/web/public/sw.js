@@ -263,6 +263,90 @@ async function dayOfCopyHeld(href) {
   }
 }
 
+// Every top-level app route — a first segment that is NEVER a couple's guest slug (generated from app/, held by
+// app/sw-reserved-routes.test.ts — see the note in `isDayOfGuestNavigation`). Module-level so the saved guest page
+// ("THE SAVED COPY" below, the `/<slug>?tab=me` shape) asks the same question.
+const RESERVED = new Set([
+  '3d_plan',
+  'about',
+  'acceptable-use',
+  'admin',
+  'alaala',
+  'api',
+  'auth',
+  'blog',
+  'budget',
+  'claim',
+  'cookies',
+  'creators',
+  'dashboard',
+  'demo-capture',
+  'dev',
+  'download',
+  'explore',
+  'favicon.ico',
+  'features',
+  'for-suppliers',
+  'forgot-password',
+  'guest-list',
+  'health',
+  'help',
+  'host',
+  'join',
+  'live',
+  'llms.txt',
+  'login',
+  'marketplace',
+  'monogram',
+  'mood-board',
+  'onboarding',
+  'open-shop',
+  'our-story',
+  'pa3d',
+  'pakanta',
+  'palogo',
+  'panood',
+  'papic',
+  'patiktok',
+  'pawebsite',
+  'pay',
+  'pricing',
+  'privacy',
+  'proposals',
+  'realstories',
+  'receipts',
+  'refunds',
+  'reset-password',
+  'samahan',
+  'sample',
+  'schedule',
+  'seat-plan',
+  'setnayan-ai',
+  'signup',
+  'site-editor',
+  'start',
+  'suppliers',
+  'sitemap-blog.xml',
+  'sitemap-features.xml',
+  'sitemap-help.xml',
+  'sitemap-static.xml',
+  'sitemap-suppliers.xml',
+  'sitemap-vendors.xml',
+  'sitemap-weddings.xml',
+  'sitemap.xml',
+  'terms',
+  'tl',
+  'tour',
+  'u',
+  'v',
+  'vendor',
+  'vendor-dashboard',
+  'vendor-invite',
+  'waitlist',
+  'wall',
+  'web-only',
+]);
+
 // A navigation to one of these path shapes is the day-of guest experience —
 // cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
 // personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
@@ -282,87 +366,11 @@ function isDayOfGuestNavigation(url) {
   // `app/sw-reserved-routes.test.ts`, which fails if this drifts from what
   // `app/` actually contains). Add the new route's segment here and let the
   // guard confirm it matches.
-  const RESERVED = new Set([
-    '3d_plan',
-    'about',
-    'acceptable-use',
-    'admin',
-    'alaala',
-    'api',
-    'auth',
-    'blog',
-    'budget',
-    'claim',
-    'cookies',
-    'creators',
-    'dashboard',
-    'demo-capture',
-    'dev',
-    'download',
-    'explore',
-    'favicon.ico',
-    'features',
-    'for-suppliers',
-    'forgot-password',
-    'guest-list',
-    'health',
-    'help',
-    'host',
-    'join',
-    'live',
-    'llms.txt',
-    'login',
-    'marketplace',
-    'monogram',
-    'mood-board',
-    'onboarding',
-    'open-shop',
-    'our-story',
-    'pa3d',
-    'pakanta',
-    'palogo',
-    'panood',
-    'papic',
-    'patiktok',
-    'pawebsite',
-    'pay',
-    'pricing',
-    'privacy',
-    'proposals',
-    'realstories',
-    'receipts',
-    'refunds',
-    'reset-password',
-    'samahan',
-    'sample',
-    'schedule',
-    'seat-plan',
-    'setnayan-ai',
-    'signup',
-    'site-editor',
-    'start',
-    'suppliers',
-    'sitemap-blog.xml',
-    'sitemap-features.xml',
-    'sitemap-help.xml',
-    'sitemap-static.xml',
-    'sitemap-suppliers.xml',
-    'sitemap-vendors.xml',
-    'sitemap-weddings.xml',
-    'sitemap.xml',
-    'terms',
-    'tl',
-    'tour',
-    'u',
-    'v',
-    'vendor',
-    'vendor-dashboard',
-    'vendor-invite',
-    'waitlist',
-    'wall',
-    'web-only',
-  ]);
   if (RESERVED.has(first)) return false;
+  // 📅 Me (`?tab=me`) holds the guest's OWN day — their name, seat, schedule and call time. It is kept per person by
+  // THE SAVED COPY below (one viewer, erased at sign-out and after the event), never here: this cache is one copy per
+  // address for whoever opens it, and survives "Remove it from this browser".
+  if (segments.length === 1 && url.searchParams.get('tab') === 'me') return false;
   if (segments.length === 1) return true; // /[slug]
   if (segments.length === 2 && segments[1] === 'find-my-table') return true;
   return false;
@@ -734,8 +742,9 @@ async function clearAllCaches() {
 // with no signal Home › Today, the Check-in desk, the supplier Hub and the event's console opened /offline.html. Now
 // the viewer's OWN copies of exactly four page shapes are kept, and opened when — and only when — there is no signal:
 //   /dashboard/<event> · /dashboard/<event>/guests/checkin · /vendor-dashboard/on-the-day ·
-//   /vendor-dashboard/on-the-day/live/<event>        (query-less; a COPY of lib/offline-copies.ts OFFLINE_COPY_SHAPES,
-//                                                     held equal by app/sw-offline-copies.test.ts)
+//   /vendor-dashboard/on-the-day/live/<event> — and each person's "Your schedule": /dashboard/<event>/schedule ·
+//   /vendor-dashboard/clients/<event>?tab=schedule · /<slug>?tab=me   (a COPY of lib/offline-copies.ts
+//   OFFLINE_COPY_SHAPES, held equal by app/sw-offline-copies.test.ts; a query only where the shape spells it out)
 //
 // 🔑 THE RULES (each one a test in app/sw-offline-copies.test.ts):
 //   · NETWORK-FIRST, ALWAYS. With signal the page is the network's answer, every time — a kept copy is never returned
@@ -766,8 +775,20 @@ const OFFLINE_COPY_SHAPES = [
   /^\/dashboard\/([A-Za-z0-9-]{8,64})\/guests\/checkin$/,
   /^\/vendor-dashboard\/on-the-day$/,
   /^\/vendor-dashboard\/on-the-day\/live\/([A-Za-z0-9-]{8,64})$/,
+  // 📅 YOUR SCHEDULE — each person's own day: the hosts' / coordinator's Schedule, a supplier's (a Host/MC's)
+  // Customer › Schedule, a guest's Event Hub › Me (its owner is the SLUG; a reserved first segment is never a guest's).
+  /^\/dashboard\/([A-Za-z0-9-]{8,64})\/schedule$/,
+  /^\/vendor-dashboard\/clients\/([A-Za-z0-9-]{8,64})\?tab=schedule$/,
+  /^\/([a-z0-9-]{3,32})\?tab=me$/,
 ];
-const OFFLINE_EVENT_ID = /^[A-Za-z0-9-]{8,64}$/;
+const OFFLINE_GUEST_ME_SHAPE = OFFLINE_COPY_SHAPES[6];
+// An event key: an event id the address names, or a guest page's slug (3–32, lib/slugs.ts).
+const OFFLINE_EVENT_ID = /^[A-Za-z0-9-]{3,64}$/;
+// 🧾 THE COPY'S VERSION (lib/offline-copies.ts `copyVersionOf`): a "Your schedule" page renders
+// `data-sn-copy-version="<fingerprint of the day it drew>"`. Recorded with the copy; a save naming another version
+// re-renders it however fresh its clock. `unread` = the page could not read the schedule — never kept.
+const OFFLINE_COPY_VERSION = /^[A-Za-z0-9._-]{1,64}$/;
+const OFFLINE_COPY_UNREAD = 'unread';
 const OFFLINE_VIEWER_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const OFFLINE_MAX_PAGES = 4;
 // An automatic save re-renders a kept page only when its copy is older than this (lib/offline-copies.ts
@@ -778,16 +799,25 @@ const OFFLINE_MAX_KEEP_MS = 10 * 24 * 60 * 60 * 1000;
 const OFFLINE_WARM_MAX = 250;
 
 function isOfflineCopyPath(path) {
-  return OFFLINE_COPY_SHAPES.some((re) => re.test(path));
+  return offlineCopyEventId(path) !== undefined;
 }
 
-// The event a copy path belongs to; null for the supplier Hub (names no event); undefined = not a copy path.
+// The event a copy path belongs to (a guest's Me: its slug); null for the supplier Hub (names no event); undefined = not
+// a copy path.
 function offlineCopyEventId(path) {
   for (const re of OFFLINE_COPY_SHAPES) {
     const m = re.exec(path);
-    if (m) return m[1] || null;
+    if (!m) continue;
+    if (re === OFFLINE_GUEST_ME_SHAPE && RESERVED.has(m[1])) return undefined;
+    return m[1] || null;
   }
   return undefined;
+}
+
+// The version a kept page's HTML carries, or null (a COPY of lib/offline-copies.ts `copyVersionIn`).
+function copyVersionIn(html) {
+  const m = /data-sn-copy-version="([A-Za-z0-9._-]{1,64})"/.exec(html);
+  return m ? m[1] : null;
 }
 
 const WORKER_UA = (self.navigator && self.navigator.userAgent) || '';
@@ -866,6 +896,37 @@ async function forgetOfflineCopies() {
   }
 }
 
+// One event's copies only — a guest's "Remove it from this browser" (the POST to `/<slug>/sign-out`): that event's
+// entry goes, with each page no other event of this viewer still keeps.
+async function forgetOfflineEvent(eventKey) {
+  const reg = await loadOfflineRegistry();
+  const ev = reg.events[eventKey];
+  if (!ev) return;
+  delete reg.events[eventKey];
+  try {
+    const cache = await caches.open(OFFLINE_PAGES_CACHE);
+    for (const p of Object.keys(ev.pages || {})) {
+      if (offlineCopySavedAt(reg, p, Date.now()) === null) await cache.delete(offlinePageKey(p));
+    }
+    await writeOfflineRegistry();
+  } catch {
+    // Storage gone: nothing is left to open.
+  }
+}
+
+// 🧹 SIGN-OUT, AS THE WORKER SEES IT. Every guest sign-out door (the Me button, "Not you?", "Remove it from this
+// browser") is ONE request: a navigation to `/<slug>/sign-out`. The worker sees it go by — it never answers it — and
+// erases that event's saved guest page before the browser even sends it (with no signal too: the person asked to be
+// removed). `/auth/sign-out` (an account's sign-out) erases every copy, beside the signed-out landing pages' own wipe
+// (`OFFLINE_COPIES_WIPE_SCRIPT`). Returns the event key to forget, `'*'` for all, or null.
+function signOutForget(request, url) {
+  if (request.mode !== 'navigate') return null;
+  if (url.host !== self.location.host) return null;
+  if (url.pathname === '/auth/sign-out') return '*';
+  const m = /^\/([a-z0-9-]{3,32})\/sign-out$/.exec(url.pathname.toLowerCase());
+  return m && !RESERVED.has(m[1]) ? m[1] : null;
+}
+
 // When the copy of `path` was saved, if a live (not yet erased) event of the CURRENT viewer keeps it; else null.
 function offlineCopySavedAt(reg, path, now) {
   if (!reg || !reg.viewer) return null;
@@ -931,8 +992,12 @@ async function warmPageCode(html) {
   }
 }
 
+// Keeps the page. Returns false — and keeps nothing — when the page says it could not read what it shows (🧾 `unread`):
+// the older copy stays, and the save says it failed. Otherwise `{ version }` (null when the page carries none).
 async function keepOfflinePage(path, response, now) {
   const html = await response.clone().text();
+  const version = copyVersionIn(html);
+  if (version === OFFLINE_COPY_UNREAD) return false;
   const cache = await caches.open(OFFLINE_PAGES_CACHE);
   const headers = new Headers(response.headers);
   headers.set('X-Setnayan-Saved-Copy', String(now));
@@ -942,6 +1007,15 @@ async function keepOfflinePage(path, response, now) {
   } catch {
     // Best-effort.
   }
+  return { version };
+}
+
+// Records a kept page in one event's entry: its time and (when it carries one) its version.
+function recordOfflinePage(ev, path, at, kept) {
+  ev.pages[path] = at;
+  if (!ev.versions || typeof ev.versions !== 'object') ev.versions = {};
+  if (kept && kept.version) ev.versions[path] = kept.version;
+  else delete ev.versions[path];
 }
 
 // `OFFLINE_SAVE` — keep (or refresh) this viewer's copies of one event's pages. Returns what the page's mark says.
@@ -977,10 +1051,13 @@ async function saveOfflineCopies(data) {
   const reg2 = offlineRegistry;
   const ev = reg2.events[eventId] || { until, pages: {} };
   ev.until = until;
+  // 🧾 The version the asking page was rendered with: a copy of another version is stale however fresh its clock.
+  const version = OFFLINE_COPY_VERSION.test(String(data.version || '')) ? String(data.version) : null;
   const failed = [];
   for (const path of paths) {
     const had = ev.pages[path];
-    if (!data.force && typeof had === 'number' && now - had < OFFLINE_AUTO_REFRESH_MS) continue;
+    const sameVersion = version === null || (ev.versions && ev.versions[path] === version);
+    if (!data.force && sameVersion && typeof had === 'number' && now - had < OFFLINE_AUTO_REFRESH_MS) continue;
     try {
       const response = await fetch(new Request(offlinePageKey(path), {
         credentials: 'same-origin',
@@ -988,13 +1065,10 @@ async function saveOfflineCopies(data) {
         cache: 'no-store',
         headers: { 'X-Setnayan-Offline-Save': '1' },
       }));
-      if (isKeepablePage(response)) {
-        const at = Date.now();
-        await keepOfflinePage(path, response, at);
-        ev.pages[path] = at;
-      } else {
-        failed.push(path);
-      }
+      const at = Date.now();
+      const kept = isKeepablePage(response) ? await keepOfflinePage(path, response, at) : false;
+      if (kept) recordOfflinePage(ev, path, at, kept);
+      else failed.push(path);
     } catch {
       failed.push(path);
     }
@@ -1034,7 +1108,7 @@ async function offlineCopyResponse(path) {
 // One kept-shape navigation. NETWORK-FIRST: the network's answer is returned whenever there is one; the copy only when
 // the request failed (or the browser says it is offline). A kept page's successful answer refreshes its copy.
 async function offlineCopyNavigation(request, url, after) {
-  const path = url.pathname;
+  const path = url.pathname + url.search;
   if (browserSaysOffline()) {
     const copy = await offlineCopyResponse(path);
     if (copy) return copy;
@@ -1056,10 +1130,11 @@ async function offlineCopyNavigation(request, url, after) {
         const reg = await loadOfflineRegistry();
         const now = Date.now();
         if (offlineCopySavedAt(reg, path, now) === null) return; // not a page this viewer keeps
-        await keepOfflinePage(path, copy, now);
+        const kept = await keepOfflinePage(path, copy, now);
+        if (!kept) return; // 🧾 a page that could not read its schedule: the older copy stays
         for (const id of Object.keys(reg.events)) {
           const ev = reg.events[id];
-          if (ev && ev.until > now && ev.pages && typeof ev.pages[path] === 'number') ev.pages[path] = now;
+          if (ev && ev.until > now && ev.pages && typeof ev.pages[path] === 'number') recordOfflinePage(ev, path, now, kept);
         }
         await writeOfflineRegistry();
       }).catch(() => undefined),
@@ -1070,9 +1145,12 @@ async function offlineCopyNavigation(request, url, after) {
 
 // The fetch handler's synchronous decision for a navigation (see 🍎 SAFARI above). Returns true when it answered.
 function maybeServeOfflineCopy(event, request, url) {
-  if (url.search || !isOfflineCopyPath(url.pathname)) return false;
+  // The address is the path plus its query: a query is only ever part of a shape where the shape spells it out
+  // (`?tab=schedule`, `?tab=me`); any other query is never answered from a copy.
+  const address = url.pathname + url.search;
+  if (!isOfflineCopyPath(address)) return false;
   if (request.destination && request.destination !== 'document') return false;
-  const listed = offlineRegistry ? offlineCopySavedAt(offlineRegistry, url.pathname, Date.now()) !== null : null;
+  const listed = offlineRegistry ? offlineCopySavedAt(offlineRegistry, address, Date.now()) !== null : null;
   if (!(listed === true || (listed === null && (browserSaysOffline() || !IS_WEBKIT)))) return false;
   const after = [];
   let release;
@@ -1265,9 +1343,17 @@ self.addEventListener('fetch', (event) => {
   // request goes straight to the network (see "A DEVELOPMENT HOST" above).
   if (DEV_HOST) return;
   const request = event.request;
-  if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
+
+  // 🧹 A sign-out goes by (any method — the guest's is a POST): erase what it signs out of. Never answered here.
+  const forget = signOutForget(request, url);
+  if (forget) {
+    event.waitUntil(
+      withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
+    );
+  }
+
+  if (request.method !== 'GET') return;
 
   // Never cache auth / API / Supabase traffic — auth state needs fresh reads.
   if (
@@ -1349,7 +1435,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Every OTHER navigation (dashboard · login · auth · marketing — all but the
-  // four saved-copy shapes above) is left to the browser: we deliberately do NOT call event.respondWith for it, so the
+  // saved-copy shapes above) is left to the browser: we deliberately do NOT call event.respondWith for it, so the
   // request goes straight to the network natively.
   //
   // WHY (Safari "Service Worker context closed" crash · 2026-07-03): WebKit

@@ -22,6 +22,7 @@ import {
   savedAtFor,
   savedCopyOnScreen,
   staleFor,
+  type OfflineRegistry,
   type SavedPhase,
 } from '@/lib/offline-copies';
 

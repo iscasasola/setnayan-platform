@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7101
+# facts: 7102
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5152
 #   policy    1038
 #   view      9
-#   func      305
+#   func      306
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7047,6 +7047,7 @@ func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp w
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_mark_schedule(p_event_id uuid, p_mark text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.supplier_scan_claim(p_event_id uuid, p_coverage_id bigint, p_token text, p_method text)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_scan_first_name(p_event_id uuid, p_coverage_id bigint, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_is_souvenir(p_canonical_service text)	secdef=no exec=authenticated search_path=public
 func	public.supplier_scan_services(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_scan_shop_for(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public

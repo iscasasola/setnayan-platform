@@ -69,8 +69,9 @@ export async function BranchPanel({
   // The plan ask: a plan with no branches at all (Free · Verified · Solo) while the switch is on. A Pro shop at its
   // included three is told the same — more is Ultra's.
   const branchPaywall = vendorPaywallApplies(planHasBranches(tier) && (includedLeft > 0 || canBuyExtraBranches(tier)));
-  // May the paid flow sell one more? Ultra always; any plan while the switch is off (try-first, as before).
-  const canBuyMore = !vendorPaywallApplies(canBuyExtraBranches(tier));
+  // ⚖ May the paid flow sell one more? ULTRA ONLY, ALWAYS (owner 2026-11-05, "Ultra only, always") — a price rule,
+  // not a try-first paywall, so the switch does not open it.
+  const canBuyMore = canBuyExtraBranches(tier);
   const from = city ?? 'your headquarters';
   // The shipped sentence, word for word — now the ⓘ of How far you go (house rule: one line visible, the rest in ⓘ).
   const reachNote = hasRing
@@ -137,7 +138,7 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Part of Ultra — plan it here; adding asks for Ultra"
+                label="Extra branches are sold with Ultra only"
                 text="ENTERPRISE"
                 size="xs"
               />

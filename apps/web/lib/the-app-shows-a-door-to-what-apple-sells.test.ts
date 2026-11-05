@@ -41,11 +41,26 @@ const APPLE_UNLOCK_KEYS = [...new Set(IAP_PRODUCTS.filter((p) => p.kind === 'eve
  * pay step at all (FREE_FOR_ALL_SKUS reads it as owned), so its door must keep every property an Apple-sold door has.
  */
 const APP_OPENED_FREE_KEYS = ['thank-you'];
-const APP_DOOR_KEYS = [...APPLE_UNLOCK_KEYS, ...APP_OPENED_FREE_KEYS];
 
-test('premise · the three one-per-event Apple products are Setnayan AI, Music Maker, Patiktok — Thank You is free', () => {
-  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), ['pakanta', 'patiktok', 'setnayan-ai']);
+/**
+ * 💰 Setnayan AI left sale as its own product on 2026-11-04 (owner: *"Setnayan ai no separate purchase will be part of
+ * event plus and event pro"*). Apple still sells it — INSIDE Event Plus and Event Pro — so its door keeps every
+ * property an Apple-sold door has, for exactly as long as one of those two products is on sale (asserted below).
+ */
+const APP_INCLUDED_KEYS: ReadonlyArray<readonly [key: string, soldInside: readonly string[]]> = [
+  ['setnayan-ai', ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO']],
+];
+const APP_DOOR_KEYS = [...APPLE_UNLOCK_KEYS, ...APP_OPENED_FREE_KEYS, ...APP_INCLUDED_KEYS.map(([k]) => k)];
+
+test('premise · the one-per-event Apple products are Music Maker and Patiktok — Setnayan AI comes inside Plus/Pro, Thank You is free', () => {
+  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), ['pakanta', 'patiktok']);
   assert.ok(!APPLE_UNLOCK_KEYS.includes('thank-you'), 'Thank You is sold by Apple again — it is free for every event');
+  for (const [key, inside] of APP_INCLUDED_KEYS) {
+    assert.ok(
+      inside.some((sk) => IAP_PRODUCTS.some((p) => p.serviceKey === sk)),
+      `${key} keeps an app door, but no Apple product that includes it (${inside.join(' / ')}) is on sale`,
+    );
+  }
 });
 
 test('1 · the ONE rule: each Apple-sold key (and free Thank You) has its door only where Apple sells; every other paid key stays hidden', () => {

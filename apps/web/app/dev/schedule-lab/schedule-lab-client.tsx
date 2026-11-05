@@ -164,7 +164,8 @@ export default function ScheduleLabClient({
   tags?: Readonly<Record<string, readonly string[]>>;
 } = {}) {
   const [role, setRole] = useState<DayRole>('host');
-  const [when, setWhen] = useState<'plan' | 'live'>('plan');
+  // `?live=1` (slice 8): open on the day itself — "Happening now" on the running chapter (pair it with a fixed clock).
+  const [when, setWhen] = useState<'plan' | 'live'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('live') === '1' ? 'live' : 'plan'));
   const [refuse, setRefuse] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   /* ⚡ `?maker=1` — the rail as the Event Hub Maker draws it (Details › Schedule,
@@ -369,8 +370,8 @@ export default function ScheduleLabClient({
         canStage={false}
         rosEnabled
         templates={[]}
-        isEventDay={false}
-        daysToGo={81}
+        isEventDay={when === 'live'}
+        daysToGo={when === 'live' ? 0 : 81}
         emcee={null}
         hostPanel={null}
       />

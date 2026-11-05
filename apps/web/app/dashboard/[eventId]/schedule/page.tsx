@@ -46,6 +46,7 @@ import {
   loadScheduleTemplate,
 } from './actions';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { OFFLINE_COPY_UNREAD, coordinatorSchedulePath, copyVersionOf } from '@/lib/offline-copies';
 // Inline edit affordance for time/range on existing blocks, per
 // CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
 // edited on the time." Client component owns the view → edit form
@@ -127,6 +128,7 @@ import { readChapterBook, readMarchList, readMomentTasks, readTaskContacts, read
 import { readChapterCounts } from '@/lib/invitation-chapters.server';
 import { readScheduleRelease, type ScheduleReleaseFacts } from '@/lib/schedule-release.server';
 import { readViewAsExtras } from '@/lib/schedule-view-as.server';
+import { readTradeChapters, suggestedChapters } from '@/lib/trade-chapters';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import type { ViewMoment } from '@/lib/schedule-view-as';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
@@ -322,6 +324,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     return (
       <TimelineReadProblem title="We could not load your schedule">
         Your moments are safe. This is a problem on our side or your connection.
+        {/* 📅 Never kept as the no-signal copy over the last good one (`lib/offline-copies.ts` OFFLINE_COPY_UNREAD). */}
+        <span hidden data-sn-copy-version={OFFLINE_COPY_UNREAD} />
       </TimelineReadProblem>
     );
   }
@@ -669,6 +673,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       : [];
   /* 👷 Each booked supplier's trade, for a chapter's "Suppliers in this chapter" (owner 2026-11-04, prototype frame 2) —
      and whether they are on every chapter (a coordinator). A refused read only drops the trade words. */
+  /* 📋 Slice 8: a booked supplier on NO chapter yet is a dashed face on the chapters its trade usually serves
+     (slice 2's "needs a chapter", `suggestedChapters`). A refused read draws no dashed face — never a wrong one. */
+  const picking: Record<string, string[]> = {};
   if (taskSuppliers.length > 0) {
     const { data: cats, error: catsErr } = await supabase
       .from('event_vendors')
@@ -682,6 +689,23 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       const cat = catOf.get(v.id) ?? null;
       v.trade = cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null;
       v.everyChapter = isOnEveryChapter(null, cat);
+    }
+    if (!catsErr && chapterRead?.ok) {
+      const trades = await readTradeChapters(supabase);
+      if (trades.ok) {
+        const book = chapterRead.value;
+        const onAny = new Set<string>([
+          ...book.chapters.flatMap((c) => c.vendor_ids ?? []),
+          ...book.moments.flatMap((m) => m.vendor_ids ?? []),
+          ...(taskRead?.ok ? taskRead.value.map((t) => t.vendor_id).filter((x): x is string => Boolean(x)) : []),
+        ]);
+        const where = book.chapters.map((c) => ({ blockId: c.block_id, name: c.label, location: c.location ?? null, startAt: c.start_at, tags: c.vendor_ids ?? [], kind: c.block_type ?? null }));
+        for (const v of taskSuppliers as { id: string; everyChapter?: boolean }[]) {
+          if (v.everyChapter || onAny.has(v.id)) continue;
+          const cat = catOf.get(v.id) ?? null;
+          for (const id of suggestedChapters(where, cat ? trades.byCategory.get(cat) : undefined)) (picking[id] ??= []).push(v.id);
+        }
+      }
     }
   }
   for (const v of taskSuppliers) if (!supplierName.has(v.id)) supplierName.set(v.id, v.name);
@@ -744,6 +768,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             marches: marchRead ?? { ok: false },
             asks: asksRes && !asksRes.error ? ((asksRes.data ?? []) as unknown as HostAsk[]) : null,
             wholeMarch: wholeMarchLabel(eventRow?.event_type),
+            picking,
             eventDay: eventDateKey,
             lastDay:
               eventDateKey && eventRow?.event_end_date && eventRow.event_end_date.slice(0, 10) > eventDateKey
@@ -1099,6 +1124,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       )
   );
 
+  const scheduleCopyPath = coordinatorSchedulePath(eventId);
   /** The day's moments (parts sit inside them) — the view dropdown's count, "7". */
   const topLevelCount = scheduleBlocks.filter((b) => !b.parent_block_id).length;
   /** "Friday 18 December 2026 · 50 days to go" — the page's date line (frame 19); the rest is in its ⓘ. */
@@ -1122,9 +1148,23 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
        and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
     <LastSeenCapture page="schedule">
-    <section className="sn-col space-y-5" data-schedule-page={oneLine ? '' : undefined}>
+    <section className={`sn-col space-y-5${oneLine ? ' xl:max-w-[100rem]' : ''}`} data-schedule-page={oneLine ? '' : undefined}>
       {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
+      {/* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — the hosts' / coordinator's own day, kept on this phone for the venue. A
+          plain slot, no client code: the route's `layout.tsx` draws the saved mark into it (`ScheduleSavedSlot` says why
+          — the Maker draws this page and must not carry the mark). */}
+      {inMaker || !scheduleCopyPath ? null : (
+        <div
+          data-schedule-copy=""
+          data-sn-copy-version={copyVersionOf([scheduleBlocks, chaptersInput])}
+          data-sn-copy-viewer={user.id}
+          data-sn-copy-event={eventId}
+          data-sn-copy-path={scheduleCopyPath}
+          data-sn-copy-day={eventDate ?? ''}
+          data-sn-copy-day-end={eventRow?.event_end_date ?? ''}
+        />
+      )}
 
       {suppliersUnread ? <ReadRefusedNotice what="your suppliers" partial className="mb-3" /> : null}
       {/* 📖 The chapters (owner 2026-11-01): a tapped chapter opens its page over the views — one place, this page. */}

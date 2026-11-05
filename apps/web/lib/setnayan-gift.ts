@@ -391,10 +391,18 @@ export type GiftQuoteCopy = { headline: string; detail: string };
 export function giftQuoteCopy(
   gift: Pick<SetnayanGift, 'credits' | 'chargeCentavos'> | null | undefined,
   audience: 'couple' | 'supplier',
-  opts: { businessName?: string | null } = {},
+  opts: { businessName?: string | null; freeWithBadge?: boolean } = {},
 ): GiftQuoteCopy | null {
   if (!gift || !Number.isFinite(gift.credits) || gift.credits <= 0) return null;
   const photos = formatGiftPhotos(gift.credits);
+  if (audience === 'supplier' && opts.freeWithBadge) {
+    // 🏅 Owner 2026-11-05: "the gift belongs with the booking, not the bill" — a free booking fee (badge reward)
+    // covers it, so nothing is added to any bill.
+    return {
+      headline: `Includes your Setnayan gift — your couple gets ${photos} free Papic photos`,
+      detail: 'Free with your badge reward: your free booking fee covers this booking’s fee and these photos.',
+    };
+  }
   if (audience === 'supplier') {
     return {
       headline: `Includes your Setnayan gift — your couple gets ${photos} free Papic photos`,

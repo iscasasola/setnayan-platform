@@ -86,8 +86,8 @@ export const EVENTS_STEP_REWARDS: Readonly<Record<number, BadgeReward>> = {
 };
 
 /**
- * Reviews' steps — the spec's list (`SUPPLIER_BADGES_AND_AWARDS_2026-11-03.md` §B, marked "PROPOSED numbers" there).
- * The reward ruling says "each step"; these are the only steps written down anywhere. Flagged in the PR for the owner.
+ * Reviews' steps — the spec's list (`SUPPLIER_BADGES_AND_AWARDS_2026-11-03.md` §B). ⚖ Owner ruled 2026-11-05 (on the
+ * draft PR): these steps, each paying Papic 150.
  */
 export const REVIEW_STEPS: readonly number[] = [5, 10, 25, 50, 100, 250, 500];
 
@@ -97,8 +97,8 @@ const LOOP_LADDER: readonly number[] = [1, 5, 10, 25, 50, 100, 250];
 /** Inspiration box's steps (spec §B). */
 export const INSPIRATION_STEPS: readonly number[] = [10, 25, 50, 100, 250];
 /**
- * "Papic 150, top steps only" — read here as the TOP TWO steps. ⚠ The ruling does not say how many; this is the one
- * reading of it in the code, and it pays nothing today (the badge has no counter). Flagged in the PR for the owner.
+ * "Papic 150, top steps only" — the TOP TWO steps (100 · 250 photos). ⚖ Owner ruled 2026-11-05 (on the draft PR).
+ * Pays nothing until the badge has a counter.
  */
 export const INSPIRATION_REWARD_STEPS: readonly number[] = INSPIRATION_STEPS.slice(-2);
 
@@ -138,8 +138,8 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
     ],
   },
   /**
-   * "Booked Loop → Event Plus". Read as each step of its ladder (the rule is "every badge and every step pays
-   * once"); the ruling does not say "each step" as it does for Reviews. Pays nothing today (no counter). Flagged.
+   * "Booked Loop → Event Plus" at EVERY step of its ladder. ⚖ Owner ruled 2026-11-05 (on the draft PR). Pays nothing
+   * until the badge has a counter.
    */
   booked_loop: {
     badge: 'booked_loop',
@@ -180,8 +180,9 @@ export const NO_REWARD_BADGES: readonly string[] = ['years', 'rating', 'plan', '
 
 /**
  * Plan gifts (DECISION_LOG 2026-11-04 "ULTRA = ₱5,990…"): Pro 2 × Papic 150 and Ultra 6 × Papic 150 every 4 weeks.
- * ⚠ NOT GRANTED by this build: that ruling says unused plan gifts do NOT carry over, while badge rewards never expire —
- * one ledger cannot do both without a lapse rule nobody has written. Kept here so the number has one home.
+ * ⚖ NOT GRANTED HERE — owner ruled 2026-11-05: build them later, as their OWN kind. Plan gifts lapse at the end of
+ * each 4 weeks (4 Nov ruling); badge rewards never expire. Kept apart so neither rule breaks the other. The numbers sit
+ * here so they have one home.
  */
 export const PLAN_PERIOD_GIFTS: Readonly<Record<'pro' | 'enterprise', BadgeReward>> = { pro: papic(2), enterprise: papic(6) };
 
@@ -335,6 +336,10 @@ export type GrantedReward = {
   /** A free booking fee: the booking it paid, when it did. */
   usedAt: string | null;
   usedOn: { coupleName: string | null; wouldHaveBeenPhp: number | null } | null;
+  /** A free booking fee given back when its booking was cancelled before the day (owner 2026-11-05). */
+  returnedAt?: string | null;
+  /** The Setnayan gift the couple got with the badge-paid booking, in photos (owner 2026-11-05). */
+  setnayanGiftCredits?: number | null;
 };
 
 /** (a) what the badge already gave · (b) the next step and its reward. Null = say nothing. */
@@ -442,11 +447,23 @@ export function freeFeeSummary(granted: readonly GrantedReward[]): FreeFeeSummar
         rewardId: g.rewardId,
         title: `${FREE_FEE_ZERO} fee · ${name ?? 'a booking'}`,
         line: `${earned} · used ${shortDay(g.usedAt)}`,
-        sentence: `${earnedLong} · used ${shortDay(g.usedAt, true)}${name ? ` on ${name}` : ''} · ${FREE_FEE_ZERO} fee · Badge reward`,
+        sentence:
+          `${earnedLong} · used ${shortDay(g.usedAt, true)}${name ? ` on ${name}` : ''} · ${FREE_FEE_ZERO} fee · Badge reward` +
+          (g.setnayanGiftCredits && g.setnayanGiftCredits > 0
+            ? ` · your couple still got the Setnayan gift, ${COUNT.format(g.setnayanGiftCredits)} Papic photos`
+            : ''),
         state: 'used' as const,
       };
     }
-    return { rewardId: g.rewardId, title: FREE_FEE_TITLE, line: earned, sentence: `${earnedLong} · waiting for your next customer`, state: 'waiting' as const };
+    // Given back when its booking was cancelled before the day (owner 2026-11-05) — waiting again.
+    const back = g.returnedAt ? ` · back ${shortDay(g.returnedAt)}` : '';
+    return {
+      rewardId: g.rewardId,
+      title: FREE_FEE_TITLE,
+      line: `${earned}${back}`,
+      sentence: `${earnedLong}${g.returnedAt ? ` · given back ${shortDay(g.returnedAt, true)} when that booking was cancelled` : ''} · waiting for your next customer`,
+      state: 'waiting' as const,
+    };
   });
   return { waiting: history.filter((h) => h.state === 'waiting').length, history };
 }

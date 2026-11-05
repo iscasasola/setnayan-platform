@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7143
+# facts: 7147
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     595
-#   col       5189
+#   col       5193
 #   policy    1039
 #   view      9
 #   func      307
@@ -4144,12 +4144,16 @@ col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
 col	public.shop_badge_rewards.badge	anon=- authenticated=S
 col	public.shop_badge_rewards.granted_at	anon=- authenticated=S
 col	public.shop_badge_rewards.note	anon=- authenticated=S
+col	public.shop_badge_rewards.returned_at	anon=- authenticated=S
+col	public.shop_badge_rewards.returned_from_charge_id	anon=- authenticated=S
 col	public.shop_badge_rewards.revoke_note	anon=- authenticated=S
 col	public.shop_badge_rewards.revoked_at	anon=- authenticated=S
 col	public.shop_badge_rewards.revoked_by	anon=- authenticated=S
 col	public.shop_badge_rewards.reward_id	anon=- authenticated=S
 col	public.shop_badge_rewards.reward_key	anon=- authenticated=S
 col	public.shop_badge_rewards.reward_kind	anon=- authenticated=S
+col	public.shop_badge_rewards.setnayan_gift_credits	anon=- authenticated=S
+col	public.shop_badge_rewards.setnayan_gift_grant_id	anon=- authenticated=S
 col	public.shop_badge_rewards.stock_delta	anon=- authenticated=S
 col	public.shop_badge_rewards.units	anon=- authenticated=S
 col	public.shop_badge_rewards.used_at	anon=- authenticated=S

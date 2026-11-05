@@ -214,13 +214,17 @@ type RewardRow = {
   revoked_at: string | null;
   used_at: string | null;
   used_on_charge_id: string | null;
+  returned_at: string | null;
+  setnayan_gift_credits: number | null;
 };
 
 /** What the shop was given, newest first, with each used free booking fee's booking. Null on a read failure. */
 export async function readGrantedRewards(admin: SupabaseClient, vendorProfileId: string): Promise<GrantedReward[] | null> {
   const { data, error } = await admin
     .from('shop_badge_rewards')
-    .select('reward_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id')
+    .select(
+      'reward_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id, returned_at, setnayan_gift_credits',
+    )
     .eq('vendor_profile_id', vendorProfileId)
     .order('granted_at', { ascending: false });
   if (error) {
@@ -239,6 +243,8 @@ export async function readGrantedRewards(admin: SupabaseClient, vendorProfileId:
     revokedAt: r.revoked_at,
     usedAt: r.used_at,
     usedOn: r.used_on_charge_id ? (usedOn.get(r.used_on_charge_id) ?? { coupleName: null, wouldHaveBeenPhp: null }) : null,
+    returnedAt: r.returned_at,
+    setnayanGiftCredits: r.setnayan_gift_credits,
   }));
 }
 
@@ -301,7 +307,8 @@ export async function fetchBadgeRewardLedger(admin: SupabaseClient, limit = 200)
   const { data, error } = await admin
     .from('shop_badge_rewards')
     .select(
-      'reward_id, vendor_profile_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id, vendor_profiles(business_name)',
+      'reward_id, vendor_profile_id, reward_key, badge, reward_kind, units, granted_at, revoked_at, used_at, used_on_charge_id, ' +
+        'returned_at, setnayan_gift_credits, vendor_profiles(business_name)',
     )
     .order('granted_at', { ascending: false })
     .limit(limit);
@@ -323,5 +330,7 @@ export async function fetchBadgeRewardLedger(admin: SupabaseClient, limit = 200)
     revokedAt: r.revoked_at,
     usedAt: r.used_at,
     usedOn: r.used_on_charge_id ? (usedOn.get(r.used_on_charge_id) ?? { coupleName: null, wouldHaveBeenPhp: null }) : null,
+    returnedAt: r.returned_at,
+    setnayanGiftCredits: r.setnayan_gift_credits,
   }));
 }

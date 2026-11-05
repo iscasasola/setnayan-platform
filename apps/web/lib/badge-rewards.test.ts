@@ -277,3 +277,38 @@ describe('🏅 badge rewards sit outside the 40% gift limit; bought gifts keep i
     assert.equal(v.state, 'over_limit', 'an unread reward stock exempted a line');
   });
 });
+
+describe('🏅 owner 2026-11-05 on the draft — the gift stays, a cancelled booking gives the fee back', () => {
+  it('the quote reads a badge-paid booking as the gift ON with nothing billed, and the switch keeps that', async () => {
+    const { standingForGiftArm, standingForQuoteSwitch, papicTopUpForQuote, giftBasisFrom } = await import('./papic-on-a-quote');
+    const { giftQuoteCopy } = await import('./setnayan-gift');
+    const basis = { schedule: BOOKING_FEE, ladder: [] as never[] } as never;
+    const on = standingForGiftArm('badge_reward', basis);
+    assert.deepEqual(on, { kind: 'included', basis, freeWithBadge: true });
+    assert.ok(giftBasisFrom(on), 'a badge-paid booking does not promise the couple the gift');
+    const off = standingForGiftArm('badge_reward_card_says_no', basis);
+    assert.equal(off.kind, 'available');
+    const switched = standingForQuoteSwitch(off, true);
+    assert.equal(switched.kind === 'included' && switched.freeWithBadge, true, 'switching on lost the badge reward');
+    assert.equal(standingForGiftArm('badge_reward', null).kind, 'unreadable');
+    const words = giftQuoteCopy({ credits: 1000, chargeCentavos: 50000 }, 'supplier', { freeWithBadge: true })!;
+    assert.doesNotMatch(words.detail, /bill:/, 'a free gift still reads as added to a bill');
+    assert.match(words.detail, /badge reward/);
+    void papicTopUpForQuote;
+  });
+
+  it('a free fee given back when its booking was cancelled reads as waiting again, with when', () => {
+    const s = freeFeeSummary([
+      granted('events:1000', 'fee_waiver', 1, { returnedAt: '2026-11-08T03:00:00Z' }),
+      granted('events:5000', 'fee_waiver', 1, {
+        usedAt: '2026-11-09T03:00:00Z',
+        usedOn: { coupleName: 'Ana & Leo', wouldHaveBeenPhp: 2500 },
+        setnayanGiftCredits: 1000,
+      }),
+    ]);
+    assert.equal(s.waiting, 1);
+    assert.equal(s.history[0]!.state, 'waiting');
+    assert.equal(s.history[0]!.line, '1,000 events · earned Nov 5 · back Nov 8');
+    assert.match(s.history[1]!.sentence, /your couple still got the Setnayan gift, 1,000 Papic photos$/);
+  });
+});

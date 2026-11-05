@@ -37,7 +37,16 @@ which is stacked on #7279 and #7262. Draft — nothing goes live until the owner
   revoke, reward stock, RLS) · `lib/badge-rewards.test.ts` (the table, keys, lines, the 40% exemption).
 - Server-action ceiling 1227 → 1228 (`revokeBadgeFeeWaiver`, reason in the script).
 
+- **Owner answers on the draft (2026-11-05), all applied:** Reviews' steps 5 · 10 · 25 · 50 · 100 · 250 · 500, the
+  Inspiration box's top two steps and Booked Loop at every step are **ruled** (the code notes say so now). Pro / Ultra
+  plan gifts are **built later as their own kind** (they lapse; badge rewards never do). **A booking cancelled before
+  its day gives its free booking fee back** (`booking_fee_expires_when_booking_cancelled` gains that arm; the charge
+  lets go as `cancelled_unbilled`, the fee waits again; the history says "back Nov 8"). **A badge-paid booking still
+  gives the couple the Setnayan gift** — it lands on their event the moment the free fee is used, sized as the card /
+  quote promised, with no bill (Setnayan covers it); `setnayan_gift_quote_applies` answers `badge_reward` /
+  `badge_reward_card_says_no`, so the quote promises the photos and says "nothing is billed to you".
+
 SPEC IMPACT: DECISION_LOG 2026-11-05 "BADGE REWARDS" row's State moves from "sent to cloud session" to "built as a
-draft PR, not live". Open readings flagged in the PR for the owner (not ruled in the corpus): Reviews' steps are the
-spec's PROPOSED numbers; "Inspiration box top steps" read as the top two; "Booked Loop → Event Plus" read as each step;
-Pro/Ultra plan gifts not built (they lapse; badge rewards never do).
+draft PR, not live", plus a new row for the owner's seven answers on the draft (steps, plan gifts later, a cancelled
+booking gives the free fee back, a badge-paid booking keeps the Setnayan gift). The 2026-10-12 #7 rule "no fee, no
+couple gift" now has one exception: a fee paid by a badge reward.

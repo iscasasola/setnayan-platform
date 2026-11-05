@@ -17,8 +17,10 @@ function stateWords(r: BadgeRewardLedgerRow): string {
   if (r.usedAt) {
     const who = r.usedOn?.coupleName ? ` on ${r.usedOn.coupleName}` : '';
     const was = r.usedOn?.wouldHaveBeenPhp != null ? ` · fee ${formatPhp(r.usedOn.wouldHaveBeenPhp)} → ₱0` : '';
-    return `Used ${fmtDay(r.usedAt)}${who}${was}`;
+    const gift = r.setnayanGiftCredits ? ` · Setnayan gift ${r.setnayanGiftCredits} photos, on us` : '';
+    return `Used ${fmtDay(r.usedAt)}${who}${was}${gift}`;
   }
+  if (r.returnedAt) return `Given back ${fmtDay(r.returnedAt)} (booking cancelled) · waiting again`;
   return 'Waiting for their next booking with a fee';
 }
 

@@ -15,6 +15,10 @@
  *   5 · REWARD STOCK — `shop_gift_reward_stock_status` counts reward lines on live quotes as used, frees them when the
  *       quote lapses, and leaves out the event a new quote replaces.
  *   6 · RLS — a shop reads only its own rewards; no session writes one or calls the doors.
+ *   7 · A CANCELLED BOOKING GIVES ITS FREE FEE BACK (owner 2026-11-05) — before its day, the charge lets go
+ *       (cancelled_unbilled) and the free fee waits again for the next booking.
+ *   8 · THE COUPLE STILL GETS THE SETNAYAN GIFT (owner 2026-11-05) — on a badge-paid booking whose quote / card offers
+ *       it: landed once on that event, no bill, and the quote answers 'badge_reward' before and after.
  *
  * Sabotage (2026-11-05): removing `ON CONFLICT … DO NOTHING` from the grant turns test 1 red (unique violation, not
  * 'already'); moving the badge arm above `IF v_is_free` turns test 2 red (the free first booking spends the reward);
@@ -282,6 +286,82 @@ test('5 · reward stock: live reward lines use it, a lapsed quote frees it, the 
 
   await db.query(`UPDATE public.vendor_proposals SET valid_until = (NOW() - INTERVAL '3 days')::date WHERE proposal_id = $1`, [proposalId]);
   assert.deepEqual(await reward(), { earned: 300, used: 0 }, 'a lapsed quote still holds reward stock');
+});
+
+test('7 · a booking cancelled before its day gives its free booking fee back (owner 2026-11-05)', async () => {
+  const { shop } = await newShop();
+  await openCharge((await newBooking(shop)).eventVendorId); // the free first booking
+  const fw = await grant(shop, 'events:1000', 'fee_waiver', 1, null);
+  const b = await newBooking(shop);
+  const paid = await openCharge(b.eventVendorId);
+  assert.equal(paid.badge_reward_id, fw.reward_id);
+
+  await db.query(`UPDATE public.event_vendors SET archived_at = NOW() WHERE vendor_id = $1`, [b.eventVendorId]);
+  const back = await db.query<{ used_on_charge_id: string | null; returned_at: string | null; returned_from_charge_id: string | null }>(
+    `SELECT used_on_charge_id, returned_at, returned_from_charge_id FROM public.shop_badge_rewards WHERE reward_id = $1`,
+    [fw.reward_id],
+  );
+  assert.equal(back.rows[0]!.used_on_charge_id, null, 'the free fee did not come back');
+  assert.ok(back.rows[0]!.returned_at, 'the return is not recorded');
+  assert.equal(back.rows[0]!.returned_from_charge_id, paid.charge_id);
+  const charge = await db.query<{ status: string; badge_reward_id: string | null }>(
+    `SELECT status, badge_reward_id FROM public.booking_fee_charges WHERE charge_id = $1`,
+    [paid.charge_id],
+  );
+  assert.equal(charge.rows[0]!.status, 'cancelled_unbilled');
+  assert.equal(charge.rows[0]!.badge_reward_id, null);
+
+  // It waits again — the next booking with a fee takes it.
+  const next = await openCharge((await newBooking(shop)).eventVendorId);
+  assert.equal(next.badge_reward_id, fw.reward_id, 'the returned free fee did not pay the next booking');
+});
+
+test('8 · a badge-paid booking still gives the couple the Setnayan gift, and the quote says so (owner 2026-11-05)', async () => {
+  const { shop } = await newShop();
+  await openCharge((await newBooking(shop)).eventVendorId); // the free first booking
+  const fw = await grant(shop, 'events:1000', 'fee_waiver', 1, null);
+
+  const b = await newBooking(shop);
+  // The supplier's accepted quote carries the gift switch ON.
+  await db.query(
+    `INSERT INTO public.vendor_proposals (vendor_profile_id, event_id, title, status, resolved_at, total_centavos, includes_setnayan_gift)
+     VALUES ($1, $2, 'Quote', 'accepted', NOW(), 5000000, TRUE)`,
+    [shop, b.eventId],
+  );
+  const before = await one<string>(`SELECT public.setnayan_gift_quote_applies($1, $2) AS v`, [b.eventId, shop]);
+  assert.equal(before, 'badge_reward', 'the quote of a booking a free fee will pay does not promise the gift');
+
+  const paid = await openCharge(b.eventVendorId);
+  assert.equal(paid.badge_reward_id, fw.reward_id);
+  assert.equal(paid.amount_charged_centavos, 0, 'the gift was billed');
+  const reward = await db.query<{ setnayan_gift_credits: number | null; setnayan_gift_grant_id: string | null }>(
+    `SELECT setnayan_gift_credits, setnayan_gift_grant_id FROM public.shop_badge_rewards WHERE reward_id = $1`,
+    [fw.reward_id],
+  );
+  const credits = Number(reward.rows[0]!.setnayan_gift_credits ?? 0);
+  assert.ok(credits > 0, 'the couple got no Setnayan gift on a badge-paid booking');
+  const pool = await db.query<{ points: number; event_id: string }>(
+    `SELECT points, event_id FROM public.papic_event_point_grants WHERE grant_id = $1`,
+    [reward.rows[0]!.setnayan_gift_grant_id],
+  );
+  assert.equal(pool.rows[0]!.event_id, b.eventId, 'the gift landed on another event');
+  assert.equal(Number(pool.rows[0]!.points), credits);
+  assert.equal(await one<string>(`SELECT public.setnayan_gift_quote_applies($1, $2) AS v`, [b.eventId, shop]), 'badge_reward');
+
+  // A re-lock gives nothing twice.
+  await openCharge(b.eventVendorId);
+  const grants = await one<string>(
+    `SELECT COUNT(*)::text AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'comp'`,
+    [b.eventId],
+  );
+  assert.equal(Number(grants), 1, 'the gift was given twice');
+
+  // A booking whose quote and card say no carries no gift — the free fee alone.
+  const fw2 = await grant(shop, 'events:5000', 'fee_waiver', 1, null);
+  const plain = await openCharge((await newBooking(shop)).eventVendorId);
+  assert.equal(plain.badge_reward_id, fw2.reward_id);
+  const plainGift = await one<number | null>(`SELECT setnayan_gift_credits AS v FROM public.shop_badge_rewards WHERE reward_id = $1`, [fw2.reward_id]);
+  assert.equal(plainGift, null, 'a gift nobody offered was given');
 });
 
 test('6 · 🚨 RLS: own rewards only; no session writes a reward or calls the doors', async () => {

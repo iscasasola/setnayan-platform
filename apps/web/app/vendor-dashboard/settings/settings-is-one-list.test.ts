@@ -58,7 +58,10 @@ test('More tools is the shelves, minus Team, plus Manpower and (web only) Deep S
   assert.ok(!tools.includes('/vendor-dashboard/team'), 'Team is doubled — Helpers is its own Settings row');
   assert.ok(tools.includes('/vendor-dashboard/shop?open=manpower#shop-folds'));
   assert.ok(tools.includes('/vendor-dashboard/deep-search'));
-  assert.equal(tools.length, 15, 'the prototype’s fifteen, with every grant');
+  // 15 → 13 (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL"): Stories and Recaps live in Shop › Promote › Share
+  // your work now, so they left More tools.
+  assert.equal(tools.length, 13, 'the prototype’s fifteen less Stories and Recaps, with every grant');
+  for (const gone of ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps']) assert.ok(!tools.includes(gone), `${gone} is still in More tools`);
   assert.ok(!all({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: true }).includes('/vendor-dashboard/deep-search'));
 });
 

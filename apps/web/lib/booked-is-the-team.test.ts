@@ -122,8 +122,8 @@ test('4 · ONE row open at a time; the opened row’s verbs are ONE row of equal
   assert.match(row, /onToggle=\{\(\) => toggle\(r\.vendorId\)\}/);
   assert.match(row, /className="bk-exp" inert=\{!open\}/, 'the fold is no longer inert while closed');
   // On a phone the fold opens under its row; from 1024 the list's right column holds it — the SAME component.
-  assert.match(row, /<div className="bk-exp" inert=\{!open\}>\s*<div>\s*<BookedFold eventId=\{eventId\} row=\{row\} \/>/);
-  assert.match(row, /<BookedFold eventId=\{eventId\} row=\{openRow\} \/>/, 'the wide right column draws its own fold');
+  assert.match(row, /<div className="bk-exp" inert=\{!open\}>\s*<div>\s*<BookedFold eventId=\{eventId\} row=\{row\}(?: counts=\{counts\})? \/>/);
+  assert.match(row, /<BookedFold eventId=\{eventId\} row=\{openRow\}(?: counts=\{counts\})? \/>/, 'the wide right column draws its own fold');
   // The fold carries the call time, the plan, the feeds and the tiles — in that order.
   const fold = row.slice(row.indexOf('function BookedFold('));
   const order = ['<CallTimeLine', '<PlanRows', 'data-booked-feeds', '<VerbRow'].map((t) => fold.indexOf(t));

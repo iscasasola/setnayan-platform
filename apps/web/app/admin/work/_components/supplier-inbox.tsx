@@ -31,6 +31,7 @@ import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormPick } from './form-pick';
 import { EventTypeNameRow } from './event-type-name-row';
+import { WorkRowHead } from './work-row-head';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -433,12 +434,7 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
                 className="!transform-none !transition-none"
                 data-work-item={item.key}
               >
-                <Link
-                  href={href(back, { kind, item: open ? undefined : item.key })}
-                  aria-expanded={open}
-                  className="sn-row flex min-h-16 items-center gap-3 p-3.5"
-                  scroll={false}
-                >
+                <WorkRowHead open={open} href={href(back, { kind, item: open ? undefined : item.key })}>
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/5">
                     <Icon aria-hidden className="h-4 w-4 text-ink/70" strokeWidth={1.75} />
                   </span>
@@ -452,7 +448,7 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
                   ) : (
                     <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" />
                   )}
-                </Link>
+                </WorkRowHead>
                 {open ? (
                   /* 📐 Phone: the row opens in place. Tablet + desktop (owner-approved admin redesign, 28 Oct): the SAME
                      body is a right-side panel beside the list — never a stretched phone layout. One element, so every

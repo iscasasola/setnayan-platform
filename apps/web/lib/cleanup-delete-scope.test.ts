@@ -20,6 +20,7 @@ import {
   bindCleanupExecutor,
   type PlannedDelete,
   chatAttachmentScope,
+  venueCheckProbeScope,
   eventSiteMediaScope,
   guestSelfieScope,
   isPlannedDelete,
@@ -180,6 +181,7 @@ test('the remaining scopes each admit their own writer’s shape and nothing nex
     [stdSealedScope(EVT), `r2://setnayan-media/events/${EVT}/std-screened/v.mp4`, `r2://setnayan-media/events/${EVT}/std-video/v.mp4`],
     [paperworkScope(EVT), `r2://setnayan-vendor-contracts/paperwork/${EVT}/psa/scan.pdf`, `r2://setnayan-vendor-contracts/paperwork/${EVT_OTHER}/psa/scan.pdf`],
     [chatAttachmentScope(THREAD), `r2://setnayan-thread-files/chat/${THREAD}/a.pdf`, `r2://setnayan-thread-files/payments/${THREAD}/a.pdf`],
+    [venueCheckProbeScope(EVT), `r2://setnayan-thread-files/venue-check/${EVT}/c.bin`, `r2://setnayan-thread-files/venue-check/${EVT_OTHER}/c.bin`],
     [profilePhotoScope(USER), `r2://setnayan-media/profile-photo/${USER}/p.png`, `r2://setnayan-media/profile-photo/other/p.png`],
     [vendorLogoScope(VENDOR), `r2://setnayan-media/vendors/${VENDOR}/logo/l.png`, VICTIM_LOGO],
   ];

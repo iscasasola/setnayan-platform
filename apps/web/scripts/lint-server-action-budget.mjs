@@ -48,6 +48,11 @@ import { fileURLToPath } from 'node:url';
 // instead of the three exports it would have been; the only unimported exports left are the two kept on purpose above.
 // No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production
 // build; read that job before merging.
+// 1228 → 1228 (2026-11-05, Live Watch venue connection check, merged after the card-moderation +1; the measured total
+// after both is 1228, so the ceiling stays tight): ONE dispatcher (`studio/panood/setup/venue-check/actions.ts`,
+// `venueCheck` — start · finish · discard) instead of the three exports it would have been; no unimported export was
+// left to drop (the two kept on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build; read that job before merging.
 export const CEILING = 1228;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');

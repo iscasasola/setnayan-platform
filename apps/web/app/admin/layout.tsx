@@ -21,6 +21,7 @@ import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
 import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
+import { maybeRunVenueProbeSweep } from '@/lib/venue-check-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
@@ -253,6 +254,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Papic save-first (2026-10-23): pieces a phone PUT straight to R2 and never
   // recorded are removed — staging keys only, after the phone's own TTL + a day.
   after(() => maybeRunPapicUploadSweep().catch(() => {}));
+  // Live Watch venue check (2026-11-05): a test upload whose phone left mid-run
+  // never deleted itself — anything under venue-check/ older than 15 min goes.
+  after(() => maybeRunVenueProbeSweep().catch(() => {}));
   // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
   // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential
   // back-off up to a ceiling and surfaces what's stranded past it, so a transient

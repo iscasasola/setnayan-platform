@@ -7,7 +7,7 @@
  *
  * WHERE EACH PIECE LIVES
  *   · the record and both decisions — `booking_fee_disputes`, `booking_fee_open_dispute`,
- *     `booking_fee_decide_dispute` (migration 20271310612526);
+ *     `booking_fee_decide_dispute` (migration 20271314842518);
  *   · the supplier's button — the fee bill, `/vendor-dashboard/booking-fees/[orderId]`;
  *   · the admin's queue — a section on `/admin/disputes`;
  *   · the notices — `fee_dispute_opened` (admins) and `fee_dispute_answered` (the supplier), IN-APP ONLY.

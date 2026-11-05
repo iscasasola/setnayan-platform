@@ -8,7 +8,7 @@
  *
  * WHERE EACH PIECE LIVES
  *   · the record — `public.event_vendor_found`, one row per (event, shop), written by a trigger on the profile-view
- *     row the app already writes (migration 20271308941622). Opening a shop from a Setnayan surface counts; a
+ *     row the app already writes (migration 20271313372071). Opening a shop from a Setnayan surface counts; a
  *     list, a rail or a search result that was never opened does not;
  *   · the check — `found_you_check_at_claim`, run inside the couple's Approve (`answer_claim_access_request`),
  *     answered as `found_you` and read here by {@link readFoundYou};

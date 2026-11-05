@@ -352,7 +352,7 @@ BEGIN
     END;
   END IF;
 
-  -- 🕵️ FOUND-YOU — THE ONE ADDITION (migration 20271308941622; DECISION_LOG 2026-07-27 "CLAIM-SYNC is the
+  -- 🕵️ FOUND-YOU — THE ONE ADDITION (migration 20271313372071; DECISION_LOG 2026-07-27 "CLAIM-SYNC is the
   -- authoritative checkpoint"). The bond above just made identity exact, so this is where the found-check runs:
   -- a shop with an account the couple had already seen here before they typed the record is FOUND; a shop with
   -- no account before the record claims FREE, always. Its own savepoint: a failure here answers "not found"
@@ -453,7 +453,7 @@ BEGIN
       -- created the discovery (marketplace search) or the up-sell (cascade).
       -- Everything else the couple/admin brought in themselves = off-platform.
       CASE
-        -- 🕵️ FOUND-YOU (20271308941622): a hand-typed record the couple's Approve found to be a shop they had
+        -- 🕵️ FOUND-YOU (20271313372071): a hand-typed record the couple's Approve found to be a shop they had
         -- already seen on Setnayan is Setnayan's — counted here WITHOUT rewriting `ev.source` (the 2026-08-09
         -- rule: a booking's history is never overwritten; the receipt lives on the found-record).
         WHEN EXISTS (

@@ -1,6 +1,6 @@
 /**
  * 🕵️ FOUND-YOU, WALKED IN SQL — the record of when a couple first saw a shop here, and the check the couple's
- * Approve runs when that shop claims their link. Migration 20271308941622.
+ * Approve runs when that shop claims their link. Migration 20271313372071.
  *
  * Owner, 2026-11-05: *"we already had this plan which logs users that has seen or shown in the app as a result.
  * and it saves the date when you first saw that supplier. yes this is important"* — the plan is DECISION_LOG

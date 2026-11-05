@@ -1,5 +1,5 @@
 /**
- * 🕵️ A SUPPLIER CAN DISPUTE A BOOKING FEE — the grace-first ladder, walked in SQL. Migration 20271310612526.
+ * 🕵️ A SUPPLIER CAN DISPUTE A BOOKING FEE — the grace-first ladder, walked in SQL. Migration 20271314842518.
  *
  * Owner, 2026-07-27 (DECISION_LOG "FOUND-YOU DISPUTES — grace-first ladder"): *"for their first dispute, we will
  * accept but remind them that this is the power and reach of setnayan's service… second dispute will be upon review
@@ -137,7 +137,7 @@ test('1 · the FIRST dispute is accepted on the spot: waived_import, bill cancel
   const b = await billedBooking(F.shop);
   F.b1 = b.chargeId;
   F.e1 = b.eventId;
-  // The couple opened the shop from Explore twice before the booking (the found-record, 20271308941622).
+  // The couple opened the shop from Explore twice before the booking (the found-record, 20271313372071).
   await db.query(
     `INSERT INTO public.event_vendor_found (event_id, vendor_profile_id, first_found_at, first_source, last_viewed_at, view_count)
      VALUES ($1, $2, now() - interval '20 days', 'explore', now() - interval '19 days', 2)`,

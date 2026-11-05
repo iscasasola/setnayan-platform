@@ -10,7 +10,7 @@
 --   · FIRST dispute per supplier, EVER → accepted on the spot, no admin touch: the fee is waived and its open bill
 --     voided. The screen answers with the reminder (`lib/booking-fee-dispute.ts`).
 --   · SECOND and later → waits for an admin (`/admin/disputes`), who sees the receipts (the found-record of
---     20271308941622, a chat started from Setnayan, a save from Find) and accepts (fee waived) or rejects (the
+--     20271313372071, a chat started from Setnayan, a save from Find) and accepts (fee waived) or rejects (the
 --     bill stands).
 --
 -- WHAT A DISPUTE CAN TOUCH — and what it cannot:
@@ -154,7 +154,7 @@ BEGIN
     RETURN jsonb_build_object('result', 'not_disputable', 'charge_status', v_charge.status);
   END IF;
 
-  -- The receipts the reminder quotes (found-record, 20271308941622). Absent = said without a count.
+  -- The receipts the reminder quotes (found-record, 20271313372071). Absent = said without a count.
   SELECT first_found_at, view_count INTO v_found
     FROM public.event_vendor_found
    WHERE event_id = v_charge.event_id AND vendor_profile_id = v_charge.vendor_profile_id;

@@ -835,7 +835,7 @@ export async function buildPersonalDataExport(
       .select('change_id, event_id, kind, slot_key, part_label, shop_label, created_at, first_row_at, undone_at')
       .eq('actor_user_id', user.id)
       .order('created_at', { ascending: true }),
-    // RA 10173 (2026-11-05) — THE BOOKING FEES THIS SUBJECT DISPUTED (migration 20271310612526). AUTHOR-scoped on
+    // RA 10173 (2026-11-05) — THE BOOKING FEES THIS SUBJECT DISPUTED (migration 20271314842518). AUTHOR-scoped on
     // opened_by_user_id: their words and the outcome. The deciding admin's id (`decided_by_user_id`) is a staff stamp and
     // stays out; their note to the supplier is the answer the supplier was given, so it rides along.
     supabase

@@ -530,13 +530,13 @@ export type NotificationType =
      (`found_you_check_at_claim`): "<couple> found you on Setnayan on <date>". Data-minimal: the couple's event name,
      its type and date, the first-seen date and how many times — never a contact. Sent by `answerClaimAccess`
      (app/dashboard/[eventId]/access-requests/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES.
-     ⚠ ENUM value in 20271309388071. */
+     ⚠ ENUM value in 20271314066142. */
   | 'found_you_lead'
   /* 🕵️ BOOKING-FEE DISPUTES (DECISION_LOG 2026-07-27 grace-first ladder; built 2026-11-05).
      `fee_dispute_opened` → every admin, when a supplier's SECOND or later dispute waits for review (their first is
      accepted on the spot). `fee_dispute_answered` → the supplier, when an admin accepts or rejects it. Sent by
      `disputeBookingFee` (app/vendor-dashboard/booking-fees/[orderId]/actions.ts) and `decideBookingFeeDispute`
-     (app/admin/disputes/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM values in 20271309623556. */
+     (app/admin/disputes/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM values in 20271314517155. */
   | 'fee_dispute_opened'
   | 'fee_dispute_answered'
   /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting

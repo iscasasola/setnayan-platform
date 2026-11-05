@@ -1,6 +1,7 @@
 import { Gift, Plus, AlertCircle, Lock, ImageIcon, CheckCircle2 } from 'lucide-react';
 import { php, type Snapshot } from '@/lib/service-card-snapshot';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
+import { FramedImg } from '@/app/_components/framed-img';
 
 /**
  * service-card-face.tsx — the card a couple sees, drawn from a `Snapshot`.
@@ -59,8 +60,8 @@ export function ServiceCardFace({
       style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
     >
       {coverUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={coverUrl} alt="" className="h-full w-full object-cover" />
+        // The 80×112 cover (5:7), derived from the photo's saved framing (Photo Frame Template).
+        <FramedImg src={coverUrl} aspect={80 / 112} />
       ) : snap.hasCover ? (
         <CheckCircle2 aria-hidden className="h-6 w-6" strokeWidth={1.5} />
       ) : (

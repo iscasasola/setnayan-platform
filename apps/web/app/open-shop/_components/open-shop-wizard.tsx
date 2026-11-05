@@ -538,6 +538,8 @@ export function OpenShopWizard({
               <FileUpload
                 bucket="media"
                 pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
+                frame="circle"
+                previews="shop-logo"
                 name="logo_url"
                 unsavedHint="it goes in when you open your shop"
                 currentValue={logoUrl || null}

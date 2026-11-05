@@ -407,7 +407,7 @@ export async function compressVideoForWeb(
 }
 
 /** A local clip's display size, via a metadata-only <video>. */
-function probeVideoSize(file: File): Promise<{ w: number; h: number } | null> {
+export function probeVideoSize(file: File): Promise<{ w: number; h: number } | null> {
   return new Promise((resolve) => {
     try {
       const url = URL.createObjectURL(file);
@@ -435,6 +435,20 @@ export function web720OutputSize(w: number, h: number): { w: number; h: number }
   return { w: Math.max(2, Math.trunc((w * k) / 2) * 2), h: Math.max(2, Math.trunc((h * k) / 2) * 2) };
 }
 
+/** A crop ffmpeg accepts: whole even pixels, inside the clip. */
+export function evenCrop(
+  r: { left: number; top: number; width: number; height: number },
+  W: number,
+  H: number,
+): { x: number; y: number; w: number; h: number } {
+  const even = (n: number) => Math.max(2, Math.floor(n / 2) * 2);
+  const w = Math.min(even(r.width), even(W));
+  const h = Math.min(even(r.height), even(H));
+  const x = Math.min(Math.max(0, Math.round(r.left)), W - w);
+  const y = Math.min(Math.max(0, Math.round(r.top)), H - h);
+  return { x, y, w, h };
+}
+
 /**
  * THE MARKED CLIP (Seal and plate on the service-card video, 2026-11-04).
  *
@@ -455,12 +469,19 @@ export async function markAndCompressVideo(
     markPng: (w: number, h: number) => Promise<Uint8Array>;
     maxDurationS?: number;
     onProgress?: (p: CompressProgress) => void;
+    /**
+     * The Frame step's crop, given the clip's display size (Photo Frame
+     * Template: "crop to the chosen square, overlay the Seal and plate PNG
+     * inside it"). Omitted = the whole frame, as before.
+     */
+    crop?: (w: number, h: number) => { left: number; top: number; width: number; height: number };
   },
 ): Promise<File> {
   if (!canCompressVideo()) throw new Error('marked clip: this browser cannot prepare video');
   const size = await probeVideoSize(file);
   if (!size) throw new Error('marked clip: the clip size could not be read');
-  const out = web720OutputSize(size.w, size.h);
+  const c = opts.crop ? evenCrop(opts.crop(size.w, size.h), size.w, size.h) : null;
+  const out = web720OutputSize(c ? c.w : size.w, c ? c.h : size.h);
   const png = await opts.markPng(out.w, out.h);
   const { fetchFile } = await import('@ffmpeg/util');
   opts.onProgress?.({ phase: 'loading', ratio: 0 });
@@ -479,7 +500,7 @@ export async function markAndCompressVideo(
         '-i', 'mark.png',
         '-map_metadata', '-1',
         '-filter_complex',
-        `[0:v]scale='min(${cap},iw)':'min(${cap},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2[v0];` +
+        `[0:v]${c ? `crop=${c.w}:${c.h}:${c.x}:${c.y},` : ''}scale='min(${cap},iw)':'min(${cap},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2[v0];` +
           `[1:v][v0]scale2ref=w=iw:h=ih[m][v1];[v1][m]overlay=0:0:format=auto,format=yuv420p[vout]`,
         '-map', '[vout]',
         '-map', '0:a?',

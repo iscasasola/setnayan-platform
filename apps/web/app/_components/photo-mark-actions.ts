@@ -15,8 +15,10 @@
  *                           and its PRIVATE clean copy, paired in
  *                           supplier_photo_originals so the shop can be
  *                           re-marked when it gains or loses Verified.
+ *   'original' getPhotoOriginalUrl — re-open: a 10-minute address of the private
+ *                           clean copy, so the Frame step re-frames the original.
  *
- * Both answer `{ ok: false }` rather than throw; FileUpload REFUSES the upload
+ * All answer `{ ok: false }` rather than throw; FileUpload REFUSES the upload
  * on any `ok: false` (fail-closed: nothing goes up unmarked or unpaired).
  */
 import { createClient } from '@/lib/supabase/server';
@@ -56,7 +58,7 @@ async function getPhotoMark(kind: 'supplier' | 'setnayan', pathPrefix: string): 
       const bytes = await shopLogoBytes(facts.logoRef);
       if (bytes) {
         const { logoCoinPng } = await import('@/lib/photo-mark-server');
-        const png = await logoCoinPng(bytes);
+        const png = await logoCoinPng(bytes, facts.logoRef);
         if (png) logoDataUrl = `data:image/png;base64,${png.toString('base64')}`;
       }
     }
@@ -107,10 +109,51 @@ async function recordSupplierOriginal(input: {
   }
 }
 
+/**
+ * RE-OPEN (Photo Frame Template · "Tapping the photo on its row opens the same
+ * step with the saved framing"): a short-lived address of the PRIVATE clean
+ * copy behind a marked supplier photo, so the Frame step re-frames the
+ * original — never the marked copy, which would stamp a second mark over the
+ * first. Only for the shop the login is standing in; 10 minutes.
+ */
+async function getPhotoOriginalUrl(publicRef: string): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const NONE = 'The original of this photo is not available. Upload it again to re-frame it.';
+  try {
+    const pub = parseStoredAsset(publicRef);
+    if (!pub || pub.kind !== 'r2' || pub.bucket !== 'setnayan-media') return { ok: false, error: NONE };
+    const vendorProfileId = vendorIdOfMediaKey(pub.key);
+    if (!vendorProfileId) return { ok: false, error: NONE };
+    const shop = await ownShopFor(`vendors/${vendorProfileId}`);
+    if (!shop) return { ok: false, error: NONE };
+    const { data, error } = await createAdminClient()
+      .from('supplier_photo_originals')
+      .select('original_ref')
+      .eq('public_ref', publicRef)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error) {
+      console.error('[supabase-error] photo-mark-actions · supplier_photo_originals.select', error);
+      return { ok: false, error: NONE };
+    }
+    // The private signer, held to THIS shop's own originals root: a row naming any other bucket or shop signs nothing.
+    const { displayUrlForPrivateStoredAsset } = await import('@/lib/uploads');
+    const url = await displayUrlForPrivateStoredAsset(
+      (data as { original_ref?: string } | null)?.original_ref ?? null,
+      { bucket: 'setnayan-vendor-verification', prefixes: [`vendor-originals/${vendorProfileId}/`] },
+      { ttlSeconds: 600 },
+    );
+    return url ? { ok: true, url } : { ok: false, error: NONE };
+  } catch (err) {
+    console.error('[photo-mark] getPhotoOriginalUrl failed', err);
+    return { ok: false, error: NONE };
+  }
+}
+
 /** Each op's request and reply. */
 type PhotoMarkOps = {
   mark: { req: { kind: 'supplier' | 'setnayan'; pathPrefix: string }; res: PhotoMarkAnswer };
   pair: { req: { publicRef: string; originalRef: string }; res: { ok: true } | { ok: false; error: string } };
+  original: { req: { publicRef: string }; res: { ok: true; url: string } | { ok: false; error: string } };
 };
 
 /** The ONE exported action. An op it does not know is refused like any other failure (fail-closed). */
@@ -121,5 +164,6 @@ export async function photoMark<K extends keyof PhotoMarkOps>(op: K, req: PhotoM
     return (await getPhotoMark(r.kind, r.pathPrefix)) as Res;
   }
   if (op === 'pair') return (await recordSupplierOriginal(req as PhotoMarkOps['pair']['req'])) as Res;
+  if (op === 'original') return (await getPhotoOriginalUrl((req as PhotoMarkOps['original']['req']).publicRef)) as Res;
   return { ok: false, error: REFUSED } as Res;
 }

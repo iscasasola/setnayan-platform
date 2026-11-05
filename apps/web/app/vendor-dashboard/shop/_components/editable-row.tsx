@@ -641,6 +641,8 @@ function FieldControl({
           <FileUpload
             bucket="media"
             pathPrefix={`vendors/${data.vendorProfileId}/logo`}
+            frame="circle"
+            previews="shop-logo"
             name="logo_url"
             unsavedHint="it saves when you close this row"
             currentValue={data.logo_url}

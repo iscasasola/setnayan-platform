@@ -64,7 +64,8 @@ test('(2) every ✕ on a gallery tile is ONE round 44 px target carrying a 24 px
   const { gallery } = halves();
   // Each ✕: from its own `<button` to its name (an arrow's `>` ends a tag for a simple pattern, so cut by hand).
   const closers = [...gallery.matchAll(/aria-label=\{`(?:Remove|Cancel) [^`]*`\}/g)].map((m) => gallery.slice(gallery.lastIndexOf('<button', m.index), m.index! + m[0].length));
-  assert.equal((gallery.match(/<button\b/g) ?? []).length, 4, 'anti-vacuity: the gallery holds other buttons than its three ✕ and Try again');
+  // The framed photo's own picture is pressable (tap opens the Frame step, 2026-11-04) — the tile, not a control on it.
+  assert.equal((gallery.match(/<button\b(?![^>]*data-reframe)/g) ?? []).length, 4, 'anti-vacuity: the gallery holds other buttons than its three ✕ and Try again');
   assert.deepEqual(
     closers.map((b) => /aria-label=\{`(\w+) \$\{item\.(file\.name|filename)\}`\}/.exec(b)?.slice(1).join(' ')),
     ['Remove filename', 'Cancel filename', 'Remove file.name'],

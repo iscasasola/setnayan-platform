@@ -17,6 +17,14 @@ import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
 import { uploadTypeOf } from '@/lib/upload-type-names';
 import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
+import { FramedImg } from './framed-img';
+import type { FrameShape, Framing } from '@/lib/photo-frame';
+import type { FramePreviews } from './frame-step';
+import dynamic from 'next/dynamic';
+import { createPortal } from 'react-dom';
+
+/** The Frame step: loaded at the first framed pick, never with the page. */
+const FrameStep = dynamic(() => import('./upload-mark').then((m) => m.FrameStep), { ssr: false });
 
 /**
  * 🔒 FAIL-CLOSED (controller audit 2026-11-04; the approved mark page's last
@@ -262,6 +270,18 @@ type FileUploadBaseProps = {
    * upload with Try again; nothing goes up unmarked.
    */
   mark?: 'supplier' | 'setnayan';
+  /**
+   * THE FRAME STEP (Photo Frame Template, owner-approved 2026-11-04). With a
+   * `frame`, every picked photo (and a marked clip) opens `<FrameStep>` before it
+   * goes up: drag to move, pinch to zoom inside this shape, live `previews` of
+   * where it shows, "Looks good" to keep it. The framing is stored in the
+   * object's own name (`lib/photo-frame.ts`), the mark is stamped inside the
+   * frame, and tapping the uploaded tile re-opens the step to edit in place.
+   * No `frame` = no Frame step (evidence, verification, posters).
+   */
+  frame?: FrameShape;
+  /** Which places the Frame step previews (required with `frame`). */
+  previews?: FramePreviews;
   /**
    * Auto-compress uploaded VIDEOS to a streaming-friendly size in the browser
    * (ffmpeg.wasm) before they go to R2. Phone exports are often ~25 Mbps / >100 MB
@@ -523,6 +543,8 @@ export function FileUpload({
   row,
   watermark = false,
   mark,
+  frame,
+  previews,
   compressVideo = false,
   compressImage = false,
   maxVideoDurationS,
@@ -553,6 +575,47 @@ export function FileUpload({
   }, [rowLocal]);
   /** Files that did not upload, kept as tiles (`failedSays`). */
   const [failed, setFailed] = useState<FailedItem[]>([]);
+  /* ── THE FRAME STEP: one at a time, in pick order (a multi-pick queues). ── */
+  const [framePrompt, setFramePrompt] = useState<{
+    src: string;
+    isVideo: boolean;
+    initial: Framing | null;
+    reopened: boolean;
+    mark: import('@/lib/watermark').PhotoMarkInput | null;
+    resolve: (v: { framing: Framing; size: { width: number; height: number } } | null) => void;
+  } | null>(null);
+  const frameQueue = useRef<Promise<unknown>>(Promise.resolve());
+  /** The picked file behind each uploaded tile, for re-framing in this visit without a round trip. */
+  const rawById = useRef(new Map<string, File>());
+  const askFraming = (
+    file: File,
+    isVid: boolean,
+    initial: Framing | null,
+    reopened: boolean,
+    markFor: import('@/lib/watermark').PhotoMarkInput | null,
+  ) => {
+    const next = frameQueue.current.then(
+      () =>
+        new Promise<{ framing: Framing; size: { width: number; height: number } } | null>((resolve) => {
+          if (!isMountedRef.current) return resolve(null);
+          const src = URL.createObjectURL(file);
+          setFramePrompt({
+            src,
+            isVideo: isVid,
+            initial,
+            reopened,
+            mark: markFor,
+            resolve: (v) => {
+              setFramePrompt(null);
+              URL.revokeObjectURL(src);
+              resolve(v);
+            },
+          });
+        }),
+    );
+    frameQueue.current = next.catch(() => null);
+    return next;
+  };
   // In-browser video optimisation (ffmpeg.wasm) runs BEFORE the upload; this
   // surfaces a labelled progress bar while it works. null = not optimising.
   const [optimizing, setOptimizing] = useState<{ label: string; pct: number } | null>(null);
@@ -875,7 +938,7 @@ export function FileUpload({
    * Errors at any step roll back the inFlight entry and surface the message
    * via the `error` state.
    */
-  async function uploadOne(rawFile: File) {
+  async function uploadOne(rawFile: File, again?: { replaceId: string; initial: Framing | null }) {
     const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const initialContentType =
       uploadTypeOf(rawFile.type) || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
@@ -906,9 +969,24 @@ export function FileUpload({
     if (wantsMark && mark) {
       const kind = mark;
       // Loaded at the first marked upload, never with the page (same as hub-draft-actions in details-march.tsx).
-      const answer = await import('./photo-mark-actions').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
+      const answer = await import('./upload-mark').then((a) => a.photoMark('mark', { kind, pathPrefix })).catch(() => null);
       if (!answer || !answer.ok) return refuseUnmarked(answer && !answer.ok ? answer.error : 'no answer', answer && !answer.ok ? answer.error : MARK_REFUSED_SAYS);
       markInput = { spec: answer.spec, logoDataUrl: answer.logoDataUrl };
+    }
+    // ── THE FRAME STEP — after the mark is known (the stage shows it), before
+    // anything is painted or sent. Backing out uploads nothing and says nothing.
+    let framed: { framing: Framing; size: { width: number; height: number } } | null = null;
+    const frames = Boolean(frame && previews) && (isImage(initialContentType) || (isVideo(initialContentType) && Boolean(markInput)));
+    if (frames && frame) {
+      framed = await askFraming(rawFile, isVideo(initialContentType), again?.initial ?? null, Boolean(again), markInput);
+      if (!framed) return;
+      if (markInput && isImage(initialContentType)) {
+        const { frameRect, FRAME_ASPECT } = await import('./upload-mark');
+        markInput = {
+          ...markInput,
+          framed: { frame: frameRect(framed.size.width, framed.size.height, FRAME_ASPECT[frame], framed.framing), shape: frame },
+        };
+      }
     }
     // The supplier photo's PRIVATE clean copy: set aside before marking, PUT
     // before the public copy, paired after it lands. Photos only — a clip's
@@ -963,8 +1041,11 @@ export function FileUpload({
           import('@/lib/watermark'),
         ]);
         setOptimizing({ label: 'Preparing your clip · adding the Setnayan mark', pct: 0 });
+        const frameMath = framed && frame ? await import('./upload-mark') : null;
+        const cropTo = framed && frame && frameMath ? { f: framed.framing, a: frameMath.FRAME_ASPECT[frame], rect: frameMath.frameRect } : null;
         file = await markAndCompressVideo(rawFile, {
           markPng: (w, h) => markOverlayPng(w, h, input),
+          crop: cropTo ? (w, h) => cropTo.rect(w, h, cropTo.a, cropTo.f) : undefined,
           maxDurationS: maxVideoDurationS,
           onProgress: (p) => {
             if (!isMountedRef.current) return;
@@ -1004,6 +1085,12 @@ export function FileUpload({
     }
 
     const contentType = uploadTypeOf(file.type) || initialContentType;
+    // The framing rides in the stored object's NAME (`lib/photo-frame.ts`): every
+    // display reads the ref already, so none needs a second read to derive its crop.
+    if (framed && isImage(contentType)) {
+      const { framedFileName } = await import('./upload-mark');
+      file = new File([file], framedFileName(file.name, { ...framed.framing, ...framed.size }), { type: file.type });
+    }
 
     // ── COMPRESS FIRST, THEN CHECK — the other half of the reorder above ────
     // `handleFiles` skipped the size gate for anything it knew this instance
@@ -1096,9 +1183,13 @@ export function FileUpload({
           filename: file.name,
           contentType,
         };
+        if (framed) rawById.current.set(id, rawFile);
         const keep = () =>
           setItems((prev) => {
-            const next = multiple ? [...prev, completed] : [completed];
+            // Re-framed: the new copy takes the old one's place — nothing else on the page moves.
+            const at = again ? prev.findIndex((i) => i.id === again.replaceId) : -1;
+            const next =
+              at >= 0 ? prev.map((i, n) => (n === at ? completed : i)) : multiple ? [...prev, completed] : [completed];
             toSay.current = next;
             return next;
           });
@@ -1108,7 +1199,7 @@ export function FileUpload({
         }
         // Pair the marked copy with its clean copy BEFORE it joins the value:
         // a public photo the shop could never re-mark is refused like an unmarked one.
-        void import('./photo-mark-actions')
+        void import('./upload-mark')
           .then((a) => a.photoMark('pair', { publicRef: out.r2Ref, originalRef }))
           .catch(() => ({ ok: false as const, error: MARK_REFUSED_SAYS }))
           .then((paired) => {
@@ -1183,6 +1274,53 @@ export function FileUpload({
       return next;
     });
   }
+
+  /**
+   * RE-OPEN TO EDIT IN PLACE (Photo Frame Template · "Tapping the photo on its
+   * row opens the same step with the saved framing"). The step re-frames the
+   * CLEAN original — the file picked in this visit, else the shop's private
+   * clean copy (a marked copy re-framed would carry two marks) — and the new
+   * copy replaces the tile where it sits.
+   */
+  const [reframing, setReframing] = useState<string | null>(null);
+  async function reframe(item: UploadedItem) {
+    if (!frame || !previews || reframing) return;
+    setReframing(item.id);
+    try {
+      const { framingFromRef } = await import('./upload-mark');
+      const initial = framingFromRef(item.r2Ref);
+      let raw = rawById.current.get(item.id) ?? null;
+      if (!raw) {
+        let url: string | null = null;
+        if (mark === 'supplier') {
+          const got = await import('./upload-mark').then((a) => a.photoMark('original', { publicRef: item.r2Ref })).catch(() => null);
+          if (!got || !got.ok) {
+            setError(got && !got.ok ? got.error : 'The original of this photo is not available. Upload it again to re-frame it.');
+            return;
+          }
+          url = got.url;
+        } else if (!mark) {
+          url = item.displayUrl; // unmarked (the logo): the stored copy IS the original
+        }
+        if (!url) {
+          setError('The original of this photo is not available. Upload it again to re-frame it.');
+          return;
+        }
+        const blob = await fetch(url).then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`original ${r.status}`))));
+        raw = new File([blob], item.filename.replace(/^.*-fr-[^.]*/, 'photo'), { type: blob.type || item.contentType });
+      }
+      await uploadOne(raw, { replaceId: item.id, initial });
+    } catch {
+      setError('This photo could not be re-opened just now. Try again.');
+    } finally {
+      if (isMountedRef.current) setReframing(null);
+    }
+  }
+  /** A tile that re-opens the Frame step: framed photos only. */
+  const canReframe = (item: UploadedItem) =>
+    Boolean(frame && previews) &&
+    Boolean(item.displayUrl) &&
+    (isImage(item.contentType) || (isVideo(item.contentType) && rawById.current.has(item.id)));
 
   function cancelInFlight(id: string) {
     setInFlight((prev) => {
@@ -1364,6 +1502,16 @@ export function FileUpload({
               />
               <Loader2 aria-hidden className="absolute h-[22px] w-[22px] animate-spin text-[#C24E25]" strokeWidth={1.75} />
             </>
+          ) : first && first.displayUrl && isImage(first.contentType) && canReframe(first) ? (
+            <button
+              type="button"
+              data-reframe=""
+              aria-label={`Re-frame ${first.filename}`}
+              onClick={() => void reframe(first)}
+              className="block h-full w-full"
+            >
+              <FramedImg src={first.displayUrl} frameRef={first.r2Ref} shape={frame} aspect={1} alt={first.filename} />
+            </button>
           ) : first && first.displayUrl && isImage(first.contentType) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={first.displayUrl} alt={first.filename} className="h-full w-full object-cover" />
@@ -1576,7 +1724,7 @@ export function FileUpload({
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="space-y-2">
-              {roundPreview ? (
+              {roundPreview || frame === 'circle' ? (
                 // Circular, and `object-cover` so the image FILLS the circle —
                 // `object-contain` would letterbox a wide logo inside it and show
                 // the vendor a shape they will not get. This is a crop preview,
@@ -1586,12 +1734,24 @@ export function FileUpload({
                     className="flex aspect-square w-[132px] max-w-full items-center justify-center overflow-hidden rounded-full border bg-cream"
                     style={{ borderColor: 'var(--m-line)' }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.displayUrl}
-                      alt={item.filename}
-                      className="h-full w-full object-cover"
-                    />
+                    {canReframe(item) ? (
+                      <button
+                        type="button"
+                        data-reframe=""
+                        aria-label={`Re-frame ${item.filename}`}
+                        onClick={() => void reframe(item)}
+                        className="block h-full w-full"
+                      >
+                        <FramedImg src={item.displayUrl} frameRef={item.r2Ref} shape={frame} aspect={1} alt={item.filename} />
+                      </button>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={item.displayUrl}
+                        alt={item.filename}
+                        className="h-full w-full object-cover"
+                      />
+                    )}
                   </span>
                 </span>
               ) : (
@@ -1679,7 +1839,23 @@ export function FileUpload({
               title={item.filename}
               className="relative aspect-square overflow-hidden rounded-xl border border-ink/10 bg-cream"
             >
-              {isImage(item.contentType) && item.displayUrl ? (
+              {canReframe(item) ? (
+                // Tap re-opens the Frame step with this photo's saved framing.
+                <button
+                  type="button"
+                  data-reframe=""
+                  aria-label={`Re-frame ${item.filename}`}
+                  onClick={() => void reframe(item)}
+                  className="block h-full w-full"
+                >
+                  {isImage(item.contentType) ? (
+                    <FramedImg src={item.displayUrl} frameRef={item.r2Ref} shape={frame} aspect={1} alt={item.filename} />
+                  ) : (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption -- the vendor's own showcase clip, shown as a poster frame
+                    <video src={item.displayUrl} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                  )}
+                </button>
+              ) : isImage(item.contentType) && item.displayUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={item.displayUrl}
@@ -1850,6 +2026,24 @@ export function FileUpload({
       )}
 
       {help && !rowMode ? <p className="block text-xs text-ink/55">{help}</p> : null}
+
+      {/* The Frame step, full screen, portaled to <body> so no sheet's transform or overflow can box it in. */}
+      {framePrompt && frame && previews && typeof document !== 'undefined'
+        ? createPortal(
+            <FrameStep
+              src={framePrompt.src}
+              isVideo={framePrompt.isVideo}
+              shape={frame}
+              previews={framePrompt.isVideo ? 'service-video' : previews}
+              mark={framePrompt.mark}
+              initial={framePrompt.initial}
+              reopened={framePrompt.reopened}
+              onDone={(framing, size) => framePrompt.resolve({ framing, size })}
+              onCancel={() => framePrompt.resolve(null)}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

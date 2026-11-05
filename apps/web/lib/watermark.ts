@@ -80,6 +80,8 @@ import { WATERMARK_TEXT } from './watermark-text';
 // chunk adds an entry to the webpack runtime every page loads, and the shared bundle has no room for one.
 import { layoutInside, layoutMark, layoutMarkInFrame, type FrameShape, type MarkSpec } from './photo-mark-geometry';
 import * as painter from './photo-mark-canvas';
+// The Frame step paints its live preview with these very functions (app/_components/frame-step.tsx).
+export { painter as markPainter, layoutMarkInFrame };
 
 export type WatermarkOptions = {
   /** Text to render (default: the shared `WATERMARK_TEXT`, the web address) */

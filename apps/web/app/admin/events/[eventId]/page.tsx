@@ -10,6 +10,8 @@ import { setEventFaceMode } from '@/app/admin/events/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readEventServiceCounts } from '@/lib/supplier-count.server';
+import { breakdownWords, ruleLabels, ruleWords } from '@/lib/supplier-count';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -117,6 +119,8 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   const ev = eventRead.data;
   if (!ev) notFound();
   const eventId = ev.event_id as string;
+  // 🧮 Leaves now, read below — it needs no other answer.
+  const serviceCountsRead = readEventServiceCounts(admin, eventId);
 
   // ── hosts ───────────────────────────────────────────────────────────────
   const membersRead = await admin
@@ -154,6 +158,10 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   }
   const countCell = (r: { count: number | null; error: unknown }) =>
     r.error || r.count === null ? COULD_NOT_LOAD : formatCount(r.count);
+
+  // ── 🧮 who each per-head service counts (owner 2026-11-04) — numbers and the rule, so support can answer "why 141?"
+  // without opening a guest list. The service role reads it (`get_event_service_counts`); null = refused, said so.
+  const serviceCounts = await serviceCountsRead;
 
   // ── per-guest face list ─────────────────────────────────────────────────
   const guestsRead = await admin
@@ -420,6 +428,38 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
             </SubmitButton>
           </ConfirmForm>
         ) : null}
+      </section>
+
+      {/* 🧮 Who each supplier counts (owner 2026-11-04) — each per-head service's count and its rule. */}
+      <section className="border-t border-ink/10 pt-5" data-admin-service-counts="">
+        <h2 className="mb-3 text-sm font-medium text-ink">Who each supplier counts</h2>
+        {serviceCounts === null ? (
+          <p role="alert" className="text-sm text-mulberry">
+            {COULD_NOT_LOAD} the suppliers&rsquo; counts — the read was refused, so this is not &ldquo;none&rdquo;.
+          </p>
+        ) : serviceCounts.services.length === 0 ? (
+          <p className="text-sm text-ink/60">Verified: no supplier on this event is priced per head.</p>
+        ) : (
+          <ul className="divide-y divide-ink/10 text-sm">
+            {serviceCounts.services.map((s) => (
+              <li key={s.id} className="flex items-start justify-between gap-4 py-2" data-admin-service-count={s.id}>
+                <span className="min-w-0">
+                  <span className="block text-ink">
+                    {s.label} · {s.shop ?? '—'}
+                    {s.booked ? '' : <span className="text-ink/50"> · quoted, not booked</span>}
+                  </span>
+                  <span className="block text-xs text-ink/60">
+                    {ruleWords(s.rule.mode, ruleLabels(s.rule, serviceCounts.groups, serviceCounts.names))} · {breakdownWords(s)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <b className="block text-base font-medium tabular-nums text-ink">{formatCount(s.counted)}</b>
+                  <span className="text-xs text-ink/60">counted</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* 🔒 Suppliers' schedule — the CHANGE LOCK (audit D7), read-only */}

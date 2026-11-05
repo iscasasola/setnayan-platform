@@ -51,7 +51,7 @@ import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
-import { ShopGiftsSection } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
+import { ShopGiftsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';

@@ -33,9 +33,10 @@ import { bookingFeeErrorCopy,
 import { ShopNotice } from '../../_components/kit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
-import { DISPUTE_TEXT_MAX, asDisputeStatus, disputeStateLine } from '@/lib/booking-fee-dispute';
+import { asDisputeStatus, disputeStateLine } from '@/lib/booking-fee-dispute';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { disputeBookingFee } from './actions';
+import { DisputeNoteField } from '@/app/_components/dispute-note-field';
+import { bookingFeeDispute } from '@/app/_actions/booking-fee-dispute-actions';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
@@ -346,18 +347,10 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           <p className="text-sm text-ink/70">
             If this couple did not find you through Setnayan, tell us and we will look at it.
           </p>
-          <form action={disputeBookingFee} className="space-y-3">
+          <form action={bookingFeeDispute} className="space-y-3">
+            <input type="hidden" name="op" value="open" />
             <input type="hidden" name="order_id" value={order.order_id} />
-            <label className="block text-xs font-medium text-ink/70" htmlFor="fee-dispute-reason">
-              What happened? (optional)
-            </label>
-            <textarea
-              id="fee-dispute-reason"
-              name="reason"
-              rows={3}
-              maxLength={DISPUTE_TEXT_MAX}
-              className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-            />
+            <DisputeNoteField name="What happened?" empty="Optional" fieldName="reason" />
             <SubmitButton pendingLabel="Sending…">Dispute this fee</SubmitButton>
           </form>
         </section>

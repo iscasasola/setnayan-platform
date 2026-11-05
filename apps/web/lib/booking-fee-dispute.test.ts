@@ -82,18 +82,19 @@ test('4 · both notices are in-app only', () => {
 });
 
 test('5 · the wiring: own-session read first, admin-gated decision, the form only on an open undisputed bill', () => {
-  const act = read('app/vendor-dashboard/booking-fees/[orderId]/actions.ts');
-  const ownRead = act.indexOf('fetchOrderById(supabase, orderId)');
-  const step = act.indexOf("rpc('booking_fee_open_dispute'");
+  const act = read('app/_actions/booking-fee-dispute-actions.ts');
+  const open = act.slice(act.indexOf('async function open('), act.indexOf('async function decide('));
+  const ownRead = open.indexOf('fetchOrderById(supabase, orderId)');
+  const step = open.indexOf("rpc('booking_fee_open_dispute'");
   assert.ok(ownRead > 0 && step > ownRead, "the bill is read on the supplier's own session before the step");
-  assert.match(act, /order\.user_id !== user\.id/);
-  assert.match(act, /type: 'fee_dispute_opened'/);
+  assert.match(open, /order\.user_id !== user\.id/);
+  assert.match(open, /type: 'fee_dispute_opened'/);
 
-  const admin = read('app/admin/disputes/actions.ts');
-  const fn = admin.slice(admin.indexOf('export async function decideBookingFeeDispute'));
+  const fn = act.slice(act.indexOf('async function decide('));
   assert.match(fn, /await requireAdmin\(\)/);
   assert.match(fn, /rpc\('booking_fee_decide_dispute'/);
   assert.match(fn, /type: 'fee_dispute_answered'/);
+  assert.match(act, /if \(formData\.get\('op'\) === 'decide'\) return decide\(formData\);/, 'decide only on its own op');
 
   const page = read('app/vendor-dashboard/booking-fees/[orderId]/page.tsx');
   assert.match(page, /const canDispute = payable && Boolean\(chargeId\) && dispute === null;/);

@@ -5,8 +5,9 @@ import { relativeTime } from '@/lib/activity';
 import { formatLongDate } from '@/lib/format-date';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SOURCED_INQUIRY_SOURCES, SETNAYAN_SAVE_SOURCES } from '@/lib/booking-fee-gate';
-import { DISPUTE_TEXT_MAX, foundReceiptLine } from '@/lib/booking-fee-dispute';
-import { decideBookingFeeDispute } from '../actions';
+import { foundReceiptLine } from '@/lib/booking-fee-dispute';
+import { DisputeNoteField } from '@/app/_components/dispute-note-field';
+import { bookingFeeDispute } from '@/app/_actions/booking-fee-dispute-actions';
 
 /**
  * 🕵️ "THIS COUPLE DID NOT FIND ME THROUGH SETNAYAN" — a supplier's booking-fee disputes waiting for an admin.
@@ -141,12 +142,12 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
       ) : waiting.length === 0 ? (
         <p className="rounded-lg bg-ink/[0.03] px-4 py-3 text-xs text-ink/60">No booking fee dispute is waiting.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="divide-y divide-ink/10">
           {waiting.map((r) => {
             const c = charges.get(r.charge_id);
             const rc = receipts.get(r.dispute_id);
             return (
-              <li key={r.dispute_id} className="rounded-xl border border-ink/10 bg-white p-4" data-fee-dispute-row="">
+              <li key={r.dispute_id} className="py-4" data-fee-dispute-row="">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="text-sm font-medium text-ink">{shopName.get(r.vendor_profile_id) ?? 'Unnamed shop'}</span>
                   <span className="text-xs text-ink/50">disputed {relativeTime(r.created_at)}</span>
@@ -165,18 +166,10 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
                   <li>{rc ? (rc.chat ? 'A chat was started from Setnayan.' : 'No chat was started from Setnayan.') : '—'}</li>
                   <li>{rc ? (rc.save ? 'The couple saved this shop from Find.' : 'No save from Find.') : '—'}</li>
                 </ul>
-                <form action={decideBookingFeeDispute} className="mt-3 space-y-2">
+                <form action={bookingFeeDispute} className="mt-3 space-y-2">
+                  <input type="hidden" name="op" value="decide" />
                   <input type="hidden" name="dispute_id" value={r.dispute_id} />
-                  <label className="block text-xs font-medium text-ink/70" htmlFor={`fee-note-${r.dispute_id}`}>
-                    Note to the supplier (optional)
-                  </label>
-                  <textarea
-                    id={`fee-note-${r.dispute_id}`}
-                    name="note"
-                    rows={2}
-                    maxLength={DISPUTE_TEXT_MAX}
-                    className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
-                  />
+                  <DisputeNoteField name="Note to the supplier" empty="Optional" fieldName="note" />
                   <div className="flex flex-wrap gap-2">
                     <SubmitButton name="decision" value="accept" pendingLabel="Saving…">
                       Accept — waive the fee

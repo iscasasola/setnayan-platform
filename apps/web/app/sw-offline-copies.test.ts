@@ -26,10 +26,16 @@ import vm from 'node:vm';
 import {
   OFFLINE_COPIES_CACHE,
   OFFLINE_COPIES_WIPE_SCRIPT,
+  OFFLINE_COPY_UNREAD,
   OFFLINE_REGISTRY_PATH,
-  isOfflineCopyPath,
-  offlineCopyEventId,
+  coordinatorSchedulePath,
+  parseOfflineRegistry,
+  savedAtFor,
+  savedMark,
+  staleFor,
+  supplierSchedulePath,
 } from '@/lib/offline-copies';
+import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from '@/lib/offline-copy-addresses';
 
 const SW_FILE = process.env.SW_OFFLINE_FROM || path.join(import.meta.dirname, '..', 'public', 'sw.js');
 const HOOK = path.join(import.meta.dirname, '_components', 'offline-ready', 'use-offline-copy.ts');
@@ -43,6 +49,12 @@ const HOME = `/dashboard/${E1}`;
 const DESK = `/dashboard/${E1}/guests/checkin`;
 const HUB = '/vendor-dashboard/on-the-day';
 const LIVE = `/vendor-dashboard/on-the-day/live/${E1}`;
+// 📅 Each person's own day ("Your schedule").
+const SCHED = coordinatorSchedulePath(E1)!; // the hosts' / coordinator's Schedule
+const SUP = supplierSchedulePath(E1)!; // a supplier's (a Host/MC's) Customer › Schedule
+const SLUG = 'ana-ben';
+const ME = guestMePath(SLUG)!; // a guest's Event Hub › Me
+const GUEST = 'g-0e0e0e0e-0000-4000-8000-0000000000aa'; // an accountless pass holder
 const HOUR = 3_600_000;
 const CHROME_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
 const SAFARI_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
@@ -94,7 +106,14 @@ function boot(o: { ua?: string; host?: string } = {}) {
     }
   }
   /** The fake server: who is signed in, which build is live, whether the network is there at all. */
-  const server = { build: 'B1', viewer: ANA as string | null, down: false, sent: [] as string[] };
+  const server = {
+    build: 'B1',
+    viewer: ANA as string | null,
+    down: false,
+    sent: [] as string[],
+    /** 🧾 The version each address's page draws (`data-sn-copy-version`), as a "Your schedule" page renders it. */
+    versions: {} as Record<string, string>,
+  };
   const navigator = { onLine: true, userAgent: o.ua ?? CHROME_UA };
   const listeners: Record<string, Array<(ev: Record<string, unknown>) => void>> = {};
   const self = {
@@ -123,7 +142,10 @@ function boot(o: { ua?: string; host?: string } = {}) {
         Object.defineProperty(res, 'type', { value: 'opaqueredirect' });
         return res;
       }
-      const html = `<html><body data-build="${server.build}" data-viewer="${server.viewer}">${url.pathname}` +
+      const address = url.pathname + url.search;
+      const version = server.versions[address];
+      const html = `<html><body data-build="${server.build}" data-viewer="${server.viewer}">${address}` +
+        (version ? `<div data-schedule-saved="" data-sn-copy-version="${version}"></div>` : '') +
         `<script src="/_next/static/chunks/app-${server.build}-0123456789abcdef.js?dpl=dpl_${server.build}"></script></body></html>`;
       const res = new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       Object.defineProperty(res, 'type', { value: 'basic' });
@@ -194,7 +216,7 @@ function boot(o: { ua?: string; host?: string } = {}) {
 test('the messages driven here are the ones the pages post', () => {
   const hook = readFileSync(HOOK, 'utf8');
   assert.ok(hook.includes("type: 'OFFLINE_SAVE'"), 'use-offline-copy no longer posts OFFLINE_SAVE');
-  for (const field of ['viewer', 'eventId', 'until', 'paths', 'force']) {
+  for (const field of ['viewer', 'eventId', 'until', 'paths', 'force', 'version']) {
     assert.ok(new RegExp(`\\b${field}\\b`).test(hook), `use-offline-copy no longer sends "${field}"`);
   }
   const script = readFileSync(VIEWER_SCRIPT, 'utf8');
@@ -209,12 +231,15 @@ test('the worker and lib/offline-copies.ts agree on every address', () => {
     HOME, DESK, HUB, LIVE, `/dashboard/S89E-0123456789`, `/dashboard/${E1}/guests`, `/dashboard/${E1}/`, '/dashboard',
     '/dashboard/notifications', `/dashboard/${E1}/guests/checkin/x`, '/vendor-dashboard', '/vendor-dashboard/on-the-day/',
     `/vendor-dashboard/on-the-day/live/${E1}/papic`, '/ana-ben', `/dashboard/${E1}.json`, '/dashboard/a/b', '/dashboard/short',
+    SCHED, SUP, ME, `${SCHED}?maker=1`, `/vendor-dashboard/clients/${E1}`, `/vendor-dashboard/clients/${E1}?tab=files`,
+    `${SUP}&x=1`, '/ana-ben?tab=home', '/dashboard?tab=me', '/login?tab=me', '/vendor-dashboard?tab=me', '/ab?tab=me',
+    '/Ana-Ben?tab=me',
   ];
   for (const p of table) {
     assert.equal(swIs(p), isOfflineCopyPath(p), `sw.js and lib disagree whether ${p} may be kept`);
     assert.equal(swEvent(p), offlineCopyEventId(p), `sw.js and lib disagree whose event ${p} is`);
   }
-  assert.ok(table.filter((p) => isOfflineCopyPath(p)).length >= 5, 'the table no longer exercises a kept address');
+  assert.ok(table.filter((p) => isOfflineCopyPath(p)).length >= 8, 'the table no longer exercises a kept address');
 });
 
 // ── network-first, always ─────────────────────────────────────────────────────
@@ -466,4 +491,183 @@ test('a development host keeps nothing and says so', async () => {
   assert.equal(r?.ok, false);
   assert.equal(r?.dev, true);
   assert.deepEqual(w.kept(), []);
+});
+
+// ── 📅 YOUR SCHEDULE — each person's own day, saved for no signal ─────────────────────────────────────────────────
+
+const meSave = (w: ReturnType<typeof boot>, extra: Record<string, unknown> = {}) =>
+  w.post({ type: 'OFFLINE_SAVE', viewer: GUEST, eventId: SLUG, until: w.clock.now + 30 * HOUR, paths: [ME], ...extra });
+
+test('a copy is written for each person’s schedule — the hosts’ / coordinator’s, a supplier’s (a Host/MC’s), a guest’s Me', async () => {
+  const cases: Array<{ who: string; viewer: string; key: string; path: string }> = [
+    { who: 'coordinator', viewer: ANA, key: E1, path: SCHED },
+    { who: 'supplier', viewer: BEN, key: E1, path: SUP },
+    { who: 'guest', viewer: GUEST, key: SLUG, path: ME },
+  ];
+  for (const c of cases) {
+    const w = boot();
+    w.server.viewer = c.viewer;
+    w.server.versions[c.path] = 'v1aaaa.10';
+    const r = await w.post({ type: 'OFFLINE_SAVE', viewer: c.viewer, eventId: c.key, until: w.clock.now + 30 * HOUR, paths: [c.path], version: 'v1aaaa.10' });
+    assert.equal(r?.ok, true, `${c.who}: the save did not land (${JSON.stringify(r)})`);
+    assert.ok(w.kept().includes(c.path), `${c.who}: ${c.path} was not kept (${w.kept()})`);
+    const reg = await w.registry();
+    assert.equal(reg.viewer, c.viewer);
+    assert.equal(typeof reg.events[c.key].pages[c.path], 'number', `${c.who}: the registry does not list the copy`);
+    assert.equal(reg.events[c.key].versions[c.path], 'v1aaaa.10', `${c.who}: the copy’s version was not recorded`);
+    // No signal: that very day opens from the copy, marked as the copy — for a warm worker and a cold one.
+    w.server.down = true;
+    for (const cold of [false, true]) {
+      if (cold) w.restart();
+      const off = await w.nav(c.path);
+      assert.ok(off.body?.includes(`>${c.path}<`), `${c.who}${cold ? ' (cold)' : ''}: no signal opened ${off.body}`);
+      assert.ok(off.copy, `${c.who}: not marked as the saved copy`);
+      assert.match(off.body ?? '', /<html data-sn-saved-copy="\d+"/);
+      // …and the page’s mark, reading that copy, is the amber "No signal · showing the copy from …", never "Saved".
+      const at = Number(off.copy);
+      const mark = savedMark({ phase: 'saved', savedAt: at, now: w.clock.now, online: false, eventDay: true, onCopy: at });
+      assert.equal(mark.tone, 'amber');
+      assert.match(mark.text, /^No signal · showing the copy from /);
+    }
+  }
+});
+
+test('a schedule save names only its own event’s day — never another event’s, never a reserved word as a guest page', async () => {
+  const w = boot();
+  for (const [eventId, paths] of [
+    [E2, [SCHED]],
+    [E1, [ME]],
+    [SLUG, [SCHED]],
+    ['dashboard', ['/dashboard?tab=me']],
+    [E1, [`/vendor-dashboard/clients/${E1}?tab=files`]],
+    [E1, [`${SCHED}?maker=1`]],
+  ] as const) {
+    const r = await w.post({ type: 'OFFLINE_SAVE', viewer: ANA, eventId, until: w.clock.now + 30 * HOUR, paths });
+    assert.equal(r?.ok, false, `a save of ${paths} under ${eventId} was accepted`);
+  }
+  assert.deepEqual(w.kept(), [], `something was kept: ${w.kept()}`);
+});
+
+test('with signal the schedule is the network’s answer; opening it refreshes the copy — and its version', async () => {
+  const w = boot();
+  w.server.viewer = GUEST;
+  w.server.versions[ME] = 'v1aaaa.10';
+  await meSave(w, { version: 'v1aaaa.10' });
+  w.server.versions[ME] = 'v2bbbb.12'; // the hosts pressed Release
+  w.clock.now += 5 * 60_000;
+  const online = await w.nav(ME);
+  assert.match(online.body ?? '', /data-sn-copy-version="v2bbbb.12"/, 'an online open was not the network’s page');
+  assert.equal(online.copy, null, 'an online open was answered from the copy');
+  const reg = await w.registry();
+  assert.equal(reg.events[SLUG].versions[ME], 'v2bbbb.12', 'opening it did not record the new version');
+  assert.equal(reg.events[SLUG].pages[ME], w.clock.now, 'opening it did not refresh the copy');
+  assert.equal(staleFor(parseOfflineRegistry(reg), GUEST, SLUG, [ME], 'v2bbbb.12'), false);
+});
+
+test('a stale copy after a Release is re-saved on the next visit with signal, however fresh its clock — and never labelled fresh until it is', async () => {
+  const w = boot();
+  w.server.viewer = GUEST;
+  w.server.versions[ME] = 'v1aaaa.10';
+  await meSave(w, { version: 'v1aaaa.10' });
+  const first = (await w.registry()).events[SLUG].pages[ME];
+  // The same version, ten minutes on: nothing is rendered again (the 30-minute rule stands).
+  w.clock.now += 10 * 60_000;
+  w.server.sent.length = 0;
+  await meSave(w, { version: 'v1aaaa.10' });
+  assert.deepEqual(w.server.sent.filter((x) => x === ME), [], 'a current copy was rendered again');
+  // Release: the page now draws v2. A copy ten minutes old is still stale.
+  w.server.versions[ME] = 'v2bbbb.12';
+  const reg1 = parseOfflineRegistry(await w.registry());
+  assert.equal(staleFor(reg1, GUEST, SLUG, [ME], 'v2bbbb.12'), true, 'a copy from before the Release read as current');
+  const fresh = savedMark({ phase: 'saved', savedAt: savedAtFor(reg1, GUEST, SLUG, [ME], w.clock.now), now: w.clock.now, online: true, eventDay: true, stale: true });
+  assert.notEqual(fresh.tone, 'ok', `a copy from before the Release was drawn "${fresh.text}"`);
+  // The venue Wi-Fi drops as the page asks: the save says it failed, the older copy stays, still stale.
+  w.server.down = true;
+  const failed = await meSave(w, { version: 'v2bbbb.12' });
+  assert.equal(failed?.ok, false);
+  assert.equal(failed?.savedAt, first, 'the failed save did not name the older copy');
+  const reg2 = parseOfflineRegistry(await w.registry());
+  assert.equal(staleFor(reg2, GUEST, SLUG, [ME], 'v2bbbb.12'), true, 'a failed save made the old copy current');
+  const bad = savedMark({ phase: 'failed', savedAt: savedAtFor(reg2, GUEST, SLUG, [ME], w.clock.now), now: w.clock.now, online: true, eventDay: true, stale: true });
+  assert.equal(bad.tone, 'bad');
+  assert.match(bad.text, /^Couldn’t update · the copy from /);
+  // Signal back: the next save re-renders it (not skipped as "fresh"), and only now is it current.
+  w.server.down = false;
+  w.server.sent.length = 0;
+  const ok = await meSave(w, { version: 'v2bbbb.12' });
+  assert.equal(ok?.ok, true);
+  assert.deepEqual(w.server.sent.filter((x) => x === ME), [ME], 'the stale copy was skipped as fresh');
+  const reg3 = parseOfflineRegistry(await w.registry());
+  assert.equal(staleFor(reg3, GUEST, SLUG, [ME], 'v2bbbb.12'), false);
+  w.server.down = true;
+  assert.match((await w.nav(ME)).body ?? '', /data-sn-copy-version="v2bbbb.12"/, 'no signal opened the copy from before the Release');
+});
+
+test('a page that could not read its schedule is never kept over the good copy — and the save says it failed', async () => {
+  const w = boot();
+  w.server.versions[SCHED] = 'v1aaaa.10';
+  await w.saveFor(ANA, E1, [SCHED], { version: 'v1aaaa.10' });
+  const good = (await w.registry()).events[E1].pages[SCHED];
+  w.server.versions[SCHED] = OFFLINE_COPY_UNREAD; // the schedule read failed on the server
+  w.clock.now += HOUR;
+  await w.nav(SCHED); // an open with signal
+  assert.equal((await w.registry()).events[E1].pages[SCHED], good, 'the open kept the failed page over the good copy');
+  const r = await w.saveFor(ANA, E1, [SCHED], { force: true, version: OFFLINE_COPY_UNREAD });
+  assert.equal(r?.ok, false, 'a save of a page that could not read its schedule said it landed');
+  assert.deepEqual(plain(r?.failed), [SCHED]);
+  w.server.down = true;
+  assert.match((await w.nav(SCHED)).body ?? '', /data-sn-copy-version="v1aaaa.10"/, 'no signal did not open the good copy');
+});
+
+test('sign-out wipes it: a guest’s “Remove it from this browser” erases that event’s Me; an account sign-out erases all', async () => {
+  // A guest pass holder: the POST to /<slug>/sign-out (every guest sign-out door) erases the saved Me.
+  const g = boot();
+  g.server.viewer = GUEST;
+  await meSave(g);
+  assert.ok(g.kept().includes(ME));
+  await g.nav(`/${SLUG}/sign-out`, { method: 'POST' });
+  assert.ok(!g.kept().includes(ME), `the guest’s Me survived their sign-out: ${g.kept()}`);
+  assert.equal((await g.registry()).events[SLUG], undefined, 'the registry still lists the signed-out guest’s day');
+  g.server.down = true;
+  assert.equal((await g.nav(ME)).copy, null, 'the next person on the phone opened the signed-out guest’s Me');
+  // A cold worker is told the same.
+  const c = boot();
+  c.server.viewer = GUEST;
+  await meSave(c);
+  c.restart();
+  await c.nav(`/${SLUG.toUpperCase()}/sign-out`, { method: 'POST' });
+  assert.ok(!c.kept().includes(ME), 'a cold worker missed the sign-out');
+
+  // One account that is a guest at one wedding and coordinates another: signing out of the guest pass keeps the
+  // coordinator’s own day; the account’s sign-out erases everything.
+  const a = boot();
+  a.server.viewer = ANA;
+  await a.post({ type: 'OFFLINE_SAVE', viewer: ANA, eventId: SLUG, until: a.clock.now + 30 * HOUR, paths: [ME] });
+  await a.saveFor(ANA, E1, [HOME, SCHED]);
+  await a.nav(`/${SLUG}/sign-out`, { method: 'POST' });
+  assert.deepEqual(a.kept().filter((k) => !k.startsWith('/__setnayan-sw')).sort(), [HOME, SCHED].sort(), 'the guest sign-out erased the wrong copies');
+  await a.nav('/auth/sign-out');
+  assert.deepEqual(a.kept(), [], `the account’s sign-out left ${a.kept()}`);
+  // A reserved word is never read as a guest’s sign-out.
+  const r = boot();
+  await r.saveFor(ANA, E1, [HOME]);
+  await r.nav('/dashboard/sign-out', { method: 'POST' });
+  assert.ok(r.kept().includes(HOME));
+});
+
+test('the day-of cache never keeps a guest’s Me — it is per person, kept only by the saved copy', async () => {
+  for (const ua of [CHROME_UA, SAFARI_UA]) {
+    const w = boot({ ua });
+    w.server.viewer = GUEST;
+    w.restart(); // cold: nothing in memory
+    await w.nav(ME);
+    await w.nav(`/${SLUG}`);
+    const dayOf = [...(w.stores.get('setnayan-dayof-v4')?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search);
+    assert.ok(!dayOf.includes(ME), `${ua.slice(0, 20)}: the day-of cache kept a guest’s Me (${dayOf})`);
+    assert.ok(dayOf.includes(`/${SLUG}`), `${ua.slice(0, 20)}: the day-of cache stopped keeping the guest page itself (${dayOf})`);
+    // Another person, no signal: the Me opens from nobody’s copy.
+    w.server.down = true;
+    const off = await w.nav(ME);
+    assert.ok(!off.body?.includes(GUEST), `no signal opened the last guest’s Me: ${off.body}`);
+  }
 });

@@ -14,12 +14,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   OFFLINE_COPIES_CACHE,
+  OFFLINE_COPY_UNREAD,
   OFFLINE_REGISTRY_PATH,
   offlineCopiesUntil,
   offlineSavingOpen,
   parseOfflineRegistry,
   savedAtFor,
   savedCopyOnScreen,
+  staleFor,
   type SavedPhase,
 } from '@/lib/offline-copies';
 
@@ -44,15 +46,19 @@ export function runsAsInstalledApp(): boolean {
   }
 }
 
-async function readSavedAt(viewer: string, eventId: string, paths: readonly string[]): Promise<number | null> {
+type Kept = { savedAt: number | null; stale: boolean };
+
+async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
   try {
-    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return null;
+    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false };
     const cache = await caches.open(OFFLINE_COPIES_CACHE);
     const res = await cache.match(OFFLINE_REGISTRY_PATH);
-    if (!res) return null;
-    return savedAtFor(parseOfflineRegistry(await res.json()), viewer, eventId, paths, Date.now());
+    if (!res) return { savedAt: null, stale: false };
+    const reg = parseOfflineRegistry(await res.json());
+    const savedAt = savedAtFor(reg, viewer, eventId, paths, Date.now());
+    return { savedAt, stale: savedAt !== null && staleFor(reg, viewer, eventId, paths, version) };
   } catch {
-    return null;
+    return { savedAt: null, stale: false };
   }
 }
 
@@ -91,6 +97,8 @@ export type OfflineCopy = {
   installed: boolean;
   /** The page on screen is the saved copy (saved at this time) — the worker opened it with no signal. */
   onCopy: number | null;
+  /** 🧾 The kept copy is from before the version this page was rendered with (a Release, an edit) — never "Saved". */
+  stale: boolean;
   /** "Update now" — forces a fresh copy of every page. Resolves true only when every page landed. On the saved copy it
    *  loads the page again instead (network-first: the latest with signal, the copy without). */
   update: () => Promise<boolean>;
@@ -103,6 +111,7 @@ export function useOfflineCopy({
   eventEndDate = null,
   paths,
   auto = true,
+  version = null,
 }: {
   viewer: string;
   eventId: string;
@@ -110,9 +119,17 @@ export function useOfflineCopy({
   eventEndDate?: string | null;
   paths: readonly string[];
   auto?: boolean;
+  /**
+   * 🧾 The version of what this page drew (`copyVersionOf`, rendered as `data-sn-copy-version`). A kept copy whose
+   * recorded version differs is stale: re-rendered on the next save however fresh, never drawn as saved meanwhile.
+   * `OFFLINE_COPY_UNREAD` — this page could not read what it shows: nothing is saved automatically (the worker would
+   * refuse it) and the older copy is named as not updated.
+   */
+  version?: string | null;
 }): OfflineCopy {
   const [phase, setPhase] = useState<SavedPhase>('checking');
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [stale, setStale] = useState(false);
   const [online, setOnline] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const [installed, setInstalled] = useState(false);
@@ -125,24 +142,38 @@ export function useOfflineCopy({
     async (force: boolean): Promise<boolean> => {
       if (busy.current) return false;
       const until = offlineCopiesUntil(eventDate, eventEndDate);
-      if (until === null || !offlineSavingOpen(eventDate, Date.now(), eventEndDate)) return false;
+      if (until === null || !offlineSavingOpen(eventDate, Date.now(), eventEndDate)) {
+        // Nothing may be saved now: a copy held back as stale says it was not updated (never left at "Saving…").
+        setPhase((p) => (p === 'saving' ? 'failed' : p));
+        return false;
+      }
       busy.current = true;
       setPhase('saving');
       try {
-        const answer = await askWorker({ type: 'OFFLINE_SAVE', viewer, eventId, until, paths: key.split('|'), force });
-        const kept = await readSavedAt(viewer, eventId, key.split('|'));
-        setSavedAt(kept);
+        const answer = await askWorker({
+          type: 'OFFLINE_SAVE',
+          viewer,
+          eventId,
+          until,
+          paths: key.split('|'),
+          force,
+          ...(version ? { version } : {}),
+        });
+        const kept = await readKept(viewer, eventId, key.split('|'), version);
+        setSavedAt(kept.savedAt);
+        setStale(kept.stale);
         setNow(Date.now());
-        // 🔑 Only the worker's own "every page landed" is saved. No answer, a refusal, a dev host, a page that failed:
-        // failed — the older copy (if any) is named, never presented as fresh.
-        const ok = Boolean(answer?.ok) && kept !== null;
+        // 🔑 Only the worker's own "every page landed" is saved — and only a copy of THIS version. No answer, a refusal,
+        // a dev host, a page that failed, a copy still older than the change: failed — the older copy (if any) is
+        // named, never presented as fresh.
+        const ok = Boolean(answer?.ok) && kept.savedAt !== null && !kept.stale;
         setPhase(ok ? 'saved' : 'failed');
         return ok;
       } finally {
         busy.current = false;
       }
     },
-    [viewer, eventId, eventDate, eventEndDate, key],
+    [viewer, eventId, eventDate, eventEndDate, key, version],
   );
 
   useEffect(() => {
@@ -156,13 +187,21 @@ export function useOfflineCopy({
       setPhase('unsupported');
       return;
     }
-    void readSavedAt(viewer, eventId, key.split('|')).then((kept) => {
+    void readKept(viewer, eventId, key.split('|'), version).then((kept) => {
       if (!alive) return;
-      setSavedAt(kept);
-      setPhase(kept !== null ? 'saved' : 'none');
-      // ALWAYS ON: every open with signal refreshes the copy (the worker skips pages it saved < 30 min ago). Not from
-      // the copy itself: it was opened because the network failed — a save now would only fail too.
+      setSavedAt(kept.savedAt);
+      setStale(kept.stale);
+      // 🧾 This page could not read what it shows: the copy (if any) is the older one, and is said to be.
+      if (version === OFFLINE_COPY_UNREAD) {
+        setPhase('failed');
+        return;
+      }
+      // A copy older than this page's version is never drawn as saved, not even for the moment before the save runs.
+      setPhase(kept.savedAt === null ? 'none' : kept.stale ? 'saving' : 'saved');
+      // ALWAYS ON: every open with signal refreshes the copy (the worker skips pages it saved < 30 min ago — unless the
+      // copy's version differs from this page's). Not from the copy itself: it was opened because the network failed.
       if (auto && isOnline && copyAt === null) void save(false);
+      else if (kept.stale) setPhase('failed');
     });
     const goOnline = () => {
       setOnline(true);
@@ -179,7 +218,7 @@ export function useOfflineCopy({
       window.removeEventListener('offline', goOffline);
       window.clearInterval(tick);
     };
-  }, [viewer, eventId, key, auto, save]);
+  }, [viewer, eventId, key, auto, save, version]);
 
   const update = useCallback(async () => {
     if (onCopy !== null) {
@@ -188,5 +227,5 @@ export function useOfflineCopy({
     }
     return save(true);
   }, [save, onCopy]);
-  return { phase, savedAt, online, now, open, installed, onCopy, update };
+  return { phase, savedAt, online, now, open, installed, onCopy, stale, update };
 }

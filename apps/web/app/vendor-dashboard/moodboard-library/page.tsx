@@ -44,7 +44,7 @@ export default async function StylistMoodboardLibraryPage() {
   const { profile, slots } = access;
 
   const admin = createAdminClient();
-  const { data: rows } = await admin
+  const { data: rows, error: rowsError } = await admin
     .from('moodboard_library_assets')
     .select(
       // MB21 · `rejected_at` + `rejection_reason` are what turn "draft
@@ -56,6 +56,12 @@ export default async function StylistMoodboardLibraryPage() {
     )
     .eq('uploaded_by', user.id)
     .order('created_at', { ascending: false });
+  // 🔒 A REFUSED READ IS NOT "NO UPLOADS YET". Read as empty, a supplier with a
+  // shelf of photos is told they have none and may upload them all again.
+  // Throw to the dashboard's error screen, which says to try again.
+  if (rowsError) {
+    throw new Error(`moodboard-library: could not read your uploads (${rowsError.message})`);
+  }
 
   const assetIds = (rows ?? []).map((r) => r.asset_id);
   const colorRangesByAsset = new Map<string, ColorRangeMap>();

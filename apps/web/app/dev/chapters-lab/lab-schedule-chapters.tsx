@@ -26,6 +26,7 @@ export function LabScheduleChapters({
   marchFail = false,
   openMoment = false,
   free = false,
+  released = false,
   asks = false,
   defaults = false,
   held = false,
@@ -46,6 +47,8 @@ export function LabScheduleChapters({
   openMoment?: boolean;
   /** `?free=1`: a Free event — View as wears ◆ PRO and opens the upgrade. */
   free?: boolean;
+  /** `?released=1` (slice 6): the schedule is released — a named guest sees their full lines. */
+  released?: boolean;
   /** `?asks=1`: 🗓 D2 — the run-of-show moment carries one waiting ask and one declined (`?asks=fail`: the read failed). */
   asks?: boolean | 'fail';
   /** `?lock=1`: 🔒 D7 — the hair-and-make-up supplier locked their part (the moment sheet says so before a change). */
@@ -73,8 +76,10 @@ export function LabScheduleChapters({
         lastDay: LAB_EVENT_DAY,
         canEdit: !viewOnly,
         mayInvite: !viewOnly,
-        viewAs: empty ? null : labViewAs(!free),
+        viewAs: empty ? null : labViewAs(!free, released),
         asks: asks === 'fail' ? null : asks ? LAB_ASKS : [],
+        // 📋 Slice 8: a booked supplier that hasn't picked a chapter yet — a dashed face on the Ceremony (its trade's usual one).
+        picking: empty || defaults ? {} : { '00000000-0000-4000-8000-0000000000c4': ['v-hmua'] },
       };
   if (!mounted) return null;
   return (
@@ -93,7 +98,7 @@ export function LabScheduleChapters({
         notes={{}}
         announce={null}
         panels={{
-          'event-day': <ScheduleLabClient bare frame="line" toolsSlot={SCHEDULE_TOOLS_SLOT} />,
+          'event-day': <ScheduleLabClient bare frame="line" toolsSlot={SCHEDULE_TOOLS_SLOT} noRequests={defaults} />,
           preparation: <PlanningChapters />,
         }}
       />

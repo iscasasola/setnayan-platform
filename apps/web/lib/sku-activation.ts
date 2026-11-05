@@ -23,7 +23,7 @@ import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
-import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
@@ -52,8 +52,10 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+  shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
+import { shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -403,6 +405,136 @@ async function grantSetnayanGiftForBookingFee(
  * buy. Ownership is asserted the same way as every `vendor_*` hook.
  */
 async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<void> {
+  await grantShopWalletCredits(ctx, async () => VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS);
+}
+
+/**
+ * 🛍 2026-11-04 — a shop buys one of the COUPLE's Papic packs (`vendor_papic_pack__<PAPIC_GUEST code>`) into its
+ * wallet. The credits are that rung's `papic_pass_tiers.points`, read through `papicPointsBoughtBySku` — the same
+ * reader a couple's order uses, which also grants a rung retired after the order was paid.
+ */
+async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
+  const code = shopPapicPackCodeOf(ctx.serviceKey);
+  if (!code) return;
+  await grantShopWalletCredits(ctx, () => papicPointsBoughtBySku(ctx.admin, code));
+}
+
+/**
+ * 🎁 2026-11-04 — a shop buys GIFTS (`vendor_gift__<PAPIC_GUEST code>`, owner "SUPPLIER GIFTS: BOUGHT IN QUANTITY,
+ * KEPT AS STOCK"). Approval lands `quantity × credits_each` in the shop's GIFT STOCK (`shop_gift_stock_entries`,
+ * kind 'bought'), read from the `shop_gift_purchases` row the buy action wrote — `orders` has no quantity. Never the
+ * shop wallet: gift stock can only ever reach a couple's event. Idempotent by (order_id, kind).
+ */
+async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_purchases')
+      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    if (!p) {
+      reportActivationFault(
+        'activate:shop_gift_purchase',
+        ctx,
+        new Error(`gift order ${ctx.orderId} has no shop_gift_purchases row — nothing says how many were bought`),
+      );
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, p.vendor_profile_id);
+    const credits = p.quantity * p.credits_each;
+    if (!Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: p.vendor_profile_id,
+      gift_kind: p.gift_kind,
+      delta: credits,
+      kind: 'bought',
+      order_id: ctx.orderId,
+      note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already landed for this order
+      reportActivationFault('activate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: p.vendor_profile_id,
+        shop_gift_credits_granted: credits,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_purchase', ctx, e);
+  }
+}
+
+/**
+ * A refunded / un-approved gift order takes its credits back OUT of the gift stock as a negative 'reversal' row —
+ * sized from the 'bought' row, so it takes back exactly what this order put in, and nothing when it never landed.
+ * The stock may go below zero when the gifts were already given; the delivery door then refuses until more land.
+ */
+async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_stock_entries')
+      .select('vendor_profile_id, gift_kind, delta')
+      .eq('order_id', ctx.orderId)
+      .eq('kind', 'bought')
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    if (!bought || !(bought.delta > 0)) return;
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: bought.vendor_profile_id,
+      gift_kind: bought.gift_kind,
+      delta: -bought.delta,
+      kind: 'reversal',
+      order_id: ctx.orderId,
+      note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already taken back
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: bought.vendor_profile_id,
+        shop_gift_credits_revoked: bought.delta,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_purchase', ctx, e);
+  }
+}
+
+async function grantShopWalletCredits(
+  ctx: ActivationContext,
+  creditsOf: () => Promise<number | null>,
+): Promise<void> {
   try {
     const { data: order } = await ctx.admin
       .from('orders')
@@ -423,9 +555,14 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
       return;
     }
     await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
+    const credits = await creditsOf();
+    if (credits === null || !Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_papic_wallet_pack_credits', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
     const { error } = await ctx.admin.from('shop_papic_wallet_entries').insert({
       vendor_profile_id: vendorProfileId,
-      delta: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+      delta: credits,
       kind: 'pack_order',
       order_id: ctx.orderId,
       note: `Papic credit pack · ${ctx.serviceKey}`,
@@ -444,7 +581,7 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
       metadata: {
         service_key: ctx.serviceKey,
         vendor_profile_id: vendorProfileId,
-        shop_papic_wallet_credits_granted: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+        shop_papic_wallet_credits_granted: credits,
       },
     });
   } catch (e) {
@@ -509,7 +646,8 @@ async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
   try {
-    const points = await papicPassPointsForSku(ctx.admin, ctx.serviceKey);
+    // A rung retired after this order was paid still grants what it sold (papicPointsBoughtBySku).
+    const points = await papicPointsBoughtBySku(ctx.admin, ctx.serviceKey);
     if (points === null || points <= 0) return;
 
     // 🚨 SCOPED TO `source`, NOT JUST THE ORDER (fixed 2026-08-11). This used to
@@ -1168,7 +1306,81 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
 }
 
 // Exact-match hooks keyed by literal service_key.
+/**
+ * 💎 EVENT PLUS AND EVENT PRO (owner 2026-11-04, FINAL PRICE SHEET + "SETNAYAN AI IS NOT SOLD SEPARATELY" + "SIX
+ * OWNER ANSWERS"): each comes with Setnayan AI and with Papic credits for the event's shared pool — Plus 100, Pro
+ * 1,000. The credit count is the catalogue row's `included_papic_credits` (admin-managed), never a number here.
+ *
+ * TOP UP, NEVER ADD BOTH: the grant is the product's number LESS every `plan_included` credit this event already
+ * holds — so Plus then Pro lands 100 + 900 = 1,000 (owner 2026-11-02: "tops the grant up … never 600" in its day's
+ * numbers), and a re-approval grants nothing. A refund deletes this order's rows (`reversePapicPassPoints`, by
+ * order_id) and re-derives the AI flag (`deactivateSetnayanAiIfUnowned` now counts Plus and Pro).
+ */
+export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY];
+
+async function activateEventPlan(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  const eventId = ctx.eventId;
+  // 1 · Setnayan AI — the same per-event boolean a standalone AI order set.
+  const { error: aiErr } = await ctx.admin.from('events').update({ setnayan_ai_active: true }).eq('event_id', eventId);
+  if (aiErr) reportActivationFault('activate:plan_setnayan_ai', ctx, aiErr);
+
+  // 2 · the included Papic credits, topped up to this product's number.
+  try {
+    const { data: row, error: rowErr } = await ctx.admin
+      .from('platform_retail_catalog_v2')
+      .select('included_papic_credits')
+      .eq('service_code', ctx.serviceKey)
+      .maybeSingle();
+    if (rowErr) {
+      reportActivationFault('activate:plan_included_credits_read', ctx, rowErr);
+      return;
+    }
+    const included = Number((row as { included_papic_credits?: number | null } | null)?.included_papic_credits ?? 0);
+    if (!Number.isInteger(included) || included <= 0) return;
+    const { data: held, error: heldErr } = await ctx.admin
+      .from('papic_event_point_grants')
+      .select('points')
+      .eq('event_id', eventId)
+      .eq('source', 'plan_included');
+    if (heldErr) {
+      reportActivationFault('activate:plan_included_credits_held', ctx, heldErr);
+      return;
+    }
+    const already = (held ?? []).reduce(
+      (sum: number, r: { points?: number | null }) => sum + (typeof r.points === 'number' ? r.points : 0),
+      0,
+    );
+    const grant = included - already;
+    if (grant <= 0) return;
+    const { error } = await ctx.admin.from('papic_event_point_grants').insert({
+      event_id: eventId,
+      points: grant,
+      source: 'plan_included',
+      order_id: ctx.orderId,
+      note: `Included with ${ctx.serviceKey}`,
+    });
+    if (error) {
+      reportActivationFault('activate:plan_included_credits_insert', ctx, error);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: eventId, points_granted: grant, setnayan_ai: true },
+    });
+  } catch (e) {
+    reportActivationFault('activate:plan_included_credits', ctx, e);
+  }
+}
+
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
+  // 💎 Event Plus / Event Pro → Setnayan AI on + their included Papic credits (owner 2026-11-04).
+  EVENT_PLUS: activateEventPlan,
+  [COUPLE_WEBSITE_PRO_SERVICE_KEY]: activateEventPlan,
+
   // 'vendor_photo_challenge' → Papic Challenges, a ₱2,500 / 28-day SHOP
   // subscription (owner 2026-08-28: "unlimited us 2500 for 4 weeks"). Stamps
   // vendor_profiles.papic_challenge_expires_at for the paying vendor — NOT a
@@ -1351,6 +1563,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // someone who has never paid us before. If it were absent from this map it
   // would be the very first order we ever took and silently failed to honour.
   PAPIC_GUEST_100: grantPapicPassPoints,
+  // 📸 THE THREE PACKS (owner 2026-11-03, migration *_papic_is_three_packs_and_no_signup_price.sql): 150 · 1,000
+  // (PAPIC_GUEST_1K) · 3,000 (PAPIC_GUEST). The 150 pack is the only new code. Every other rung below is OFF SALE and
+  // keeps its hook, so an order bought before the retirement still converts on approval.
+  PAPIC_GUEST_150: grantPapicPassPoints,
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
@@ -1542,7 +1758,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * Pro basket would page the team with a false fault — and an alarm that always
  * fires on a healthy order is how the real one gets ignored.
  */
-const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set([COUPLE_WEBSITE_PRO_SERVICE_KEY]);
+// 💎 2026-11-04: Event Pro LEFT this set — it now provisions Setnayan AI and its included Papic credits
+// (`activateEventPlan`), so a Pro inside a basket must run its hook like any other item. Its Hub gates still read
+// the order/basket status live; the set stays for the next item that truly needs nothing.
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>();
 
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
@@ -1728,6 +1947,16 @@ const PREFIX_HOOKS: ReadonlyArray<{
   match: (serviceKey: string) => boolean;
   run: ActivationHook;
 }> = Object.freeze([
+  {
+    // 'vendor_papic_pack__<PAPIC_GUEST code>' → the couple's Papic pack, bought by a SHOP into its wallet (2026-11-04).
+    match: (serviceKey) => shopPapicPackCodeOf(serviceKey) !== null,
+    run: grantShopPapicPack,
+  },
+  {
+    // 'vendor_gift__<PAPIC_GUEST code>' → GIFTS a shop bought for its couples, into its gift stock (2026-11-04).
+    match: (serviceKey) => shopGiftCodeOf(serviceKey) !== null,
+    run: grantShopGiftPurchase,
+  },
   {
     // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
     //
@@ -2197,6 +2426,10 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
+  // 💎 Event Plus / Event Pro carry Setnayan AI (owner 2026-11-04) — still held → keep.
+  for (const sku of AI_INCLUDED_PLAN_SKUS) {
+    if (await eventSkuActive(ctx.admin, ctx.eventId, sku)) return;
+  }
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })
@@ -2457,9 +2690,12 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_3d_booth', ctx, e);
     }
-  } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE) {
+  } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
     // The shop-wallet pack — take its credits back as a reversal row.
     await reverseShopPapicWalletPack(ctx);
+  } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
+    // 🎁 A gift order — take its credits back out of the gift stock.
+    await reverseShopGiftPurchase(ctx);
   } else if (ctx.serviceKey === VENDOR_PHOTO_CHALLENGE_SKU_CODE) {
     try {
       await deactivatePhotoChallengeSponsorship(ctx);
@@ -2497,7 +2733,8 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       : [];
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
-    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
+    AI_INCLUDED_PLAN_SKUS.includes(ctx.serviceKey) ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI' || AI_INCLUDED_PLAN_SKUS.includes(i.serviceCode)) ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

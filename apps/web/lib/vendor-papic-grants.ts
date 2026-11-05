@@ -28,6 +28,7 @@ import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
   offerPack,
+  type ShopPapicPack,
   type VendorPapicPortfolioCredits,
 } from '@/lib/vendor-papic-credits';
 import { portfolioCreditsSpent } from '@/lib/vendor-papic-portfolio-album';
@@ -204,6 +205,47 @@ export async function fetchVendorPapicPackPricePhp(
 }
 
 /**
+ * 🛍 The Papic packs a SHOP may buy into its wallet — the SAME packs couples buy (owner 2026-11-04): every active,
+ * unretired `PAPIC_GUEST*` catalogue row with an active, non-top-up tier row, smallest first. Price and credits are
+ * READ; `null` on any read error (render "unavailable", never a remembered figure).
+ */
+export async function fetchShopPapicPacks(client: SupabaseClient): Promise<ShopPapicPack[] | null> {
+  try {
+    const [catalog, tiers] = await Promise.all([
+      client
+        .from('platform_retail_catalog_v2')
+        .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
+        .like('service_code', 'PAPIC_GUEST%'),
+      client.from('papic_pass_tiers').select('service_code, points, is_active, is_topup').like('service_code', 'PAPIC_GUEST%'),
+    ]);
+    if (catalog.error || tiers.error) {
+      console.error('[supabase-error] vendor-papic-grants: shop packs', catalog.error ?? tiers.error);
+      return null;
+    }
+    const points = new Map<string, number>();
+    for (const t of (tiers.data ?? []) as Array<{ service_code: string; points: number | null; is_active: boolean | null; is_topup: boolean | null }>) {
+      if (t.is_active === true && t.is_topup !== true && Number.isInteger(t.points) && (t.points as number) > 0) {
+        points.set(t.service_code, t.points as number);
+      }
+    }
+    const packs: ShopPapicPack[] = [];
+    for (const c of (catalog.data ?? []) as Array<{ service_code: string; title: string | null; retail_price_php: number | string | null; gift_price_php?: number | string | null; is_active: boolean | null; retired_at: string | null }>) {
+      if (c.is_active !== true || c.retired_at) continue;
+      const credits = points.get(c.service_code);
+      const pricePhp = Number(c.retail_price_php);
+      if (credits === undefined || !Number.isFinite(pricePhp) || pricePhp <= 0) continue;
+      const gift = c.gift_price_php == null ? NaN : Number(c.gift_price_php);
+      const giftPricePhp = Number.isFinite(gift) && gift > 0 ? gift : null;
+      packs.push({ code: c.service_code, title: c.title ?? c.service_code, credits, pricePhp, giftPricePhp });
+    }
+    return packs.sort((a, b) => a.credits - b.credits);
+  } catch (e) {
+    console.error('[vendor-papic-grants] shop packs threw', e);
+    return null;
+  }
+}
+
+/**
  * Credits spent through the OTHER door — importing a photo into the private
  * portfolio album (`vendor_papic_portfolio_photos`, G3). A hidden row (NSFW-
  * blocked, or the supplier's own takedown) does not count, mirroring
@@ -260,19 +302,18 @@ export async function fetchVendorPapicPortfolioCredits(
   vendorProfileId: string,
   eventId: string,
 ): Promise<VendorPapicPortfolioCredits> {
-  const [allowance, credits, packPricePhp, portfolioSpent] = await Promise.all([
+  const [allowance, credits, packs, portfolioSpent] = await Promise.all([
     fetchVendorPapicAllowance(admin, vendorProfileId, eventId),
     fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
-    fetchVendorPapicPackPricePhp(admin),
+    fetchShopPapicPacks(admin),
     fetchVendorPapicPortfolioPhotosSpent(admin, vendorProfileId, eventId),
   ]);
   return {
     credits,
     spent: allowance.pointsSpent + portfolioSpent,
     left: allowance.pointsLeft == null ? null : Math.max(0, allowance.pointsLeft - portfolioSpent),
-    packSkuCode: VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
-    packPricePhp,
     packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
+    packs,
     offerPack: offerPack(credits ?? 0),
   };
 }

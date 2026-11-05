@@ -24,6 +24,8 @@ export type BookedStandIns = {
     coveredGroup: string | null;
     coveredLabel: string | null;
   }) => Promise<SetWhereResult>;
+  /** 🧮 "Who they count" — Done (the lab answers in place of `saveCountRule`). */
+  saveRule?: (args: { eventId: string; serviceId: string; mode: string; keys: string[] }) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** The lab's day (Manila 'YYYY-MM-DD') — the Pay sheet's "Was due" reads the SAME day as the row beside it. */
   today?: string;
 };

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { contactLine } from '@/lib/task-contact';
 import type { YourScheduleRead } from '../_lib/your-schedule.server';
 import { YOUR_SCHEDULE_WORDS, yourScheduleText } from '@/lib/guest-your-schedule';
@@ -16,13 +17,17 @@ import { ShareYourSchedule } from './share-your-schedule';
  * socket, no timer (guests hold no live connection).
  *
  * 🛑 A refused read SAYS so in a sentence — never a card with no chapters.
+ *
+ * 📶 `saved` — the page's "Saved for offline" line for this day (`ScheduleSavedMark`), under the title; the page passes
+ * it only when the day is the viewer's own.
  */
-export function YourScheduleCard({ read, eventName }: { read: YourScheduleRead | null; eventName: string }) {
+export function YourScheduleCard({ read, eventName, saved = null }: { read: YourScheduleRead | null; eventName: string; saved?: ReactNode }) {
   if (!read) return null;
   if (read.kind === 'unread') {
     return (
       <section data-me-card="schedule" data-your-schedule="unread" className="space-y-2">
         <h2 className="font-serif text-2xl leading-tight text-ink">{YOUR_SCHEDULE_WORDS.title}</h2>
+        {saved}
         <p role="status" className="text-sm text-ink/70">
           {YOUR_SCHEDULE_WORDS.unread}
         </p>
@@ -33,7 +38,10 @@ export function YourScheduleCard({ read, eventName }: { read: YourScheduleRead |
   if (s.kind === 'none') return null;
   return (
     <section data-me-card="schedule" data-your-schedule={s.stage} className="space-y-5">
-      <h2 className="font-serif text-2xl leading-tight text-ink">{YOUR_SCHEDULE_WORDS.title}</h2>
+      <div className="space-y-1">
+        <h2 className="font-serif text-2xl leading-tight text-ink">{YOUR_SCHEDULE_WORDS.title}</h2>
+        {saved}
+      </div>
       {s.call ? (
         <div data-your-call className="space-y-1">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-ink/60">{s.call.label}</p>

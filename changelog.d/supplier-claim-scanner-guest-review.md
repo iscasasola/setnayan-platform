@@ -5,7 +5,7 @@ RECEIVES A SUPPLIER'S ITEM, AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB" �
 an optional line, skippable, ONE per guest per supplier service, verified by a real claim, the supplier never sees who
 wrote it, its own store + admin moderation.
 
-- **Migration `20271310845415`**: `supplier_scan_reviews` (one row per event · service · guest: a rating with an
+- **Migration `20271319343516`**: `supplier_scan_reviews` (one row per event · service · guest: a rating with an
   optional line ≤ 140, or a skip — "Not now" is an answer too, so the card never asks twice; state pending → published |
   hidden). RLS at CREATE: Setnayan admin reads and moderates; no supplier, couple or anon access.
   `supplier_scan_review_submit` is the only writer — SERVICE ROLE ONLY, called with the guest id from the verified pass,

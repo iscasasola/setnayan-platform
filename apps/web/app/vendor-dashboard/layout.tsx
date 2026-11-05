@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { REQUEST_PATH_HEADER, shopConsolePath } from '@/lib/shop-console-path';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
@@ -94,7 +96,12 @@ export default async function VendorDashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
+  // Keep the page they asked for — a deep link to a chat or a booking must
+  // survive the sign-in round trip. It used to be a hard-coded
+  // '/vendor-dashboard', so every such link collapsed to Today after login.
+  // The middleware stamps the path; `shopConsolePath` keeps it same-origin and
+  // inside the console, falling back to Today.
+  if (!user) redirect(loginRedirectPath(shopConsolePath((await headers()).get(REQUEST_PATH_HEADER))));
   const supabase = await createClient();
   // The App Store / Play Store shell has no Plan row (lib/store-shell.ts).
   const storeShell = await isStoreShellRequest();

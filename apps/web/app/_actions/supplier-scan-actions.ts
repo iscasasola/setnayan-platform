@@ -19,7 +19,7 @@
  * (`scripts/lint-server-action-budget.mjs`) sat at its ceiling. The later slices (Ordered → Received, group sessions,
  * roaming, the guest's review) add OPS here, never exports.
  *
- * 🔑 Every rule that matters is in SQL (migration 20271309463657) and each op runs under the CALLER'S OWN session,
+ * 🔑 Every rule that matters is in SQL (migration 20271316581328) and each op runs under the CALLER'S OWN session,
  * so `auth.uid()` is the person pressing: the scan checks the shop (or its day-of grantee), the booking, the booked
  * service, the scanner, and that the code is a guest of THIS event; the setting is the shop's own RLS. Admin's op is
  * the only service-role write, behind `requireAdminAction`, and it is written to `admin_audit_log`.

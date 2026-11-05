@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7122
+# facts: 7124
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5171
 #   policy    1038
 #   view      9
-#   func      306
+#   func      308
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6897,6 +6897,8 @@ func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef
 func	public.couple_withdraw_photo_share(p_share_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.crew_pass_request(p_token text, p_name text)	secdef=yes exec=authenticated search_path=public
+func	public.crew_request_schedule_move(p_event_id uuid, p_block_ids uuid[], p_minutes integer)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.crew_schedule_door(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.crew_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_coordinator_booked_event_ids()	secdef=yes exec=authenticated search_path=public

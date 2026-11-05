@@ -208,6 +208,8 @@ import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
 import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
@@ -408,7 +410,7 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
-  run_state?: 'upcoming' | 'live' | 'done' | null;
+  run_state?: 'upcoming' | 'live' | 'done' | 'skipped' | null;
   actual_start_at?: string | null;
   // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
   parent_block_id?: string | null;
@@ -1967,8 +1969,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — this supplier's (a Host/MC's) own day, kept on their phone for the venue
+     (`lib/offline-copies.ts`). The version is what this tab draws of the day; a read that failed is `unread`, which is
+     never kept over the older copy. */
+  const scheduleCopyPath = supplierSchedulePath(eventId);
+  const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
   const scheduleNode = (
     <>
+      {scheduleCopyPath ? (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={factsRow?.event_date ?? null} path={scheduleCopyPath} version={scheduleCopyVersion} className="mb-3" />
+      ) : null}
       <ScheduleTab
         eventId={eventId}
         preAgreement={preAgreement}

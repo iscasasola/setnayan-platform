@@ -7,8 +7,7 @@ app/_components/file-upload.tsx 3
 app/_components/home/HomeOverlays.tsx 1
 app/_components/paper-picker.tsx 1
 app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1
-app/dashboard/(account)/people/_components/dependents-section.tsx 2
-app/dashboard/(account)/people/_components/people-roster-view.tsx 4
+app/dashboard/(account)/people/_components/people-roster-view.tsx 2
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx 1
 app/dashboard/[eventId]/_components/payment-plan-rows.tsx 1
 app/dashboard/[eventId]/_components/vendor-itemization-card.tsx 2

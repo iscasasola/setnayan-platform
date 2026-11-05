@@ -40,37 +40,19 @@
 
 /** The credit counts of the rungs the owner types a price into — every priced rung since 2026-10-28. */
 export const PAPIC_ANCHOR_SHOTS: readonly number[] = [
-  // ⚖ EVERY PRICED RUNG IS AN ANCHOR (owner 2026-10-28, DECISION_LOG "EVERY PAPIC RUNG IS TYPED"): *"No use the price
-  //   agreed and what i inputed"*. Under the one price (App Store = website) the 500 and 1,000 rungs ARE App Store
-  //   prices, and a rate carried forward from the 100-credit anchor would have recomputed them (₱475 · ₱950) on the
-  //   next Save. So the owner types all seventeen and nothing computes; the step-function engine stays for the
-  //   complaints (a total that falls, a rate that rises) and for a rung the catalogue adds later.
-  //   (Was 100 · 3,000 · 10,000 · 20,000 · 50,000 · 100,000 — six anchors, eleven computed. The 100,000 anchor was
-  //   owner 2026-08-29: *"place an editable row like 50,000"*.)
-  100, 200, 300, 400, 500, 1_000, 2_000, 3_000, 4_000, 5_000, 6_000, 7_000, 10_000, 20_000, 30_000, 50_000, 100_000,
+  // ⚖ PAPIC IS THREE PACKS (owner 2026-11-03, DECISION_LOG): 150 · 1,000 · 3,000, each typed. Was seventeen rungs,
+  //   100 → 100,000, all typed since 2026-10-28 ("No use the price agreed and what i inputed").
+  150, 1_000, 3_000,
 ] as const;
 
 /** `[shots, pesos]` — the anchor prices as they stand today (the seed, not a rule). */
 export const PAPIC_ANCHORS_DEFAULT: readonly (readonly [number, number])[] = [
   // ⚠ The seed, never a price: the catalogue (`platform_retail_catalog_v2`) is the source of truth. These are the
-  //   owner's 2026-10-28 prices (migration `*_one_price_app_store_equals_website.sql`), all seventeen typed.
-  [100, 95],
-  [200, 189],
-  [300, 282],
-  [400, 373],
-  [500, 465],
-  [1_000, 929],
-  [2_000, 1_845],
-  [3_000, 2_214],
-  [4_000, 2_952],
-  [5_000, 3_690],
-  [6_000, 4_428],
-  [7_000, 5_166],
-  [10_000, 5_950],
-  [20_000, 9_488],
-  [30_000, 14_232],
-  [50_000, 19_766],
-  [100_000, 31_625],
+  //   owner's 2026-11-04 final price sheet (migration `*_the_final_price_sheet.sql`; was ₱90 / ₱490 / ₱990 from
+  //   `*_papic_is_three_packs_and_no_signup_price.sql`).
+  [150, 99],
+  [1_000, 499],
+  [3_000, 999],
 ] as const;
 
 /** True when this rung is one the owner types into rather than one that computes. */

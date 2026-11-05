@@ -17,7 +17,7 @@ export type DayMoment = {
   notes: string | null;
   is_public: boolean;
   parent_block_id: string | null;
-  run_state: 'upcoming' | 'live' | 'done';
+  run_state: 'upcoming' | 'live' | 'done' | 'skipped';
   /** A coordinator's unreleased moment — only the coordinator sees it. */
   staged: boolean;
   responsible_party: string | null;
@@ -32,7 +32,7 @@ export type DayRequest = {
   suggestion_id: string;
   block_id: string | null;
   /** add · change (or, with no proposed fields, a suggestion in words) · delete. */
-  kind: 'adjust' | 'new' | 'remove' | 'hours';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
   by: string;
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -43,6 +43,8 @@ export type DayRequest = {
   /** 🏛 A venue's hours (kind `hours`): setup / pack-up in minutes from the chapter's start. */
   proposed_ingress_minutes?: number | null;
   proposed_egress_minutes?: number | null;
+  /** 📍 A supplier's Where pick (kind `where`, migration 20271308641275): the chapters they are on now → asked. */
+  where?: { now: string; asked: string } | null;
   note: string;
 };
 

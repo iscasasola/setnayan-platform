@@ -30,6 +30,8 @@ import {
 import { markAllNotificationsRead, markNotificationRead } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { brandWords } from '@/lib/brand-words';
+import { whereNoticeTarget } from '@/lib/supplier-where';
+import { WhereNoticeOk } from './where-notice-ok';
 
 /**
  * Shared notifications list — THE BELL'S POP-OVER AND ITS "VIEW ALL" PAGE DRAW THE SAME ROWS.
@@ -192,6 +194,8 @@ function NotificationItem({
   }, [menu]);
 
   const open = shift <= -REVEAL / 2;
+  // 📍 A supplier's Where pick is OK'd right here (owner 2026-11-04) — the same action as the Requests sheet's OK.
+  const whereOk = unread ? whereNoticeTarget(n.type, n.related_url) : null;
 
   return (
     <li
@@ -324,6 +328,10 @@ function NotificationItem({
           ) : null}
         </div>
       </div>
+
+      {whereOk ? (
+        <WhereNoticeOk notificationId={n.notification_id} eventId={whereOk.eventId} suggestionId={whereOk.suggestionId} onRead={onRead} />
+      ) : null}
 
       {menu ? (
         <div

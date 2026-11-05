@@ -383,7 +383,7 @@ AS $$
                )
        )
   )
-  -- 🎁 A supplier's Event Plus / Event Pro gift, given to THIS event (20271310091114).
+  -- 🎁 A supplier's Event Plus / Event Pro gift, given to THIS event (20271315541851).
   OR EXISTS (
     SELECT 1
       FROM public.shop_gift_stock_entries e
@@ -407,7 +407,7 @@ DECLARE
   v_skus    TEXT[];
   v_gifted  TEXT[];
 BEGIN
-  -- 🎁 A supplier's Event Plus / Event Pro gifts to THIS event (20271310091114) —
+  -- 🎁 A supplier's Event Plus / Event Pro gifts to THIS event (20271315541851) —
   -- read first: they belong to the event, so they need no host.
   SELECT array_agg(DISTINCT e.unlocks_sku) INTO v_gifted
     FROM public.shop_gift_stock_entries e

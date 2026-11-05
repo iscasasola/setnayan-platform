@@ -43,11 +43,16 @@ import { fileURLToPath } from 'node:url';
 // `guestSeatView` — the Seats ⚙ write and the guest card's preview read) instead of the two exports it would have been;
 // the only unimported exports left are the two kept on purpose above. No fresh `vercel build` count for this +1 — the
 // SUM is gated by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-// 1227 → 1228 (2026-11-05, badge rewards): ONE action, `revokeBadgeFeeWaiver` (Admin › Gifts › Badge rewards — the
+// 1227 → 1228 (2026-11-05, admin service-card moderation for the 7 Nov supplier registration): ONE dispatcher
+// (`admin/vendors/[vendorProfileId]/card-actions.ts`, `moderateServiceCard` — take down · put back · remove photo)
+// instead of the three exports it would have been; the only unimported exports left are the two kept on purpose above.
+// No fresh `vercel build` count for this +1 — the SUM is gated by check-vercel-route-count.mjs on this PR's production
+// build; read that job before merging.
+// 1228 → 1229 (2026-11-05, badge rewards): ONE action, `revokeBadgeFeeWaiver` (Admin › Gifts › Badge rewards — the
 // owner's "the admin can see it and revoke it"). No existing action takes back a supplier's reward, and no export nothing
 // imports was left to drop (the two kept on purpose above). No fresh `vercel build` count for this +1 — the SUM is gated
 // by check-vercel-route-count.mjs on this PR's production build; read that job before merging.
-export const CEILING = 1228;
+export const CEILING = 1229;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

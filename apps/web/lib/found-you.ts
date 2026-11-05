@@ -26,6 +26,7 @@
  * PURE — no database, no `server-only`.
  */
 import { formatLongDate, formatLongTimestamp } from './format-date';
+import { formatCount } from './format-number';
 
 /** What `answer_claim_access_request` returned as `found_you`, made safe. Anything unreadable is NOT found. */
 export type FoundYouAnswer =
@@ -43,7 +44,7 @@ export function readFoundYou(raw: unknown): FoundYouAnswer {
   return { found: true, firstFoundAt, viewCount: Math.floor(viewCount) };
 }
 
-const times = (n: number) => (n === 1 ? 'once' : `${n} times`);
+const times = (n: number) => (n === 1 ? 'once' : `${formatCount(n)} times`);
 
 /**
  * The supplier's lead alert — "You were found on Setnayan on {date} by {couple} for their {type, date} event".

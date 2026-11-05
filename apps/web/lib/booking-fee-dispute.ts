@@ -15,6 +15,7 @@
  * PURE — no database, no `server-only`.
  */
 import { formatLongTimestamp } from './format-date';
+import { formatCount } from './format-number';
 
 export type BookingFeeDisputeStatus = 'auto_accepted' | 'under_review' | 'accepted' | 'rejected';
 
@@ -64,7 +65,7 @@ export function readOpenDisputeAnswer(raw: unknown): OpenDisputeAnswer {
 export function disputeOnUsLine(viewCount: number | null): string {
   const seen =
     viewCount && viewCount >= 1
-      ? `they viewed your page ${viewCount === 1 ? 'once' : `${viewCount} times`} before booking`
+      ? `they viewed your page ${viewCount === 1 ? 'once' : `${formatCount(viewCount)} times`} before booking`
       : 'they found you here before booking';
   return (
     `This one's on us. A note though: this couple found you on Setnayan — ${seen}. ` +
@@ -111,7 +112,7 @@ export function disputeOpenedAdminNotice(shopName: string | null): { title: stri
 /** One line of receipts for the admin: when the couple first opened the shop here, and how often. */
 export function foundReceiptLine(firstFoundAt: string | null, viewCount: number | null): string {
   if (!firstFoundAt) return 'No record of the couple opening this shop on Setnayan.';
-  const n = viewCount && viewCount >= 1 ? (viewCount === 1 ? 'once' : `${viewCount} times`) : 'an unknown number of times';
+  const n = viewCount && viewCount >= 1 ? (viewCount === 1 ? 'once' : `${formatCount(viewCount)} times`) : 'an unknown number of times';
   return `The couple first opened this shop here on ${formatLongTimestamp(firstFoundAt)}, ${n} before it joined their event.`;
 }
 

@@ -20,9 +20,8 @@
  * 🔒 app/dashboard/[eventId]/schedule/view-as-shows-only-whats-theirs.test.ts
  */
 import { useMemo, useState } from 'react';
-import { Search, UserRound } from 'lucide-react';
+import { Search, UserRound, X } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { formatCount } from '@/lib/format-number';
 import { paidMarkState } from '@/lib/paid-mark';
 import { TIME_TBA, chapterWhen, chapterWhere, type Chapter } from '@/lib/schedule-chapters';
 import {
@@ -34,14 +33,13 @@ import {
   lensWords,
   roleDay,
   supplierDay,
-  suppliersByTime,
   viewAsMenuOptions,
-  type TimeItem,
   type ViewAsInput,
   type ViewDay,
   type ViewLens,
 } from '@/lib/schedule-view-as';
 import { PickMenu } from './day-ui';
+import { SideBySideView } from './side-by-side';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { coordDay, personDay, printDayFromCard, printDayFromView, type PrintDay } from '@/lib/schedule-view-as-people';
 import type { YourSchedule } from '@/lib/guest-your-schedule';
@@ -77,17 +75,31 @@ export function ViewAsMenu({
   );
   const q = query.trim().toLowerCase();
   const shown = q ? options.filter((o) => o.key === lensKey(lens) || o.key === VIEW_AS_PRO_DOOR || o.label.toLowerCase().includes(q)) : options;
-  return (
+  /* 📋 Slice 8 ("Changed 1 — View as shows its state"): the round 👤 stays a bare icon while the day is Everyone's, and
+     becomes a tinted chip "👤 DJ Migs ✕" once a view is on — the ✕ goes back to Everyone. */
+  const chip = round && lens.kind !== 'everyone';
+  const menu = (
     <PickMenu
       label="View as"
       value={lensKey(lens)}
       compact={compact}
       buttonText={compact || round ? lensWords(input.data, lens) : undefined}
-      trigger={round ? <UserRound aria-hidden className="h-5 w-5" strokeWidth={1.8} /> : undefined}
+      trigger={
+        chip ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <UserRound aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
+            <span className="max-w-[4.75rem] truncate text-[14px] font-semibold">{lensWords(input.data, lens)}</span>
+          </span>
+        ) : round ? (
+          <UserRound aria-hidden className="h-5 w-5" strokeWidth={1.8} />
+        ) : undefined
+      }
       className={
-        round
-          ? `sn-press grid h-11 w-11 flex-none place-items-center rounded-full border text-ink ${lens.kind === 'everyone' ? 'border-ink/15' : 'border-terracotta text-terracotta'}`
-          : ''
+        chip
+          ? 'sn-press flex h-11 min-w-0 items-center rounded-full bg-terracotta/15 pl-3 pr-2 text-ink'
+          : round
+            ? 'sn-press grid h-11 w-9 flex-none place-items-center rounded-full text-ink'
+            : ''
       }
       dataAttr="data-schedule-lens"
       options={shown}
@@ -122,6 +134,21 @@ export function ViewAsMenu({
       }}
     />
   );
+  if (!chip) return menu;
+  return (
+    <span className="flex flex-none items-center rounded-full bg-terracotta/15" data-view-as-chip="">
+      {menu}
+      <button
+        type="button"
+        onClick={() => onLens({ kind: 'everyone' })}
+        aria-label={`Stop seeing the day as ${lensWords(input.data, lens)}`}
+        data-view-as-clear=""
+        className="sn-press -ml-1 grid h-11 w-7 flex-none place-items-center rounded-full text-ink/70"
+      >
+        <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+      </button>
+    </span>
+  );
 }
 
 /** The day as the picked person sees it — drawn in place of the rail. Never for Everyone (that IS the rail). */
@@ -131,9 +158,15 @@ export function ViewAsBody({
   chapters,
   lens,
   onLens,
+  pill = true,
+  nowIso = null,
 }: {
+  /** 🧭 The venue's wall clock on the day — Side by side draws "Now" across every column (slice 9). */
+  nowIso?: string | null;
   /** For the person's PDF (slice 6); absent (the lab) = no file button. */
   eventId?: string;
+  /** The "…’s view · back to Everyone" pill — off where the page's own line under the date already says it (slice 8). */
+  pill?: boolean;
   input: ViewAsInput;
   chapters: readonly Chapter[];
   lens: ViewLens;
@@ -148,7 +181,7 @@ export function ViewAsBody({
   return (
     <div data-view-as={lens.kind} className="space-y-3 pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-2 rounded-full bg-terracotta/15 px-3 py-1.5 text-xs text-ink/75">
+        <p className={pill ? 'inline-flex items-center gap-2 rounded-full bg-terracotta/15 px-3 py-1.5 text-xs text-ink/75' : 'sr-only'}>
           {lens.kind === 'suptime' ? words : `${words}’s view`} ·
           <button type="button" onClick={() => onLens({ kind: 'everyone' })} className="font-bold text-ink underline" data-view-as-back="">
             back to Everyone
@@ -168,7 +201,7 @@ export function ViewAsBody({
         ) : null}
       </div>
       {lens.kind === 'suptime' ? (
-        <ByTime input={input} chapters={chapters} onLens={onLens} />
+        <SideBySideView input={input} chapters={chapters} onLens={onLens} nowIso={nowIso} />
       ) : drawn?.kind === 'card' ? (
         <PersonCard card={drawn.card} />
       ) : drawn?.kind === 'unread' ? (
@@ -241,7 +274,7 @@ function PersonCard({ card }: { card: YourSchedule }) {
             <ul className="mt-1 border-t border-ink/10">
               {c.lines.map((l) => (
                 <li key={l.id} data-view-as-row={l.id} className="flex min-h-14 items-start gap-4 border-b border-ink/10 py-3">
-                  <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{l.time}</span>
+                  <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80">{l.time}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] text-ink">
                       {l.title}
@@ -296,7 +329,7 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
             <ul className="mt-1 border-t border-ink/10">
               {rows.map((r) => (
                 <li key={r.id} data-view-as-row={r.id} className="flex min-h-14 items-start gap-4 border-b border-ink/10 py-3">
-                  <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80">{r.time}</span>
+                  <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80">{r.time}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] text-ink">
                       {r.title}
@@ -312,79 +345,5 @@ function Day({ lens, day }: { lens: ViewLens; day: ViewDay }) {
         </section>
       ))}
     </>
-  );
-}
-
-function ByTime({ input, chapters, onLens }: { input: ViewAsInput; chapters: readonly Chapter[]; onLens: (l: ViewLens) => void }) {
-  const { stretches, tba, tasksUnread } = suppliersByTime(chapters, input.data);
-  // Tapping a supplier opens THEIR day — a per-person view, so Pro. On a Free event the lines are read, not pressed.
-  const open = (vendorId: string) => (lensAllowed(input.pro, { kind: 'supplier', vendorId, crew: null }) ? () => onLens({ kind: 'supplier', vendorId, crew: null }) : null);
-  return (
-    <>
-      {tasksUnread ? (
-        <p role="alert" data-view-as-unread="" className="text-[13px] font-semibold text-danger-700">
-          The tasks couldn’t be read just now, so this may be missing lines. Try again in a moment.
-        </p>
-      ) : null}
-      {stretches.length === 0 && tba.length === 0 && !tasksUnread ? <p className="py-3 text-[14px] text-ink/55">No supplier has a line yet.</p> : null}
-      {stretches.map((g) => (
-        <section key={`${g.from}-${g.items[0]?.id}`} data-view-as-stretch="" className="pt-3">
-          <p className="pb-1 text-[13px] text-ink/60">
-            <b className="font-semibold text-ink">
-              {g.from} to {g.to}
-            </b>
-            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers at once</span> : null}
-          </p>
-          <ul className="border-t border-ink/10">
-            {g.items.map((i) => (
-              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
-            ))}
-          </ul>
-        </section>
-      ))}
-      {tba.map((g) => (
-        <section key={g.chapter.block_id} data-view-as-stretch="tba" data-view-as-chapter={g.chapter.block_id} className="pt-3">
-          <p className="pb-1 text-[13px] text-ink/60">
-            <b className="font-semibold text-ink">{g.chapter.label}</b> · {TIME_TBA} · {g.where}
-            {g.suppliers > 1 ? <span data-view-as-at-once={g.suppliers}> · {formatCount(g.suppliers)} suppliers</span> : null}
-          </p>
-          <ul className="border-t border-ink/10">
-            {g.items.map((i) => (
-              <TimeLine key={i.id} i={i} onOpen={open(i.vendorId)} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </>
-  );
-}
-
-/** One supplier line. A button only where tapping opens their day (Pro); otherwise plain words — a frame only on what you press. */
-function TimeLine({ i, onOpen }: { i: TimeItem; onOpen: (() => void) | null }) {
-  const body = (
-    <>
-      <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-view-as-time={i.time}>
-        {i.time}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-ink">{i.who}</span>
-        <span className="block text-[13px] text-ink/60">
-          {i.title} · {i.sub}
-          {i.until ? ` · until ${i.until}` : ''}
-        </span>
-        {i.clash ? <span className="block text-[13px] font-semibold text-danger-700">In two places at once</span> : null}
-      </span>
-    </>
-  );
-  return (
-    <li data-view-as-line={i.id} className="border-b border-ink/10">
-      {onOpen ? (
-        <button type="button" onClick={onOpen} className="sn-press flex min-h-14 w-full items-start gap-4 py-3 text-left">
-          {body}
-        </button>
-      ) : (
-        <div className="flex min-h-14 w-full items-start gap-4 py-3">{body}</div>
-      )}
-    </li>
   );
 }

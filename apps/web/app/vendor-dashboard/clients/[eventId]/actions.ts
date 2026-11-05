@@ -14,6 +14,8 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { shortDayWords, waitlistMessage } from '@/lib/day-check';
+import { sendChatMessageCore } from '@/lib/chat-send';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import {
   changeOrderAnsweredNotice,
@@ -1937,4 +1939,58 @@ export async function vendorWithdrawPaymentAsk(formData: FormData) {
       query: { ask: ok ? 'withdrawn' : 'error' },
     }),
   );
+}
+
+/**
+ * "WAITING LIST" ON A FULL DAY (owner 2026-11-04, DAY CHECK BEFORE ACCEPT — `lib/day-check.ts`). Where Agree would
+ * be refused because the day is full, the supplier can instead put the asking couple on the shop's EXISTING waiting
+ * list (`vendor_date_waitlist` — the row the couple's own "Join the waitlist" writes, so the shipped "a slot opened →
+ * tell them first" path reaches them) and tell them so in their chat, politely.
+ *
+ * 🔑 The RPC decides, not this action: `vendor_waitlist_the_ask` carries `vendor_agree_to_lock`'s ownership gate and
+ * refuses (`not_full`) unless the SAME verdict the panel drew says the day is full. The message rides the shipped
+ * send path (`sendChatMessageCore` — its gates, its notice); no email is added. The ask itself is left as it is —
+ * turning it down stays the supplier's own, separate answer.
+ *
+ * 🪟 IN PLACE (house rule "a save never resets the screen"): no redirect — the answer RETURNS (`{ status }`) to the
+ * form's own `useActionState` (`_components/waitlist-form.tsx`), which says it under the button, and the page is
+ * revalidated so the line reads the day again.
+ */
+export async function vendorWaitlistTheAsk(
+  _prev: { status: string } | null,
+  formData: FormData,
+): Promise<{ status: string }> {
+  const eventVendorId = formData.get('vendor_id');
+  if (typeof eventVendorId !== 'string') throw new Error('Invalid input');
+  const back = lockAnswerReturnTo(formData.get('return_to'));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data, error } = await supabase.rpc('vendor_waitlist_the_ask', { p_event_vendor_id: eventVendorId });
+  const env = (data ?? {}) as { status?: string; event_id?: string; date?: string; vendor_profile_id?: string };
+  let flag = error ? 'error' : typeof env.status === 'string' ? env.status : 'error';
+  if (error) console.error('[vendorWaitlistTheAsk] rpc failed:', error.message);
+
+  // Tell them in their chat — only on a fresh add (an `already` was told the first time).
+  if (flag === 'ok' && typeof env.event_id === 'string' && typeof env.date === 'string' && typeof env.vendor_profile_id === 'string') {
+    const { data: thread } = await supabase
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', env.event_id)
+      .eq('vendor_profile_id', env.vendor_profile_id)
+      .maybeSingle();
+    const threadId = (thread as { thread_id?: string } | null)?.thread_id ?? null;
+    const sent = threadId
+      ? await sendChatMessageCore(supabase, { threadId, body: waitlistMessage(shortDayWords(env.date)) }).catch(() => null)
+      : null;
+    if (!sent?.ok) flag = 'ok_unsent';
+  }
+
+  revalidatePath('/vendor-dashboard');
+  if (back !== '/vendor-dashboard') revalidatePath(back);
+  return { status: flag };
 }

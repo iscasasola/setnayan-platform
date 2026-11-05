@@ -118,17 +118,20 @@ export function GalleryMedia({
       </GalleryForm>
 
       {/* Instagram — same card + OAuth flow (unchanged routes under
-          /api/vendor/instagram/**). Inert ("Coming soon") until the Meta App
-          env is set. Synced posts flow into the SAME unified public gallery. */}
-      <div className="border-t pt-4" style={{ borderColor: 'var(--m-line)' }}>
-        {igUnavailable ? <CouldNotLoad what="your Instagram connection" /> : null}
-        <InstagramConnectCard
-          configured={igConfigured}
-          connection={igConnection}
-          media={igMedia}
-          flash={igFlash}
-        />
-      </div>
+          /api/vendor/instagram/**). Hidden until the Meta App env is set (it
+          used to say "Coming soon"). Synced posts flow into the SAME unified
+          public gallery. */}
+      {igConfigured || igUnavailable ? (
+        <div className="border-t pt-4" style={{ borderColor: 'var(--m-line)' }}>
+          {igUnavailable ? <CouldNotLoad what="your Instagram connection" /> : null}
+          <InstagramConnectCard
+            configured={igConfigured}
+            connection={igConnection}
+            media={igMedia}
+            flash={igFlash}
+          />
+        </div>
+      ) : null}
     </section>
   );
 }

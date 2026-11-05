@@ -300,20 +300,23 @@ test('6c · the names’ Wording ▾ offers EXACTLY the three Name styles, in th
   assert.match(read(`${L}details-your-event.tsx`), /draftFacts\(eventId, nameStyleDraftPatch\(style\)\.events \?\? \{\}\)/, 'Details’ Name style ▾ is the same draft door');
 });
 
-test('6d · a name or date typed in Details › Your event is DRAFTED — the Maker calls no live date or names writer', () => {
+test('6d · a name typed in Details › Your event is DRAFTED — the DATE saves to the event at once (owner 2026-11-05)', () => {
   const editors = read(`${L}details-your-event.tsx`);
-  assert.doesNotMatch(editors, /updateEventDate|updateEventMatchCriteria/, 'a Maker editor still writes the names or the date live');
+  assert.doesNotMatch(editors, /updateEventMatchCriteria/, 'a Maker editor writes the names live');
   assert.match(editors, /fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\);/);
   assert.match(editors, /const events = coupleNameColumns\(a, b, order\);/, 'the Personalization writer’s own composition, in the event’s order');
   assert.match(editors, /draftFacts\(eventId, \{ display_name: typed \}\)/, 'one person’s name');
-  assert.match(editors, /draftDate\(\{ event_date: `\$\{m\}-01`, event_date_precision: 'month' \}\)/, 'a month');
-  assert.match(editors, /draftDate\(\{ event_date: value, event_date_precision: 'day' \}\)/, 'a day');
-  assert.match(editors, /saveDate=\{saveDay\}/, 'the governed row saves its day into the draft, after its supplier preview');
+  // 🗓 "it shouldn't rely on the hub": a day, a month and the governed row's day all go to the event's one date door.
+  assert.match(editors, /const r = await updateEventDate\(fd\);/, 'the Maker’s date is not saved through the live door');
+  assert.match(editors, /saveDate\(`\$\{m\}-01`, 'month'\)/, 'a month');
+  assert.match(editors, /saveDate\(value, 'day'\)/, 'a day');
+  assert.match(editors, /saveDate=\{saveDay\}/, 'the governed row saves its day through the Maker’s own save, after its supplier preview');
+  assert.doesNotMatch(editors, /draftFacts\([^)]*event_date/, 'a date is drafted again');
   const governed = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
   assert.match(governed, /if \(saveDate\) return saveDate\(value\);/);
-  // No piece of the Maker writes the date or the names live.
+  // No piece of the Maker writes the names live.
   for (const f of readdirSync(join(WEB, L)).filter((n) => /\.tsx?$/.test(n) && !n.endsWith('.test.ts'))) {
-    assert.doesNotMatch(read(`${L}${f}`), /\bupdateEventDate\(|\bupdateEventMatchCriteria\(/, `${f} writes the date or the names live`);
+    assert.doesNotMatch(read(`${L}${f}`), /\bupdateEventMatchCriteria\(/, `${f} writes the names live`);
   }
   // The Personalization page's writer and the Maker's draft compose the names ONE way.
   assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(postedPeople\[0\], postedPeople\[1\], storedOrder\);/);
@@ -325,7 +328,7 @@ test('6d · a name or date typed in Details › Your event is DRAFTED — the Ma
   assert.equal('display_name' in coupleNameColumns({ first: '', last: '' }, { first: '', last: '' }), false, 'a blank form never blanks the page’s names');
 });
 
-test('6e · Apply asks the date’s OWN gates — the one rule `updateEventDate` asks', () => {
+test('6e · the date’s gates are ONE rule, asked by the ONE live door — never by Apply', () => {
   const NOW = new Date(2027, 0, 10);
   const prior = { date: '2027-03-13', precision: 'day' };
   assert.equal(eventDateRefusal(prior, { date: '2026-12-31', precision: 'day' }, 0, NOW), 'in_past');
@@ -337,26 +340,26 @@ test('6e · Apply asks the date’s OWN gates — the one rule `updateEventDate`
   assert.equal(eventDateRefusal(prior, { date: '2027-04-17', precision: 'day' }, 2, NOW, true), null, 'a cleared date moves with booked suppliers');
   assert.equal(eventDateRefusal(prior, { date: '2027-04-01', precision: 'month' }, 2, NOW, true), 'widens', 'cleared is never wider');
   assert.equal(eventDateRefusal(prior, { date: '2026-12-31', precision: 'day' }, 2, NOW, true), 'in_past');
-  const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /let refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  const door = read('app/dashboard/[eventId]/actions.ts');
+  assert.match(door, /let refusal = eventDateRefusal\(prior, next, confirmed\);/);
   // …relaxed ONLY when the booked suppliers cleared the date (Q8 / the clashing-date flow, 2026-10-02).
-  assert.match(action, /refusal = eventDateRefusal\(priorDate, nextDate, confirmed, new Date\(\), clearance\.cleared\);/);
-  assert.match(action, /if \(dateHeld && isDateItem\(item\)\) \{\s*held\.push\(\{ item, reason: dateHeld \}\);\s*continue;\s*\}/, 'a refused date stays in the draft');
-  assert.match(action, /if \(countErr\) return \{ ok: false, intent, error:/, 'an unread supplier count is never "none booked"');
-  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const refusal = eventDateRefusal\(prior, next, count \?\? 0\);/, 'the live writer asks the same rule');
-  // And the plan: a typed date is one free change, applied — never Pro.
-  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: '2027-04-17', event_date_precision: 'day' } });
+  assert.match(door, /refusal = eventDateRefusal\(prior, next, confirmed, new Date\(\), clearance\.cleared\);/);
+  assert.match(door, /if \(countErr\) return \{ ok: false, error:/, 'an unread supplier count is never "none booked"');
+  // Apply no longer asks a date anything — it never holds one.
+  const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.doesNotMatch(action, /eventDateRefusal|dateApplyClearance|afterDateApplied|moveScheduleWithDate/, 'Apply still runs the date’s steps');
+  // …and the plan: a date in a draft (an older one) is nothing to apply.
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: '2027-04-17', event_date_precision: 'day' } as never });
   const plan = planHubDraftApply(draft, { events: { event_date: '2027-03-13', event_date_precision: 'day' }, widgets: [] }, false);
-  assert.equal(plan.refused.length, 0);
-  assert.deepEqual(plan.apply.map((i) => (i.kind === 'event' ? i.column : i.kind)), ['event_date']);
+  assert.equal(plan.apply.length + plan.refused.length, 0, 'Apply would write a drafted date');
 });
 
-test('6f · Apply counts a typed fact ONCE — the names are three columns, the date two', () => {
+test('6f · Apply counts the names ONCE — three columns, one change; a date is never counted', () => {
   const draft = mergeHubDraft(emptyHubDraft(), {
-    events: { display_name: 'Ana & Miguel', bride_name: 'Ana Reyes', groom_name: 'Miguel Santos', event_date: '2027-04-17', event_date_precision: 'month' },
+    events: { display_name: 'Ana & Miguel', bride_name: 'Ana Reyes', groom_name: 'Miguel Santos', ...({ event_date: '2027-04-17', event_date_precision: 'month' } as object) },
   });
   const sum = summarizeHubDraft(draft, { events: {}, widgets: [] }, false);
-  assert.equal(sum.changeCount, 2, 'Your names · Your date');
+  assert.equal(sum.changeCount, 1, 'Your names — and no date');
   assert.equal(sum.proCount, 0);
 });
 
@@ -468,7 +471,7 @@ test('8b · a day clashes when a booked supplier is booked; a month clashes only
   assert.equal(clashReason(['Photographer', 'Florist'], 'month'), 'Your photographer and your florist are booked elsewhere that month.');
 });
 
-test('8c · the check is the SHIPPED availability read — no second one — asked in the draft’s one door, with the action wired to the supplier’s thread', () => {
+test('8c · the check is the SHIPPED availability read — no second one — asked in the date’s one door, with the action wired to the supplier’s thread', () => {
   const fits = read('lib/date-fits-booked.ts');
   const server = read('lib/date-clash.server.ts');
   for (const [what, src] of [['date-fits-booked', fits], ['date-clash.server', server]] as const) {
@@ -481,11 +484,12 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   assert.match(server, /buildScheduleMatrix\(\{ admin, eventDate: date, precision, picks: schedulePicksFromVendors\(booked\) \}, \{ failClosed \}\)/, 'the matrix the date finder and Compare read (fail-closed when Apply asks)');
   assert.match(server, /CONFIRMED_VENDOR_STATUSES/, 'only BOOKED suppliers — the set eventDateRefusal governs by');
   assert.match(server, /routes\.dashboard\.vendors\.workspace\(eventId, c\.key\)\}\?tab=chat/, 'Ask … to move or unlock opens that supplier’s own conversation');
-  // The save asks BEFORE the draft is written — and answers with the reason and who.
-  const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
-  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf('updateHubDraft<'), 'the clash is asked before the draft is written');
-  assert.match(save, /if \(asked\) return \{ ok: false, intent, error: asked\.reason, clash: asked\.clash \};/);
+  // The date's one door (`updateEventDate`, owner 2026-11-05) asks BEFORE the event is written — and answers with the
+  // reason and who.
+  const door = read('app/dashboard/[eventId]/actions.ts');
+  const save = door.slice(door.indexOf('export async function updateEventDate'), door.indexOf('export async function setPlanningMode'));
+  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf(".from('events')\n    .update("), 'the clash is asked before the date is written');
+  assert.match(save, /if \(asked\) return \{ ok: false, error: asked\.reason, clash: asked\.clash \};/);
   // "Help me choose" lists only fitting days; a clashing pick says who and offers the one action.
   assert.match(read(`${L}details-date-finder.tsx`), /const fit = fittingDates\(rankWithPin\(m\.dates, pinned\)\);/);
   const editors = read(`${L}details-your-event.tsx`);
@@ -494,9 +498,9 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   assert.match(note, /Your date stays as it is\./, 'the event keeps its current date');
   assert.match(note, /href=\{c\.href\}/);
   assert.match(editors, /<DateClashNote eventId=\{eventId\} clash=\{clash\} \/>/);
-  assert.match(editors, /if \(refused\.clash\?\.length\) \{\s*setClash\(/, 'the refusal’s supplier list is shown');
-  // Apply's refusal stays as the backstop.
-  assert.match(action, /let refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  assert.match(editors, /if \(r\.clash\?\.length\) setClash\(/, 'the refusal’s supplier list is shown');
+  // The date rule follows the pick in the same door…
+  assert.match(save, /let refusal = eventDateRefusal\(prior, next, confirmed\);/);
   // …relaxed ONLY when the booked suppliers cleared the date (Q8 / the clashing-date flow, 2026-10-02).
-  assert.match(action, /refusal = eventDateRefusal\(priorDate, nextDate, confirmed, new Date\(\), clearance\.cleared\);/);
+  assert.match(save, /refusal = eventDateRefusal\(prior, next, confirmed, new Date\(\), clearance\.cleared\);/);
 });

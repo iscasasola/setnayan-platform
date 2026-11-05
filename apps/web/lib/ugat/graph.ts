@@ -3486,7 +3486,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'One OPEN request per event (partial unique index) · one answer row per conflicting booking (a package\'s anchor + cascade rows answer together, keyed by vendor_profile_id)',
     implementedBy:
-      'event_date_change_requests (the date asked for, who asked, open → withdrawn | applied) + event_date_change_answers (asked → moved | unlocked | dropped, due_at = asked + 3 days). The date itself goes live only through the Maker\'s Apply (dateApplyClearance), and events_booked_dates_follow_the_event moves each held supplier\'s calendar block and pool reservation with it',
+      'event_date_change_requests (the date asked for, who asked, open → withdrawn | applied) + event_date_change_answers (asked → moved | unlocked | dropped, due_at = asked + 3 days). The date itself goes live only through the event\'s one date door, updateEventDate (dateApplyClearance; owner 2026-11-05 "it shouldn\'t rely on the hub" — never the Maker\'s Apply), and events_booked_dates_follow_the_event moves each held supplier\'s calendar block and pool reservation with it',
     writtenBy:
       'three SECURITY DEFINER functions and nothing else — ask_event_date_change (the couple) · answer_event_date_change (the supplier) · settle_event_date_change (the couple: withdraw / wait / drop / applied) — plus the internal date_change_release_booking both Unlock and Drop run. authenticated holds SELECT only',
     guardedBy:

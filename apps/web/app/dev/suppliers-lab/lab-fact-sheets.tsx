@@ -5,6 +5,7 @@
  * from `fact-sheet-fixtures.ts` — the lab has no session and no database. `?sheet=date|help|place` opens one on load.
  */
 import { useEffect, useMemo, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { FactSheetStandInCtx, type FactSheetStandIns } from '@/app/dashboard/[eventId]/vendors/_components/fact-sheets';
 import { openSuppliersFactSheet } from '@/lib/suppliers-fact-sheets';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
@@ -18,14 +19,21 @@ export function LabFactSheets({
   open,
   writeFail = false,
   readFail = false,
+  landDateAt,
   children,
 }: {
   options: LabFactOptions;
   open: 'date' | 'help' | 'place' | null;
   writeFail?: boolean;
   readFail?: boolean;
+  /**
+   * 🗓 The lab's stand-in for `updateEventDate`'s redraw: a saved date is put into this address word, so the lab page
+   * draws again with the day — as the real save draws Home again (owner 2026-11-05). Absent = nothing is redrawn.
+   */
+  landDateAt?: string;
   children: ReactNode;
 }) {
+  const router = useRouter();
   const value = useMemo<FactSheetStandIns>(
     () => ({
       open: async (which, month) => {
@@ -33,18 +41,28 @@ export function LabFactSheets({
         if (readFail) return { ok: false, error: 'This could not be opened just now. Nothing was changed — close it and try again in a moment.' };
         return which === 'date' ? { ok: true, which, date: labDateSheet(options, month) } : { ok: true, which, place: labPlaceSheet(options) };
       },
-      draft: async (patch) => {
+      /* 🗓 The date's live door (`updateEventDate`), answered from fixtures — a booked day is refused at the pick, with who. */
+      date: async (date, precision) => {
         await wait(300);
-        if (writeFail) return { ok: false, intent: 'save', error: 'That did not save. Nothing changed — please try again.' };
-        const ev = (patch as { events?: Record<string, unknown> }).events;
-        if (ev?.event_date === LAB_CLASH_DAY && options.venues === 'booked') {
+        if (writeFail) return { ok: false, error: 'That date did not save. Nothing changed — please try again.' };
+        if (date === LAB_CLASH_DAY && options.venues === 'booked') {
           return {
             ok: false,
-            intent: 'save',
             error: 'Seda Vertis North is booked elsewhere that day.',
             clash: [{ vendorId: 'v-seda', name: 'Seda Vertis North', service: 'Reception venue', href: '/dev/suppliers-lab?mode=booked' }],
           };
         }
+        if (landDateAt) {
+          const url = new URL(window.location.href);
+          url.searchParams.set(landDateAt, date);
+          url.searchParams.delete('nodate');
+          router.replace(`${url.pathname}?${url.searchParams.toString()}`, { scroll: false });
+        }
+        return { ok: true, date, precision };
+      },
+      draft: async () => {
+        await wait(300);
+        if (writeFail) return { ok: false, intent: 'save', error: 'That did not save. Nothing changed — please try again.' };
         return ok;
       },
       withdraw: async () => {
@@ -52,7 +70,7 @@ export function LabFactSheets({
         return { ...ok, intent: 'date_change', message: 'Withdrawn. Your date stays as it is.' };
       },
     }),
-    [options, writeFail, readFail],
+    [options, writeFail, readFail, landDateAt, router],
   );
   useEffect(() => {
     if (!open) return;

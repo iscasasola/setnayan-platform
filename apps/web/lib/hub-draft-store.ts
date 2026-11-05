@@ -21,6 +21,7 @@ import { HUB_DRAFT_REBASE_WIDGET_FIELDS, hubDraftRebaseNeeds, rebaseHubDraftPatc
 import { sanitizePostEventDraft } from '@/lib/post-event-draft';
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
+  HUB_LIVE_DATE_COLUMNS,
   HUB_DRAFT_FIELD,
   configWithDraftedStage,
   emptyHubDraft,
@@ -472,7 +473,8 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
     ceremonyTime,
   ] = await Promise.all([
     // 💎 + `slug` — the address guests use today, what a drafted custom address is compared with (2026-10-22).
-    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
+    // 🗓 + the live date (`HUB_LIVE_DATE_COLUMNS`) — never drafted, read so a drafted ceremony time stands on the live day.
+    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, ...HUB_LIVE_DATE_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),

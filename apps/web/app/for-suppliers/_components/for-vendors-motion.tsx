@@ -15,6 +15,7 @@
 
 import { Children, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useReveal } from '@/app/_components/marketing/_premium';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatCount } from '@/lib/format-number';
 import css from './vendor-grow.module.css';
 
@@ -66,6 +67,7 @@ export function ProblemsList({
   const [open, setOpen] = useState(false);
   const [motion, setMotion] = useState(false);
   const listRef = useRef<HTMLOListElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: listRef.current }));
 
   useEffect(() => {
     const list = listRef.current;
@@ -87,6 +89,7 @@ export function ProblemsList({
 
   const toggle = () => {
     const next = !open;
+    if (next) intend();
     setOpen(next);
     if (!next) listRef.current?.scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
   };

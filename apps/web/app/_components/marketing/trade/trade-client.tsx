@@ -6,6 +6,7 @@
  */
 import { Children, useRef, useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import css from './trade.module.css';
 import type { Role } from './trade-data';
@@ -25,6 +26,8 @@ export function FoldList({
   ordered?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
   const List = ordered ? 'ol' : 'ul';
   const cls = className ?? `${css.dots} ${css.big}`;
   if (items.length <= first) {
@@ -37,7 +40,7 @@ export function FoldList({
     );
   }
   return (
-    <div className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
+    <div ref={box} className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
       <List className={cls}>
         {items.slice(0, first).map((x, i) => (
           <li key={i}>{x}</li>
@@ -52,7 +55,7 @@ export function FoldList({
           </List>
         </div>
       </div>
-      <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => { intend(); setOpen((v) => !v); }}>
         {open ? 'Show less' : `See all ${formatCount(items.length)}`}
       </button>
     </div>
@@ -107,6 +110,8 @@ export function EcoFlows({
 }) {
   const [role, setRole] = useState<Role>(initial);
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
   const row = (f: (typeof flows)[number], i: number) => (
     <li key={i} className={f.who.includes(role) ? css.flowOn : css.flowOff}>
       <i className={css.flowN} aria-hidden>
@@ -141,7 +146,7 @@ export function EcoFlows({
             onPick={(k) => setRole(k as Role)}
           />
         </div>
-        <div className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
+        <div ref={box} className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
           <ol className={css.flows}>{flows.slice(0, FLOWS_FIRST).map((f, i) => row(f, i))}</ol>
           {flows.length > FLOWS_FIRST ? (
             <>
@@ -152,7 +157,7 @@ export function EcoFlows({
                   </ol>
                 </div>
               </div>
-              <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+              <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => { intend(); setOpen((v) => !v); }}>
                 {open ? 'Show less' : `See all ${formatCount(flows.length)}`}
               </button>
             </>
@@ -166,14 +171,16 @@ export function EcoFlows({
 /** One plan card's "See everything" fold. */
 export function PlanMore({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
   return (
-    <div className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
+    <div ref={box} className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
       <div className={css.foldMore} aria-hidden={!open}>
         <div>
           <div className={css.planMore}>{children}</div>
         </div>
       </div>
-      <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className={css.foldBtn} aria-expanded={open} onClick={() => { intend(); setOpen((v) => !v); }}>
         {open ? 'Show less' : 'See everything'}
       </button>
     </div>

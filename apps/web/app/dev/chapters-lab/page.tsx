@@ -37,7 +37,7 @@ export default async function ChaptersLabPage({
   const tasks: TaskRow[] = q.clash === '1' ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS;
   const clashes = findTaskClashes(tasks.map((task) => ({ task, moment: LAB_MOMENT, chapter })));
   return (
-    <main data-shell-main="" className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 pt-6 text-ink dark:bg-ink-950">
+    <main data-shell-main="" className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 pt-6 text-ink dark:bg-ink-950 md:max-w-[64rem] xl:max-w-[100rem]">
       <section data-lab="chapters" className="flex flex-col gap-3">
         <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} released={q.released === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} held={q.held === '1'} lock={q.lock === '1'} />
       </section>

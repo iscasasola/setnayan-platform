@@ -55,6 +55,7 @@ export function LabFactSheets({
         }
         if (landDateCookie) {
           document.cookie = `${landDateCookie}=${date}; path=/; SameSite=Lax`;
+          // one-render: keep (client-write) — the lab's cookie IS the write; this one redraw stands in for updateEventDate's revalidate.
           router.refresh();
         }
         return { ok: true, date, precision };

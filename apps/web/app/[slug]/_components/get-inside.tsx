@@ -31,6 +31,11 @@ export { STRANGER_DOOR_WORDS };
  *     guest and walks them in (owner 2026-09-30, "no reply, no approval unless
  *     the host picks 'I approve each one'"). A press, not the render: a page
  *     render may not write the guest cookie (lib/guest-membership-session.ts).
+ *   · signed in, and the seat read was REFUSED (2026-11-05, reads-are-honest) →
+ *     "We couldn't check your invitation just now" + **"Try again"** (a fresh
+ *     load of this same page). Never the not-listed copy and never a join
+ *     button: the person may well be on the list, and "Join as a guest" would
+ *     add them a second time.
  *
  * 🚪 THE FIRST SCREEN MAKES ROOM FOR THE DOOR (2026-10-11). Measured on the live
  * sample event: the button's own place is under the date, at y 715 — entirely
@@ -50,6 +55,7 @@ export function GetInside({
   slug,
   eventId,
   signedInNotListed,
+  seatUnread = false,
   theOrganizer,
   mayAskToJoin = false,
   joinAction,
@@ -78,7 +84,29 @@ export function GetInside({
   slug: string | null;
   eventId: string;
   signedInNotListed: boolean;
+  /** Signed in, and their seat read was refused — we do not know whether they are listed. */
+  seatUnread?: boolean;
 }) {
+  // 🔌 FIRST: an unanswered question is never answered with "not on the list".
+  if (seatUnread) {
+    return (
+      <section aria-labelledby="seat-unread" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="seat-unread">
+        <h2 id="seat-unread" className="font-serif text-2xl leading-snug text-ink">
+          We couldn&rsquo;t check your invitation just now
+        </h2>
+        <p className="text-sm text-ink/70" role="status">
+          Your invitation is fine — something on our end is having trouble. Give it a moment and try again.
+        </p>
+        {/* A plain link, so it is a fresh server render of this same page — the read is asked again. */}
+        <a
+          href={slug ? `/${slug}` : '.'}
+          className="button-primary flex min-h-[52px] w-full items-center justify-center"
+        >
+          Try again
+        </a>
+      </section>
+    );
+  }
   if (signedInNotListed && joinAction) {
     return (
       <section aria-labelledby="come-in" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="join">

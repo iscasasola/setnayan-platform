@@ -1,6 +1,11 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  readGuestSeatForUser,
+  type GuestMembershipSeat,
+  type GuestSeatRead,
+} from '@/lib/guest-seat-read';
 
 /**
  * guest-membership-session.ts — an invited person who is SIGNED IN should not be
@@ -100,24 +105,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * a link is the defect above.
  */
 
-export type GuestMembershipSeat = {
-  guestId: string;
-  /**
-   * The seat's CURRENT token. No caller mints a session today (see the header),
-   * but it is read rather than dropped for two reasons: it proves the seat row is
-   * live and readable, and the deliberate one-press mint named above needs the
-   * live value — a stale token would put a minted cookie permanently at odds with
-   * `GUEST_SESSION_TOKEN_CHECK`, which compares it against the database.
-   */
-  qrToken: string;
-  /** The event's public address, as the DATABASE returned it. */
-  slug: string;
-};
+export type { GuestMembershipSeat, GuestSeatRead } from '@/lib/guest-seat-read';
 
 /**
  * The signed-in user's own guest seat on this event, or NULL.
  *
- * Every condition below is a real gate, not defensiveness:
+ * Every condition in the read (lib/guest-seat-read.ts) is a real gate, not
+ * defensiveness:
  *   · `user_id` — their OWN row. Never a lookup by seat.
  *   · `member_type = 'guest'` — an organiser has the dashboard and must not be
  *     handed a guest cookie; a `vendor`/`coordinator` row is a different stance
@@ -142,49 +136,21 @@ export async function findGuestSeatForUser(
   eventId: string,
   userId: string,
 ): Promise<GuestMembershipSeat | null> {
-  const admin = createAdminClient();
+  // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR. Supabase resolves with { error };
+  // this answer folds a refusal into null, which every GATE may do (a refusal
+  // must never admit). A page that SAYS something about the person — "you're not
+  // on the guest list" — must call `findGuestSeatForUserMeasured` instead, or a
+  // blip tells a listed guest they are not invited.
+  return (await findGuestSeatForUserMeasured(eventId, userId)).seat;
+}
 
-  const { data: membership, error: membershipError } = await admin
-    .from('event_members')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .eq('user_id', userId)
-    .eq('member_type', 'guest')
-    .not('guest_id', 'is', null)
-    .is('hidden_at', null)
-    .maybeSingle();
-  if (membershipError) console.error('[supabase-error] lib/guest-membership-session.ts · from:event_members.select', membershipError);
-
-  // 🔑 A REJECTED QUERY IS NOT A THROWN ERROR. Supabase resolves with { error },
-  // so without this check a phantom column or a lost grant would read as "this
-  // person has no seat" and silently restore the exact lock-out this module
-  // exists to end. Fail CLOSED, but never silently: the caller renders the page
-  // the person would have got anyway, and the error is visible to whoever looks.
-  if (membershipError || !membership?.guest_id) return null;
-
-  const { data: seat, error: seatError } = await admin
-    .from('guests')
-    .select('guest_id, qr_token, events:event_id ( slug )')
-    .eq('guest_id', membership.guest_id as string)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (seatError) console.error('[supabase-error] lib/guest-membership-session.ts · from:guests.select', seatError);
-
-  if (seatError || !seat?.qr_token) return null;
-
-  // The slug comes back through the embed so the redirect target is built from
-  // what the DATABASE holds, never from caller-supplied text — the open-redirect
-  // lesson `app/[slug]/redeem/route.ts` paid for on live prod on 2026-08-06.
-  const embedded = (seat as { events?: { slug?: string | null } | { slug?: string | null }[] })
-    .events;
-  const row = Array.isArray(embedded) ? embedded[0] : embedded;
-  const slug = row?.slug?.trim();
-  if (!slug) return null;
-
-  return {
-    guestId: seat.guest_id as string,
-    qrToken: seat.qr_token as string,
-    slug,
-  };
+/**
+ * The same read, and whether it HAPPENED (`measured`). Use this wherever the
+ * answer reaches words on a screen — see lib/guest-seat-read.ts.
+ */
+export async function findGuestSeatForUserMeasured(
+  eventId: string,
+  userId: string,
+): Promise<GuestSeatRead> {
+  return readGuestSeatForUser(createAdminClient(), eventId, userId);
 }

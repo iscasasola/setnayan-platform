@@ -155,6 +155,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { OfflineScheduleLab } from './offline-schedule-lab';
 import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
 import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
@@ -372,7 +373,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; schedule?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -565,6 +566,7 @@ export default async function HomeLab({
   }
   if (q.view === 'offline') {
     /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
+    if (q.schedule === '1') return <OfflineScheduleLab state={q.state} />;
     return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
   }
   if (q.view === 'day') {

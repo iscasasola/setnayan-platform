@@ -71,6 +71,11 @@ import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-r
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { ShopGiftsSection } from './shop-gifts-section';
 
 
 /**
@@ -452,6 +457,18 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
+  // 🎁 YOUR GIFTS (owner 2026-11-04) — the shop's gift stock, read with the shop's own client (RLS: its own rows);
+  // the catalogue and the tier with the service role, as the buy action prices them.
+  const giftsAdmin = createAdminClient();
+  const [giftStock, giftBought, giftPacks, giftPaysGiftPrice, giftPapicOn, giftStoreShell] = await Promise.all([
+    fetchShopGiftStock(supabase, profile.vendor_profile_id, null),
+    fetchShopGiftBought(supabase, profile.vendor_profile_id),
+    fetchShopGiftPacks(giftsAdmin),
+    fetchVendorPaysGiftPrice(giftsAdmin, profile.vendor_profile_id),
+    isVendorPapicCaptureEnabled(),
+    isStoreShellRequest(),
+  ]);
+
   // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
   const photosLine = allowance.ok
     ? portfolioPlanRowLine({
@@ -535,6 +552,17 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         featured={featured}
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
+      />
+
+      <ShopGiftsSection
+        data={{
+          stock: giftStock,
+          packs: giftPacks,
+          paysGiftPrice: giftPaysGiftPrice,
+          bought: giftBought,
+          openRails,
+          canBuy: giftPapicOn && !giftStoreShell,
+        }}
       />
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}

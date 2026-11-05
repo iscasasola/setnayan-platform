@@ -6,10 +6,10 @@
  * guests have both genders. so let them pick an attire for male and attire for female"* — and, asked, *"Yes, two
  * picks"* for Principal Sponsors and for Bearers & Flower Girl (boys / girls) too.
  *
- *   one pick  — the bride (a woman) · the groom (a man) · bridesmaids · groomsmen · Nikah principals · officiants ·
- *               the celebrant
+ *   one pick  — the bride (a woman) · the groom (a man) · bridesmaids · groomsmen · Nikah principals · officiants
  *   two picks — VIP · Immediate Family · Principal Sponsors · Secondary Sponsors · Guests (men / women) and
- *               Bearers & Flower Girl (boys / girls)
+ *               Bearers & Flower Girl (boys / girls) · and, since 2026-11-04, the celebrant (women / men — a debutante, a
+ *               birthday boy, an anniversary's two)
  *
  * ── WHERE THE TWO PICKS LIVE ───────────────────────────────────────────────
  * The FIRST pick (men, or boys) is the row as it has always been stored — its Wear is `dress_code_config[tier][key]
@@ -32,7 +32,7 @@
  */
 import { isAttireStyle, type AttireStyle } from './role-dress-code';
 import { COUNTERPART, STYLE_ORDER, fitsWho, type FigureWho } from './attire-figures';
-import { GUEST_OPTIONS_MAX, columnRole, designLabel, designOf, readerFigureRole, roleDesigns, type FigureRole } from './attire-designs';
+import { FIGURE_ROLE_WHO, GUEST_OPTIONS_MAX, columnRole, designLabel, designOf, readerFigureRole, roleDesigns, wearerOf, type FigureRole } from './attire-designs';
 import type { GuestAttire, GuestRole } from './guests';
 import type { PaletteKey } from './mood-board';
 import { roleGroupOf } from './role-groups';
@@ -55,7 +55,7 @@ export type AttireRowDef = {
   /** Who the row dresses: one person, or two picks — first (men · boys), second (women · girls). */
   who: readonly [FigureWho] | readonly [FigureWho, FigureWho];
   /**
-   * A ONE-pick row whose people may be EITHER (the celebrant, Nikah principals, officiants & readers): drawn as its
+   * A ONE-pick row whose people may be EITHER (Nikah principals, officiants & readers): drawn as its
    * usual wearer, but its Wear ▾ keeps every style — a reader or a judge may wear a gown — and the figure is the person
    * whose style it is (`pickOptions`, `picksOf`).
    */
@@ -67,15 +67,31 @@ export type AttireRowDef = {
    * The column never inherits the first column's Wear either: the maid's gown said nothing about a man.
    */
   optionalSecond?: true;
+  /**
+   * 🙏 AN `either` ROW THAT ALSO OFFERS ONE FIGURE ROLE'S OWN DESIGNS, each drawn as that person (2026-11-04): the
+   * officiants' row keeps the shipped seven and gains the priest's alb and stole (`officiant`, the owner's render) at the
+   * end of its Wear ▾. A Wear stored before this is read exactly as before — the list only grew.
+   */
+  also?: FigureRole;
+  /**
+   * 🎂 A TWO-PICK `roles` row whose reader is told THEIR OWN column, by who they are (`readerPick`) — the celebrant: a
+   * debutante reads the women's pick, a birthday boy the men's. (The other two-pick rows that do this are groups'.)
+   */
+  pairByPerson?: true;
 };
 
 /**
  * Every row the Studio's Attire can draw, in the Mood Board's order (`studioAttireRows` picks the ones on the guest
- * list). A one-pick row whose people may be either (Nikah principals, officiants, the celebrant) is drawn as the
+ * list). A one-pick row whose people may be either (Nikah principals, officiants) is drawn as the
  * role's usual wearer — a build call, said in the handover.
  */
 export const ATTIRE_ROWS: readonly AttireRowDef[] = [
-  { tier: 'roles', key: 'celebrant', paletteKey: null, who: ['f'], either: true },
+  /* 🎂 THE CELEBRANT (owner 2026-11-04 — his renders "so dress codes work for other events"): FOR WOMEN · FOR MEN, each in
+     the owner's figures (`ROW_FIGURE_ROLES.celebrant`). Women first — the one pick stored before this was drawn as a
+     woman, so it stays the first pick, where it always was; a men's Wear stored there (a barong) reads into the men's
+     column, which follows the first until it is picked (`picksOf`). No palette of its own, as before (`mood-board.ts`
+     excludes `honoree`: "the celebrant is one person (or two) whose colour the couple picks directly"). */
+  { tier: 'roles', key: 'celebrant', paletteKey: null, who: ['f', 'm'], pairByPerson: true },
   { tier: 'roles', key: 'bride', paletteKey: 'bride', who: ['f'] },
   { tier: 'roles', key: 'groom', paletteKey: 'groom', who: ['m'] },
   { tier: 'groups', key: 'vip_family', paletteKey: 'parents_immediate_family', who: ['m', 'f'] },
@@ -95,7 +111,10 @@ export const ATTIRE_ROWS: readonly AttireRowDef[] = [
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
   { tier: 'groups', key: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl', who: ['boy', 'girl'] },
-  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true },
+  /* 🙏 The priest's alb and stole (`officiant`) at the end of the Officiants' Wear ▾ — owner 2026-11-05 (DECISION_LOG
+     "…CELEBRANT DRESS CODES…" (M)): "on the wedding Officiants row now". A christening's officiant is a later role-set
+     migration, not this row. */
+  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true, also: 'officiant' },
   { tier: 'roles', key: 'guest', paletteKey: 'guest', who: ['m', 'f'] },
 ];
 
@@ -216,7 +235,10 @@ export function pickOptions(row: AttireRowDef, index: 0 | 1 = 0): readonly Attir
   const role = columnRole(row.key, index);
   if (role) return roleDesigns(role);
   const who = row.who[index] ?? row.who[0];
-  if (row.who.length === 1 && row.either) return [...STYLE_ORDER[who], ...STYLE_ORDER[COUNTERPART[who]].filter((s) => !STYLE_ORDER[who].includes(s))];
+  if (row.who.length === 1 && row.either) {
+    const seven = [...STYLE_ORDER[who], ...STYLE_ORDER[COUNTERPART[who]].filter((s) => !STYLE_ORDER[who].includes(s))];
+    return row.also ? [...seven, ...roleDesigns(row.also).filter((s) => !seven.includes(s))] : seven;
+  }
   return STYLE_ORDER[who];
 }
 
@@ -293,15 +315,20 @@ export function picksOf(config: Config, row: AttireRowDef): ReadPick[] {
   };
   if (row.who.length === 1) {
     const style = own(0, first);
+    /* 🙏 A design of the row's `also` person (the priest's alb) is drawn as that person. */
+    if (row.also && style && roleDesigns(row.also).includes(style)) return [{ who: FIGURE_ROLE_WHO[row.also], style, colours: null, role: row.also }];
     const who = row.either && style && !fitsWho(row.who[0], style) ? COUNTERPART[row.who[0]] : row.who[0];
     return [{ who, style, colours: null, role: columnRole(row.key, 0) }];
   }
   const second = sanitizeSecondPicks(config?.women)[row.tier]?.[row.key];
   /* 🤵‍♂️ An `optionalSecond` column never reads the first column's Wear (the maid's gown said nothing about a man). */
   const inherited = row.optionalSecond ? null : first;
+  /* 🎂 Who each column's pick is drawn as — its own person, or the one its design is worn by (the celebrant's girl). */
+  const s0 = own(0, first);
+  const s1 = own(1, second && 'style' in second ? (second.style ?? null) : inherited);
   return [
-    { who: row.who[0], style: own(0, first), colours: null, role: columnRole(row.key, 0) },
-    { who: row.who[1]!, style: own(1, second && 'style' in second ? (second.style ?? null) : inherited), colours: second?.colours ?? null, role: columnRole(row.key, 1) },
+    { who: wearerOf(columnRole(row.key, 0), s0, row.who[0]), style: s0, colours: null, role: columnRole(row.key, 0) },
+    { who: wearerOf(columnRole(row.key, 1), s1, row.who[1]!), style: s1, colours: second?.colours ?? null, role: columnRole(row.key, 1) },
   ];
 }
 
@@ -467,7 +494,7 @@ export function readerAttire(input: {
   const studioRow = studioRowOf(role, config ?? null);
   const groupRow = studioRow && studioRow.tier === 'groups' ? studioRow : null;
   /* 👯 A two-pick row the reader is dressed by — a group's, or the honour row "Best Man & Best Woman" (2026-10-19). */
-  const pairRow = studioRow && isTwoPick(studioRow) && (groupRow || isHonourRole(role)) ? studioRow : null;
+  const pairRow = studioRow && isTwoPick(studioRow) && (groupRow || isHonourRole(role) || studioRow.pairByPerson) ? studioRow : null;
   if (pairRow) {
     const picks = picksOf(config, pairRow).map((p) => ({ ...p, colours: p.colours ?? [...hexes] }));
     const r = readerPick(pairRow, role, attire, input.person);
@@ -488,11 +515,14 @@ export function readerAttire(input: {
     const mine = readerFigureRole(role, w);
     if (mine) {
       const own = designOf(mine, style);
-      if (own) return { who: w, style: own, colours: [...hexes], role: mine };
+      if (own) return { who: wearerOf(mine, own, w), style: own, colours: [...hexes], role: mine };
       const theirs = rowRole && rowRole !== mine ? designOf(rowRole, style) : null;
       if (theirs && groupRow?.who[0] === w) return { who: w, style: theirs, colours: [...hexes], role: rowRole };
       return { who: w, style: null, colours: [...hexes], role: mine };
     }
+    /* 🙏 An officiant in the priest's alb (the officiants' `also`) is drawn as the priest. */
+    const also = groupRow?.also;
+    if (also && style && FIGURE_ROLE_WHO[also] === w && roleDesigns(also).includes(style)) return { who: w, style, colours: [...hexes], role: also };
     return { who: w, style: fitsWho(w, style) ? style : null, colours: [...hexes], role: null };
   });
   return { styleLabel: picks.length === 1 ? say(picks[0]!) : bothSaid(picks, say), hexes: [...hexes], picks };

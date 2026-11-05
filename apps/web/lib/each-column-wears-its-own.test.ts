@@ -70,7 +70,10 @@ test('1 · a column offers only its own person’s styles', () => {
   assert.deepEqual(pickOptions(SPONSORS, 1), ['filipiniana', 'long_gown']);
   /* A one-pick row whose people may be either keeps every style; its person is whoever wears the style. */
   const officiants = attireRow('groups', 'officiants')!;
-  assert.deepEqual([...pickOptions(officiants)].sort(), [...GENERAL_ATTIRE_STYLES].sort(), 'a reader in a gown lost her Wear');
+  /* 🙏 …and the priest's alb and stole at the end (owner 2026-11-05, the officiant's own drawing — `also: 'officiant'`). */
+  assert.deepEqual([...pickOptions(officiants)].filter((s) => s !== 'priest').sort(), [...GENERAL_ATTIRE_STYLES].sort(), 'a reader in a gown lost her Wear');
+  assert.equal(pickOptions(officiants).at(-1), 'priest', 'the priest’s alb is not the officiants’ last Wear');
+  assert.deepEqual(picksOf({ groups: { officiants: { style: 'priest' } } }, officiants).map((p) => [p.who, p.role]), [['m', 'officiant']]);
   assert.deepEqual(picksOf({ groups: { officiants: { style: 'long_gown' } } }, officiants).map((p) => [p.who, garmentFor(p.who, p.style)]), [['f', 'gown']]);
   assert.deepEqual(picksOf({ groups: { officiants: { style: 'barong_tagalog' } } }, officiants).map((p) => [p.who, garmentFor(p.who, p.style)]), [['m', 'barong']]);
   /* The drawing table holds nothing a person is not offered — no man's "Long gown" drawn as a suit. */

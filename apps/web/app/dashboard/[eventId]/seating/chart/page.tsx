@@ -2,7 +2,8 @@ import { BackButton } from '@/app/_components/back-button';
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { fetchGuestsByEvent } from '@/lib/guests';
+import { fetchGuestsByEventMeasured } from '@/lib/guests';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -57,11 +58,25 @@ export default async function EntranceChartPage({ params }: Props) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) return <NotSharedWithYou title="Entrance seating chart" thing="guest list" />;
   if (isDelegateWithoutArea(viewer, 'seat_plan')) return <NotSharedWithYou title="Entrance seating chart" thing="seat plan" />;
 
-  const [tables, assignments, guests] = await Promise.all([
+  const [tables, assignments, guestsRead] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
   ]);
+  // 🔌 A REFUSED GUEST READ IS NOT AN EMPTY ROOM (reads-are-honest, 2026-11-05).
+  // The array-only read turned it into `[]`, and this page then drew "0 seated",
+  // a chart with nobody on it and a Save button that printed one — for the sheet
+  // at the door. Said instead, before anything is measured or offered.
+  if (!guestsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-4xl space-y-5 px-1 py-2">
+        <BackButton route="/dashboard/[eventId]/seating/chart" params={{ eventId }} />
+        <PageMasthead title={metadata.title} />
+        <ReadRefusedNotice what="your guest list" />
+      </section>
+    );
+  }
+  const guests = guestsRead.rows;
   const units = seatingUnits(tables, assignments, guests);
   const shared = { coupleName: '', dateLabel: null, units: chartUnits(units), entries: azEntries(units, guests) };
   const seated = shared.entries.length;

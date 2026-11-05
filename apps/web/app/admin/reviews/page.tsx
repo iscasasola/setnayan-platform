@@ -396,7 +396,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         )}
       </section>
 
-      {/* ⭐ Guests' ratings from the supplier scanner (slice 5) — moderated here, shown on no public page yet. */}
+      {/* ⭐ Guests' ratings from the supplier scanner (slice 5) — moderated here; Published shows on the supplier's page, in its own section. */}
       <section className="mt-12 space-y-4" aria-labelledby="guest-scan-reviews-heading" data-admin-guest-scan-reviews="">
         <header className="space-y-0.5">
           <h2 id="guest-scan-reviews-heading" className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
@@ -405,7 +405,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           </h2>
           <p className="text-xs text-ink/55">
             A guest rates a supplier service after its scanner marked their item received. The supplier never sees who
-            wrote it. Published ratings are not on any public page yet — that is the owner&rsquo;s call.
+            wrote it. Published ratings show on the supplier&rsquo;s page under Guest ratings, apart from couple reviews.
           </p>
         </header>
         {guestScanReviews === null ? (

@@ -12,7 +12,8 @@ import { supplierScan } from '@/app/_actions/supplier-scan-actions';
  * Not now, which is an answer too, so the card never asks twice. One per guest per service.
  *
  * Who is answering is the pass this phone holds (the server reads it), never anything this card sends. The supplier
- * never sees who wrote it, and nothing here reaches a public page (🔑 owner decision pending).
+ * never sees who wrote it; once Setnayan publishes it, the rating shows on the supplier's page under Guest ratings,
+ * apart from couple reviews (owner 2026-11-05), never naming the guest.
  */
 export function ScanReviewAsk({ eventId, coverageId, service, shop }: { eventId: string; coverageId: number; service: string; shop: string | null }) {
   const [stars, setStars] = useState<string | null>(null);

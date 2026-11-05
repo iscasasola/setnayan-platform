@@ -18,5 +18,5 @@ SESSIONS (photo booth group shots) — print count = guests scanned, adjustable"
   empty); "Your numbers" shows a shot's prints and offers Ready only once it is closed.
 - Tests: `tests/db/a-supplier-scan-counts-unlimited-and-group-shots.db.test.ts` (6) · `lib/supplier-scan.test.ts` (+1).
 
-SPEC IMPACT: DECISION_LOG row for slice 3 added. The group counter's words ("Sessions N · Ready N · Claimed N") are not
-in the rulings — chosen to match Roaming's "Shots · Ready · Claimed"; the owner may rename.
+SPEC IMPACT: DECISION_LOG row for slice 3 added. The group counter reads "Shots N · Ready N · Claimed N" — the
+same word as the panel's "New shot" and Roaming's counter (owner 2026-11-05: *"your recommendation"*).

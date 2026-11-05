@@ -17,6 +17,7 @@ wrote it, its own store + admin moderation.
 - One more op on the one action (`guest_review`, `admin_review`) — no new export.
 - Tests: `tests/db/a-guest-reviews-a-supplier-only-after-receiving.db.test.ts` (4) · `lib/supplier-scan.test.ts` (+1).
 
-SPEC IMPACT: DECISION_LOG row for slice 5 added. 🔑 OWNER: the ratings are NOT on the supplier's public page — whether
-guest ratings show separately from couple reviews (recommended in the 2026-09-25 row) or merged is still yours to decide;
-until then Publish only marks them approved.
+SPEC IMPACT: DECISION_LOG row for slice 5 added. Owner 2026-11-05: *"separate"* — published ratings show on the
+supplier's public page in their own **Guest ratings** section after the couple reviews (`GuestRatingsSection`, read by
+`readPublishedGuestRatings`: published only, never a skip, never the guest or the event), never merged into the
+couple reviews' average. Draws nothing when none are published or the read fails.

@@ -454,3 +454,63 @@ export async function readAdminScanReviews(): Promise<AdminScanReview[] | null> 
     return null;
   }
 }
+
+export type PublicGuestRatings = {
+  count: number;
+  /** The mean of every PUBLISHED rating, one decimal is the caller's job. */
+  average: number;
+  /** The newest published ratings that carry a line — never the writer. */
+  lines: { reviewId: string; stars: number; line: string; service: string; at: string }[];
+};
+
+/**
+ * ⭐ THE SUPPLIER'S PUBLIC PAGE — guests' ratings from the scanner, in THEIR OWN section beside the couple reviews,
+ * never merged into them (owner 2026-11-05: *"separate"*, the 2026-09-25 row's recommendation). Only the ratings
+ * Setnayan PUBLISHED in Admin › Reviews; never a skip, never a pending or hidden one, never the guest or the event.
+ * `count: 0` = none published (the section draws nothing); null = the read failed (also nothing — a public page
+ * makes no claim either way — and it is logged).
+ */
+export async function readPublishedGuestRatings(vendorProfileId: string, limit = 5): Promise<PublicGuestRatings | null> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('supplier_scan_reviews')
+      .select('review_id, stars, line, coverage_id, created_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('state', 'published')
+      .eq('skipped', false)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (error) {
+      logQueryError('readPublishedGuestRatings', error, { vendorProfileId });
+      return null;
+    }
+    type Row = { review_id: string; stars: number | null; line: string | null; coverage_id: number | string; created_at: string };
+    const rows = ((data ?? []) as Row[]).filter((r) => typeof r.stars === 'number' && r.stars >= 1 && r.stars <= 5);
+    if (rows.length === 0) return { count: 0, average: 0, lines: [] };
+    const withLine = rows.filter((r) => (r.line ?? '').trim() !== '').slice(0, limit);
+    let label = new Map<string, string>();
+    if (withLine.length > 0) {
+      const [covs, labels] = await Promise.all([
+        admin.from('vendor_coverages').select('id, canonical_service').in('id', [...new Set(withLine.map((r) => r.coverage_id))]),
+        resolveCoverageLabels(),
+      ]);
+      if (covs.error) logQueryError('readPublishedGuestRatings.services', covs.error, { vendorProfileId });
+      label = new Map(((covs.data ?? []) as { id: number | string; canonical_service: string }[]).map((c) => [String(c.id), labels.leafLabel(c.canonical_service)]));
+    }
+    return {
+      count: rows.length,
+      average: rows.reduce((sum, r) => sum + (r.stars as number), 0) / rows.length,
+      lines: withLine.map((r) => ({
+        reviewId: r.review_id,
+        stars: r.stars as number,
+        line: (r.line ?? '').trim(),
+        service: label.get(String(r.coverage_id)) ?? '',
+        at: r.created_at,
+      })),
+    };
+  } catch (err) {
+    logQueryError('readPublishedGuestRatings', err, { vendorProfileId });
+    return null;
+  }
+}

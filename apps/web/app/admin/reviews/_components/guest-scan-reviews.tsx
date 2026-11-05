@@ -7,8 +7,8 @@ import { supplierScan } from '@/app/_actions/supplier-scan-actions';
 /**
  * ⭐ Admin › Reviews › Guests' ratings from the scanner (supplier claim scanner, slice 5; DECISION_LOG 2026-09-25
  * "…AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB" — "guest reviews are NEW and need their own store + admin
- * moderation (reuse admin/reviews)"). Publish or Hide each — audited. 🔑 Published still reaches NO public page: whether
- * guest ratings sit apart from the couple reviews or merged with them is the owner's open call.
+ * moderation (reuse admin/reviews)"). Publish or Hide each — audited. Published reaches the supplier's public page in its own
+ * "Guest ratings" section, apart from the couple reviews (owner 2026-11-05: "separate"); Hide takes it back off.
  */
 export function GuestScanReviews({ reviews }: { reviews: AdminScanReview[] }) {
   const [pending, start] = useTransition();

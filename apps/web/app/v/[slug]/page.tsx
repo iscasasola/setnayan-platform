@@ -138,6 +138,8 @@ import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ShopReachLine, ShopReachMap } from './_components/shop-reach';
 import { ShopAddresses } from './_components/shop-addresses';
 import { PinnedReviewCard } from './_components/pinned-review-card';
+import { GuestRatingsSection } from './_components/guest-ratings-section';
+import { readPublishedGuestRatings } from '@/lib/supplier-scan.server';
 import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
@@ -948,6 +950,8 @@ export async function renderVendorBySlug({
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
+  // Guests' ratings from the scanner — their own section, never merged into the couple reviews (owner 2026-11-05).
+  const guestRatingsRead = readPublishedGuestRatings(vendor.vendor_profile_id);
   const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
@@ -3170,6 +3174,8 @@ export async function renderVendorBySlug({
           venueEvents={venueEvents}
           hasVenueMatch={venueMatchCount > 0}
         />
+
+        <GuestRatingsSection ratings={await guestRatingsRead} businessName={displayLabel} />
 
         {showTrustedBy ? (
           <TrustedBySection

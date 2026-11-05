@@ -11,9 +11,9 @@
 -- verified by a real claim; the supplier never sees who wrote it; guest reviews are NEW and need their own store +
 -- admin moderation (reuse admin/reviews).
 --
--- 🔑 OWNER — NOT SHOWN ON THE PUBLIC PROFILE. Whether guest ratings sit separately from the couple reviews or merged
--- is still open (the ruling recommends separate). Nothing reads this table onto any public page; it is held for
--- moderation only until the owner decides.
+-- ⭐ SEPARATE FROM THE COUPLE REVIEWS (owner 2026-11-05: "separate", the ruling's own recommendation). Only a rating
+-- Setnayan PUBLISHED reaches the supplier's public page, in its own "Guest ratings" section — never merged into the
+-- couple reviews' average, never naming the guest or the event (read server-side; no public grant on this table).
 --
 --   · supplier_scan_reviews: one row per (event, service, guest) — a rating, or a skip ("Not now" is an answer too,
 --     so the card never asks twice); state pending → published | hidden, set by Setnayan admin;
@@ -76,7 +76,7 @@ CREATE POLICY supplier_scan_reviews_admin_moderate ON public.supplier_scan_revie
   WITH CHECK ((SELECT public.is_admin()));
 
 COMMENT ON TABLE public.supplier_scan_reviews IS
-  'A guest''s optional review of a supplier service after a RECEIVED scanner claim: 1–5 stars + an optional line, or a skip. One per guest per service per event. Written only by supplier_scan_review_submit (service role); moderated by Setnayan admin (pending → published | hidden). NOT shown on any public page — owner decision pending (separate vs merged with couple reviews). The supplier never sees who wrote it.';
+  'A guest''s optional review of a supplier service after a RECEIVED scanner claim: 1–5 stars + an optional line, or a skip. One per guest per service per event. Written only by supplier_scan_review_submit (service role); moderated by Setnayan admin (pending → published | hidden). Published ratings show on the supplier''s public page in their own section, never merged with couple reviews (owner 2026-11-05). The supplier never sees who wrote it.';
 
 -- The guest's received claim for this service, or nothing. A supplier claim (state received) or the couple's souvenir
 -- row a supplier's scanner wrote (coverage_id set).

@@ -5,6 +5,7 @@ import { ChevronDown } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { InfoTip } from '@/app/_components/info-tip';
 import { joinPinLine } from '@/app/_components/pinned-row/pin-line';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /** How many OPEN folds this one sits inside — its head pins that many slim lines further down (flush under theirs). */
 const FoldDepth = createContext(0);
@@ -247,6 +248,17 @@ export function Fold({
   const id = useId();
   const depth = useContext(FoldDepth);
   const { pinRef, box } = useSlimPin(open, depth);
+  // 🔭 A USER'S open glides the head to the pin line when the body runs past the bottom (owner 2026-11-04, app-wide —
+  // `reveal-on-open.ts`). Only the head's own press counts: never `defaultOpen`, a controlled open or the `#anchor`.
+  const intend = useRevealOnOpen(open, () => ({ head: box.current }));
+  // The press is caught on its way down (capture), so the head and the title keep their ONE handler that flips open. Only
+  // THIS fold's head or title marks it — a press on the ⓘ, a leadPress, an endPress or a fold inside marks nothing.
+  const pressed = (e: { target: EventTarget }) => {
+    const t = e.target as Element;
+    if (t.closest('[data-fold-pinbox]') !== pinRef.current) return;
+    const b = t.closest('button');
+    if (b ? b.hasAttribute('data-fold-head') : t.closest('[data-fold-title]')) intend();
+  };
   useEffect(() => {
     if (!anchor) return;
     const apply = () => {
@@ -320,6 +332,7 @@ export function Fold({
       data-fold={data ?? ''}
       data-fold-open={open ? '' : undefined}
       className={anchor ? `scroll-mt-24 ${className}` : className}
+      onClickCapture={pressed}
     >
       <div ref={pinRef} data-fold-pinbox="">
       {leadPress || endPress ? (

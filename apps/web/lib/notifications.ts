@@ -392,6 +392,14 @@ export type NotificationType =
   */
   | 'guest_takedown_honored'
   /*
+    Setnayan changed one of the SUPPLIER's service cards from the admin
+    supplier page: took it down, put it back, or removed a cover / showcase
+    photo — always with the admin's reason (lib/service-card-moderation.ts).
+    In-app only: deliberately NOT on EMAIL_ENABLED_TYPES (owner brief for the
+    7 Nov supplier registration: "in-app notice, no new email"). Low push.
+  */
+  | 'service_card_moderated'
+  /*
     A booking landed inside the shop's free 5, so Setnayan billed them NOTHING
     (owner 2026-09-20: *"yes, add the email receipt for waived bookings."*).
     ⚠ Also an ENUM value in Postgres — 20271235690341. A TS-only member
@@ -654,6 +662,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   samahan_message: 'New in Usapan',
   samahan_join: 'Someone joined your group',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
+  service_card_moderated: 'Setnayan changed one of your service cards',
   // Tray copy for the free-5 receipt. It says WAIVED, not "Free" — a row that
   // reads only "Free" teaches the shop there is no fee, and booking 6 then
   // arrives as a surprise charge (owner 2026-09-20, the whole reason the
@@ -870,6 +879,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
     honoured it. A red badge would read as an accusation.
   */
   guest_takedown_honored: 'bg-ink/15 text-ink/70',
+  // Warn: the card (or a photo on it) is off until the supplier acts on the reason.
+  service_card_moderated: 'bg-warn-100 text-warn-900',
   /*
     Success, and nothing else would be honest: the shop owed a fee and owes it
     no longer. Amber would read as "action needed" on a receipt with no action
@@ -1212,6 +1223,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',
   guest_takedown_honored: 'image',
+  service_card_moderated: 'image',
   review_request: 'star',
   review_received: 'star',
   vendor_review_reply: 'star',

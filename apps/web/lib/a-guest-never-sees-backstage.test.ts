@@ -8,7 +8,8 @@
  * chapter's Ingress or Egress: not a moment in them, even one whose eye was left on, and not the setup or pack-up times.
  *
  *   1 · each guest reader, run on a chapter holding a PUBLIC moment in its Ingress, its Event and its Egress, keeps
- *       only the Event moment;
+ *       only the Event moment — except a guest's OWN task inside backstage, which stays on that guest's card alone
+ *       (owner 5 Nov, "yes");
  *   2 · no guest reader asks for, or reads, a chapter's setup or pack-up (`ingress_minutes_before` ·
  *       `egress_minutes_after` · `ingressAt` · `egressAt`) — scanned across every file under app/[slug] and the guest libs;
  *   3 · the backstage words are drawn where the host, the coordinator and the supplier read it — and nowhere a guest does.
@@ -84,6 +85,36 @@ test('1d · the Event Hub’s schedule (schedule-widget) and View as a guest dro
   const chapters = chaptersFromBlocks([CHAPTER] as unknown as Parameters<typeof chaptersFromBlocks>[0]);
   const view = guestDay(chapters, { moments: MOMENTS.map((m) => ({ ...m, staged: false, vendor_ids: [], is_optional: false })), tasks: [] } as unknown as Parameters<typeof guestDay>[1]);
   assert.deepEqual(view.chapters.flatMap((c) => c.rows.map((r) => r.id)), FRONT, 'View as a guest shows backstage');
+});
+
+// ✅ Owner, 5 Nov ("yes"): a guest's OWN task inside backstage stays on their Me card — the ring bearer still learns
+// to bring the rings at 1:00 PM. Only that guest sees it; everyone else's backstage stays hidden.
+test('1e · a guest’s own task inside backstage stays on their card, and only theirs', () => {
+  const chapters = chaptersFromBlocks([CHAPTER] as unknown as Parameters<typeof chaptersFromBlocks>[0]);
+  const task = {
+    task_id: 't1', block_id: 'in', vendor_id: null, crew: null, guest_id: 'g1', group_id: null, role: null, who_label: null,
+    what: 'Bring the rings to the coordinator', call_at: null, place: null, sort_order: 0,
+  };
+  const card = (guestId: string) =>
+    yourSchedule({
+      chapters,
+      moments: MOMENTS.map((m) => ({ ...m, staged: false })),
+      tasks: [task],
+      viewer: { guestId, roles: ['guest'], groupIds: [] },
+      released: true,
+      pro: true,
+      guestsArriveBy: null,
+    });
+  const mine = card('g1');
+  assert.equal(mine.kind, 'ok');
+  const myLines = mine.kind === 'ok' ? mine.chapters.flatMap((c) => c.lines) : [];
+  assert.deepEqual(myLines.map((l) => l.id).sort(), ['ev', 'in'], 'the guest’s own backstage task left their card (or other backstage reached it)');
+  const own = myLines.find((l) => l.id === 'in');
+  assert.equal(own?.mine, true, 'the guest’s own backstage line is not marked as theirs');
+  assert.equal(own?.sub, task.what, 'the guest’s own backstage line lost what they do there');
+  const other = card('g2');
+  const otherLines = other.kind === 'ok' ? other.chapters.flatMap((c) => c.lines.map((l) => l.id)) : [];
+  assert.deepEqual(otherLines, FRONT, 'another guest sees someone else’s backstage task');
 });
 
 /** Every source file a guest page is built from: app/[slug] (the Event Hub) and the guest libs. */

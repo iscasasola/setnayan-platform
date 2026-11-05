@@ -269,18 +269,21 @@ async function executeApproved(
   const t = row.target_user_id;
 
   if (row.action_type === 'grant_internal_account') {
-    // Mutually exclusive with team-pool (§10a XOR §10b) — clear the other flag.
+    // Internal (§10a) replaces the team-member flag — clear the other one.
     const { error } = await admin
       .from('users')
       .update({ is_internal: true, is_team_member: false })
       .eq('user_id', t);
     if (error) throw new Error(`Grant internal failed: ${error.message}`);
-  } else if (row.action_type === 'grant_team_pool') {
+  } else if (row.action_type === 'grant_team_member') {
+    // § 9.1 — "Promote a user to any admin role". is_team_member IS admin
+    // (lib/admin/admin-predicate.ts), so this is the ONLY place that turns it
+    // on. Removing it stays a one-admin write in toggleTeamMember.
     const { error } = await admin
       .from('users')
-      .update({ is_team_member: true, is_internal: false })
+      .update({ is_team_member: true, updated_at: new Date().toISOString() })
       .eq('user_id', t);
-    if (error) throw new Error(`Grant team-pool failed: ${error.message}`);
+    if (error) throw new Error(`Add to team failed: ${error.message}`);
   } else if (row.action_type === 'promote_to_admin') {
     const { error } = await admin
       .from('users')
@@ -288,6 +291,8 @@ async function executeApproved(
       .eq('user_id', t);
     if (error) throw new Error(`Promote to admin failed: ${error.message}`);
   } else {
+    // A `grant_team_pool` request opened before its retirement (owner 2026-11-05) lands here and is refused,
+    // never executed — reject it from the queue.
     throw new Error(`Unknown action type: ${row.action_type as string}`);
   }
 }

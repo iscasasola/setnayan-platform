@@ -30,6 +30,7 @@ import {
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormPick } from './form-pick';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -68,9 +69,6 @@ const ICON: Record<SupplierWorkKind, typeof FileText> = {
   types: PartyPopper,
   msgs: MessageSquare,
 };
-
-const PILL =
-  'sn-press-ring h-10 min-h-10 w-full max-w-[320px] rounded-full border border-ink/15 bg-white px-3.5 text-[14px] font-medium text-ink dark:bg-raised';
 
 function href(basePath: string, params: Record<string, string | undefined>): string {
   const [path, query = ''] = basePath.split('?');
@@ -311,12 +309,18 @@ function TypesBody({
         <input type="hidden" name="request_id" value={item.requestId} />
         <input type="hidden" name="event_type" value="" />
         <input type="hidden" name="return_to" value={back} />
-        <label className="flex min-h-[52px] flex-wrap items-center gap-2.5 py-1.5" htmlFor={`name-${add}`}>
-          <span className="min-w-[10rem] flex-1 text-[14px] text-ink">
-            Name <span className="block text-xs text-ink/70">as people will see it · its supplier coverage opens here next</span>
-          </span>
-          <input id={`name-${add}`} name="label_en" defaultValue={item.label} minLength={2} maxLength={80} required className={PILL} />
-        </label>
+        {/* ✍ The new type's name is a row of the ONE Field template (`TypedRow`, owner 1 Nov 2026: every field follows
+            it). It posts `label_en` exactly as the raw box did; required, 80 characters. */}
+        <FormRows width="wide">
+          <TypedRow
+            name="Name"
+            about={{ words: 'As people will see it. Its supplier coverage opens here next.' }}
+            value={item.label}
+            required
+            maxLength={80}
+            fieldName="label_en"
+          />
+        </FormRows>
       </form>
       <form id={link} action={setEventTypeStatus} data-work-form="types-link">
         <input type="hidden" name="request_id" value={item.requestId} />
@@ -360,6 +364,7 @@ function MsgsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'msg
           Reply to {item.shopName}
         </label>
         <input
+          // field-ok: the Work row's chat reply composer — the same one-line composer as the Help messenger, not a form field
           id={`body-${f}`}
           name="admin_notes"
           required

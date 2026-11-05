@@ -180,6 +180,7 @@ export function HelpMessenger({
                     Reply to {who(open)}
                   </label>
                   <input
+                    // field-ok: the Help messenger's chat reply composer (moved here from help/page.tsx), not a form field
                     id={`reply-${open.message_id}`}
                     name="admin_notes"
                     required

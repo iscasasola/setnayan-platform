@@ -80,8 +80,8 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'A plain Details form: what the couple typed IS the visible change; the post saves it without leaving the page.',
   'launch/_components/details-your-event.tsx › draftVenueChoice':
     'Details › Venues (owner 2026-10-04, venues wait for Apply): the card\'s source or photo is drawn first by `choose` (its own state, set before this draft save), and put back if the save is refused.',
-  'launch/_components/details-your-event.tsx › draftFactsFull':
-    'Details › Names, Name and Date (owner 2026-10-01, "wait for apply"): what the couple typed or picked IS the visible change (the inputs’ own state); it drafts itself a moment later (AutoDraft — no Save, owner 2026-10-05), and the canvas redraws with the draft in the one render after it.',
+  'launch/_components/details-your-event.tsx › draftFacts':
+    'Details › Names and Name style (owner 2026-10-01, "wait for apply"): what the couple typed or picked IS the visible change (the inputs’ own state); it drafts itself a moment later (AutoDraft — no Save, owner 2026-10-05), and the canvas redraws with the draft in the one render after it.',
   'website/editor/_components/main-background-panel.tsx › <effect>':
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':

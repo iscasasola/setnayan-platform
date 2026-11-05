@@ -307,7 +307,7 @@ test('6d · a name typed in Details › Your event is DRAFTED — the DATE saves
   assert.match(editors, /const events = coupleNameColumns\(a, b, order\);/, 'the Personalization writer’s own composition, in the event’s order');
   assert.match(editors, /draftFacts\(eventId, \{ display_name: typed \}\)/, 'one person’s name');
   // 🗓 "it shouldn't rely on the hub": a day, a month and the governed row's day all go to the event's one date door.
-  assert.match(editors, /const r = await updateEventDate\(fd\);/, 'the Maker’s date is not saved through the live door');
+  assert.match(editors, /const r = await makerSave\(\(\) => updateEventDate\(fd\), NO_SECOND_RENDER\);/, 'the Maker’s date is not saved through the live door');
   assert.match(editors, /saveDate\(`\$\{m\}-01`, 'month'\)/, 'a month');
   assert.match(editors, /saveDate\(value, 'day'\)/, 'a day');
   assert.match(editors, /saveDate=\{saveDay\}/, 'the governed row saves its day through the Maker’s own save, after its supplier preview');

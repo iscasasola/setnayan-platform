@@ -56,6 +56,8 @@ export function LabFactSheets({
           const url = new URL(window.location.href);
           url.searchParams.set(landDateAt, date);
           url.searchParams.delete('nodate');
+          // …and the opener's own word (`?date=find`): the sheet stays open by its state, and its close has nothing to undo.
+          url.searchParams.delete('date');
           router.replace(`${url.pathname}?${url.searchParams.toString()}`, { scroll: false });
         }
         return { ok: true, date, precision };

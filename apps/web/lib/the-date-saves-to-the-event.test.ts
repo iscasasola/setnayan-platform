@@ -53,7 +53,7 @@ test('1 · every place a couple sets the date posts to `updateEventDate` — nev
     // The Suppliers page's "Your date" sheet.
     [`${D}vendors/_components/fact-sheets.tsx`, /date: \(date, precision\) => \{[\s\S]{0,300}return updateEventDate\(fd\);/],
     // The Maker's Details › Your date (a day, a month, Help me choose's "Use <day>").
-    [`${D}launch/_components/details-your-event.tsx`, /const saveDate = async \(date: string, precision: 'day' \| 'month'\)[\s\S]{0,400}const r = await updateEventDate\(fd\);/],
+    [`${D}launch/_components/details-your-event.tsx`, /const saveDate = async \(date: string, precision: 'day' \| 'month'\)[\s\S]{0,400}const r = await makerSave\(\(\) => updateEventDate\(fd\), NO_SECOND_RENDER\);/],
     // Event Settings › Personalization's governed row.
     [`${D}details/_components/governed-fields.tsx`, /const res = await updateEventDate\(fd\);/],
     // Home's date-change card, once every supplier answered.

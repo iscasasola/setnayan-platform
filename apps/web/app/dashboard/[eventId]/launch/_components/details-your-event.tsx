@@ -87,6 +87,9 @@ import { TIME_TBA } from '@/lib/time-tba';
  */
 const AUTO_DRAFT_MS = 900;
 
+/** 🗓 The date's save brings its own render (`updateEventDate` revalidates) — `makerSave` is asked for no second one. */
+const NO_SECOND_RENDER = () => {};
+
 /**
  * ✍ A typed name (never the date) → the Event Hub DRAFT, through the one draft door
  * (`hubDraftAction` intent=save — the same door `who-can-reply-ask.tsx` and
@@ -354,8 +357,9 @@ export function DateEditor({
    * A date to THE EVENT, at once (`updateEventDate` — owner 2026-11-05). Null
    * when saved; else the reason in words — and when a booked supplier clashes,
    * `clashed` is true and the supplier note below says it (with who and where to
-   * ask), so a caller does not say it twice. The action draws the Maker again
-   * once (it revalidates), so no second refresh is asked for.
+   * ask), so a caller does not say it twice. It rides `makerSave` (the Maker's
+   * count of saves in flight and its canvas hold) with NO refresh of its own:
+   * the action already draws the Maker again once (it revalidates).
    */
   const saveDate = async (date: string, precision: 'day' | 'month'): Promise<{ error: string; clashed: boolean } | null> => {
     setClash(null);
@@ -364,7 +368,7 @@ export function DateEditor({
     fd.set('event_id', eventId);
     fd.set('event_date', date);
     fd.set('precision', precision);
-    const r = await updateEventDate(fd);
+    const r = await makerSave(() => updateEventDate(fd), NO_SECOND_RENDER);
     if (r.ok) {
       setNote(r.note ?? savedDateNote(governed.confirmedVendorCount));
       return null;

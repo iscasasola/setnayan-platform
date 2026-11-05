@@ -11,7 +11,8 @@ import { wallClockToInstant } from './schedule';
  * dragging Supabase in.
  */
 
-export type RunState = 'upcoming' | 'live' | 'done';
+/** `skipped` (migration 20271308380805): the part did not happen — Change the schedule › Skip. Never a ✓. */
+export type RunState = 'upcoming' | 'live' | 'done' | 'skipped';
 
 /** Minimal block shape the header needs — a subset of event_schedule_blocks. */
 export type RunOfShowBlock = {
@@ -139,7 +140,8 @@ export function deriveRunOfShow(
   }
 
   const total = ordered.length;
-  const doneCount = ordered.filter((b) => b.run_state === 'done').length;
+  // A skipped part is over too: the show has wrapped once every part ran or was skipped.
+  const doneCount = ordered.filter((b) => b.run_state === 'done' || b.run_state === 'skipped').length;
   const upcomingCount = ordered.filter((b) => b.run_state === 'upcoming').length;
 
   return {

@@ -184,6 +184,7 @@ export async function StageScript({
             action={advance}
             remaining={remainingBlockCount(blocks)}
             driftMinutes={deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ).driftMinutes}
+            parts={blocks}
             onLoan
           />
         </Card>

@@ -3484,6 +3484,7 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3505,6 +3506,9 @@
         "CoupleFreeWindowRow",
         "Link",
         "PageMasthead",
+        "ShopGiftHoldRow",
+        "ShopGiftLedgerRow",
+        "ShopGiftsLedger",
         "SubmitButton",
         "VendorGiftRow"
       ]
@@ -12524,7 +12528,10 @@
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
-        "SettingsView"
+        "QuoteShopGiftNote",
+        "SettingsView",
+        "ShopGiftsLedger",
+        "ShopGiftsSection"
       ]
     },
     "/dev/suppliers-lab": {
@@ -13669,6 +13676,7 @@
         "BookedWhere",
         "Link",
         "PrintButton",
+        "QuoteShopGiftNote",
         "QuoteWhereFact",
         "SubmitButton"
       ]
@@ -16540,6 +16548,7 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16565,12 +16574,16 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
         "Column",
+        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16582,6 +16595,8 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
+        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",

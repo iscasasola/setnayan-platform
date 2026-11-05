@@ -35,6 +35,9 @@ import type { LockAnswerNotice } from '@/lib/lock-answer-notice';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { AskSubmit } from '@/app/_components/ask-submit';
 import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
+import type { DayCheckRead } from '@/lib/day-check';
+import { DayCheckLine } from './day-check-line';
+import { WaitlistForm } from './waitlist-form';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -61,6 +64,8 @@ export function LockRequestAnswer({
   returnTo,
   agreeLock,
   declineLock,
+  dayCheck = null,
+  waitlistAsk,
   now = new Date(),
 }: {
   eventVendorId: string;
@@ -76,6 +81,14 @@ export function LockRequestAnswer({
   returnTo: string;
   agreeLock: FormAction;
   declineLock: FormAction;
+  /**
+   * THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — `readDayCheck`'s answer. Drawn as one line above
+   * Agree; on a FULL day (the yes's own verdict) Agree gives way to "Waiting list". Null = not read (the lab): nothing
+   * is drawn and Agree stands as before. A `failed` read says so and keeps Agree — the server still refuses a full day.
+   */
+  dayCheck?: (DayCheckRead & { halls?: { taken: string[]; free: string[] } | null }) | null;
+  /** `vendorWaitlistTheAsk` — "Waiting list" on a full day; answers in place (`waitlist-form.tsx`). */
+  waitlistAsk?: (prev: { status: string } | null, formData: FormData) => Promise<{ status: string }>;
   /** The render instant (the lab pins it). */
   now?: Date;
 }) {
@@ -88,6 +101,8 @@ export function LockRequestAnswer({
       : left === 'closing now'
         ? 'Closing now — once it does, the request is gone and they will look elsewhere.'
         : `${left} — after that the request closes and they will look elsewhere.`;
+  // Full = the RPC's own `slot_full || daily_full` for THIS ask (never recounted here). A failed read is not full.
+  const dayFull = dayCheck?.kind === 'ok' && dayCheck.check.full;
   return (
     <section className="mt-3 border-y py-3.5" style={{ borderColor: 'var(--sn-line)' }} data-booking-ask="requested">
       <p className="text-sm font-semibold text-ink">{askLine('requested', 'supplier')}</p>
@@ -102,12 +117,19 @@ export function LockRequestAnswer({
       {/* ⚠ ABOVE THE BUTTON, NOT BELOW IT. A fee named after the press is a
           receipt, not a disclosure. */}
       <BookingFeeNotice disclosure={feeForecast} />
+      {/* The day under the ask — ABOVE the button, like the fee: a full day is known before the tap, never after. */}
+      <DayCheckLine read={dayCheck} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={agreeLock}>
-          <input type="hidden" name="vendor_id" value={eventVendorId} />
-          <input type="hidden" name="return_to" value={returnTo} />
-          <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
-        </form>
+        {dayFull && waitlistAsk ? (
+          // A FULL day (the verdict the yes itself would refuse with): Agree is not offered — "Waiting list" is.
+          <WaitlistForm eventVendorId={eventVendorId} returnTo={returnTo} action={waitlistAsk} />
+        ) : (
+          <form action={agreeLock}>
+            <input type="hidden" name="vendor_id" value={eventVendorId} />
+            <input type="hidden" name="return_to" value={returnTo} />
+            <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
+          </form>
+        )}
       </div>
       {/* A no is a real answer, but not one mis-tap away from a yes. */}
       <details className="mt-3" data-booking-ask-no="">

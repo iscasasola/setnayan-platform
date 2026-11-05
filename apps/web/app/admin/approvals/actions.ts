@@ -275,6 +275,15 @@ async function executeApproved(
       .update({ is_internal: true, is_team_member: false })
       .eq('user_id', t);
     if (error) throw new Error(`Grant internal failed: ${error.message}`);
+  } else if (row.action_type === 'grant_team_member') {
+    // § 9.1 — "Promote a user to any admin role". is_team_member IS admin
+    // (lib/admin/admin-predicate.ts), so this is the ONLY place that turns it
+    // on. Removing it stays a one-admin write in toggleTeamMember.
+    const { error } = await admin
+      .from('users')
+      .update({ is_team_member: true, updated_at: new Date().toISOString() })
+      .eq('user_id', t);
+    if (error) throw new Error(`Add to team failed: ${error.message}`);
   } else if (row.action_type === 'promote_to_admin') {
     const { error } = await admin
       .from('users')

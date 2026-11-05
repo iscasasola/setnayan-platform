@@ -476,7 +476,7 @@ export type NotificationType =
   | 'quote_declined'
   /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28). → the SHOP owner, in the app only (NOT on the email allowlist — owner
      2026-10-11): Setnayan answered a name / web-address request (approved · declined + reason) or sent a flagged
-     service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271292839996. */
+     service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271315895259. */
   | 'supplier_request_answered'
   /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
      "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT

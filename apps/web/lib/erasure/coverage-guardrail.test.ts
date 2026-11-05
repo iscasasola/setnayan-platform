@@ -184,7 +184,7 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
-  // ── added 2026-10-28 with the tables (admin supplier slice, migration 20271293237246) ──
+  // ── added 2026-10-28 with the tables (admin supplier slice, migration 20271316572565) ──
   hub_tools:
     'Setnayan-authored tool library. `updated_by` is the ADMIN who last edited a tool — an actor stamp, nullable + ON DELETE SET NULL; no person is the subject of a tool.',
   category_hub_settings:

@@ -8,6 +8,12 @@ import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
+import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailOptions } from '@/lib/payment-channels';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolvePapicQuoteStanding } from '@/lib/papic-on-a-quote.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -187,6 +193,8 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // rests on. Name the door that IS open instead of saying "failed".
   proposal_deal_locked:
     'This booking is already locked at the accepted quote — changes to it go through a change order, not a new quote.',
+  proposal_gift_refused:
+    'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6).
@@ -309,6 +317,25 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const composerPapicStandingRead = resolvePapicQuoteStanding(createAdminClient(), {
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
+  });
+  // 🎁 THE SHOP'S OWN GIFTS for this quote (owner 2026-11-04): stock free to offer here (this event's old holds left
+  // out), the live packs and the fee schedule; plus what buying from inside the quote needs. Best-effort: a failure
+  // draws no gift block rather than fail the thread.
+  const shopGiftsRead = (async () => {
+    const giftAdmin = createAdminClient();
+    const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
+      fetchShopGiftQuoteBasis(giftAdmin, profile.vendor_profile_id, thread.event_id),
+      fetchVendorPaysGiftPrice(giftAdmin, profile.vendor_profile_id),
+      fetchPlatformSettings(supabase),
+      isVendorPapicCaptureEnabled(),
+      isStoreShellRequest(),
+    ]);
+    if (!basis || !papicOn) return { basis: null, buy: null };
+    const openRails = openRailOptions(settings);
+    return { basis, buy: storeShell ? null : { paysGiftPrice, openRails } };
+  })().catch((err) => {
+    console.error('[supabase-error] messages thread · shop gifts', err);
+    return { basis: null, buy: null };
   });
   // The two writes in the batch below wait for these three — they used to be
   // awaited in turn before the batch started, so no write ran while one of them
@@ -1059,6 +1086,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
+  const shopGifts = await shopGiftsRead;
   // The couple's booking ask is open — the one fact that lists "Answer their booking ask" and mounts its panel.
   const askOpen = lockHandshake?.state === 'requested' && Boolean(lockHandshake.eventVendorId);
 
@@ -1309,6 +1337,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
           papicStanding={composerPapicStanding}
+          shopGifts={shopGifts.basis}
+          shopGiftsBuy={shopGifts.buy}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}

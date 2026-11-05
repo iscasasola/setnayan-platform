@@ -139,7 +139,7 @@ test('only these reads are started ahead — each one every path below awaits, n
     'a read about a guest is started before their row is known to exist',
   );
   // A guest's seat, their ticks, the supplier's desk are read only past the session checks — never ahead.
-  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser(?:Measured)?|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
   // Their own CONTEXT is the one exception (2026-10-12), and only under the three conditions that make every path
   // below await it: a session was read and verified, it names THIS event, and the address carries no sample-guest `?as=` at all.
   assert.match(

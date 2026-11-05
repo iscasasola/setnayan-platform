@@ -46,19 +46,19 @@ export function runsAsInstalledApp(): boolean {
   }
 }
 
-type Kept = { savedAt: number | null; stale: boolean };
+type Kept = { savedAt: number | null; stale: boolean; reg?: OfflineRegistry | null; unreadable?: boolean };
 
 export async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
   try {
-    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false };
+    if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false, reg: null };
     const cache = await caches.open(OFFLINE_COPIES_CACHE);
     const res = await cache.match(OFFLINE_REGISTRY_PATH);
-    if (!res) return { savedAt: null, stale: false };
+    if (!res) return { savedAt: null, stale: false, reg: null };
     const reg = parseOfflineRegistry(await res.json());
     const savedAt = savedAtFor(reg, viewer, eventId, paths, Date.now());
-    return { savedAt, stale: savedAt !== null && staleFor(reg, viewer, eventId, paths, version) };
+    return { savedAt, stale: savedAt !== null && staleFor(reg, viewer, eventId, paths, version), reg };
   } catch {
-    return { savedAt: null, stale: false };
+    return { savedAt: null, stale: false, unreadable: true };
   }
 }
 

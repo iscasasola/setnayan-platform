@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { AUTO_REFRESH_AFTER_MS } from './offline-copies';
-import { QUIET_REFRESH_EVERY_MS, quietRefreshDue } from './quiet-schedule-refresh';
+import { QUIET_REFRESH_EVERY_MS, holdsAnotherViewersCopies, quietRefreshDue } from './quiet-schedule-refresh';
 
 const MIN = 60_000;
 const DAY = '2026-11-14';
@@ -17,7 +17,7 @@ const DAY = '2026-11-14';
 const ON_THE_DAY = Date.parse(`${DAY}T12:00:00+08:00`);
 
 const due = (o: Partial<Parameters<typeof quietRefreshDue>[0]> = {}) =>
-  quietRefreshDue({ now: ON_THE_DAY, eventDate: DAY, savedAt: ON_THE_DAY - 31 * MIN, lastTriedAt: null, ...o });
+  quietRefreshDue({ now: ON_THE_DAY, eventDate: DAY, savedAt: ON_THE_DAY - 31 * MIN, lastTriedAt: null, anotherViewersCopies: false, ...o });
 
 test('the ceiling is 30 minutes — the worker’s own number, never a second constant', () => {
   assert.equal(QUIET_REFRESH_EVERY_MS, 30 * MIN);
@@ -52,9 +52,24 @@ test('only around event days: T-3 days → the end of the day after, Philippine 
   assert.equal(due({ ...old(at('2026-11-16T12:00:00+08:00')), eventEndDate: '2026-11-15' }), true);
 });
 
-test('a refresh, never a first save: no copy of this viewer’s → nothing is asked', () => {
-  assert.equal(due({ savedAt: null }), false);
-  assert.equal(due({ savedAt: Number.NaN }), false);
+test('a first save (owner 5 Nov "Yes to both") — only on a phone holding nobody else’s copy', () => {
+  assert.equal(due({ savedAt: null }), true, 'never opened Me, phone holds no other copy — first save');
+  assert.equal(due({ savedAt: Number.NaN }), true);
+  assert.equal(due({ savedAt: null, anotherViewersCopies: true }), false, 'never erase somebody else’s copies');
+  assert.equal(due({ savedAt: null, lastTriedAt: ON_THE_DAY - 5 * MIN }), false, 'the 30-minute try ceiling holds');
+  assert.equal(due({ savedAt: null, eventDate: '2026-12-25' }), false, 'only around event days');
+  // A copy of this viewer's is refreshed regardless — their own copy erases nobody.
+  assert.equal(due({ anotherViewersCopies: true }), true);
+});
+
+test('holdsAnotherViewersCopies: another viewer’s unexpired copy → true; mine, none, expired → false; unreadable → true', () => {
+  const ev = (until: number) => ({ until, pages: { '/a?tab=me': ON_THE_DAY - MIN } });
+  assert.equal(holdsAnotherViewersCopies(null, 'me', ON_THE_DAY), false);
+  assert.equal(holdsAnotherViewersCopies({ v: 1, viewer: 'me', events: { a: ev(ON_THE_DAY + MIN) } }, 'me', ON_THE_DAY), false);
+  assert.equal(holdsAnotherViewersCopies({ v: 1, viewer: 'other', events: { a: ev(ON_THE_DAY + MIN) } }, 'me', ON_THE_DAY), true);
+  assert.equal(holdsAnotherViewersCopies({ v: 1, viewer: 'other', events: { a: ev(ON_THE_DAY - MIN) } }, 'me', ON_THE_DAY), false);
+  assert.equal(holdsAnotherViewersCopies({ v: 1, viewer: 'other', events: {} }, 'me', ON_THE_DAY), false);
+  assert.equal(holdsAnotherViewersCopies(null, 'me', ON_THE_DAY, true), true, 'when unsure, never erase');
 });
 
 test('the component draws nothing, never forces, and is mounted on Home and the Hub — not on Me', () => {

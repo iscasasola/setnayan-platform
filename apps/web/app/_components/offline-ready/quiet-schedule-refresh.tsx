@@ -6,6 +6,7 @@ import { offlineCopiesUntil, savedCopyOnScreen } from '@/lib/offline-copies';
 import {
   QUIET_MAX_COPIES,
   QUIET_TRIED_KEY_PREFIX,
+  holdsAnotherViewersCopies,
   quietRefreshDue,
   type QuietCopy,
 } from '@/lib/quiet-schedule-refresh';
@@ -35,7 +36,7 @@ function markTried(path: string, at: number): void {
 /**
  * 🔕 QUIET SCHEDULE REFRESH — Home and the Event Hub re-render the guest's saved "Your schedule" copy in the background
  * (owner-approved 5 Nov, item 1). It draws NOTHING: the freshness line lives on Me alone (`ScheduleSavedMark`). The
- * rules — 30-minute ceiling, only around event days, refresh-only — are `lib/quiet-schedule-refresh.ts`; the saving is
+ * rules — 30-minute ceiling, only around event days, a first save only on a phone holding nobody else's copy — are `lib/quiet-schedule-refresh.ts`; the saving is
  * the existing worker's (`OFFLINE_SAVE`, not forced), never a second mechanism.
  */
 export function QuietScheduleRefresh({ viewer, copies }: { viewer: string; copies: readonly QuietCopy[] }) {
@@ -50,13 +51,14 @@ export function QuietScheduleRefresh({ viewer, copies }: { viewer: string; copie
         if (!alive) return;
         const now = Date.now();
         const kept = await readKept(viewer, c.eventKey, [c.path], null);
-        if (!quietRefreshDue({ now, eventDate: c.eventDate, eventEndDate: c.eventEndDate, savedAt: kept.savedAt, lastTriedAt: lastTried(c.path) })) {
+        const anotherViewersCopies = holdsAnotherViewersCopies(kept.reg ?? null, viewer, now, kept.unreadable === true);
+        if (!quietRefreshDue({ now, eventDate: c.eventDate, eventEndDate: c.eventEndDate, savedAt: kept.savedAt, lastTriedAt: lastTried(c.path), anotherViewersCopies })) {
           continue;
         }
         const until = offlineCopiesUntil(c.eventDate, c.eventEndDate);
         if (until === null) continue;
         markTried(c.path, now);
-        // One message; the worker re-renders only a copy older than 30 min, refuses an unread page, keeps the older one.
+        // One message; the worker saves a first copy or re-renders one older than 30 min, refuses an unread page.
         void askWorker({ type: 'OFFLINE_SAVE', viewer, eventId: c.eventKey, until, paths: [c.path], force: false });
       }
     }, QUIET_AFTER_MS);

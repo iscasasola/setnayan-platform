@@ -13,3 +13,8 @@ Files: `lib/quiet-schedule-refresh.ts` (+ `.test.ts`), `app/_components/offline-
 `app/[slug]/page.tsx`, `app/dashboard/(launcher)/page.tsx`, `use-offline-copy.ts` (exports its helpers).
 
 SPEC IMPACT: None (implements an owner-approved item; no new decision).
+
+**Owner, 5 Nov 2026 — "Yes to both":** Home and the Hub also save the FIRST copy for a guest who never opened Me — but
+only when the phone keeps no unexpired copy of another viewer's (`holdsAnotherViewersCopies`; unreadable counts as
+"keeps"), so a quiet save never erases somebody else's copies on a shared phone. Same 30-minute try ceiling, same
+event-day window, at most four events. Cost: one background page render per such guest, then at most one every 30 min.

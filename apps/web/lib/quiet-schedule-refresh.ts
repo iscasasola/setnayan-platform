@@ -15,15 +15,17 @@
  *      that failed counts — a server that is down is not asked again on every page open).
  *   2. ONLY AROUND EVENT DAYS — the window copies are kept in at all (`offlineSavingOpen`: T-3 days → the day after,
  *      Philippine time). Outside it nothing is asked; a dateless event never.
- *   3. A REFRESH, NEVER A FIRST SAVE — only a copy THIS viewer already holds (`savedAtFor` is null for none, another
- *      viewer's, or an expired one). So it can never wipe somebody else's copies on a shared phone (the worker's
- *      one-viewer rule erases on a different viewer) and never renders Me for a guest who has not opened it.
+ *   3. A FIRST SAVE ONLY ON A PHONE THAT HOLDS NOBODY ELSE'S COPY — owner, 5 Nov 2026: *"Yes to both"* (Home also saves
+ *      the first copy for a guest who never opened Me, so the schedule opens with no signal for everyone). A copy THIS
+ *      viewer already holds is refreshed; with none (`savedAtFor` null), a first save is asked ONLY when the phone
+ *      keeps no unexpired copy of another viewer's (`holdsAnotherViewersCopies`) — the worker's one-viewer rule erases
+ *      on a different viewer, so a quiet save must never replace somebody else's copies on a shared phone.
  *   4. NO LIVE CONNECTION — one message to the worker per due copy, from the page's mount; nothing polls.
  *
  * PURE — no I/O. Client-safe. Kept out of `lib/offline-copies.ts` so the shared bundle (bytes of room) never carries it.
  */
 
-import { AUTO_REFRESH_AFTER_MS, offlineSavingOpen } from '@/lib/offline-copies';
+import { AUTO_REFRESH_AFTER_MS, offlineSavingOpen, type OfflineRegistry } from '@/lib/offline-copies';
 
 /** The ceiling — the worker's own 30 minutes. */
 export const QUIET_REFRESH_EVERY_MS = AUTO_REFRESH_AFTER_MS;
@@ -51,13 +53,27 @@ export function quietRefreshDue(input: {
   savedAt: number | null;
   /** The last quiet try of this copy from this browser, or null. */
   lastTriedAt: number | null;
+  /** The phone keeps an unexpired copy of ANOTHER viewer's (`holdsAnotherViewersCopies`) — a first save would erase it. */
+  anotherViewersCopies: boolean;
 }): boolean {
-  const { now, eventDate, eventEndDate = null, savedAt, lastTriedAt } = input;
+  const { now, eventDate, eventEndDate = null, savedAt, lastTriedAt, anotherViewersCopies } = input;
   if (!offlineSavingOpen(eventDate, now, eventEndDate)) return false;
-  if (savedAt === null || !Number.isFinite(savedAt)) return false;
-  if (now - savedAt < QUIET_REFRESH_EVERY_MS) return false;
+  const hasCopy = savedAt !== null && Number.isFinite(savedAt);
+  // No copy of this viewer's: a FIRST save — only when it can erase nobody else's copies.
+  if (!hasCopy && anotherViewersCopies !== false) return false;
+  if (hasCopy && now - (savedAt as number) < QUIET_REFRESH_EVERY_MS) return false;
   if (lastTriedAt !== null && Number.isFinite(lastTriedAt) && lastTriedAt <= now && now - lastTriedAt < QUIET_REFRESH_EVERY_MS) {
     return false;
   }
   return true;
+}
+
+/**
+ * Does the phone keep an unexpired copy belonging to somebody OTHER than `viewer`? A save by `viewer` would erase it
+ * (the worker's one-viewer rule), so the quiet first save is not asked. Unreadable → true (when unsure, never erase).
+ */
+export function holdsAnotherViewersCopies(reg: OfflineRegistry | null, viewer: string, now: number, unreadable = false): boolean {
+  if (unreadable) return true;
+  if (!reg || reg.viewer === viewer) return false;
+  return Object.values(reg.events).some((ev) => ev && ev.until > now && Object.keys(ev.pages ?? {}).length > 0);
 }

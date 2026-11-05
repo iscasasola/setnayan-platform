@@ -28,10 +28,9 @@ export function selectionCost(picked: readonly PickedCost[]): number {
 /**
  * The pot the sheet was opened with:
  *   · a number — credits left (the presign gate's own read for this camera, `papic_capture_points_available`);
- *   · 'unmetered' — the event holds the Papic Unlock pass, nothing is spent;
  *   · null — the pot could not be read. Never shown as 0; the server still decides each file.
  */
-export type UploadPot = number | 'unmetered' | null;
+export type UploadPot = number | null;
 
 export type CoverVerdict =
   | { ok: true; cost: number }
@@ -39,7 +38,7 @@ export type CoverVerdict =
   | { ok: false; cost: number; left: number; short: number };
 
 export function coverVerdict(cost: number, pot: UploadPot): CoverVerdict {
-  if (pot === 'unmetered' || pot === null) return { ok: true, cost };
+  if (pot === null) return { ok: true, cost };
   const left = Math.max(0, Math.floor(pot));
   return cost <= left ? { ok: true, cost } : { ok: false, cost, left, short: cost - left };
 }

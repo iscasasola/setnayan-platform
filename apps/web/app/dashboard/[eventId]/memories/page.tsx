@@ -27,8 +27,6 @@ import { SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
 import { keepsakeDoors, type KeepsakeKey } from '@/lib/memories-keepsakes';
 import { MemoriesKeepsakeRow } from '@/app/_components/memories/memories-keepsake-row';
 import { addCellWords } from '@/lib/memories-add-cell';
-import { eventHasPapicUnlock } from '@/lib/entitlements';
-import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
 import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-words';
 import type { MemoriesAlbumKey } from '@/lib/event-memories';
@@ -166,20 +164,16 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     const token = mineSeat && mineSeat.claimer_user_id === user.id ? (mineSeat.claim_qr_token ?? null) : null;
     /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
        gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
-       number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.
+       number on the sheet is the number the server refuses at. (The Unlock pass that once shot unmetered is retired, 2026-11-05.)
        A read that failed is null — "Couldn't check", never 0. Asked whenever the uploader is drawn — claimed or not. */
     let pot: UploadPot = null;
     if (uploadsOpen && seat?.seat_id) {
-      const unlocked = await eventHasPapicUnlock(await eventEntitlementClient(eventId), eventId).catch(() => false);
-      if (unlocked) pot = 'unmetered';
-      else {
-        const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {
-          p_seat_id: seat.seat_id,
-          p_event_id: eventId,
-        });
-        if (potErr) logQueryError('EventMemoriesPage.uploadsPot', potErr, { event_id: eventId }, 'graceful_degrade');
-        pot = typeof left === 'number' ? Math.max(0, left) : null;
-      }
+      const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {
+        p_seat_id: seat.seat_id,
+        p_event_id: eventId,
+      });
+      if (potErr) logQueryError('EventMemoriesPage.uploadsPot', potErr, { event_id: eventId }, 'graceful_degrade');
+      pot = typeof left === 'number' ? Math.max(0, left) : null;
     }
     // The ONE Add more — Apple's sheet in the app (it sells there), the web's sheet on the web; the app without Apple's
     // shop offers no web checkout (the rule `appleIap` above records), so no door there.

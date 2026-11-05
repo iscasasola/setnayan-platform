@@ -23,3 +23,26 @@ confirming 2026-09-16 "ONE POOL OF CREDITS, SHARED BY EVERYBODY".
   `papic_tier_config.points_per_day`.
 
 SPEC IMPACT: None — implements the 2026-11-05 ruling (item 12) as written.
+
+## 2026-11-05 · refactor(papic): the Unlock pass and the PAPIC_SEATS pack come off — no shot is free
+
+Owner, 5 Nov 2026, asked whether anybody still holds either: *"no one. remove both"*. Both were already off sale; this
+removes what they still did for an event holding one.
+
+- **Seat camera** (`app/papic/actions.ts`, `app/api/upload/route.ts`): an Unlock event no longer records at cost 0 or
+  skips the credits probe, and its two umbrellas no longer free paid camera rungs. A seat that is not a per-camera seat
+  (the pack's) is refused outright at both steps, the same refusal it already got from every event without the pack.
+- **Guest camera**: migration `20271309535584` re-creates `papic_record_guest_capture` without the Unlock lookup
+  (body copied from the latest definition, one block removed); `fetchGuestQuota` and `papicGuestCapLifts` drop the
+  matching disjunct. The pot's yield and the couple's per-guest ceiling are unchanged.
+- **Pool**: `papic_event_pool_config.pass_service_codes` emptied (and its default), so no "flat pass" sizes a pool.
+- **Pack setup**: the `PAPIC_SEATS` activation hook, `provisionPapicSeatsAdmin`, the studio `provisionPapicSeats`
+  action and the `papic_provision_seats` RPC are deleted. Helpers with no caller left are deleted too
+  (`eventHasPapicUnlock`, `eventUnliFreeViaUnlock`, `eventLtdFreeViaUnlock`, `eventOwnsPapicSeats`,
+  `eventPapicSeatsActive`). The Memories uploader loses its "Your pass covers these" state.
+- Proof: `tests/db/papic-unlock-and-seats-pack-are-gone.db.test.ts` (seeds the exact paid orders that used to unlock
+  each behaviour; all four tests go red without the migration) and `lib/papic-unlock-and-seats-pack-are-gone.test.ts`.
+- Kept on purpose: the retired codes stay in the retired-code lists, and the two Unlock rows in
+  `platform_package_catalog` stay deactivated (never deleted) so old records still resolve.
+
+SPEC IMPACT: None — implements the owner's 2026-11-05 answer as given.

@@ -27,7 +27,7 @@
  *                                        Every album has fixtures: Papic (some screened / reported / hidden), Challenges
  *                                        (3 challenges, one a supplier's), Event Hub (4 files), Suppliers, Your uploads.
  *                                        + Add photos opens the REAL uploader (`AddToLibrary`) and the real Add more door:
- *                                        ?pot=<credits> (default 24) · ?pot=0 · ?pot=pass (the Unlock pass) · ?pot=x
+ *                                        ?pot=<credits> (default 24) · ?pot=0 · ?pot=x
  *                                        (unread). A lab holds no camera seat, so a picked file is refused by the signer —
  *                                        which is itself the "a failure says what failed, in place" walk.
  *                                        ?claim=1 — the camera is not this host's yet: one press, the claim rides the pick
@@ -248,7 +248,7 @@ export default async function BarLab({
   if (where === `dashboard/${EVENT}/memories`) {
     const n = sp.empty === '1' ? 0 : Math.max(0, Math.min(400, Number(sp.n ?? 60) || 60));
     const photos = sp.fail === '1' ? [] : Array.from({ length: n }, (_, i) => labPhoto(i));
-    const pot: UploadPot = sp.pot === 'pass' ? 'unmetered' : sp.pot === 'x' ? null : Math.max(0, Number(sp.pot ?? 24) || 0);
+    const pot: UploadPot = sp.pot === 'x' ? null : Math.max(0, Number(sp.pot ?? 24) || 0);
     // THE KEEPSAKE ROW on fixture reads — the shapes the cards' own reads return (nothing fetched).
     const none = sp.keep === 'none';
     const magazine = { photos: none ? 0 : n, kwentos: none ? 0 : 6 };

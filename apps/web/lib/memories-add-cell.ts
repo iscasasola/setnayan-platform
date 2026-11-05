@@ -22,9 +22,6 @@ export function addCellWords(state: AddCellState, pot: UploadPot): { line: strin
   if (state === 'off') {
     return { line: 'Turned off', tip: 'Adding photos by hand is off for this event. Press to turn it on.' };
   }
-  if (pot === 'unmetered') {
-    return { line: 'Your pass covers it', tip: 'From your phone or laptop, into Your uploads. Your Papic pass covers every photo you add.' };
-  }
   return {
     line: `${creditsCount(papicCaptureCost('photo', null, 'upload'))} each`,
     tip: `From your phone or laptop, into Your uploads, spent from your Papic credits. ${costInfoLine()}`,

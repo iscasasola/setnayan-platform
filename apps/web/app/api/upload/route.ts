@@ -9,7 +9,6 @@ import { NextResponse, after, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventOwnsPapicSeats } from '@/lib/papic-seats';
 import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import { pathPrefixIsAcceptable, privateBucketRootIsAllowed } from '@/lib/r2-client-ref';
@@ -20,7 +19,6 @@ import {
 } from '@/lib/uploads';
 import {
   papicPerCameraTier,
-  papicRungForTier,
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
@@ -28,8 +26,6 @@ import {
   papicClipCostFloor,
   resolvePointsGate,
   type PointsGateVerdict,
-  eventUnliFreeViaUnlock,
-  eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
 import { papicManualUploadsClosed } from '@/lib/papic-uploads-open';
 import { combinePointsGates } from '@/lib/papic-event-pool';
@@ -41,7 +37,6 @@ import {
 } from '@/lib/papic-exhaustion-truth';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
-import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
 import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
 import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
@@ -347,30 +342,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
     }
-    // Per-camera seats (sku_code PAPIC_CAMERA_*) carry their own paid-gate +
-    // daily quota (below) and are NOT the legacy PAPIC_SEATS pack — so they skip
-    // the pack-ownership re-check. null for legacy pack seats.
+    // Every camera that can shoot is a per-camera seat (sku_code PAPIC_CAMERA_*),
+    // metered below. null = a seat from the retired PAPIC_SEATS pack, which
+    // shot UNMETERED while its event owned the pack. The pack is gone (owner
+    // 2026-11-05: "no one. remove both"), so such a seat is refused outright —
+    // the same refusal it already got from an event that did not own the pack,
+    // which is every event today. Never a free shot.
     const cameraTier = papicPerCameraTier(
       (seat as { sku_code?: string | null }).sku_code ?? null,
       (seat as { tier?: string | null }).tier ?? null,
     );
-    // Legacy PAPIC_SEATS pack: entitlement re-check on the ADMIN client (the
-    // claimer can't read orders under RLS). Fail-OPEN on a config/transient error
-    // so a paying couple's crew is never blocked by an entitlement-read hiccup.
     if (!cameraTier) {
-      let owned = true;
-      try {
-        const admin = createAdminClient();
-        owned = await eventOwnsPapicSeats(admin, seat.event_id as string);
-      } catch {
-        owned = true;
-      }
-      if (!owned) {
-        return NextResponse.json(
-          { error: 'This Papic pack is no longer active.' },
-          { status: 403 },
-        );
-      }
+      return NextResponse.json(
+        { error: 'This Papic pack is no longer active.' },
+        { status: 403 },
+      );
     }
 
     // PER-CAMERA presign gate (per-camera model · PR3): for a per-camera seat,
@@ -415,36 +401,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
       const admin = createAdminClient();
-      // Papic Unlock ("Unlock all of Papic" pass · PR9 #2269 grants the FEATURES;
-      // this is the deferred ALLOWANCE half): every camera shoots UNLIMITED with
-      // NO per-camera payment — skip both the presign paid-gate and the credits
-      // probe. Fail toward the normal metered gate on a read error.
-      const unlocked = await eventHasPapicUnlock(
-        admin,
-        seat.event_id as string,
-      ).catch(() => false);
+      // 🛑 NO UNLOCK PASS. The "Unlock all of Papic" pass used to skip both the
+      // paid-gate and the credits probe here, and its two umbrellas freed paid
+      // camera rungs. It is retired (owner 2026-11-05: "no one. remove both"),
+      // so every camera is metered and every paid rung needs its own paid order.
       // Every PAID rung (mini · legacy roll · ltd · unlimited) is gated; only the
       // free tier skips. Expressed as "not free" so a new rung can never slip
       // through the paid-gate by being missing from an allow-list.
-      if (!unlocked && isPaidCameraTier(cameraTier)) {
+      if (isPaidCameraTier(cameraTier)) {
         let paid = false;
         try {
           paid = await papicCameraOrderPaid(
             admin,
             (seat as { paid_order_id?: string | null }).paid_order_id ?? null,
           );
-          // Unlock umbrellas (money-gated · TRUE only on an ACTIVE order, so a
-          // non-owner's presign is never freed): PAPIC_UNLOCK (₱15,000) frees
-          // Unli; PAPIC_UNLOCK_LTD (₱9,000, owner 2026-07-11) frees the ₱30
-          // rung it was sold against — legacy 'roll', today's Mini. The new ₱50
-          // Ltd rung is covered by NO pass (owner pricing call) and stays gated.
-          const rung = papicRungForTier(cameraTier);
-          if (!paid && rung === 'unlimited') {
-            paid = await eventUnliFreeViaUnlock(admin, seat.event_id as string);
-          }
-          if (!paid && rung === 'mini') {
-            paid = await eventLtdFreeViaUnlock(admin, seat.event_id as string);
-          }
         } catch {
           paid = false;
         }
@@ -492,7 +462,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             ? papicClipCostFloor(captureSource)
             : papicCaptureCost(cameraKind, null, captureSource);
         let seatGate: PointsGateVerdict = 'allow';
-        if (!unlocked) {
+        {
           try {
             // ⚠ BOTH BALANCES, not the camera's own bucket alone. Asking only
             // the bucket is what refused an upload URL to a camera that had
@@ -511,13 +481,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             seatGate = 'blocked'; // thrown ≠ identifiable fn-not-found → fail-CLOSED
           }
         }
-        // EVENT-SCOPED capture fence (Phase 0c · lib/papic-event-pool.ts): the
-        // flat per-event PASS (PAPIC_UNLOCK / PAPIC_UNLOCK_LTD / the ₱1,499 flat
-        // pass) previously bypassed metering entirely — this is the missing
-        // bound. The RPC returns MAXINT for every NON-pass event, so this probe
-        // is a pure no-op there and today's behaviour is byte-identical. Pool =
-        // clamp(guests × 150, 5,000, 30,000) pts, admin-tunable in
-        // papic_event_pool_config. Same fail-CLOSED posture as the seat gate.
+        // EVENT-SCOPED capture fence (lib/papic-event-pool.ts): the event's ONE
+        // shared pool. (The flat-pass sizing this comment used to describe went
+        // with the Unlock pass, 20271309535584.) Same fail-CLOSED posture as
+        // the seat gate.
         //
         // ..._FOR_SEAT (owner-locked 2026-07-29): a PAPIC ONE camera holds its
         // OWN unshared balance, which the seat probe above already read, so the

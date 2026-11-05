@@ -1,71 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
-import { eventSkuActive } from '@/lib/entitlements';
 import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost, type PapicCaptureSource } from '@/lib/papic-cameras-pure';
 import { formatCount } from '@/lib/format-number';
 
 /**
  * ⚠ THE POINT WEIGHTS AND THE FREE-CAMERA ALLOWANCE ARE NOT IN THIS FILE — they
- * are in `./papic-cameras-pure`, because the unlock gates below reach
- * `eventSkuActive` → the service-role client, and the pickers, the gallery grid
+ * are in `./papic-cameras-pure`, because this module reaches the service-role
+ * client, and the pickers, the gallery grid
  * and `papic-tier-copy.ts` all need the prices without it. Re-exported here, so
  * `@/lib/papic-cameras` still resolves every symbol it always did.
  */
 export * from '@/lib/papic-cameras-pure';
 
-/**
- * The "Unlock all of Papic" umbrella bundle (owner 2026-06-26 ·
- * platform_package_catalog 'PAPIC_UNLOCK'). Owning it makes the UNLIMITED (Unli)
- * camera tier free + uncapped for the whole event — both the per-camera paid-gate
- * (capture stays blocked until paid) and the picker's Unli price collapse to ₱0.
- * Roll (Ltd) cameras are NOT freed — the umbrella covers Unli only.
- */
-export const PAPIC_UNLOCK_BUNDLE_KEY = 'PAPIC_UNLOCK';
-
-/**
- * The Ltd-tier twin (owner 2026-07-11 · platform_package_catalog
- * 'PAPIC_UNLOCK_LTD', ₱9,000). Owning it makes the LIMITED (Ltd/Roll) camera tier
- * free + uncapped for the whole event, plus Photo Wall + Camera Bridge. The Unli
- * tier is NOT freed by this pass — that's the separate ₱15,000 PAPIC_UNLOCK.
- */
-export const PAPIC_UNLOCK_LTD_BUNDLE_KEY = 'PAPIC_UNLOCK_LTD';
-
-/**
- * Does owning the Unlock-all umbrella make Unli cameras free for this event?
- *
- * The admin-approved, bundle-aware FEATURE GATE: TRUE only when the event owns an
- * ACTIVE (paid/fulfilled) PAPIC_UNLOCK order — so an unpaid/pending umbrella never
- * frees a camera. Read on the ADMIN client at capture surfaces (a seat claimer is
- * not an event member, so an RLS-scoped read would see nothing). Fail-CLOSED:
- * any read error returns false so a hiccup can never free a paid camera for a
- * non-owner — this is money logic.
- */
-export async function eventUnliFreeViaUnlock(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  try {
-    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Ltd-tier mirror of {@link eventUnliFreeViaUnlock}: does owning the ₱9,000
- * PAPIC_UNLOCK_LTD pass make Ltd (Roll) cameras free for this event? Same
- * fail-CLOSED money-logic contract — TRUE only on an ACTIVE PAPIC_UNLOCK_LTD order.
- */
-export async function eventLtdFreeViaUnlock(
-  admin: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  try {
-    return await eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY);
-  } catch {
-    return false;
-  }
-}
+// The "Unlock all of Papic" umbrellas (PAPIC_UNLOCK, PAPIC_UNLOCK_LTD) used to
+// free the paid camera rungs for a whole event. Retired with the pass (owner
+// 2026-11-05: "no one. remove both") — every camera is metered now.
 
 /**
  * apps/web/lib/papic-cameras.ts

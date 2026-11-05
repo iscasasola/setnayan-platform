@@ -8,8 +8,13 @@
  *
  * A role's Wear ▾ lists THAT role's designs (`ROLE_DESIGNS`), each drawn as that role (`public/attire/roles/<role>-
  * <design>.webp`, built by `scripts/build-role-attire.py`) in its own colour zones (`DESIGN_ZONES`, lib/attire-figures.ts).
- * This supersedes the global `ATTIRE_STYLES` list as what a role's Wear ▾ offers; rows with no list of their own (the
- * celebrant, Nikah principals, officiants & readers) keep the shipped seven (`GENERAL_ATTIRE_STYLES`).
+ * This supersedes the global `ATTIRE_STYLES` list as what a role's Wear ▾ offers; rows with no list of their own (Nikah
+ * principals, officiants & readers) keep the shipped seven (`GENERAL_ATTIRE_STYLES`).
+ *
+ * 🎂 THE CELEBRANT AND THE OFFICIANT (owner 2026-11-04 — eleven renders in his own template, plus a wrap dress, "so dress
+ * codes work for other events"): a debut, a birthday, a christening or an anniversary has a CELEBRANT, not a bride and a
+ * groom. The celebrant's row now draws them — a woman (`celebrant_w`, her girl's party dress drawn as `celebrant_girl`) and
+ * a man (`celebrant_m`) — and the officiants' row gains the priest (`officiant`), each drawn in the owner's figures.
  *
  * 🔑 THE STORED SHAPE DID NOT CHANGE. A design is stored where a style always was (`dress_code_config[tier][key].style`,
  * the second pick in `women`) — the vocabulary grew by eight words (`ATTIRE_STYLES`). A design is keyed by its GARMENT
@@ -44,6 +49,11 @@ export const FIGURE_ROLES = [
   'flower_girl',
   'guest_m',
   'guest_w',
+  /* 🎂 2026-11-04 — the celebrant (a woman · a man · a girl) and the officiant (a priest). */
+  'celebrant_w',
+  'celebrant_m',
+  'celebrant_girl',
+  'officiant',
 ] as const;
 export type FigureRole = (typeof FIGURE_ROLES)[number];
 
@@ -66,14 +76,24 @@ export const FIGURE_ROLE_WHO: Readonly<Record<FigureRole, FigureWho>> = {
   flower_girl: 'girl',
   guest_m: 'm',
   guest_w: 'f',
+  celebrant_w: 'f',
+  celebrant_m: 'm',
+  celebrant_girl: 'girl',
+  officiant: 'm',
 };
 
-/** One design on a role's Wear ▾: the stored word and the role's own name for it. */
-export type RoleDesign = { readonly style: AttireStyle; readonly label: string };
-const d = (style: AttireStyle, label: string): RoleDesign => ({ style, label });
+/**
+ * One design on a role's Wear ▾: the stored word and the role's own name for it. `drawnAs` — the design is worn by ANOTHER
+ * person of the role (the celebrant's party dress is a girl's: a child celebrant, a christening's or a little one's
+ * birthday) — so it is drawn as that person's figure, at a child's height (`drawnRoleOf`).
+ */
+export type RoleDesign = { readonly style: AttireStyle; readonly label: string; readonly drawnAs?: FigureRole };
+const d = (style: AttireStyle, label: string, drawnAs?: FigureRole): RoleDesign => (drawnAs ? { style, label, drawnAs } : { style, label });
 
 /**
- * THE TABLE (DECISION_LOG 2026-10-16, in its order). Every row has a drawing — 45 in all (`roleArtKey`).
+ * THE TABLE (DECISION_LOG 2026-10-16, in its order). Every row has a drawing — 45 in all (`roleArtKey`) — and, since
+ * 2026-11-04, the celebrant's eleven and the officiant's one (57). The celebrant's and the officiant's lists and their
+ * names are a build call on the owner's renders (no ruling named them) — flagged in the PR for his OK.
  */
 export const ROLE_DESIGNS: Readonly<Record<FigureRole, readonly RoleDesign[]>> = {
   groom: [d('suit', 'Suit and tie'), d('three_piece_suit', '3-piece suit'), d('barong_tagalog', 'Barong Tagalog'), d('tuxedo', 'Tuxedo')],
@@ -93,6 +113,18 @@ export const ROLE_DESIGNS: Readonly<Record<FigureRole, readonly RoleDesign[]>> =
   flower_girl: [d('tulle_dress', 'Tulle dress'), d('filipiniana', 'Filipiniana dress')],
   guest_m: [d('barong_tagalog', 'Barong Tagalog'), d('suit', 'Suit and tie'), d('smart_casual', 'Smart casual')],
   guest_w: [d('long_gown', 'Long dress'), d('cocktail_dress', 'Cocktail dress'), d('filipiniana', 'Filipiniana')],
+  celebrant_w: [
+    d('ball_gown', 'Ball gown'),
+    d('filipiniana', 'Filipiniana'),
+    d('cocktail_dress', 'Cocktail dress'),
+    d('long_gown', 'Long gown'),
+    d('shirt_dress', 'Smart casual'),
+    d('elder_filipiniana', 'Filipiniana (lola)'),
+    d('party_dress', 'Party dress (girl)', 'celebrant_girl'),
+  ],
+  celebrant_m: [d('barong_tagalog', 'Barong Tagalog'), d('suit', 'Suit and tie'), d('formal', 'Formal'), d('smart_casual', 'Smart casual')],
+  celebrant_girl: [d('party_dress', 'Party dress')],
+  officiant: [d('priest', 'Alb and stole')],
 };
 
 /** A role's designs, as stored words, in its Wear ▾ order. */
@@ -125,9 +157,19 @@ export function designLabel(role: FigureRole | null | undefined, style: AttireSt
   return (role ? ROLE_DESIGNS[role].find((x) => x.style === style)?.label : undefined) ?? ATTIRE_STYLE_LABEL[style];
 }
 
+/** The person a role's design is drawn as — the role itself, or the design's `drawnAs` (the celebrant's girl). */
+export function drawnRoleOf(role: FigureRole, style: AttireStyle | null | undefined): FigureRole {
+  return (style ? ROLE_DESIGNS[role].find((x) => x.style === style)?.drawnAs : undefined) ?? role;
+}
+
+/** Who a pick of this role in this design is — the person it is drawn as (a girl in the party dress), else `who`. */
+export function wearerOf(role: FigureRole | null | undefined, style: AttireStyle | null | undefined, who: FigureWho): FigureWho {
+  return role && style ? FIGURE_ROLE_WHO[drawnRoleOf(role, style)] ?? who : who;
+}
+
 /** The drawing of a role in a design — `<role>-<design>` (public/attire/roles/), or null when the role has no such design. */
 export function roleArtKey(role: FigureRole, style: AttireStyle | null | undefined): `${FigureRole}-${AttireStyle}` | null {
-  return style && roleDesigns(role).includes(style) ? `${role}-${style}` : null;
+  return style && roleDesigns(role).includes(style) ? `${drawnRoleOf(role, style)}-${style}` : null;
 }
 
 /* ── which people a Studio row draws ─────────────────────────────────────── */
@@ -135,7 +177,7 @@ export function roleArtKey(role: FigureRole, style: AttireStyle | null | undefin
 /**
  * A row's columns, as figure roles, matching `ATTIRE_ROWS[].who` — first (men · boys), second (women · girls); the
  * maid of honor's row is the one women-first (FOR WOMEN · FOR MEN, 2026-10-19).
- * A row with none here (the celebrant, Nikah principals, officiants & readers) keeps the shipped seven styles.
+ * A row with none here (Nikah principals, officiants & readers) keeps the shipped seven styles.
  */
 export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | readonly [FigureRole, FigureRole]>> = {
   bride: ['bride'],
@@ -152,6 +194,10 @@ export const ROW_FIGURE_ROLES: Readonly<Record<string, readonly [FigureRole] | r
   groomsmen: ['groomsman'],
   bearers_flower_girl: ['ring_bearer', 'flower_girl'],
   guest: ['guest_m', 'guest_w'],
+  /* 🎂 THE CELEBRANT (2026-11-04): FOR WOMEN · FOR MEN, women first — the one pick stored before this was drawn as a
+     woman, so it stays the FIRST pick, where it always was. Both columns are always drawn (which one a celebrant needs is
+     an owner question — PR #7280). */
+  celebrant: ['celebrant_w', 'celebrant_m'],
 };
 
 /** The figure role of one column of a row, or null for a row without a list of its own. */
@@ -164,8 +210,9 @@ export function columnRole(rowKey: string, index: 0 | 1 = 0): FigureRole | null 
 
 /**
  * A guest-list role → the person drawn for them: one role (a ninang), or a pair the page picks between by what the
- * couple marked them as wearing (a parent, a candle sponsor, a plain guest). Roles with no drawing of their own (officiants, the
- * celebrant, Nikah principals) are absent — they keep the shipped figures.
+ * couple marked them as wearing (a parent, a candle sponsor, a plain guest). Roles with no drawing of their own (officiants,
+ * Nikah principals) are absent — they keep the shipped figures (an officiant in the priest's alb is drawn as the priest:
+ * `AttireRowDef.also`, lib/attire-rows.ts).
  *
  * 👯 EVERY HONOUR ROLE IS THE PERSON OF ITS HONOUR-ROW COLUMN (2026-10-19, held by `every-role-is-mapped-everywhere.test.ts`):
  * the best woman is the maid of honor's figure (her column, "Best Man & Best Woman" FOR WOMEN, lists the maid of honor's
@@ -201,6 +248,8 @@ export const READER_FIGURE: Readonly<Partial<Record<string, FigureRole | readonl
   coin_bearer: 'bible_bearer',
   flower_girl: 'flower_girl',
   guest: ['guest_m', 'guest_w'],
+  /* 🎂 A celebrant reads their own figure — a woman or a man (2026-11-04). */
+  celebrant: ['celebrant_w', 'celebrant_m'],
 };
 
 /** The reader's own figure role for one person of theirs (`who`), or null. */

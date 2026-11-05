@@ -52,6 +52,8 @@ export const VENDOR_PAYS_SETNAYAN_SKUS: readonly string[] = [
 export const VENDOR_PAYS_SETNAYAN_PREFIXES: readonly string[] = [
   'vendor_additional_branch__',
   'vendor_booking_fee__',
+  // 2026-11-04 — the shop buys the couple's Papic packs into its wallet (`SHOP_PAPIC_PACK_KEY_PREFIX`).
+  'vendor_papic_pack__',
   'vendor_custom_plan__',
   'vendor_custom_plan_annual__',
   'vendor_extra_seat__',

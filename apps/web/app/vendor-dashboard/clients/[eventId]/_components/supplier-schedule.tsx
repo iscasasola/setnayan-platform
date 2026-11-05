@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, Check, Clock, Eye, Lock, LockOpen, MapPin, MessageSquarePlus, Plus, Trash2, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -24,6 +24,7 @@ import {
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
 import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 import { markDay } from '@/lib/supplier-schedule-marks';
+import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
 import { formatCount } from '@/lib/format-number';
 
@@ -45,6 +46,9 @@ import { formatCount } from '@/lib/format-number';
  * host" · Take back) unless the host chose Auto-agree (ruled 1 Nov: Off by default) — the database holds the own-items
  * and linked-chapter rules (migration 20271300619930), so this screen says what is true, it is not the rule.
  * `Seen` on a change, and a final-week `Confirm my times`.
+ * 📍 `Where` (owner 2026-11-04, *"They can pick and we can also pick for them"*): the chapters they serve — one
+ * dropdown of the event's chapters, sent as ONE request the host OKs (Auto-agree applies it), Take back while it
+ * waits (migration 20271308641275). The host can still set it directly, unless their times are locked.
  * 🔒 `Lock my times` (audit D7, owner: *"change lock (means the supplier cannot accept changes anymore)"*): while
  * locked, the database refuses the host's changes to their moments and crew (20271303409352); their own asks still go.
  *
@@ -84,6 +88,7 @@ export function SupplierSchedule({
   tasksRead,
   answered,
   asked = [],
+  where = [],
   elsewhere = {},
   lab = false,
 }: {
@@ -101,6 +106,8 @@ export function SupplierSchedule({
   answered: SupplierRequestRow[];
   /** 🗓 What a host or the coordinator asked of THEM, still open (D2); null = could not be read (said). */
   asked?: ScheduleAsk[] | null;
+  /** 📍 Their own Where, one row per booked booking (never a coordinator); null = could not be read (said). */
+  where?: SupplierOwnWhere[] | null;
   /** 🚗 Their crews on their OTHER events today, keyed by the moment here (slice 5); null = could not be checked (said). */
   elsewhere?: Record<string, CrewClash[]> | null;
   lab?: boolean;
@@ -210,6 +217,21 @@ export function SupplierSchedule({
         </div>
       ) : null}
 
+      {/* 📍 WHERE — the chapters they serve: one dropdown, sent as a request; the details sit in the ⓘ. */}
+      {where === null ? (
+        <p role="alert" data-supplier-where="unread" className="text-sm font-semibold text-danger-700">
+          Your chapters couldn’t be read just now. Nothing is lost — pull to refresh.
+        </p>
+      ) : where.length > 0 && day.chapters.length > 0 ? (
+        <section data-supplier-where="" aria-label="Where you go">
+          <FormRows width="wide">
+            {where.map((w) => (
+              <SupplierWhereRow key={w.vendorId} w={w} send={send} autoAgree={autoAgree} locked={Boolean(lockedAt)} onSaid={setSaid} />
+            ))}
+          </FormRows>
+        </section>
+      ) : null}
+
       {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place, above everything else to do. */}
       {asked === null ? (
         <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
@@ -230,9 +252,18 @@ export function SupplierSchedule({
                   a={a}
                   label={labelOf(day, a.block_id)}
                   send={send}
+                  whereNames={a.kind === 'where' ? (a.proposed_block_ids ?? []).map((id) => labelOf(day, id) ?? 'a chapter that is gone').join(', ') : null}
+                  whereNow={linked.map((c) => c.label).join(', ') || 'no chapter yet'}
                   onAnswered={(r, yes) => {
                     if (r.ok) setAnsweredNow((l) => [...l, a.suggestion_id]);
-                    after(r, yes ? 'Accepted. Their schedule has your new time.' : 'Declined. They’ve been told.');
+                    after(
+                      r,
+                      yes
+                        ? a.kind === 'where'
+                          ? 'Accepted. You’re on those chapters.'
+                          : 'Accepted. Their schedule has your new time.'
+                        : 'Declined. They’ve been told.',
+                    );
                   }}
                 />
               ))}
@@ -370,8 +401,16 @@ export function SupplierSchedule({
           <ul className="mt-1 space-y-1">
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                <span className={r.status === 'accepted' ? 'font-semibold text-success-900' : 'text-ink/55'}>
-                  {r.status === 'accepted' ? (r.auto_agreed ? 'In (Auto-agree)' : 'Approved') : r.status === 'withdrawn' ? 'Taken back' : 'Not approved'}
+                <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/55'}>
+                  {r.status === 'accepted'
+                    ? r.auto_agreed
+                      ? 'In (Auto-agree)'
+                      : 'Approved'
+                    : r.status === 'withdrawn'
+                      ? 'Taken back'
+                      : r.status === 'answered_by_host'
+                        ? 'Answered by the host'
+                        : 'Not approved'}
                 </span>
                 <span className="text-ink/70">{waitingWords(r, labelOf(day, r.block_id))}</span>
               </li>
@@ -481,11 +520,17 @@ function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: b
 function AskedRow({
   a,
   label,
+  whereNames = null,
+  whereNow = '',
   send,
   onAnswered,
 }: {
   a: ScheduleAsk;
   label: string | null;
+  /** 📍 A host's Where ask: the chapters they ask you to serve. */
+  whereNames?: string | null;
+  /** The chapters they are on now — an accepted ask REPLACES them. */
+  whereNow?: string;
   send: Send;
   onAnswered: (r: SupplierScheduleAnswer, yes: boolean) => void;
 }) {
@@ -500,6 +545,12 @@ function AskedRow({
   };
   return (
     <li data-asked={a.suggestion_id} className="flex flex-col gap-2 py-3">
+      {whereNames !== null ? (
+        <p className="text-sm" data-asked-where="">
+          <span className="font-medium">{askerWords(a)}</span> asks you to work <span className="font-semibold">{whereNames}</span>.
+          <span className="block text-xs text-ink/60">Now: {whereNow}. Accept makes it exactly these chapters.</span>
+        </p>
+      ) : (
       <p className="text-sm">
         <span className="font-medium">{askerWords(a)}</span> asks you to move “{label ?? 'a moment'}”
         {a.proposed_start_at ? (
@@ -511,7 +562,9 @@ function AskedRow({
         ) : null}
         .
       </p>
-      {a.note ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
+      )}
+      {/* A Where ask's own note shows; the automatic "Asks you to work …" would only repeat the line above. */}
+      {a.note && (whereNames === null || !a.note.startsWith('Asks you to work ')) ? <p className="text-xs text-ink/65">“{a.note}”</p> : null}
       {declining ? (
         <>
           <FormRows width="wide">
@@ -542,6 +595,133 @@ function AskedRow({
         </div>
       )}
     </li>
+  );
+}
+
+/** The chapter names a pick reads as — "Preparation, Reception" (each option's own name, before " · venue"). */
+function pickNames(options: readonly WhereOption[], ids: readonly string[]): string {
+  return options
+    .filter((o) => ids.includes(o.key))
+    .map((o) => o.label.split(' · ')[0])
+    .join(', ');
+}
+
+/**
+ * 📍 ONE WHERE ROW — the shared Form Row with the shared dropdown and its ticks (`ChosenRow` + `picked`, as the host's
+ * own Where row draws it). A tick only changes the draft; Send writes ONE request (`supplier_ask_where`) — so the host
+ * is told once, not per tick. While it waits: what they asked, and Take back. The screen never resets.
+ */
+function SupplierWhereRow({
+  w,
+  send,
+  autoAgree,
+  locked,
+  onSaid,
+}: {
+  w: SupplierOwnWhere;
+  send: Send;
+  autoAgree: boolean;
+  locked: boolean;
+  onSaid: (s: { tone: 'ok' | 'bad'; words: string } | null) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>(w.picked);
+  const [waiting, setWaiting] = useState(w.waiting);
+  const [draft, setDraft] = useState<string[]>(w.draft);
+  const [touched, setTouched] = useState(false);
+  const [busy, setBusy] = useState<'send' | 'back' | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const keys = w.options.map((o) => o.key);
+  const verdict = whereAskVerdict({ picked: draft, current: picked, chapterIds: keys });
+  const sameAsWaiting = waiting !== null && draft.length === waiting.ids.length && draft.every((id) => waiting.ids.includes(id));
+
+  const tick = (key: string) => {
+    const next = new Set(draft);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setDraft(keys.filter((k) => next.has(k)));
+    setTouched(true);
+    setProblem(null);
+  };
+
+  const sendIt = async () => {
+    if (!verdict.ok) return setProblem(verdict.words);
+    setBusy('send');
+    const r = await send({ request: 'where', vendor_id: w.vendorId, chapter_id: verdict.ids });
+    setBusy(null);
+    if (!r.ok) return setProblem(r.error);
+    setTouched(false);
+    if (r.outcome === 'applied') {
+      setPicked(verdict.ids);
+      setWaiting(null);
+      onSaid({ tone: 'ok', words: SUPPLIER_WHERE_WORDS.saved });
+    } else {
+      setWaiting({ suggestionId: r.suggestionId ?? waiting?.suggestionId ?? '', ids: verdict.ids, names: pickNames(w.options, verdict.ids) });
+      onSaid({ tone: 'ok', words: SUPPLIER_WHERE_WORDS.sent });
+    }
+  };
+
+  const takeBack = async () => {
+    if (!waiting?.suggestionId) return;
+    setBusy('back');
+    const r = await send({ request: 'take_back', suggestion_id: waiting.suggestionId });
+    setBusy(null);
+    if (!r.ok) return setProblem(r.error);
+    setWaiting(null);
+    setDraft(picked);
+    setTouched(false);
+    onSaid({ tone: 'ok', words: 'Taken back. Your chapters stay as they were.' });
+  };
+
+  const name = w.label ? `${SUPPLIER_WHERE_WORDS.name} · ${w.label}` : SUPPLIER_WHERE_WORDS.name;
+  const buttonText = pickNames(w.options, draft) || SUPPLIER_WHERE_WORDS.none;
+  const showSend = verdict.ok && !sameAsWaiting;
+  return (
+    <div data-supplier-where-row={w.vendorId} data-where-picked={picked.join(' ')}>
+      <ChosenRow
+        name={name}
+        about={{ words: locked ? `${SUPPLIER_WHERE_WORDS.info} ${SUPPLIER_WHERE_WORDS.lockedInfo}` : SUPPLIER_WHERE_WORDS.info }}
+        label={name}
+        value={null}
+        options={w.options}
+        picked={draft}
+        onPick={tick}
+        buttonText={buttonText}
+        data="supplier-where"
+        problem={problem ?? undefined}
+        note={
+          waiting && sameAsWaiting
+            ? SUPPLIER_WHERE_WORDS.waiting(waiting.names)
+            : w.fromTrade && !touched && picked.length === 0
+              ? SUPPLIER_WHERE_WORDS.fromTrade
+              : undefined
+        }
+      />
+      {(waiting && sameAsWaiting) || showSend ? (
+        <div className="flex flex-wrap justify-end gap-2 pt-1">
+          {waiting && sameAsWaiting ? (
+            <ActionButton
+              tone="neutral"
+              icon={Undo2}
+              label={busy === 'back' ? 'Taking back…' : 'Take back'}
+              disabled={busy !== null}
+              onClick={() => void takeBack()}
+              data-testid="supplier-where-take-back"
+            />
+          ) : null}
+          {showSend ? (
+            <ActionButton
+              tone="brand"
+              main
+              icon={MapPin}
+              label={busy === 'send' ? 'Sending…' : autoAgree ? 'Save' : 'Send'}
+              disabled={busy !== null}
+              onClick={() => void sendIt()}
+              data-testid="supplier-where-send"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

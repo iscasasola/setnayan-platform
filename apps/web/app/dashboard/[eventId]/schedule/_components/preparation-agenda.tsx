@@ -21,7 +21,7 @@ import {
 import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import {
   AddPreparationItem,
-  DeletePreparationItemButton,
+  PrepItemSwipe,
   PlanningFilterFrame,
   PlanningTick,
   TaskDateButton,
@@ -44,7 +44,7 @@ import { formatCount } from '@/lib/format-number';
  * vendor's page) and deep-link there. The HYBRID layer (2026-06-03) adds
  * manual rows the couple can add via the "+ Add to schedule" control and
  * delete inline — plus vendor-added rows (source 'manual', backed by
- * event_preparation_items). Manual rows carry an inline delete button; the
+ * event_preparation_items). Manual rows delete by their swipe (with Undo); the
  * autofill rows stay read-only here.
  *
  * Clean Editorial tokens only (cream / ink / terracotta / mulberry / emerald
@@ -148,7 +148,7 @@ export function PreparationAgendaView({
                 id={rowId ? checklistTaskAnchor(rowId) : undefined}
                 data-plan-row={item.source}
                 data-plan-todo={isTodoItem(item) ? (item.done ? 'done' : 'open') : undefined}
-                className={`scroll-mt-24 ${isTodoItem(item) ? '' : 'group-data-[plan-filter=todo]/plan:hidden'}`}
+                className={`scroll-mt-24 has-[[data-swipe-gone]]:hidden ${isTodoItem(item) ? '' : 'group-data-[plan-filter=todo]/plan:hidden'}`}
                 // 💾 A payment due is money — never kept as last-seen data (lib/last-seen).
                 data-money={displaySourceFor(item) === 'payment' || item.amountPhp !== undefined ? '' : undefined}
               >
@@ -235,7 +235,7 @@ function PreparationRow({
     </div>
   );
 
-  return (
+  const row = (
     <div
       className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2 ${containerStylesFor(display)} ${
         done ? 'opacity-75' : ''
@@ -292,15 +292,15 @@ function PreparationRow({
             ₱{Math.round(item.amountPhp).toLocaleString('en-PH')}
           </span>
         ) : null}
-        {item.isManual && item.itemId ? (
-          <DeletePreparationItemButton
-            eventId={eventId}
-            itemId={item.itemId}
-            label={item.title}
-          />
-        ) : null}
       </div>
     </div>
+  );
+  // 👈 A hand-added / supplier-added step deletes by its swipe (owner 2026-11-03) — no trash on the row.
+  if (!(item.isManual && item.itemId)) return row;
+  return (
+    <PrepItemSwipe eventId={eventId} itemId={item.itemId} label={item.title}>
+      {row}
+    </PrepItemSwipe>
   );
 }
 

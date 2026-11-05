@@ -5,6 +5,9 @@
  * months from the fixtures alone (no month fetcher).
  */
 import { renderUrlQrSvg } from '@/lib/qr';
+import { DOOR_STICKER_CODES, DOOR_STICKER_SIZES, doorStickerKey } from '@/lib/door-sticker';
+import { doorStickerPdf, doorStickerSvg } from '@/lib/door-sticker-print';
+import { badgesForPrint } from '@/lib/shop-badges';
 import type { SchedulePool } from '@/lib/vendor-schedule';
 import { clockWords, dayAnswerOfGroups, dayGroupsOf, seatsByPool, type DatesBlock } from '@/lib/vendor-dates';
 import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vendor-halls';
@@ -39,7 +42,7 @@ import {
   updateWaitlistSettings,
 } from '@/app/vendor-dashboard/calendar/actions';
 
-export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail'] as const;
+export const DATES_STATES = ['dates', 'dates-free', 'dates-empty', 'dates-day', 'dates-dayblocked', 'dates-sunday', 'dates-halls', 'dates-hallday', 'qr', 'qr-booked', 'qr-issued', 'qr-fail', 'qr-page', 'qr-dates'] as const;
 export type DatesState = (typeof DATES_STATES)[number];
 
 const TODAY = '2026-10-02'; // Fri Oct 2 in Manila (the lab's NOW)
@@ -234,7 +237,42 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
     const modeOptions = [
       { key: 'shortlist', label: 'Shortlist · free', href: '/dev/supplier-lab?s=qr' },
       { key: 'locked', label: 'Booked · one-use', href: '/dev/supplier-lab?s=qr-booked' },
+      { key: 'dates', label: 'Check a date · free', href: '/dev/supplier-lab?s=qr-dates' },
+      { key: 'page', label: 'My page', href: '/dev/supplier-lab?s=qr-page' },
     ];
+    if (state === 'qr-page' || state === 'qr-dates') {
+      // 🚪 The shop's two permanent codes + the door sticker under them, on fixtures: the sticker's real files (SVG +
+      // PDF, every code × size) as data: URIs, drawn by the shipped `lib/door-sticker-print.ts` with a lab shop's badges.
+      const pageUrl = 'https://www.setnayan.com/v/lumina';
+      const datesUrl = 'https://www.setnayan.com/v/lumina/dates';
+      const badges = badgesForPrint({ verified: true, completedEvents: 57, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2015, awards: [], nowYear: 2026 });
+      const files: Record<string, string> = {};
+      for (const code of DOOR_STICKER_CODES) {
+        for (const size of DOOR_STICKER_SIZES) {
+          const input = { shopName: 'Lumina Studio', url: code === 'dates' ? datesUrl : pageUrl, code, size, badges };
+          files[doorStickerKey(code, size, 'svg')] = `data:image/svg+xml;base64,${Buffer.from(doorStickerSvg(input)).toString('base64')}`;
+          files[doorStickerKey(code, size, 'pdf')] = `data:application/pdf;base64,${Buffer.from(await doorStickerPdf(input)).toString('base64')}`;
+        }
+      }
+      const url = state === 'qr-page' ? pageUrl : datesUrl;
+      const card = { url, svg: await renderUrlQrSvg(url, 220), shopName: 'Lumina Studio' };
+      return (
+        <div className="min-h-screen bg-cream" data-supplier-lab={state}>
+          <QrCodes
+            mode={state === 'qr-page' ? 'page' : 'dates'}
+            backHref="/dev/supplier-lab?s=dates"
+            modeOptions={modeOptions}
+            canShare
+            setupHref="/dev/supplier-lab?s=qr"
+            shortlist={null}
+            booked={null}
+            myPage={state === 'qr-page' ? card : null}
+            checkADate={state === 'qr-dates' ? card : null}
+            doorStickerFiles={files}
+          />
+        </div>
+      );
+    }
     const shortUrl = 'https://www.setnayan.com/vendor-invite/lumina?et=wedding';
     const lockUrl = 'https://www.setnayan.com/vendor/lock/lab-token';
     const svg = state === 'qr-fail' ? null : await renderUrlQrSvg(state === 'qr-issued' ? lockUrl : shortUrl, 220);

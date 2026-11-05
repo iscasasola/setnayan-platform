@@ -40,6 +40,7 @@
  *   ?s=dates-free     one calendar, no waiting list on the plan (frame 29)   ?s=dates-empty  no calendar yet ("Not set")
  *   ?s=dates-day      one day (frame 35)   ?s=dates-dayblocked  a blocked day with a hold and a waiting list
  *   ?s=qr · qr-booked · qr-issued · qr-fail   the one QR codes page (frames 10 · 40) &open=issued
+ *   ?s=qr-page · qr-dates                    My page / Check a date + the door sticker (2026-11-05)
  *   ?s=money          Customers › Money (S-PR4): Received · To come in · meter, Next in ▾ rows, Setnayan fee rows,
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it

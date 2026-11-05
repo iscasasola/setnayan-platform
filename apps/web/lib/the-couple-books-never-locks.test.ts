@@ -28,7 +28,6 @@ const ALLOW: readonly WordAllow[] = [
   // ── 1 · the supplier's side, staff and legal text ───────────────────────────
   { prefix: 'app/vendor-dashboard/', why: 'the supplier app — the supplier side keeps its own word (owner d19)' },
   { prefix: 'app/vendor/', why: 'supplier claim / lock-by-token pages — read by the supplier, not the couple' },
-  { prefix: 'app/for-suppliers/', why: 'supplier-facing marketing — the supplier side keeps its own word' },
   { prefix: 'app/_components/proposal-maker.tsx', why: "the supplier's quote builder — supplier side" },
   { prefix: 'app/_components/chat-amendment-card.tsx', text: /Waiting for the couple to lock/, why: 'the supplier’s view of the same card; the couple’s button reads "Book this deal"' },
   { prefix: 'app/_components/negotiation-actions.ts', text: /Deal locked/, why: 'the notification title the SUPPLIER receives when the couple books' },

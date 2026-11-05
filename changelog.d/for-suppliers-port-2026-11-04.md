@@ -27,6 +27,15 @@ Owner, 4 Nov: the three marketing pages go to cloud build; the binding prototype
   "Everything in Free, plus" being seen within its reach; each paid plan builds on the one below. Each card lists
   its tools — first four, then "See all N tools" — from `VENDOR_TIER_SECTIONS`, the same list the full table
   draws (`planTools()`); tools marked `soon` are not sold.
+- **The five shared marketing widgets** (controller's prototype, artifact WAh2zYfLCurgknopQBf9WV v3; owner 5 Nov:
+  build now, here, shared with /for-coordinators; placeholders for pictures): `app/_components/marketing/trade/` —
+  How it fits together · Plans (five cards: price, one line, page preview, three facts, limits from TIER_CAPS,
+  every tool from VENDOR_TIER_SECTIONS; compare grid; the full matrix behind "Every tool, side by side") · Your part
+  of the event · Free marketing tools (prints, QR + NFC + link, and the folded-in "Put Setnayan in your package") ·
+  Badges and rewards (medals from badge-tiers). Photos are described stand-ins until the files land (TRADE_PHOTOS).
+- **Free vs Verified, the clean split** (owner 5 Nov): `vendor-benefits.ts` has a Verified section; the matrix and
+  the deltas read it. Owner rulings P (older sections dropped), Q (dark-ready), R (the new fee wording everywhere
+  `supplierCommissionPromise` feeds).
 - Photos: `apps/web/public/marketing/2026-11-04/` (18 files, same names as the corpus; the folder is shared
   with the front page and /for-coordinators).
 

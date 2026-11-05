@@ -450,7 +450,7 @@ export function TradeMarketing({ lede }: { lede: string }) {
                     <li key={g}>{g}</li>
                   ))}
                 </ul>
-                <p className={css.fine}>Buy gifts ahead and add them on a service card or a quote. Your couple receives the full product.</p>
+                <p className={css.fine}>Add a gift on a service card or a quote. Your couple receives the full product.</p>
               </div>
             </div>
           </article>

@@ -309,13 +309,15 @@
       "blocks": [
         "Link",
         "RevealOnView",
+        "SupplierSpecialTools",
+        "TradeEco",
+        "TradeMarketing",
+        "TradePlans",
+        "TradeRewards",
         "VendorGrowCTA",
         "VendorGrowHero",
-        "VendorGrowPackage",
-        "VendorGrowPlanLines",
         "VendorGrowProblems",
         "VendorGrowVerifiedOnly",
-        "VendorTierDeltas",
         "VendorTierMatrix"
       ]
     },

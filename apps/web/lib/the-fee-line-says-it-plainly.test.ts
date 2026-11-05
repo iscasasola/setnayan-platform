@@ -75,7 +75,8 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
 
 test('every surface that drew the old sentence draws the one line', () => {
   for (const rel of [
-    'app/for-suppliers/_components/vendor-grow-sections.tsx',
+    // /for-suppliers' fee line moved into the shared plans widget on 2026-11-05 (owner: the five shared widgets).
+    'app/_components/marketing/trade/trade-widgets.tsx',
     'app/for-suppliers/_components/vendor-tier-deltas.tsx',
     'app/vendor-dashboard/booking-fees/page.tsx',
   ]) {

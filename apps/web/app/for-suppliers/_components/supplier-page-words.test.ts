@@ -121,7 +121,11 @@ test('(2b) the components draw these words and type no allowance of their own', 
   assert.doesNotMatch(port, /\b\d+\s*km\b/, 'a reach is typed into the ported sections');
   assert.doesNotMatch(port, /\b(one|five|ten|\d+) (team )?seats? on\b/i, 'a seat count is typed into the ported sections');
   assert.doesNotMatch(port, /₱\s*[1-9]/, 'a peso figure is typed into the ported sections');
-  for (const fn of ['planLine(', 'seatsLine()', 'reachLine()', 'ownAddressFrom()']) assert.ok(port.includes(fn), `${fn} is no longer drawn`);
+  for (const fn of ['seatsLine()', 'reachLine()', 'ownAddressFrom()']) assert.ok(port.includes(fn), `${fn} is no longer drawn`);
+  // The plan lines moved into the shared plans widget (owner 5 Nov) — it reads them from the same words.
+  const trade = readFileSync(join(here, '..', '..', '_components', 'marketing', 'trade', 'trade-data.ts'), 'utf8');
+  for (const fn of ['planAdds(', 'planTools()', 'TIER_CAPS[']) assert.ok(trade.includes(fn), `trade-data.ts no longer reads ${fn}`);
+  assert.doesNotMatch(stripComments(trade), /\b\d+\s*km\b/, 'a reach is typed into the shared plans data');
 });
 
 test('(1b) true claims (CLOUD_BOARD check, 5 Nov): no calls, four papers, the 3D logo from Solo, no e-sign', () => {
@@ -148,11 +152,13 @@ test('(1b) true claims (CLOUD_BOARD check, 5 Nov): no calls, four papers, the 3D
 test('(2c) every plan lists its tools, from the one shared list (owner, 5 Nov: "list all tools")', () => {
   const by = Object.fromEntries(planTools().map((p) => [p.plan, p.tools]));
   assert.deepEqual(Object.keys(by), ['free', 'verified', 'solo', 'pro', 'enterprise']);
-  assert.ok(by.free!.some((t) => /Build your own Setnayan page/.test(t)), 'Free no longer names the page');
-  assert.ok(by.free!.some((t) => /gifts/i.test(t)), 'Free no longer names gift sending');
-  assert.ok(by.free!.some((t) => /Import past clients/.test(t)), 'Free no longer names importing your clients');
-  const vkm = TIER_CAPS.verified.serviceRadiusKm;
-  assert.ok(by.verified![0]!.includes(Number.isFinite(vkm) ? `within ${vkm} km` : 'anywhere'), 'Verified does not lead with being seen');
+  // The clean split (owner 2026-11-05): Free = your page, gifts, your own clients; Verified = being seen.
+  assert.ok(by.free!.includes('Your public page, auto-built'), 'Free no longer names your page');
+  assert.ok(by.free!.some((t) => /gift/i.test(t)), 'Free no longer names gift sending');
+  assert.ok(by.free!.includes('Import past clients free'), 'Free no longer names importing your clients');
+  assert.ok(!by.free!.some((t) => /find you in search|Verified badge/.test(t)), 'a Verified tool is listed under Free');
+  assert.equal(by.verified![0], 'Couples can find you in search', 'Verified does not lead with being seen');
+  assert.ok(by.verified!.includes('Verified badge, free'));
   const shared = new Set(VENDOR_TIER_SECTIONS.flatMap((x) => x.groups.flatMap((g) => g.items)).map((i) => i.n));
   const soon = new Set(VENDOR_TIER_SECTIONS.flatMap((x) => x.groups.flatMap((g) => g.items.filter((i) => i.soon))).map((i) => i.n));
   for (const [plan, tools] of Object.entries(by)) {
@@ -178,12 +184,13 @@ test('(2d) your package: the couple’s free tools from the Features list, and t
     assert.ok(f, `${t.slug} is not a Features page`);
     assert.notEqual(f!.price.kind, 'paid', `${t.name} is a PAID tool — it is a gift, never "free for your couple"`);
   }
-  for (const must of ['guest-list', 'budget', 'event-hub']) assert.ok(tools.some((t) => t.slug === must), `${must} is missing (owner named it)`);
+  for (const must of ['guest-list', 'budget', 'seat-plan']) assert.ok(tools.some((t) => t.slug === must), `${must} is missing (owner named it)`);
+  assert.ok(!tools.some((t) => t.slug === 'event-hub'), '"Event Hub" is a couple-side word — not on the supplier pages (owner, 5 Nov)');
   assert.ok(!tools.some((t) => t.slug === 'marketplace' || t.slug === 'compare' || t.slug === 'suppliers'), 'a supplier-finding page is listed as a package tool');
   assert.deepEqual(giftProducts(), ['Papic', 'Event Plus', 'Event Pro', 'Live Watch', 'Music Maker', 'Patiktok']);
-  const src = code('app/for-suppliers/_components/vendor-grow-sections.tsx');
-  const block = src.slice(src.indexOf('export function VendorGrowPackage'), src.indexOf('export type PlanLinePrices'));
-  assert.ok(block.length > 300, 'could not find VendorGrowPackage');
+  const src = code('app/_components/marketing/trade/trade-widgets.tsx');
+  const block = src.slice(src.indexOf('export function TradeMarketing'), src.indexOf('export function TradeRewards'));
+  assert.ok(block.length > 300, 'could not find TradeMarketing (where the package section is folded)');
   assert.doesNotMatch(block, /₱\s*\d/, 'a gift price is typed — gift prices live in the catalogue');
   assert.match(block, /packageTools\(\)/);
   assert.match(block, /giftProducts\(\)/);

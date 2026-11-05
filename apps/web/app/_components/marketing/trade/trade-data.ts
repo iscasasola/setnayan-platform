@@ -244,7 +244,7 @@ const QR_JOB: Readonly<Record<SupplierQrMode, { tile: string; line: string }>> =
   locked: { tile: 'Booking', line: 'Booking: a one-use code for a booked couple, with the deal and first payment' },
   dates: { tile: 'Check a date', line: 'Check a date: they pick a date, your services and their event on one sheet' },
   page: { tile: 'My page', line: 'My page: opens your shop page' },
-  crew: { tile: 'Crew', line: 'Crew: one code per event for your team' },
+  crew: { tile: 'Crew', line: 'Crew: one code per event for your crew' },
 };
 export function qrJobs(): { tile: string; line: string }[] {
   return [

@@ -165,3 +165,8 @@ f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.t
 # credentials. Pinned for the introducing commit (gitleaks-action scans every commit in the PR range).
 d209b39a72bf3b56fb1a108fac1b04c4e724550f:supabase/migrations/20271308555594_the_final_price_sheet.sql:generic-api-key:117
 d209b39a72bf3b56fb1a108fac1b04c4e724550f:apps/web/lib/iap/products.test.ts:generic-api-key:258
+
+# #7292 (2026-11-05): Papic pack service codes (PAPIC_GUEST_1K / _150) in a test and a dev-lab fixture, read as a
+# keyword plus a high-entropy value. Catalogue codes, not credentials. Pinned for their introducing commits.
+045d5a6cf21d4db8ef8a115dfda7ab4f3914e476:apps/web/tests/db/a-service-they-cannot-use-becomes-credits-or-moves.db.test.ts:generic-api-key:291
+045d5a6cf21d4db8ef8a115dfda7ab4f3914e476:apps/web/tests/db/a-service-they-cannot-use-becomes-credits-or-moves.db.test.ts:generic-api-key:309

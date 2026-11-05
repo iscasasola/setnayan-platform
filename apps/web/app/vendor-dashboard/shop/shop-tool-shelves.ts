@@ -8,7 +8,8 @@ export type ShopTool = { href: string; label: string; sub: string };
 export type ShopToolShelf = { key: string; label: string; tools: ShopTool[] };
 
 export const TOOLS_COUPLES_SEE: ShopTool[] = [
-  { href: '/vendor-dashboard/reviews', label: 'Reviews', sub: 'Ratings and written reviews from booked couples.' },
+  // 💬 Reviews left this shelf 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL"): read + reply in place on Shop ›
+  // Page › Reviews and stories; `/vendor-dashboard/reviews` forwards there.
   { href: '/vendor-dashboard/track-record', label: 'Track record', sub: 'Completed events and the public proof they build.' },
   // 📣 Stories + Recaps left this shelf 2026-11-06 (owner, "ONE HOME FOR EVERY PROMOTE TOOL"): they live in Shop ›
   // Promote › Share your work, and their old routes forward there.

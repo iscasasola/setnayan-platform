@@ -60,8 +60,9 @@ test('More tools is the shelves, minus Team, plus Manpower and (web only) Deep S
   assert.ok(tools.includes('/vendor-dashboard/deep-search'));
   // 15 → 13 (owner 2026-11-06, "ONE HOME FOR EVERY PROMOTE TOOL"): Stories and Recaps live in Shop › Promote › Share
   // your work now, so they left More tools.
-  assert.equal(tools.length, 13, 'the prototype’s fifteen less Stories and Recaps, with every grant');
-  for (const gone of ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps']) assert.ok(!tools.includes(gone), `${gone} is still in More tools`);
+  // 13 → 12: Reviews is read + replied in place on Shop › Page › Reviews and stories (same ruling).
+  assert.equal(tools.length, 12, 'the prototype’s fifteen less Stories, Recaps and Reviews, with every grant');
+  for (const gone of ['/vendor-dashboard/real-stories', '/vendor-dashboard/recaps', '/vendor-dashboard/reviews']) assert.ok(!tools.includes(gone), `${gone} is still in More tools`);
   assert.ok(!all({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: true, storeShell: true }).includes('/vendor-dashboard/deep-search'));
 });
 

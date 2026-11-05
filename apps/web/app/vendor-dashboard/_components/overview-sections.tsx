@@ -1095,7 +1095,7 @@ function ReviewBody({
               tone="neutral"
               icon={<ArrowRight {...ico} />}
               label="Open the review"
-              href={`/vendor-dashboard/reviews#reply_${card.reviewId}`}
+              href={`/vendor-dashboard/website#reply_${card.reviewId}`}
               className={TAP}
             />
             <SupplierSubmit tone="brand" main icon={<Reply {...ico} />} label="Post reply" pendingLabel="Posting…" />

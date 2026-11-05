@@ -3,11 +3,10 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions, type OpenRail } from '@/lib/payment-channels';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { fetchVendorAddonBandPrices, vendorAddonPriceBand } from '@/lib/vendor-addon-tier-pricing';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
-import { deepSearchBand, deepSearchStillKept } from '@/lib/deep-search-findings';
+import { deepSearchStillKept } from '@/lib/deep-search-findings';
 import {
   VENDOR_DEEP_SEARCH_PERIOD_DAYS,
   deepSearchEligibility,
@@ -15,7 +14,7 @@ import {
   deepSearchCycleStartMs,
   countDeepSearchUsesSince,
   resolveDeepSearchPricePhp,
-  fetchVendorDeepSearchPricePhp,
+  VENDOR_DEEP_SEARCH_FALLBACK_PHP,
 } from '@/lib/vendor-deep-search-addon';
 
 /**
@@ -62,12 +61,12 @@ export async function loadDeepSearchOffer(
   },
 ): Promise<DeepSearchOffer> {
   const { tier } = input;
-  const tiered = isVendorAddonTieredPricingEnabled();
   // TRY-FIRST (2026-09-30): eligibility is verification alone here; the plan is asked at Run, through `planAsks`.
   const eligible = deepSearchEligibility({ tier, verification: input.verification, tierPaywall: false }).ok;
   const hasFreeAllowance = deepSearchHasFreeAllowance(tier);
 
-  const catalogRead = tiered ? Promise.resolve<number | null>(null) : fetchVendorDeepSearchPricePhp(supabase);
+  // Both sides of the band, READ from the catalogue (owner 2026-11-04: two prices by plan, each its own row).
+  const catalogRead = fetchVendorAddonBandPrices(supabase, 'deep_search_about_you');
   const usesRead =
     eligible && hasFreeAllowance
       ? countDeepSearchUsesSince(
@@ -76,9 +75,11 @@ export async function loadDeepSearchOffer(
           new Date(deepSearchCycleStartMs(input.tierExpiresAt, Date.now())).toISOString(),
         )
       : Promise.resolve(1);
-  const [catalogPhp, usesThisCycle] = await Promise.all([catalogRead, usesRead]);
+  const [bandRead, usesThisCycle] = await Promise.all([catalogRead, usesRead]);
 
-  const cyclePricePhp = tiered ? resolveVendorAddonPricePhp('deep_search_about_you', tier) : (catalogPhp as number);
+  // A side that did not read falls back to the runner's own fallback (the same one its charge uses).
+  const ownSide = vendorAddonPriceBand(tier) === 'growth' ? bandRead.growthPhp : bandRead.entryPhp;
+  const cyclePricePhp = ownSide ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
   const priceNow = eligible ? resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp }) : cyclePricePhp;
   const isFreeNow = eligible && priceNow <= 0;
   // The rails matter only when Run would cost something; a free run and an unverified shop never show them.
@@ -92,7 +93,7 @@ export async function loadDeepSearchOffer(
     pricePhp: priceNow > 0 ? priceNow : cyclePricePhp,
     cyclePricePhp,
     // Flat (band off): the catalogue's one price is both sides — never a typed figure.
-    band: deepSearchBand({ tiered, catalogPhp: tiered ? 0 : cyclePricePhp }),
+    band: { entryPhp: bandRead.entryPhp ?? cyclePricePhp, growthPhp: bandRead.growthPhp ?? cyclePricePhp },
     periodDays: VENDOR_DEEP_SEARCH_PERIOD_DAYS,
     openRails,
   };

@@ -36,7 +36,7 @@ export default async function ShopPlanLabPage({
   const caps = tierCaps(tier);
   const reach = shopReach({ verified, tier, declaredOuterKm: sp.outer ? Number(sp.outer) : null });
   const ownAddress = ownWebAddress({ planAllows: caps.customWebsiteName, domain: 'sampaguitatable.com', verifiedAt: '2026-10-01' });
-  const quote = caps.customWebsiteName
+  const quote = caps.premiumPage
     ? pinnedQuote('Plated service ran on time for 180 guests — the kare-kare got asked about all night.')
     : null;
   const name = verified ? 'Sampaguita Table' : 'A caterer in Tagaytay';

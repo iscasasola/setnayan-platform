@@ -20,8 +20,11 @@ test('reach comes from shopReach over the effective tier and the shop\'s own rin
   assert.match(PAGE, /,outer_radius_km,(self_published_at,)?created_at';/, 'the shop\'s own ring is not fetched');
 });
 
-test('the own address is read only on Pro+ and the pinned quote only where review words show', () => {
-  assert.match(PAGE, /if \(premiumLayout\) \{\s*const \{ data: domainRow/);
+test('the own address is read only on Solo+ and the pinned quote only where review words show', () => {
+  // Owner 2026-11-04 ("website applies to solo as well"): the address reads `customWebsiteName`; the Pro page parts
+  // read `premiumPage` — two caps, so moving one never moves the other.
+  assert.match(PAGE, /if \(viewerTierCaps\.customWebsiteName\) \{\s*const \{ data: domainRow/);
+  assert.match(PAGE, /const premiumLayout = viewerTierCaps\.premiumPage;/);
   assert.match(PAGE, /pinnedReviewId && viewerTierCaps\.reviewCommentsViewable &&/);
   assert.match(PAGE, /<ShopAddresses setnayanAddress=\{setnayanAddress\} ownAddress=\{ownAddress\} \/>/);
 });

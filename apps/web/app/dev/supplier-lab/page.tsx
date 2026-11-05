@@ -58,6 +58,7 @@
  *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
+ *                     · &state=moved|skipped (the run of show after a Change the schedule, 2026-11-04)
  *                     🎟 &scan=on|two|fresh|unread the supplier claim scanner · &answer=claimed|already|souvenir-desk|not|
  *                     nosignal|name its result line (2026-11-04)
  *   ?s=scan-guest     🎟 the guest's "Your number #0042" card (&two=1) · ?s=scan-couple the couple's Suppliers' scans
@@ -362,7 +363,7 @@ export default async function SupplierLabPage({
   }
   if (q.s === 'event-hub') {
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
-    return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} numbers={q.numbers} />, 'own');
+    return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} numbers={q.numbers} state={q.state} />, 'own');
   }
   if (q.s === 'scan-shop') {
     /* ⭐ The supplier's public page — Guest ratings in their own section (owner 2026-11-05) — `scan-lab.tsx`. */

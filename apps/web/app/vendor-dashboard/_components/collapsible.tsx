@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /**
  * Collapsible — the ONE shared animated expand/collapse primitive for the
@@ -16,6 +17,12 @@ import { useEffect, useRef } from 'react';
  * un-animated (matches SSR); subsequent `open` flips animate. Content is
  * clipped by `overflow:hidden` mid-animation, then released to `auto` so
  * nested inputs/focus rings aren't cut off once settled.
+ *
+ * 🔭 REVEAL ON OPEN (owner 2026-11-04, app-wide): it is a height primitive
+ * whose callers draw their own head (the element just before it), so it stays
+ * itself rather than becoming the shared `Fold` — and joins the one rule
+ * through `useRevealOnOpen`: a tap that opens it glides that head to the pin
+ * line once the height settles, when the body runs past the bottom.
  */
 export function Collapsible({
   open,
@@ -28,6 +35,7 @@ export function Collapsible({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
+  useRevealOnOpen(open, () => ({ head: ref.current?.previousElementSibling ?? ref.current, end: ref.current }), { cause: 'gesture' });
 
   useEffect(() => {
     const el = ref.current;

@@ -2246,6 +2246,9 @@ export async function EventDashboard({
                   ownPhotoSrc={ownHeroSrc}
                   cover={sceneCover}
                   muted={eventHasHappened}
+                  /* The fade below covers the band's lower half (h-14 of h-28), so
+                     the type photo's faces stay above 60 %. */
+                  footClear={0.6}
                 />
                 {/* The card's own ink, brought up over the foot of the photo so
                     the eyebrow underneath never sits against a bright frame. */}

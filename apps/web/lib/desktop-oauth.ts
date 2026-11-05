@@ -31,7 +31,10 @@
  * Console needs NO change — Google only ever redirects to Supabase's own callback.
  */
 
-import { createClient } from '@/lib/supabase/client';
+// ⚡ `@/lib/supabase/client` is import()ed inside `signInWithProviderDesktop`, never statically: `isTauri`/`tauri`
+// below are read by the root providers' desktop-updater listener on EVERY page, and a static import here put the
+// whole browser client (~43KB gzipped) in every page's first load, the Maker's included
+// (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Only the desktop shell's sign-in button ever reaches it.
 import { safeNext } from '@/lib/safe-next';
 import { acceptTermsNow } from '@/app/_components/terms-reaccept/actions';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
@@ -105,6 +108,7 @@ export async function signInWithProviderDesktop(
     fail('Desktop sign-in is unavailable here. Please use email sign-in.');
     return;
   }
+  const { createClient } = await import('@/lib/supabase/client');
   const supabase = createClient();
 
   let port: number;

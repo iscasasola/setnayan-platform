@@ -31,7 +31,7 @@ export const REQUEST_PATH_HEADER = 'x-sn-request-path';
 
 export function shopConsolePath(next: unknown): string {
   if (!isSafeNext(next)) return SHOP_CONSOLE_HOME;
-  const path = next.split(/[?#]/)[0];
+  const path = next.split(/[?#]/)[0] ?? '';
   if (path === SHOP_CONSOLE_HOME || path.startsWith(SHOP_CONSOLE_HOME + '/')) return next;
   return SHOP_CONSOLE_HOME;
 }

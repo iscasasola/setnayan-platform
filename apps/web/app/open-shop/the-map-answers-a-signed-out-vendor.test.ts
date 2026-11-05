@@ -17,10 +17,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stripComments } from '@/lib/strip-comments';
 
 const SRC = readFileSync('app/open-shop/city-actions.ts', 'utf8');
 // Comments may explain the old gate; only the code is judged.
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+const CODE = stripComments(SRC);
 
 function body(fn: string): string {
   const start = CODE.indexOf(`export async function ${fn}`);

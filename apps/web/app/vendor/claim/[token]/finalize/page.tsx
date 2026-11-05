@@ -319,8 +319,9 @@ function ErrorShell({ title, body }: { title: string; body?: string }) {
 
 /**
  * The refusal for a couple's (customer) account. Says which account is signed
- * in, that the link is still good, and gives the two ways forward: sign out and
- * claim with the supplier's own account, or go back to the invite.
+ * in and that the link is still good, and points at the one way forward: the
+ * account menu (where switching and signing out live — owner rule, held by
+ * seam-invariants.test.ts), then the invite again.
  */
 function NotASupplierShell({ token, email, business }: { token: string; email: string | null; business: string | null }) {
   const who = email ? ` as ${email}` : '';
@@ -330,16 +331,11 @@ function NotASupplierShell({ token, email, business }: { token: string; email: s
       tone="dead_end"
       eyebrow="Claim"
       title="This link is for a supplier account."
-      sub={`You're signed in${who}, a personal account with no shop. The link for ${name} has not been used — sign out, then open it again and sign in or sign up as the supplier.`}
+      sub={`You're signed in${who}, a personal account with no shop. The link for ${name} has not been used. Open your account menu to switch to (or add) the supplier's account, then open the invite again.`}
     >
       <div className="flex flex-wrap gap-3" data-claim-refused="not-a-supplier">
-        <form action="/auth/sign-out" method="post">
-          <button type="submit" className="button-primary">
-            Sign out
-          </button>
-        </form>
         <Link href={`/vendor/claim/${token}`} className="button-secondary">
-          Back to the invite
+          Open the invite again
         </Link>
       </div>
     </DoorShell>

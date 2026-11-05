@@ -101,7 +101,7 @@ test('exactly ONE place in the vendor actions inserts a library asset', () => {
 
 test('both upload entry points go through storeScreenedAsset', () => {
   const src = read(ACTIONS);
-  for (const fn of ['uploadStylistAsset', 'importEditorialMediaToGallery']) {
+  for (const fn of ['uploadStylistAssetOrThrow', 'importEditorialMediaToGallery']) {
     const body = functionBody(src, fn);
     assert.ok(
       body.includes('storeScreenedAsset({'),
@@ -210,7 +210,7 @@ test('MB19: the count is ALSO scoped to one category — drop this line and the 
 
 test('the file upload is back-catalogue; the editorial import is event-linked', () => {
   const src = read(ACTIONS);
-  assert.match(functionBody(src, 'uploadStylistAsset'), /source_event_id: null/);
+  assert.match(functionBody(src, 'uploadStylistAssetOrThrow'), /source_event_id: null/);
   assert.match(
     functionBody(src, 'importEditorialMediaToGallery'),
     /source_event_id: row\.event_id/,
@@ -218,7 +218,7 @@ test('the file upload is back-catalogue; the editorial import is event-linked', 
 });
 
 test('the quota is decided BEFORE the bytes are stored', () => {
-  const body = functionBody(read(ACTIONS), 'uploadStylistAsset');
+  const body = functionBody(read(ACTIONS), 'uploadStylistAssetOrThrow');
   const quota = body.indexOf('backCatalogueQuotaVerdict({');
   const store = body.indexOf('storeScreenedAsset({');
   assert.ok(quota !== -1 && store !== -1);

@@ -671,3 +671,45 @@ test('the day-of cache never keeps a guest’s Me — it is per person, kept onl
     assert.ok(!off.body?.includes(GUEST), `no signal opened the last guest’s Me: ${off.body}`);
   }
 });
+
+test('a guest’s sign-out erases their day-of pages too — the next person, with no signal, never opens their table page', async () => {
+  const OTHER = 'cale-ice';
+  const DAYOF = 'setnayan-dayof-v4';
+  const IMAGES = 'setnayan-images-v4';
+  const paths = (w: ReturnType<typeof boot>, name: string) =>
+    [...(w.stores.get(name)?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search).sort();
+  const visit = async (w: ReturnType<typeof boot>) => {
+    await w.dispatch('install');
+    w.server.viewer = GUEST;
+    for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`, `/${SLUG}?tab=home`, `/${OTHER}`]) await w.nav(p);
+    // GuestPreload: the page asks for its own address (kept in the image cache, which `caches.match` also reads).
+    await w.post({ type: 'PRELOAD_ASSETS', urls: ['/icon-192.svg', `/${SLUG}`] });
+  };
+
+  const w = boot();
+  await visit(w);
+  assert.ok(paths(w, DAYOF).includes(`/${SLUG}/find-my-table`), `the walk kept nothing to erase: ${paths(w, DAYOF)}`);
+  assert.ok(paths(w, IMAGES).includes(`/${SLUG}`), `GuestPreload kept nothing to erase: ${paths(w, IMAGES)}`);
+  await w.nav(`/${SLUG}/sign-out`, { method: 'POST' });
+  assert.deepEqual(paths(w, DAYOF), [`/${OTHER}`], 'the signed-out guest’s day-of pages survived (or another event’s went)');
+  assert.deepEqual(paths(w, IMAGES), ['/icon-192.svg'], 'the preloaded guest page survived (or an icon went)');
+  w.server.down = true;
+  for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`, `/${SLUG}?tab=home`]) {
+    const off = await w.nav(p);
+    assert.ok(!off.body?.includes(GUEST), `no signal opened the signed-out guest’s ${p}: ${off.body}`);
+  }
+  assert.ok((await w.nav(`/${OTHER}`)).body?.includes(`>/${OTHER}<`), 'another event’s page was lost');
+
+  // An account's sign-out: every guest page goes; icons and code stay.
+  const a = boot();
+  await visit(a);
+  await a.nav('/auth/sign-out');
+  assert.deepEqual(paths(a, DAYOF), [], `an account sign-out left guest pages: ${paths(a, DAYOF)}`);
+  assert.deepEqual(paths(a, IMAGES), ['/icon-192.svg']);
+
+  // A reserved route is never read as a guest's sign-out.
+  const r = boot();
+  await visit(r);
+  await r.nav('/dashboard/sign-out', { method: 'POST' });
+  assert.ok(paths(r, DAYOF).includes(`/${SLUG}/find-my-table`));
+});

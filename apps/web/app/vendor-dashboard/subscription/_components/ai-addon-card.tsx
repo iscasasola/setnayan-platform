@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { Bot, Check, Clock } from 'lucide-react';
+import { Bot, Check } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ourAccountPhrase, type OpenRail } from '@/lib/payment-channels';
@@ -19,7 +19,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
  * ₱1,500 / 28 days, on paid (Solo+) + verified shops only.
  *
  * Honest states:
- *   • assistant not live yet (master flag off) → "Coming soon", NO buy CTA. We
+ *   • assistant not live yet (master flag off) → the card is HIDDEN, NO buy CTA. We
  *     never sell an add-on that can't run — the assistant only answers couples
  *     once NEXT_PUBLIC_VENDOR_AUTOREPLY_V1 is on (the server action rejects too).
  *   • not eligible (free/verified tier OR unverified) → a muted upsell, no CTA.
@@ -61,7 +61,7 @@ export type AiAddonCardProps = {
   /** Standing renewal price (₱1,500) from the admin-managed catalog. */
   pricePhp: number;
   /** vendorAutoReplyEnabled() — the GLOBAL master switch. When OFF the whole
-   *  add-on is "Coming soon": no buy CTA renders (and the server action rejects),
+   *  add-on is hidden: no card renders (and the server action rejects),
    *  because the assistant can't answer anyone until it's turned on platform-wide.
    *  We never take money for a feature that can't run yet. */
   assistantLive: boolean;
@@ -92,6 +92,12 @@ export function AiAddonCard(props: AiAddonCardProps) {
       toast.success(state.message);
     }
   }, [state, toast]);
+
+  // Switched off → the card is not shown at all (2026-11-05). It used to say
+  // "Coming soon", which on a supplier's Plan page reads as an unfinished
+  // product; with the switch off there is nothing to sell, so there is nothing
+  // to show. The server action still refuses on its own.
+  if (!assistantLive) return null;
 
   return (
     <section className="sn-tile mt-8 p-6">
@@ -133,20 +139,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
       </div>
 
       {/* ── Availability + eligibility-gated CTA ──────────────────────────── */}
-      {!assistantLive ? (
-        /* Master flag off → the whole add-on is "Coming soon": no buy CTA, so a
-           vendor can't pay for an assistant that can't answer anyone yet. */
-        <div
-          className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          <span>
-            Coming soon — Vendor AI is launching shortly. You&rsquo;ll be able to
-            turn it on here the moment it goes live.
-          </span>
-        </div>
-      ) : !eligible ? (
+      {!eligible ? (
         <div
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}

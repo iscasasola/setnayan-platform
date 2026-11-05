@@ -12,6 +12,10 @@
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
  *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
+ *   ?s=gifts           Plan › Your gifts (supplier gift stock, 2026-11-04)  &unverified=1 (list price) · &fail=1 (unread)
+ *                      &buy=1 opens nothing by itself — press "Buy gifts"
+ *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment)
+ *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
 import { notFound } from 'next/navigation';
@@ -47,6 +51,11 @@ import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
+import { ShopGiftsSection } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
+import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
+import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
+import { shopGiftPacksFrom } from '@/lib/shop-gifts';
+import { formatCentavos } from '@/lib/vendor-proposals';
 
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -321,5 +330,66 @@ export default async function SupplierPlanLabPage({
       </>
     );
 
+  else if (s === 'gifts') body = giftsFixture(sp.unverified === '1', sp.fail === '1');
+  else if (s === 'gifts-couple')
+    body = (
+      <section className="p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">What&rsquo;s included</h2>
+        <p className="mt-2 flex items-baseline justify-between border-t border-ink/15 pt-3 text-base font-semibold">
+          <span>Total</span>
+          <span className="tabular-nums">{formatCentavos(11_250_000)}</span>
+        </p>
+        <QuoteShopGiftNote credits={1150} given={sp.given === '1' ? 1150 : 0} shopName="Saysay Catering" side="couple" />
+      </section>
+    );
+  else if (s === 'gifts-admin')
+    body =
+      sp.fail === '1' ? (
+        <ShopGiftsLedger ledger={null} ledgerError={{ message: 'lab: refused' }} holds={null} holdsError={{ message: 'lab: refused' }} />
+      ) : (
+        <ShopGiftsLedger ledger={LAB_GIFT_LEDGER} ledgerError={null} holds={LAB_GIFT_HOLDS} holdsError={null} />
+      );
+
   return <main className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6 sm:pt-10">{body}</main>;
 }
+
+/** Lab-only stand-in packs — the page reads `platform_retail_catalog_v2`; these never reach a supplier. */
+const LAB_GIFT_PACKS = shopGiftPacksFrom([
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
+]);
+
+function giftsFixture(unverified: boolean, fail: boolean) {
+  return (
+    <ShopGiftsSection
+      data={{
+        stock: fail ? null : { balance: 2150, held: 1150 },
+        packs: LAB_GIFT_PACKS,
+        paysGiftPrice: !unverified,
+        bought: fail
+          ? null
+          : [
+              { orderId: 'o3', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-11-04T05:00:00Z', state: 'checking' },
+              { orderId: 'o2', title: 'Papic 1000', quantity: 2, paidPhp: 898, createdAt: '2026-11-02T05:00:00Z', state: 'in_stock' },
+              { orderId: 'o1', title: 'Papic 150', quantity: 1, paidPhp: 90, createdAt: '2026-10-30T05:00:00Z', state: 'in_stock' },
+            ],
+        openRails: [
+          { id: 'gcash', label: 'GCash' },
+          { id: 'bank', label: 'Bank transfer' },
+        ],
+        canBuy: true,
+      }}
+    />
+  );
+}
+
+const LAB_GIFT_LEDGER = [
+  { entryId: 'e4', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'given' as const, delta: -1150, eventId: 'ev1', eventName: 'Ana & Miguel', orderReference: null, landed: true, createdAt: '2026-11-04T06:00:00Z' },
+  { entryId: 'e3', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, delta: 2000, eventId: null, eventName: null, orderReference: 'SN-8Q2K', landed: false, createdAt: '2026-11-02T05:00:00Z' },
+  { entryId: 'e2', vendorProfileId: 'v2', shopName: 'Lente Studio', kind: 'reversal' as const, delta: -150, eventId: null, eventName: null, orderReference: 'SN-7XRT', landed: false, createdAt: '2026-11-01T05:00:00Z' },
+  { entryId: 'e1', vendorProfileId: 'v1', shopName: 'Saysay Catering', kind: 'bought' as const, delta: 150, eventId: null, eventName: null, orderReference: 'SN-6PLM', landed: false, createdAt: '2026-10-30T05:00:00Z' },
+];
+const LAB_GIFT_HOLDS = [
+  { proposalId: 'p1', shopName: 'Saysay Catering', eventName: 'Bea & Carlo', status: 'sent', credits: 1000 },
+  { proposalId: 'p2', shopName: 'Saysay Catering', eventName: 'Rina’s 18th', status: 'accepted', credits: 150 },
+];

@@ -557,11 +557,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       <ShopGiftsSection
         data={{
           stock: giftStock,
-          packs: giftPacks,
+          // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (slice 2).
+          packs: giftPapicOn ? giftPacks : (giftPacks?.filter((p) => p.kind !== 'papic') ?? null),
           paysGiftPrice: giftPaysGiftPrice,
           bought: giftBought,
           openRails,
-          canBuy: giftPapicOn && !giftStoreShell,
+          canBuy: !giftStoreShell,
         }}
       />
 

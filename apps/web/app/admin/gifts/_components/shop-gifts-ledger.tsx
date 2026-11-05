@@ -4,13 +4,18 @@ import { GIFT_SHARE_OF_FEE_PCT } from '@/lib/setnayan-gift';
 import { formatCount } from '@/lib/format-number';
 import type { ShopGiftHoldRow, ShopGiftLedgerRow } from '@/lib/shop-gifts.server';
 
+/** The gift a row moved: "1,000 credits" for Papic, "1 Event Plus" for an unlock (slice 2). */
+const giftWord = (kind: ShopGiftLedgerRow['giftKind'], n: number) =>
+  kind === 'papic' ? `${formatCount(n)} credits` : `${formatCount(n)} ${kind === 'event_plus' ? 'Event Plus' : 'Event Pro'}`;
+
 const fmtDay = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
 
 /**
  * 🎁 ADMIN › GIFTS & COMPS › SUPPLIER GIFTS (owner 2026-11-04) — every credit a shop bought, gave or had reversed, and
  * what live quotes still promise. Read-only: the money moves through the order (approve / refund on Orders) and the one
- * delivery door. Presentational — the page reads; `/dev/supplier-plan-lab?s=gifts-admin` mounts the same component.
+ * delivery door. 💎 Event Plus / Event Pro rows (slice 2) count units; a given one names what the event received (a
+ * second Plus becomes Event Pro). Presentational — the page reads; `/dev/supplier-plan-lab?s=gifts-admin` mounts the same component.
  */
 export function ShopGiftsLedger({
   ledger,
@@ -55,14 +60,18 @@ export function ShopGiftsLedger({
               r.kind === 'bought'
                 ? `Bought${r.orderReference ? ` · ${r.orderReference}` : ''}`
                 : r.kind === 'given'
-                  ? `Given to ${r.eventName ?? 'an event'}${r.landed ? '' : ' · not in the pool'}`
+                  ? `Given to ${r.eventName ?? 'an event'}${
+                      r.giftKind === 'event_plus' && r.unlocksSku === 'COUPLE_WEBSITE_PRO'
+                        ? ' · their second Plus, so Event Pro'
+                        : ''
+                    }${r.landed ? '' : r.giftKind === 'papic' ? ' · not in the pool' : ' · not unlocked'}`
                   : `Reversed${r.orderReference ? ` · ${r.orderReference}` : ''}`,
           },
           {
-            header: 'Credits',
+            header: 'Gift',
             mono: true,
             align: 'right',
-            cell: (r) => `${r.delta > 0 ? '+' : '−'}${formatCount(Math.abs(r.delta))}`,
+            cell: (r) => `${r.delta > 0 ? '+' : '−'}${giftWord(r.giftKind, Math.abs(r.delta))}`,
           },
         ]}
       />
@@ -85,7 +94,19 @@ export function ShopGiftsLedger({
           { header: 'Shop', cell: (h) => h.shopName ?? '—' },
           { header: 'Event', cell: (h) => h.eventName ?? '—' },
           { header: 'Quote', cell: (h) => (h.status === 'accepted' ? 'Accepted' : 'Sent') },
-          { header: 'Credits', mono: true, align: 'right', cell: (h) => formatCount(h.credits) },
+          {
+            header: 'Gifts',
+            mono: true,
+            align: 'right',
+            cell: (h) =>
+              [
+                h.credits > 0 ? giftWord('papic', h.credits) : null,
+                h.plus > 0 ? giftWord('event_plus', h.plus) : null,
+                h.pro > 0 ? giftWord('event_pro', h.pro) : null,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+          },
         ]}
       />
     </section>

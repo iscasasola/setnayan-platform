@@ -170,6 +170,8 @@ test('a picked loved one fills their own name and record', () => {
   assert.equal(subjectHonoreeDependentId(lola!), 'd1');
 });
 
+// 2026-10-28 (prototype who_is_it_for_2026-10-28 frame A): a shop's business alaga sits under "Your business", after
+// Someone else and the groups — no longer among the loved ones.
 test('the roster: You · loved ones · Someone else · A business · Someone who passed away — one business row', () => {
   const me = buildSelfSubject('Ice');
   assert.deepEqual(buildCreateRoster(me, [], 'Shop').map((s) => s.id), ['self', 'unspecified', BUSINESS_SUBJECT_ID, 'memorial']);
@@ -177,7 +179,7 @@ test('the roster: You · loved ones · Someone else · A business · Someone who
     [{ dependent_id: 'd2', name: 'My Shop', dependent_kind: 'business', birth_date: null, sex: null }],
     null,
   );
-  assert.deepEqual(buildCreateRoster(me, alaga, 'My Shop').map((s) => s.id), ['self', 'd2', 'unspecified', 'memorial']);
+  assert.deepEqual(buildCreateRoster(me, alaga, 'My Shop').map((s) => s.id), ['self', 'unspecified', 'd2', 'memorial']);
 });
 
 // ── wiring: one source, end to end ───────────────────────────────────────────

@@ -37,21 +37,40 @@ function scannedAtOrNull(at: string | undefined, nowMs: number = Date.now()): st
 export type UndoActionResult = { ok: true } | { ok: false; error: string };
 
 /**
+ * The words for a read that did not answer — said at the door, and never marked
+ * `refused`, so the offline queue sends the scan again instead of filing it as a
+ * NO (reads-are-honest, 2026-11-05).
+ */
+const COULD_NOT_CHECK = 'Couldn’t check that guest just now — try again.';
+
+/** The crew check itself could not be READ (a refused or failed read) — never "not door crew". */
+class DoorCrewUnread extends Error {
+  constructor() {
+    super('door-crew-unread');
+  }
+}
+
+/**
  * Throw unless the caller is a couple OR coordinator member of this event —
  * the two roles that run the door on the day (mirrors the RLS policy on
  * guest_checkins, so this is the friendly-error layer, not the security layer).
+ *
+ * 🔌 A REFUSED membership read throws `DoorCrewUnread`, not 'forbidden': the
+ * couple at their own door was told "Only the couple or a coordinator can check
+ * guests in" — permanently, so the queue dropped the scan — on a blip.
  */
 async function assertDoorCrew(eventId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error('unauthenticated');
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .in('member_type', ['couple', 'coordinator'])
     .maybeSingle();
+  if (error) throw new DoorCrewUnread();
   if (!data) throw new Error('forbidden');
   return user;
 }
@@ -82,7 +101,8 @@ export async function checkInGuest(
   let user;
   try {
     user = await assertDoorCrew(eventId);
-  } catch {
+  } catch (e) {
+    if (e instanceof DoorCrewUnread) return { ok: false, error: COULD_NOT_CHECK };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in'), refused: true };
   }
 
@@ -90,13 +110,18 @@ export async function checkInGuest(
 
   // Belongs-to-event guard (RLS + the composite FK also enforce this; this
   // exists to return a friendly message instead of a constraint error).
-  const { data: guest } = await supabase
+  const { data: guest, error: guestError } = await supabase
     .from('guests')
     .select('guest_id, entry_source, deleted_at, custom_tags')
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
+  // 🔌 A REFUSED READ IS NOT "NOT ON THE LIST" (2026-11-05). Door staff were told
+  // a guest standing in front of them was "not on this event's list" — and the
+  // `refused` flag made the offline queue drop the scan for good. Said first, as
+  // a try-again the queue retries.
+  if (guestError) return { ok: false, error: COULD_NOT_CHECK };
   if (!guest) return { ok: false, error: 'That guest is not on this event’s list.', refused: true };
   // 🔓 A request the couple has not accepted admits nobody — asked here, live,
   // not only by the desk's screen (owner 2026-09-29, frame H2).
@@ -147,7 +172,8 @@ export async function undoCheckIn(
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertDoorCrew(eventId);
-  } catch {
+  } catch (e) {
+    if (e instanceof DoorCrewUnread) return { ok: false, error: 'Couldn’t undo that check-in — try again.' };
     return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'undo a check-in') };
   }
 
@@ -185,23 +211,33 @@ export async function undoCheckIn(
 export type TicketCheck =
   | { verdict: 'valid'; guestId: string; name: string; checkedAt: string }
   | { verdict: 'pending' | 'declined'; name: string; checkedAt: string }
-  | { verdict: 'unknown'; checkedAt: string };
+  | { verdict: 'unknown'; checkedAt: string }
+  /** 🔌 The list could not be READ (a refused or failed read) — never "not a guest". The desk falls back to the list
+   *  saved on the phone, exactly as with no signal (reads-are-honest, 2026-11-02 audit #5). */
+  | { verdict: 'unreadable'; checkedAt: string };
 
 export async function checkTicketLive(eventId: string, qrToken: string): Promise<TicketCheck> {
   const checkedAt = new Date().toISOString();
+  // Only the desk calls this, and the desk's own page admits couple and
+  // coordinator only — so a caller refused here is not door crew, and `unknown`
+  // tells them nothing about any ticket. A crew read that was REFUSED is not
+  // that: it is `unreadable`, and the desk decides from its saved list, never
+  // calling a real ticket "not a guest" (2026-11-05).
   try {
     await assertDoorCrew(eventId);
-  } catch {
+  } catch (e) {
+    if (e instanceof DoorCrewUnread) return { verdict: 'unreadable', checkedAt };
     return { verdict: 'unknown', checkedAt };
   }
   const token = String(qrToken ?? '').trim().toLowerCase();
   if (!/^[0-9a-f]{32}$/.test(token)) return { verdict: 'unknown', checkedAt };
   const admin = createAdminClient();
-  const { data: row } = await admin
+  const { data: row, error: rowError } = await admin
     .from('guests')
     .select('guest_id, event_id, first_name, last_name, display_name, entry_source, deleted_at, custom_tags')
     .eq('qr_token', token)
     .maybeSingle();
+  if (rowError) return { verdict: 'unreadable', checkedAt };
   if (!row || row.event_id !== eventId) return { verdict: 'unknown', checkedAt };
   const nameOf = (r: { display_name?: string | null; first_name?: string | null; last_name?: string | null }) =>
     (r.display_name ?? '').trim() || `${r.first_name ?? ''} ${(r.last_name ?? '').replace(/^—$/, '')}`.trim() || 'Guest';
@@ -209,13 +245,14 @@ export async function checkTicketLive(eventId: string, qrToken: string): Promise
   if (v.kind === 'pending' || v.kind === 'declined') return { verdict: v.kind, name: nameOf(row), checkedAt };
   if (v.kind !== 'valid') return { verdict: 'unknown', checkedAt };
   if (v.guestId === row.guest_id) return { verdict: 'valid', guestId: v.guestId, name: nameOf(row), checkedAt };
-  const { data: joined } = await admin
+  const { data: joined, error: joinedError } = await admin
     .from('guests')
     .select('guest_id, first_name, last_name, display_name')
     .eq('guest_id', v.guestId)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
+  if (joinedError) return { verdict: 'unreadable', checkedAt };
   return joined
     ? { verdict: 'valid', guestId: joined.guest_id as string, name: nameOf(joined), checkedAt }
     : { verdict: 'unknown', checkedAt };

@@ -36,7 +36,7 @@
 import { brandUtilityPage, drawText, measure, type PrintDoc, type PrintOp } from '@/lib/print-layout';
 import { PT_PER_MM, printableText, type PrintFontKey } from '@/lib/print-pieces';
 import { REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
-import { guestDisplayName, type GuestRow } from '@/lib/guests';
+import { guestDisplayName, guestPrintName, type GuestRow } from '@/lib/guests';
 import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
 import { registryKeyCompare, surnameFirst } from '@/lib/print-guest-registry';
 import { isDeclined } from '@/lib/seat-plan-details';
@@ -90,7 +90,9 @@ export type SeatPlanAssignment = Pick<SeatAssignmentRow, 'table_id' | 'guest_id'
 export type SeatPlanPerson = Pick<
   GuestRow,
   'guest_id' | 'first_name' | 'last_name' | 'display_name' | 'name_suffix' | 'plus_one_of_guest_id' | 'rsvp_status'
->;
+> &
+  // The rest of the full name (`guestPrintName`) — optional, so a row read without them still prints its name.
+  Partial<Pick<GuestRow, 'name_prefix' | 'middle_name'>>;
 
 export type SeatedUnit<T extends SeatPlanTable, G extends SeatPlanPerson> = {
   /** `link_group_id` for linked tables, else the table's own id. */
@@ -187,11 +189,11 @@ export function chartUnits(units: readonly SeatedUnit<SeatPlanTable, SeatPlanPer
       const unnamed = u.guests.filter(isUnnamedSeat);
       const out: ChartName[] = [];
       for (const g of named) {
-        out.push({ guestId: g.guest_id, name: guestDisplayName(g) });
-        for (const s of unnamed.filter((x) => x.plus_one_of_guest_id === g.guest_id)) out.push({ guestId: s.guest_id, name: guestDisplayName(s) });
+        out.push({ guestId: g.guest_id, name: guestPrintName(g) });
+        for (const s of unnamed.filter((x) => x.plus_one_of_guest_id === g.guest_id)) out.push({ guestId: s.guest_id, name: guestPrintName(s) });
       }
       const homeless = unnamed.filter((s) => !named.some((g) => g.guest_id === s.plus_one_of_guest_id));
-      for (const s of homeless) out.push({ guestId: s.guest_id, name: guestDisplayName(s) });
+      for (const s of homeless) out.push({ guestId: s.guest_id, name: guestPrintName(s) });
       return { label: u.label, names: out };
     });
 }
@@ -219,7 +221,7 @@ export function azEntries(
       if (isUnnamedSeat(g)) {
         const bringer = g.plus_one_of_guest_id ? byId.get(g.plus_one_of_guest_id) : undefined;
         const filed = bringer ? surnameFirst(bringer).key : guestDisplayName(g);
-        rows.push({ guestId: g.guest_id, name: guestDisplayName(g), key: filed, letter: letterOf(filed), table: u.label, order: `1${guestDisplayName(g)}` });
+        rows.push({ guestId: g.guest_id, name: guestPrintName(g), key: filed, letter: letterOf(filed), table: u.label, order: `1${guestDisplayName(g)}` });
       } else {
         const n = surnameFirst(g);
         rows.push({ guestId: g.guest_id, name: n.label, key: n.key, letter: letterOf(n.key), table: u.label, order: '0' });

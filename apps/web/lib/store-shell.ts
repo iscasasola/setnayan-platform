@@ -21,7 +21,7 @@
  * planning + guests + real-world supplier bookings ONLY; the paid digital
  * features are web/desktop-only and the store shell never shows them.
  *
- * 🔑 WHY THIS IS NOT `isCapacitorClient` / `getRequestPlatform`. Both of those
+ * 🔑 WHY THIS IS NOT `getRequestPlatform` (nor middleware's old `isCapacitorClient`). Both of those
  * match ANY `SetnayanApp` user-agent — and the desktop Tauri build appends
  * `SetnayanApp/desktop` (src-tauri/tauri.conf.json). `getRequestPlatform()`
  * even answers 'ios' for it. Gating on either would darken Papic and Live
@@ -165,9 +165,10 @@ const WEB_ONLY_PURCHASE_ROUTE =
 /**
  * 📣 THE DOORWAYS — public marketing pages whose whole subject is a paid
  * digital feature (they quote prices, link to /pricing, or offer "Add to an
- * event"). The native-app brochure bounce (`APP_EXCLUDED_MARKETING_PATHS` in
- * middleware) only lists the generic brochure; these were reachable in the
- * store shell by deep link, share sheet or search. Exact paths, never
+ * event"). Middleware's native-app brochure bounce (gone since the owner's
+ * 2026-11-02 "let everything go live") only ever listed the generic brochure;
+ * these were reachable in the store shell by deep link, share sheet or search.
+ * This list is Apple's in-app-purchase rule, not that bounce, and stays. Exact paths, never
  * prefixes: `/papic/guest`, `/papic/seat/*` and `/panood/cam/*` are the GUEST
  * and helper side of an event and must stay open.
  */
@@ -199,9 +200,11 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   // entry of its own here.)
   '/for-suppliers',
   // The Tagalog /features hub. Every feature row carries its live price
-  // ("Free · upgrades from ₱…", "₱2,500"). The English hub is bounced by the
-  // native brochure rule in middleware (`APP_EXCLUDED_MARKETING_PATHS`), which
-  // never listed its twin — so /tl/features painted the price list in the app.
+  // ("Free · upgrades from ₱…", "₱2,500"). The English hub was bounced by the
+  // native brochure rule in middleware, which never listed its twin — so
+  // /tl/features painted the price list in the app. The owner opened the
+  // English hub in the app on 2026-11-02 ("let everything go live"); this twin
+  // stays refused until the owner says otherwise (see PR #7202).
   '/tl/features',
 ]);
 
@@ -403,10 +406,12 @@ export function storeShellHidesHref(href: string | null | undefined, currentUrl:
  * re-parsing a service_key here.
  */
 export function storeShellRefusesPayable(
-  payable: { isBookingFee: boolean },
+  payable: { isBookingFee: boolean; carriesGift?: boolean },
   storeShell: boolean,
 ): boolean {
-  return storeShell && !payable.isBookingFee;
+  // 💝 Owner 2026-11-04 ("they can purchase inside apple as well"): a booking fee whose bill carries the Setnayan gift
+  // (Papic credits — digital) is NOT paid on the web rail inside the app; the gift is an Apple purchase there.
+  return storeShell && (!payable.isBookingFee || payable.carriesGift === true);
 }
 
 /**

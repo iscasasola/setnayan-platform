@@ -106,7 +106,7 @@ export function BadgeTracker({ d }: { d: BadgeTrackerData }) {
                 <div className="mt-2">
                   <ActionButton
                     tone={r.kind === 'rating' ? 'info' : 'neutral'}
-                    icon={r.kind === 'rating' ? MessageCircle : Users}
+                    icon={r.kind === 'rating' ? <MessageCircle aria-hidden="true" strokeWidth={1.9} /> : <Users aria-hidden="true" strokeWidth={1.9} />}
                     label={r.door.label}
                     href={r.door.href}
                     className="min-h-11"

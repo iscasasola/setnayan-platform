@@ -58,18 +58,26 @@ export async function saveTemplate(formData: FormData) {
   redirect(`${BACK}?notice=${error ? 'save_failed' : 'template_saved'}`);
 }
 
-export async function deleteTemplate(formData: FormData) {
+/**
+ * Delete a template — answered instead of redirected — what the Templates list's SWIPE calls once its Undo
+ * window closes (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). A
+ * redirect from a write landing six seconds later would throw away whatever the supplier was writing.
+ */
+export async function deleteTemplate(templateId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const templateId = String(formData.get('template_id') ?? '');
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  if (!templateId) return { ok: false, error: 'Missing template.' };
   // RLS scopes the delete to the caller's own org.
-  await supabase.from('vendor_proposal_templates').delete().eq('template_id', templateId);
+  const { error } = await supabase.from('vendor_proposal_templates').delete().eq('template_id', templateId);
+  if (error) {
+    console.error('[supabase-error] app/vendor-dashboard/proposals/actions.ts · from:vendor_proposal_templates.delete', error);
+    return { ok: false, error: 'Could not delete that template.' };
+  }
   revalidatePath(BACK);
-  redirect(BACK);
+  return { ok: true };
 }
 
 export async function createProposal(formData: FormData) {
@@ -304,7 +312,21 @@ export async function respondToProposal(formData: FormData) {
   }
 
   revalidatePath(`/proposals/${publicId}`);
+  // 4 Nov 2026 · "Accept the update" on the chat's quote card answers IN the conversation
+  // (a save never resets the screen). Only this app's own thread paths are honoured —
+  // never an outside URL.
+  const returnTo = safeThreadReturn(formData.get('return_to'));
+  if (returnTo) {
+    revalidatePath(returnTo);
+    redirect(`${returnTo}${error ? '?notice=respond_failed' : ''}`);
+  }
   redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
+}
+
+/** A chat thread path on this app (couple or supplier side), or null. */
+function safeThreadReturn(raw: FormDataEntryValue | null): string | null {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  return /^\/(dashboard\/[A-Za-z0-9-]+\/messages|vendor-dashboard\/messages)\/[A-Za-z0-9-]+$/.test(v) ? v : null;
 }
 
 /**

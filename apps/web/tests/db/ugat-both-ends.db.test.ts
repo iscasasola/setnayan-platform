@@ -40,6 +40,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createReplayedDb, MIGRATIONS_DIR } from './replay-migrations';
+import { typesAtLevel } from '../../lib/push-levels';
 import {
   diffBaseline,
   findComponentOrphans,
@@ -197,7 +198,8 @@ function sweep(catalog: Catalog & { enumLabels: string[] }, sources: SourceFile[
     {
       union: parseNotificationUnion(byPath.get('lib/notifications.ts') ?? ''),
       emailAllowlist: parseAllowlist(byPath.get('lib/notification-emit.ts') ?? '', 'EMAIL_ENABLED_TYPES'),
-      pushAllowlist: parseAllowlist(byPath.get('lib/notification-emit.ts') ?? '', 'PUSH_ENABLED_TYPES'),
+      // Since 2026-10-31 a push is a level (lib/push-levels.ts): what can buzz is Urgent + Normal.
+      pushAllowlist: new Set([...typesAtLevel('urgent'), ...typesAtLevel('normal')]),
       enumLabels: catalog.enumLabels,
       registryPaths: REGISTRY,
     },

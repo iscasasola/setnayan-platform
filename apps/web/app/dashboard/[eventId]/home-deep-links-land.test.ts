@@ -23,7 +23,7 @@ import { rosterSearchMatches, type RosterFacts } from '@/lib/guest-roster-view';
 import type { GuestRow } from '@/lib/guests';
 import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { payTargetVendor } from '@/lib/budget-page-view';
-import { homeControlTiles } from './_components/home-control-faces';
+import { homeControlTiles, homeNowAction, homeToday, homeWaiting } from './_components/home-control-faces';
 import { drawHome, loadHome } from './home-render.harness';
 
 test.before(loadHome);
@@ -56,24 +56,37 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   assert.match(ws, /if \(!rawLanding \|\| rawLanding === 'chat' \|\| rawLanding === 'call'\)/);
 });
 
-test('3 · a checklist task opens itself on the checklist', () => {
+test('3 · a To do task opens itself in Planning Stage’s To do filter', () => {
+  // Owner 2026-11-01, "Checklist merges into Planning Stage": the Checklist page forwards there; the rows keep their address.
   const first = fixtureControl('e1').checklist;
   assert.ok(first && first !== 'unread');
-  assert.equal(face('plan', 'plan-open')?.href, `/dashboard/e1/checklist#${checklistTaskAnchor(first.next[0]!.id)}`);
-  assert.equal(face('plan', 'plan-week')?.href, `/dashboard/e1/checklist#${checklistTaskAnchor(first.next[0]!.id)}`, 'the "due this week" face opens another task');
+  const todo = '/dashboard/e1/schedule?view=preparation&filter=todo';
+  // 🎴 The To do is ONE list under the event card now (Home redraw 2026-11-02): each row opens its own task.
+  const list = drawHome();
+  const at = list.indexOf('data-home-todo=""');
+  assert.ok(at > -1, 'Home draws no To do list');
+  const rows = list.slice(at, list.indexOf('data-home-todo-line', at));
+  for (const t of first.next.slice(0, 3)) {
+    assert.ok(rows.includes(`href="${todo.replace(/&/g, '&amp;')}#${checklistTaskAnchor(t.id)}"`), `the To do row "${t.title}" does not open itself`);
+  }
   assert.equal(checklistTaskAnchor('abc'), 'task-abc');
-  // The row wears the very same id, so the browser lands on it (no folds on the page).
-  const full = src('_components/checklist/checklist-full.tsx');
-  assert.match(full, /id=\{checklistTaskAnchor\(item\.item_id\)\}/, 'the checklist row does not wear its address');
-  assert.match(full, /scroll-mt-24/, 'a landed task hides under the top bar');
+  // The row wears the very same id, so the browser lands on it (the filter shows it; nothing folds a task away).
+  const view = src('schedule/_components/preparation-agenda.tsx');
+  assert.match(view, /id=\{rowId \? checklistTaskAnchor\(rowId\) : undefined\}/, 'the Planning Stage row does not wear its address');
+  assert.match(view, /scroll-mt-24/, 'a landed task hides under the top bar');
   // The md+ card's task lines open their tasks too.
   const html = drawHome();
-  assert.ok(html.includes(`href="/dashboard/e1/checklist#task-t1"`), 'the Checklist card’s first task does not open itself');
+  assert.ok(html.includes(`href="${todo.replace(/&/g, '&amp;')}#task-t1"`), 'the To do card’s first task does not open itself');
 });
 
 test('4 · a payment’s Pay opens that payment’s sheet', () => {
-  const late = face('budget', 'pay-li-1');
-  assert.equal(late?.href, '/dashboard/e1/vendors?part=budget&pay=li-1');
+  // 🎴 The late payment is Now's (Home redraw 2026-11-02): Now's Pay opens THAT payment, and Budget's next face its own.
+  const c = fixtureControl('e1');
+  const now = homeNowAction(homeToday(c.next, c.guests, homeWaiting(c)), c);
+  assert.equal(now?.verb, 'Pay');
+  assert.equal(now?.href, '/dashboard/e1/budget?pay=li-1');
+  const late = face('budget', 'pay-li-2');
+  assert.equal(late?.href, '/dashboard/e1/budget?pay=li-2');
   assert.equal(late?.action?.href, late?.href);
   // The page's own ledger decides whose sheet: the line's supplier — only an owed supplier line of this event, listed here.
   const lines = [
@@ -88,8 +101,9 @@ test('4 · a payment’s Pay opens that payment’s sheet', () => {
   assert.equal(payTargetVendor(lines, 'v1', listed), null, 'a vendor id passed as a line opened a sheet');
   assert.equal(payTargetVendor(lines, 'li-1', [{ vendorId: 'v2' }]), null, 'a supplier not listed here opened a sheet');
   assert.equal(payTargetVendor(lines, null, listed), null);
-  // The address reaches the sheet: Suppliers hands `pay` to the Budget part, the page resolves it, the screen opens it.
-  assert.match(src('vendors/page.tsx'), /searchParams=\{Promise\.resolve\(\{ part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay \}\)\}/, 'Suppliers drops ?pay= on the way to its Budget part');
+  // The address reaches the sheet: the Budget page reads `pay`, resolves it, the screen opens it. An OLD Suppliers address
+  // (`?part=budget&pay=`) forwards with its `pay` intact.
+  assert.match(src('vendors/page.tsx'), /redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\)/, 'the old Suppliers address drops ?pay= on the way to the Budget page');
   assert.match(src('budget/page.tsx'), /initialPayVendorId=\{payTargetVendor\(moneyRead\?\.lines \?\? \[\], \(await searchParams\)\?\.pay, list\.suppliers\)\}/);
   const screen = src('budget/_components/budget-screen.tsx');
   assert.match(screen, /useState<BudgetSheetState>\(initialPayVendorId \? \{ kind: 'pay', vendorId: initialPayVendorId \} : null\)/, 'the Pay sheet does not open on arrival');

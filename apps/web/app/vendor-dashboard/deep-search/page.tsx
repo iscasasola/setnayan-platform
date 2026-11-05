@@ -3,23 +3,14 @@ import { Search } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openRailOptions } from '@/lib/payment-channels';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
-import {
-  deepSearchEligibility,
-  deepSearchHasFreeAllowance,
-  deepSearchCycleStartMs,
-  countDeepSearchUsesSince,
-  resolveDeepSearchPricePhp,
-  fetchVendorDeepSearchPricePhp,
-} from '@/lib/vendor-deep-search-addon';
+import { loadDeepSearchOffer } from '@/lib/vendor-deep-search-offer';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { deepSearchPdfFileName, deepSearchPdfHref, deepSearchStillKept } from '@/lib/deep-search-findings';
+import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { DeepSearchRunner } from './_components/deep-search-runner';
 import { DossierView } from './_components/dossier-view';
 
@@ -92,36 +83,15 @@ export default async function VendorDeepSearchPage() {
   const verification =
     (tierRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop. The
-  // paid-plan requirement is asked through the one flag-aware question and only
-  // at Run (actions.ts) — `planAsks` just draws the ◆ note. While the switch
-  // is off it is false for everyone and nothing is asked.
-  // 🔒 No ◆ purchase hint in the App Store / Play Store shell (lib/store-shell.ts).
+  // 🔎 Price, free search, rails and eligibility: the ONE resolver Shop › Details' card uses too
+  // (`lib/vendor-deep-search-offer.ts`, moved from here 2026-10-29 — every rule it carries is the one this page had).
+  // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop; the paid-plan requirement is asked through the
+  // one flag-aware question, only at Run — `planAsks` just draws the ◆ note. 🔒 No ◆ hint in the store shell.
   const planAsks =
     vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !(await isStoreShellRequest());
-  const eligibility = deepSearchEligibility({ tier, verification, tierPaywall: false });
-  const eligible = eligibility.ok;
-  const hasFreeAllowance = deepSearchHasFreeAllowance(tier);
-
-  // Price + free-allowance state (admin-read for an authoritative use count).
   const admin = createAdminClient();
-  const catalogCyclePricePhp = await fetchVendorDeepSearchPricePhp(supabase);
-  // The rails the owner has left ON — the runner offers only these.
-  const openRails = openRailOptions(await fetchPlatformSettings(supabase));
-  // Tiered band for the About-You variant (₱1,000 Free/Solo · ₱500 Pro/Ent) —
-  // mirrors the action exactly, INJECTED as the input so the Pro+ free run of the
-  // cycle still resolves to ₱0.
-  const cyclePricePhp = isVendorAddonTieredPricingEnabled()
-    ? resolveVendorAddonPricePhp('deep_search_about_you', tier)
-    : catalogCyclePricePhp;
-  let pricePhp = cyclePricePhp;
-  let isFreeNow = false;
-  if (eligible) {
-    const cycleStartIso = new Date(deepSearchCycleStartMs(tierExpiresAt, Date.now())).toISOString();
-    const usesThisCycle = await countDeepSearchUsesSince(admin, vendorProfileId, cycleStartIso);
-    pricePhp = resolveDeepSearchPricePhp({ tier, usesThisCycle, cyclePricePhp });
-    isFreeNow = pricePhp <= 0;
-  }
+  const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
+  const { eligible, isFreeNow, hasFreeAllowance, cyclePricePhp, openRails } = offer;
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).
@@ -146,8 +116,14 @@ export default async function VendorDeepSearchPage() {
   const latest = uses.find(
     (u) => u.dossier_id != null && dossierById.get(u.dossier_id)?.status === 'complete',
   );
-  const latestDossier =
-    latest?.dossier_id != null ? (dossierById.get(latest.dossier_id)?.dossier ?? null) : null;
+  const latestRow = latest?.dossier_id != null ? dossierById.get(latest.dossier_id) : undefined;
+  const latestDossier = latestRow?.dossier ?? null;
+  // 📄 Every kept result has its PDF (owner 2026-10-29: "run search would also create a pdf file of the search created").
+  const now = Date.now();
+  const pdfOf = (d: DossierRow | undefined) =>
+    d && d.status === 'complete' && d.dossier && deepSearchStillKept(d.created_at, now)
+      ? { dossierId: d.id, searchedAt: d.created_at }
+      : null;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -179,7 +155,7 @@ export default async function VendorDeepSearchPage() {
           planAsks={planAsks}
           isFreeNow={isFreeNow}
           hasFreeAllowance={hasFreeAllowance}
-          pricePhp={pricePhp > 0 ? pricePhp : cyclePricePhp}
+          pricePhp={offer.pricePhp}
           openRails={openRails}
         />
       </section>
@@ -188,7 +164,7 @@ export default async function VendorDeepSearchPage() {
         <section className="mt-6">
           <p className="sn-eye">Your latest result</p>
           <div className="mt-2">
-            <DossierView dossier={latestDossier} />
+            <DossierView dossier={latestDossier} pdf={pdfOf(latestRow)} />
           </div>
         </section>
       ) : null}
@@ -203,7 +179,14 @@ export default async function VendorDeepSearchPage() {
               return (
                 <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                   <span className="text-sm text-ink/80">{fmtDateTime(u.used_at)}</span>
-                  <span className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-2">
+                    {pdfOf(d) ? (
+                      <SharePdfButton
+                        href={deepSearchPdfHref(d!.id)}
+                        fileName={deepSearchPdfFileName(d!.created_at)}
+                        name={`Share this search (PDF) · ${fmtDateTime(u.used_at)}`}
+                      />
+                    ) : null}
                     <span className="text-xs text-ink/55">
                       {u.was_free ? 'Free (cycle)' : peso(cyclePricePhp)}
                     </span>

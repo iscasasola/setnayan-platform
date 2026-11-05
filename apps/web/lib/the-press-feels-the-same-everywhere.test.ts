@@ -65,7 +65,8 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   assert.deepEqual([pressMs('700ms'), pressMs(' 700ms '), pressMs('0.7s'), pressMs('460ms'), pressMs(''), pressMs('none')], [700, 700, 700, 460, 700, 700]);
   // No timer, no dependency, no state: a few hundred bytes in the root layout.
   assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|useState|framer-motion/);
-  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react']);
+  // + the one list of what a scrim is (owner 2026-10-29: a scrim is never dipped) — a string constant, no code.
+  assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', '@/lib/scrim']);
   // Mounted ONCE, in the root layout — and nowhere else.
   const layout = read('app/layout.tsx');
   assert.equal((layout.match(/<PressFeel \/>/g) ?? []).length, 1);
@@ -88,7 +89,11 @@ test('(2) the ONE exemption is the guest’s Event Hub; a disabled control and �
   assert.equal(pressable(el(true, false)), false, 'a guest page’s button wears the app’s press');
   assert.equal(pressable(el(false, true)), false, 'a disabled control presses');
   const src = read('app/_components/press-feel.tsx');
-  assert.match(src, /return !el\.closest\('\.sn-editorial'\) && !el\.matches\(':disabled, \[aria-disabled="true"\]'\);/);
+  assert.match(src, /return !el\.closest\('\.sn-editorial'\) && !el\.matches\(SCRIM_SELECTOR\) && !el\.matches\(':disabled, \[aria-disabled="true"\]'\);/);
+  /* A scrim is not a control: the dip shrank the full-screen dark and bared a frame round the screen (owner
+     2026-10-29). Held in full by `lib/one-scrim.test.ts`. */
+  const scrim = { closest: () => null, matches: (sel: string) => sel.includes('[data-overlay-backdrop]') };
+  assert.equal(pressable(scrim), false, 'the scrim dips on a tap — its edges flash as a frame of the page');
   assert.match(src, /if \(still\.matches \|\| !\(e\.target instanceof Element\)\) return;/, 'the press plays under “reduce motion”');
   assert.match(src, /if \(!el \|\| !pressable\(el\) \|\| !el\.animate\) return;/);
   // An EXCLUSION, never a list of surfaces — a new screen gets the feel by default.

@@ -117,6 +117,17 @@ export async function isMarketplaceVendorBookable(
  * The couple-facing copy when a lock is blocked because the vendor isn't
  * verified yet. Single source so every surface reads identically.
  */
+/**
+ * ✅ The supplier's own line when a Locked QR cannot be made (audit G8, 2026-11-02): the couple's scan books the shop,
+ * and only a verified shop can be booked.
+ */
+export const LOCKED_QR_NEEDS_VERIFIED =
+  'A Locked QR books the couple who scans it, and Setnayan books only verified shops. Send your papers in Your details › Your documents — once we approve them, you can make this code.';
+
+/** The couple's line when they scan a Locked QR from a shop that is not verified (audit G8). */
+export const LOCKED_QR_SHOP_NOT_VERIFIED =
+  'This supplier is still being verified by Setnayan, so this code cannot book them yet. Nothing was charged or changed — ask them to send it again once they are verified.';
+
 export const VENDOR_NOT_VERIFIED_COUPLE_MESSAGE =
   "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.";
 

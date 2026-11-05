@@ -15,6 +15,8 @@ import { isCelebrantShape } from '@/lib/event-type-profile';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { parsePaxSettingsForm } from '@/lib/pax-settings-form';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -55,6 +57,8 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { eventDetailsToWrite } from '@/lib/event-details-merge';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { maySwitchEventKind, type EventTypeRequestRow } from '@/lib/event-type-requests';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -87,7 +91,7 @@ function isPrecision(value: unknown): value is EventDatePrecision {
  * the Edit button, and this action enforces the same rule server-side as
  * defense-in-depth against direct form submits.
  */
-export async function updateEventDate(formData: FormData) {
+export async function updateEventDate(formData: FormData): Promise<{ ok: false; error: string } | void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
@@ -105,17 +109,6 @@ export async function updateEventDate(formData: FormData) {
       throw new Error('Invalid date format — use YYYY-MM-DD');
     }
     eventDate = trimmed;
-  }
-
-  // Task #41 (2026-05-22) — reject past dates. The client `min` attrs
-  // restrict the picker, but a direct form-submit could still try to
-  // sneak past it; this is defense-in-depth. Precision-aware: year mode
-  // accepts the rest of the current calendar year, month mode the rest
-  // of the current month, day mode strictly today onwards.
-  if (eventDate && isEventDateInPast(eventDate, newPrecision)) {
-    throw new Error(
-      "Wedding date can't be in the past. Pick today or a future date.",
-    );
   }
 
   const supabase = await createClient();
@@ -136,6 +129,27 @@ export async function updateEventDate(formData: FormData) {
   // Hub's Apply asks the same one when it writes a date typed into the draft.
   const prior = { date: (priorRow?.event_date as string | null | undefined) ?? null, precision: priorRow?.event_date_precision };
   const next = { date: eventDate, precision: newPrecision };
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) —
+  // RETURNED, not thrown, so the owner's words reach the screen beside the date
+  // (a thrown message is replaced by a generic one in production).
+  const floorRefusal = eventDateFloorRefusal({
+    date: eventDate,
+    precision: newPrecision,
+    prior,
+    exempt: await eventDateFloorExempt(supabase, { eventId }),
+  });
+  if (floorRefusal) return { ok: false, error: floorRefusal };
+
+  // Task #41 (2026-05-22) — reject past dates. The client `min` attrs
+  // restrict the picker, but a direct form-submit could still try to
+  // sneak past it; this is defense-in-depth. Precision-aware: year mode
+  // accepts the rest of the current calendar year, month mode the rest
+  // of the current month, day mode strictly today onwards.
+  if (eventDate && isEventDateInPast(eventDate, newPrecision)) {
+    throw new Error(
+      "Wedding date can't be in the past. Pick today or a future date.",
+    );
+  }
   if (eventDateChangeIsGoverned(prior, next)) {
     const { count } = await supabase
       .from('event_vendors')
@@ -694,6 +708,69 @@ export async function updateEventMatchCriteria(
       actor_user_id: user.id,
     });
     if (auditError) logQueryError('updateEventMatchCriteria.celebrantName.audit', auditError, { event_id: eventId }, 'graceful_degrade');
+    revalidatePath(`/dashboard/${eventId}`, 'layout');
+    return { ok: true };
+  }
+
+  // ── 🏷 KIND OF EVENT (owner 2026-10-28, DECISION_LOG "EVENT TYPES MUST BE SPECIFIC") ─────────────────────────────
+  // Event settings' one line: a generic `celebration` event picks a specific type (the type decides which suppliers
+  // cover it), and a host who asked us to add a type switches to it once it is added. `event_type_switch` is posted
+  // ALONE and writes `event_type` and NOTHING else. +0 actions: the same writer, one more door, the same host check.
+  // The choice is re-derived HERE from the stored row + the viewer's own asks (`maySwitchEventKind`), never trusted
+  // from the client; and the write goes through the viewer's OWN session, so RLS (the couple) and the SEC-5 price-tier
+  // trigger (20271007917549) both still apply — the admin client would walk past both.
+  if (formData.has('event_type_switch')) {
+    const next = String(formData.get('event_type_switch') ?? '').trim();
+    const [{ data: row, error: rowError }, creatable, { data: asks, error: asksError }] = await Promise.all([
+      supabase.from('events').select('event_type, created_at').eq('event_id', eventId).maybeSingle(),
+      getCreatableEventTypes(),
+      supabase
+        .from('event_type_requests')
+        .select('status, event_type, created_at, label')
+        .eq('user_id', user.id)
+        .eq('status', 'added'),
+    ]);
+    if (rowError || !row) {
+      if (rowError) logQueryError('updateEventMatchCriteria.kind.row', rowError, { event_id: eventId }, 'will_throw');
+      return { ok: false, code: 'db_error', message: 'We couldn’t read this event. Nothing was changed.' };
+    }
+    // Refused, the asks read as none — a generic event still gets every specific type; nothing is ever widened.
+    if (asksError) logQueryError('updateEventMatchCriteria.kind.asks', asksError, { event_id: eventId }, 'graceful_degrade');
+    const stored = row as { event_type: string | null; created_at: string | null };
+    const allowed = maySwitchEventKind(
+      {
+        eventType: stored.event_type,
+        eventCreatedAt: stored.created_at,
+        creatable,
+        myAsks: (asks ?? []) as Pick<EventTypeRequestRow, 'status' | 'event_type' | 'created_at' | 'label'>[],
+      },
+      next,
+    );
+    if (!allowed) {
+      return { ok: false, code: 'invalid_input', message: 'That kind isn’t available for this event.' };
+    }
+    const { data: moved, error: moveError } = await supabase
+      .from('events')
+      .update({ event_type: next })
+      .eq('event_id', eventId)
+      .select('event_id');
+    if (moveError) {
+      logQueryError('updateEventMatchCriteria.kind.update', moveError, { event_id: eventId, next }, 'will_throw');
+      return { ok: false, code: 'db_error', message: 'We couldn’t change the kind of this event. Nothing was changed.' };
+    }
+    // 🪤 A zero-row UPDATE is success-shaped: RLS lets only the couple write `events`, so a coordinator lands here.
+    if (!moved || moved.length === 0) {
+      return { ok: false, code: 'unauthorized', message: 'Only the couple can change the kind of this event.' };
+    }
+    const { error: kindAuditError } = await createAdminClient().from('admin_audit_log').insert({
+      action: 'event_type_switched',
+      target_table: 'events',
+      target_id: eventId,
+      before_json: { event_type: stored.event_type },
+      after_json: { event_type: next },
+      actor_user_id: user.id,
+    });
+    if (kindAuditError) logQueryError('updateEventMatchCriteria.kind.audit', kindAuditError, { event_id: eventId }, 'graceful_degrade');
     revalidatePath(`/dashboard/${eventId}`, 'layout');
     return { ok: true };
   }

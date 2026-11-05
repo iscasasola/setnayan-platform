@@ -45,7 +45,7 @@ export const WHAT_YOU_CHANGE_PREFIXES: Readonly<Record<string, readonly string[]
   // Test data
   'demo-vendors': ['demo_vendors_'],
   // Shops
-  verify: ['vendor_verification_', 'vendor_visibility_', 'vendor_partnership_', 'vendor_tier_'],
+  verify: ['vendor_verification_', 'vendor_visibility_', 'vendor_partnership_', 'vendor_tier_', 'vendor_service_'],
   // The website
   website: ['site_widgets_', 'journal_spotlight_', 'real_stories.', 'storytellers.', 'recap.'],
   // Your team

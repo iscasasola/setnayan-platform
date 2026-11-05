@@ -59,7 +59,9 @@ test('T1 · the row owns nothing and writes nothing', () => {
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
   assert.match(
     BENCH,
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+\/>/,
+    // + Find v4 (2026-10-29): "Go to a category" from the empty box, and the ⇅ (Sort · Price · Rating) — both the
+    //   bench's own state, handed in.
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+onGoToCategory=\{goToCategory\}\s+sortMenu=\{findSortMenu\(\{/,
   );
   // Every control is the shared row's; nothing hand-made, no › in a control.
   assert.equal((ROW.match(/<ThumbRow\b/g) ?? []).length, 1);

@@ -24,6 +24,7 @@
 import type { FinalizeVendorResult } from '@/app/dashboard/[eventId]/vendors/actions';
 import { formatCount } from './format-number';
 import { lockImpactCopy } from './lock-impact';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from './bookings-open';
 
 export type BookPick = {
   vendorId: string;
@@ -77,6 +78,8 @@ export function bookOutcomeOf(result: FinalizeVendorResult, name: string): BookO
       return { kind: 'own_step', why: `You already booked ${result.existingVendorName} for ${result.groupLabel}.` };
     case 'soft_hold_limit_reached':
       return { kind: 'refused', why: `${result.vendorName} is fully booked with soft holds for your date.` };
+    case 'bookings_closed':
+      return { kind: 'refused', why: BOOKINGS_CLOSED_COUPLE_MESSAGE };
     case 'vendor_not_verified':
       return { kind: 'refused', why: `${name} is completing verification and can’t be booked just yet.` };
     case 'not_signed_in':

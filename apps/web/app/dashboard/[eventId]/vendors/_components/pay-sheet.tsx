@@ -41,6 +41,8 @@ import { DepositReservation } from '../[vendorId]/workspace/_components/deposit-
 import { planNote, type LoadPaySheetResult, type PaySheetData } from '@/lib/pay-sheet';
 import { loadPaySheet } from '../_actions/pay-sheet';
 import { BookedStandInCtx } from './booked-stand-ins';
+import { OwnPayWays } from './own-pay-ways';
+import { formatPhp } from '@/lib/php';
 
 const K2 = 'text-[11px] uppercase tracking-[0.14em] text-ink/55';
 const MUTE = 'text-[13px] leading-snug text-ink/60';
@@ -125,6 +127,13 @@ export function PaySheet({
                   : ''}
               </p>
               <p className={MUTE}>{planNote(state.data, vendorName)}</p>
+              {/* An accepted price change re-plotted the unpaid payments (owner 2026-10-29: "replot the payments
+                  always"); the plan before it is kept in the record. */}
+              {state.data.planChange ? (
+                <p data-pay-plan-replotted="" className="text-[13px] font-medium text-ink/75">
+                  Price changed {formatPhp(state.data.planChange.fromPhp)} → {formatPhp(state.data.planChange.toPhp)} · plan updated
+                </p>
+              ) : null}
               {state.data.scheduleSource === 'plan' && state.data.plan !== 'unreadable' && state.data.plan.steps ? (
                 // Kind 26 — the SAME rows the supplier's customer card draws for
                 // this booking (`priceSummaryOf`), in the couple's words.
@@ -154,6 +163,8 @@ export function PaySheet({
               ) : null}
             </section>
 
+            {state.data.own ? <OwnPayWays vendorName={vendorName} ways={state.data.ownWays} /> : null}
+
             <section className="space-y-2" data-pay-section="pay">
               {/* The step's one sentence — the helper the workspace and the chat
                   read. Left out for a first payment with no amount on record:
@@ -178,6 +189,7 @@ export function PaySheet({
                 depositDisputeNote={null}
                 payMethods={state.data.payMethods}
                 payMethodsState={state.data.payMethodsState}
+                ownWaysShown={state.data.own && state.data.ownWays !== 'unreadable' && state.data.ownWays.length > 0}
                 requestedFirstPaymentCentavos={state.data.requestedFirstPaymentCentavos}
                 requestedFirstPaymentSentence={state.data.requestedFirstPaymentSentence}
                 requestedTermsUnreadable={state.data.requestedTermsUnreadable}

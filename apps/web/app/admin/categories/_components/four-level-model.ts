@@ -62,6 +62,12 @@ export type MapData = {
   partsRead: boolean;
   /** False when the cards read was refused. */
   cardsRead: boolean;
+  /**
+   * False when the services read was refused (`loadCategories` names 'services' in `failed`). Then `services` is
+   * EMPTY BECAUSE UNKNOWN, not because no service exists: the Services column says it couldn't load them, a category
+   * never reads "no service", and "Needs a look" counts no category as missing one. 🔒 a-refused-services-read-is-said.test.ts
+   */
+  servicesRead: boolean;
 };
 
 /** Selection: the context (`g:` group or `c:` category) and the highlighted item. */
@@ -167,6 +173,8 @@ export const cardHeld = (cd: MapCard) => !cd.active || !cd.shopPublic;
 /** "6 of 6 here · + 3 other categories" — how a part row says which services it links. */
 export function partLinkSummary(d: MapData, p: MapPart): { text: string; gap: boolean } {
   if (p.services.length === 0) return { text: 'no service', gap: true };
+  // Services unread: how many of the category's services it links is unknown — say only what the link rows say.
+  if (!d.servicesRead) return { text: `links ${plural(p.services.length, 'service')}`, gap: false };
   const inHome = servicesOf(d, p.home);
   const own = p.services.filter((k) => serviceByKey(d, k)?.tileId === p.home).length;
   const otherCats = new Set(p.services.map((k) => serviceByKey(d, k)?.tileId).filter((t): t is string => !!t && t !== p.home));
@@ -189,7 +197,8 @@ export function partCategoryIds(d: MapData, p: MapPart): string[] {
 
 // ── needs a look · gaps ───────────────────────────────────────────────────────
 
-export const gapCategories = (d: MapData) => d.categories.filter((c) => servicesOf(d, c.id).length === 0);
+/** A category with no service — only when the services were READ; an unread list proves nothing is missing. */
+export const gapCategories = (d: MapData) => (d.servicesRead ? d.categories.filter((c) => servicesOf(d, c.id).length === 0) : []);
 export const gapParts = (d: MapData) => d.parts.filter((p) => p.services.length === 0);
 /** A category whose shops would be filed under "Other" (③0-c part 2: "needs a look" lists it). */
 export const unfiledCategories = (d: MapData) => d.categories.filter((c) => !c.coarse);
@@ -200,7 +209,7 @@ export function needsCount(d: MapData): number {
 }
 
 export const categoryNeeds = (d: MapData, c: MapCategory) =>
-  servicesOf(d, c.id).length === 0 || !c.coarse || servicesOf(d, c.id).some((s) => serviceNeeds(d, s));
+  (d.servicesRead && servicesOf(d, c.id).length === 0) || !c.coarse || servicesOf(d, c.id).some((s) => serviceNeeds(d, s));
 export const serviceNeeds = (d: MapData, s: MapService) => cardsOf(d, [s.key]).some(cardHeld);
 export const groupNeeds = (d: MapData, g: MapGroup) => categoriesOf(d, g.id).some((c) => categoryNeeds(d, c));
 

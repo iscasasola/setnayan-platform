@@ -135,7 +135,13 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // 2026-10-08). No user column at all, so the detector cannot see it; erasure
   // reaches it through the subject's guest ids and removes the screenshot.
   'event_gift_records',
+  // Keyed by guest_id — when a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29). No user
+  // column, so the detector cannot see it; erasure deletes it through the subject's guest ids.
+  'hub_guest_views',
   'vendor_push_tokens', // keyed by vendor_profile_id
+  // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
+  // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
+  'vendor_crew_codes',
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff
   // actor and skips. So the table holding vendors' government IDs / DTI / BIR
@@ -156,6 +162,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // user column is `created_by` (no FK), the actor who pressed a spend. Same
   // blind spot as hub_music_tracks; the stamp is nulled (AUTHOR_UUID_NULLS).
   'shop_papic_wallet_entries',
+  // Supplier gifts (2026-11-05) — the shop's gift purchases and its gift-stock ledger, keyed by vendor_profile_id;
+  // the one user column of each is `created_by` (no FK), the actor who pressed Buy or caused the entry. Same blind
+  // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_gift_purchases',
+  'shop_gift_stock_entries',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

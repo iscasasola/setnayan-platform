@@ -3,9 +3,11 @@
  * padding come before the cover, so a full `100svh` ran that much past the fold (walked 2026-10-15: the Framed edge's
  * foot fell off the first screen at 375, 390 and iPhone 13). The column says how much sits above it, per breakpoint
  * (`invitation-shell.tsx`); nothing set = 0, the whole screen.
+ * 📱 The bar also pads its own top by the iPhone's top inset (owner 2026-10-30, the hub's first row under the clock),
+ * so that inset is part of what sits above — env() is 0 on a desktop, where these sums are unchanged.
  */
 export const COVER_SCENE_ABOVE_PAGE =
-  '[--cover-scene-above:calc(4rem_+_1px_+_2.5rem)] sm:[--cover-scene-above:calc(4rem_+_1px_+_3.5rem)] xl:[--cover-scene-above:calc(4rem_+_1px_+_5rem)] [--cover-scene-pad:2.5rem] sm:[--cover-scene-pad:3.5rem] xl:[--cover-scene-pad:5rem]';
+  '[--cover-scene-above:calc(4rem_+_1px_+_env(safe-area-inset-top,0px)_+_2.5rem)] sm:[--cover-scene-above:calc(4rem_+_1px_+_env(safe-area-inset-top,0px)_+_3.5rem)] xl:[--cover-scene-above:calc(4rem_+_1px_+_env(safe-area-inset-top,0px)_+_5rem)] [--cover-scene-pad:2.5rem] sm:[--cover-scene-pad:3.5rem] xl:[--cover-scene-pad:5rem]';
 /** …in the Maker's canvas (no top bar there): the column's top padding only. */
 export const COVER_SCENE_ABOVE_CANVAS =
   '[--cover-scene-above:2.5rem] sm:[--cover-scene-above:3.5rem] xl:[--cover-scene-above:5rem] [--cover-scene-pad:2.5rem] sm:[--cover-scene-pad:3.5rem] xl:[--cover-scene-pad:5rem]';

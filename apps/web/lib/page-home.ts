@@ -161,6 +161,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   [`${E}/vendors/[vendorId]/*`]: { home: `${E}/vendors` },
   [`${E}/vendors/packages/[bookingId]`]: { home: `${E}/vendors` },
   [`${E}/details/field/[row]`]: { home: `${E}/details`, label: 'Event details' },
+  // 🗂 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): the seat plan is Guests › Seats — `/seating`
+  // forwards there, so its pages (the entrance chart, the walkthrough videos, the 3D room's own page) go back to it.
+  [`${E}/seating/*`]: { home: `${E}/guests?gview=seats`, label: 'Seats' },
 
   /* ── a guest of an event — back to THAT event's hub, never the marketing front page ─────────────── */
   '/[slug]/**': { home: '/[slug]' },
@@ -192,6 +195,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/panood/program/[eventId]': { none: 'own-exit' },
   '/wall/[eventId]': { none: 'own-exit' },
   '/dev/**': { none: 'lab' },
+  // A sample guest's Hub is opened from the sample event's own page (owner 2026-11-02, the sample event).
+  '/sample/hub/[guestKey]': { home: '/sample', label: 'The sample' },
 
   /* ── the supplier ────────────────────────────────────────────────────────────────────────────────── */
   // A booking fee is paid from the plan page (audit ✅).
@@ -200,7 +205,7 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
   // A supplier's chat is ONE EVENT's chat, opened from the Customers events list (owner 2026-10-28: "list down the
   // different events which will jump to chat full screen") — ‹ goes back to that list, not to a Messages fold.
-  '/vendor-dashboard/messages/[threadId]': { home: '/vendor-dashboard/customers?seg=people', label: 'Customers' },
+  '/vendor-dashboard/messages/[threadId]': { home: '/vendor-dashboard/customers?seg=events', label: 'Customers' },
   '/vendor-dashboard/contracts/*': { home: CUSTOMERS_CONTRACTS, label: 'Contracts' },
   '/vendor-dashboard/calendar/[date]': { home: '/vendor-dashboard/customers?seg=dates', label: 'Dates' },
   // `/services` is a redirect into the Shop (audit ⚠, kept).

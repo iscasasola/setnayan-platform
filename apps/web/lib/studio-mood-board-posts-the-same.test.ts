@@ -131,7 +131,7 @@ test('8 · the page posts only through the builders and the context’s actions'
   assert.doesNotMatch(src, /from '\.\.\/\.\.\/\.\.\/(?:website\/hub-draft-actions|colour-access-actions|wizard-actions)'|from '\.\.\/actions'/, 'the page imports a real action again (the lab could then reach the database)');
   /* 🤝🖼 + a supplier's suggestion kept, declined and undone (2026-10-19) — also the context's, never imported. */
   /* ⏰ + the Schedule's two writers for the guests' call time (2026-10-19) — the context's, the form built by `guestsArriveForm`. */
-  assert.match(src, /const \{ hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion, updateScheduleBlock, createScheduleBlock \} = useMoodBoardActions\(\);/);
+  assert.match(src, /const \{ hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoMoodBoardChange, updateScheduleBlock, createScheduleBlock \} = useMoodBoardActions\(\);/);
   assert.doesNotMatch(src, /makerSave\([^)]*requestMakerRefresh/, 'a pick costs a whole-Maker render again');
 });
 

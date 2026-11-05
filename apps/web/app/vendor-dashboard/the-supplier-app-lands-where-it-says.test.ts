@@ -79,7 +79,7 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
   // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=events#customers'); // People → Events 2026-10-30
   assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
   assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
   assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');

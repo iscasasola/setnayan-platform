@@ -84,20 +84,14 @@ import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
 import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
+import { SupplierChangesRow } from './_components/supplier-changes-row';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
+import { eventSettingsHref } from '@/lib/people-with-access-href';
 import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
-import { accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
+import { accessFlashFrom, accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
-
-/** The words `removeHost` can bring back here — anything else in the address is
- *  not ours, so a hand-edited link cannot print its own message on the sheet. */
-const REMOVE_REFUSALS = new Set([
-  'You cannot remove yourself.',
-  'A celebrant stays a co-host. A celebrant can change their role first.',
-  'Could not remove them. Try again.',
-]);
 
 export const metadata = { title: 'Event Details' };
 
@@ -197,6 +191,22 @@ export default async function EventDetailsPage({
     fetchEventViewer(supabase, eventId, user.id),
     resolveBudgetVisibility(supabase, eventId, user.id),
   ]);
+  /*
+    ⚙ THE COUPLE'S EVENT DETAILS IS HOME'S ⚙ EVENT SETTINGS NOW (owner 2026-10-30, verbatim: *"no. that shoud be
+    inside home settings"* → *"move them all in the event settings"* → *"it was already supposed to be gone because the
+    were suppose to combine the event details and event settings together on the event settings"* — completing
+    DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (2) · "EACH MENU HAS ITS OWN SETTINGS" (2) · "ACCESS LIVES IN HOME ›
+    EVENT SETTINGS ONLY"). Every part this record EDITS for the couple is in that sheet, the same component moved
+    (`event-settings-rows.tsx`); what it only SHOWED lives on its own menu. So an old link, a bookmark or an email lands
+    the couple on Home with the sheet open — never on a second copy. A helper (who has no ⚙) still reads this page,
+    read-only, with their own access.
+  */
+  if (viewer.isCouple) {
+    const keep = Object.fromEntries(
+      (['host_removed', 'invite_error'] as const).flatMap((k) => (typeof flashParams[k] === 'string' ? [[k, flashParams[k]!]] : [])),
+    );
+    redirect(eventSettingsHref(eventId, keep.host_removed || keep.invite_error ? 'access' : undefined, keep));
+  }
   const words = eventWordsFromProfile(profile);
   const setupOfType = profileSetup(profile);
   const eventWord = words.eventWord;
@@ -216,6 +226,16 @@ export default async function EventDetailsPage({
   // 👥 People with access (owner 2026-10-03) — the ONE place a host sets who
   // can do what. A host sees every person and sets each area; a delegate sees
   // their own access, as words; anyone else, nothing.
+  // 🤝 Auto-agree for supplier changes (Step 4b) — its own small read, so a failure says "not read" on its row and
+  // never takes the page down.
+  const autoAgreeRead: Promise<boolean | null> | null = viewer.isCouple
+    ? Promise.resolve(
+        supabase.from('events').select('supplier_requests_auto_agree').eq('event_id', eventId).maybeSingle(),
+      ).then(
+        (r) => (r.error || !r.data ? null : (r.data as { supplier_requests_auto_agree: boolean | null }).supplier_requests_auto_agree === true),
+        () => null,
+      )
+    : null;
   const accessRead = viewer.isCouple
     ? loadPeopleWithAccess(eventId, user.id).catch((err: unknown) => {
         console.error('[event-details] people with access failed', err);
@@ -442,6 +462,7 @@ export default async function EventDetailsPage({
   const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
+  const autoAgree = autoAgreeRead ? await autoAgreeRead : null;
   const claims = claimsRead ? await claimsRead : null;
   // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
   const claimsWaitingNote =
@@ -465,12 +486,7 @@ export default async function EventDetailsPage({
           vendorId: null,
         }
       : null;
-  const accessFlash =
-    flashParams.host_removed === '1'
-      ? 'Removed — their access ended immediately.'
-      : flashParams.invite_error && REMOVE_REFUSALS.has(flashParams.invite_error)
-        ? flashParams.invite_error
-        : null;
+  const accessFlash = accessFlashFrom(flashParams);
 
   // 💾 A read that failed shows "Could not load…" — never kept as last-seen
   // data. (Money reads are left out: money is never kept at all.)
@@ -932,6 +948,7 @@ export default async function EventDetailsPage({
               flash={accessFlash}
               claims={claims}
             />
+            {viewer.isCouple ? <SupplierChangesRow eventId={eventId} autoAgree={autoAgree} /> : null}
           </RecordFold>
         ) : null}
       </div>

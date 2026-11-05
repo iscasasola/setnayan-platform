@@ -114,8 +114,9 @@ test('(2) an empty day gives the first action — ONE Add button, the main one; 
 
 test('(3) a refused read says so — before a run of show could be seeded over it, and instead of throwing the couple out of the Maker', () => {
   const sched = read(`${SCHED}/page.tsx`);
-  // In the Maker the refused read becomes null; anywhere else it throws exactly as before.
-  assert.match(sched, /fetchScheduleBlocks\(supabase, eventId\)\.catch\(\(error: unknown\) => \{\s*if \(!inMaker\) throw error;\s*logQueryError\('SchedulePage\.blocks', error, \{ eventId \}, 'graceful_degrade'\);\s*return null;\s*\}\),/);
+  // The refused read becomes null and is SAID, on the page and in the Maker alike (since 2026-11-02 the page is the one
+  // the Booked frame was, which already said so in place) — never an error screen over the rest of the schedule.
+  assert.match(sched, /fetchScheduleBlocks\(supabase, eventId\)\.catch\(\(error: unknown\) => \{\s*(?:\/\/[^\n]*\s*)?logQueryError\('SchedulePage\.blocks', error, \{ eventId \}, 'graceful_degrade'\);\s*return null;\s*\}\),/);
   assert.match(sched, /if \(blocks === null\) \{\s*return \(\s*<TimelineReadProblem title="We could not load your schedule">/);
   // …and the page STOPS there: nothing that reads `blocks` as a list — least of all the seed — runs first.
   const stop = sched.indexOf('if (blocks === null)');

@@ -14,16 +14,18 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
-import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfileByEvent } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
+import { readServiceLabels } from '@/lib/service-labels';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
@@ -40,6 +42,7 @@ import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
 import { teamCountsLine, teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import type { BookedFacts } from '@/lib/booked-rows';
+import { coveredKeyOf } from '@/lib/supplier-where';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { buildTally, suppliersDateFact, suppliersPlaceFact, type LiveTallyBase } from '@/lib/suppliers-shell';
 import { dateFitOf, type DateFit } from '@/lib/calendar-truth';
@@ -49,7 +52,7 @@ import { readOpenDateChange } from '@/lib/date-change.server';
 import { draftedEventDate } from '@/lib/suppliers-fact-sheets';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
-import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
+import { BLOCKED_LOCK_ROW, someCategoryNeedsItsServicesNamed } from '@/lib/explore-info-copy';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
@@ -95,6 +98,8 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
+import { readNearAnchors } from '@/lib/find-near-anchors.server';
+import { nearRows, type NearPin } from '@/lib/find-sort-choices';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import {
   bucketVendorsByGroup,
@@ -174,11 +179,7 @@ import {
 } from '@/lib/vendor-availability';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { PillarPartPicker } from '../_components/pillar-part-picker';
-import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
-// Your Team's Budget part IS the shipped Budget page, rendered whole — never a
-// second copy of it (owner 2026-09-29).
-import BudgetPage from '../budget/page';
+import { BOOKED_SCHEDULE_PART, YOUR_TEAM_BUDGET_PART, budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { openDashboardEventRow } from '@/lib/event-row-once';
 
 // The browser tab says what the screen says ("supplier", never "vendor", in UI).
@@ -195,10 +196,29 @@ type Props = {
   // caterer" → ?tab=shortlist&open=catering jumps right to that category).
   // inspect (2026-07-15) = the Shortlist bench vendor to open in the desktop
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
-  // part (2026-09-29) = which of Your Team's parts is showing — absent is the
-  // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
-  // pay (2026-10-24) = one payment's line item — the Budget part opens its Pay sheet (Home's Budget widget).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string; pay?: string; settings?: string }>;
+  // part = an OLD address only: `budget` (2026-09-29 → 2026-11-01) and `schedule` (2026-10-29 → 2026-11-02) drew those
+  // pages here; each now FORWARDS to its own page with its query (lib/pillar-parts.ts). Booked is just the team.
+  // pay (2026-10-24) = one payment's line item — carried to the Budget page, which opens its Pay sheet.
+  searchParams: Promise<{
+    status?: string;
+    tab?: string;
+    open?: string;
+    inspect?: string;
+    part?: string;
+    pay?: string;
+    settings?: string;
+    /** The old Booked › Schedule address carries the Schedule page's own query (a view, a lens, a save's flash). */
+    view?: string;
+    ros?: string;
+    note?: string;
+    host_answers?: string;
+    /** Carried to the Schedule page by the old `?part=schedule` forward (its requests sheet, its To do filter). */
+    sheet?: string;
+    filter?: string;
+    announce?: string;
+    /** 🔗 Booked › Team opens on this supplier's row (`event_vendors.vendor_id`) — "Not on Setnayan yet — invite them". */
+    team?: string;
+  }>;
 };
 
 type EventBudgetRow = {
@@ -214,6 +234,9 @@ type EventBudgetRow = {
   mood_board_updated_at: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /** The ceremony's own pin (Details › Venues) — with the reception's, what "Nearest" measures from. */
+  ceremony_venue_latitude: number | null;
+  ceremony_venue_longitude: number | null;
   /** event_type_vocab key (DB-driven, defaults to 'wedding') — scopes the
    *  Shortlist's taxonomy categories + guards faith filtering. */
   event_type: string | null;
@@ -252,6 +275,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     : 'shortlist';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 💰 THE BUDGET IS ITS OWN PAGE, OPENED FROM HOME (owner 2026-11-01, *"Okay place it in home"*). It was drawn here at
+  // `?part=budget` from 2026-09-29; that address now forwards to the one Budget page, carrying `?pay=`, so an old
+  // link, bookmark or notification still lands on the payment it named. Nothing in the app links it any more.
+  if (sp.part === YOUR_TEAM_BUDGET_PART) redirect(budgetPageHref(eventId, { pay: sp.pay }));
+  // 📅 …AND THE SCHEDULE (owner 2026-11-02, "BOOKED IS JUST THE TEAM": *"no just schedule"*). Drawn here under Booked
+  // at `?part=schedule` from 2026-10-29; that address now forwards to the Schedule page with every param it carried.
+  if (sp.part === BOOKED_SCHEDULE_PART) {
+    redirect(
+      schedulePageHref(eventId, { view: sp.view, ros: sp.ros, note: sp.note, host_answers: sp.host_answers, sheet: sp.sheet, filter: sp.filter, announce: sp.announce }),
+    );
+  }
   // Read by the review-badge read, a function declaration that is STARTED early
   // (see "STARTS AT ONCE") — TypeScript does not carry the narrowing above into it.
   const viewerId = user.id;
@@ -279,28 +313,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
 
-  // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
-  // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget
-  // placed inside Your Team. It is the SHIPPED Budget page, rendered whole
-  // under the part picker; `/budget` now lands here. It returns before the
-  // team's reads: the budget page reads what it needs itself, and the bench's
-  // fan-out would be fetched and thrown away.
-  const teamParts = yourTeamParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
-  if (sp.part === YOUR_TEAM_BUDGET_PART) {
-    return (
-      <section className="sn-col space-y-6">
-        <PageMasthead title="Suppliers" />
-        <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
-        <BudgetPage
-          params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay })}
-        />
-      </section>
-    );
-  }
-  const teamPartPicker = (
-    <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
-  );
   const supabase = await createClient();
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
@@ -336,7 +348,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -382,7 +394,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           eventId={eventId}
           state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
         />
-        {teamPartPicker}
       </section>
     );
   }
@@ -411,6 +422,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
+  // 📍 WHERE "NEAREST" MEASURES FROM (owner 2026-10-30, "Reception + Ceremony"): the Event Hub's own two venues — a
+  // booked venue's pin, else the couple's own (`lib/find-near-anchors.server.ts`). Started here, awaited where used.
+  const nearAnchorsRead = readNearAnchors(createAdminClient(), eventId, ev ?? {});
   // ⚙ Suppliers ⚙'s sheet (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"): started here, awaited where the shell is drawn,
   // so its reads overlap the page's own instead of queueing in front of them.
   const suppliersSettingsRead = loadSuppliersSettings(supabase, eventId, {
@@ -454,6 +468,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
   const appleIapRead = startRead(getIapGate().then((g) => g.iap, () => false));
   const taxonomyRead = startRead(getTaxonomy());
+  // The ⓘ of a category nobody has written one for names its services (owner 2026-10-31, "there is not (i)") — read
+  // their Admin names only when some category needs that line, chained on the taxonomy so it never waits in front.
+  const serviceLabelsRead = startRead(
+    taxonomyRead.then((t) => (someCategoryNeedsItsServicesNamed(t) ? readServiceLabels() : {})),
+  );
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
   const buildPicksRead = startRead(
     supabase.from('event_build_picks').select('plan_group_id, vendor_id').eq('event_id', eventId),
@@ -859,8 +878,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       }
     }
 
-    const venueLat = ev?.venue_latitude ?? null;
-    const venueLng = ev?.venue_longitude ?? null;
+    const anchors = await nearAnchorsRead;
+    const kmFrom = (pin: NearPin | null, lat: number | null, lng: number | null) =>
+      pin && lat != null && lng != null ? haversineKm(pin.latitude, pin.longitude, lat, lng) : null;
 
 
     // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
@@ -917,13 +937,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
       const rating =
         s.avg_rating_overall != null ? Number(s.avg_rating_overall) : null;
-      const distanceKm =
-        venueLat != null &&
-        venueLng != null &&
-        s.hq_latitude != null &&
-        s.hq_longitude != null
-          ? haversineKm(venueLat, venueLng, s.hq_latitude, s.hq_longitude)
-          : null;
+      const distanceKm = kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
+      const ceremonyDistanceKm = kmFrom(anchors.ceremony, s.hq_latitude, s.hq_longitude);
 
       // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
       // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
@@ -977,6 +992,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }),
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
+        ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
         service_radius_km: hasFiniteRadius ? radiusKm : null,
         inner_radius_km: effectiveInnerKm,
@@ -1346,9 +1362,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     else buildPicksByGroup.set(r.plan_group_id, [r.vendor_id]);
   }
 
+  // ONE PER EVENT — the categories' switch (owner 2026-10-29), read once; display-only here (the database guard
+  // refuses a second booking where it is on, whatever this read says).
+  const onePerEventRead = await readOnePerEventGroups(supabase);
+  const onePerEventGroups = onePerEventRead.ok ? onePerEventRead.groups : new Set<string>();
+  // eslint-disable-next-line no-console
+  if (!onePerEventRead.ok) console.warn('[suppliers] One per event unreadable — every category drawn as multi-pick');
   const model = buildPlanBudgetModel({
     // PR-H · read here, passed in. The model is a pure core.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
+    onePerEventGroups,
     vendorRows,
     // Only this event type's categories (Admin › Event type › Scope categories);
     // a wedding's list is unchanged, a birthday stops seeing Bridal car.
@@ -1597,7 +1620,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // taxonomy browser below instead.
   const services = (
     <>
-      {teamPartPicker}
       {aiOfferBanner}
       <PlanBudgetAccordion
         model={model}
@@ -1876,6 +1898,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
     }),
     taxonomy,
+    serviceLabels: await serviceLabelsRead,
     eventId,
     plannedTiles,
     totalBudgetPhp:
@@ -2217,6 +2240,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             depositStep === 'sent' || depositStep === 'confirmed' || depositStep === 'refused' ? 'recorded' : null,
         }),
         lockRequestExpiresAt: row.lock_request_expires_at ?? null,
+        // 📍 What this booking also brings ("Catering" with Seda) — the SAME list the Find card's "comes with"
+        // chips draw (`linked_services`: the couple's own covers and the shop's linked services) — and the in-house
+        // groups whose chapters the host changed (owner 2026-11-01, `lib/supplier-where.ts`).
+        covered: (ext?.linked_services ?? []).map((c) => ({ key: coveredKeyOf(c), label: c.label })),
+        coveredWhere: row.covered_where ?? null,
       });
       return {
         vendorId: row.vendor_id,
@@ -2249,8 +2277,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       eventId={eventId}
       rows={teamRowList}
       facts={bookedFacts}
-      // The small Budget block's meter track — the couple's Target.
-      targetPhp={ev?.estimated_budget_centavos != null ? Math.round(ev.estimated_budget_centavos / 100) : null}
+      firstOpen={typeof sp.team === 'string' && sp.team ? sp.team : null}
+      // A delegate the host kept out of the Schedule reads no moments — their rows draw no call-time line.
+      scheduleShared={!isDelegateWithoutArea(viewer, 'schedule')}
     />
   );
   const benchUnread = benchUnreadFrom(unreadRead);
@@ -2276,6 +2305,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        nearOptions={nearRows(await nearAnchorsRead)}
+        onePerEventGroups={[...onePerEventGroups]}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".

@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_DATE_FLOOR_MESSAGE, eventDatesFloorRefusal, isBeforeFirstEventDay } from '@/lib/event-date-floor';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import {
   DateCalendar,
@@ -158,6 +159,8 @@ type Props = {
    * shift the suggestion by a year at the exact anniversary boundary.
    */
   todayISO?: string;
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026. */
+  dateExempt?: boolean;
   /**
    * Entrance grey-out (owner ruling 2026-09-11 — "same treatment for any other
    * one-at-a-time event type"). Server-resolved (page.tsx, `getBlockingLifeEvent`
@@ -254,6 +257,7 @@ export function GenericOnboarding(props: Props) {
     servicesStepView = null,
     servicesStepAiValue = null,
     todayISO,
+    dateExempt = false,
     entranceBlocking = null,
     setupView = null,
     setupSteps = [],
@@ -694,6 +698,8 @@ export function GenericOnboarding(props: Props) {
    * would be its own joke.
    */
   function canPickCelebrationDay(iso: string): boolean {
+    // 💍 A day before December 19, 2026 is not offered to a normal account (lib/event-date-floor.ts).
+    if (!dateExempt && isBeforeFirstEventDay(iso)) return false;
     return celebrationDatesAfterPick(anchorOptions, celebrationDates, iso, MAXMULTI) !== null;
   }
 
@@ -1150,6 +1156,15 @@ export function GenericOnboarding(props: Props) {
         }
         return;
       }
+      if (res.error === 'event_date_before_first_event') {
+        // 💍 Walk back to the date, where the owner's words are said beside it.
+        const idx = screens.indexOf('date');
+        if (idx >= 0) {
+          setStep(idx);
+          setError(null);
+        } else setError(EVENT_DATE_FLOOR_MESSAGE);
+        return;
+      }
       setError(
         res.error === 'not_authenticated'
           ? 'sign_in'
@@ -1193,7 +1208,7 @@ export function GenericOnboarding(props: Props) {
           onName={setDisplayName}
           where={setupAnswers.whereText}
           onWhere={(v) => patchSetup({ whereText: v, where: v.trim() ? 'place' : null })}
-          when={needsOnly ? { value: dateValue, onChange: (v) => { setDateMode('specific'); setDateCandidates([]); setDateValue(v); } } : null}
+          when={needsOnly ? { value: dateValue, dateExempt, onChange: (v) => { setDateMode('specific'); setDateCandidates([]); setDateValue(v); } } : null}
           preset={preset}
           onPreset={pickPreset}
           needs={needs}
@@ -1500,6 +1515,10 @@ export function GenericOnboarding(props: Props) {
       );
     }
     if (screen === 'date') {
+      const floorRefusal = eventDatesFloorRefusal(
+        [...(dateMode === 'specific' ? celebrationDates : []), ...(dateMode === 'window' ? [windowStart, windowEnd] : [])],
+        dateExempt,
+      );
       const onTheDayLabel = formatCelebrationDay(anchorOptions?.onTheDayISO);
       const saturdayLabel = formatCelebrationDay(anchorOptions?.saturdayAfterISO);
       // What the anchor IS, in the user's own words: their typed origin, plus
@@ -1600,6 +1619,7 @@ export function GenericOnboarding(props: Props) {
           <div className="mt-6" ref={dateCalendarRef}>
             <DateCalendar
               chrome="bare"
+              dateExempt={dateExempt}
               mode={dateMode}
               candidates={celebrationDates}
               windowStart={windowStart}
@@ -1619,6 +1639,13 @@ export function GenericOnboarding(props: Props) {
               }}
             />
           </div>
+          {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts) — a
+              day carried in from "Worth planning" can fall before it. */}
+          {floorRefusal ? (
+            <p role="alert" data-event-date-floor="" className="mt-3 text-sm text-mulberry">
+              {floorRefusal}
+            </p>
+          ) : null}
         </div>
       );
     }

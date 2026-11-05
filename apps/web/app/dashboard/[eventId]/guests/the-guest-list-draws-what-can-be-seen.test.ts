@@ -65,10 +65,12 @@ test('folded sections draw their true count and no rows; the open one draws its 
   assert.ok(big, 'the open section must exceed the window for the window to be tested');
 });
 
-test('"List N" is every guest, whatever is drawn', async () => {
+// 🎚 2026-10-29 the count rode the Guests ▾ segment (the old "List N"); 2026-10-30 the segment is gone (ONE top row,
+// owner *"The menu does not work properly"*) — the total is the carousel's Total guests card. Still every guest.
+test('"N Total guests" (the old "List N") is every guest, whatever is drawn', async () => {
   const html = await renderGuestsScreen({ guests });
-  const seg = html.match(/data-guests-seg="list"[^>]*>[\s\S]*?data-count="gs-seg-list"[^>]*>([\d,]+)</)?.[1];
-  assert.equal(Number(seg), rosterStats(guests).total);
+  const total = html.match(/data-count="gs-total"[^>]*>([\d,]+)</)?.[1];
+  assert.equal(Number(total?.replace(/,/g, '')), rosterStats(guests).total);
 });
 
 test('a search opens every section with a hit and draws the hits', async () => {
@@ -83,5 +85,6 @@ test('select-all and Remove read the section data, not the drawn rows', () => {
   assert.match(SCREEN, /toggleSection\(sec\.guests\.map\(\(g\) => g\.guest_id\)\)/);
   assert.match(SCREEN, /const allSel = sec\.guests\.length > 0 && sec\.guests\.every/);
   // (The map may also read the row above — a +1 drawn joined to their guest.)
-  assert.match(SCREEN, /\(drawnRows\.get\(sec\.key\) \?\? \[\]\)\.map\(\(g(, i, drawn)?\) => \(\s*<GuestRowLine/);
+  // (…or work out, first, whose guest a row says it is — "Guests of [Role]", 2026-11-01 — then draw it.)
+  assert.match(SCREEN, /\(drawnRows\.get\(sec\.key\) \?\? \[\]\)\.map\(\(g(, i, drawn)?\) => (\(\s*|\{[\s\S]{0,2000}?return \(\s*)<GuestRowLine/);
 });

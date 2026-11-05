@@ -65,6 +65,7 @@ export async function AppRailShell({
   variant = 'app',
   bleed,
   boundary,
+  pinnedBar,
 }: {
   children: React.ReactNode;
   /**
@@ -130,6 +131,8 @@ export async function AppRailShell({
   bleed?: boolean;
   /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
   boundary?: ShellBoundary;
+  /** 📌 From 701 the bar is the page's pinned row (page menu ▾ left) — pure pass-through, see `front-door-shell.tsx`. */
+  pinnedBar?: { lead: React.ReactNode };
 }) {
   const [account, navLabels, discoverOpen] = await Promise.all([
     resolveRailAccount(),
@@ -149,10 +152,13 @@ export async function AppRailShell({
     }),
     // (The palette's index is no longer built here: the signed-in top bar has no search since 2026-10-22.)
     /*
-      IS DISCOVER A DOOR HERE? In the app shell middleware bounces `/` to the
-      board while it is in `APP_EXCLUDED_MARKETING_PATHS`, so the rail's first
-      row — Discover — was a press that landed you where you stood (the
-      designer found it on the iPad app, 2026-10-21). Asked once, on the server.
+      IS DISCOVER A DOOR HERE? Yes everywhere since the owner's 2026-11-02
+      ruling ("let everything go live"): the apps open `/` like the website, so
+      the rail's first row — Discover — shows in them too. While Apple reviewed
+      1.0 the app bounced `/` to the board and the row was a press that landed
+      you where you stood (the designer found it on the iPad app, 2026-10-21),
+      so it is still asked once, on the server — a shell that ever refuses `/`
+      again loses the row in the same change.
     */
     discoverOpensHere(),
   ]);
@@ -162,6 +168,7 @@ export async function AppRailShell({
       variant={variant}
       bleed={bleed}
       boundary={boundary}
+      pinnedBar={pinnedBar}
       /*
         Only the public route group has full-bleed routes. The signed-in trees
         get `undefined` and pass `bleed` explicitly if they ever need it.

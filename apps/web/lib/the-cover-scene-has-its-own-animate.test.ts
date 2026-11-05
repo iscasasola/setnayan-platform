@@ -127,7 +127,7 @@ test('(4) ▶ on the cover: the closed veil with none of the words, the unveil, 
   assert.match(body, /\{isEditorCanvas && editorBridge && !themeTile \? \(\s*<CoverPlayOpeningServer/, 'the Maker canvas has no ▶ veil');
   assert.equal((read('app/dev/maker-lab/guest/page.tsx').match(/<CoverPlayOpening /g) ?? []).length, 2, 'the lab canvas has no ▶ veil');
   /* …and while it plays, the status bar ("Build in · Action · Build out") stays away — the cover has no phases to name. */
-  assert.match(TOOLS, /\{seq && \(playing \|\| seq\.skipped\.length > 0\) && !\(coverPlay && seq\.skipped\.length === 0\) \? <StagePlayStatus /);
+  assert.match(TOOLS, /\{seq && playing && !\(coverPlay && seq\.skipped\.length === 0\) \? <StagePlayStatus /);
   assert.match(TOOLS, /setCoverPlay\(true\);\s*postToCanvas\(\{ source: 'setnayan-editor', t: 'playCover'/);
 });
 

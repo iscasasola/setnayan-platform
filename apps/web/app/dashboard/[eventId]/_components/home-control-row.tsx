@@ -6,7 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count } from '@/components/count';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
-import { checklistTaskAnchor } from '@/lib/checklist-anchor';
+import { planningTodoHref } from '@/lib/checklist-anchor';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -16,6 +16,7 @@ import {
   HOME_CONTROL_PAGE,
   dueWords,
   homeControlTiles,
+  homeWidgetFramed,
   nextHubStage,
   paymentsToSettle,
   shortDay,
@@ -27,6 +28,7 @@ import { HomeTile, HubViewLink } from './home-tile';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { HomeLater, HomeReload } from './home-parts';
+import { budgetPageHref } from '@/lib/pillar-parts';
 
 /**
  * 🎛 HOME'S CONTROL ROW — the six upper widgets (owner-approved 2026-10-24, "ok": `home_control_center_2026-10-24_fable
@@ -52,28 +54,47 @@ export function HomeControlRow({
 }) {
   const { tiles } = homeControlTiles(input);
   let rotating = 0;
+  const tile = (t: (typeof tiles)[number]) => {
+    const rotates = t.faces.length > 1 && !t.failed;
+    const stagger = rotates ? rotating++ : 0;
+    // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
+    return (
+      <HomeTile
+        key={t.key}
+        model={t}
+        eventId={input.eventId}
+        stagger={stagger}
+        tour={rotates && stagger === 0 ? 'home-faces' : undefined}
+        hubPick={t.key === 'hub' ? hubPick : null}
+      />
+    );
+  };
+  /* 🧱 THE PHONE'S ORDER (owner-approved 1 Nov prototype): Countdown on the page · the Schedule card · the glance row —
+     Guests · Event Hub / Suppliers · To do, unframed, closed by a divider — · the Budget card. */
+  const lead = tiles.filter((t) => t.key === 'count' || t.key === 'sched');
+  const glance = tiles.filter((t) => GLANCE.has(t.key));
+  const rest = tiles.filter((t) => t.key !== 'count' && t.key !== 'sched' && !GLANCE.has(t.key));
+  const sched = tiles.find((t) => t.key === 'sched') ?? null;
   return (
     <>
-      <div className="hc-grid md:hidden" data-home-control="compact" data-tour="home-tiles">
-        {tiles.map((t) => {
-          const rotates = t.faces.length > 1 && !t.failed;
-          const stagger = rotates ? rotating++ : 0;
-          // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
-          return (
-            <HomeTile
-              key={t.key}
-              model={t}
-              eventId={input.eventId}
-              stagger={stagger}
-              tour={rotates && stagger === 0 ? 'home-faces' : undefined}
-              hubPick={t.key === 'hub' ? hubPick : null}
-            />
-          );
-        })}
+      <div className="hc-stack md:hidden" data-home-control="compact" data-tour="home-tiles">
+        {lead.map(tile)}
+        {glance.length > 0 ? (
+          <>
+            <div className="hc-grid hc-glance" data-home-glance="">
+              {glance.map(tile)}
+            </div>
+            <hr className="hc-rule" aria-hidden />
+          </>
+        ) : null}
+        {rest.map(tile)}
       </div>
       <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
-          {(['count', 'hub', 'budget'] as const).map((k) => (
+          <DetailCard k="count" input={input} tile={tiles.find((t) => t.key === 'count') ?? null} hubPick={hubPick} />
+          {/* 📅 The Schedule, after the Countdown — the same card as the phone's (its faces, dots and doors). */}
+          {sched ? <HomeTile model={sched} eventId={input.eventId} stagger={0} /> : null}
+          {(['hub', 'budget'] as const).map((k) => (
             <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={hubPick} />
           ))}
         </div>
@@ -86,6 +107,9 @@ export function HomeControlRow({
     </>
   );
 }
+
+/** The glance row — heading-less tiles on the page, two across, like Safari's Favorites (owner 2026-11-01). */
+const GLANCE: ReadonlySet<string> = new Set(['guests', 'hub', 'sup', 'plan']);
 
 /* ─── The detail card — the shipped card's shape, no grow ─────────────────── */
 
@@ -109,7 +133,7 @@ const NAME: Record<HomeControlKey, string> = {
   hub: 'Event Hub',
   sup: 'Suppliers',
   budget: 'Budget',
-  plan: 'Checklist',
+  plan: 'To do',
 };
 
 /** What each card's ⓘ says — the detail lives here, not on the card (owner 2026-10-23: details go inside the ⓘ). */
@@ -142,8 +166,11 @@ function Shell({
   const label = `Open ${HOME_CONTROL_PAGE[k]}`;
   return (
     <article
-      className={`sg-row hc-card${failed ? ' hc-card-bad' : ''}`}
+      /* 🧱 Frames only where you act (owner 2026-11-01) — the same list the phone's tiles read. */
+      className={`sg-row hc-card${homeWidgetFramed(k) ? '' : ' hc-plain'}${failed ? ' hc-card-bad' : ''}`}
       data-home-card-key={k}
+      /* 🎴 What Now names — marked, not chipped: Now rides the event card and is never repeated (Home redraw 2026-11-02). */
+      data-home-now={today ? '' : undefined}
       data-mood={failed ? 'gone' : 'plain'}
       /* 💾 Money is never kept as last-seen data (lib/last-seen) — the Budget card is dropped from the snapshot. */
       data-money={k === 'budget' ? '' : undefined}
@@ -165,7 +192,6 @@ function Shell({
             <InfoTip label={NAME[k]} labelClassName="sg-name" align="start">
               {INFO[k]}
             </InfoTip>
-            {today ? <span className="hc-chip hc-chip-inline">Today</span> : null}
           </span>
           {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
         </span>
@@ -217,7 +243,7 @@ function DetailCard({
     case 'count': {
       const c = input.countdown;
       return (
-        <Shell k="count" door={`/dashboard/${e}/details`} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
+        <Shell k="count" door={tile.door} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
           {c.hasDate ? (
             <>
               <Dot mood="ok">Date set{c.placeLine ? ` · ${c.placeLine}` : ''}</Dot>
@@ -231,7 +257,7 @@ function DetailCard({
             <>
               <Dot mood="wait">No date yet</Dot>
               <div className="sg-acts">
-                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={`/dashboard/${e}/date-selection`} />
+                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={tile.faces[0]?.action?.href ?? tile.door} />
               </div>
             </>
           )}
@@ -397,7 +423,7 @@ function DetailCard({
       if (b === null) return null;
       if (b === 'unread') {
         return (
-          <Shell k="budget" door={`/dashboard/${e}/vendors?part=budget`} today={today} failed>
+          <Shell k="budget" door={budgetPageHref(e)} today={today} failed>
             <Failed words="Money couldn’t load · paid and owing are unread, not zero" />
           </Shell>
         );
@@ -411,7 +437,7 @@ function DetailCard({
       return (
         <Shell
           k="budget"
-          door={`/dashboard/${e}/vendors?part=budget`}
+          door={budgetPageHref(e)}
           brand={
             pays === null
               ? 'Payments couldn’t load'
@@ -425,7 +451,7 @@ function DetailCard({
             <div className="hc-pays">
               {listed.map((p) => {
                 const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
-                const href = payFace(p.id)?.action?.href ?? `/dashboard/${e}/vendors?part=budget`;
+                const href = payFace(p.id)?.action?.href ?? budgetPageHref(e);
                 return (
                   <div key={p.id} className={`hc-pay${late ? ' hc-late' : ''}`} data-home-pay={p.id}>
                     <span className="min-w-0 flex-1">
@@ -441,7 +467,7 @@ function DetailCard({
                 );
               })}
               {pays && pays.length > listed.length ? (
-                <Link href={`/dashboard/${e}/vendors?part=budget`} className="hc-pay hc-more">
+                <Link href={budgetPageHref(e)} className="hc-pay hc-more">
                   +{formatCount(pays.length - listed.length)} more to settle
                 </Link>
               ) : null}
@@ -475,15 +501,15 @@ function DetailCard({
       if (c === null) return null;
       if (c === 'unread') {
         return (
-          <Shell k="plan" door={`/dashboard/${e}/checklist`} today={today} failed>
-            <Failed words="Your checklist couldn’t load · not zero, unread" />
+          <Shell k="plan" door={planningTodoHref(e)} today={today} failed>
+            <Failed words="Your to do list couldn’t load · not zero, unread" />
           </Shell>
         );
       }
       const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
       const calm = input.next.kind === 'plan';
       return (
-        <Shell k="plan" door={`/dashboard/${e}/checklist`} brand={pct !== null ? `Your checklist · ${formatCount(pct)}% done` : 'Your checklist'} today={today}>
+        <Shell k="plan" door={planningTodoHref(e)} brand={pct !== null ? `To do · ${formatCount(pct)}% done` : 'To do'} today={today}>
           <Dot mood={calm || c.open === 0 ? 'ok' : 'wait'}>
             {c.open === 0
               ? 'Everything is done'
@@ -495,8 +521,8 @@ function DetailCard({
             <ul className="hc-list">
               {c.next.map((t) => (
                 <li key={t.id} data-home-task={t.id}>
-                  {/* Each task opens itself on the checklist (`/checklist#task-<id>`). */}
-                  <Link href={`/dashboard/${e}/checklist#${checklistTaskAnchor(t.id)}`} className="hc-li">
+                  {/* Each task opens itself in Planning Stage's To do filter (`#task-<id>`). */}
+                  <Link href={planningTodoHref(e, t.id)} className="hc-li">
                     <span className="hc-tick" aria-hidden />
                     <span className="hc-li-t">{t.title}</span>
                     {t.dueDate ? <span className={`hc-li-due${t.daysUntilDue !== null && t.daysUntilDue <= 7 ? ' soon' : ''}`}>{shortDay(t.dueDate)}</span> : null}

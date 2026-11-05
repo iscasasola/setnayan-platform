@@ -264,7 +264,16 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
       .select('vendor_service_id, category, created_at')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true);
-    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, servicesInTile(await getCanonicalBuckets(), tile));
+    const tileServices = servicesInTile(await getCanonicalBuckets(), tile);
+    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, tileServices);
+    // THE CARD PRESSED (owner 2026-10-29, Find v4: a shop's several cards in one category each keep their own Save).
+    // Honoured only when it IS one of this shop's active cards in this category — never a way to file a pick under
+    // another shop's card or another category.
+    const pressed = String(formData.get('service_id') ?? '').trim();
+    const named = pressed
+      ? ((cards ?? []) as ShopCard[]).find((c) => c.vendor_service_id === pressed && (c.category === tile || tileServices.includes(c.category ?? '')))
+      : undefined;
+    if (named) tileCard = named;
   }
   const tileCategory: VendorCategory | null = (() => {
     if (!tileCard?.category) return null;

@@ -5,7 +5,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive } from '@/lib/vendor-visibility';
-import { shopPageGate } from '@/lib/own-shop-preview';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
@@ -36,8 +38,14 @@ export type PageData = {
   businessName: string;
   slug: string | null;
   publicPath: string | null;
-  /** Couples can see it (`isShopLive`) — the badge on the face says so either way. */
+  /** Couples can see it (`isShopLive`, or shown before verification — `selfPublishedLive`) — the badge says so either way. */
   live: boolean;
+  /**
+   * 🏪 Show my page before verification (owner 2026-11-02): `offer` = bookings are closed and the shop is not verified-
+   * live, so the switch is drawn; `shown` = the shop has pressed it. `null` = the read failed (the switch is not drawn —
+   * an unread switch is never shown as off).
+   */
+  showBeforeVerified: { offer: boolean; shown: boolean } | null;
   /** The owner can open it (visible), even before couples can. */
   visible: boolean;
   isVerified: boolean;
@@ -47,6 +55,8 @@ export type PageData = {
   yearsLabel: string | null;
   rating: number | null;
   reviewCount: number | null;
+  /** 📌 Couples who opened the page in the last 30 days (v13 Shop › Page's first figure). null = unread, never 0. */
+  views30: number | null;
   saved: PageSaved;
   services: { key: string; label: string }[];
   portfolio: { key: string; url: string }[];
@@ -85,8 +95,10 @@ export function pagePlanLines(): PagePlanLine[] {
   const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
   return [
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
-    { plan: 'Solo', line: 'Your About · your colour · what shows', pro: true },
-    { plan: 'Pro', line: 'A cover photo · a pinned review · stories', pro: true },
+    // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to
+    // solo as well"); read from `customWebsiteName`, never typed onto a line.
+    { plan: 'Solo', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
   ];
 }
 
@@ -158,6 +170,25 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     logQueryError('VendorPage.domains', err, { vendorId });
     return { measured: false, rows: [] as DomainRow[] };
   });
+  // 🏪 Show my page before verification: the shop's own choice (no session grant on the column — service role, this
+  // shop's row only) and the bookings switch, together.
+  const showRead = Promise.all([
+    createAdminClient().from('vendor_profiles').select('self_published_at, is_demo').eq('vendor_profile_id', vendorId).maybeSingle(),
+    areBookingsOpen(),
+  ]).then(
+    ([r, bookingsOpen]) => {
+      if (r.error) {
+        logQueryError('VendorPage.selfPublished', r.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const row = r.data as { self_published_at?: string | null; is_demo?: boolean | null } | null;
+      return { selfPublishedAt: row?.self_published_at ?? null, isDemo: row?.is_demo === true, bookingsOpen };
+    },
+    (err) => {
+      logQueryError('VendorPage.selfPublished', err, { vendorId });
+      return null;
+    },
+  );
   const vocabRead = fetchVendorServicePickerVocab();
   const portfolioKeys = (profile.portfolio_r2_keys ?? []) as string[];
   const portfolioRead = Promise.all(
@@ -175,8 +206,21 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   const shellRead = isStoreShellRequest();
   // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
   const badgesRead = readShopTrackerFacts(vendorId);
+  // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
+  const views30Read = (async (): Promise<number | null> => {
+    const { count, error } = await supabase
+      .from('vendor_profile_views')
+      .select('view_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorId)
+      .gte('viewed_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
+    if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
+    return error || count === null ? null : count;
+  })().catch((err) => {
+    logQueryError('VendorPage.views30', err, { vendorId });
+    return null;
+  });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -186,6 +230,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     portfolioRead,
     shellRead,
     badgesRead,
+    views30Read,
   ]);
 
   const microsite = micrositeFromRow(own);
@@ -202,7 +247,22 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     { public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null },
     { isTeam: true, adminDemoMode: false },
   ).open !== 'nobody';
-  const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const verifiedLive = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
+  const show = await showRead;
+  const gateRow = {
+    public_visibility: profile.public_visibility,
+    verification_state: own?.verification_state ?? null,
+    is_demo: show?.isDemo ?? null,
+    self_published_at: show?.selfPublishedAt ?? null,
+  };
+  const live = verifiedLive || (show !== null && selfPublishedLive(gateRow, show.bookingsOpen));
+  const showBeforeVerified =
+    show === null
+      ? null
+      : {
+          offer: !verifiedLive && !show.bookingsOpen && selfPublishedLive({ ...gateRow, self_published_at: 'offer' }, false),
+          shown: show.selfPublishedAt !== null,
+        };
 
   const saved: PageSaved = pageSavedFrom(
     microsite,
@@ -216,6 +276,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     slug,
     publicPath: slug ? `/${slug}` : null,
     live,
+    showBeforeVerified,
     visible,
     isVerified: profile.public_visibility === 'verified',
     kindWord: services[0]?.label ?? null,
@@ -226,6 +287,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       : null,
     rating: stats === undefined ? null : Number(stats?.avg_rating_overall ?? 0) || 0,
     reviewCount: stats === undefined ? null : Number(stats?.total_count ?? 0) || 0,
+    views30,
     saved,
     services,
     portfolio,

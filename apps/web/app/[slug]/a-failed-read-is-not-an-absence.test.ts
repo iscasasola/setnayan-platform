@@ -87,9 +87,8 @@ const FILES = [
  * absence that a failed read would make untrue.
  */
 const SOFT: Record<string, string> = {
-  'hub/page.tsx · event_seat_assignments · assignmentRow':
-    'the seat label on the hub: inside a try, documented "graceful-degrade — these tables may not exist on every install"; a failed read draws no table line, and the seat pass itself (seat/page.tsx) says when it cannot load',
-  'hub/page.tsx · event_tables · tableRow': 'the same seat label, second half of the same try',
+  // (hub/page.tsx's two seat reads left this list 2026-11-02: they are CONSULTED now — a refused one draws
+  //  "Couldn’t load your seat", never "Not yet assigned"; app/dashboard/[eventId]/dashboard-reads-are-honest.test.ts #34.)
   'welcome/page.tsx · guests · primary':
     'the inviting guest\'s NAME for one line of copy; unread, the line says "the inviting guest" — a plainer word, not a claim that nobody invited them',
   'seat/page.tsx · guest_checkins · checkin':

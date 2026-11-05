@@ -21,6 +21,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { BackButton } from '@/app/_components/back-button';
@@ -29,7 +30,7 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import {
   CoupleThreadToolsSheet,
   ThreadToolsSheet,
@@ -39,6 +40,15 @@ import { dealEntryFor } from '@/lib/deal-entry';
 import { initialsForSupplierName } from '@/lib/conversation-list';
 import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_THREADS, LAB_USER } from '../../fixtures';
 
+/** The couple's ⋮ rows as the thread page passes them (each wears its own picture — owner 2026-10-29). */
+const LAB_MENU_LINKS = [
+  { href: '#quote', label: 'Quote', icon: 'quote' },
+  { href: '#payments', label: 'Payments', icon: 'payments' },
+  { href: '#files', label: 'Files', icon: 'files' },
+  { href: '#schedule', label: 'Schedule', icon: 'schedule' },
+  { href: '#details', label: 'Booking details', icon: 'details' },
+] as const;
+
 type LabProps = {
   params: Promise<{ threadId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -46,13 +56,21 @@ type LabProps = {
 
 export default async function ChatLabThreadPage({ params, searchParams }: LabProps) {
   if (process.env.NODE_ENV === 'production') notFound();
-  return (
-    <LabShell eventId={LAB_EVENT}>
-      <Suspense fallback={<ThreadArrival />}>
-        <LabThread params={params} searchParams={searchParams} />
-      </Suspense>
-    </LabShell>
+  const body = (
+    <Suspense fallback={<ThreadArrival />}>
+      <LabThread params={params} searchParams={searchParams} />
+    </Suspense>
   );
+  // `?side=vendor` stands in the SUPPLIER's shell (its rail, bar and tabs) and the supplier page's own column — the shell
+  // the supplier's thread opens in. A walk of both sides is then the same frame in each side's real chrome.
+  if ((await searchParams).side === 'vendor') {
+    return (
+      <SupplierLabShell measure="own">
+        <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">{body}</div>
+      </SupplierLabShell>
+    );
+  }
+  return <LabShell eventId={LAB_EVENT}>{body}</LabShell>;
 }
 
 async function LabThread({ params, searchParams }: LabProps) {
@@ -81,10 +99,7 @@ async function LabThread({ params, searchParams }: LabProps) {
   }
 
   return (
-    <>
-      <ThreadToolHashReveal />
-      <div className="flex h-[calc(100dvh-12rem)] min-h-[27rem] gap-4">
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+      <ChatThreadFrame>
           <ChatBox
             header={
               <ChatThreadHead
@@ -98,7 +113,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                     <span className="whitespace-nowrap">~230 guests</span>
                   </>
                 }
-                actions={<ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={[]} />}
+                actions={<ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={LAB_MENU_LINKS} />}
               />
             }
             notice={<ChatSafetyBanner inBox />}
@@ -142,8 +157,6 @@ async function LabThread({ params, searchParams }: LabProps) {
               fileExpiry={{ eventDate: expiryEventDate, precision: 'day' }}
             />
           </ChatBox>
-        </section>
-      </div>
-    </>
+      </ChatThreadFrame>
   );
 }

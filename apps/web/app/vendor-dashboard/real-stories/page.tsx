@@ -25,7 +25,8 @@ export const metadata = { title: 'Stories · Supplier' };
  * Read-only + ownership-scoped: the list is the vendor's OWN booked events
  * (fetchVendorPoolBookings) intersected with the public-showcase consent gate
  * (loadVendorFeaturedStories). Pre-launch it's empty (no consented editorials
- * exist yet) → a tasteful "coming" state, never a broken page.
+ * exist yet) → a plain empty state (no "Coming soon" tag — supplier
+ * go-live audit, 2026-11-02), never a broken page.
  */
 
 const SITE_URL = (
@@ -78,16 +79,12 @@ export default async function VendorRealStoriesPage() {
 
       {stories.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/20 p-8 text-center sm:p-10">
-          <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta-700">
-            Coming soon
-          </p>
-          <p className="mx-auto mt-3 max-w-md text-base font-medium text-ink">
-            Your featured weddings will appear here.
+          <p className="mx-auto max-w-md text-base font-medium text-ink">
+            Your featured events will appear here.
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
-            Once a couple you helped create their day publishes it to Real
-            Stories, you&rsquo;ll find it here — ready to share to your Page. Real
-            couple editorials begin publishing with the wedding season ahead.
+            When a couple you worked with publishes their event to Stories, it
+            shows here — ready to share to your Page.
           </p>
         </div>
       ) : (

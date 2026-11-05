@@ -136,6 +136,19 @@ export function keepOutcome(input: {
   return { kind: 'send', text };
 }
 
+/**
+ * ⏎ ENTER STILL ADDS (owner 1 Nov 2026, DECISION_LOG "ENTER STILL ADDS IN ONE-LINE ADD BOXES"). A one-line ADD box — the
+ * "＋ Add" row of Admin › Categories, "Your custom domain" — opts in (`TypedRow`'s `onEnter`): Enter keeps the words AND adds
+ * them, as the raw box did before it joined the Field template. This says what the add is handed: the words the row is
+ * left holding when Enter left it fine — null when there is nothing to add (another exit, empty, or something wrong).
+ * Every other field does not opt in, so its Enter only keeps.
+ */
+export function enterAdds(exit: FieldExit, out: KeepOutcome, before: string): string | null {
+  if (exit !== 'enter') return null;
+  const text = out.kind === 'send' ? out.text : out.kind === 'as-it-was' ? before.trim() : null;
+  return text ? text : null;
+}
+
 /* ── REQUIRED ─────────────────────────────────────────────────────────── */
 
 /** A box that must be filled wears the highlight and the word "Required" until it is filled — then neither. */

@@ -93,15 +93,20 @@ test('the list holds what a reviewer looks for, and each is a real page', () => 
   }
 });
 
-test('no policy is refused in the store shell', () => {
-  const mw = readFileSync(join(WEB, 'middleware.ts'), 'utf8');
-  const excluded = mw.match(/const APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([\s\S]*?)\]\)/)?.[1];
-  assert.ok(excluded, 'APP_EXCLUDED_MARKETING_PATHS moved — point this reader at it');
-  const bounced = [...excluded.matchAll(/'([^']+)'/g)].map((m) => m[1]);
-  assert.ok(bounced.length > 0);
+test('no policy is refused in the app', () => {
+  // Middleware's native-shell brochure bounce is gone (owner 2026-11-02, "let everything go live") — so no page,
+  // policy or otherwise, is sent away for being opened in the phone or desktop app. Its return would put the
+  // policies back at risk (Apple 5.1.1 asks for them IN the app), so its absence is asserted, not assumed.
+  const mw = stripComments(readFileSync(join(WEB, 'middleware.ts'), 'utf8'));
+  assert.doesNotMatch(
+    mw,
+    /APP_EXCLUDED_MARKETING_PATHS|isCapacitorClient|SetnayanApp|setnayan-client-type/,
+    'middleware asks "is this the app?" again — make sure no policy page is in what it sends away, then update this test',
+  );
+  // The one shell gate left — the store shell's paid-feature gate — refuses none of them, with or without Apple selling.
   for (const { href } of POLICY_LINKS) {
-    assert.ok(!bounced.includes(href), `${href} is bounced off the app by middleware`);
     assert.equal(isStoreShellWebOnlyPath(href), false, `${href} is web-only in the store shell`);
+    assert.equal(isStoreShellWebOnlyPath(href, true), false, `${href} is web-only in the store shell where Apple sells`);
     assert.equal(storeShellHidesHref(href, 'https://www.setnayan.com/vendor-dashboard/settings'), false, `${href} is hidden in the store shell`);
   }
 });
@@ -111,7 +116,7 @@ test('supplier Settings, rendered, carries every policy and the Account row — 
   for (const manager of [true, false]) {
     for (const storeShell of [false, true]) {
       const html = renderToStaticMarkup(
-        createElement(SettingsView, { unread: 0, manager, storeShell, tier: null, payout: 'unreadable', helpers: null, tools }),
+        createElement(SettingsView, { unread: 0, manager, payout: 'unreadable', tools }),
       );
       const who = `${manager ? 'owner' : 'team member'}${storeShell ? ' · app' : ' · web'}`;
       for (const h of REQUIRED_POLICY_HREFS) {

@@ -1,4 +1,13 @@
 import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
+import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels } from '@/lib/invitation-chapters.server';
+import { chaptersForGuest } from '@/lib/invitation-chapters';
+import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
+import { YourScheduleCard } from './_components/your-schedule-card';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
+import { guestMePath } from '@/lib/offline-copy-addresses';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -46,7 +55,7 @@ import { HeldPassLine } from './_components/held-pass-line';
 import { heldPassFirstNameFor } from './_lib/held-pass-name';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
-import { findGuestSeatForUser } from '@/lib/guest-membership-session';
+import { findGuestSeatForUserMeasured } from '@/lib/guest-membership-session';
 import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
@@ -68,7 +77,7 @@ import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.serv
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -568,7 +577,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
   // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
   // `headers()` read below is the live render's alone.
-  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
+  if (isUserNestingCutoverEnabled() && !onTheCachedHub()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
@@ -1168,6 +1177,11 @@ async function invitationBody({
     // card was a real defect — a `<Link>` prefetch executed it when a card merely
     // scrolled into view. See lib/guest-membership-session.ts.
     let isSeatHolder = false;
+    // 🔌 The seat read was REFUSED (not "no seat"). Never admits — `isSeatHolder`
+    // stays false — but it must not end on the lock screen either, whose words
+    // ("ask your hosts to add you to the guest list") are a claim about a person
+    // we did not measure. See the throw below the gate.
+    let seatReadRefused = false;
     // Path E — a supplier this couple has BOOKED on this event.
     //
     // 🔴 THE BUG THIS CLOSES. The supplier doorway, its gate and its read have
@@ -1220,8 +1234,9 @@ async function invitationBody({
       if (user) {
         isAuthedHost = await loadHostMembership(admin, event.event_id, user.id);
         if (!isAuthedHost) {
-          isSeatHolder =
-            (await findGuestSeatForUser(event.event_id, user.id)) !== null;
+          const seatRead = await findGuestSeatForUserMeasured(event.event_id, user.id);
+          isSeatHolder = seatRead.seat !== null;
+          seatReadRefused = !seatRead.measured;
           if (!isSeatHolder && visibility === 'invited_accounts') {
             isInvitedAccountViewer = await isInvitedAccount(event.event_id, user.id);
           }
@@ -1252,6 +1267,13 @@ async function invitationBody({
       })
     ) {
       timer.flush();
+      // 🔌 A REFUSED SEAT READ IS NOT "NOT INVITED" (reads-are-honest, 2026-11-05).
+      // Nothing admitted them, but one of the questions was never answered, so
+      // the guest error page says "Your link is fine — try again" ([slug]/error.tsx)
+      // instead of the lock screen telling a listed guest to ask to be added.
+      if (seatReadRefused) {
+        throw new Error(`EventPage: could not read the signed-in viewer's seat on ${event.event_id}`);
+      }
       return (
         <PrivateLanding
           event={event}
@@ -1474,6 +1496,7 @@ async function invitationBody({
   }
   const {
     scheduleBlocks,
+    invitationChapters,
     backdropConfig,
     liveWall,
     watchLive,
@@ -1606,11 +1629,16 @@ async function invitationBody({
   // the invited cousin is very often a signed-in account with a seat and no
   // cookie. The seat lookup already exists; it just only ran inside the
   // private-event gate, which never runs on a public event at all.
-  const viewerSeat =
+  // 🔌 MEASURED (2026-11-05): a refused read is `measured: false`, never "no
+  // seat" — so the stranger's door below cannot tell a LISTED guest "You're not
+  // on the guest list for this event yet" (or offer "Join as a guest") on a blip.
+  const viewerSeatRead =
     viewerAccount?.id && !ownerCapability
-      ? await findGuestSeatForUser(event.event_id, viewerAccount.id)
-      : null;
+      ? await findGuestSeatForUserMeasured(event.event_id, viewerAccount.id)
+      : { seat: null, measured: true };
+  const viewerSeat = viewerSeatRead.seat;
   const viewerHoldsASeat = viewerSeat !== null;
+  const viewerSeatUnread = !viewerSeatRead.measured;
   timer.mark('supplier-desk+seat');
 
   // ── WHO IS THIS GUEST, ON THIS EVENT (owner 2026-09-25) ──────────────────
@@ -1746,6 +1774,7 @@ async function invitationBody({
     ourPhotoUrls,
     widgets,
     scheduleBlocks,
+    invitationChapters,
     backdrop,
     liveWall,
     watchLive,
@@ -1867,8 +1896,12 @@ async function invitationBody({
           // Signed in, holding no seat here, and neither host nor booked
           // supplier → "You're not on the guest list for this event yet" +
           // "Ask to join" (owner 2026-09-26). Never an automatic entry.
+          // 🔌 ONLY when the seat read happened: a refused read draws the
+          // try-again door instead (`seatUnread`), never the not-listed copy.
           signedInNotListed:
-            Boolean(viewerAccount?.id) && !viewerHoldsASeat && !ownerCapability && !vendorCapability,
+            Boolean(viewerAccount?.id) && !viewerSeatUnread && !viewerHoldsASeat && !ownerCapability && !vendorCapability,
+          seatUnread:
+            Boolean(viewerAccount?.id) && viewerSeatUnread && !ownerCapability && !vendorCapability,
         })}
       />
       {pageFooter}
@@ -2136,6 +2169,23 @@ async function invitationBody({
     eventVendorCredits,
   } = guestContext;
 
+  /* 📅 YOUR SCHEDULE on Me (owner 2026-11-01, plan §3 · §3b · §11b): the chapters this guest is invited to, and after
+     Release (Pro) their own lines and exact call time. Started here, awaited where Me is drawn; never in the Maker's
+     canvas. A refused read is said on the card (`unread`), never drawn as no schedule. Nothing live: guests hold no
+     connection — this renders into the cached Event Hub copy. */
+  const yourScheduleAhead = isEditorCanvas
+    ? null
+    : startAhead(
+        readYourSchedule(admin, {
+          eventId: event.event_id,
+          guestId: guest.guest_id,
+          roles: [guest.role as string | null, ...(((guest as { extra_roles?: string[] | null }).extra_roles) ?? [])].filter(
+            (r): r is string => typeof r === 'string' && r.trim().length > 0,
+          ),
+          guestsArriveBy: guestsArriveTime(scheduleBlocks),
+        }).catch((): YourScheduleRead => ({ kind: 'unread' })),
+      );
+
   // Invite/Join v2: offer an accountless guest a "claim your account by email"
   // prompt on the lifecycle site (RSVP/Event/Editorial). A signed-in account-
   // holder doesn't need it, so gate on the absence of a Supabase auth session.
@@ -2390,6 +2440,35 @@ async function invitationBody({
       ticketNames={event.display_name}
     />
   );
+  const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL (`lib/offline-copies.ts`) — kept on this phone only when the day on screen is
+     the VIEWER'S OWN: the pass holder's (no account: `g-<guest>`), or the signed-in account whose seat this is. Never a
+     host's look at a guest (hosts keep their own day on the Schedule), a sample, or the Maker's canvas. */
+  const ownDayViewer: string | null =
+    isEditorCanvas || search.as !== undefined || ownerCapability
+      ? null
+      : viewerAccount?.id
+        ? seatHolderUserId === viewerAccount.id && passStandingNow.standing !== 'host_preview'
+          ? viewerAccount.id
+          : null
+        : session?.event_id === event.event_id && session?.guest_id === guest.guest_id
+          ? `g-${guest.guest_id}`
+          : null;
+  const meCopyPath = ownDayViewer ? guestMePath(event.slug ?? slug) : null;
+  const meSaved =
+    ownDayViewer && meCopyPath && yourScheduleRead ? (
+      <>
+        <OfflineViewerScript viewer={ownDayViewer} />
+        <ScheduleSavedMark
+          viewer={ownDayViewer}
+          eventKey={meCopyPath.slice(1, meCopyPath.indexOf('?'))}
+          eventDate={event.event_date ?? null}
+          eventEndDate={event.event_end_date ?? null}
+          path={meCopyPath}
+          version={yourScheduleRead.kind === 'ok' ? copyVersionOf(yourScheduleRead.schedule) : OFFLINE_COPY_UNREAD}
+        />
+      </>
+    ) : null;
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
@@ -2456,6 +2535,7 @@ async function invitationBody({
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
       profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
+      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} saved={meSaved} />}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={
@@ -2522,11 +2602,32 @@ async function invitationBody({
     timeZone: venueTz,
   });
 
+  /* ✉ THIS GUEST'S OWN ANSWERS PER CHAPTER (Step 5) — read only when the invitation has chapters, then the names of
+     any they said yes to that left it (ruled 1 Nov: they are told, once). Their own rows, by their own guest id. */
+  /* ✉ …AND ONLY THE CHAPTERS THEY ARE INVITED TO (owner 2026-11-02, "Invited to"): the hosts may take one guest off a part
+     of the day on their card ("after party only"). The reply card, the notices and Details › Schedule all draw from this
+     one narrowed list. A refused read of what they were taken off is `null` — the page then draws as it does with no
+     chapters, never the whole invitation to a guest who was taken off part of it. */
+  const notInvitedHere = invitationChapters && invitationChapters.length > 0 ? await readGuestNotInvited(admin, guest.guest_id) : new Set<string>();
+  const guestChapters = invitationChapters && notInvitedHere ? chaptersForGuest(invitationChapters, notInvitedHere) : null;
+  const chapterReplies = guestChapters && guestChapters.length > 0 ? await readGuestChapterReplies(admin, guest.guest_id) : null;
+  const removedChapterLabels = await readRemovedChapterLabels(admin, event.event_id, chapterReplies, guestChapters);
   timer.flush();
   return wearDraft(
     <>
       <SiteBody
         {...siteProps}
+        invitationChapters={guestChapters}
+        /* 🚪 SIGNED IN AND ON THIS LIST (owner 2026-11-03): no door — the server answered with their seat and this is
+           their invitation — plus "Not [first name]? Switch account" under the cover's button. Only when the signed-in
+           account's OWN seat is the guest drawn (a pass held for somebody else has its own line, `heldPassNode`). */
+        switchAccountName={
+          viewerAccount?.id && viewerSeat?.guestId === guest.guest_id && !isEditorCanvas
+            ? (guest.first_name ?? '').trim().split(/\s+/)[0] ?? ''
+            : null
+        }
+        chapterReplies={chapterReplies}
+        removedChapterLabels={removedChapterLabels}
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         comingWith={myGuests.guests.map((g) => g.name ?? '')}
         identity={guestIdentity({

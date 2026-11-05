@@ -25,6 +25,7 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { notFound, redirect } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
@@ -373,6 +374,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       <section className="mx-auto max-w-2xl space-y-6">
         {chineseTradition ? <ChineseSpecialistNudge /> : null}
         <DatePicker
+          dateExempt={await viewerIsInternal().catch(() => false)}
           eventId={eventId}
           ceremonyType={ceremonyType}
           secondaryCeremonyType={secondaryCeremonyType}

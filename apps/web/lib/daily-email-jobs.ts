@@ -22,7 +22,9 @@ import {
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActiveWith } from '@/lib/data-privacy-controls';
 import { eventSkuActive } from '@/lib/entitlements';
+import { runPapicOriginalsReminders } from '@/lib/papic-originals-reminder';
 import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
+import { maybeRunPushSchedule } from '@/lib/push-schedule.server';
 import { GUEST_REMINDER_GAP_MS } from '@/lib/periodic-job-registry';
 import { addDaysToIso } from '@/lib/anniversary-dates';
 import { runSupplierNightBeforeEmailReminders } from '@/lib/supplier-night-before-email';
@@ -672,8 +674,8 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
       // three options, so a worried couple would pick it and end up with
       // nothing. Only the two things that actually move pixels are listed now,
       // and Drive is named first because it is the one that keeps working
-      // after the six months are up.
-      text: `Hi! Your ${name} Memories on Setnayan stay online, free, for life.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed copy stays in your Memories, free, for life. Your Memories keep every photo; we just won't be holding the full-resolution originals after that. Here are the two ways to keep the originals before then:\n\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free — this keeps working after the six months are up.\n• Or download them from your Memories — a single photo, or the whole event as a ZIP.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your Memories are safe either way.\n\n— Setnayan`,
+      // after the three months are up (the photo rule, owner 2026-11-03).
+      text: `Hi! Your ${name} Memories on Setnayan stay online, free, for life.\n\nIn about two weeks, we'll switch the full-resolution copies we host to a lighter, compressed version — that compressed copy stays in your Memories, free, for life. Your Memories keep every photo; we just won't be holding the full-resolution originals after that. Here are the two ways to keep the originals before then:\n\n• Connect Google Drive and every original saves to your own account automatically, at full resolution, free — and after the three months are up, your Download still gives you the original from your Drive.\n• Or download them from your Memories — a single photo, or the whole event as a ZIP.\n\nThis is just a heads-up so you can grab the full-res originals if you'd like — your Memories are safe either way.\n\n— Setnayan`,
     });
     // Only mark warned when the email actually went (or the address is dead) —
     // if Resend isn't configured yet, leave it unwarned so it retries later.
@@ -695,6 +697,8 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
  * its own send-idempotency lock. Best-effort, never throws.
  */
 export async function runDailyEmailJobs(): Promise<void> {
+  // 📱 Rides the same public traffic: the 7 am phone release and the evening summary (no email in it).
+  await maybeRunPushSchedule();
   await runClaimedJob('anniversary-digest', DAILY_GAP_MS, async () => {
     const { sent } = await runAnniversaryDigest();
     return sent;
@@ -713,6 +717,12 @@ export async function runDailyEmailJobs(): Promise<void> {
   });
   await runClaimedJob('papic-fullres-drop-warning', DAILY_GAP_MS, async () => {
     const { sent } = await runPapicDropWarning();
+    return sent;
+  });
+  // 📸 Not an email — the photo rule's IN-APP reminders at day 60 · 80 · 89 after the event's last day (owner
+  // 2026-11-03, "no new emails"), riding the same daily traffic-driven runner.
+  await runClaimedJob('papic-originals-reminders', DAILY_GAP_MS, async () => {
+    const { sent } = await runPapicOriginalsReminders();
     return sent;
   });
   // Not an email job — a RETENTION job, riding the same traffic-driven runner

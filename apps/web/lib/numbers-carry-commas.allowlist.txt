@@ -15,6 +15,7 @@
 # ── TEXT: a string property whose digits were grouped where it was built ──
 app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx :: photosHead :: TEXT — RowSheet's "Photos · N" heading, a string whose count was grouped by formatCount where the sheet builds it
 app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
+app/dashboard/[eventId]/vendors/_components/services-takeover.tsx :: faceCount :: TEXT — a React element (the row's count: <Count> rolls each number, "2/5" · "3 booked"), not a number; the scanner reads its name
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
 app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts
@@ -32,6 +33,8 @@ app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — the s
 app/dashboard/[eventId]/checkout/actions.ts :: regularTotal.toString() :: IDENTIFIER — an integrity-log error_message recording the raw centavos for a mismatch investigation; never shown to a customer
 lib/package-credit.ts :: String(pkg.total_price_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim; grouping would misreport it
 lib/package-credit.ts :: String(option.per_pax_delta_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim
+lib/iap/products.ts :: credits :: IDENTIFIER — the App Store product name "Papic 1000", the owner's name with no thousands comma (2026-11-04); it must match the name set in App Store Connect exactly
+lib/iap/products.ts :: credits :: IDENTIFIER — the supplier gift product's App Store name "Gift · Papic 1000", the same owner name, matched exactly in App Store Connect
 
 # ── BOUNDED: cannot reach 1,000 ──
 app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx :: j + 1 :: BOUNDED — the dish's position in an aria-label ("Dish 3 of Cocktails"); a moment holds at most MENU_MAX_DISHES (16) dishes (lib/print-pieces.ts)
@@ -44,3 +47,7 @@ app/_components/memories/event-memories-gallery.tsx :: addPhotos :: TEXT — add
 app/receipts/_components/receipt-slip.tsx :: amount :: TEXT — the slip receives the amount already formatted by formatPhp/formatCentavosPhp in the receipt page
 app/receipts/_components/receipt-slip.tsx :: total :: TEXT — the total arrives pre-formatted (formatPhp) from the receipt page
 app/receipts/_components/receipt-slip.tsx :: line.amount :: TEXT — each line amount arrives pre-formatted from the receipt page
+lib/guests-views.ts :: GUESTS_TOP_LABEL.guests :: TEXT — the word "Guests" (the top row's segment label in the pinned menu's words), a label, never a quantity
+lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
+lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
+lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line

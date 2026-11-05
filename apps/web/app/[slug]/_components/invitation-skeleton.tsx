@@ -245,7 +245,7 @@ export function InvitationSkeleton({
           bar stood over the loading frame's cover). The page's own copy finds the marker and stands down. */}
       <CoverSceneMenuWaits />
       {showHeader ? (
-        <header data-sticky-top="" className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+        <header data-sticky-top="" className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur">
           <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
             <span className="flex items-center gap-2 text-ink">
               <Logo height={28} />

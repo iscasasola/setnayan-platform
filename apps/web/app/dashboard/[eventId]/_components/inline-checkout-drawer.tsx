@@ -96,6 +96,7 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
 const VOUCHER_NOT_CHECKED = 'We couldn’t check that code. Please try again.';
@@ -474,12 +475,7 @@ export function InlineCheckoutDrawer({
         className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-center tab:justify-end focus:outline-none"
       >
         {/* Backdrop */}
-        <button
-          type="button"
-          aria-label="Close checkout"
-          onClick={() => setOpen(false)}
-          className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-        />
+        <OverlayBackdrop onClose={() => setOpen(false)} label="Close checkout" />
 
         {/* Sheet — bottom on mobile, right drawer on desktop. */}
         <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl tab:h-full tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-l-3xl tab:rounded-tr-none">

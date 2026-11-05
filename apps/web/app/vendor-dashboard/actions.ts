@@ -22,8 +22,8 @@ import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import {
-  VERIFIED_LOCK_ERROR,
-  fetchVerifiedLock,
+  fetchIdentityLock,
+  identityLockRefusal,
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
@@ -393,11 +393,13 @@ export async function updateVendorProfileField(
   // (portfolio / featured videos) are NOT locked identity, so they stay
   // editable post-verification (matches the retired /profile full-form, whose
   // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
-  if (
-    !GALLERY_MEDIA_FIELDS.has(field) &&
-    (await fetchVerifiedLock(supabase, shopId))
-  ) {
-    return { ok: false, error: VERIFIED_LOCK_ERROR };
+  //
+  // 🏷 …and a shop SETNAYAN SET UP (owner 2026-10-29) may fill a blank name or
+  // address but not overwrite one — that goes through the same request door.
+  // ONE read, ONE rule (`identityLockOf`): the verified refusal is unchanged.
+  if (!GALLERY_MEDIA_FIELDS.has(field)) {
+    const refusal = identityLockRefusal(await fetchIdentityLock(supabase, shopId), field);
+    if (refusal) return { ok: false, error: refusal };
   }
 
   // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the
@@ -857,13 +859,13 @@ export async function requestProfileCorrection(
 /**
  * The FREE microsite controls a vendor can edit inline in My Shop → Website.
  * (Pro controls — slug / hero photo / accent / featured editorials / pinned
- * review — are gated on tierCaps.customWebsiteName and land in a follow-up PR.)
+ * review — are gated on tierCaps.premiumPage and land in a follow-up PR.)
  */
 const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_about',
   'microsite_sections',
   'microsite_featured_services',
-  // PRO controls (gated on tierCaps.customWebsiteName).
+  // PRO controls (gated on tierCaps.premiumPage — split from customWebsiteName 2026-11-04).
   // ⛔ 'business_slug' lived here until 2026-08-10. The shop address is chosen
   //    once at /open-shop and is PERMANENT on every tier (owner, twice).
   //    🔑 IT IS REFUSED HERE, AT THE ALLOWLIST — NOT AT THE TIER GATE BELOW.
@@ -943,7 +945,7 @@ function websiteFieldPatch(
   // PRO gate — the premium customization controls reuse the same cap as the
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
-  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.customWebsiteName)) {
+  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.premiumPage)) {
     return { ok: false, error: 'This is part of Pro. Pick Pro on the Plans page to save it.' };
   }
 

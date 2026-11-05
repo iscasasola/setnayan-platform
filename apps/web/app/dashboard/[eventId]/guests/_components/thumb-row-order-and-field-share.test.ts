@@ -26,21 +26,31 @@ function block(marker: string): string {
   return SCREEN.slice(at, SCREEN.indexOf('\n      </div>\n    );', at));
 }
 
-test('List: ⇕ · Search guests · ≡ (Sort, ☑ Select and the ways to add inside it) — the ONE thumb row, no ＋', () => {
-  // Owner 2026-10-22 ("Yes to all", question 1): the fifth round (☑) folds into ≡ so "Search guests" reads whole at
-  // 320. Owner 2026-10-25: "Yes, remove the + on the guest list. Typing in the search adds" — the row has no main verb.
+test('List: ⇕ · Search guests · ≡ (Show & sort) · ＋ Add ▾ — the ONE thumb row; ☑ Select on the top row', () => {
+  // Owner 2026-10-22 ("Yes to all", question 1): the fifth round (☑) folded into ≡ so "Search guests" reads whole at
+  // 320. Owner 2026-10-25: "remove the +" — and 3 Nov, "so fix their locations" (the filter only filters): the ≡ is the
+  // Show & sort sheet, the ways in are ＋ Add ▾ (a menu, never the bare add round), and ☑ Select sits on the top row.
   // The ORDER is the shared component's (`components/every-thumb-row-is-the-one-row.test.ts` renders it); here, the
   // screen hands each seat its control.
   const at = SCREEN.indexOf('<ThumbRow\n        name="guests"');
   assert.notEqual(at, -1, 'the List row moved — re-aim this guard');
-  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[sortMenu]}', at)) + 2);
-  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}'].map((m) => row.indexOf(m));
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('action={addMenu}', at)) + 2);
+  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[{ node: filterSheet }]}', 'action={addMenu}'].map((m) => row.indexOf(m));
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
-  assert.ok(!row.includes('action='), 'the List row has a main verb (the ＋) again');
-  assert.match(SCREEN, /<ThumbRow name="guests-map" field=\{field\} right=\{\[arrangeMenu\]\} \/>/, 'the Map row has a main verb (the ＋) again');
-  assert.match(SCREEN, /writesOff \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
-  assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
+  assert.match(SCREEN, /const addMenu: ThumbMenu \| null = writesOff\s*\?\s*null/, 'a viewer who may not write is offered ＋ Add');
+  // ＋ R4 slice 1 (owner 2026-10-29, prototype v12): the Map's main verb — Add guest, the shipped add sheet — only for
+  // someone who may write.
+  assert.match(
+    SCREEN,
+    /name="guests-map"\s+field=\{field\}\s+right=\{\[arrangeMenu\]\}\s+action=\{writesOff \? null : \{ icon: Plus, label: 'Add guest', onClick: \(\) => openAddGuest\(''\)/,
+    'the Map row lost its ＋ Add guest',
+  );
+  assert.match(
+    SCREEN,
+    /\{gview === 'list' && !selectMode && !writesOff && !asking \? \(\s*<ActionButton tone="neutral" icon=\{SquareCheck\} label="Select" onClick=\{\(\) => setSelectMode\(true\)\}/,
+    '☑ Select is not on the List’s top row',
+  );
 });
 
 test('Select mode: ✉ Invite N is the row’s field (≥ 60 %), then Set… · Remove N · Done', () => {

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { readGuestChapterReplies, readInvitationChapters } from '@/lib/invitation-chapters.server';
 import { readGuestStandIn } from '@/lib/guest-proxy.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -233,7 +234,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   // best-effort, like the layout's own: unread, the fallback is the house door.
   const loadingLook = await loadGuestLook(slug).catch(() => null);
   const InviteReplyBody = async () => {
-  const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle] = await Promise.all([
+  const [words, faceTagging, supabase, hub, seats, animationOwned, replyStyle, replyChapters] = await Promise.all([
     eventWordsFor(event.event_type as string),
     resolveFaceTagging(admin, event.event_id as string),
     createClient(),
@@ -248,6 +249,12 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     loadWidgets(admin, event.event_id as string)
       .then((rows) => sceneStyleOfRow(overlayHubDraftWidgets(rows, hostDraft).find((w) => w.widget_type === 'rsvp'), 'rsvp', event.event_type as string))
       .catch(() => null),
+    /* ✉ THE INVITATION'S CHAPTERS AND THIS GUEST'S ANSWERS (Step 5) — the same reads the Event Hub's card uses. */
+    Promise.all([
+      // ✉ THIS guest's chapters (owner 2026-11-02, "Invited to") — the Maker's sample shows the whole invitation.
+      readInvitationChapters(admin, event.event_id as string, canvas ? undefined : (guest.guest_id as string)),
+      canvas ? Promise.resolve(null) : readGuestChapterReplies(admin, guest.guest_id as string),
+    ]),
   ]);
   // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
   // would: the animation is owned AND not switched to "Use Static Image".
@@ -495,6 +502,8 @@ async function inviteReplyPage({ params, searchParams }: Props) {
           replyLocked={replyLocked}
           profileDetails={profileDetails}
           doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
+          chapters={replyChapters[0]}
+          chapterReplies={replyChapters[1]}
           /* 🏷 THE QUESTION AT THE INVITATION, THE SELFIE ON THE DAY (owner
              2026-09-30, "go"; DECISION_LOG "THE TAGGING QUESTION AT RSVP, THE
              SELFIE ON THE DAY"). The invite asks "Want to be tagged in the

@@ -109,39 +109,17 @@ export function DayOfFaceEnroll({
   if (faceMode !== 'mode_a' || wish === false) return null;
 
   if (done) {
-    return (
-      <div
-        role="status"
-        data-face-step-toast="ok"
-        className="fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] bottom-20 z-[70] mx-auto flex max-w-md items-start gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-cream shadow-lg"
-      >
-        <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" strokeWidth={2.5} />
-        <span>{FACE_STEP_SAVED}</span>
-      </div>
-    );
+    return <FaceStepSavedToast />;
   }
 
   const failureToast = failure ? (
-    <div
-      role="alert"
-      data-face-step-toast="fail"
-      className="mx-4 mb-3 flex items-center gap-2 rounded-2xl bg-[#6e1f33] px-4 py-3 text-sm text-cream shadow-lg"
-    >
-      <span aria-hidden className="font-bold">!</span>
-      <span className="min-w-0 flex-1">
-        {failure === CAMERA_BLOCKED ? 'Camera blocked — allow it, then' : <>Couldn&rsquo;t save — {failure}.</>}{' '}
-        <button
-          type="button"
-          onClick={() => {
-            if (failure === CAMERA_BLOCKED) setAttempt((n) => n + 1);
-            setFailure(null);
-          }}
-          className="font-medium underline underline-offset-2"
-        >
-          Try again
-        </button>
-      </span>
-    </div>
+    <FaceStepFailureToast
+      failure={failure}
+      onRetry={() => {
+        if (failure === CAMERA_BLOCKED) setAttempt((n) => n + 1);
+        setFailure(null);
+      }}
+    />
   ) : null;
 
   return (
@@ -154,5 +132,38 @@ export function DayOfFaceEnroll({
       saving={saving}
       toast={failureToast}
     />
+  );
+}
+
+/** Frame D — the save landed: the screen goes and this says so, then fades. Exported for the selfie lab only. */
+export function FaceStepSavedToast() {
+  return (
+    <div
+      role="status"
+      data-face-step-toast="ok"
+      className="fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] bottom-20 z-[70] mx-auto flex max-w-md items-start gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-cream shadow-lg"
+    >
+      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" strokeWidth={2.5} />
+      <span>{FACE_STEP_SAVED}</span>
+    </div>
+  );
+}
+
+/** Frame E — the save failed: the guest stays on the camera and is told why, in a few words, with "Try again". */
+export function FaceStepFailureToast({ failure, onRetry }: { failure: string; onRetry: () => void }) {
+  return (
+    <div
+      role="alert"
+      data-face-step-toast="fail"
+      className="mx-4 mb-3 flex items-center gap-2 rounded-2xl bg-[#6e1f33] px-4 py-3 text-sm text-cream shadow-lg"
+    >
+      <span aria-hidden className="font-bold">!</span>
+      <span className="min-w-0 flex-1">
+        {failure === CAMERA_BLOCKED ? 'Camera blocked — allow it, then' : <>Couldn&rsquo;t save — {failure}.</>}{' '}
+        <button type="button" onClick={onRetry} className="font-medium underline underline-offset-2">
+          Try again
+        </button>
+      </span>
+    </div>
   );
 }

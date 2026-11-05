@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readChecklistItems, fetchChecklistItems } from './checklist';
+import { readChecklistItems } from './checklist';
 import {
   fetchEventDecisionCounts,
   fetchEventUnreadCounts,
@@ -53,8 +53,8 @@ test('checklist: a refused read is null — an empty checklist is []', async () 
     await readChecklistItems(client({ event_checklist_items: { data: [], error: null } }), 'e1'),
     [],
   );
-  // The page-rendering wrapper keeps its graceful `[]` for its other callers.
-  assert.deepEqual(await fetchChecklistItems(client({ event_checklist_items: REFUSED }), 'e1'), []);
+  // (The page-rendering `fetchChecklistItems` wrapper that turned a refusal into `[]` is gone: the Checklist merged into
+  // Planning Stage on 2026-11-01 and every caller reads through the one list — `the-plan-is-one-list.test.ts`.)
 });
 
 test('decisions: EITHER refused query makes the whole answer unknown', async () => {
@@ -81,7 +81,9 @@ test('unread: a refused RPC is null, never an empty map', async () => {
 test('the board reads the honest ones, and turns null into "couldn’t load" on the card', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const src = stripComments(readFileSync(join(here, '../app/dashboard/(launcher)/page.tsx'), 'utf8'));
-  assert.match(src, /await readChecklistItems\(supabase, e\.event_id\)/);
+  // The plan's progress: THE ONE LIST's reader, which answers null on a refusal (`the-plan-is-one-list.test.ts`).
+  assert.match(src, /await readPlanningProgress\(supabase, e\.event_id,/);
+  assert.match(src, /if \(p === null\) return \[e\.event_id, \{ pct: null, overdue: null, failed: true \}\];/);
   assert.match(src, /readEventDecisionCounts\(\s*supabase,[\s\S]{0,80}?\)\.catch\(\(\) => null\)/);
   assert.match(src, /readEventUnreadCounts\(supabase\)\.catch\(\(\) => null\)/);
   assert.doesNotMatch(

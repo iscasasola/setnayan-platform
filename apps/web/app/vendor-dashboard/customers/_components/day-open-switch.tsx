@@ -8,7 +8,7 @@ import type { DatesBlock } from '@/lib/vendor-dates';
 type Action = (formData: FormData) => void | Promise<void>;
 
 /**
- * "YOU CAN TAKE BOOKINGS" — the picked day's availability, one switch under its rows (owner 2026-10-28, prototype
+ * "OPEN FOR BOOKINGS" (v13 2026-10-29; "You can take bookings" until then) — the picked day's availability, one switch under its rows (owner 2026-10-28, prototype
  * `supplier_in_place_2026-10-28` Customers › Dates: "tap a day → its list below; a switch marks the day not available").
  *
  * The SHIPPED writes, in place (`return_to=inplace` — nothing redirects, the month and the picked day stay):
@@ -50,12 +50,12 @@ export function DayOpenSwitch({
   return (
     <div className="mt-2 border-t border-ink/10" data-dates-day-open={read ? 'open' : 'closed'}>
       <SwitchRow
-        name="You can take bookings"
+        name="Open for bookings"
         on={on}
         disabled={pending || Boolean(lockedBy)}
         data="dates-day-open"
         about={{ words: 'Off marks this day not available on every schedule — couples cannot ask for it. Your bookings on it stay.' }}
-        note={lockedBy ? `Closed by “${lockedBy}” — open the day to change it` : 'Off = couples can’t ask for this day'}
+        note={lockedBy ? `Closed by “${lockedBy}” — open the day to change it` : 'Off = blocked · couples can’t ask for it'}
         problem={problem}
         onChange={(next) => {
           setOn(next);

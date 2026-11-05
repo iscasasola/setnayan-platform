@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
+import { PapicChapterRead } from './_components/papic-chapter-read';
 import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
@@ -11,13 +13,20 @@ import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { makerHasWork } from '@/lib/maker-details-items';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
+import { readHomeSchedule } from '@/lib/home-schedule.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
+import { readHubViewers } from '@/lib/whos-here.server';
+import { hubViewsEnabled } from '@/lib/whos-here';
+import { HomeWhosHereCard } from './_components/home-cards/home-whos-here-card';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { AccessRequestsDoorway, accessAsksWaiting, readAccessAsks } from './_components/access-requests-doorway';
+import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
+import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -89,6 +98,18 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
+import { isEventSettingsRow } from '@/lib/people-with-access-href';
+import { isUuid } from '@/lib/is-uuid';
+import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
+/* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
+   server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
+   `details-go.tsx`). Next can only send a client component in an action's answer when THIS ROUTE's server files reach
+   it: it builds the route's client manifest from the route's SERVER imports, and the ⚙ reaches the action only from the
+   browser (`import()`), which records nothing. So on a real event the action answered 200 with every editor as an
+   error ("Could not find the module … in the React Client Manifest") and Home fell to "Something on our end didn't
+   work". This side-effect import puts the action, and so the editors it draws, in Home's server graph.
+   🔒 `_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
+import './_components/open-event-settings';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
@@ -116,6 +137,14 @@ import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 export const dynamic = 'force-dynamic';
 
+/** ✨ The Memories line's words (Home redraw 2026-11-02, round 3 `memLine()`): before · on · after the day. */
+function memoriesLine({ after, day, photos }: { after: boolean; day: boolean; photos: number | null }): string {
+  const shot = photos !== null && photos > 0 ? `${formatCount(photos)} ${photos === 1 ? 'photo' : 'photos'}` : null;
+  if (after) return shot ? `${shot} · everything from the day` : 'Everything from the day, in one place';
+  if (day) return shot ? `${shot} so far · filling now` : 'Filling now';
+  return 'Fills on the day · photos, reels and your Thank-you video';
+}
+
 /*
   ─── THE BROWSER TAB SAID "FILIPINO WEDDING PLANNING + VERIFIED VENDORS" ───
 
@@ -136,7 +165,7 @@ export const dynamic = 'force-dynamic';
 */
 /** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
-  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, date_window_start, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
 
 export async function generateMetadata({
   params,
@@ -191,7 +220,24 @@ export default async function EventHomePage({
 }: {
   params: Promise<{ eventId: string }>;
   /** 📷 + the Papic card's answers (the Papic page is gone, 2026-10-26): a save's outcome, `?buy=1`, a purchase error. */
-  searchParams?: Promise<{ sai?: string; inspect?: string; sheet?: string; buy?: string; papic_pool_error?: string } & PapicOutcomes>;
+  searchParams?: Promise<
+    {
+      sai?: string;
+      inspect?: string;
+      sheet?: string;
+      buy?: string;
+      papic_pool_error?: string;
+      /** ⚙ `?settings=1&row=…` — Home opens with its Event Settings sheet up (the ☰'s mark, "Change ›" to access). */
+      settings?: string;
+      row?: string;
+      /** 🪪 `&person=<seat>` — the sheet lands on that person's row in People with access (a helper's "Ask the hosts"). */
+      person?: string;
+      /** 📅 `?date=find` — Home opens with the Date Finder up (the Countdown's door). */
+      date?: string;
+      host_removed?: string;
+      invite_error?: string;
+    } & PapicOutcomes
+  >;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -204,6 +250,8 @@ export default async function EventHomePage({
   if (!user) redirect('/login');
   // 🚪 What THIS event needs (Level 1) — started now, its own small read, degrading to "everything on".
   const homeNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventHome'));
+  // 🔑 What access asks wait on the hosts — started now; the Today line and its doorway share the one answer.
+  const accessAsksRead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
 
   // Lazy expiry sweeps at the top of the dashboard (no-cron architecture per
   // CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures never block the
@@ -663,6 +711,9 @@ export default async function EventHomePage({
   // Every path renders the first screen, so every path awaits it; a refusal still keeps
   // today's colour. 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
   const homeCoverRead = startAhead(homeCoverFor(eventId).catch(() => null));
+  // 👀 WHO'S HERE (owner 2026-10-29) — the guests viewing the Event Hub, ONE call (`event_hub_viewers`), started with
+  // the rest. The team half needs no read: it is the layout's presence channel.
+  const whosHereRead = startAhead(readHubViewers(supabase, eventId));
   // "FOR <NAME>" under the name (owner 22 Oct 2026) — only when this event is for a subject the
   // VIEWER holds (their shop, a loved one; `readForTags` re-reads it under owner = viewer, on the
   // viewer's own client). A refusal is null: no line, never a guessed name.
@@ -732,11 +783,22 @@ export default async function EventHomePage({
                 event_type: (event.event_type as string | null) ?? null,
                 event_date: (event.event_date as string | null) ?? null,
                 date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
+                date_window_start: (event as { date_window_start?: string | null }).date_window_start ?? null,
                 created_at: (event as { created_at?: string | null }).created_at ?? null,
               },
             })
           : null,
       )
+      .catch((): 'unread' => 'unread'),
+  );
+  /*
+    📅 THE SCHEDULE WIDGET (owner 2026-11-01, "Schedule goes to home" · "Gets its own widget in home"): its chapters and
+    moments, their tasks (clashes), the open supplier requests and the booked suppliers — ONE round of four reads
+    (`readHomeSchedule`), started with the rest, for the viewers who plan here. A refusal is 'unread', said.
+  */
+  const homeScheduleRead = startAhead(
+    homePlansRead
+      .then((plans) => readHomeSchedule(supabase, eventId, { show: plans, tz: (event as { timezone?: string | null }).timezone ?? null }))
       .catch((): 'unread' => 'unread'),
   );
   const homeHubRead = startAhead(
@@ -791,6 +853,7 @@ export default async function EventHomePage({
     homeSuppliers,
     homeChecklist,
     homeHub,
+    homeSchedule,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -806,6 +869,7 @@ export default async function EventHomePage({
     homeSuppliersRead,
     homeChecklistRead,
     homeHubRead,
+    homeScheduleRead,
   ]);
 
   /*
@@ -960,9 +1024,26 @@ export default async function EventHomePage({
           phase: papicCardPhaseNow,
           // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
           thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
+          /* 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Off · On — event day · On — everyone, now (`PapicHeadControl`);
+             its line under the title says the current position, "after you Apply" while Papic's switch waits for Apply. */
+          headControl: (
+            <Suspense fallback={null}>
+              <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
+          headLine: (
+            <Suspense fallback={SERVICE_NAMES.papic.brand}>
+              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
           counts: { total: papicNow.total, left: papicNow.count },
           buy: papicBuy,
+          // 📷 The chapter it shoots into (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") — streamed.
+          chapter: (
+            <Suspense fallback={null}>
+              <PapicChapterRead eventId={eventId} />
+            </Suspense>
+          ),
           defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
           settings: (
             <>
@@ -1044,14 +1125,19 @@ export default async function EventHomePage({
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
+  const whosHere = await whosHereRead;
+  const whosHereCard = <HomeWhosHereCard eventId={eventId} initial={whosHere} hubEnabled={hubViewsEnabled()} />;
   /*
     🎛 THE CONTROL ROW'S FACTS (owner-approved 2026-10-24) — every number from the reader the page already ran:
     the countdown from `homeFacts`, the guests from `rosterStats` (the Guests summary's own counts), the money from the
     one budget read, every payment still to settle from the resolved ledger (`event_vendor_line_items`, banded by
     `lib/budget-truth.ts` `dueState`). Never invented: an unread read is 'unread' and its widget says so.
   */
+  // 🔑 What access asks wait — ONE read, shared by the Today line (`asks`) and its doorway below (audit 2026-11-02 #2).
+  const accessAsks = await accessAsksRead;
   const homeControl = composeHomeControl({
     eventId,
+    asks: accessAsksWaiting(accessAsks),
     next: homeNext,
     days: facts.days,
     daysN: facts.figures.days ?? null,
@@ -1064,6 +1150,13 @@ export default async function EventHomePage({
     hub: homeHub,
     suppliers: homeSuppliers,
     checklist: homeChecklist,
+    // 📅 The Schedule widget — Release wears ◆ PRO unless the event owns Pro (plan §3b; an unlock belongs to the event).
+    schedule:
+      homeSchedule && homeSchedule !== 'unread'
+        ? { ...homeSchedule, pro: homePaidReads[HOME_PAID_SKU.hub]?.active === true }
+        : homeSchedule,
+    // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
+    countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
   });
   const appleThankYouEntry = ADD_ONS.find((a) => a.key === 'thank-you');
   const appleThankYouOffered = Boolean(
@@ -1072,6 +1165,33 @@ export default async function EventHomePage({
       appleThankYouEntry.status !== 'coming_soon' &&
       !isStoreShellHiddenAddon(appleThankYouEntry.key, iap) &&
       addOnOfferedForEvent(appleThankYouEntry, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
+  );
+  /*
+    ☀ THE TODAY ASKS — every prompt that waits on the hosts (owner 2026-10-29, verbatim: *"The popup for the access and
+    other popups above the header can be presented better"*). They used to stack ABOVE the cover band; NOTHING renders
+    above Home's cover now — the cover is the top of Home — and each is a line of the Today list under it
+    (`HomeTodayItem`), in this order: what waits on the hosts first (the coordinator's access, then access requests),
+    then what is under way (a date change), then the event-day offer. Each self-hides and says a refused read. Held by
+    `the-cover-is-the-top-of-home.test.ts`.
+  */
+  const todayAsks = (
+    <>
+      {/* 🔑 "<shop> joined as your coordinator · Pick their access" — once, for a connected coordinator the hosts have
+          not answered for (owner 2026-10-29). Owners only; the press opens the house Sheet. */}
+      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
+      {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
+          decides what to share). */}
+      <AccessRequestsDoorway eventId={eventId} read={accessAsks} />
+      {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
+          2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
+      <MoodBoardAsksDoorway eventId={eventId} />
+      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
+          suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
+      <DateChangeDoorway eventId={eventId} />
+      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration — its own window is T-3d..T+1d and it
+          never asked whether the day had been and gone. It is TOLD, from the one resolver. */}
+      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+    </>
   );
   const homeFirstScreen = (
     <>
@@ -1082,11 +1202,28 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
+      asks={todayAsks}
+      /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
+      eventSettings={viewerMemberType === 'couple'}
+      /* 🪪 …and a helper's (a coordinator or limited helper — every non-host seat is a `coordinator` member): the same ⚙,
+         whose sheet holds only "Your access", read-only (owner 2026-10-31). */
+      helperSettings={viewerMemberType === 'coordinator'}
+      dateFinderOpen={search.date === DATE_FINDER_VALUE}
+      eventSettingsLink={{
+        open: search.settings === '1',
+        row: search.settings === '1' && isEventSettingsRow(search.row) ? search.row : null,
+        // 🪪 A helper's "Ask the hosts" notice lands on that helper's row (a seat id — anything else is ignored).
+        person: search.settings === '1' && isUuid(search.person) ? search.person : null,
+        landed: search.settings === '1' ? { host_removed: search.host_removed, invite_error: search.invite_error } : null,
+        // A fresh server render of Home (a save's redraw) re-reads the open sheet's rows once.
+        renderKey: `${Date.now()}`,
+      }}
       next={homeNext}
       control={homeControl}
       services={homeServiceRowAll}
       papicLeft={papicNow.count}
       papicCard={papicCard}
+      whosHere={whosHereCard}
       serviceCards={serviceCards}
       apple={
         appleFacts
@@ -1128,7 +1265,13 @@ export default async function EventHomePage({
           : null
       }
       ground={homeCover}
+      /* ✨ The Memories line (Home redraw 2026-11-02): its state from what Home already read — the photos Papic gathered
+         (a count only where it was read; never a 0 over a refusal) and where the event is in time. */
+      memories={memoriesLine({ after: afterActive, day: dayOfActive, photos: typeof papicNow.photos === 'number' ? papicNow.photos : null })}
       needs={homeNeeds}
+      /* 🖨 The Prints line (R8) — where Prints has work: the couple, with an Event Hub (the Maker's own `makerHasWork`,
+         which the Prints page asks too), on an event that needs its details (as the Studio tile was offered). */
+      prints={makerHasWork(viewerMemberType, surfaceEnabled(needsProfile, 'website')) && eventNeeds.hubDetails}
     />
     </>
   );
@@ -1296,18 +1439,9 @@ export default async function EventHomePage({
       {/* 🧩 Home's services grow in place (owner 2026-10-23) — their first-visit spotlight, after the journey; only
           where the cards are drawn (the couple, on the web). No price in any step. */}
       {serviceCards && !(dayOfActive || afterActive) ? <Spotlight tourKey={HOST_PAGE_TOURS.home} after={HOST_PAGE_TOURS_AFTER} replay="page" /> : null}
-      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
-          its own window is T-3d..T+1d and it never asked whether the day had
-          been and gone. It is TOLD, from the one resolver, rather than given a
-          third opinion of its own. */}
-      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
-      {/* Self-hiding: renders nothing unless a coordinator is waiting on an
-          answer (owner ruling 2026-07-27 — the host decides what to share). */}
-      <AccessRequestsDoorway eventId={eventId} />
-      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
-          nothing unless the couple asked booked suppliers to move (owner
-          2026-10-01, the clashing-date flow). Couple-only by RLS. */}
-      <DateChangeDoorway eventId={eventId} />
+      {/* ☀ The day-of console and the after page draw no cover, so the Today asks lead them here; before the day they
+          are lines of the Today list UNDER the cover (`todayAsks` above — nothing renders above Home's cover). */}
+      {dayOfActive || afterActive ? todayAsks : null}
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
       {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
           SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}
@@ -1331,10 +1465,12 @@ export default async function EventHomePage({
             start_at: b.start_at,
             end_at: b.end_at,
             location: b.location,
+            time_tba: b.time_tba === true,
           }))}
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
           tablesFailed={dayOfTablesFailed}
+          blocksFailed={dayOfBlocksFailed}
           sameDayVendors={dayOfSameDayVendors}
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
@@ -1355,6 +1491,8 @@ export default async function EventHomePage({
           }
         />
       ) : null}
+      {/* 👀 Who's here on the day — the team on the dashboard and the guests opening the Event Hub (owner 2026-10-29). */}
+      {dayOfActive ? whosHereCard : null}
 
       {/* Day-of takeover (council verdict Phase 6, owner sign-off #4). On the
        *  day itself the planning stack RECEDES: it is still one tap away, but
@@ -1441,6 +1579,8 @@ export default async function EventHomePage({
             summary={afterSummary}
             storeShell={storeShell}
           />
+
+          {whosHereCard}
 
           {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
               the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}

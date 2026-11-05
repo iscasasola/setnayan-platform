@@ -8,6 +8,8 @@
 // manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
 // CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
 // stale after wizard save".
+import { candidatesOnOrAfterFirstEventDay } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import {
   ACCEPTED_QUOTE_SELECT,
@@ -42,14 +44,13 @@ import {
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
-import {
-  HARD_SINGLE_PICK_GROUPS,
-  planGroupForCategory,
-} from '@/lib/wedding-plan-groups';
+import { planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { isOnePerEventGroup, readOnePerEventGroups } from '@/lib/one-per-event';
 import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates, formatCandidateDate } from '@/lib/candidate-dates';
@@ -122,12 +123,23 @@ import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate'
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
 import { stampManualLeakMatch } from '@/lib/manual-add-leak.server';
+import { supplierSharePayload } from '@/lib/supplier-share.server';
+import type { SupplierSharePayload } from '@/lib/supplier-share';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
+  PLAN_PRESENT_FIELD,
+  onLockAnchorIso,
+  partialSaveSentence,
+  planInstanceSeqs,
   planInstancesToRows,
+  planSaveStep,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
+import { lastPlanReplot } from '@/lib/plan-replot';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
+import type { PayWayView } from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
@@ -448,6 +460,8 @@ async function updateVendorStatus(formData: FormData) {
         email: prevRow.contact_email,
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
+        // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
+        shopProfileId: prevRow.marketplace_vendor_id ?? null,
       });
     } catch {
       // best-effort — never block the booking-status write on the auto-invite.
@@ -626,11 +640,10 @@ export async function deleteVendor(formData: FormData) {
 // hard-single conflict / error states without the "thrown error → page-fault"
 // UX that synchronous form actions produce.
 //
-// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules + the
-// HARD_SINGLE_PICK_GROUPS set in lib/wedding-plan-groups.ts. As of the 22-card
-// grid expansion (2026-05-22), the hard-single set covers: ceremony_venue +
-// reception_venue + officiant + coordinator + host_mc + led_background — each
-// allows only ONE locked vendor at a time. If the host tries to lock a second
+// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules. Which
+// groups allow only ONE locked vendor at a time is the category's "One per
+// event" switch (`service_categories.one_per_event`, owner 2026-10-29 — read
+// through lib/one-per-event.ts; LED is multi since that ruling). If the host tries to lock a second
 // vendor in one of those groups, the action returns 'hard_single_conflict'
 // with the existing locked vendor's info; the UI then offers a Switch flow
 // that (a) reverts the existing locked vendor to 'considering' and
@@ -660,7 +673,14 @@ export type LockMilestone = {
 };
 
 export type FinalizeVendorResult =
-  | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  | {
+      status: 'ok';
+      vendorId: string;
+      lockedStatus: string;
+      milestone: LockMilestone;
+      /** The category is One per event (`service_categories.one_per_event`) — the client asks "add another?" only when not. */
+      onePerEvent: boolean;
+    }
   // PR-H: the press was an ASK, not a booking. The supplier now has 48 HOURS to
   // agree or decline; nothing downstream has fired and no money is owed. Only
   // reachable with NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED on AND a marketplace
@@ -787,6 +807,8 @@ export type FinalizeVendorResult =
   // Off-platform / manual vendors carry no verification concept and never hit
   // this. Grandfathered: already-locked rows return 'already_locked' first.
   | { status: 'vendor_not_verified'; vendorId: string; vendorName: string }
+  /** 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 2). */
+  | { status: 'bookings_closed'; vendorId: string }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -1095,6 +1117,8 @@ export async function finalizeVendor(
   // The read uses the admin client (public RLS on vendor_profiles is
   // verified-only; the couple already proved they own this booking above).
   if (targetVendor.marketplace_vendor_id) {
+    // 🚪 DOOR 2 · BOOKINGS CLOSED (owner 2026-11-02). A closed platform books nobody; the trigger is the backstop.
+    if (!(await areBookingsOpen())) return { status: 'bookings_closed', vendorId };
     const bookable = await isMarketplaceVendorBookable(
       createAdminClient(),
       targetVendor.marketplace_vendor_id,
@@ -1171,7 +1195,13 @@ export async function finalizeVendor(
   // write. The two write paths below convert a lost-the-race 23505 into the
   // same modal.
   const groupId = planGroupForCategory(targetCategory);
-  const isHardSingle = !!(groupId && HARD_SINGLE_PICK_GROUPS.has(groupId));
+  // ONE PER EVENT is read, not listed (owner 2026-10-29). A refused read must not lock as if "none" were one per
+  // event — say so and stop; the database guard would refuse a second booking anyway.
+  const onePerEvent = await readOnePerEventGroups(supabase);
+  if (!onePerEvent.ok) {
+    return { status: 'error', message: 'Couldn’t check this category just now — try booking again.' };
+  }
+  const isHardSingle = isOnePerEventGroup(groupId, onePerEvent.groups);
   const groupCategories: VendorCategory[] = isHardSingle
     ? VENDOR_CATEGORIES.filter((c) => planGroupForCategory(c) === groupId)
     : [];
@@ -1298,13 +1328,17 @@ export async function finalizeVendor(
       .eq('event_id', eventId)
       .maybeSingle();
     const existingDate = (dateRow as { event_date?: string | null } | null)?.event_date ?? null;
-    const candidates = Array.isArray(
-      (dateRow as { date_candidates?: unknown } | null)?.date_candidates,
-    )
-      ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
-          (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
-        )
-      : [];
+    // 💍 A candidate before December 19, 2026 is not a date this event may take (owner
+    // 2026-11-01, lib/event-date-floor.ts) — dropped before narrowing, so no lock ever
+    // writes it. The founders' events keep every candidate.
+    const candidates = await candidatesOnOrAfterFirstEventDay(
+      Array.isArray((dateRow as { date_candidates?: unknown } | null)?.date_candidates)
+        ? ((dateRow as { date_candidates: unknown[] }).date_candidates).filter(
+            (s): s is string => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s),
+          )
+        : [],
+      () => eventDateFloorExempt(supabase, { eventId }),
+    );
 
     if (!existingDate && candidates.length > 0) {
       // Profile ids of vendors that constrain the date: already-locked
@@ -2856,7 +2890,7 @@ export async function finalizeVendor(
   // remaining caller disappears.
   // ----------------------------------------------------------------------
 
-  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
+  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone, onePerEvent: isHardSingle };
 }
 
 // ============================================================================
@@ -3168,10 +3202,16 @@ export async function revertVendorToConsidering(
     typeof revertedCategory === 'string' && isValidCategory(revertedCategory)
       ? planGroupForCategory(revertedCategory)
       : null;
+  const revertOnePerEvent = revertGroupId ? await readOnePerEventGroups(supabase) : null;
+  if (revertOnePerEvent && !revertOnePerEvent.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(`[revertVendorToConsidering] One per event unreadable — revive skipped for event_id=${eventId} vendor_id=${vendorId}`);
+  }
   if (
     isPaymentGatedLockEnabled() &&
     revertGroupId &&
-    HARD_SINGLE_PICK_GROUPS.has(revertGroupId)
+    revertOnePerEvent?.ok &&
+    isOnePerEventGroup(revertGroupId, revertOnePerEvent.groups)
   ) {
     try {
       const revertGroupCategories = VENDOR_CATEGORIES.filter(
@@ -3632,12 +3672,23 @@ async function attachManualVendorToCategory(
 // ============================================================================
 
 export type ManualVendorInviteResult =
-  | { ok: true; url: string; qrSvg: string }
+  | {
+      ok: true;
+      url: string;
+      qrSvg: string;
+      /**
+       * 📨 Asked for with `withShare` (the self-added supplier's Share, DECISION_LOG 2026-10-30): the approved message
+       * and their digital card, built from this link (`supplierSharePayload`). Null = their details could not be read.
+       */
+      share?: SupplierSharePayload | null;
+    }
   | { ok: false; error: string };
 
 export async function createManualVendorInvite(input: {
   eventId: string;
   vendorId: string;
+  /** Also hand back the Share's message and card — ONE request for the Share, no new action or route. */
+  withShare?: boolean;
 }): Promise<ManualVendorInviteResult> {
   const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
@@ -3692,6 +3743,10 @@ export async function createManualVendorInvite(input: {
   // manually will create a QR code for the vendor to log in from"). Rendered
   // server-side (the `qrcode` lib is server-only); the client just paints it.
   const url = buildClaimUrl(invite.claim_token);
+  if (input.withShare) {
+    // The Share needs the message and the card, not the QR picture.
+    return { ok: true, url, qrSvg: '', share: await supplierSharePayload(supabase, input.eventId, input.vendorId, url) };
+  }
   return { ok: true, url, qrSvg: await renderUrlQrSvg(url) };
 }
 
@@ -5440,7 +5495,7 @@ export async function addManualSupplier(
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', eventVendorId);
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
@@ -5474,14 +5529,16 @@ export async function addManualSupplier(
     });
   }
 
-  // 7 · THEIR LINK, in the same press (the walk's step 4 shows it at once —
-  //     one write per press, owner 2026-10-08). `createManualVendorInvite` is
-  //     the shipped, idempotent writer; a link that could not be made is not a
-  //     failed add — the panel then offers "Create their link".
+  // 7 · THEIR LINK, ALWAYS, in the same press. Owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+  //     automatic link"* — a supplier the couple adds has their claim link from the moment they exist, nobody presses
+  //     anything. `createManualVendorInvite` is the shipped, idempotent writer (one live link per supplier, the
+  //     `vendor_invites_live_unique` index); a link that could not be made is not a failed add — the record card makes
+  //     it the first time it opens, and says so in place if it still cannot. `with_link` now only decides whether the
+  //     link rides back on this answer (the walk's step 4 and the add sheet's saved step draw it at once).
   let invite: SupplierInviteView | undefined;
-  if (formData.get('with_link') === '1') {
+  {
     const link = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
-    invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
+    if (formData.get('with_link') === '1') invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
   }
 
   // The walk draws its own answer (`answer_in_place`) and refreshes once,
@@ -5575,6 +5632,23 @@ export type SelfAddedSupplierPrefill = {
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
   planRows: EditablePlanRow[];
+  /** A plan row EXISTS — so an empty `planRows` means "saved with no payments",
+   *  not "no plan yet" (which opens on the 50/50 starter). */
+  planSaved?: boolean;
+  /**
+   * THE RECORD CARD'S DATED ROWS (2026-10-29). What "after you book" counts from and the event date — so each stored
+   * rule opens as the day it falls on, and a typed day posts back as the rule that lands on it
+   * (`lib/record-card-plan.ts`). Absent (an older caller) → the card draws the plan as it is and can still save it.
+   */
+  planDates?: { lockIso: string; eventIso: string | null };
+  /** Each plan row's stored `seq`, in `planRows` order — posted back so a payment stays on its instalment. */
+  planSeqs?: Array<number | null>;
+  /** Instalments with a payment logged against them that was not refused — the card keeps them as they are. */
+  settledSeqs?: number[];
+  /** The newest plan a price change replaced (`replot_history`) — "Price changed ₱A → ₱B · plan updated". */
+  lastReplot?: { fromPhp: number; toPhp: number; at: string } | null;
+  /** How to pay them. `null` = the read was refused — said on the card, never drawn as "none added". */
+  payWays?: PayWayView[] | null;
 };
 
 export type LoadSelfAddedSupplierResult =
@@ -5623,7 +5697,7 @@ export async function loadSelfAddedSupplier(
     return { status: 'error', message: 'This supplier is on Setnayan now — open their page instead.' };
   }
 
-  const [manualRes, planRes, claimAsk] = await Promise.all([
+  const [manualRes, planRes, claimAsk, eventRes, paidRes, waysRes] = await Promise.all([
     row.manual_vendor_id
       ? supabase
           .from('event_manual_vendors')
@@ -5634,16 +5708,34 @@ export async function loadSelfAddedSupplier(
       : Promise.resolve({ data: null, error: null }),
     supabase
       .from('event_vendor_payment_plan')
-      .select('instances_json')
+      .select('instances_json, is_default_seeded, on_lock_anchor_date, replot_history')
       .eq('event_id', eventId)
       .eq('event_vendor_id', vendorId)
       .maybeSingle(),
     hasClaimAsk(supabase, eventId, vendorId),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    // Settled instalments — a payment logged against the seq, not refused (the re-plot's own reading).
+    supabase
+      .from('event_vendor_payments')
+      .select('schedule_instance_seq')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .not('schedule_instance_seq', 'is', null)
+      .is('payment_refused_at', null),
+    readPayWaysForRecord(supabase, eventId, row.manual_vendor_id),
   ]);
   // A refused read is not an empty supplier: pre-filling blanks over a real
   // contact card would invite the couple to "save" their data away.
   if (manualRes.error) return { status: 'error', message: manualRes.error.message };
   if (planRes.error) return { status: 'error', message: planRes.error.message };
+  // A refused read of the payments would draw a paid instalment as editable — refuse the open instead.
+  if (paidRes.error) return { status: 'error', message: paidRes.error.message };
+  const planRow = (planRes.data ?? null) as {
+    instances_json?: unknown;
+    is_default_seeded?: boolean | null;
+    on_lock_anchor_date?: string | null;
+    replot_history?: unknown;
+  } | null;
   const m = (manualRes.data ?? null) as {
     business_name: string | null;
     contact_person: string | null;
@@ -5682,7 +5774,24 @@ export async function loadSelfAddedSupplier(
       claimAsk,
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
-      planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),
+      // The lock's own 50/50 estimate comes back as its rule (on lock · 14 days
+      // before), not as two blank-dated rows every later save would refuse.
+      planRows: planInstancesToRows(planRow?.instances_json, { defaultSeeded: planRow?.is_default_seeded === true }),
+      planSaved: planRes.data != null,
+      planDates: {
+        lockIso: onLockAnchorIso(planRow?.on_lock_anchor_date, manilaTodayIso()),
+        eventIso: eventRes.error ? null : ((eventRes.data as { event_date: string | null } | null)?.event_date ?? null) || null,
+      },
+      planSeqs: planInstanceSeqs(planRow?.instances_json),
+      settledSeqs: [
+        ...new Set(
+          ((paidRes.data ?? []) as Array<{ schedule_instance_seq: number | null }>)
+            .map((p) => p.schedule_instance_seq)
+            .filter((n): n is number => typeof n === 'number'),
+        ),
+      ],
+      lastReplot: lastPlanReplot(planRow?.replot_history),
+      payWays: waysRes.status === 'ok' ? waysRes.ways : null,
     },
   };
 }
@@ -5729,7 +5838,8 @@ export async function updateSelfAddedSupplier(
     return { status: 'error', message: msg || 'Could not save their details.' };
   }
 
-  const warnings: string[] = [];
+  /** What did not save, and — when it has one the couple can act on — why. */
+  const warnings: Array<{ what: string; why?: string }> = [];
 
   // 2 · The booking's own name, which is what the bench card prints.
   const name = formData.get('business_name');
@@ -5740,7 +5850,7 @@ export async function updateSelfAddedSupplier(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .is('marketplace_vendor_id', null);
-    if (error) warnings.push('the name on your suppliers list');
+    if (error) warnings.push({ what: 'the name on your suppliers list' });
   }
 
   // 3 · Price — price-only, so nothing else on the row moves.
@@ -5753,7 +5863,7 @@ export async function updateSelfAddedSupplier(
     costFd.set('price_only', '1');
     await updateVendorCosts(costFd);
   } catch {
-    warnings.push('the price');
+    warnings.push({ what: 'the price' });
   }
 
   // 3b · THE PRICE CHECK (owner 2026-10-10: "10% allowance +-"). The record
@@ -5798,35 +5908,48 @@ export async function updateSelfAddedSupplier(
     }
     await updateHostServiceDetails(detailsFd);
   } catch {
-    warnings.push('what they cover');
+    warnings.push({ what: 'what they cover' });
   }
 
-  // 5 · The payment plan, when the sheet sent one.
-  const hasPlanRows = formData
-    .getAll('plan_label')
-    .some((l) => typeof l === 'string' && l.trim().length > 0);
-  if (hasPlanRows) {
+  // 5 · The payment plan — saved as typed, INCLUDING typed down to none.
+  //     🔴 A plan whose payments were all removed used to skip this step and
+  //     report "saved" while the OLD plan stayed (and came back on the next
+  //     open). `planSaveStep` tells an untouched form from an emptied one by
+  //     the editor's own presence; `saveSelfAddedPaymentPlan` writes the
+  //     emptied plan as no payments.
+  //     ⚖ AFTER the price (step 3): the plan is checked against the price
+  //     typed in this same save, never the one it replaces.
+  const planStep = planSaveStep({
+    editorPresent: formData.get(PLAN_PRESENT_FIELD) === '1',
+    postedLabels: formData.getAll('plan_label'),
+    postedValues: formData.getAll('plan_value'),
+  });
+  if (planStep !== 'skip') {
     try {
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', vendorId);
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      planFd.set(PLAN_PRESENT_FIELD, '1');
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
     } catch (e) {
       // The plan's own refusal ("₱60,000 of ₱80,000") is the only sentence
-      // that says what to fix, so it is passed through, not summarised.
+      // that says what to fix, so it is passed through as the WHY, after
+      // naming what did not save.
       const msg = e instanceof Error ? e.message : '';
-      warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+      warnings.push({
+        what: 'the payment plan',
+        ...(msg && !msg.startsWith('An error occurred') ? { why: msg } : {}),
+      });
     }
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return warnings.length === 0
-    ? { status: 'ok' }
-    : { status: 'ok', warning: `Saved — except ${warnings.join(' and ')}.` };
+  const warning = partialSaveSentence(warnings);
+  return warning ? { status: 'ok', warning } : { status: 'ok' };
 }
 
 export type SupplierInviteView = { url: string; qrSvg: string } | null;

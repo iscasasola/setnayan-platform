@@ -1,9 +1,16 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
+import { BOOKINGS_CLOSED_SUPPLIER_MESSAGE, BOOKINGS_OPEN_SOON } from '@/lib/bookings-open';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { isMarketplaceVendorBookable, LOCKED_QR_NEEDS_VERIFIED } from '@/lib/vendor-verification';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { checkADateQr } from '@/lib/check-a-date-qr';
 import { buildVendorInviteUrl, vendorCoverageCategories } from '@/lib/vendor-couple-invite';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -14,8 +21,14 @@ import { fetchVendorContracts } from '@/lib/contracts';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { rangeWords } from '@/lib/vendor-dates';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { siteOrigin } from '@/lib/site-origin';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { hubDayWords, hubHref } from '@/lib/hub-events';
+import { crewJoinPath } from '@/lib/crew-pass';
+import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
+import { SUPPLIER_QR_MODES, SUPPLIER_QR_MODE_LABEL, crewQrEvents, myPageUrl, pickCrewQrEvent, supplierQrModeOf, type SupplierQrMode } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator } from './_components/locked-qr-generator';
-import { QrCodes, type IssuedRow, type QrPick } from './_components/qr-codes';
+import { QrCodes, type CrewQr, type IssuedRow, type QrPick } from './_components/qr-codes';
 
 export const metadata = { title: 'QR codes · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -42,6 +55,9 @@ const BOOKED_ERRORS: Record<string, string> = {
   contract: 'Pick one of your saved contracts to attach.',
   description: 'Describe what the couple availed.',
   event_date: 'Set the agreed event date.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
+  bookings_closed: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
+  not_verified: LOCKED_QR_NEEDS_VERIFIED,
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
 };
@@ -63,10 +79,10 @@ const QR_HREF = '/vendor-dashboard/invite';
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string }>;
 }) {
   const search = await searchParams;
-  const mode: 'shortlist' | 'locked' = search.mode === 'locked' ? 'locked' : 'shortlist';
+  const mode: SupplierQrMode = supplierQrModeOf(search.mode);
   // The outside booking a code is being made for (Customers › People). Shape only — the database refuses one that is
   // not this shop's own outside booking.
   const blockId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.block ?? '') ? (search.block as string) : null;
@@ -110,13 +126,60 @@ export default async function VendorQrCodesPage({
   // The shop's coverage words ride on the profile already read — no second read of the same row.
   const profileServices = ((profile as { services?: string[] | null }).services ?? []) as string[];
   const kindLabel = await cardKindLabeller();
-  const modeOptions: QrPick[] = [
-    { key: 'shortlist', label: 'Shortlist · free', href: `${QR_HREF}?mode=shortlist` },
-    { key: 'locked', label: 'Booked · one-use', href: `${QR_HREF}?mode=locked` },
-  ];
+  // 🔳 ONE "Which code ▾" (owner 2026-10-29 "THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"): Shortlist · Booked · Check a
+  // date (owner 2026-10-28, `/v/<slug>/dates`) · My page · Crew for an event — the list and its words live in
+  // `lib/supplier-qr-codes.ts`.
+  const modeOptions: QrPick[] = SUPPLIER_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${QR_HREF}?mode=${key}` }));
+  const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
 
   if (!canShare) {
     return <QrCodes mode={mode} backHref={DATES_HREF} modeOptions={modeOptions} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
+  }
+
+  if (mode === 'dates') {
+    return (
+      <QrCodes
+        mode="dates"
+        backHref={DATES_HREF}
+        modeOptions={modeOptions}
+        canShare
+        setupHref="/vendor-dashboard/shop"
+        shortlist={null}
+        booked={null}
+        checkADate={{ ...(await checkADateQr(slug!)), shopName }}
+      />
+    );
+  }
+
+  if (mode === 'page') {
+    const url = myPageUrl(siteOrigin(), slug!);
+    return (
+      <QrCodes
+        mode="page"
+        backHref={DATES_HREF}
+        modeOptions={modeOptions}
+        canShare
+        setupHref="/vendor-dashboard/shop"
+        shortlist={null}
+        booked={null}
+        myPage={{ url, svg: await renderUrlQrSvg(url, 220).catch(() => null), shopName }}
+      />
+    );
+  }
+
+  if (mode === 'crew') {
+    return (
+      <QrCodes
+        mode="crew"
+        backHref={DATES_HREF}
+        modeOptions={modeOptions}
+        canShare
+        setupHref="/vendor-dashboard/shop"
+        shortlist={null}
+        booked={null}
+        crew={await readCrewQr(supabase, user.id, vendorProfileId, today, search.event ?? null)}
+      />
+    );
   }
 
   if (mode === 'shortlist') {
@@ -214,7 +277,26 @@ export default async function VendorQrCodesPage({
 
   // The deal form's choices: the shop's own live services (a coverage fallback when none are published) + contracts.
   let generator: ReactNode = null;
-  if (!issued) {
+  // 🚪 BOOKINGS CLOSED (owner 2026-11-02): no deal form while closed — one quiet line where it was.
+  const bookingsOpen = !issued ? await areBookingsOpen() : true;
+  // ✅ An unverified shop is told BEFORE it fills the deal form (audit G8) — the code could only fail at the scan.
+  const verified = !issued && bookingsOpen ? await isMarketplaceVendorBookable(supabase, vendorProfileId) : true;
+  if (!issued && !bookingsOpen) {
+    generator = (
+      <p className="text-sm text-ink/70">
+        <span className="font-semibold text-ink">{BOOKINGS_OPEN_SOON}.</span> {BOOKINGS_CLOSED_SUPPLIER_MESSAGE}
+      </p>
+    );
+  } else if (!issued && !verified) {
+    generator = (
+      <p className="text-sm text-ink/70" data-locked-qr-needs-verified="">
+        {LOCKED_QR_NEEDS_VERIFIED}{' '}
+        <Link href="/vendor-dashboard/profile#docs" className="font-semibold text-ink underline underline-offset-2">
+          Your documents
+        </Link>
+      </p>
+    );
+  } else if (!issued) {
     const [eventTypes, services, contracts] = await Promise.all([
       getCreatableEventTypes(),
       fetchVendorServices(supabase, vendorProfileId).catch(() => []),
@@ -224,6 +306,7 @@ export default async function VendorQrCodesPage({
     const live = services.filter((s) => s.is_active);
     generator = (
       <LockedQrGenerator
+        dateExempt={await viewerIsInternal().catch(() => false)}
         eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))}
         services={
           live.length
@@ -258,4 +341,66 @@ export default async function VendorQrCodesPage({
       }}
     />
   );
+}
+
+/**
+ * 📱 CREW FOR AN EVENT — the picked event's ONE crew code, read under the caller's own session (the table's RLS lets
+ * only the shop's owner and admins read it, exactly as Hub › Crew). Making, replacing and allowing stay in Hub › Crew;
+ * this only shows the code. Every refusal is said: the events list, the code and the waiting count each fail on their
+ * own and none of them reads as "none".
+ */
+async function readCrewQr(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  vendorProfileId: string,
+  today: string,
+  asked: string | null,
+): Promise<CrewQr> {
+  const days = await fetchVendorRoomEvents(supabase, vendorProfileId).catch((e: unknown) => {
+    logQueryError('VendorQrCodesPage.crewEvents', { message: e instanceof Error ? e.message : String(e) }, { vendorProfileId }, 'graceful_degrade');
+    return null;
+  });
+  if (days === null) return { eventPick: null, eventName: null, code: null, hubHref: null };
+  const events = crewQrEvents(days, today, (iso) => hubDayWords(iso));
+  const picked = pickCrewQrEvent(events, asked);
+  const eventPick = {
+    value: picked?.eventId ?? '',
+    options: events.map((e) => ({ key: e.eventId, label: e.label, href: `${QR_HREF}?mode=crew&event=${encodeURIComponent(e.eventId)}` })),
+  };
+  if (!picked) return { eventPick, eventName: null, code: null, hubHref: null };
+  const eventName = days.find((d) => d.eventId === picked.eventId)?.eventName?.trim() || null;
+  const hub = hubHref(picked.eventId, 'crew');
+  if (!canManageVendor(await resolveVendorRole(supabase, userId).catch(() => null))) {
+    return { eventPick, eventName, code: { state: 'not-admin' }, hubHref: hub };
+  }
+  const [codeRes, waitRes] = await Promise.all([
+    supabase.from('vendor_crew_codes').select('token, ends_at').eq('vendor_profile_id', vendorProfileId).eq('event_id', picked.eventId).maybeSingle(),
+    supabase
+      .from('vendor_crew_passes')
+      .select('pass_id', { count: 'exact', head: true })
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', picked.eventId)
+      .eq('status', 'waiting'),
+  ]);
+  if (codeRes.error) {
+    logQueryError('VendorQrCodesPage.crewCode', codeRes.error, { eventId: picked.eventId }, 'graceful_degrade');
+    return { eventPick, eventName, code: { state: 'unread' }, hubHref: hub };
+  }
+  if (waitRes.error) logQueryError('VendorQrCodesPage.crewWaiting', waitRes.error, { eventId: picked.eventId }, 'graceful_degrade');
+  const row = codeRes.data as { token: string; ends_at: string } | null;
+  if (!row) return { eventPick, eventName, code: { state: 'none' }, hubHref: hub };
+  const url = `${siteOrigin()}${crewJoinPath(row.token)}`;
+  const ends = new Date(row.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return {
+    eventPick,
+    eventName,
+    code: {
+      state: 'ready',
+      url,
+      svg: await renderUrlQrSvg(url, 220).catch(() => null),
+      endsWords: `ends ${ends}`,
+      waiting: waitRes.error ? null : (waitRes.count ?? null),
+    },
+    hubHref: hub,
+  };
 }

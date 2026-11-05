@@ -121,24 +121,5 @@ function all(hay: string, needle: string): number[] {
   return out;
 }
 
-test('the checklist draws the could-not-check card before it can draw — or skip — the health card', () => {
-  const s = src('app/dashboard/[eventId]/_components/checklist/checklist-full.tsx');
-  const guard = all(s, "{budgetHealth === 'unreadable' ? (");
-  const card = all(s, '<BudgetHealthUnreadable eventId={eventId} />');
-  const health = all(s, '<BudgetHealthCard eventId={eventId} health={budgetHealth} />');
-  console.log(`# checklist-full: guard @${guard.join(',')} · unreadable card @${card.join(',')} · health card @${health.join(',')}`);
-  assert.equal(guard.length, 1);
-  assert.equal(card.length, 1);
-  assert.equal(health.length, 1);
-  assert.ok(guard[0]! < card[0]! && card[0]! < health[0]!);
-  assert.equal(all(s, 'couldn&rsquo;t check your budget just now').length, 1);
-});
-
-test('a throw inside computeBudgetHealth is unreadable too, not a hidden card', () => {
-  const s = src('app/dashboard/[eventId]/checklist/page.tsx');
-  const threw = all(s, "'EventChecklistPage (computeBudgetHealth threw)'");
-  const set = all(s, 'budgetHealth = BUDGET_HEALTH_UNREADABLE;');
-  assert.equal(set.length, 1);
-  assert.equal(threw.length, 1);
-  assert.ok(set[0]! < threw[0]!, 'the catch sets unreadable');
-});
+// (The Checklist PAGE that drew the health card forwards to Planning Stage since the owner merged the two on
+// 2026-11-01 — the card's source pins went with it. The reader's honesty above is unchanged.)

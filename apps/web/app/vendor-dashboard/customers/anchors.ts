@@ -37,9 +37,9 @@ const HUB = '/vendor-dashboard/customers';
  * always on the page, so only its fragment is needed.
  */
 export const CUSTOMER_LANDINGS = {
-  // 🗑 Messages is no longer a fold (2026-10-28): its landing is People's list itself — one row per event, each its
-  // chat. `#customers` is that list.
-  messages: { seg: 'people', fold: null, anchor: '#customers' },
+  // 🗑 Messages is no longer a fold (2026-10-28): its landing is the Events list itself — one row per event, each its
+  // chat. `#customers` is that list. (Its segment was `people` until 2026-10-30 — Customers are events.)
+  messages: { seg: 'events', fold: null, anchor: '#customers' },
   payday: { seg: 'money', fold: null, anchor: PAYDAY_ANCHOR },
   proposals: { seg: 'money', fold: 'proposals', anchor: CUSTOMER_TOOLS_ANCHOR },
   contracts: { seg: 'money', fold: 'contracts', anchor: CUSTOMER_TOOLS_ANCHOR },

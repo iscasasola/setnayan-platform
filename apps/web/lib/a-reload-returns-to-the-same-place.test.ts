@@ -124,7 +124,8 @@ test('3 · rule 3 stands for a cold door; the page’s own reload goes back wher
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'look' }, TILES), { side: 'stages', at: 'home', keep: false });
   // Studio's home, or a tool this event does not have: Studio's home.
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'studio', at: 'home', keep: false });
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES.filter((t) => t !== 'prints')), { side: 'studio', at: 'home', keep: false });
+  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on Studio's home. */
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'studio', at: 'home', keep: false });
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'studio', at: 'home', keep: false });
 });
 
@@ -156,7 +157,8 @@ test('3 · WIRING: the shell reads the note once at mount, lands through the one
   // The note: side · tool · item, written as they change, only once memory has been read.
   assert.match(SHELL, /if \(!restored\.current\) return;\s*noteMakerResume\(window\.sessionStorage, makerResumeKey\(memoryKey\), \{ side, at: studioAt, item: detailsItem \}\);/);
   // The item comes back too, checked against the real items.
-  assert.match(SHELL, /if \(isDetailsItemKey\(back\.item\)\) setDetailsItem\(back\.item\);/);
+  /* 🖨 R8: a print is put back only on the Prints page, any other item only in the Maker (`isPrintsItem(…) === printsPage`). */
+  assert.match(SHELL, /if \(isDetailsItemKey\(back\.item\) && isPrintsItem\(back\.item\) === printsPage\) setDetailsItem\(back\.item\);/);
 });
 
 /* ══ 4 · SAID IN WORDS FIRST ═════════════════════════════════════════════════ */

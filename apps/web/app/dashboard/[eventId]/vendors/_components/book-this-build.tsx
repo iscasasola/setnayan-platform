@@ -22,26 +22,37 @@
  * for — so they are listed with the door to that supplier's card.
  *
  * Nothing here books by itself: no status is written from this file.
+ *
+ * 🗓 IT ASKS FIRST (approved final frame 14-build-book, owner 2026-10-30): a press opens "Book this build — This asks
+ * each supplier to book your date.", one row per pick with its price, what booking means, and Not yet · ✓ Yes, book
+ * them in the thumb zone. Only "Yes" starts the loop above. Both sheets are the house template (`ScheduleSheet` +
+ * `SheetFoot`), and the button is the bar's MAIN answer (frame 12: Save quiet on the left, Book on the right).
+ * 🔒 lib/the-build-is-the-approved-frame.test.ts
  */
 import { createContext, useContext, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { CalendarCheck, Check, Search, X } from 'lucide-react';
-import { ActionButton, useFitRow } from '@/components/action-button';
-import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { goToBuildTab } from '@/lib/budget-build';
 import { askLine } from '@/lib/booking-ask-words';
 import { bookFields, bookOutcomeOf, bookedToast, type BookOutcome, type BookPick } from '@/lib/book-this-build';
+import { formatPhp } from '@/lib/php';
+import { ScheduleSheet, SheetFoot } from '@/app/dashboard/[eventId]/schedule/_components/schedule-sheet';
 import { finalizeVendor, type FinalizeVendorResult } from '../actions';
 
 /** A STAND-IN FOR THE BOOKING — `/dev/suppliers-lab` only. `null` everywhere else. */
 export const BookStandInCtx = createContext<null | ((fields: Array<[string, string]>) => Promise<FinalizeVendorResult>)>(null);
 
-/** Not the bar's main verb (Save is), so it keeps the table colour of Book —
- *  outlined green (owner 2026-10-12 look call 1: only a MAIN button turns
- *  terracotta; `lib/supplier-card-verbs.ts` draws a card's Book the same). */
-const BAR_FLEX = 'max-tab:!flex-1';
+/** Each pick's price, from the Build body's own lines (`build-body.tsx` provides it) — what the ask lists beside a name. */
+export const BookPricesCtx = createContext<ReadonlyMap<string, number | null>>(new Map());
+
+/** The prototype's words when every pick is booked or already asked. */
+export const NOTHING_TO_BOOK = 'Nothing to book — every pick is booked or already asked';
+
+/** The bar's MAIN verb now (frame 12) — the one terracotta answer; Save beside it is the quiet one. */
+const BAR_FLEX = 'max-tab:!flex-1 lg:!flex-1';
 
 type Row = { pick: BookPick; outcome: BookOutcome | null };
 
@@ -50,7 +61,10 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
   const standIn = useContext(BookStandInCtx);
   const base = basePath ?? `/dashboard/${eventId}/vendors`;
   const [pending, startTransition] = useTransition();
+  const prices = useContext(BookPricesCtx);
   const [rows, setRows] = useState<Row[] | null>(null);
+  // The ask before anything is sent (frame 14).
+  const [asking, setAsking] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // What the couple has already said yes to, per supplier — kept across rounds
   // so a later gate never asks the same question again.
@@ -96,8 +110,18 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
   };
 
   const start = () => {
+    setAsking(false);
     agreed.current.clear();
     loop(picks, []);
+  };
+
+  /** The button: the ask first — or, with nothing left to book, the prototype's one line. */
+  const press = () => {
+    if (picks.length === 0) {
+      setToast(NOTHING_TO_BOOK);
+      return;
+    }
+    setAsking(true);
   };
 
   const confirmAll = () => {
@@ -129,21 +153,56 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
 
   return (
     <>
-      {/* Offered only while a pick is neither booked nor already asked. The
-          component itself stays mounted, so the toast below outlives the last
-          pick it booked (seen in the lab: the bar dropped the button and the
-          toast went with it). */}
-      {picks.length > 0 ? (
-        <ActionButton tone="ok" icon={CalendarCheck} label="Book this build" onClick={start} disabled={pending} className={BAR_FLEX} />
-      ) : null}
-      {rows && typeof document !== 'undefined'
-        ? createPortal(
-            <Sheet open onClose={close} labelledById="book-build-h" title="Book this build">
-              <BookSheet rows={rows} busy={pending} onConfirm={confirmAll} onClose={close} onOpenCard={openCard} />
-            </Sheet>,
-            document.body,
-          )
-        : null}
+      {/* Always on the bar (frame 12): with nothing left to book it says so. The component stays mounted, so the
+          toast below outlives the last pick it booked (seen in the lab: the bar dropped the button and the toast went
+          with it). */}
+      <ActionButton tone="brand" main icon={CalendarCheck} label="Book this build" onClick={press} disabled={pending} aria-haspopup="dialog" className={BAR_FLEX} />
+      <ScheduleSheet
+        open={asking}
+        onClose={() => setAsking(false)}
+        id="book-ask-h"
+        title="Book this build"
+        aside="This asks each supplier to book your date."
+        data="book-ask"
+        foot={
+          <SheetFoot>
+            <ActionButton tone="neutral" icon={X} label="Not yet" onClick={() => setAsking(false)} />
+            <ActionButton tone="brand" main icon={Check} label="Yes, book them" onClick={start} disabled={pending} />
+          </SheetFoot>
+        }
+      >
+        <div data-book-sheet="ask">
+          <ul className="divide-y divide-ink/10 border-y border-ink/10">
+            {picks.map((p) => {
+              const price = prices.get(p.vendorId);
+              return (
+                <li key={p.vendorId} className="flex items-baseline justify-between gap-3 py-2.5 text-sm" data-book-ask-row={p.tile}>
+                  <span className="text-ink/60">{p.category}</span>
+                  <b className="min-w-0 text-right font-semibold text-ink">
+                    {p.name}
+                    {price != null ? ` · ${formatPhp(price)}` : ''}
+                  </b>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-3 text-sm leading-relaxed text-ink/75">
+            <b className="text-ink">This books your date.</b> Each one is a <b className="text-ink">request</b> until the supplier
+            says yes — then you pay the first payment to them and record it here. Setnayan never holds your money.
+          </p>
+        </div>
+      </ScheduleSheet>
+      <ScheduleSheet
+        open={rows != null}
+        onClose={close}
+        id="book-build-h"
+        title="Book this build"
+        aside={rows && rows.some((r) => r.outcome?.kind === 'confirm') ? 'Some of these need your yes before they are asked.' : 'Not every supplier could be asked.'}
+        data="book-outcome"
+        foot={null}
+      >
+        {rows ? <BookSheet rows={rows} busy={pending} onConfirm={confirmAll} onClose={close} onOpenCard={openCard} /> : null}
+      </ScheduleSheet>
       {toast && typeof document !== 'undefined'
         ? createPortal(
             <PeekToast key={toast} tone="ok" data="book-build" onGone={() => setToast(null)}>
@@ -176,14 +235,9 @@ function BookSheet({
   onClose: () => void;
   onOpenCard: (tile: string) => void;
 }) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
   const toConfirm = rows.filter((r) => r.outcome?.kind === 'confirm');
   return (
-    <div className="space-y-4 px-5 pb-5" data-book-sheet="">
-      <p id="book-build-h" className="text-sm text-ink/70">
-        {toConfirm.length > 0 ? 'Some of these need your yes before they are asked.' : 'Not every supplier could be asked.'}
-      </p>
+    <div data-book-sheet="">
       <ul className="divide-y divide-ink/10">
         {rows.map(({ pick, outcome }) => (
           <li key={pick.vendorId} className="py-2.5" data-book-row={outcome?.kind ?? 'waiting'}>
@@ -210,16 +264,16 @@ function BookSheet({
           </li>
         ))}
       </ul>
-      <div ref={rowRef} className="flex min-w-0 flex-wrap items-center gap-2">
+      <SheetFoot>
         {toConfirm.length > 0 ? (
           <>
-            <ActionButton tone="brand" main icon={Check} label={busy ? 'Booking…' : 'Yes, book them'} onClick={onConfirm} disabled={busy} />
             <ActionButton tone="neutral" icon={X} label="Not yet" onClick={onClose} disabled={busy} />
+            <ActionButton tone="brand" main icon={Check} label={busy ? 'Booking…' : 'Yes, book them'} onClick={onConfirm} disabled={busy} />
           </>
         ) : (
-          <ActionButton tone="neutral" icon={Check} label="OK" onClick={onClose} />
+          <ActionButton tone="brand" main icon={Check} label="OK" onClick={onClose} className="col-span-2" />
         )}
-      </div>
+      </SheetFoot>
     </div>
   );
 }

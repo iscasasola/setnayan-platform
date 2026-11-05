@@ -39,7 +39,7 @@ import { useSaveLoader } from '@/components/sd-loader';
 const MANILA_TZ = 'Asia/Manila';
 
 /** ISO/Date → "Mon D, YYYY, h:mm AM" in Manila for display. */
-function formatManila(iso: string): string {
+export function formatManila(iso: string): string {
   try {
     return new Intl.DateTimeFormat('en-PH', {
       timeZone: MANILA_TZ,
@@ -52,7 +52,7 @@ function formatManila(iso: string): string {
 }
 
 /** Date → "YYYY-MM-DDTHH:mm" wall-clock in Manila, for <input datetime-local>. */
-function toManilaInputValue(d: Date): string {
+export function toManilaInputValue(d: Date): string {
   const f = new Intl.DateTimeFormat('en-CA', {
     timeZone: MANILA_TZ,
     year: 'numeric',
@@ -73,7 +73,7 @@ function toManilaInputValue(d: Date): string {
  * This hands back `{ ok: false }` instead — the shape every refusal of these actions already has — so each press
  * says its own existing "Could not … — please try again." and changes nothing on screen.
  */
-async function answered<T extends { ok: boolean; error?: string }>(send: () => Promise<T>): Promise<T | { ok: false; error?: undefined; scheduledAtIso?: undefined }> {
+export async function answered<T extends { ok: boolean; error?: string }>(send: () => Promise<T>): Promise<T | { ok: false; error?: undefined; scheduledAtIso?: undefined }> {
   try {
     return await send();
   } catch {
@@ -344,7 +344,7 @@ export function LaunchStdButton({
  * private and scheduled states. Wall-clock pick is Manila time (server-side
  * interpretation); `min` blocks past picks in the browser, the server re-checks.
  */
-function SchedulePicker({
+export function SchedulePicker({
   value,
   min,
   pending,

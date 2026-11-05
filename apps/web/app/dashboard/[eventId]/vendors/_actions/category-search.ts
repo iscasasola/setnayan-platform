@@ -25,8 +25,11 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readNearAnchors } from '@/lib/find-near-anchors.server';
+import type { EventVenueColumns } from '@/lib/event-venues';
 import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -109,6 +112,8 @@ export type CategoryVendorResult = {
   reviewCount: number | null;
   /** km from the event's reception/ceremony/target coords; null when unknown. */
   distanceKm: number | null;
+  /** km from the CEREMONY venue's pin — read only by Find's "Nearest to ceremony" (owner 2026-10-30). */
+  ceremonyDistanceKm?: number | null;
   verified: boolean;
   boosted: boolean;
   /** Compatibility score (0–100) + tier · lib/compat-score · the §2 GATE+SCORE
@@ -227,6 +232,9 @@ export type CategorySearchResult = {
    * result shape is unchanged.
    */
   savedPhotoTallyFailed?: boolean;
+  /** 🔌 TRUE when the suppliers could not be READ (the event or the vendor read was refused) — the overlay says
+   *  "Couldn't load suppliers · Try again", never "No … suppliers here yet" (reads-are-honest, audit #22). */
+  unreadable?: boolean;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -424,13 +432,17 @@ export async function searchCategoryVendors(input: {
   } = await supabase.auth.getUser();
   if (!user) return EMPTY;
 
-  const { data: ev } = await supabase
+  const { data: ev, error: evError } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
+      'venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evError) {
+    logQueryError('searchCategoryVendors.event', evError, { event_id: eventId }, 'graceful_degrade');
+    return { ...EMPTY, unreadable: true };
+  }
   if (!ev) return EMPTY; // not a member of this event
 
   // Outer-gate scoping (2026-06-11) — the SAME shared predicates the /vendors
@@ -520,8 +532,12 @@ export async function searchCategoryVendors(input: {
   const brief = buildEventBrief(ev as unknown as EventBriefSource);
   const coupleFaiths = brief.constraints.ceremony.faiths;
 
-  const lat = (ev.venue_latitude as number | null) ?? null;
-  const lng = (ev.venue_longitude as number | null) ?? null;
+  // 📍 The reception's pin and the ceremony's (owner 2026-10-30, "Reception + Ceremony") — the Event Hub's own two
+  // venues (a booked venue's pin, else the couple's own), read with the service role only AFTER the membership read
+  // above came back with this event. The reception is what every distance here has always meant.
+  const anchors = await readNearAnchors(createAdminClient(), eventId, ev as EventVenueColumns);
+  const lat = anchors.reception?.latitude ?? null;
+  const lng = anchors.reception?.longitude ?? null;
   const hasCoords = lat !== null && lng !== null;
 
   // ── Last-minute config (Setnayan AI §4) ──────────────────────────────────
@@ -677,7 +693,11 @@ export async function searchCategoryVendors(input: {
   // ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
   const excludeVendorIds: ReadonlyArray<string> = await demoVendorIdsHiddenFrom(supabase, admin, user.id);
 
+  let recsRefused = false;
   const recs = await fetchWizardVendorRecommendations(admin, {
+    onReadRefused: () => {
+      recsRefused = true;
+    },
     canonicalServices: canonicals,
     excludeVendorIds,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
@@ -706,6 +726,7 @@ export async function searchCategoryVendors(input: {
     searchQuery: input.query,
     limit: input.includeFarther === true ? 100 : 60,
   });
+  if (recsRefused) return { ...EMPTY, unreadable: true };
   if (recs.length === 0)
     return { ...EMPTY, hasReceptionCoords: hasCoords, facets: facetCatalog, facetDefaults };
 
@@ -1095,6 +1116,10 @@ export async function searchCategoryVendors(input: {
       hasCoords && vLat !== null && vLng !== null
         ? Math.round(distanceKm(lat as number, lng as number, vLat, vLng) * 10) / 10
         : null;
+    const ceremonyKm =
+      anchors.ceremony && vLat !== null && vLng !== null
+        ? Math.round(distanceKm(anchors.ceremony.latitude, anchors.ceremony.longitude, vLat, vLng) * 10) / 10
+        : null;
     // Service-radius coverage — same fail-open as the recs radiusOk gate
     // (vendor-tier-caps): unknown/Free tier → 0 (unscoped → within), Enterprise
     // → ∞ (within), Verified 20 / Pro 50 → within iff distance ≤ radius.
@@ -1195,6 +1220,7 @@ export async function searchCategoryVendors(input: {
           : null,
       reviewCount: r.review_count ?? null,
       distanceKm: dKm,
+      ceremonyDistanceKm: ceremonyKm,
       // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
       // deadline (hasVerifiedBadge), separate from public_visibility (listing/
       // bookability, untouched — a shop past its badge deadline stays listed).
@@ -1392,6 +1418,7 @@ export async function searchCategoryVendors(input: {
     rating: s.rating,
     reviewCount: s.reviewCount,
     distanceKm: s.distanceKm,
+    ceremonyDistanceKm: s.ceremonyDistanceKm,
     verified: s.verified,
     boosted: s.boosted,
     compatScore: s.compatScore,

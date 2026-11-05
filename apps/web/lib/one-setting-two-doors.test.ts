@@ -62,9 +62,22 @@ const draftOverLive = (live: unknown, draft: Record<string, unknown> | null): Rs
 const CONFIG = draftOverLive(LIVE, DRAFT_EVENTS);
 const EXPECTED = Object.fromEntries(RSVP_ASK_FIELDS.map((f) => [f, rsvpAsks(CONFIG, f)]));
 
-/** Every ask's on/off as a door drew it — a switch (`aria-checked`/`checked`) or a toggle button (`aria-pressed`) carrying its word. */
+/**
+ * Every ask's on/off as a door drew it — a switch (`aria-checked`/`checked`) or a toggle button (`aria-pressed`)
+ * carrying its word; or (owner 2026-11-01, "Dropdown with ticks") the asks' ONE dropdown: its row names the asks that
+ * are on (`data-rsvp-asks-on`, the very list its ticks are drawn from) and its shut face must agree on how many.
+ */
 function drawnAsks(html: string): Record<string, boolean> {
   const out: Record<string, boolean> = {};
+  const row = /<[a-z]+\b[^>]*data-made-once="rsvp-ask"[^>]*data-rsvp-asks-on="([^"]*)"[^>]*>/.exec(html);
+  if (row) {
+    const on = row[1]!.split(' ').filter(Boolean);
+    const face = /aria-label="RSVP asks: ([^"]+)" aria-haspopup="listbox"[^>]*data-rsvp-asks=""/.exec(html);
+    assert.ok(face, 'the asks’ row names what is on but draws no dropdown');
+    assert.equal(face![1], on.length === 0 ? 'None' : `${on.length} of ${RSVP_ASK_FIELDS.length} on`, 'the dropdown’s face disagrees with its ticks');
+    for (const f of RSVP_ASK_FIELDS) out[f] = on.includes(f);
+    return out;
+  }
   for (const f of RSVP_ASK_FIELDS) {
     const word = RSVP_ASK_LABEL[f].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const control = new RegExp(`<(?:button|input)[^>]*(?:role="switch"|aria-pressed)[^>]*>(?:(?!<(?:button|input)\\b)[\\s\\S]){0,400}?${word}|${word}(?:(?!<(?:button|input)\\b)[\\s\\S]){0,400}?<(?:button|input)[^>]*(?:role="switch"|aria-pressed)[^>]*>`);

@@ -1,13 +1,21 @@
 'use client';
 
-import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { MomentumMode } from './momentum-card';
 
 /**
- * Daily / Monthly / Annual window toggle — lifted out of MomentumCard so it
- * can sit in the shared filter row alongside the service-scope selector.
- * Controlled: the parent owns `mode` state (needed to also drive MomentumCard).
+ * Daily / Monthly / Annual — the window the Momentum card and "Your business" read. ONE dropdown (owner 2026-10-30
+ * "ONE SELECTOR FOR EVERY PAGE", Q1 "the segmented rows become the same ▾"; house rule "every choice is one
+ * dropdown"): the shared `PickMenu`, never a pill row. Was a `PillTrack` (2026-10-08). Controlled: the parent owns
+ * `mode` (it also drives MomentumCard), so a pick swaps the pre-rendered window instantly — no refetch.
+ * 🔒 performance/the-pickers-are-one-dropdown.test.ts
  */
+const WINDOWS: ReadonlyArray<{ key: MomentumMode; label: string }> = [
+  { key: 'day', label: 'Daily' },
+  { key: 'month', label: 'Monthly' },
+  { key: 'year', label: 'Annual' },
+];
+
 export function MomentumWindowToggle({
   mode,
   isFull,
@@ -19,32 +27,19 @@ export function MomentumWindowToggle({
   onSelect: (value: MomentumMode) => void;
 }) {
   const effectiveMode: MomentumMode = !isFull && mode === 'day' ? 'month' : mode;
-
+  const options = WINDOWS.filter((w) => isFull || w.key !== 'day');
   return (
-    <PillTrack role="tablist" aria-label="Momentum window">
-      {isFull && (
-        <ToggleButton label="Daily" value="day" active={effectiveMode === 'day'} onSelect={onSelect} />
-      )}
-      <ToggleButton label="Monthly" value="month" active={effectiveMode === 'month'} onSelect={onSelect} />
-      <ToggleButton label="Annual" value="year" active={effectiveMode === 'year'} onSelect={onSelect} />
-    </PillTrack>
-  );
-}
-
-function ToggleButton({
-  label,
-  value,
-  active,
-  onSelect,
-}: {
-  label: string;
-  value: MomentumMode;
-  active: boolean;
-  onSelect: (value: MomentumMode) => void;
-}) {
-  return (
-    <PillButton on={active} onClick={() => onSelect(value)} role="tab" aria-selected={active} className="px-3.5">
-      {label}
-    </PillButton>
+    <PickMenu
+      label="Momentum window"
+      value={effectiveMode}
+      options={options.map((w) => ({ key: w.key, label: w.label }))}
+      compact
+      className="!min-h-11"
+      dataAttr="data-momentum-window"
+      onPick={(key) => {
+        const hit = options.find((w) => w.key === key);
+        if (hit) onSelect(hit.key);
+      }}
+    />
   );
 }

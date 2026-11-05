@@ -84,7 +84,8 @@ const NO_EVENT_WRITE: Record<string, string> = {
   'seating/actions.ts#getReceptionDecorLayerCatalog': 'read: catalogue',
   'guests/checkin/actions.ts#checkTicketLive': 'read: a ticket verdict at the door',
   'guests/people-add-actions.ts#listPeopleYouCanInvite': 'read',
-  'guests/open-guest-card.tsx#openGuestCard': 'read: renders the guest card',
+  'guests/open-guest-card.tsx#openGuestCard': 'read: the guest card’s data (drawn in the browser)',
+  '_components/open-event-settings.tsx#openEventSettings': 'read: renders Home’s Event Settings rows (couple only) — its editors write through their own gated doors',
   'studio/papic/actions.ts#papicBuySizes': 'read: price rungs',
   'checkout/actions.ts#applyVoucherAction': 'read: prices a voucher code, records nothing',
   'studio/live-studio-control/actions.ts#setYoutubeLiveReadyAck': 'writes only the caller’s own users row',
@@ -97,7 +98,7 @@ const NO_EVENT_WRITE: Record<string, string> = {
  * (`lib/delegate-areas.ts`). First match wins; a key with '#' names one export.
  * null = no area: the hosts' alone (event details, the hub's settings, hosts and
  * access, purchases, Live/Panood, deletion…), so a helper is always refused.
- * Today a host can set only Guest list · Seat plan · The Day · Suppliers to Edit
+ * Today a host can set Guest list · Seat plan · The Day · Suppliers · Mood Board to Edit
  * (`areaChoices`); the other areas are mapped anyway so the day a dropdown
  * grows an Edit, the gate already asks the right question.
  */
@@ -107,10 +108,14 @@ const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
   // "Arrange tables and seats. Publishing the plan stays with you." (DELEGATE_AREA_DOES.seat_plan)
   ['seating/actions.ts#publishSeating', null],
   ['seating/actions.ts#unpublishSeating', null],
+  // How guests see their seat (Seats S1d) is the hosts' choice, like publishing the plan; its preview op only reads.
+  ['guests/seat-view-actions.ts#guestSeatView', null],
   // Unlocking a category is a purchase, not a supplier edit.
   ['vendors/_actions/unlock-category.ts', null],
   // The couple's own review of a supplier.
   ['vendors/[vendorId]/review/', null],
+  // Memories ⚙ › Who sees what — hosts + coordinator only, "not helpers" (owner 2026-10-30, lib/memories-rules.ts).
+  ['studio/papic/_components/pool-gallery-actions.ts', null],
   ['guests/', 'guest_list'],
   ['seating/', 'seat_plan'],
   ['studio/indoor-blueprint/', 'seat_plan'],
@@ -123,6 +128,10 @@ const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
   ['progress/_actions/free-venue-shortlist.ts', 'vendors'],
   ['budget/', 'budget'],
   ['studio/mood-board/', 'mood_board'],
+  // The Mood Board's own photos, uploaded and removed from the wizard's slot (owner 2026-10-30: the hosts give Mood
+  // Board access) — the photo gate (`moodBoardPhotosRefusal`) then asks the grant itself.
+  ['wizard-actions.ts#uploadMoodboardSlot', 'mood_board'],
+  ['wizard-actions.ts#removeMoodboardSlot', 'mood_board'],
   ['website/', 'invitations'],
   ['invitation/', 'invitations'],
   ['studio/save-the-date/', 'invitations'],

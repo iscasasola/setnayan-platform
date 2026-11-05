@@ -1,4 +1,6 @@
 import 'server-only';
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
@@ -207,6 +209,15 @@ export async function askDateChange({
   const admin = createAdminClient();
   const { data: liveRow } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
   const live = (liveRow ?? {}) as { event_date?: string | null; event_date_precision?: string | null };
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): suppliers
+  // are never asked to move to a day the event may not take.
+  const floor = eventDateFloorRefusal({
+    date,
+    precision,
+    prior: { date: live.event_date ?? null, precision: live.event_date_precision },
+    exempt: await eventDateFloorExempt(supabase as unknown as SupabaseClient, { eventId }),
+  });
+  if (floor) return { ok: false, error: floor };
   let clash;
   try {
     clash = await datePickClash({

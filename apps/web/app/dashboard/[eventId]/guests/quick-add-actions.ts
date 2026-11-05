@@ -10,6 +10,7 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
   GROUP_CATEGORY_LABELS,
+  A_PLUS_ONE_BRINGS_NO_ONE,
   SINGLETON_GUEST_ROLES,
   singletonRoleConflictMessage,
   singletonRoleDuplicateMessage,
@@ -22,6 +23,9 @@ import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 import { limitedHelperRefusal } from '@/lib/host-gate';
+import { isHonoreeRole } from '@/lib/role-groups';
+import { checkExtraSeats } from '@/lib/extra-seats-sync';
+import { MOST_PLUS_ONES } from '@/lib/guest-role-drop';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
 // resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
@@ -408,6 +412,17 @@ export async function addRoleToGuest(
 }
 
 /**
+ * ✋ How Guests › List's drag asks (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE ROLE"; the drop's
+ * meaning is `lib/guest-role-drop.ts`). `via: 'list-drag'` refuses the couple and the honoree (they are never moved);
+ * `broughtBy` is a drop on "Guests of [Role]": the guest becomes that person's +1 (null = nobody's — the Undo).
+ * An argument on the shipped writer, not a new export: the server-action budget has no room (`lint-server-action-budget`).
+ */
+export type RoleDragAsk = { via: 'list-drag'; broughtBy?: string | null };
+
+/** The owner's rule for "Guests of [Role]", verbatim: *"they get to that group only if they do not have a role and their role is guest"*. */
+const ONLY_A_PLAIN_GUEST = 'Only a guest with no role of their own can be someone’s +1 here.';
+
+/**
  * Change a guest's PRIMARY role (the seating-tier / invite-defaults one).
  * If the new role was sitting in extra_roles, it's removed from there to
  * avoid a duplicate. Bride/Groom singletons surface the friendly 23505.
@@ -416,14 +431,18 @@ export async function setGuestPrimaryRole(
   eventId: string,
   guestId: string,
   rawRole: string,
+  ask?: RoleDragAsk,
 ): Promise<QuickRoleResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const role = rawRole as GuestRole;
+  // ✅ The role must be one this event OFFERS — the same check `addSingleGuest` makes (`resolveRoleSetForEvent`).
   const roleSet = await resolveRoleSetForEvent(eventId);
   if (!roleSet.offeredRoles.includes(role)) {
     return { ok: false, error: 'That role isn’t valid.' };
   }
+  const drag = ask?.via === 'list-drag';
+  if (drag && isHonoreeRole(role)) return { ok: false, error: 'The couple and the honoree aren’t moved by dragging.' };
 
   const supabase = await createClient();
   const {
@@ -433,11 +452,21 @@ export async function setGuestPrimaryRole(
 
   const { data: g, error: readErr } = await supabase
     .from('guests')
-    .select('guest_id, event_id, role, extra_roles')
+    .select('guest_id, event_id, role, extra_roles, plus_one_of_guest_id, plus_one_count')
     .eq('guest_id', guestId)
     .maybeSingle();
   if (readErr || !g || g.event_id !== eventId) {
     return { ok: false, error: 'Couldn’t find that guest.' };
+  }
+  if (drag && isHonoreeRole(g.role as GuestRole)) return { ok: false, error: 'The couple and the honoree aren’t moved by dragging.' };
+
+  // 👥 A drop on "Guests of [Role]" — or its Undo: whose +1 they are, never their role.
+  if (drag && ask && 'broughtBy' in ask) {
+    if (role !== 'guest') return { ok: false, error: ONLY_A_PLAIN_GUEST };
+    const linked = await bringAsPlusOne(supabase, eventId, g as PlusOneLinkRow, ask.broughtBy ?? null);
+    if (!linked.ok) return linked;
+    revalidatePath(`/dashboard/${eventId}/guests`);
+    return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: (g.extra_roles ?? []) as GuestRole[] } };
   }
 
   /* 👥 The extra roles AS THEY ARE when the write lands (round 2, `updateJsonColumn`) — a role the other host added
@@ -480,4 +509,92 @@ export async function setGuestPrimaryRole(
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, guest: { guest_id: g.guest_id, role, extra_roles: nextExtras } };
+}
+
+type PlusOneLinkRow = {
+  guest_id: string;
+  role: GuestRole;
+  extra_roles: GuestRole[] | null;
+  plus_one_of_guest_id: string | null;
+  plus_one_count: number | null;
+};
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * 👥 Make `g` the +1 of `hostId` (null → nobody's), and keep each guest's "+N" equal to the +1 rows they bring — the
+ * database's rule (`a_plus_ones_count_is_their_rows`): the link moves FIRST, then each number is set to the rows that
+ * are there, so the trigger finds nothing to mint or remove. Every refusal is asked before anything is written.
+ */
+async function bringAsPlusOne(
+  supabase: ServerClient,
+  eventId: string,
+  g: PlusOneLinkRow,
+  hostId: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (g.role !== 'guest' || (g.extra_roles ?? []).length > 0) return { ok: false, error: ONLY_A_PLAIN_GUEST };
+  const old = g.plus_one_of_guest_id && g.plus_one_of_guest_id !== g.guest_id ? g.plus_one_of_guest_id : null;
+  if (old === hostId) return { ok: true };
+  if (hostId === g.guest_id) return { ok: false, error: 'A guest can’t be their own +1.' };
+  if (hostId) {
+    if ((g.plus_one_count ?? 0) > 0) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+    const { count: brings, error: bErr } = await supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('plus_one_of_guest_id', g.guest_id)
+      .is('deleted_at', null);
+    if (bErr) return { ok: false, error: 'Couldn’t check who they bring — nothing was changed.' };
+    if ((brings ?? 0) > 0) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+    const { data: host, error: hErr } = await supabase
+      .from('guests')
+      .select('guest_id, plus_one_of_guest_id, plus_one_count')
+      .eq('event_id', eventId)
+      .eq('guest_id', hostId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (hErr || !host) return { ok: false, error: 'Couldn’t find the guest who brings them.' };
+    if (host.plus_one_of_guest_id) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+    if ((host.plus_one_count ?? 0) >= MOST_PLUS_ONES) return { ok: false, error: `They already bring ${MOST_PLUS_ONES} — that’s the most.` };
+  }
+  // 🔒 A finalized list moves no seats — asked of both guests before anything is saved (`checkExtraSeats`).
+  for (const [who, step] of [[old, -1], [hostId, 1]] as const) {
+    if (!who) continue;
+    const check = await checkExtraSeats(supabase as never, eventId, who, (n) => Math.max(0, Math.min(MOST_PLUS_ONES, n + step)));
+    if (!check.ok) return check;
+  }
+  const { data: moved, error: mErr } = await supabase
+    .from('guests')
+    .update({ plus_one_of_guest_id: hostId, updated_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('guest_id', g.guest_id)
+    .select('guest_id');
+  if (mErr || !moved || moved.length === 0) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Drag a guest into Guests of a role (link)',
+      file_path: 'app/dashboard/[eventId]/guests/quick-add-actions.ts',
+      error_message: mErr?.message ?? 'no row updated',
+      payload_snapshot: { eventId, guestId: g.guest_id, hostId },
+    });
+    return { ok: false, error: 'Couldn’t move them. Try again.' };
+  }
+  for (const who of [old, hostId]) {
+    if (!who) continue;
+    const { count, error: cErr } = await supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('plus_one_of_guest_id', who)
+      .is('deleted_at', null);
+    if (cErr) return { ok: false, error: 'Moved — but a +N could not be recounted. Refresh to see it.' };
+    const { error: uErr } = await supabase
+      .from('guests')
+      .update({ plus_one_count: Math.min(MOST_PLUS_ONES, count ?? 0), updated_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .eq('guest_id', who);
+    if (uErr) return { ok: false, error: 'Moved — but a +N could not be recounted. Refresh to see it.' };
+  }
+  // Beside the person who brings them (the seat engine pulls a +1 in next to their guest).
+  await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [hostId ?? g.guest_id] });
+  return { ok: true };
 }

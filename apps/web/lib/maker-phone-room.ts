@@ -30,11 +30,66 @@ export const MAKER_PREVIEW_MIN_SHARE = 0.55;
 export const MAKER_PHONE_BAR_PX = 52;
 
 /*
+ * 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, verbatim: *"i was thinking having the bottom nav still and the
+ * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV
+ * STAYS"; reverses 2026-10-01 "EVENT HUB IS FULL SCREEN WITH ONE EXIT" for the Hub tab, as the 2026-10-27 "THE EVENT
+ * HUB JOINS THE SAME SHAPE AS HOME · GUESTS · SUPPLIERS" row asked).
+ *
+ * The Maker no longer covers the screen: it fills the room the app's chrome leaves — under the app's top bar, beside
+ * the rail (from 701), above the bottom nav (a phone). The shell measures that room (`useTheAppsRoom`,
+ * maker-shell.tsx) and says it as three properties; until it has, the app's own measures stand in, so the first
+ * server paint is already in place.
+ *
+ * 🔑 THE BOTTOM EDGE IS THE NAV'S TOP — EXACTLY (owner, live iPhone 2026-10-31: *"bottom nav of event hub is not
+ * fixed"*). Until then the shell ended the home indicator's height BELOW the nav's top, on the reasoning that the strip
+ * its tools' safe-area padding leaves would sit "under the nav's own padding". It did not: the nav's padding is at its
+ * FOOT, so the strip was the nav's TOP — its icons — under a z-40 cream shell, and an iPhone showed the tab labels
+ * alone. And a `fixed` tool is placed from the SCREEN's foot, not the shell's (the shell is no containing block), so
+ * the toolbar's rows (`bottom: max(10px, env(…))`) and a lower-third tool (`env(…) + 4px`) stood over the nav on every
+ * phone, home indicator or not (measured in /dev/maker-lab at 390: Animate's rows 624–834 over the nav at 780–844).
+ * Now the shell ends on the nav's top, and says two properties for what stands in it:
+ *
+ *   `--maker-safe-b`  the home indicator's room the Maker itself keeps at its foot: the inset where the shell reaches
+ *                     the screen's foot (from 701, ▶ held, the keyboard up), 0 above the nav (the nav keeps it). For
+ *                     whatever stands IN the shell — the lower third, a part placed `absolute` on the shell.
+ *   `--maker-lift`    how far the nav lifts a `fixed` tool above where it stood with no nav: the nav's height less the
+ *                     inset that tool already adds; 0 with no nav. Added to every `fixed` phone tool's `bottom`.
+ *
+ * Held by `lib/the-hub-is-left-by-the-apps-nav.test.ts` (4 · 5).
+ *
+ * ▶ HELD (the whole page as a guest — Maker_Animate_Preview_Scrub_LOCKED §4: "every bar slides away"): the app's top
+ * bar and bottom nav slide away with the Maker's own bar; the canvas is the whole screen (globals.css
+ * `[data-stage-previewing]`), over both.
+ */
+export const MAKER_IN_THE_APP_CSS =
+  '[data-maker-shell]{right:0;top:var(--maker-app-top,var(--fd-bar,0px));left:var(--maker-app-left,0px);' +
+  '--maker-nav:var(--maker-app-bottom,var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom) + 64px)));bottom:var(--maker-nav);' +
+  '--maker-safe-b:max(0px,calc(env(safe-area-inset-bottom) - var(--maker-nav)));' +
+  '--maker-lift:max(0px,calc(var(--maker-nav) - env(safe-area-inset-bottom)))}' +
+  '@media (min-width:701px){[data-maker-shell]{left:var(--maker-app-left,var(--fd-rail,0px));--maker-nav:var(--maker-app-bottom,0px)}}' +
+  /* 📌 THE APP'S TOP BAR NEVER RIDES OFF ABOVE THE MAKER (the same 2026-10-31 report: the bar gone, an empty band where
+     it stood). The lock (`overflow:hidden`, maker-shell.tsx) stops a finger, not a script: a `scrollIntoView` inside the
+     Maker (the scene strip's tile on arrival, a part, a list) still scrolled the DOCUMENT — the page under the Maker is
+     taller than the screen by the bar's height — and the bar, sticky to a `<body>` that `overflow:hidden` made its own
+     scroller, rode up with it while the shell stayed where the bar had ended (measured in /dev/maker-lab at 390:
+     scrollY 39, the bar's foot at 12, the shell's top at 51). Sized to the screen, the document has nothing to scroll:
+     such a scroll lands on `<body>`, and the bar stays stuck to the top of it. */
+  'html.sn-maker-open,html.sn-maker-open body,html:has([data-maker-shell]),html:has([data-maker-shell]) body{height:100%}' +
+  /* 🗨 A SHEET OPEN OVER THE MAKER (⚙ Event Hub settings, the app's bell and account panels — all on <body>, over the
+     shell): the picked part's frame (`[data-part-edges]`, drawn high on <body> to sit on the canvas) steps out of sight
+     under it — it painted crisp over the sheet's dimmed page (seen in the lab, 390 and 1280). */
+  'html:has([data-sheet]) [data-part-edges]{visibility:hidden!important}' +
+  /* Each bar's own slide (the top bar's hide-on-scroll, the nav's keyboard slide) carries it — no motion of ours. */
+  'html:has([data-maker-shell][data-stage-previewing]) .shell-topbar{transform:translateY(-100%)}' +
+  'html:has([data-maker-shell][data-stage-previewing]) [data-bottom-dock]{transform:translateY(100%)}';
+
+/*
  * 📏 THE TOP NAV — ONE ROW AT 375 PX (owner 2026-10-05, the keynote chrome):
  *
- *   ✕ Exit (red, its own pill) · the screen you are on ("RSVP · RSVP form",
- *   truncates) · [ ↺ Undo | 👁 Preview ] (one shared pill) · ✓ Apply (green,
- *   its own pill, the count) — every button a 44 × 44 icon with its name
+ *   the screen you are on ("RSVP · RSVP form", truncates) · [ ↺ Undo | 👁 Preview ]
+ *   (one shared pill) · ✓ Apply (green, its own pill, the count) · ⚙ Event Hub
+ *   settings (2026-10-30; ✕ Exit, red, led the row until then) — every button a
+ *   44 × 44 icon with its name
  *   (`MAKER_BAR_ICON`); Apply's first tap opens the Apply sheet, and only its
  *   labelled Apply publishes.
  *
@@ -43,11 +98,12 @@ export const MAKER_PHONE_BAR_PX = 52;
  * the row up and fails it over 375, or a bar button under 44 px or unnamed.
  */
 export const MAKER_BAR_PHONE = {
-  /* top */
-  exit: 'max-md:w-11',
+  /* top — ✕ Exit's 44 px left the row on 2026-10-30 (the app's nav is the way out); ⚙ took the same room at its end. */
   undoTop: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
+  /** ⚙ Event Hub settings — the row's right end (`MenuSettingsButton`, the house 44 px icon-only button). */
+  settings: 'max-md:w-11',
   /** The one Stages | Studio segmented control — it takes what is left of the row. */
   side: 'max-md:min-w-[150px]',
 } as const;
@@ -136,7 +192,7 @@ export const MAKER_LT_COLUMN_PX = 52;
 export const MAKER_LT_TOOL_MIN_PX = 300;
 /** A tool in the lower third: fixed over it, 60 px from the left (column 52 + 4 + 4), 4 px from the right. */
 export const MAKER_LT_TOOL =
-  'max-lg:fixed max-lg:left-[60px] max-lg:right-1 max-lg:top-auto max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px)] max-lg:z-30 max-lg:h-[calc(var(--maker-lt-h)-8px)] max-lg:max-h-none max-lg:w-auto max-lg:rounded-2xl max-lg:bg-cream max-lg:shadow-none max-lg:ring-1 max-lg:ring-ink/10';
+  'max-lg:fixed max-lg:left-[60px] max-lg:right-1 max-lg:top-auto max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px+var(--maker-lift,0px))] max-lg:z-30 max-lg:h-[calc(var(--maker-lt-h)-8px)] max-lg:max-h-none max-lg:w-auto max-lg:rounded-2xl max-lg:bg-cream max-lg:shadow-none max-lg:ring-1 max-lg:ring-ink/10';
 
 /* ─── the measuring half (pure — for the guard) ─────────────────────────── */
 
@@ -156,7 +212,7 @@ export function hiddenOnPhone(classes: string): boolean {
 /** One length token → px at this viewport height (null when it is not a length this guard reads). */
 function lengthPx(v: string, viewportH: number): number | null {
   // 🧰 The lower third and what sits in it (\`--maker-lt-h\`, \`MAKER_LT_HEIGHT\`).
-  if (v === 'calc(var(--maker-lt-h)+env(safe-area-inset-bottom))') return makerLtHeightPx(viewportH);
+  if (v === 'calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))') return makerLtHeightPx(viewportH);
   let m = /^calc\(var\(--maker-lt-h\)-(\d+)px\)$/.exec(v);
   if (m) return makerLtHeightPx(viewportH) - Number(m[1]);
   // A bar over the phone's own safe area: the inset is the device's, not the page's.

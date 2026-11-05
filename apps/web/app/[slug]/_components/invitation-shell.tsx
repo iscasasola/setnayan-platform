@@ -188,8 +188,15 @@ export function InvitationShell({
           page top and the corner controls (fixed at top-3, 44px tall) always
           land on its solid ground — 4rem clears 0.75rem + 2.75rem. z-20: above
           the page, under the corner controls (z-40 and up) and every sheet. */}
+      {/* 📱 THE BAND STARTS UNDER THE IPHONE'S CLOCK, NEVER BEHIND IT (owner, live iPhone app 2026-10-30: "event
+          hub's first row in conflict with the iphone's signals row"). The app runs `viewportFit: 'cover'`, so y=0
+          is under the status bar and the Dynamic Island. The band keeps `top-0` and PADS its own top by the inset:
+          its glass paints the strip behind the clock, its row starts below it — the shape the app's own top bar
+          uses (`.fd-topwrap`), and the one `--hub-pin` and `.hub-prog` already assume (`… + env(safe-area-inset-top)`
+          under `[data-sticky-top]`). env() is 0 on a desktop browser, so nothing moves there.
+          🔒 app/[slug]/_lib/the-hub-clears-the-island.test.ts. */}
       {editorCanvas ? null : (
-      <header data-sticky-top className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+      <header data-sticky-top className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur">
         <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
           <span className="flex items-center gap-2 text-ink">
             {exitHref ? (

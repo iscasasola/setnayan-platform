@@ -33,13 +33,18 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is a parameter).
  */
+import { keysForGroup, suggestedChapters } from '@/lib/trade-chapters';
+import type { DefaultChapterKey } from '@/lib/schedule';
 import { priceToday } from './price-summary';
+import { timesMarkLine, timesMarkOf, type ScheduleMarkFacts } from './supplier-schedule-marks';
 import { lockRequestFuseLabel } from './lock-request-state';
 import { cardVerbWords, type CardVerbKey } from './supplier-card-verbs';
 import { initialsOf, type SupplierRow } from './budget-page-view';
 import type { PlanProgress } from './vendor-service-payment-schedules';
 import type { TeamRow, TeamRowTone } from './your-team-rows';
+import { canInviteSupplier } from './supplier-invite-eligibility';
 import { dateChangeAnswerLine, dateChangeWhen, type DateChangeView } from './date-change';
+import { VENUE_GROUPS, needWhereCount, supplierWhere, type CoveredGroup, type SupplierWhere, type WhereChapter } from './supplier-where';
 
 /** What the page knows about one supplier besides their team row. */
 export type BookedFacts = {
@@ -59,6 +64,10 @@ export type BookedFacts = {
   moneyMoved: boolean;
   /** Deadline of an outstanding ask (`event_vendors.lock_request_expires_at`). */
   lockRequestExpiresAt: string | null;
+  /** 📍 The in-house groups this booking also brings ("Catering" with Seda) — `lib/supplier-where.ts`. */
+  covered?: readonly CoveredGroup[];
+  /** 📍 The in-house groups whose chapters the host changed (`event_vendors.covered_where`). */
+  coveredWhere?: Readonly<Record<string, readonly string[]>> | null;
 };
 
 type VerbTone = ReturnType<typeof cardVerbWords>['tone'];
@@ -79,18 +88,24 @@ export type BookedVerb = {
   tone: VerbTone;
   main?: boolean;
   quiet?: boolean;
+  /**
+   * The SHORT word on its tile (owner 2026-10-30, "i was hoping this would be a single row" → ONE row of equal tiles:
+   * Pay · Chat · Workspace · Report/Cancel). Only where the full word would not fit a fifth of a phone: the tile says
+   * "Cancel" / "Report", and `label` stays the button's accessible name ("Cancel booking", "Report a problem").
+   */
+  tile?: string;
 };
 
 /** The three words the Find card does not have. */
-const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: VerbTone }> = {
+const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: VerbTone; tile?: string }> = {
   review: { label: 'Review', tone: 'brand' },
-  cancel: { label: 'Cancel booking', tone: 'danger' },
+  cancel: { label: 'Cancel booking', tone: 'danger', tile: 'Cancel' },
   // The disputes door. NOT "Request refund": Setnayan pays no money back (owner
   // 2026-10-08, "there is no refund. only virtual credits") — a couple and their
   // supplier settle between them, and Setnayan referees the dispute. The words are
   // "Report a problem" (owner 2026-10-14, DECISION_LOG 🧾), the same as the shared
   // workspace door (`DisputeLinkButton`) — one name for one flow.
-  dispute: { label: 'Report a problem', tone: 'warn' },
+  dispute: { label: 'Report a problem', tone: 'warn', tile: 'Report' },
 };
 
 /**
@@ -156,9 +171,71 @@ export type BookedRow = {
   room: RoomLine | null;
   /** The couple asked their suppliers to move the date, and this is theirs. */
   dateAsk: DateAsk | null;
+  /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
+  callTime: BookedCallTime | null;
+  /**
+   * ✅ The supplier pressed Confirm my times / Seen (`lib/supplier-schedule-marks.ts`, audit G6). `null` = not asked or
+   * nothing pressed (no line); `unread` = the read was refused (said, never "not confirmed").
+   */
+  timesMark?: { kind: 'mark'; line: string; confirmed: boolean } | { kind: 'unread' } | null;
+  /** The payment plan's rows, as the Pay sheet holds them (one source) — drawn when the row opens. */
+  plan: BookedPlan;
+  /**
+   * 📍 WHERE they go — the chapters they work (owner 2026-11-01, `lib/supplier-where.ts`). `null` = not drawn (the
+   * viewer cannot read the Schedule).
+   */
+  where: SupplierWhere | null;
+  /**
+   * 📖 "Which chapters will they serve?" starts here (owner 2026-11-04, prototype frame 5): the event's chapters this
+   * trade usually serves (`service_categories.default_chapters`, lib/trade-chapters.ts). Empty = no suggestion.
+   */
+  suggestWhere: string[];
   verbs: BookedVerb[];
   threadId: string | null;
+  /**
+   * 🔗 Not on Setnayan yet (`canInviteSupplier`: no shop, `marketplace_vendor_id` null) — the Team row is the ONE door to
+   * their claim link (plan "Sync: … Move its door to the Team row. Until they join, the host enters their times.").
+   */
+  invite: boolean;
 };
+
+/**
+ * 📅 THE CALL TIME, FROM THE SCHEDULE (owner 2026-10-27, "call times live in the Schedule"; the approved Booked Team
+ * row: *"Call time 10:00 AM · Bride & groom prep · from your Schedule"*). `set` = the earliest moment the supplier is
+ * tagged on (`earliestTaggedBlock`, the one rule) · `none` = on no moment yet · `unread` = the Schedule read was
+ * refused — never drawn as "no call time".
+ */
+export type BookedCallTime =
+  | { kind: 'set'; clock: string; moment: string }
+  | { kind: 'none' }
+  | { kind: 'unread' };
+
+/** One instalment, as the Team row's fold draws it. */
+export type BookedPlanRow = {
+  label: string;
+  /** Null = the plan has not resolved an amount (a share of a total nobody set) — never guessed. */
+  amountPhp: number | null;
+  dueDate: string | null;
+  /** paid = they confirmed it · pending = recorded, waiting on them · due = still to pay. */
+  state: 'paid' | 'pending' | 'due';
+  /** The instalment the Next line names. */
+  next: boolean;
+  late: boolean;
+};
+
+/**
+ * THE PAYMENT PLAN ON THE TEAM ROW — the SAME rows the Pay sheet opens on (`readBookedPlans` → `computeStepper`, the
+ * supplier's own plan frozen at booking), so the row, its Pay sheet and the Budget's Next line read one source.
+ *   plan     the supplier's plan (`estimated` = Setnayan's pencilled-in 50/50, said so)
+ *   ledger   no plan, but the Budget ledger knows what was paid and what is still dated as owed
+ *   unread   neither could be read — said, never drawn as "nothing to pay"
+ *   null     nothing to show (no price yet, or nothing dated)
+ */
+export type BookedPlan =
+  | { kind: 'plan'; rows: BookedPlanRow[]; estimated: boolean }
+  | { kind: 'ledger'; rows: BookedPlanRow[] }
+  | { kind: 'unread' }
+  | null;
 
 export type WaitingRow = {
   vendorId: string;
@@ -179,6 +256,8 @@ export type BookedView = {
   booked: BookedRow[];
   /** Booked suppliers with no price recorded. */
   unpriced: number;
+  /** 📍 Booked suppliers on no chapter yet, while the event has chapters ("· 2 need a chapter"). */
+  needWhere: number;
 };
 
 /** The pill, the sub line and the line under a waiting row — the prototype's words. */
@@ -248,7 +327,17 @@ function bookedRowOf(
   money: SupplierRow | null,
   moneyKnown: boolean,
   plan: PlanProgress | null,
-  extra: { rooms: ReadonlyMap<string, RoomSizeAnswer> | null | undefined; dateChange: DateChangeView | null; now: Date | undefined },
+  extra: {
+    rooms: ReadonlyMap<string, RoomSizeAnswer> | null | undefined;
+    dateChange: DateChangeView | null;
+    now: Date | undefined;
+    callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
+    marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined;
+    plansKnown: boolean;
+    chapters: readonly WhereChapter[] | null | undefined;
+    venues: ReadonlyMap<string, string>;
+    tradeChapters: ReadonlyMap<string, readonly DefaultChapterKey[]> | null | undefined;
+  },
 ): BookedRow {
   const thread = f.threadId !== null;
   // A budget line item stands in place of the headline, so an agreed figure on
@@ -270,7 +359,24 @@ function bookedRowOf(
     feeds: feedsFor(f.groupId),
     room: roomLineFor(f, extra.rooms),
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
+    callTime: callTimeFor(extra.callTimes, team.vendorId),
+    timesMark: timesMarkFor(extra.marks, f.shopId),
+    plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
+    where:
+      extra.chapters === undefined
+        ? null
+        : supplierWhere({
+            vendorId: team.vendorId,
+            groupId: f.groupId,
+            booked: true,
+            chapters: extra.chapters,
+            venues: extra.venues,
+            covered: f.covered,
+            coveredWhere: f.coveredWhere,
+          }),
+    suggestWhere: extra.chapters ? suggestedChapters(extra.chapters, keysForGroup(f.groupId, extra.tradeChapters)) : [],
     threadId: f.threadId,
+    invite: canInviteSupplier({ marketplace_vendor_id: f.shopId }),
   };
   const withVerbs = (next: BookedNext, main: BookedVerb): BookedRow => ({
     ...base,
@@ -377,6 +483,22 @@ export function bookedView(args: {
   rooms?: ReadonlyMap<string, RoomSizeAnswer> | null;
   /** The event's OPEN date-change request (`readOpenDateChange`), when there is one. */
   dateChange?: DateChangeView | null;
+  /**
+   * Each booked supplier's call time — the earliest Schedule moment they are tagged on (`bookedCallTimes`).
+   * `null` = the Schedule read was refused; `undefined` = nobody asked (no call-time line is drawn).
+   */
+  callTimes?: ReadonlyMap<string, TaggedMoment> | null;
+  /**
+   * ✅ Seen / Confirm my times by shop (`readScheduleMarks`). `null` = refused; `undefined` = nobody asked (no line).
+   */
+  marks?: ReadonlyMap<string, ScheduleMarkFacts> | null;
+  /**
+   * 📍 The event's chapters with who is on each (`readBookedSchedule`). `null` = the Schedule read was refused;
+   * `undefined` = nobody asked (no Where is drawn).
+   */
+  chapters?: readonly WhereChapter[] | null;
+  /** 📖 Each coarse category's default chapters (`readTradeChapters`); `null`/`undefined` = no suggestion. */
+  tradeChapters?: ReadonlyMap<string, readonly DefaultChapterKey[]> | null;
   now?: Date;
 }): BookedView {
   const factsById = new Map(args.facts.map((f) => [f.vendorId, f]));
@@ -394,6 +516,13 @@ export function bookedView(args: {
   });
   const waiting: WaitingRow[] = [];
   const booked: BookedRow[] = [];
+  // Each booked VENUE's name, by its booking — a chapter with no venue typed takes the venue that picked it.
+  const venues = new Map<string, string>(
+    args.rows.flatMap((r) => {
+      const g = factsById.get(r.vendorId)?.groupId;
+      return r.group === 'booked' && g && VENUE_GROUPS.has(g) ? [[r.vendorId, r.name] as const] : [];
+    }),
+  );
   for (const r of args.rows) {
     const f = factsById.get(r.vendorId) ?? fallback(r.vendorId);
     if (r.group === 'asked') waiting.push(waitingRowOf(r, f, args.now));
@@ -403,11 +532,17 @@ export function bookedView(args: {
           rooms: args.rooms,
           dateChange: args.dateChange ?? null,
           now: args.now,
+          callTimes: args.callTimes,
+          marks: args.marks,
+          plansKnown: args.plans !== null,
+          chapters: args.chapters,
+          venues,
+          tradeChapters: args.tradeChapters,
         }),
       );
     }
   }
-  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length };
+  return { waiting, booked, unpriced: booked.filter((b) => !b.priced).length, needWhere: needWhereCount(booked.map((b) => b.where)) };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -477,4 +612,85 @@ export function dateAskFor(view: DateChangeView | null, vendorId: string, now: D
     line: dateChangeAnswerLine(s, (now ?? new Date()).getTime()),
     waiting: s.answer === 'asked',
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE CALL TIME AND THE PAYMENT PLAN — what an opened Team row shows
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** A supplier's call-time moment, as read from the Schedule. `startAt` is the venue's wall clock in a UTC column. */
+export type TaggedMoment = { startAt: string; label: string };
+
+/**
+ * "8:00 AM" — the time AS IT IS WRITTEN ON THE SCHEDULE. `start_at` holds the venue's wall clock inside a UTC column
+ * (`formatBlockTime`'s rule, `lib/schedule.ts`), so it is read back in UTC, never converted into a zone.
+ */
+export function bookedClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' ');
+}
+
+/** ✅ The Team row's "Times confirmed · Nov 2" / "Seen · Nov 2" — keyed by the booking's SHOP (marks are per shop). */
+export function timesMarkFor(
+  marks: ReadonlyMap<string, ScheduleMarkFacts> | null | undefined,
+  shopId: string | null,
+): NonNullable<BookedRow['timesMark']> | null {
+  if (marks === undefined || !shopId) return null;
+  if (marks === null) return { kind: 'unread' };
+  const mark = timesMarkOf(marks.get(shopId));
+  return mark ? { kind: 'mark', line: timesMarkLine(mark), confirmed: mark.word !== 'Seen' } : null;
+}
+
+export function callTimeFor(
+  callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined,
+  vendorId: string,
+): BookedCallTime | null {
+  if (callTimes === undefined) return null;
+  if (callTimes === null) return { kind: 'unread' };
+  const m = callTimes.get(vendorId);
+  if (!m) return { kind: 'none' };
+  const clock = bookedClock(m.startAt);
+  return clock ? { kind: 'set', clock, moment: m.label } : { kind: 'none' };
+}
+
+export function planFor(
+  plan: PlanProgress | null,
+  plansKnown: boolean,
+  money: SupplierRow | null,
+  moneyKnown: boolean,
+  priced: boolean,
+  now: Date | undefined,
+): BookedPlan {
+  const today = priceToday(now ?? new Date());
+  const late = (d: string | null) => d !== null && d.slice(0, 10) < today;
+  const steps = plan?.steps ?? null;
+  if (steps && steps.length > 0) {
+    const nextSeq = steps.find((s) => s.state === 'due')?.seq ?? null;
+    return {
+      kind: 'plan',
+      estimated: plan?.isDefaultSeeded === true,
+      rows: steps.map((s) => ({
+        label: s.label,
+        amountPhp: s.amount_php,
+        dueDate: s.due_date,
+        state: s.state,
+        next: s.seq === nextSeq,
+        late: s.state === 'due' && late(s.due_date),
+      })),
+    };
+  }
+  if (!priced) return null;
+  // No plan of theirs: what the Budget ledger holds — the money handed over, then each dated payment still owed.
+  if (money) {
+    const rows: BookedPlanRow[] = [];
+    if (money.paidPhp > 0) rows.push({ label: 'Paid so far', amountPhp: money.paidPhp, dueDate: null, state: 'paid', next: false, late: false });
+    money.dues.forEach((d, i) =>
+      rows.push({ label: d.label, amountPhp: d.amountPhp, dueDate: d.dueDate, state: 'due', next: i === 0, late: late(d.dueDate) }),
+    );
+    return rows.length > 0 ? { kind: 'ledger', rows } : null;
+  }
+  // Neither the plan nor the ledger answered — say so; a refused read is never "nothing to pay".
+  if (!plansKnown || !moneyKnown) return { kind: 'unread' };
+  return null;
 }

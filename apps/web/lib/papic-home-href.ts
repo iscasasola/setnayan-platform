@@ -18,6 +18,15 @@ export function papicHomeHref(eventId: string, outcome?: string | null): string 
   return `/dashboard/${eventId}?papic=open${q ? `&${q}` : ''}#${PAPIC_CARD_ANCHOR}`;
 }
 
+/**
+ * 🖨 The one code's printable poster — its OWN page, never a path tacked onto `papicHomeHref` (which ends in
+ * `?papic=open#papic`, so `${papicHomeHref(id)}/crew/poster` lands inside the fragment and opens nothing — the Crew
+ * page's "Print the poster" did exactly that). Held by `lib/dashboard-doors-resolve.test.ts`.
+ */
+export function papicCrewPosterHref(eventId: string): string {
+  return `/dashboard/${eventId}/studio/papic/crew/poster`;
+}
+
 /** `href` with one more query piece, keeping its fragment last — so `${back}?x=1` never lands after a `#`. */
 export function withQuery(href: string, qs: string): string {
   const at = href.indexOf('#');

@@ -1,5 +1,6 @@
 'use client';
 
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
@@ -109,6 +110,8 @@ const CEREMONY_VENUE_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
   }));
 
 type Props = {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
   eventId: string;
   confirmedVendorCount: number;
   ceremony: string | null;
@@ -191,6 +194,7 @@ const FIELD_LABEL: Record<EditableField, string> = {
 
 export function GovernedFields({
   eventId,
+  dateExempt = false,
   confirmedVendorCount,
   ceremony,
   secondaryCeremony,
@@ -351,8 +355,9 @@ export function GovernedFields({
     fd.set('event_date', value);
     fd.set('precision', 'day');
     try {
-      await updateEventDate(fd);
-      return null;
+      const res = await updateEventDate(fd);
+      // 💍 The date rule answers in words (lib/event-date-floor.ts), said beside the date.
+      return res && res.ok === false ? res.error : null;
     } catch (e) {
       return e instanceof Error ? e.message : 'Could not save the date';
     }
@@ -707,7 +712,7 @@ export function GovernedFields({
       >
         <input
           type="date"
-          min={today}
+          min={eventDateMinFor(today, dateExempt)}
           value={proposed}
           onChange={(e) => setProposed(e.target.value)}
           className={SELECT_CLASS}

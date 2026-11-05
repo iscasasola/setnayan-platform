@@ -20,6 +20,8 @@ export type Group = {
   label: string;
   short: string;
   iconName: string | null;
+  /** The ⓘ text the owner wrote (`service_categories.hint_en`, owner 2026-10-31); null = not written. */
+  hint: string | null;
 };
 
 export type RefinementOption = {
@@ -61,6 +63,12 @@ export type Category = {
   serviceCount: number;
   faithCount: number;
   refinementCount: number;
+  /** One per event (`service_categories.one_per_event`, owner 2026-10-29). null = the switch could not be read. */
+  onePerEvent: boolean | null;
+  /** 📖 Usual chapters (`service_categories.default_chapters`, 2026-11-04) — a booking's prefill. null = unread. */
+  defaultChapters?: string[] | null;
+  /** The ⓘ text the owner wrote (`service_categories.hint_en`, owner 2026-10-31); null = not written. */
+  hint: string | null;
 };
 
 export type SupplierFieldOption = { value: string; retired: boolean };

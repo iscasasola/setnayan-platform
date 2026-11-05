@@ -181,3 +181,15 @@ export function setPrintSettingsOpen(open: boolean) {
 export function usePrintSettingsOpen(): boolean {
   return useSyncExternalStore(subscribe, () => settingsOpen, () => false);
 }
+
+/**
+ * 🎠 The print on screen — written by the carousel as its slide moves, read by the ⚙ sheet as it opens (it opens at that print's
+ * own section, owner 2026-10-31). Read once, at the open; nothing redraws when it moves, so it tells no one.
+ */
+let printOnScreen: string | null = null;
+export function setPrintOnScreen(key: string | null) {
+  printOnScreen = key;
+}
+export function printOnScreenNow(): string | null {
+  return printOnScreen;
+}

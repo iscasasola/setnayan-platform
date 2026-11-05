@@ -60,6 +60,7 @@ export function KitPiece({ kit, placement, eager = false }: { kit: ArtKit; place
       data-kit-piece={placement.piece}
       {...(placement.motion !== 'still' ? { 'data-kit-motion': placement.motion } : {})}
       {...(placement.mirror ? { 'data-kit-mirror': '' } : {})}
+      {...(placement.clearsWords ? { 'data-kit-clear': '' } : {})}
       style={style}
     >
       {piece.formats.includes('svg') ? (

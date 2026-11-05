@@ -431,7 +431,7 @@ export function UgatConsole({
 
       {/* ── side panel (card) ── */}
       <div
-        className={`ug-scrim${panelOpen ? ' on' : ''}`}
+        className={`ug-scrim sn-popup-dark${panelOpen ? ' on' : ''}`}
         onClick={closePanels}
         aria-hidden
       />

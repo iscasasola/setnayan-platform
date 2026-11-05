@@ -14,7 +14,7 @@ import {
   inPageTabs,
   isJumpMarkHref,
 } from '../_lib/hub-tabs';
-import { LIT_LINE, litJumpMark } from '../_lib/jump-marks';
+import { LIT_LINE, litJumpMark, markForInPageHref } from '../_lib/jump-marks';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -180,11 +180,26 @@ export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlo
     };
     const GESTURES = ['wheel', 'touchstart', 'keydown'] as const;
     for (const g of GESTURES) window.addEventListener(g, unpin, { passive: true });
+    /* 👆 ANY LINK TO A MARK PINS IT, NOT ONLY THE BAR'S OWN (live walk 2026-11-01). The cover's "the day, the
+       details ↓" is a plain `<a href="#site-details">`; its jump can stop short of the line Home must pass, so the
+       spy alone left Home lit over Details until the next scroll. Same pin as a bar tap (`markForInPageHref`), and
+       the same release: the guest's next touch, wheel or key. One listener on the document, in the bubble phase,
+       after the link's own touchstart has unpinned. */
+    const marksByHref = pairs.map(([key, href]) => ({ key, href }));
+    const onLinkClick = (e: MouseEvent) => {
+      const link = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null;
+      const key = markForInPageHref(link?.getAttribute('href'), marksByHref);
+      if (key === null) return;
+      pinnedRef.current = key;
+      setSpied(key);
+    };
+    document.addEventListener('click', onLinkClick);
     spy();
     return () => {
       io.disconnect();
       foot?.disconnect();
       for (const g of GESTURES) window.removeEventListener(g, unpin);
+      document.removeEventListener('click', onLinkClick);
     };
   }, [onePage, page, markKey]);
   const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;

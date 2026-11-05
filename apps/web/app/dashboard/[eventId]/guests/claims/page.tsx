@@ -22,10 +22,10 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 /* ⚖ Through the lazy door, never straight from their files: the Maker's page imports THIS page (RSVP ›
    Requests), and a static import here puts all three in the Maker's first load (507 KB, never raised). */
-import { KeepQuickAdd, LinkPicker, SendInviteActions } from '../../_components/guest-setup/guest-setup-lazy';
+import { DecideForm, DecideRow, KeepQuickAdd, LinkPicker, SendInviteActions } from '../../_components/guest-setup/guest-setup-lazy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { keepGuestAction, removeGuestAction, linkGuestAction, undoAcceptAction, undoDeclineAction } from './actions';
+import { decideRequestInPlace, keepGuestAction, removeGuestAction, linkGuestAction, undoRequestAction } from './actions';
 import { Check, Undo2, X } from 'lucide-react';
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import { fetchInvitationBase } from '../_components/guest-card-data';
@@ -45,7 +45,11 @@ type Props = {
     /** The row just decided (frame G2) — drawn with its next step and Undo. */
     who?: string;
     /** `1` = drawn IN PLACE in the Event Hub Maker (Details › RSVP › Requests
-     *  waiting, part 2b): no way back, no masthead, and each save stays put. */
+     *  waiting, part 2b): no way back, no masthead, and each save stays put.
+     *  `guests` = drawn IN PLACE inside Guests (R4 slice 11): the same, and each
+     *  Accept · Decline · Link ANSWERS in place — the row stays in Guests with a
+     *  toast and Undo, a refusal is said there, nothing navigates
+     *  (`decide-in-place.tsx`, `decideRequestInPlace`). */
     maker?: string;
   }>;
 };
@@ -90,7 +94,8 @@ const DONE_COPY: Record<string, string> = {
 export default async function RequestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const { error: actionError, done, maker, who } = await searchParams;
-  const inMaker = maker === '1';
+  const inGuests = maker === 'guests';
+  const inMaker = maker === '1' || inGuests;
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -256,7 +261,8 @@ export default async function RequestsPage({ params, searchParams }: Props) {
               template={setup.template}
               extra={
                 undoStillOpen(row.updated_at as string | null, now) ? (
-                  <form action={undoAcceptAction.bind(null, eventId)}>
+                  <form action={undoRequestAction.bind(null, eventId)}>
+                    <input type="hidden" name="undo" value="accepted" />
                     <input type="hidden" name="guest_id" value={row.guest_id as string} />
                     <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-ink/70">
                       <Undo2 aria-hidden className="h-4 w-4" /> Undo
@@ -277,7 +283,8 @@ export default async function RequestsPage({ params, searchParams }: Props) {
             Declined · just now · their QR will say “{REQUEST_WORDS.declined}”
           </p>
           {undoStillOpen(row.deleted_at as string | null, now) ? (
-            <form action={undoDeclineAction.bind(null, eventId)} className="mt-2">
+            <form action={undoRequestAction.bind(null, eventId)} className="mt-2">
+              <input type="hidden" name="undo" value="declined" />
               <input type="hidden" name="guest_id" value={row.guest_id as string} />
               <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/[0.06] px-4 text-sm font-medium text-ink">
                 <Undo2 aria-hidden className="h-4 w-4" /> Undo
@@ -289,6 +296,20 @@ export default async function RequestsPage({ params, searchParams }: Props) {
     }
   }
   const answerLabel = (s: RsvpStatus) => REQUEST_ANSWERS.find((a) => a.value === s)?.label ?? RSVP_LABELS[s];
+  /* 📥 Each row's three forms: the page's own (they come back here with `?done=` / `?error=`), or — drawn inside Guests —
+     the in-place ones, which answer where the couple is (`decide-in-place.tsx`). */
+  const PAGE_ACTION = { keep: keepGuestAction, decline: removeGuestAction, link: linkGuestAction } as const;
+  const decideInGuests = decideRequestInPlace.bind(null, eventId);
+  const rowForm = (verb: keyof typeof PAGE_ACTION, guestId: string, name: string, className: string | undefined, body: ReactNode) =>
+    inGuests ? (
+      <DecideForm act={decideInGuests} verb={verb} guestId={guestId} name={name} className={className}>
+        {body}
+      </DecideForm>
+    ) : (
+      <form action={PAGE_ACTION[verb].bind(null, eventId)} className={className}>
+        {body}
+      </form>
+    );
 
   return (
     <div className={inMaker ? 'w-full' : 'mx-auto w-full max-w-2xl px-4 py-6 sm:px-6'} data-requests-page="">
@@ -358,7 +379,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                 g.email,
                 requestAge(g.created_at),
               ].filter(Boolean);
-              return (
+              const row = (
                 <li key={g.guest_id} className="py-5" data-request={g.guest_id}>
                   <p className="text-xl font-semibold text-ink">{name}</p>
                   <p className="mt-0.5 text-sm text-ink/60">{meta.join(' · ')}</p>
@@ -385,34 +406,46 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                       >
                         Accept
                       </summary>
-                      <form action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
-                        <input type="hidden" name="guest_id" value={g.guest_id} />
-                        {inMaker ? null : <input type="hidden" name="from" value="requests" />}
-                        <RoleNamesProvider names={roleNames}>
-                          <KeepQuickAdd
-                            defaultLine={keepLineFor(name, g.notes)}
-                            offeredRoles={offeredRoles}
-                            hasSides={hasSides}
-                            existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
-                          />
-                        </RoleNamesProvider>
-                        <SubmitButton className="button-primary" pendingLabel="Adding…">
-                          Add to my list
-                        </SubmitButton>
-                      </form>
+                      {rowForm(
+                        'keep',
+                        g.guest_id,
+                        name,
+                        `mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`,
+                        <>
+                          <input type="hidden" name="guest_id" value={g.guest_id} />
+                          {inMaker ? null : <input type="hidden" name="from" value="requests" />}
+                          <RoleNamesProvider names={roleNames}>
+                            <KeepQuickAdd
+                              defaultLine={keepLineFor(name, g.notes)}
+                              offeredRoles={offeredRoles}
+                              hasSides={hasSides}
+                              existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
+                            />
+                          </RoleNamesProvider>
+                          <SubmitButton className="button-primary" pendingLabel="Adding…">
+                            Add to my list
+                          </SubmitButton>
+                        </>,
+                      )}
                     </details>
 
-                    <form action={removeGuestAction.bind(null, eventId)}>
-                      <input type="hidden" name="guest_id" value={g.guest_id} />
-                      {inMaker ? null : <input type="hidden" name="from" value="requests" />}
-                      <SubmitButton
-                        overlay={false}
-                        pendingLabel="Declining…"
-                        className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink"
-                      >
-                        Decline
-                      </SubmitButton>
-                    </form>
+                    {rowForm(
+                      'decline',
+                      g.guest_id,
+                      name,
+                      undefined,
+                      <>
+                        <input type="hidden" name="guest_id" value={g.guest_id} />
+                        {inMaker ? null : <input type="hidden" name="from" value="requests" />}
+                        <SubmitButton
+                          overlay={false}
+                          pendingLabel="Declining…"
+                          className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink"
+                        >
+                          Decline
+                        </SubmitButton>
+                      </>,
+                    )}
 
                     {/* LINK — they are someone already on the list. */}
                     {candidates.length > 0 ? (
@@ -424,18 +457,21 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                         >
                           Link
                         </summary>
-                        <form
-                          action={linkGuestAction.bind(null, eventId)}
-                          className={`mt-3 flex flex-wrap items-center gap-2 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}
-                        >
-                          <input type="hidden" name="guest_id" value={g.guest_id} />
-                          {inMaker ? null : <input type="hidden" name="from" value="requests" />}
-                          <span className="text-sm text-ink/60">Same as</span>
-                          <LinkPicker candidates={candidates} initial={match} />
-                          <SubmitButton className="button-primary" pendingLabel="Linking…">
-                            Link
-                          </SubmitButton>
-                        </form>
+                        {rowForm(
+                          'link',
+                          g.guest_id,
+                          name,
+                          `mt-3 flex flex-wrap items-center gap-2 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`,
+                          <>
+                            <input type="hidden" name="guest_id" value={g.guest_id} />
+                            {inMaker ? null : <input type="hidden" name="from" value="requests" />}
+                            <span className="text-sm text-ink/60">Same as</span>
+                            <LinkPicker candidates={candidates} initial={match} />
+                            <SubmitButton className="button-primary" pendingLabel="Linking…">
+                              Link
+                            </SubmitButton>
+                          </>,
+                        )}
                       </details>
                     ) : !candidatesMeasured ? (
                       <p className="text-sm text-ink/55">
@@ -444,6 +480,14 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                     ) : null}
                   </div>
                 </li>
+              );
+              // Inside Guests the row steps aside the moment it is decided, and comes back on Undo.
+              return inGuests ? (
+                <DecideRow key={g.guest_id} guestId={g.guest_id}>
+                  {row}
+                </DecideRow>
+              ) : (
+                row
               );
             })}
           </ul>

@@ -1,5 +1,7 @@
 'use server';
 
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -55,6 +57,12 @@ export async function commitSimpleEvent(formData: FormData) {
   const dated = /^\d{4}-\d{2}-\d{2}$/.test(event_date);
   if (!dated && !(needsPosted && event_date === '')) {
     return redirect('/onboarding/simple?error=missing_date');
+  }
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — said
+  // beside the date on the page this redirect lands on.
+  if (dated && eventDateFloorRefusal({ date: event_date, exempt: await eventDateFloorExempt(null) })) {
+    return redirect('/onboarding/simple?error=event_date_before_first_event');
   }
 
   // The type must be in the enabled create-roster (same gate as the picker).

@@ -11,10 +11,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isShopLive } from '@/lib/vendor-visibility';
 import { formatCount } from '@/lib/format-number';
-import { formatCentavosPhp } from '@/lib/php';
+import { formatCentavosPhp, formatPhpRounded } from '@/lib/php';
 import { PAYOUT_STAGE_LABEL, type PayoutStage } from '@/lib/payouts';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { VERIFICATION_STATE_LABEL, parseVerificationState } from '@/lib/vendor-verification';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { displayServiceLabel } from '@/lib/vendors';
+import { cardAnchorId } from '@/lib/service-card-view-model';
+import { cardStatusOf } from '@/lib/service-card-moderation';
+import { ServiceCardsSection, type AdminServiceCard } from './_components/service-cards-section';
 
 export const metadata = { title: 'Supplier · Admin', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -37,9 +42,15 @@ export const dynamic = 'force-dynamic';
  * Read-only on purpose: every change lives on the page that already owns it
  * (Plan, Team, Verify, Payouts, Edit for an unclaimed shop). This page links
  * there; it does not grow a second copy of any of those forms.
+ *
+ * ONE EXCEPTION, because no other page owns it (admin minimum for the 7 Nov
+ * 2026 supplier registration): "Service cards" (#cards) lists every card of the
+ * shop and carries the only take-down / put-back / remove-photo controls in the
+ * console (./card-actions.ts).
  */
 
 const PAYOUT_CAP = 10;
+const CARD_CAP = 50;
 
 const PUBLIC_ID_RE = /^S89V-[0-9A-Za-z]{10}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,7 +64,41 @@ function fmtDate(v: string | null | undefined): string {
   return d.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-type Props = { params: Promise<{ vendorProfileId: string }> };
+type Props = {
+  params: Promise<{ vendorProfileId: string }>;
+  searchParams?: Promise<{ card?: string; card_error?: string }>;
+};
+
+/** What the last card action did — the result line above "Service cards". */
+const CARD_RESULT: Readonly<Record<string, string>> = {
+  'taken-down': 'Card taken down. Couples can no longer see it, and the supplier has been told why.',
+  'back-live': 'Card put back. It is live again, and the supplier has been told.',
+  'back-draft': 'Take-down lifted. The card was not live before, so it is back as a draft.',
+  'back-draft-gate':
+    'Take-down lifted, but the card could not go live again (it is missing a cover, a price or what is included). It is a draft; the supplier has been told.',
+  'photo-removed': 'Photo removed from the card. The supplier has been told why.',
+};
+
+type CardRow = {
+  vendor_service_id: string;
+  public_id: string | null;
+  title: string | null;
+  category: string | null;
+  pricing_basis: string | null;
+  starting_price_php: number | null;
+  per_pax_price_php: number | null;
+  is_active: boolean | null;
+  taken_down_at: string | null;
+  taken_down_reason: string | null;
+  primary_photo_r2_key: string | null;
+  showcase_photo_r2_keys: string[] | null;
+};
+
+function cardPrice(c: CardRow): string {
+  if (c.pricing_basis === 'per_pax' && c.per_pax_price_php) return `${formatPhpRounded(c.per_pax_price_php)} per guest`;
+  if (c.starting_price_php) return `From ${formatPhpRounded(c.starting_price_php)}`;
+  return 'No price yet';
+}
 
 type PayoutRow = {
   payout_id: string;
@@ -66,9 +111,12 @@ type PayoutRow = {
   on_hold: boolean | null;
 };
 
-export default async function AdminSupplierPage({ params }: Props) {
+export default async function AdminSupplierPage({ params, searchParams }: Props) {
   const { userId: adminUserId } = await requireAdmin();
   const { vendorProfileId: rawId } = await params;
+  const sp = (await searchParams) ?? {};
+  const cardResult = sp.card ? (CARD_RESULT[sp.card] ?? null) : null;
+  const cardError = sp.card_error?.slice(0, 300) ?? null;
   const id = decodeURIComponent(rawId).trim();
   const byPublicId = PUBLIC_ID_RE.test(id);
   if (!byPublicId && !UUID_RE.test(id)) notFound();
@@ -149,6 +197,46 @@ export default async function AdminSupplierPage({ params }: Props) {
   if (payoutRead.error) logQueryError('admin/vendors/[vendorProfileId]:payouts', payoutRead.error);
   const payouts = payoutRead.error ? null : ((payoutRead.data ?? []) as PayoutRow[]);
 
+  // ── service cards (every one — live, draft or taken down) ───────────────
+  const cardRead = await admin
+    .from('vendor_services')
+    .select(
+      'vendor_service_id, public_id, title, category, pricing_basis, starting_price_php, per_pax_price_php, is_active, taken_down_at, taken_down_reason, primary_photo_r2_key, showcase_photo_r2_keys',
+    )
+    .eq('vendor_profile_id', shopId)
+    .order('created_at', { ascending: true })
+    .limit(CARD_CAP);
+  if (cardRead.error) logQueryError('admin/vendors/[vendorProfileId]:cards', cardRead.error);
+  const shopIsLive = isShopLive(shop);
+  const slug = (shop.business_slug as string | null) ?? null;
+  const cards: AdminServiceCard[] | null = cardRead.error
+    ? null
+    : await Promise.all(
+        ((cardRead.data ?? []) as CardRow[]).map(async (c) => {
+          const status = cardStatusOf(c);
+          const coverKey = c.primary_photo_r2_key?.trim() || null;
+          const showcaseKeys = (c.showcase_photo_r2_keys ?? []).filter((k) => k && k.trim());
+          const [coverUrl, ...showcaseUrls] = await Promise.all(
+            [coverKey, ...showcaseKeys].map((k) => (k ? displayUrlForStoredAsset(k).catch(() => null) : null)),
+          );
+          return {
+            id: c.vendor_service_id,
+            publicId: c.public_id,
+            title: c.title?.trim() || 'Card without a name',
+            kind: c.category ? displayServiceLabel(c.category) : 'No category',
+            price: cardPrice(c),
+            status,
+            takenDownReason: c.taken_down_reason,
+            cover: coverKey ? { key: coverKey, url: coverUrl ?? null } : null,
+            showcase: showcaseKeys.map((key, i) => ({ key, url: showcaseUrls[i] ?? null })),
+            publicHref:
+              status === 'live' && shopIsLive && slug
+                ? `/v/${slug}${c.public_id ? `?service=${encodeURIComponent(c.public_id)}` : ''}#${cardAnchorId(c.public_id, c.vendor_service_id)}`
+                : null,
+          };
+        }),
+      );
+
   // RA 10173 who-viewed-whom — the owner's account shows this page was opened.
   after(async () => {
     if (!ownerId) return;
@@ -178,7 +266,7 @@ export default async function AdminSupplierPage({ params }: Props) {
     { label: 'City', value: (shop.location_city as string | null) || '—' },
     // One definition of live (lib/vendor-visibility.ts): `is_published` is a
     // dead column nothing in the approval flow sets.
-    { label: 'Shows in search', value: isShopLive(shop) ? 'Yes' : 'No' },
+    { label: 'Shows in search', value: shopIsLive ? 'Yes' : 'No' },
     { label: 'Demo shop', value: shop.is_demo ? 'Yes — sample data' : 'No' },
     { label: 'Joined', value: fmtDate(shop.created_at as string | null) },
   ];
@@ -256,6 +344,18 @@ export default async function AdminSupplierPage({ params }: Props) {
           </Link>
         </div>
       </section>
+
+      {cardResult ? (
+        <p role="status" className="rounded-lg bg-success-100 p-3 text-sm text-success-900">
+          {cardResult}
+        </p>
+      ) : null}
+      {cardError ? (
+        <p role="alert" className="rounded-lg bg-danger-100 p-3 text-sm text-danger-900">
+          {cardError}
+        </p>
+      ) : null}
+      <ServiceCardsSection shopId={shopId} cards={cards} cap={CARD_CAP} />
 
       <section className="space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

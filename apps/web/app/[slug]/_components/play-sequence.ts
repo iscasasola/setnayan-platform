@@ -16,6 +16,10 @@
  * scene's `--hub-duration`, a part's own duration) — that is the Movement the couple picked. An end that FOLLOWS THE
  * SCROLL has no seconds of its own: the same keyframes are played once on a clock, and the report says so.
  * ♿ REDUCE MOTION: nothing is played, and the report says that too (a guest who asked for stillness gets none).
+ * ✋ ▶ TAPPED, IT HOLDS (owner 1 Nov 2026, `Maker_Animate_Preview_Scrub_LOCKED_2026-10-09.md` §4, amended): `holdAtEnd`
+ * leaves the last phase standing on its finished look — a Build in built, a Build out gone — after `rest` is reported,
+ * and only the returned stop puts the part back at rest (the Maker's Exit preview, or a tap). Without it (a Motion
+ * pick's one replay) the part rests at once, as before.
  */
 export type SeqPhase = 'in' | 'act' | 'out' | 'rest';
 import { COVER_PLAY_LIFT_EVENT, COVER_PLAY_OPENING_EVENT, type CoverPlayOpeningDetail } from './cover-play-events';
@@ -154,7 +158,13 @@ function wholeSequenceOf(target: HTMLElement, isScene: boolean): { steps: Step[]
 }
 
 /** Play it. Returns a stop that puts every node back at rest at once. */
-export function playSequence(target: HTMLElement, isScene: boolean, report: (r: SeqReport) => void, only?: Exclude<SeqPhase, 'rest'>): () => void {
+export function playSequence(
+  target: HTMLElement,
+  isScene: boolean,
+  report: (r: SeqReport) => void,
+  only?: Exclude<SeqPhase, 'rest'>,
+  holdAtEnd = false,
+): () => void {
   if (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     report({ phase: 'rest', skipped: [SEQ_STILL] });
     return () => {};
@@ -176,7 +186,8 @@ export function playSequence(target: HTMLElement, isScene: boolean, report: (r: 
   const next = () => {
     const s = steps[i++];
     if (!s) {
-      rest();
+      /* ✋ Held: the last phase stays where it ended until the stop. */
+      if (!holdAtEnd) rest();
       report({ phase: 'rest', skipped });
       timer = null;
       return;

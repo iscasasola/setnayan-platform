@@ -172,7 +172,8 @@ test('4 · the plan’s gate cannot reject, says the failure, and plain-state pr
     /savePriorityOrder\(fd\)\)\) === null\) setPriorityOrder\(before\);/,
     /savePriorityOrder\(fd\)\)\) === null\) setRoleSeating\(roleSeating\);/,
     /addSeatingConstraint\(fd\)\)\) === null\) \{\s*setKeepApart\(/,
-    /removeSeatingConstraint\(fd\)\)\) === null\) \{\s*setKeepApart\(/,
+    // ↩ 2026-11-03: the rule's removal waits out the Undo window; a refusal is `{ ok: false }` → deleteWithUndo restores it.
+    /restore: \(\) =>\s*setKeepApart\([\s\S]{0,200}?removeSeatingConstraint\(fd\)\)\) === null \? \{ ok: false \}/,
     /saveVenuePhotoVisibility\(fd\), 'Couldn’t save the photo setting — please try again\.'\);\s*if \(res === null\) setPhotoVis\(prev\);/,
   ]) {
     assert.match(src, put, `a press that did not save is left looking saved: ${put}`);

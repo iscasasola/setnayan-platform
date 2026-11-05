@@ -22,6 +22,21 @@ function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor'
 }
 
 /**
+ * 🔒 A REFUSED SIGN-UP RETURNS TO THE SAME DOOR.
+ *
+ * `/signup` decides who is signing up from `?as=` alone (lib/signup-intent.ts).
+ * Every refusal below sends the visitor back to `/signup` to try again; when
+ * that redirect carried only `error` + `next`, a SUPPLIER who mistyped once (a
+ * breached password, an unticked box) came back to the COUPLE sign-up, and
+ * their retry made a couple account. So every retry path is built here, and
+ * a supplier's keeps `as=vendor`. Held by `a-refused-supplier-signup-stays-a-supplier.test.ts`.
+ */
+function signupRetryPath(error: string, next: string, accountType: 'customer' | 'vendor'): string {
+  const as = accountType === 'vendor' ? '&as=vendor' : '';
+  return `/signup?error=${encodeURIComponent(error)}&next=${encodeURIComponent(next)}${as}`;
+}
+
+/**
  * "Stay signed in" cookie downgrade — mirror of the login/actions.ts
  * helper. See that file for the full WHY block. signUp() may set sb-*
  * session cookies when Supabase's email-confirm-required is off (the
@@ -86,7 +101,7 @@ export async function signUp(formData: FormData) {
   const displayName = [firstName, lastName].filter(Boolean).join(' ').slice(0, 200) || null;
 
   if (!email || !password) {
-    return redirect(`/signup?error=missing&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('missing', next, accountType));
   }
   /*
     🔒 THE AGREEMENT IS A GATE, NOT A HINT — CTRL-B3 build 2.
@@ -100,20 +115,20 @@ export async function signUp(formData: FormData) {
     the state that lets everyone through.
   */
   if (!hasAgreedToTerms(formData.get(TERMS_FIELD))) {
-    return redirect(`/signup?error=terms_required&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('terms_required', next, accountType));
   }
   if (password.length < 8) {
-    return redirect(`/signup?error=password_too_short&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('password_too_short', next, accountType));
   }
   // Refuse a password already published in a breach. Only the first five
   // characters of its hash leave this process — see lib/leaked-password.ts.
   // Fails OPEN if the service is unreachable, on purpose.
   if ((await isPasswordLeaked(password)).leaked) {
-    return redirect(`/signup?error=password_leaked&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('password_leaked', next, accountType));
   }
 
   if (await isEmailBlacklisted(email)) {
-    return redirect(`/signup?error=blacklisted&next=${encodeURIComponent(next)}`);
+    return redirect(signupRetryPath('blacklisted', next, accountType));
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
@@ -140,7 +155,7 @@ export async function signUp(formData: FormData) {
         admin = createAdminClient();
       } catch {
         return redirect(
-          `/signup?error=server_config_error&next=${encodeURIComponent(next)}`,
+          signupRetryPath('server_config_error', next, accountType),
         );
       }
       const userId = existingUser.id;
@@ -156,7 +171,7 @@ export async function signUp(formData: FormData) {
       });
       if (convertError) {
         return redirect(
-          `/signup?error=${encodeURIComponent(convertError.message)}&next=${encodeURIComponent(next)}`,
+          signupRetryPath(convertError.message, next, accountType),
         );
       }
       // Overwrite the placeholder email on the public.users row the trigger
@@ -239,7 +254,7 @@ export async function signUp(formData: FormData) {
 
   if (error) {
     return redirect(
-      `/signup?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
+      signupRetryPath(error.message, next, accountType),
     );
   }
 

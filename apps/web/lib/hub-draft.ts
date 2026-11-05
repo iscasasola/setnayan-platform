@@ -3189,6 +3189,8 @@ export type HubDraftRefusal =
   | 'missing_section'
   /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
   | 'date_in_past'
+  /** 💍 A drafted date before the first event day, December 19, 2026 (`lib/event-date-floor.ts`). */
+  | 'date_before_first_event'
   /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
   | 'date_locked'
   /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */

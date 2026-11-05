@@ -159,6 +159,21 @@ function headingFromSections(parts: readonly HeadingPart[], names: RoleNames | n
   return out.join('');
 }
 
+/**
+ * 🏷 WHICH ONE WORD A GROUP'S HEADING IS RENAMED BY (owner 2026-10-29, R4 slice 4: *"the renaming of that group will be
+ * removed since it will be set on when the highlighted group/role is pressed"*) — read off the two vocabularies above,
+ * never a second list: a group NAMED after a role is renamed by that role's word; a heading made of exactly ONE section
+ * is renamed by that section's word. A heading of two sections (Bearers & Flower Girl) has no one word — null, and no
+ * Rename is offered for it. The doors are the shipped ones (`renameRole` / `renameSection`, role-name-actions.ts).
+ */
+export type RoleGroupRenameDoor = { kind: 'role'; role: GuestRole } | { kind: 'section'; section: string };
+export function roleGroupRenameDoor(group: RoleGroup): RoleGroupRenameDoor | null {
+  const role = GROUP_NAMED_AFTER[group];
+  if (role) return { kind: 'role', role };
+  const sections = (ROLE_GROUP_SECTION_PARTS[group] ?? []).filter((p): p is readonly [string, string] => typeof p !== 'string');
+  return sections.length === 1 ? { kind: 'section', section: sections[0]![0] } : null;
+}
+
 /** A group's heading in this couple's words — `ROLE_GROUP_LABELS` when they renamed nothing. */
 export function roleGroupLabel(group: RoleGroup, names?: RoleNames | null): string {
   const role = GROUP_NAMED_AFTER[group];
@@ -311,6 +326,11 @@ export function isHonoreeRole(role: GuestRole): boolean {
 // guest-list SECTIONS in agreement for multi-role guests (e.g. a Bridesmaid
 // who is also a Principal Sponsor ranks + sections by Principal Sponsor).
 export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
+  return roleGroupOf(mostImportantRole(roles));
+}
+
+/** A guest's MOST important role (primary or extra) — what they are sectioned and ranked by. */
+export function mostImportantRole(roles: readonly GuestRole[]): GuestRole {
   let best: GuestRole = roles[0] ?? 'guest';
   let bestRank = roleImportanceRank(best);
   for (const r of roles) {
@@ -320,7 +340,49 @@ export function importanceGroupOf(roles: GuestRole[]): RoleGroup | 'guest' {
       best = r;
     }
   }
-  return roleGroupOf(best);
+  return best;
+}
+
+/**
+ * 👯 THE HONOUR ATTENDANTS — ONE GROUP ON GUESTS › LIST (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: DRAG TO CHANGE
+ * ROLE · HONOUR ATTENDANTS GET THEIR OWN GROUP": *"there should be a dedicated group for best woman, best man, maid of
+ * honor and matron of honor and man of honor because right now they are on the grooms crew and brides crew"*).
+ *
+ * A LIST SECTION, not a `RoleGroup`: the role groups also key the Mood Board palette, the dress code and the seating
+ * tiers, where the honour attendants still stand with their side (`ROLE_TO_GROUP` above). The List's sections
+ * (`guest-roster-view.ts`), its role sort and its section head read this set; it is the same five roles the dress
+ * code's honour rows hold (`HONOUR_ROW_OF`, attire-rows.ts — held equal by `the-honour-attendants-are-one-list-group`).
+ */
+export const HONOUR_ATTENDANT_ROLES: readonly GuestRole[] = ['best_man', 'best_woman', 'maid_of_honor', 'matron_of_honor', 'man_of_honor'];
+export const HONOUR_ATTENDANTS_LABEL = 'Honour attendants';
+export const isHonourAttendant = (role: GuestRole): boolean => HONOUR_ATTENDANT_ROLES.includes(role);
+
+/**
+ * The Guests list's ROLE ORDER — the roster's Role-view sections, top to bottom (moved here from
+ * lib/guest-roster-view.ts so the seater reads the very same list: owner 2026-11-02, "tables fill in the Guests list's
+ * role order"). 👯 Honour attendants are one section above both crews.
+ */
+export const ROSTER_ROLE_ORDER: readonly (RoleGroup | 'guest' | 'honour_attendants')[] = [
+  'vip_family',
+  'muslim_principals',
+  'honour_attendants',
+  'groomsmen',
+  'bridesmaids',
+  'principal_sponsors',
+  'secondary_sponsors',
+  'bearers_flower_girl',
+  'officiants',
+  'guest',
+];
+
+/**
+ * 🪑 Where one role sits in the Guests list's role order — lower first: its section (above), then its row order inside
+ * the section (`roleImportanceRank`). A role with no section of its own ranks with plain guests, after every section.
+ */
+export function rosterRoleRank(role: GuestRole): number {
+  const bucket = isHonourAttendant(role) ? 'honour_attendants' : roleGroupOf(role);
+  const at = ROSTER_ROLE_ORDER.indexOf(bucket as (typeof ROSTER_ROLE_ORDER)[number]);
+  return (at < 0 ? ROSTER_ROLE_ORDER.length : at) * 1000 + roleImportanceRank(role);
 }
 
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
@@ -388,7 +450,12 @@ export function filterByRoleGroup<
   // multi-role: a guest matches the view if ANY of their roles (primary
   // or extra) maps to it — so filtering "Principal Sponsors" surfaces a
   // Bridesmaid who is also a principal sponsor.
+  //
+  // 👯 The honour attendants answer ONLY to "Honour attendants" (owner 2026-11-01, asked: yes) — the Groomsmen and
+  // Bridesmaids views stop counting the best man / best woman and the maid / matron / man of honor, as the List no
+  // longer draws them under the crews. A best man who is also a groomsman is still a groomsman.
+  if (view === 'honour_attendants') return guests.filter((g) => [g.role, ...(g.extra_roles ?? [])].some(isHonourAttendant));
   return guests.filter((g) =>
-    [g.role, ...(g.extra_roles ?? [])].some((r) => roleGroupOf(r) === view),
+    [g.role, ...(g.extra_roles ?? [])].some((r) => !isHonourAttendant(r) && roleGroupOf(r) === view),
   );
 }

@@ -392,6 +392,14 @@ export type NotificationType =
   */
   | 'guest_takedown_honored'
   /*
+    Setnayan changed one of the SUPPLIER's service cards from the admin
+    supplier page: took it down, put it back, or removed a cover / showcase
+    photo — always with the admin's reason (lib/service-card-moderation.ts).
+    In-app only: deliberately NOT on EMAIL_ENABLED_TYPES (owner brief for the
+    7 Nov supplier registration: "in-app notice, no new email"). Low push.
+  */
+  | 'service_card_moderated'
+  /*
     A booking landed inside the shop's free 5, so Setnayan billed them NOTHING
     (owner 2026-09-20: *"yes, add the email receipt for waived bookings."*).
     ⚠ Also an ENUM value in Postgres — 20271235690341. A TS-only member
@@ -470,6 +478,12 @@ export type NotificationType =
      2026-10-11): Setnayan answered a name / web-address request (approved · declined + reason) or sent a flagged
      service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271292839996. */
   | 'supplier_request_answered'
+  /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
+     "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT
+     on the email allowlist — owner 2026-10-11). Emitted when the event type they
+     named is in the create picker (Admin › Event types). Enum value:
+     20271293446382. */
+  | 'event_type_added'
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
@@ -484,7 +498,72 @@ export type NotificationType =
      shift (never one per block), from Running late on the couple's schedule and
      the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
      ⚠ ENUM value in 20271284540209. */
-  | 'schedule_shifted';
+  | 'schedule_shifted'
+  /* 📸 A COUPLE'S OWN PHOTO, SHARED TO A SUPPLIER'S SERVICE CARD (owner 2026-10-30). `shared` → the shop's owner, to
+     Approve or Decline on Shop › Services (`app/_actions/couple-photo-share-actions.ts`, op 'send'); `answered` → the
+     uploader, when the shop approves, declines or takes it off (same file, op 'answer'). In-app only — NOT on
+     the email or push allowlists. ⚠ ENUM values in 20271297221336. */
+  | 'couple_photo_shared'
+  | 'couple_photo_answered'
+  /* 🖼⏱ SOMEONE THE HOSTS GAVE MOOD BOARD EDIT CHANGED IT (owner 2026-10-30, DECISION_LOG "MOOD BOARD CHANGES:
+     SUPPLIERS ASK, COORDINATORS APPLY, THE OWNERS HAVE 24 HOURS TO UNDO"). → EVERY owner of the event, ONE notice per
+     change ("Coordinator Ana changed the Mood Board · Stage"); its Undo lives on Home for 24 hours. Written by the
+     database itself (the event_inspiration_assets trigger, 20271299051148) — never emitNotification, so it cannot be
+     skipped by a write that bypasses the app. In-app only — no email, no push. ⚠ ENUM value in 20271298460272. */
+  | 'mood_board_changed'
+  /* 🪪 A HELPER ASKED THE HOSTS FOR MORE ACCESS ON ONE PART (owner 2026-10-31, "yes" to "Ask the hosts"; DECISION_LOG
+     "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with 'Ask the hosts'"). →
+     EVERY host of the event, one notice per ask, opening Home ⚙ › People with access on that helper
+     (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
+     never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES, Low in
+     lib/push-levels.ts (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
+  | 'access_more_asked'
+  /* 📍 THE HOST CHANGED WHERE A BOOKED SUPPLIER GOES (owner 2026-11-01, DECISION_LOG "MANY VENUES PER EVENT; SUPPLIERS
+     PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan §12 Step 4: "a change after booking sends the supplier an
+     in-app notice (no email), and the price never changes by itself"). → the booked shop's owner, one notice per change,
+     opening their client page. Written by the DATABASE (`set_supplier_where`, 20271300598766) in the same statement
+     that changes the set — never emitNotification. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
+  | 'supplier_where_changed'
+  /* 🔗 THE COUPLE ANSWERED A SUPPLIER WHO JOINED FROM THEIR LINK (supplier gate audit G3, 2026-11-02). → the supplier
+     who claimed, one notice per answer: "<event> let you in" (opens their client page) or "… did not let you in".
+     Sent by `answerClaimAccess` (app/dashboard/[eventId]/access-requests/actions.ts) after
+     `answer_claim_access_request`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302590530. */
+  | 'claim_access_answered'
+  /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting
+     notifications if they are changed by user"*). → each booked supplier named on the moment (`responsible_vendor_ids`,
+     before AND after the edit), ONE notice per save however many moments it touched — retimed, edited, re-assigned or
+     removed. Sent by `lib/supplier-part-notify.server.ts` from the host schedule actions. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271302920811. */
+  | 'supplier_part_changed'
+  /* 📣 A host or coordinator pressed Release (owner 2026-11-01, plan §3 "Basic, then full"): every guest account on the
+     event is told their own full schedule and call time are on Me. Written by the DATABASE (`release_full_schedule`,
+     20271302139506) in one statement — never emitNotification. ⚠ IN-APP ONLY (owner: "Just notifications please"): NOT
+     on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301956127. */
+  | 'schedule_released'
+  /* 🤝 A BOOKED COORDINATOR'S INVITE TO THE EVENT (supplier gate audit 2026-11-02, E1). → the account whose email the
+     invite is for, the moment a planner_coordinator booking is paid (`autoInviteCoordinator`, lib/coordinator-grant.ts),
+     opening `/host/accept/<token>` — so they accept without the couple copying the link. ⚠ IN-APP ONLY: NOT on
+     EMAIL_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271303211103. */
+  | 'coordinator_invited'
+  /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
+     SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
+     opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
+     supplier said yes (the moment moved) or no (with their reason). Sent from `lib/schedule-ask.server.ts` and the ONE
+     accept path (`lib/schedule-suggestion-decide.server.ts`). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is
+     why the ask is not `schedule_change_requested`, which is emailed. ⚠ ENUM values in 20271302910538. */
+  | 'schedule_ask'
+  | 'schedule_ask_answered'
+  /* 📍 A BOOKED SUPPLIER ASKS TO SERVE THESE CHAPTERS (owner 2026-11-04, DECISION_LOG "CHAPTERS: THE SUPPLIER PICKS,
+     AND THE HOST CAN ALSO PICK FOR THEM"). → the couple and every seat holding The Day = Edit, opening the Schedule's
+     Requests (OK / Decline / Change). Sent from app/vendor-dashboard/clients/[eventId]/actions.ts after
+     `supplier_ask_where`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is why it is not
+     `schedule_change_requested`, which is emailed. ⚠ ENUM value in 20271308386601. */
+  | 'supplier_where_asked'
+  /* 📸 THE PHOTO RULE'S REMINDERS (owner 2026-11-03, DECISION_LOG "THE PHOTO RULE"): originals are kept until 3 months
+     after the event's LAST day; each host is told at day 60, 80 and 89 — "Copy to Google Drive (free) or Download all".
+     Sent by `lib/papic-originals-reminder.ts`, once per stage per host. ⚠ IN-APP ONLY (owner: no new emails): NOT on
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271304032942. */
+  | 'papic_originals_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -572,6 +651,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_share: 'Mood board shared',
   // A comp grant from the Setnayan team (2026-09-18).
   gift: 'A gift from Setnayan',
+  couple_photo_shared: 'A couple shared a photo',
+  couple_photo_answered: 'Your shared photo',
   vendor_feature_suggested: 'A supplier suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
@@ -585,6 +666,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   samahan_message: 'New in Usapan',
   samahan_join: 'Someone joined your group',
   guest_takedown_honored: 'Photo taken down at a guest’s request',
+  service_card_moderated: 'Setnayan changed one of your service cards',
   // Tray copy for the free-5 receipt. It says WAIVED, not "Free" — a row that
   // reads only "Free" teaches the shop there is no fee, and booking 6 then
   // arrives as a surprise charge (owner 2026-09-20, the whole reason the
@@ -601,9 +683,21 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
   supplier_request_answered: 'Setnayan answered your request',
+  event_type_added: 'Your event type was added',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
+  mood_board_changed: 'Mood Board changed',
+  access_more_asked: 'A helper asks for more access',
+  supplier_where_changed: 'Where you go changed',
+  claim_access_answered: 'A couple answered your link',
+  coordinator_invited: 'You’re invited to coordinate',
+  schedule_ask: 'Asked to change your times',
+  schedule_ask_answered: 'A supplier answered your ask',
+  supplier_where_asked: 'A supplier picked their chapters',
+  papic_originals_reminder: 'Keep your original photos',
+  supplier_part_changed: 'Your part changed',
+  schedule_released: 'Your full schedule is ready',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -752,6 +846,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   mood_board_share: 'bg-sky-100 text-sky-800',
   // A gift is good news arriving → the gold accent (`terracotta` IS gold here).
   gift: 'bg-terracotta-100 text-terracotta-900',
+  couple_photo_shared: 'bg-sky-100 text-sky-800',
+  couple_photo_answered: 'bg-sky-100 text-sky-800',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
   // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
   // error" — amber, matching review_request / payment_logged. A payment coming
@@ -788,6 +884,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
     honoured it. A red badge would read as an accusation.
   */
   guest_takedown_honored: 'bg-ink/15 text-ink/70',
+  // Warn: the card (or a photo on it) is off until the supplier acts on the reason.
+  service_card_moderated: 'bg-warn-100 text-warn-900',
   /*
     Success, and nothing else would be honest: the shop owed a fee and owes it
     no longer. Amber would read as "action needed" on a receipt with no action
@@ -814,6 +912,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_declined: 'bg-warn-100 text-warn-900',
   // An answer that can be yes or no (a decline carries its reason) → the neutral info tone, never a verdict colour.
   supplier_request_answered: 'bg-sky-100 text-sky-800',
+  // What they asked for is ready — a settled good thing, like an agreement.
+  event_type_added: 'bg-success-100 text-success-800',
   // Money waiting on a yes → the same action-needed amber as a payment ask. The
   // answer can be yes or no, so it takes amber too rather than claim a verdict
   // the type alone does not carry (same reasoning as part_reopen_answered).
@@ -821,6 +921,25 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   change_order_answered: 'bg-warn-100 text-warn-900',
   // News the supplier acts on at the venue (a new time), not a yes or no → the informational sky.
   schedule_shifted: 'bg-sky-100 text-sky-800',
+  // Already applied; the owner MAY undo it — news, not a yes-or-no ask → the informational sky.
+  mood_board_changed: 'bg-sky-100 text-sky-800',
+  // A helper waits on the hosts' answer → the action-needed amber, like every other ask.
+  access_more_asked: 'bg-warn-100 text-warn-900',
+  // News the supplier plans around (which chapters), not a yes or no → the informational sky.
+  supplier_where_changed: 'bg-sky-100 text-sky-800',
+  claim_access_answered: 'bg-sky-100 text-sky-800',
+  // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
+  coordinator_invited: 'bg-warn-100 text-warn-900',
+  // A deadline on the couple's own originals → the action-needed amber.
+  papic_originals_reminder: 'bg-warn-100 text-warn-900',
+  // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
+  schedule_ask: 'bg-warn-100 text-warn-900',
+  // An answer, already settled → the informational sky.
+  schedule_ask_answered: 'bg-sky-100 text-sky-800',
+  supplier_where_asked: 'bg-sky-100 text-sky-800',
+  supplier_part_changed: 'bg-sky-100 text-sky-800',
+  // News a guest plans their day around, not a yes or no → the informational sky.
+  schedule_released: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1026,6 +1145,7 @@ export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, str
   event_auto_surfaced: 'Added',
   cohost_added: 'Added',
   connection_request: 'Added',
+  access_more_asked: 'Access',
 };
 
 export function notificationShortLabel(type: NotificationType): string {
@@ -1062,6 +1182,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
   supplier_request_answered: 'message',
+  event_type_added: 'sparkle',
   vendor_joined: 'user-plus',
   samahan_join: 'user-plus',
   order_quoted: 'receipt',
@@ -1097,15 +1218,28 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_suggestion: 'calendar',
   schedule_change_requested: 'calendar',
   schedule_shifted: 'calendar',
+  mood_board_changed: 'image',
+  supplier_where_changed: 'calendar',
+  supplier_part_changed: 'calendar',
+  schedule_released: 'calendar',
+  coordinator_invited: 'user-plus',
+  schedule_ask: 'calendar',
+  schedule_ask_answered: 'calendar',
+  supplier_where_asked: 'calendar',
+  papic_originals_reminder: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',
   guest_takedown_honored: 'image',
+  service_card_moderated: 'image',
   review_request: 'star',
   review_received: 'star',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',
+  couple_photo_shared: 'image',
+  couple_photo_answered: 'image',
+  access_more_asked: 'user-plus',
 };
 
 export function notificationIcon(type: NotificationType): NotificationIcon {

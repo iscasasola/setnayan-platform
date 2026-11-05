@@ -6,17 +6,25 @@ import {
   Flag,
   CalendarRange,
   ListPlus,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react';
 import {
   PREPARATION_SOURCE_LABEL,
+  isTodoItem,
+  planningProgress,
+  planningRowId,
   type PreparationAgenda,
   type PreparationItem,
   type PreparationSource,
 } from '@/lib/preparation';
+import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import {
   AddPreparationItem,
-  DeletePreparationItemButton,
+  PrepItemSwipe,
+  PlanningFilterFrame,
+  PlanningTick,
+  TaskDateButton,
 } from './schedule-lazy';
 import { formatCount } from '@/lib/format-number';
 
@@ -36,7 +44,7 @@ import { formatCount } from '@/lib/format-number';
  * vendor's page) and deep-link there. The HYBRID layer (2026-06-03) adds
  * manual rows the couple can add via the "+ Add to schedule" control and
  * delete inline — plus vendor-added rows (source 'manual', backed by
- * event_preparation_items). Manual rows carry an inline delete button; the
+ * event_preparation_items). Manual rows delete by their swipe (with Undo); the
  * autofill rows stay read-only here.
  *
  * Clean Editorial tokens only (cream / ink / terracotta / mulberry / emerald
@@ -48,51 +56,111 @@ export function PreparationAgendaView({
   agenda,
   hasEventDate,
   eventWord = 'wedding',
+  line = false,
+  eventDateIso = null,
+  initialFilter = 'all',
+  eventIsOver = false,
 }: {
   eventId: string;
   agenda: PreparationAgenda;
   hasEventDate: boolean;
+  /** The locked event day — a before-the-day task's date stops there (plan §3). */
+  eventDateIso?: string | null;
+  /**
+   * ✅ `todo` — open on the To do filter (the old /checklist address forwards here with `filter=todo`; owner
+   * 2026-11-01, "Checklist merges into Planning Stage").
+   */
+  initialFilter?: 'all' | 'todo';
+  /** The celebration already happened — a date is just a date: no "overdue", no alarm red. */
+  eventIsOver?: boolean;
+  /**
+   * 📅 Drawn under the Schedule page's one line (owner 2026-10-31: *"so many upper space not used"*): the
+   * steps start at once — "+ Add a step" is the pill in the thumb zone and what feeds the agenda is said in the page's
+   * ⓘ (`preparationLegendWords`), not in a tinted band above the rows.
+   */
+  line?: boolean;
   /** eventNoun(event_type) — a birthday is not told to set its "wedding date". */
   eventWord?: 'wedding' | 'event';
 }) {
-  if (agenda.items.length === 0) {
+  const unread = agenda.unread ?? [];
+  if (agenda.items.length === 0 && unread.length === 0) {
     return (
       <PreparationEmptyState eventId={eventId} hasEventDate={hasEventDate} eventWord={eventWord} />
     );
   }
+  // 🔢 The filter's figures are the SAME count Home's To do tile reads (`planningProgress`) — one rule, one list.
+  const progress = planningProgress(agenda.items);
 
   return (
-    <div className="space-y-7">
-      <div className="space-y-3">
-        <div className="flex justify-end">
-          <AddPreparationItem eventId={eventId} />
+    <div className="space-y-7" data-prep-agenda={line ? 'line' : 'page'}>
+      {unread.length > 0 ? (
+        /* 🛑 A refused read says so — never an empty "nothing to do" (house rule). */
+        <p role="alert" data-planning-unread={unread.join(' ')} className="rounded-xl bg-danger-50 px-3 py-2.5 text-sm text-danger-700">
+          We couldn’t load{' '}
+          {unread.includes('task') ? 'your to-do tasks' : unread.includes('manual') ? 'the steps you added' : 'your payment steps'}. They’re safe — pull to
+          refresh or try again in a moment.
+        </p>
+      ) : null}
+      {line ? (
+        <AddPreparationItem eventId={eventId} door="pill" />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <AddPreparationItem eventId={eventId} />
+          </div>
+          <PreparationLegend sourceCounts={agenda.sourceCounts} />
         </div>
-        <PreparationLegend sourceCounts={agenda.sourceCounts} />
-      </div>
-      {agenda.groups.map((group) => (
-        <section key={group.key} aria-labelledby={`prep-month-${group.key}`} className="space-y-3">
+      )}
+      <PlanningFilterFrame
+        initial={initialFilter}
+        allCount={agenda.items.length}
+        todoCount={progress.total}
+        todoOpen={progress.open}
+      >
+      {agenda.groups.map((group) => {
+        const todoHere = group.items.filter(isTodoItem).length;
+        return (
+        <section
+          key={group.key}
+          aria-labelledby={`prep-month-${group.key}`}
+          data-plan-group-todo={todoHere}
+          className={`space-y-3 ${todoHere === 0 ? 'group-data-[plan-filter=todo]/plan:hidden' : ''}`}
+        >
           <h2
             id={`prep-month-${group.key}`}
             className="sticky top-0 z-[1] -mx-1 bg-cream/85 px-1 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 backdrop-blur"
           >
             {group.label}
-            <span className="ml-2 text-ink/35">
+            <span className="ml-2 text-ink/35 group-data-[plan-filter=todo]/plan:hidden">
               {formatCount(group.items.length)} item{group.items.length === 1 ? '' : 's'}
+            </span>
+            <span className="ml-2 hidden text-ink/35 group-data-[plan-filter=todo]/plan:inline">
+              {formatCount(todoHere)} to do
             </span>
           </h2>
           <ul className="space-y-2">
-            {group.items.map((item) => (
+            {group.items.map((item) => {
+              const rowId = isTodoItem(item) ? planningRowId(item) : null;
+              return (
               <li
                 key={item.id}
+                // 🔗 Home's To do tile opens THIS row (`#task-<id>`, `planningTodoHref`).
+                id={rowId ? checklistTaskAnchor(rowId) : undefined}
+                data-plan-row={item.source}
+                data-plan-todo={isTodoItem(item) ? (item.done ? 'done' : 'open') : undefined}
+                className={`scroll-mt-24 has-[[data-swipe-gone]]:hidden ${isTodoItem(item) ? '' : 'group-data-[plan-filter=todo]/plan:hidden'}`}
                 // 💾 A payment due is money — never kept as last-seen data (lib/last-seen).
-                data-money={displaySourceFor(item) === 'payment' ? '' : undefined}
+                data-money={displaySourceFor(item) === 'payment' || item.amountPhp !== undefined ? '' : undefined}
               >
-                <PreparationRow eventId={eventId} item={item} />
+                <PreparationRow eventId={eventId} item={item} eventDateIso={eventDateIso} eventIsOver={eventIsOver} />
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
-      ))}
+        );
+      })}
+      </PlanningFilterFrame>
     </div>
   );
 }
@@ -125,77 +193,115 @@ function chipLabelFor(item: PreparationItem, display: PreparationSource): string
   return item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source];
 }
 
-function PreparationRow({ eventId, item }: { eventId: string; item: PreparationItem }) {
+function PreparationRow({
+  eventId,
+  item,
+  eventDateIso,
+  eventIsOver,
+}: {
+  eventId: string;
+  item: PreparationItem;
+  eventDateIso: string | null;
+  eventIsOver: boolean;
+}) {
   const display = displaySourceFor(item);
   const Icon = iconFor(display);
   const chipLabel = chipLabelFor(item, display);
-  const overdue = item.daysFromNow < 0;
+  const done = item.done === true;
+  // AFTER THE DAY, A DEADLINE IS JUST A DATE (the Checklist page's rule, kept): nothing on a finished celebration is
+  // "overdue" — the date stays, the alarm goes.
+  const overdue = !eventIsOver && !done && item.daysFromNow !== null && item.daysFromNow < 0;
+  const tickId = item.source === 'task' ? item.taskItemId : item.source === 'manual' ? item.itemId : undefined;
 
-  const body = (
-    <div
-      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${containerStylesFor(
-        display,
-      )}`}
-    >
-      <div className="flex w-12 shrink-0 flex-col items-center sm:w-14">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          {monthDay(item.date)}
-        </span>
-        <span
-          className={`mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${
-            overdue ? 'text-danger-600' : 'text-terracotta'
-          }`}
-        >
-          {relativeTag(item.daysFromNow)}
-        </span>
-      </div>
-      <span
-        aria-hidden
-        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStylesFor(
-          display,
-        )}`}
-      >
-        <Icon className="h-4 w-4" strokeWidth={1.75} />
+  const dateColumn = (
+    <>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        {item.date ? monthDay(item.date) : 'No date'}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-ink">{item.title}</p>
-        </div>
-        <p className="truncate text-xs text-ink/55">{item.subtitle}</p>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
+      <span
+        className={`mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${
+          done || eventIsOver ? 'text-ink/40' : overdue ? 'text-danger-600' : 'text-terracotta'
+        }`}
+      >
+        {done ? 'Done' : item.daysFromNow === null ? 'Set one' : eventIsOver ? '' : relativeTag(item.daysFromNow)}
+      </span>
+    </>
+  );
+
+  const text = (
+    <div className="min-w-0 flex-1">
+      <p className={`truncate text-sm font-medium ${done ? 'text-ink/45 line-through' : 'text-ink'}`}>{item.title}</p>
+      <p className="truncate text-xs text-ink/55">{item.subtitle}</p>
+    </div>
+  );
+
+  const row = (
+    <div
+      className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 sm:gap-3 sm:px-3 sm:py-2 ${containerStylesFor(display)} ${
+        done ? 'opacity-75' : ''
+      }`}
+    >
+      {tickId ? (
+        <PlanningTick eventId={eventId} kind={item.source === 'task' ? 'task' : 'manual'} id={tickId} done={done} title={item.title} />
+      ) : null}
+      {item.source === 'task' && item.taskItemId ? (
+        <TaskDateButton
+          eventId={eventId}
+          itemId={item.taskItemId}
+          title={item.title}
+          dateIso={item.dateIso ?? null}
+          planDateIso={item.planDateIso ?? null}
+          dateSet={item.dateSet === true}
+          eventDateIso={eventDateIso}
+          afterDay={item.afterDay === true}
+        >
+          {dateColumn}
+        </TaskDateButton>
+      ) : (
+        <div className="flex w-12 shrink-0 flex-col items-center sm:w-14">{dateColumn}</div>
+      )}
+      {tickId ? null : (
         <span
-          className={`max-w-[8.5rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
+          aria-hidden
+          className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStylesFor(display)}`}
+        >
+          <Icon className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+      )}
+      {item.href ? (
+        <Link href={item.href} className="flex min-h-11 min-w-0 flex-1 items-center transition hover:opacity-90">
+          {text}
+        </Link>
+      ) : (
+        <div className="flex min-h-11 min-w-0 flex-1 items-center">{text}</div>
+      )}
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        {/* A task's second line already names its area — no chip repeating it, so the title keeps the width (390). */}
+        {item.source === 'task' ? null : (
+        <span
+          className={`max-w-[7rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
             display,
           )}`}
           title={chipLabel}
         >
           {chipLabel}
         </span>
+        )}
         {item.amountPhp !== undefined ? (
           <span className="font-mono text-xs text-ink/70">
             ₱{Math.round(item.amountPhp).toLocaleString('en-PH')}
           </span>
         ) : null}
-        {item.isManual && item.itemId ? (
-          <DeletePreparationItemButton
-            eventId={eventId}
-            itemId={item.itemId}
-            label={item.title}
-          />
-        ) : null}
       </div>
     </div>
   );
-
-  if (item.href) {
-    return (
-      <Link href={item.href} className="block transition hover:opacity-95">
-        {body}
-      </Link>
-    );
-  }
-  return body;
+  // 👈 A hand-added / supplier-added step deletes by its swipe (owner 2026-11-03) — no trash on the row.
+  if (!(item.isManual && item.itemId)) return row;
+  return (
+    <PrepItemSwipe eventId={eventId} itemId={item.itemId} label={item.title}>
+      {row}
+    </PrepItemSwipe>
+  );
 }
 
 /**
@@ -229,7 +335,16 @@ function PreparationLegend({
   );
 }
 
+/** What feeds the agenda, in a sentence — the legend's words, for the page's ⓘ under Booked (owner 2026-10-31). */
+export function preparationLegendWords(sourceCounts: Record<PreparationSource, number>): string {
+  const present = (Object.keys(sourceCounts) as PreparationSource[]).filter((s) => sourceCounts[s] > 0).map((s) => SOURCE_PLAIN_LABEL[s]);
+  if (present.length === 0) return 'Dated steps gather here from your supplier payments, meetings and paperwork.';
+  const list = present.length === 1 ? present[0] : `${present.slice(0, -1).join(', ')} and ${present[present.length - 1]}`;
+  return `This agenda fills in automatically from your ${list}. Update any item on its own page — tap a row to jump there.`;
+}
+
 const SOURCE_PLAIN_LABEL: Record<PreparationSource, string> = {
+  task: 'to-do tasks',
   payment: 'supplier payment due dates',
   paperwork: 'paperwork deadlines',
   meeting: 'supplier meetings',
@@ -288,6 +403,8 @@ function iconFor(source: PreparationSource): LucideIcon {
       return Flag;
     case 'manual':
       return ListPlus;
+    case 'task':
+      return ListChecks;
     default:
       return CalendarRange;
   }

@@ -82,7 +82,10 @@ const sideOf = (role: string): string => (role.startsWith('groom') ? 'groom' : r
  * walking, `lib/march-owner-shape.fixture.ts`) with six people in the tray;
  * otherwise maria-and-jose's couple + entourage with three.
  */
-export function labMarchSections(shape?: string | null) {
+/** 💬 `&nicks=1` (the guests lab) — a few nicknames (`display_name`), so a March chip in Guests shows one beside the name. */
+const LAB_NICKS: Record<string, string> = { p3: 'Doc Ed', p5: 'Pidoy', p30: 'Jun-Jun' };
+
+export function labMarchSections(shape?: string | null, opts: { nicks?: boolean } = {}) {
   const rows: EntourageGuestRow[] =
     shape === 'owner'
       ? ownerShapedMarch().map((r, i) => ({ ...r, side: sideOf(r.role ?? ''), ...(i % 13 === 7 ? { not_walking: true } : {}) }))
@@ -96,6 +99,7 @@ export function labMarchSections(shape?: string | null) {
           extra_roles: [],
           march: typeof walk === 'number' && !LAB_OUT.has(id) ? { walk_no: walk, place_in_walk: place ?? 0 } : null,
           ...(LAB_OUT.has(id) ? { not_walking: true } : {}),
+          ...(opts.nicks && LAB_NICKS[id] ? { display_name: LAB_NICKS[id] } : {}),
         }));
   const style = shape === 'owner' ? 'surname-first' : undefined;
   const walking = buildEntourage(rows.filter((r) => !r.not_walking), null, {}, style, { march: true });

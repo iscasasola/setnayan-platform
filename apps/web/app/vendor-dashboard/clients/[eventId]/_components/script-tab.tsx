@@ -1,3 +1,4 @@
+import { onlyTimedBlocks } from '@/lib/schedule';
 import Link from 'next/link';
 import { Lock, Mic, EyeOff, Sparkles, AlertCircle, MessageCircleQuestion } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -73,10 +74,8 @@ export async function ScriptTab({
   const supabase = await createClient();
 
   const [blocksRes, scriptsRes, linesRes, picksRes, questionsRes, answersRes] = await Promise.all([
-    supabase
-      .from('event_schedule_blocks')
-      .select(BLOCK_COLUMNS)
-      .eq('event_id', eventId),
+    // ⏰ A Time-TBA chapter has no clock to script against — left out, never drawn at 12:00 AM (onlyTimedBlocks).
+    onlyTimedBlocks(supabase.from('event_schedule_blocks').select(BLOCK_COLUMNS).eq('event_id', eventId)),
     supabase
       .from('vendor_block_scripts')
       .select('block_id, body')

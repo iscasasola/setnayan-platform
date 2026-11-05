@@ -140,6 +140,8 @@ import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraf
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
 import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { isDateChangeAction } from '@/lib/date-change';
 import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
 import { moveScheduleWithDate, placeCeremonyBlock } from '@/lib/ceremony-time.server';
@@ -261,6 +263,16 @@ export async function hubDraftAction(
       if (mergedDate && typeof mergedDate.event_date === 'string') {
         const { data: liveDate } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
         const pickedPrecision = eventDatePrecisionOf(mergedDate.event_date_precision ?? liveDate?.event_date_precision) ?? 'day';
+        /* 💍 NO EVENT BEFORE DECEMBER 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): refused
+           HERE, at the pick, in the owner's words — the Maker says it beside the date and the
+           draft never holds the day. Apply asks it again as the backstop. */
+        const floor = eventDateFloorRefusal({
+          date: mergedDate.event_date,
+          precision: pickedPrecision,
+          prior: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
+          exempt: await eventDateFloorExempt(supabase, { eventId }),
+        });
+        if (floor) return { ok: false, intent, error: floor };
         /* …unless every supplier it clashes with already answered Move for
            exactly this date (the clashing-date flow) — `clashStillOpen`. */
         const asked = await clashStillOpen(supabase, eventId, { date: mergedDate.event_date, precision: pickedPrecision }, await datePickClash({
@@ -519,6 +531,19 @@ export async function hubDraftAction(
         requestId = clearance.requestId;
       }
       dateHeld = refusal === 'in_past' ? 'date_in_past' : refusal ? 'date_locked' : null;
+      // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — asked
+      // FIRST, so a day before it is said in the owner's words, not as "gone by".
+      if (
+        eventDateFloorRefusal({
+          date: nextDate.date,
+          precision: nextDate.precision,
+          prior: priorDate,
+          exempt: await eventDateFloorExempt(supabase, { eventId }),
+        })
+      ) {
+        dateHeld = 'date_before_first_event';
+        dateMove = null;
+      }
       if (!dateHeld && confirmed > 0 && nextDate.date && nextDate.date !== priorDate.date) {
         dateMove = { next: { date: nextDate.date, precision: nextDate.precision }, requestId };
       }
@@ -1173,7 +1198,12 @@ export async function hubDraftAction(
     };
     // A fact held across several columns (the date's day and precision) is said once.
     const heldSaid = held
-      .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
+      // 💍 The first-event-day hold carries the owner's whole sentence AS its label (said as-is by the bar),
+      // so the Maker's first load never ships the sentence (lib/event-date-floor.ts).
+      .map(({ item, reason }) => ({
+        label: reason === 'date_before_first_event' ? EVENT_DATE_FLOOR_MESSAGE : hubDraftItemLabel(item, label),
+        reason,
+      }))
       .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);
     const applied = done(
       toWrite.length,

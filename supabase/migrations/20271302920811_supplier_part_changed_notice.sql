@@ -1,0 +1,18 @@
+-- supplier_part_changed_notice
+-- ============================================================================
+-- 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART OF THE DAY (supplier gate
+-- audit D6, 2026-11-02; DECISION_LOG 2026-11-02 "A SUPPLIER'S SCHEDULE BASICS
+-- FOR THIS WEEK" (6): *"getting notifications if they are changed by user"*).
+-- → each booked supplier named on the moment (`responsible_vendor_ids`, before
+-- AND after the edit), ONE notice per save, sent by
+-- `lib/supplier-part-notify.server.ts` from the host schedule actions.
+-- In-app only — NOT on EMAIL_ENABLED_TYPES (owner: no new emails without his
+-- word).
+--
+-- No existing type says it truthfully: `schedule_shifted` is the whole day's
+-- clock ("Schedule moved +30 min"), `supplier_where_changed` is the chapters.
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT: notification_type is a Postgres ENUM
+-- and a new value cannot be used in the transaction that adds it. Idempotent.
+-- ============================================================================
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'supplier_part_changed';

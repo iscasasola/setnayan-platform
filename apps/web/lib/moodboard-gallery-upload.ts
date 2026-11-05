@@ -136,6 +136,48 @@ export function slotUploadVerdict(
 }
 
 /**
+ * Does this shop's own services[] supply ANY supplier shelf of the parts snapshot? (Palette-style parts with no
+ * supplying trade are not shelves and never count.)
+ */
+export function shopSuppliesAnyShelf(
+  vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+): boolean {
+  const owned = new Set(vendorServices ?? []);
+  if (owned.size === 0) return false;
+  const keys = new Set<string>([...libraryPhotoParts(parts).map((p) => p.key), ...parts.parts.map((p) => p.slotKey)]);
+  for (const key of keys) {
+    if (canonicalServicesForSlot(key, parts).some((s) => owned.has(s))) return true;
+  }
+  return false;
+}
+
+/**
+ * 🖼 THE INSPIRATION BOX IS OPEN TO EVERY TRADE (owner 2026-11-02, the supplier gate: "creating services, service
+ * cards and inspiration box"; audit G5). MAY THIS SHOP FILE A PHOTO IN ITS OWN INSPIRATION LIBRARY UNDER THIS SHELF?
+ *
+ * The trade rule (`slotUploadVerdict`) stands for every shop whose services supply a shelf — a gown designer still
+ * files under the bride, not under the cake. But a shop whose trade supplies NO shelf yet (the parts for every service
+ * are still for approval, DECISION_LOG 2026-10-28) was refused the whole box, so a supplier who joined for the gate
+ * could not do one of its five things. Such a shop may file under ANY supplier shelf until its trade has one. Every
+ * photo is still screened and approved before a couple sees it, the rights tick is still required, and a shelf with
+ * no supplying trade (the palette) stays refused for everyone.
+ *
+ * ⚠ For the LIBRARY only (`uploadableSlotsForShop`, the upload and the import in `moodboard-library/actions.ts`). A
+ * couple's inspiration SUGGESTION is still routed by `slotUploadVerdict`, the rule its SQL mirror keeps.
+ */
+export function libraryUploadVerdict(
+  slotKey: string,
+  vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+): SlotUploadVerdict {
+  const verdict = slotUploadVerdict(slotKey, vendorServices, parts);
+  if (verdict.allowed || verdict.reason !== 'wrong_trade') return verdict;
+  if (shopSuppliesAnyShelf(vendorServices, parts)) return verdict;
+  return { allowed: true, slotKey };
+}
+
+/**
  * 🌱🖼 THE NAME A SUPPLIER READS FOR A SLOT — the part's one name in the snapshot. One name per slot
  * everywhere the supplier meets it: the dropdown, the "your services don't cover …" refusal and the
  * per-category allowance line.
@@ -166,12 +208,12 @@ export function uploadableSlotsForShop(
   for (const part of libraryPhotoParts(parts)) {
     if (seen.has(part.key)) continue;
     seen.add(part.key);
-    if (slotUploadVerdict(part.key, vendorServices, parts).allowed) out.push({ key: part.key, label: part.label, group: part.group });
+    if (libraryUploadVerdict(part.key, vendorServices, parts).allowed) out.push({ key: part.key, label: part.label, group: part.group });
   }
   for (const part of parts.parts) {
     if (seen.has(part.slotKey)) continue;
     seen.add(part.slotKey);
-    if (slotUploadVerdict(part.slotKey, vendorServices, parts).allowed) out.push({ key: part.slotKey, label: part.label, group: 'more' });
+    if (libraryUploadVerdict(part.slotKey, vendorServices, parts).allowed) out.push({ key: part.slotKey, label: part.label, group: 'more' });
   }
   return out;
 }

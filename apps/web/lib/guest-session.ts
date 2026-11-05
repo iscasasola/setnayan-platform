@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
 import { insideRender } from '@/lib/request-once';
-import { cachedHubViewer } from '@/lib/hub-request';
+import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -583,7 +583,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 const signedInAccountId = cache(async (): Promise<string | null | undefined> => {
   // 🗄 The cached Event Hub's viewer carries no Supabase session (lib/hub-request.ts): signed out.
-  if (cachedHubViewer()) return null;
+  if (onTheCachedHub()) return null;
   try {
     const supabase = await createSessionClient();
     const { data, error } = await supabase.auth.getUser();

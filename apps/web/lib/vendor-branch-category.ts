@@ -48,6 +48,9 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   // ── Venue ────────────────────────────────────────────────────────────────
   reception: 'venue',
   ceremony_venue: 'religious_venue',
+  // An admin-only filing cabinet (no shops — the priest comes with the parish), filed under `officiant` by
+  // 20271296971721 (2026-10-29) so the officiant's ONE PER EVENT switch has a category to live on.
+  officiants: 'officiant',
   accommodation: 'accommodation',
 
   // ── Planning ─────────────────────────────────────────────────────────────

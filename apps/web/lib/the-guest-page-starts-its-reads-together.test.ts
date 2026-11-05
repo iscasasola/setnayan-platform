@@ -102,8 +102,17 @@ test('only these reads are started ahead — each one every path below awaits, n
     aheadCalls(PAGE).sort(),
     // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
     //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'resolveVendorCapability'].sort(),
+    // + `readYourSchedule` (2026-11-02, Event Hub › Me › Your schedule): four reads, started once the guest's row is
+    //   known to be theirs, awaited once where Me is drawn — no return lies between (held below).
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readYourSchedule', 'resolveVendorCapability'].sort(),
   );
+  {
+    const started = PAGE.indexOf('const yourScheduleAhead =');
+    const awaited = PAGE.indexOf('const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;');
+    assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, 'Your schedule is started before the guest is known, or never awaited');
+    assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, 'a path between starting Your schedule and awaiting it leaves without awaiting it');
+    assert.equal(count(PAGE, 'readYourSchedule('), 1, 'Your schedule is asked twice');
+  }
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
     [
@@ -111,6 +120,8 @@ test('only these reads are started ahead — each one every path below awaits, n
       // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
       'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
+      // ✉ The invitation's chapters (Step 5, 2026-11-02) — a read beside the schedule, awaited right after it, every path.
+      'readInvitationChapters',
       'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
       // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
       // known to be theirs (the two early returns above them still cost one read).
@@ -128,7 +139,7 @@ test('only these reads are started ahead — each one every path below awaits, n
     'a read about a guest is started before their row is known to exist',
   );
   // A guest's seat, their ticks, the supplier's desk are read only past the session checks — never ahead.
-  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser(?:Measured)?|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
   // Their own CONTEXT is the one exception (2026-10-12), and only under the three conditions that make every path
   // below await it: a session was read and verified, it names THIS event, and the address carries no sample-guest `?as=` at all.
   assert.match(

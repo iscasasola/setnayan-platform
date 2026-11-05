@@ -102,7 +102,12 @@ test('the server refuses too — `required` is a hint, not a gate', () => {
     1,
     'this is a server action reached by an HTTP POST: a hand-built form, a replay, or a browser with validation off all arrive with the field absent',
   );
-  assert.match(actions, /error=terms_required/, 'the refusal must be nameable');
+  // Spelled inline, or through `signupRetryPath` (which keeps a supplier's `as=vendor`).
+  assert.match(
+    actions,
+    /error=terms_required|signupRetryPath\('terms_required'/,
+    'the refusal must be nameable',
+  );
   const page = readCode('app/signup/page.tsx');
   assert.match(
     page,

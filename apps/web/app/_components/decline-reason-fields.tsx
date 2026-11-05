@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 /**
  * WHY YOU ARE TURNING A BOOKING DOWN — one dropdown and one line (simpler supplier dashboard step 4; prototype
@@ -43,16 +44,22 @@ export function DeclineReasonFields() {
         dataAttr="data-decline-why"
         className="min-h-11"
       />
-      <input
-        type="text"
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        maxLength={200}
-        aria-label="A note for the couple (optional)"
-        placeholder="Optional · one line for them"
-        className="h-11 min-h-11 min-w-0 shrink-0 rounded-full border bg-transparent px-4 text-sm text-ink sm:flex-1"
-        style={{ borderColor: 'var(--sn-line)' }}
-      />
+      {/* ✍ The note is a row of the ONE Field template (`TypedRow`, owner 1 Nov 2026). It posts nothing itself: what it
+          holds joins the reason above, as typed (`onType`), so a Decline pressed with the note still open carries it. */}
+      <div className="min-w-0 sm:flex-1">
+        <FormRows width="wide">
+          <TypedRow
+            name="Note"
+            value={note}
+            empty="Optional · one line"
+            maxLength={200}
+            onType={setNote}
+            onKeep={(t) => setNote(t)}
+            data="decline-note"
+            pillAttrs={{ 'data-decline-note': '' }}
+          />
+        </FormRows>
+      </div>
     </span>
   );
 }

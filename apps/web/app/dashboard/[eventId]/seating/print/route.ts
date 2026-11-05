@@ -3,7 +3,8 @@ import { renderStyledUrlQrPng, renderStyledUrlQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
+import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
@@ -103,11 +104,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const chart = parseChartLayout(params.get('chart'));
   if (chart) {
     const size = parseChartSize(params.get('size'));
-    const [cTables, cAssignments, cGuests] = await Promise.all([
+    const [cTables, cAssignments, cGuestsRead] = await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
-      fetchGuestsByEvent(supabase, eventId),
+      fetchGuestsByEventMeasured(supabase, eventId),
     ]);
+    // 🔌 A refused guest read is never an entrance chart of nobody (audit #14).
+    if (!cGuestsRead.measured) return guestListUnreadResponse();
+    const cGuests = cGuestsRead.rows;
     const cUnits = seatingUnits(cTables, cAssignments, cGuests);
     const untitledChart = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
     const coupleName = event.monogram_text || event.display_name || untitledChart;
@@ -168,11 +172,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // look is resolved with the admin client AFTER the member read above.
   const look = await resolveEventQrLook(createAdminClient(), eventId, event);
 
-  const [tables, assignments, guests] = await Promise.all([
+  const [tables, assignments, guestsRead] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
   ]);
+  // 🔌 A refused guest read is never a print pack of nobody (audit #14).
+  if (!guestsRead.measured) return guestListUnreadResponse();
+  const guests = guestsRead.rows;
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   // Nested /u/ under the cutover flag, bare root otherwise (self-noops OFF).
@@ -187,7 +194,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // seated guests per unit by name.
   type Unit = SeatedUnit<(typeof tables)[number], (typeof guests)[number]>;
   const units = seatingUnits(tables, assignments, guests);
-  const unitGuests = (u: Unit) => u.guests.map((g) => ({ name: guestDisplayName(g), qr_token: g.qr_token }));
+  const unitGuests = (u: Unit) => u.guests.map((g) => ({ name: guestPrintName(g), qr_token: g.qr_token }));
 
   const eventWords = await eventWordsForEvent(eventId).catch(() => null);
   // The sign says the event's own word — "our wedding", "our birthday",
@@ -238,7 +245,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       guests: u.guests
         .filter((g) => oneGuest === null || g.guest_id === oneGuest)
         .filter((g) => picked === null || picked.has(g.guest_id.toLowerCase()))
-        .map((g) => ({ name: guestDisplayName(g), qrRef: `g-${g.qr_token}` })),
+        .map((g) => ({ name: guestPrintName(g), qrRef: `g-${g.qr_token}` })),
     }));
     if (oneGuest !== null && !packUnits.some((u) => u.guests.length > 0)) {
       return new NextResponse('That guest has no seat yet — a place card prints once a guest is seated in your seat plan.', { status: 404 });

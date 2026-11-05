@@ -61,7 +61,10 @@ const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
  */
 const GATES = [
   'app/dashboard/[eventId]/vendors/actions.ts',
-  'app/dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts',
+  // (workspace/actions.ts left this list 2026-11-02: its `createAutoShareInviteAction` — the workspace page's "Create a
+  // shareable invite link" — was deleted when the claim link's one door moved to the Booked Team row.)
+  // 🔗 The Booked Team row decides whether a supplier gets the claim door (`BookedRow.invite`, 2026-11-02).
+  'lib/booked-rows.ts',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx',
   'lib/vendor-invite-actions.ts',
   // Promote-the-invite (owner ruling 2026-09-08 · "we allow this. so promote

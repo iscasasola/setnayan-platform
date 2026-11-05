@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
+import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
 
@@ -16,12 +17,34 @@ import { DatesRow } from '../../customers/_components/dates-row';
  *   Shortlist — For ▾ (event) · Service ▾ · the card (they scan, you join their shortlist).
  *   Booked    — the generator (the deal: who, total, first payment, proof) · the issued code's card · Issued ⌄ (the
  *               ledger that was `/locked-qr`: each code claimed / pending / void, a pending one shown again).
+ *   Check a date · My page · Crew for an event — added 2026-10-29/11-01 ("THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"):
+ *               one code each under the same dropdown (`lib/supplier-qr-codes.ts`).
  *
  * Reached from Customers › Dates (the QR codes row); `/locked-qr` forwards to Booked with Issued open.
  * Server component: every word arrives read.
  */
 
 export type QrPick = { key: string; label: string; href: string };
+
+/**
+ * 📱 CREW FOR AN EVENT (owner 2026-10-29): pick the event → its ONE crew code. The code is made, replaced and turned off
+ * in Hub › Crew, and every phone that scans waits there for the Allow — this page only shows the code, so nothing
+ * about who is let in is decided twice. Each state is said in words; a refused read is never "no code yet".
+ */
+export type CrewQr = {
+  /** null = the shop's events could not be read (said); [] options = no event today or ahead. */
+  eventPick: { value: string; options: QrPick[] } | null;
+  /** The picked event's name, for the card's title. */
+  eventName: string | null;
+  code:
+    | { state: 'ready'; url: string; svg: string | null; endsWords: string; waiting: number | null }
+    | { state: 'none' }
+    | { state: 'unread' }
+    | { state: 'not-admin' }
+    | null;
+  /** Hub › Crew for the picked event — where the code is made and phones are allowed in. */
+  hubHref: string | null;
+};
 
 export type IssuedRow = {
   token: string;
@@ -45,8 +68,11 @@ export function QrCodes({
   setupHref,
   shortlist,
   booked,
+  checkADate = null,
+  myPage = null,
+  crew = null,
 }: {
-  mode: 'shortlist' | 'locked';
+  mode: SupplierQrMode;
   backHref: string;
   modeOptions: QrPick[];
   /** The shop has an address (a slug) — every code is built from it. */
@@ -73,6 +99,11 @@ export function QrCodes({
     ledgerOpen: boolean;
     newHref: string;
   } | null;
+  /** 📅 Check a date (owner 2026-10-28): the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`). */
+  checkADate?: { url: string; svg: string | null; shopName: string } | null;
+  /** 🔳 My page (owner 2026-10-29): the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`). */
+  myPage?: { url: string; svg: string | null; shopName: string } | null;
+  crew?: CrewQr | null;
 }) {
   const ledger = booked?.ledger ?? null;
   const claimed = ledger?.filter((r) => r.status === 'claimed').length ?? 0;
@@ -109,6 +140,30 @@ export function QrCodes({
             />
           </div>
         </>
+      ) : mode === 'dates' && checkADate ? (
+        <div className="mt-6">
+          <QrCard
+            svg={checkADate.svg}
+            url={checkADate.url}
+            title={checkADate.shopName}
+            line="They scan and see which days you can still be booked — never who booked or who is asking."
+            filename="setnayan-check-a-date-qr.svg"
+            data="check-a-date"
+          />
+        </div>
+      ) : mode === 'page' && myPage ? (
+        <div className="mt-6">
+          <QrCard
+            svg={myPage.svg}
+            url={myPage.url}
+            title={myPage.shopName}
+            line="They scan and open your Setnayan page — your services, photos and reviews."
+            filename="setnayan-my-page-qr.svg"
+            data="my-page"
+          />
+        </div>
+      ) : mode === 'crew' && crew ? (
+        <CrewCode crew={crew} />
       ) : booked ? (
         <>
           {booked.error ? (
@@ -165,5 +220,75 @@ export function QrCodes({
         </>
       ) : null}
     </div>
+  );
+}
+
+function CrewCode({ crew }: { crew: CrewQr }) {
+  if (crew.eventPick === null) {
+    return (
+      <p role="alert" className="mt-6 text-[14px] text-ink/70" data-qr-crew="events-unread">
+        We couldn&rsquo;t load your events just now. Any crew code you made still works — reload to try again.
+      </p>
+    );
+  }
+  if (crew.eventPick.options.length === 0) {
+    return (
+      <div className="mt-6" data-qr-crew="no-events">
+        <DatesRow title="No event ahead yet" line="A crew code is made for a booked event, today or later" />
+      </div>
+    );
+  }
+  const code = crew.code;
+  return (
+    <>
+      <div className="mt-4">
+        <DatesRow
+          title="Event"
+          line="Whose crew this code lets in"
+          end={<CustomersPick label="Event" value={crew.eventPick.value} options={crew.eventPick.options} dataAttr="data-qr-crew-event" className="!min-h-11" />}
+        />
+      </div>
+      {code?.state === 'ready' ? (
+        <div className="mt-6" data-qr-crew="ready">
+          <QrCard
+            svg={code.svg}
+            url={code.url}
+            title={`Crew · ${crew.eventName ?? 'this event'}`}
+            line={`They scan, then wait for your Allow · ${code.endsWords}`}
+            filename="setnayan-crew-qr.svg"
+            data="crew"
+          />
+          {crew.hubHref ? (
+            <div className="mt-4">
+              <DatesRow
+                title="Phones on the crew"
+                line={
+                  code.waiting === null
+                    ? 'Couldn’t count who is waiting — open the crew to see'
+                    : code.waiting === 0
+                      ? 'Allow, change a role or replace the code'
+                      : `${formatCount(code.waiting)} waiting for your Allow`
+                }
+                badge={code.waiting ? { tone: 'wait', word: 'Waiting' } : null}
+                href={crew.hubHref}
+                data="qr-crew-hub"
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : code?.state === 'unread' ? (
+        <p role="alert" className="mt-6 text-[14px] text-ink/70" data-qr-crew="code-unread">
+          We couldn&rsquo;t load this event&rsquo;s crew code. If you made one, it still works — reload to try again.
+        </p>
+      ) : code?.state === 'not-admin' ? (
+        <div className="mt-6" data-qr-crew="not-admin">
+          <DatesRow title="Only the shop’s owner or an admin" line="They make the crew code and let phones in" />
+        </div>
+      ) : (
+        <div className="mt-6" data-qr-crew="none">
+          <DatesRow title="Make the crew code" line="In this event’s Hub — then it shows here too" href={crew.hubHref} />
+        </div>
+      )}
+    </>
   );
 }

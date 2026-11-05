@@ -15,7 +15,9 @@ import { SetupDaysOffRow } from './setup-days-off-row';
 export type SetupDetails = Pick<
   DetailsData,
   'vendorId' | 'businessName' | 'isVerified' | 'checklist' | 'profileComplete' | 'fieldsLeft' | 'profileFields' | 'verify' | 'verifyMeasured' | 'docsIn' | 'docsTotal' | 'logoUnavailable'
->;
+> &
+  // 🏷 Name/address by request (owner 2026-10-29) — optional so a fixture without them draws every row as it was.
+  Partial<Pick<DetailsData, 'requestOnly' | 'openCorrections'>>;
 
 /**
  * 🧰 A NEW SHOP'S TODAY — the six steps, each body a SHIPPED editor mounted in place (owner 2026-10-28, DECISION_LOG
@@ -64,7 +66,14 @@ export function SupplierSetupScreen({
     return d.checklist.filter((i) => keys.includes(i.key));
   };
   const editor = (k: 'name' | 'details' | 'logo') => (
-    <ProfileChecklistEditor items={rows(k)} data={d.profileFields} isVerified={d.isVerified} showProgress={false} flat />
+    <ProfileChecklistEditor
+      items={rows(k)}
+      data={d.profileFields}
+      isVerified={d.isVerified}
+      showProgress={false}
+      flat
+      asks={d.requestOnly ? { requestOnly: d.requestOnly, pending: (d.openCorrections ?? []).map((r) => r.field_key) } : undefined}
+    />
   );
   const daysMarked = rail.steps.find((s) => s.key === 'not_available')?.meter ?? null;
 

@@ -26,6 +26,7 @@ import {
   type WhenPrecision,
 } from '@/lib/timeline';
 import { PILL_ON_CLASS, PillSelector } from './pill-selector';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * TICKER — the app's ONE way to roll to a time or a date (owner 2026-10-08, `INTERACTION_RULES.md` § 9 "Timeline
@@ -300,7 +301,7 @@ function OwnSheet({ label, onClose, children }: { label: string; onClose: () => 
   useModalA11y({ open: true, onClose, containerRef: panel });
   return (
     <div data-ticker-sheet="" className="fixed inset-0 z-[95]">
-      <button type="button" aria-label="Close" data-ticker-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/40 backdrop-blur-sm" />
+      <OverlayBackdrop onClose={onClose} data-ticker-scrim="" />
       <div
         ref={panel}
         role="dialog"

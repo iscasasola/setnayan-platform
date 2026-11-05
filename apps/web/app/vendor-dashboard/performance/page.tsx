@@ -18,6 +18,7 @@ import {
 } from '@/lib/vendor-booking-series';
 import {
   fetchVendorFunnelTotals,
+  fetchVendorFunnelTotalsResult,
   buildFunnelSteps,
   fetchServiceBookedCount,
   fetchNullServiceBookedCount,
@@ -51,6 +52,7 @@ import {
 } from '@/lib/vendor-feature-gate';
 import { VendorTierGate, VendorTierTeaser } from '../_components/tier-gate';
 import { ShopSegments } from '../shop/_components/shop-segments';
+import { analyticsFigures } from '@/lib/shop-section-figures';
 import { HealthCompositeCard } from './_components/health-composite-card';
 import { ReplyClaimCard } from './_components/reply-claim-card';
 import { GrowthRecsCard } from './_components/growth-recs-card';
@@ -86,7 +88,12 @@ import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
+import { YourBadges } from './_components/your-badges';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
+import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
 
@@ -193,14 +200,27 @@ export default async function PerformanceHome({
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
   const gateOn = isVendorFeatureGateEnabled();
 
+  // 🏅 THE SHOP'S BADGES (owner 2026-10-29: "Their badges will be on the supplier shop performance page") — every
+  // tier, the upsell included. Started HERE so it rides beside Batch A (below) rather than adding a round trip; a
+  // refused read is `null` → "Couldn’t load your badges" · "—", never "none" (`badgeShelf`).
+  const badgeFactsRead: Promise<ShopBadgeFacts | null> = safeRead(
+    readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id),
+    null,
+    'badges',
+  );
+
   if (gateOn && !canSeePerformanceTrends(tier)) {
+    const gatedShelf = badgeShelf(await badgeFactsRead);
     return (
       <>
-        {/* Shop › How it is going — the segment stays on the upsell too, so a
+        {/* Shop › Analytics (was "How it is going") — the segment stays on the upsell too, so a
             supplier who tapped it from Shop can tap back (owner "Yes to all",
             2026-10-21, item 2). */}
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
-          <ShopSegments on="insights" />
+          <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
+          <div className="mt-6">
+            <YourBadges shelf={gatedShelf} />
+          </div>
         </div>
       <VendorTierGate
         feature="My Performance"
@@ -211,6 +231,12 @@ export default async function PerformanceHome({
       </>
     );
   }
+
+  // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
+  // on a refusal, never zeros), so "the 30 days before" is the difference and an unread window says "—". Started here,
+  // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
+  const pinNowRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
+  const pinSince60Read = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
 
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
   const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
@@ -251,6 +277,7 @@ export default async function PerformanceHome({
     inquiriesBySourceDay,
     marketRegionRow,
     pricePosition,
+    badgeFacts,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -380,7 +407,22 @@ export default async function PerformanceHome({
           'price_position',
         )
       : Promise.resolve(null),
+    // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
+    badgeFactsRead,
   ]);
+  // Started before Batch A (beside the badges), so this wait costs no extra round trip.
+  const [pinNow, pinSince60] = await Promise.all([pinNowRead, pinSince60Read]);
+  const pinFigures = analyticsFigures(
+    pinNow.totals,
+    pinNow.totals && pinSince60.totals
+      ? {
+          views: pinSince60.totals.views - pinNow.totals.views,
+          inquiries: pinSince60.totals.inquiries - pinNow.totals.inquiries,
+          booked: pinSince60.totals.booked - pinNow.totals.booked,
+        }
+      : null,
+  );
+  const shelf = badgeShelf(badgeFacts);
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
@@ -626,6 +668,8 @@ export default async function PerformanceHome({
             conversion → revenue story. Only the BOOKED stage can segment; when a
             service is selected we show its booked count for this window as a
             callout and note the other stages are shop-wide. */}
+        {/* 📌 #funnel — where Analytics' pinned figures (opened · asked · booked) land (v13, S5). */}
+        <div id="funnel" className="scroll-mt-28">
         <Reanimate className="space-y-6">
           {serviceId ? (
             <div className="text-sm">
@@ -641,6 +685,7 @@ export default async function PerformanceHome({
           ) : null}
           <FunnelPreviewCard steps={steps} windowLabel={label} />
         </Reanimate>
+        </div>
 
         {/* Setnayan vs your own book — app-vs-import ROI for this window. */}
         <Reanimate>
@@ -749,9 +794,7 @@ export default async function PerformanceHome({
           page is the third Shop segment, so it draws the Shop switcher and the
           bar lights Shop here — it used to draw no segments and light More, so
           a supplier who tapped Shop landed on a page that said More. */}
-      <div className="mx-auto w-full max-w-3xl">
-        <ShopSegments on="insights" />
-      </div>
+      <ShopSegments on="insights" figures={pinFigures} gearBody={shopGearBody(sp)} />
       {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
           the full cards, unchanged ("only the words change"). */}
       <div className="mx-auto w-full max-w-xl tab:max-w-none">
@@ -766,6 +809,10 @@ export default async function PerformanceHome({
             rating={ratingLine(statsRow as { review_avg_bayesian?: number | null; review_count?: number | null } | null)}
             more={doingMore}
           />
+        </div>
+        {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
+        <div className="mt-8">
+          <YourBadges shelf={shelf} />
         </div>
       </div>
 

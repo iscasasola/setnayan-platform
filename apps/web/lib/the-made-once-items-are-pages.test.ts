@@ -57,7 +57,7 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   /* 🧭 One Maker since 2026-10-25: its bar holds no made-once door at all — Studio opens them. */
   const { MAKER_TOOLBAR_STAGES_STUDIO, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
-    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['exit', 'side', 'undo', 'preview', 'apply'].includes(k)),
+    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['side', 'undo', 'preview', 'apply', 'settings'].includes(k)),
     [],
     'the bar holds a made-once door again',
   );
@@ -267,10 +267,11 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   assert.match(html, /data-maker-page="details"/);
   assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="details-page"/, 'what the details feed is the body');
   assert.match(html, /data-maker-page-controls=""[\s\S]*data-stub="details-fields"/, 'the fields sit beside it');
-  // The ⋯ sheet is the only dialog in the shell, and it is shut.
+  // No dialog in the shell while nothing is open: the "Your Event Hub" sheet is the ⚙'s (2026-10-30) and draws nothing
+  // until the ⚙ is pressed — Details is no dialog of its own.
   const dialogs = html.match(/role="dialog"/g) ?? [];
-  assert.equal(dialogs.length, 1, 'only the ⋯ sheet is a dialog');
-  assert.match(html, /<div hidden="" class="lg:absolute lg:inset-0 lg:z-40">/, 'and the ⋯ sheet is shut');
+  assert.equal(dialogs.length, 0, 'a dialog is drawn in the shell while nothing is open');
+  assert.match(html, /data-maker-tool="settings"/, 'the ⚙ that opens "Your Event Hub" is not on the bar');
 });
 
 test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {
@@ -349,7 +350,7 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   );
   assert.match(html, /data-maker-page="details"[\s\S]*data-stub="details-page"/, 'an RSVP ask opens Details');
   assert.doesNotMatch(html, /data-maker-page="rsvp-page"/, 'RSVP is still a page of its own');
-  assert.equal((html.match(/role="dialog"/g) ?? []).length, 1, 'only the ⋯ sheet is a dialog');
+  assert.equal((html.match(/role="dialog"/g) ?? []).length, 0, 'RSVP (or anything) opens as a dialog over the Maker');
 
   // The launch page hands Details the RSVP item — the guest's RSVP (framed) and
   // the shipped settings — and "What do you ask your guests?" is not typed twice.

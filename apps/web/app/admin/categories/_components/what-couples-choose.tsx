@@ -10,18 +10,15 @@
  * card; emoji · label · photo (required on a new one) · retire · reorder ·
  * delete per option. Matched cards (ceremony · catering · photo_video) keep
  * their add/remove lock; the faith-adaptive ceremony card keeps its note.
- * Saves are the shipped redirect-back actions (they land back on this
- * category); the two reorders are the shipped JSON actions.
+ * Saves are the shipped actions, answered IN PLACE (owner 2026-10-29, panels approved — `FormInPlace`): a card's or
+ * an option's words save when the admin leaves the field, a photo the moment it is chosen, Retire on the tick; no
+ * Save button and no page load. The two reorders are the shipped JSON actions.
  */
-import { useCallback, useState, useTransition, type DragEvent } from 'react';
+import { useCallback, useRef, useState, useTransition, type DragEvent } from 'react';
 import { ChevronDown, ChevronUp, GripVertical, ImageIcon, Lock, Plus, Trash2, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { FormInPlace, INPUT_IN_PLACE } from './drawer-kit';
 import {
-  updateRefinementLeaf,
-  updateRefinementOption,
-  addRefinementOption,
-  removeRefinementOption,
   reorderRefinementLeaves,
   reorderRefinementOptions,
   type StudioActionResult,
@@ -30,14 +27,21 @@ import type { RefinementCard, RefinementOption } from './model';
 
 type CategoryRef = { id: string; label: string };
 
-/** The two hidden fields that land a save back on this category's panel. */
-function CategoryBack({ tileId }: { tileId: string }) {
+/** The fields that name the card (and option) a save is for — read by the in-place door. */
+function CategoryBack({ tileId, leaf, option }: { tileId: string; leaf: string; option?: string }) {
   return (
     <>
       <input type="hidden" name="_list" value="categories" />
       <input type="hidden" name="_open" value={`c:${tileId}`} />
+      <input type="hidden" name="_leaf" value={leaf} />
+      {option ? <input type="hidden" name="_option" value={option} /> : null}
     </>
   );
+}
+
+/** Submit the form a control sits in, once React has written the new value into it. */
+function submitAfter(el: HTMLElement | null) {
+  setTimeout(() => el?.closest('form')?.requestSubmit(), 0);
 }
 
 function Badge({ tone, children }: { tone: string; children: React.ReactNode }) {
@@ -218,7 +222,7 @@ function LeafBlock({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`rounded-xl  bg-white transition ${
+      className={`rounded-xl bg-raised transition ${
         dragging ? 'opacity-40' : 'border-ink/10'
       } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
         leaf.status === 'retired' ? 'opacity-60' : ''
@@ -282,16 +286,16 @@ function LeafBlock({
       {open ? (
         <div className="space-y-4 border-t border-ink/10 px-3 py-3">
           {/* Leaf fields (label / description / status / main photo) */}
-          <form action={updateRefinementLeaf.bind(null, leaf.leafKey)} className="space-y-2.5">
+          <FormInPlace kind="card-save" what="Card" autosave className="space-y-2.5">
             <input type="hidden" name="main_photo_current" value={leaf.mainPhotoRaw ?? ''} />
-            <CategoryBack tileId={tile.id} />
+            <CategoryBack tileId={tile.id} leaf={leaf.leafKey} />
             <label className="block space-y-1">
               <span className="block text-[11px] font-medium text-ink/70">Label</span>
               <input
                 name="label_en"
                 required
                 defaultValue={leaf.label}
-                className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                className={INPUT_IN_PLACE}
               />
             </label>
             <label className="block space-y-1">
@@ -302,7 +306,7 @@ function LeafBlock({
                 name="description_en"
                 defaultValue={leaf.description}
                 placeholder="e.g. The centerpiece sweet of your reception."
-                className="w-full rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+                className={INPUT_IN_PLACE}
               />
             </label>
             <div className="flex items-start gap-3">
@@ -310,19 +314,22 @@ function LeafBlock({
                 <span className="block text-[11px] font-medium text-ink/70">Main photo</span>
                 <RefThumb url={leaf.mainPhotoUrl} className="h-14 w-[4.67rem]" />
               </div>
-              <div className="min-w-0 flex-1">
-                <FileUpload
-                  bucket="samples"
-                  pathPrefix={`refinements/${leaf.leafKey}`}
-                  name="main_photo_url"
-                  unsavedHint="press Save card below"
-                  maxSizeMB={5}
-                  acceptedTypes={IMG_TYPES}
-                  variant="wide"
-                  label="Replace"
-                  help="Leave empty to keep the current one."
-                />
-              </div>
+              <SubmitOnChange className="min-w-0 flex-1">
+                {(submit) => (
+                  <FileUpload
+                    bucket="samples"
+                    pathPrefix={`refinements/${leaf.leafKey}`}
+                    name="main_photo_url"
+                    unsavedHint={null}
+                    maxSizeMB={5}
+                    acceptedTypes={IMG_TYPES}
+                    variant="wide"
+                    label="Replace"
+                    help="Saves as soon as it is chosen."
+                    onChange={submit}
+                  />
+                )}
+              </SubmitOnChange>
             </div>
             <label className="flex items-center gap-2 text-xs text-ink/70">
               <input
@@ -330,17 +337,12 @@ function LeafBlock({
                 name="status"
                 value="retired"
                 defaultChecked={leaf.status === 'retired'}
+                onChange={(e) => submitAfter(e.currentTarget)}
                 className="h-3.5 w-3.5"
               />
               Retire (hide from onboarding)
             </label>
-            <SubmitButton
-              className="rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
-              pendingLabel="Saving…"
-            >
-              Save card
-            </SubmitButton>
-          </form>
+          </FormInPlace>
 
           {/* Options */}
           {leaf.dynamic ? (
@@ -490,18 +492,15 @@ function OptionCard({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`rounded-lg  bg-white p-2.5 transition ${
+      className={`rounded-lg bg-raised p-2.5 transition ${
         dragging ? 'opacity-40' : 'border-ink/10'
       } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
         option.status === 'retired' ? 'opacity-60' : ''
       }`}
     >
-      <form
-        action={updateRefinementOption.bind(null, leaf.leafKey, option.optionKey)}
-        className="space-y-2"
-      >
+      <FormInPlace kind="option-save" what="Option" autosave className="space-y-2">
         <input type="hidden" name="photo_current" value={option.photoRaw ?? ''} />
-        <CategoryBack tileId={tile.id} />
+        <CategoryBack tileId={tile.id} leaf={leaf.leafKey} option={option.optionKey} />
         <div className="flex items-start gap-2">
           <span className="shrink-0 cursor-grab pt-1 text-ink/25" aria-hidden title="Drag to reorder">
             <GripVertical className="h-3.5 w-3.5" />
@@ -515,26 +514,31 @@ function OptionCard({
                 defaultValue={option.emoji}
                 aria-label="Emoji"
                 placeholder="🎂"
-                className="w-12 shrink-0 rounded-md border border-ink/15 bg-white px-1 py-1 text-center text-sm"
+                className={`${INPUT_IN_PLACE} !w-12 shrink-0 !px-1 text-center`}
               />
               <input
                 name="label_en"
                 required
                 defaultValue={option.label}
                 aria-label="Option label"
-                className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                className={`${INPUT_IN_PLACE} flex-1`}
               />
             </div>
-            <FileUpload
-              bucket="samples"
-              pathPrefix={`refinements/${leaf.leafKey}`}
-              name="photo_url"
-              unsavedHint="press Save below"
-              maxSizeMB={5}
-              acceptedTypes={IMG_TYPES}
-              variant="square"
-              label="Replace photo"
-            />
+            <SubmitOnChange>
+              {(submit) => (
+                <FileUpload
+                  bucket="samples"
+                  pathPrefix={`refinements/${leaf.leafKey}`}
+                  name="photo_url"
+                  unsavedHint={null}
+                  maxSizeMB={5}
+                  acceptedTypes={IMG_TYPES}
+                  variant="square"
+                  label="Replace photo"
+                  onChange={submit}
+                />
+              )}
+            </SubmitOnChange>
           </div>
           <div className="flex shrink-0 flex-col items-center gap-0.5">
             <button
@@ -564,31 +568,20 @@ function OptionCard({
               name="status"
               value="retired"
               defaultChecked={option.status === 'retired'}
+              onChange={(e) => submitAfter(e.currentTarget)}
               className="h-3.5 w-3.5"
             />
             Retire
           </label>
-          <SubmitButton
-            className="rounded-md bg-mulberry px-2.5 py-1 text-[11px] font-medium text-cream hover:bg-mulberry-600"
-            pendingLabel="…"
-          >
-            Save
-          </SubmitButton>
         </div>
-      </form>
+      </FormInPlace>
       {canDelete ? (
-        <form
-          action={removeRefinementOption.bind(null, leaf.leafKey, option.optionKey)}
-          className="mt-1.5 text-right"
-        >
-          <CategoryBack tileId={tile.id} />
-          <SubmitButton
-            className="inline-flex items-center gap-1 text-[10px] text-ink/45 hover:text-danger-700"
-            pendingLabel="Deleting…"
-          >
-            <Trash2 className="h-3 w-3" aria-hidden /> Delete option
-          </SubmitButton>
-        </form>
+        <FormInPlace kind="option-remove" what="Option" said={`Deleted — ${option.label}`} className="mt-1.5 text-right">
+          <CategoryBack tileId={tile.id} leaf={leaf.leafKey} option={option.optionKey} />
+          <button type="submit" className="sn-press inline-flex min-h-9 items-center gap-1 rounded-full px-2 text-[12px] text-danger-700">
+            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete option
+          </button>
+        </FormInPlace>
       ) : null}
     </div>
   );
@@ -599,27 +592,35 @@ function OptionCard({
  *  (the server action also re-checks). */
 function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard }) {
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [n, setN] = useState(0);
   return (
-    <form
-      action={addRefinementOption.bind(null, leaf.leafKey)}
-      className="space-y-2 rounded-lg bg-success-50/30 p-2.5"
+    <FormInPlace
+      key={n}
+      kind="option-add"
+      what="Option"
+      said="Added — option"
+      onSaved={() => {
+        setHasPhoto(false);
+        setN((x) => x + 1);
+      }}
+      className="space-y-2 rounded-lg bg-ink/5 p-2.5"
     >
-      <CategoryBack tileId={tile.id} />
-      <p className="text-[11px] font-medium text-success-800">Add an option</p>
+      <CategoryBack tileId={tile.id} leaf={leaf.leafKey} />
+      <p className="text-[12.5px] font-medium text-ink/70">Add an option</p>
       <div className="flex gap-1.5">
         <input
           name="emoji"
           maxLength={4}
           aria-label="Emoji"
           placeholder="🎂"
-          className="w-12 shrink-0 rounded-md border border-ink/15 bg-white px-1 py-1 text-center text-sm"
+          className={`${INPUT_IN_PLACE} !w-12 shrink-0 !px-1 text-center`}
         />
         <input
           name="label_en"
           required
           aria-label="New option label"
           placeholder="e.g. Glazed"
-          className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+          className={`${INPUT_IN_PLACE} flex-1`}
         />
       </div>
       <div className="space-y-1">
@@ -637,17 +638,17 @@ function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard
           onChange={(v) => setHasPhoto(typeof v === 'string' && v.length > 0)}
         />
       </div>
-      <SubmitButton
+      <button
+        type="submit"
         disabled={!hasPhoto}
-        className="inline-flex items-center gap-1.5 rounded-md bg-success-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-40"
-        pendingLabel="Adding…"
+        className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <Plus className="h-3.5 w-3.5" aria-hidden /> Add option
-      </SubmitButton>
+        <Plus className="h-4 w-4" aria-hidden /> Add option
+      </button>
       {!hasPhoto ? (
         <span className="ml-2 text-xs text-ink/70">Every new option needs a photo.</span>
       ) : null}
-    </form>
+    </FormInPlace>
   );
 }
 
@@ -667,5 +668,15 @@ function RefThumb({ url, className }: { url: string | null; className: string })
     >
       <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
     </span>
+  );
+}
+
+/** A photo picker that saves its form the moment a photo is chosen (no Save button). */
+function SubmitOnChange({ className, children }: { className?: string; children: (submit: () => void) => React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  return (
+    <div ref={box} className={className}>
+      {children(() => submitAfter(box.current))}
+    </div>
   );
 }

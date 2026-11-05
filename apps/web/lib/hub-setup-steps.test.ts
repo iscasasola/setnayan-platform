@@ -210,8 +210,13 @@ test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it 
   assert.deepEqual(of('venues')?.stages, ['rsvp', 'event']);
   assert.deepEqual(of('love-story')?.stages, ['save_the_date', 'rsvp']);
   assert.deepEqual(of('wear')?.stages, ['rsvp'], 'what everyone wears is not the Dress code’s');
-  /* 🗂 R1 (owner 2026-10-28): the RSVP stage's three settings are links to Guests ⚙ now — before the guests' names. */
-  assert.deepEqual(plan.links.map((l) => [l.key, l.stages]), [['who', ['rsvp-stage']], ['rsvp', ['rsvp-stage']], ['reply-by', ['rsvp-stage']], ['guests', ['rsvp', 'event']]], 'each guest’s own greeting shows on the Invitation and The Day');
+  /* 🗂 R1 (owner 2026-10-28): the RSVP stage's three settings are links to Guests ⚙ now — before the guests' names.
+     🗂 R4: so is the march, a door to Guests › March, on the stages that show it. */
+  assert.deepEqual(
+    plan.links.map((l) => [l.key, l.stages]),
+    [['who', ['rsvp-stage']], ['rsvp', ['rsvp-stage']], ['reply-by', ['rsvp-stage']], ['march', ['rsvp', 'event']], ['guests', ['rsvp', 'event']]],
+    'each guest’s own greeting shows on the Invitation and The Day',
+  );
   // Every setup step with a part is in the plan; B5–6 is the RSVP stage's own three settings.
   for (const s of steps) {
     if (s.key === 'ask') continue;
@@ -237,11 +242,12 @@ test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it 
   assert.equal(isUnfinished(plan), true);
   // An open event (one QR for everyone): the RSVP stage asks only how guests get in.
   const open = buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, guestList: false }, ALL_ITEMS));
-  assert.deepEqual(open.links.map((l) => l.key), ['who'], 'an open event is asked for guests’ names, or what to ask');
+  // (🗂 R4: the march is a door to Guests › March for every event that has one — not a reply question.)
+  assert.deepEqual(open.links.map((l) => l.key), ['who', 'march'], 'an open event is asked for guests’ names, or what to ask');
   // No setup (another type, or the facts unread): the generic rows, as before.
   const before = buildGuidedPlan(items(), WORDS);
   assert.ok(before.steps.some((s) => s.key === 'schedule') && before.steps.some((s) => s.key === 'colours'));
-  assert.deepEqual(before.links.map((l) => l.key), ['who', 'rsvp', 'reply-by'], 'without the setup, only the three reply settings are links (to Guests ⚙)');
+  assert.deepEqual(before.links.map((l) => l.key), ['who', 'rsvp', 'reply-by', 'march'], 'without the setup, only the three reply settings (to Guests ⚙) and the march (to Guests › March, R4) are links');
 });
 
 test('🚪 only the guests\' names left: the Invitation opens on that step\'s own screen, which links to the import', () => {

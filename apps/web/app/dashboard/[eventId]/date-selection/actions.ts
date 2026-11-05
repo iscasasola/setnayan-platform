@@ -25,6 +25,8 @@
  * events table RLS). Server actions add a defensive auth check on top.
  */
 
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -69,7 +71,7 @@ function isKind(value: unknown): value is MeaningfulDateKind {
  * event_date and ≥1 confirmed vendor, the action refuses changes. Phase 0
  * is typically pre-vendor so this rarely fires, but defense-in-depth.
  */
-export async function lockEventDate(formData: FormData): Promise<void> {
+export async function lockEventDate(formData: FormData): Promise<{ ok: false; error: string } | void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
@@ -104,9 +106,19 @@ export async function lockEventDate(formData: FormData): Promise<void> {
   // Read prior event state for the vendor-lock gate.
   const { data: priorRow } = await supabase
     .from('events')
-    .select('event_date, ceremony_type, secondary_ceremony_type')
+    .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — RETURNED
+  // in the owner's words, said beside the date (a thrown message is generic in production).
+  const floorRefusal = eventDateFloorRefusal({
+    date: trimmed,
+    precision,
+    prior: priorRow ? { date: (priorRow.event_date as string | null) ?? null, precision: priorRow.event_date_precision } : null,
+    exempt: await eventDateFloorExempt(supabase, { eventId }),
+  });
+  if (floorRefusal) return { ok: false, error: floorRefusal };
 
   const wasSet = Boolean(priorRow?.event_date);
   const dateChanged = wasSet && trimmed !== priorRow?.event_date;

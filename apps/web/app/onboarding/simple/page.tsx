@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateMinFor } from '@/lib/event-date-floor';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
+import { manilaToday } from '@/lib/std-views';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -21,6 +24,7 @@ import { FirstRunBrand } from '@/app/_components/first-run-brand';
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give your event a name.',
   missing_date: 'Please pick a date for your event.',
+  event_date_before_first_event: EVENT_DATE_FLOOR_MESSAGE,
   // Kept apart deliberately — see the same pair in the create-event picker.
   // `create_failed` = nothing survived, retrying is safe. `create_incomplete` =
   // a half-made event could not be rolled back, so "try again" would duplicate.
@@ -63,7 +67,10 @@ export default async function SimpleOnboardingPage({
   }
 
   const params = await searchParams;
-  const errorMessage = params.error ? (ERROR_COPY[params.error] ?? GENERIC_ERROR) : null;
+  // 💍 The date rule's message is said beside the date (below), never twice.
+  const errorMessage =
+    params.error && params.error !== 'event_date_before_first_event' ? (ERROR_COPY[params.error] ?? GENERIC_ERROR) : null;
+  const dateExempt = await viewerIsInternal().catch(() => false);
 
   // The services step. This route is NOT a wizard — it is one form — so "adding
   // the step" means adding the card beneath the form, not inserting a screen.
@@ -133,6 +140,7 @@ export default async function SimpleOnboardingPage({
           steps={setupSteps}
           label={typeRow?.label ?? 'Get-together'}
           marketplace={profile.marketplaceEnabled === true}
+          dateExempt={dateExempt}
           start={
             <>
               <div className="space-y-1.5">
@@ -158,10 +166,17 @@ export default async function SimpleOnboardingPage({
                 <input
                   className="input-field"
                   id="event_date"
+                  min={eventDateMinFor(manilaToday(), dateExempt)}
                   name="event_date"
                   required
                   type="date"
                 />
+                {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+                {params.error === 'event_date_before_first_event' ? (
+                  <p role="alert" className="text-xs text-danger-700">
+                    {EVENT_DATE_FLOOR_MESSAGE}
+                  </p>
+                ) : null}
                 <p className="text-xs text-ink/50">You can change this later in event settings.</p>
               </div>
             </>

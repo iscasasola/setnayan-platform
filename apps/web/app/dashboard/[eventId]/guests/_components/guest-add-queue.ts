@@ -215,11 +215,47 @@ export function queueTypedGuest(
   picks: TypedPicks = {},
 ): { ok: true; key: string } | { ok: false; error: string } {
   if (!raw.trim()) return { ok: false, error: '' };
-  const draft = withPicks(keepTheHonorific(raw, parseGuestInput(raw, { defaultSide })), picks);
+  const draft = typedDraft(raw, defaultSide, picks);
   if (!normalizeGuestName(draft.firstName) || !normalizeGuestName(draft.lastName)) return { ok: false, error: NEEDS_BOTH_NAMES };
   const detail = picks.describe ? picks.describe(draft) : (picks.detail ?? '');
   const key = queue.enqueue({ eventId, name: draftName(draft), detail, run: () => addSingleGuest(eventId, draft, { refresh: false }) });
   return { ok: true, key };
+}
+
+/**
+ * The draft ONE typed line becomes — the shipped grammar, this event's roles, then the sticky picks. The add AND its
+ * preview line both call this, so what the preview says is what Enter sends (`typedGuestPreview`).
+ */
+export function typedDraft(raw: string, defaultSide: GuestSide, picks: TypedPicks = {}): ParsedGuestDraft {
+  const parsed = parseGuestInput(raw, { defaultSide, offeredRoles: picks.offeredRoles, roleNames: picks.roleNames });
+  return withPicks(keepTheHonorific(raw, parsed), picks);
+}
+
+const SIDE_WORDS: Record<GuestSide, string> = { bride: 'Bride’s side', groom: 'Groom’s side', both: 'Both sides' };
+
+/**
+ * 👁 THE LINE UNDER THE BOX SAYS WHAT ENTER WILL ADD (owner 2026-11-01: *"A live preview line under the box shows what
+ * will be added before Enter"* — "→ Mr. Roman Atkinson · +2 · Groomsman · #Barkada"). Read from `typedDraft`, the
+ * same draft the add sends: the name with its title, the +N, the role (only one this event offers — a word the server
+ * would drop to Guest is not promised), a side typed away from the box's own, and every group. Null for an empty
+ * line; a line with one name says it needs a last name, as Enter would.
+ */
+export function typedGuestPreview(raw: string, defaultSide: GuestSide, picks: TypedPicks = {}): string | null {
+  if (!raw.trim()) return null;
+  const d = typedDraft(raw, defaultSide, picks);
+  const name = draftName(d);
+  if (!normalizeGuestName(d.firstName)) return null;
+  if (!normalizeGuestName(d.lastName)) return `→ ${name} · add a last name`;
+  const offered = picks.offeredRoles;
+  const role = d.roleHint && d.roleHint !== 'guest' && (!offered || offered.includes(d.roleHint)) ? d.roleHint : null;
+  return [
+    `→ ${name}`,
+    ...(d.plusOnes > 0 ? [`+${d.plusOnes}`] : []),
+    ...(role ? [guestRoleLabel(role, picks.roleNames)] : []),
+    ...(d.side !== defaultSide ? [SIDE_WORDS[d.side]] : []),
+    ...(d.groupCategory ? [GROUP_CATEGORY_LABELS[d.groupCategory]] : []),
+    ...d.groups.map((g) => `#${g}`),
+  ].join(' · ');
 }
 
 /**
@@ -250,6 +286,10 @@ export type TypedPicks = {
   detail?: string;
   /** The row's words for what is ACTUALLY sent (a typed "vip" or "+2" wins over a pick) — preferred over `detail`. */
   describe?: (draft: ParsedGuestDraft) => string;
+  /** The roles THIS event offers — a typed `+Groomsmen` is the role only when it is one (owner 2026-11-01). */
+  offeredRoles?: readonly GuestRole[];
+  /** The couple's own role words, so `+GroomsCrew` and the preview read their word. */
+  roleNames?: RoleNames | null;
 };
 
 export function withPicks(draft: ParsedGuestDraft, picks: TypedPicks): ParsedGuestDraft {
@@ -280,6 +320,7 @@ export function picksForAdd(
   picks: AddPicks,
   groups: readonly { group_id: string; label: string }[],
   roleNames: RoleNames | null | undefined,
+  offeredRoles?: readonly GuestRole[],
 ): TypedPicks {
   const own = picks.groupIds.map((id) => groups.find((g) => g.group_id === id)?.label).filter((l): l is string => Boolean(l));
   const say = (role: GuestRole, cat: GuestGroupCategory | null, names: readonly string[], plus: number) =>
@@ -291,5 +332,7 @@ export function picksForAdd(
     plusOnes: picks.plus,
     detail: say(picks.role, picks.category, own, picks.plus),
     describe: (d) => say(d.roleHint ?? 'guest', d.groupCategory ?? null, d.groups, d.plusOnes),
+    offeredRoles,
+    roleNames,
   };
 }

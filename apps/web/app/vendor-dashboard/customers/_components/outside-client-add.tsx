@@ -32,7 +32,7 @@ import { SupplierSubmit } from '../../_components/supplier-submit';
  * page), with the same fields; only the drawing is the templates': Form rows
  * (a pencil = type · an arrow = choose · a calendar = pick a date), one main
  * button in the brand colour. The action comes back to People with its outcome
- * (`return_to=people` → `?notice=`), said by the page's toast + status line.
+ * (`return_to=events` → `?notice=`), said by the page's toast + status line.
  *
  * Opens from the thumb row's Add, or already open when the address carries
  * `?add=outside` (an older link that named the form).
@@ -53,7 +53,7 @@ export function OutsideClientAdd({
   startOpen = false,
   today,
   setupHref,
-  returnTo = 'people',
+  returnTo = 'events',
   day = null,
   seats = null,
   label = 'Add',
@@ -77,7 +77,7 @@ export function OutsideClientAdd({
   /** Where a shop with no schedule sets one up. */
   setupHref: string;
   /** Where the outcome is said — People (its list) or Dates (the month it holds a day on). */
-  returnTo?: 'people' | 'dates';
+  returnTo?: 'events' | 'dates';
   /** The day screen's date, filled in. */
   day?: CalendarDay | null;
   /** Seats taken per schedule and date (Dates reads them anyway) — for the "That day is free" line. */

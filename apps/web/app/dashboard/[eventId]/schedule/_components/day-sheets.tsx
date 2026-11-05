@@ -10,8 +10,11 @@ import { Plus, X } from 'lucide-react';
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor, type ScheduleBlockType } from '@/lib/schedule';
-import { computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
+import { approvableTogether, computeRetimePatches, isNoteOnlySuggestion, MAX_RETIME_MINUTES, type RetimePatch } from '@/lib/schedule-ros';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { formatCount } from '@/lib/format-number';
 import {
   formatClock,
   formatClockRange,
@@ -24,8 +27,13 @@ import {
 } from '@/lib/schedule-rail';
 import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { REQUEST_NOT_SENT, requestAnswerOf } from '@/lib/schedule-request-answer';
+import { RequestDecision } from './request-decision';
 import type { DayMoment, DayRequest } from './day-types';
 import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
+import { ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
+import { ActionButton } from '@/components/action-button';
+import { heldHoursLine } from '@/lib/schedule-chapters';
 
 const COULD_NOT_SAVE = 'That did not save. Check your connection and try again.';
 
@@ -159,92 +167,88 @@ export function AddMomentSheet({
     });
   }
 
+  /* 🗂 THE ONE POP-UP (`schedule-sheet.tsx`, owner 2026-10-31 *"the pop up. design template."*): the same frame, field
+     look and thumb-zone answers as a tapped moment's — every field this sheet had, and its one write. */
   return (
-    <Sheet open={open} onClose={onClose} labelledById="add-moment-title" wide rise>
-      <div className="space-y-4 px-5 pb-4 pt-5">
-        <SheetHead
-          id="add-moment-title"
-          title={
-            <>
-              Add at <span className="text-[19px] tabular-nums">{formatClock(start)}</span>
-            </>
-          }
-          tip="You tapped a time, so it is filled in. Change it below, or drag the moment on the rail afterwards."
-        />
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          maxLength={120}
-          placeholder="What happens"
-          aria-label="What happens"
-          className="w-full border-0 border-b border-ink/15 bg-transparent px-0 pb-1.5 font-display text-[21px] text-ink outline-none focus:border-ink"
-        />
+    <ScheduleSheet
+      open={open}
+      onClose={onClose}
+      id="add-moment-title"
+      title="Add a moment"
+      aside={<span className="tabular-nums">{dateKey ? `${formatDateHeading(dateKey)} · ` : ''}{formatClock(start)}</span>}
+      data="add-moment"
+      foot={
+        <SheetFoot>
+          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} />
+          <ActionButton tone="brand" main icon={Plus} label={pending ? 'Adding…' : 'Add moment'} onClick={submit} disabled={pending} waiting={pending} />
+        </SheetFoot>
+      }
+    >
+        <SheetField label="Name">
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={120}
+            placeholder="What happens"
+            aria-label="What happens"
+          />
+        </SheetField>
 
-        <div>
-          <Eyebrow>Phase</Eyebrow>
-          <div className="mt-1.5 flex items-center gap-2">
-            <i aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: PHASE_TINT[type] }} />
-            <PickMenu
-              label="Phase"
-              value={type}
-              dataAttr="data-add-phase"
-              options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
-              onPick={(key) => setType(key as ScheduleBlockType)}
-            />
-          </div>
-        </div>
+        <SheetChoice
+          label={
+            <span className="inline-flex items-center gap-2">
+              <i aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: PHASE_TINT[type] }} />
+              Phase
+            </span>
+          }
+        >
+          <PickMenu
+            label="Phase"
+            value={type}
+            dataAttr="data-add-phase"
+            compact
+            options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
+            onPick={(key) => setType(key as ScheduleBlockType)}
+          />
+        </SheetChoice>
 
         {!dateKey ? (
-          <label className="block">
-            <Eyebrow>Date</Eyebrow>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
-            />
-          </label>
-        ) : (
-          <p className="text-xs text-ink/55">{formatDateHeading(dateKey)}</p>
-        )}
+          <SheetField label="Date">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </SheetField>
+        ) : null}
 
         {/* Starts and Runs for: each ONE dropdown for the choice, and the −/+
             stepper (five minutes a press) for anything between two options. */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-2 gap-3">
+          <div data-sheet-field="">
             {/* One header height for both columns, so Starts and Runs for sit on one baseline (owner 2026-10-07). */}
-            <div className="flex min-h-7 items-center gap-1.5">
-              <Eyebrow>Starts</Eyebrow>
+            <span className="flex min-h-6 items-center gap-1.5">
+              Starts
               <Tip>Pick a time — or drag the moment on the rail afterwards. Everything snaps to 5 minutes.</Tip>
-            </div>
-            <div className="mt-1.5">
-              <PickMenu
-                label="Starts"
-                value={String(start)}
-                dataAttr="data-add-starts"
-                options={startOptions(start)}
-                onPick={(key) => setStart(Number(key))}
-              />
-            </div>
+            </span>
+            <PickMenu
+              label="Starts"
+              value={String(start)}
+              dataAttr="data-add-starts"
+              options={startOptions(start)}
+              onPick={(key) => setStart(Number(key))}
+            />
             <Stepper
               onMinus={() => setStart((s) => Math.max(0, s - 5))}
               onPlus={() => setStart((s) => s + 5)}
             />
           </div>
-          <div>
-            <div className="flex min-h-7 items-center">
-              <Eyebrow>Runs for</Eyebrow>
-            </div>
-            <div className="mt-1.5">
-              <PickMenu
-                label="Runs for"
-                value={String(runs)}
-                dataAttr="data-add-runs"
-                options={lengthOptions(runs)}
-                onPick={(key) => setRuns(Number(key))}
-              />
-            </div>
+          <div data-sheet-field="">
+            <span className="flex min-h-6 items-center">Runs for</span>
+            <PickMenu
+              label="Runs for"
+              value={String(runs)}
+              dataAttr="data-add-runs"
+              options={lengthOptions(runs)}
+              onPick={(key) => setRuns(Number(key))}
+            />
             <Stepper
               onMinus={() => setRuns((r) => Math.max(5, r - 5))}
               onPlus={() => setRuns((r) => r + 5)}
@@ -258,7 +262,7 @@ export function AddMomentSheet({
           {fits ? ` · ${fits}` : ''}
         </p>
 
-        <div>
+        <div data-switch-band="">
           <Switch
             on={isPublic && !staged}
             onChange={setIsPublic}
@@ -276,41 +280,22 @@ export function AddMomentSheet({
           ) : null}
         </div>
 
-        <label className="block">
-          <Eyebrow>Where</Eyebrow>
+        <SheetField label="Where">
           <input
             type="text"
             value={where}
             onChange={(e) => setWhere(e.target.value)}
             maxLength={200}
             placeholder="e.g. Church steps"
-            className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
           />
-        </label>
+        </SheetField>
 
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger-700">
             {error}
           </p>
         ) : null}
-      </div>
-      <div className="sn-glass-row sticky bottom-0 flex justify-end gap-2 px-5 py-3">
-        {/* BUTTON-RULE — icon + word, toned (✕ Cancel · ＋ Add moment), until the shared ActionButton lands. */}
-        <button type="button" onClick={onClose} className="inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
-          <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={pending}
-          className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          {pending ? 'Adding…' : 'Add moment'}
-        </button>
-      </div>
-    </Sheet>
+    </ScheduleSheet>
   );
 }
 
@@ -541,7 +526,12 @@ export function RequestsSheet({
   moments: DayMoment[];
 }) {
   const { resolveScheduleSuggestion } = useDayActions();
+  const [allProblem, setAllProblem] = useState<string | null>(null);
   const byId = new Map(moments.map((m) => [m.block_id, m]));
+  /* ✅ APPROVE ALL (owner 2026-11-01) — every CHANGE on this sheet, never a suggestion in words; only from 2. */
+  const together = approvableTogether(requests);
+  const removals = together.filter((r) => r.kind === 'remove').length;
+  const suppliersTold = new Set(together.map((r) => r.by)).size;
   return (
     <Sheet open={open} onClose={onClose} labelledById="requests-title" wide rise>
       <div className="px-5 pb-6 pt-5">
@@ -567,10 +557,12 @@ export function RequestsSheet({
                 <li key={r.suggestion_id} className="border-b border-ink/[0.06] pb-5 pt-4">
                   <Eyebrow>
                     {r.by} ·{' '}
-                    {r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
+                    {r.kind === 'where' ? 'the chapters they serve' : r.kind === 'hours' ? 'the chapter’s hours' : r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
                   </Eyebrow>
                   <h3 className="mt-1 font-display text-[21px] leading-tight text-ink">
-                    {r.kind === 'new'
+                    {r.kind === 'where'
+                      ? 'Where they go'
+                      : r.kind === 'new'
                       ? (r.proposed_label ?? 'A new moment')
                       : (current?.label ?? r.proposed_label ?? 'A moment')}
                   </h3>
@@ -578,7 +570,13 @@ export function RequestsSheet({
                     <div>
                       <Eyebrow>Now</Eyebrow>
                       <p className="mt-0.5 text-base font-semibold text-ink/80">
-                        {current ? whenOf(current.start_at, current.end_at, refDate) : <span className="text-ink/50">free slot</span>}
+                        {r.kind === 'where' ? (
+                          (r.where?.now ?? '—')
+                        ) : current ? (
+                          whenOf(current.start_at, current.end_at, refDate)
+                        ) : (
+                          <span className="text-ink/50">free slot</span>
+                        )}
                       </p>
                     </div>
                     <span aria-hidden className="pb-0.5 text-lg text-ink/40">
@@ -587,7 +585,9 @@ export function RequestsSheet({
                     <div>
                       <Eyebrow>Asked</Eyebrow>
                       <p className="mt-0.5 text-base font-semibold text-mulberry-700">
-                        {r.kind === 'remove'
+                        {r.kind === 'where'
+                          ? (r.where?.asked ?? '—')
+                          : r.kind === 'remove'
                           ? 'remove it'
                           : r.proposed_start_at || r.proposed_end_at
                           ? whenOf(r.proposed_start_at ?? current?.start_at ?? null, r.proposed_end_at, refDate)
@@ -600,38 +600,42 @@ export function RequestsSheet({
                     </div>
                   </div>
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
-                  <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
-                  <div className="mt-3.5 flex justify-end gap-2">
-                    <form action={resolveScheduleSuggestion}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
-                      <input type="hidden" name="decision" value="decline" />
-                      <SubmitButton
-                        pendingLabel="Declining…"
-                        className="h-10 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15"
-                      >
-                        Decline
-                      </SubmitButton>
-                    </form>
-                    <form action={resolveScheduleSuggestion}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
-                      <input type="hidden" name="decision" value="accept" />
-                      <SubmitButton
-                        pendingLabel="Approving…"
-                        className="h-10 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream"
-                      >
-                        Approve
-                      </SubmitButton>
-                    </form>
+                  {r.kind === 'hours' && r.proposed_start_at ? (
+                    <p className="mt-2 text-[12.5px] text-ink/60" data-request-hours="">
+                      {heldHoursLine({
+                        start_at: r.proposed_start_at,
+                        end_at: r.proposed_end_at,
+                        ingress_minutes_before: r.proposed_ingress_minutes ?? null,
+                        egress_minutes_after: r.proposed_egress_minutes ?? null,
+                      })}
+                    </p>
+                  ) : null}
+                  {r.proposed_crew?.length ? <p className="mt-1 text-[12.5px] text-ink/60">Their crew: {r.proposed_crew.join(', ')}</p> : null}
+                  {/* A Where pick's note only repeats "Asked" — not quoted again. */}
+                  {r.kind === 'where' ? null : <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>}
+                  <div className="mt-3.5">
+                    {/* A suggestion in WORDS changes nothing to approve or decline — the host says they read it. */}
+                    <RequestDecision eventId={eventId} suggestionId={r.suggestion_id} acceptLabel={r.kind === 'where' ? 'OK' : undefined} noteOnly={isNoteOnlySuggestion(r)} decide={resolveScheduleSuggestion} />
+                    {r.kind === 'where' ? (
+                      /* 📍 Change — set their chapters yourself, on their Suppliers row (`set_supplier_where`). */
+                      <p className="mt-2 text-right">
+                        <Link href={`/dashboard/${eventId}/vendors`} className="text-[13px] font-semibold text-terracotta-700 underline-offset-2 hover:underline" data-where-change="">
+                          Change
+                        </Link>
+                      </p>
+                    ) : null}
                   </div>
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
-                    {r.kind === 'new'
+                    {r.kind === 'where'
+                      ? `OK puts them on those chapters. Change opens their row in Suppliers, where you pick for them.`
+                      : r.kind === 'hours'
+                      ? `Approving sets the chapter’s hours and ${r.by} holds them — you ask them to change.`
+                      : r.kind === 'new'
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
                       : r.kind === 'remove'
                         ? 'Approving takes the moment off the schedule.'
                         : isNoteOnlySuggestion(r)
-                          ? 'Nothing on the schedule moves — approving says you read it.'
+                          ? 'Nothing on the schedule moves — Noted tells them you read it.'
                           : 'Approving changes the moment on the schedule.'}{' '}
                     {r.by} is told either way.
                   </p>
@@ -641,6 +645,54 @@ export function RequestsSheet({
           </ul>
         )}
       </div>
+      {together.length > 0 ? (
+        /* Pinned at the sheet's foot, in the thumb zone — the house confirm (`ConfirmForm`) first: one press moves
+           several moments, so it says what will happen before it does. The ids are the ones ON THIS SHEET: a change
+           that lands after you looked is never approved unseen. */
+        <div
+          className="sticky bottom-0 flex justify-end bg-cream px-5 py-3 shadow-[0_-1px_0_rgba(27,26,23,0.06)]"
+          data-approve-all={together.length}
+        >
+          {allProblem ? (
+            <p role="alert" className="mr-3 self-center text-[13px] font-semibold text-danger-700" data-approve-all-problem="">
+              {allProblem}
+            </p>
+          ) : null}
+          <ConfirmForm
+            action={async (fd) => {
+              setAllProblem(null);
+              let raw: unknown;
+              try {
+                raw = await resolveScheduleSuggestion(fd);
+              } catch {
+                raw = { ok: false, error: REQUEST_NOT_SENT };
+              }
+              const answer = requestAnswerOf(raw);
+              if (!answer.ok) setAllProblem(answer.error);
+            }}
+            title={`Approve all ${formatCount(together.length)}?`}
+            confirmLabel={`Approve all ${formatCount(together.length)}`}
+            destructive={removals > 0}
+            message={
+              <>
+                {formatCount(together.length)} change{together.length === 1 ? '' : 's'} go on your schedule
+                {removals > 0 ? ` — ${removals === 1 ? 'one takes its moment' : `${formatCount(removals)} take their moments`} off it` : ''}.{' '}
+                {suppliersTold === 1 ? 'The supplier is' : `All ${formatCount(suppliersTold)} suppliers are`} told in the app.
+                {requests.length > together.length ? ' Suggestions in words stay here for you to mark Noted.' : ''}
+              </>
+            }
+          >
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="decision" value="accept_all" />
+            {together.map((r) => (
+              <input key={r.suggestion_id} type="hidden" name="suggestion_id" value={r.suggestion_id} />
+            ))}
+            <SubmitButton pendingLabel="Approving…" className="h-11 rounded-full bg-ink px-5 text-[13.5px] font-semibold text-cream">
+              Approve all {formatCount(together.length)}
+            </SubmitButton>
+          </ConfirmForm>
+        </div>
+      ) : null}
     </Sheet>
   );
 }

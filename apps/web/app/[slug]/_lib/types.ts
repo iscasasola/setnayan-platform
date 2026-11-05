@@ -1,3 +1,4 @@
+import type { InvitationChapter } from '@/lib/invitation-chapters';
 import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
@@ -332,6 +333,8 @@ export type LiveLayerData = {
    */
   liveWallUnreadable?: boolean;
   scheduleBlocks: ScheduleBlockRow[];
+  /** ✉ The invitation's chapters (Step 5, `readInvitationChapters`); null = the read failed (the page draws as before). */
+  invitationChapters: InvitationChapter[] | null;
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;

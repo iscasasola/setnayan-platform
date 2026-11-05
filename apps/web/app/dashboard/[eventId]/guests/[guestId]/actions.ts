@@ -38,8 +38,13 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { isSafeNext } from '@/lib/safe-next';
 import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
+import { needsNoSeat, seatedChapterIds } from '@/lib/invitation-chapters';
+import { onlyInvitationChapters } from '@/lib/invitation-chapters.server';
+import { NOT_COUNTED_FIELD, NOT_COUNTED_POSTED, parseNotCounted } from '@/lib/guest-not-counted';
+import { syncCardNotCounted } from '@/lib/guest-not-counted.server';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { placedByCouple } from '@/lib/seat-why';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -106,6 +111,17 @@ function baseGroupIds(rawBase: FormDataEntryValue | null): string[] {
   }
 }
 
+/** 🍽 The services the card started with, from its posted base (`not_counted_for` in the autosave's spelling). */
+function baseNotCounted(rawBase: FormDataEntryValue | null): string[] {
+  try {
+    const base = JSON.parse(typeof rawBase === 'string' ? rawBase : '{}') as Record<string, unknown>;
+    const values = JSON.parse(typeof base[NOT_COUNTED_FIELD] === 'string' ? (base[NOT_COUNTED_FIELD] as string) : '[]') as unknown;
+    return Array.isArray(values) ? values.flatMap((v) => (typeof v === 'string' ? parseNotCounted(v) : [])) : [];
+  } catch {
+    return [];
+  }
+}
+
 async function syncCardGroups(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
@@ -161,6 +177,91 @@ async function syncCardGroups(
   }
 }
 
+/** ✉ The chapters the card started with ticked, from its posted base (`invited_chapters`, the autosave's spelling). */
+function baseChapterIds(rawBase: FormDataEntryValue | null): string[] {
+  try {
+    const base = JSON.parse(typeof rawBase === 'string' ? rawBase : '{}') as Record<string, unknown>;
+    const values = JSON.parse(typeof base.invited_chapters === 'string' ? base.invited_chapters : '[]') as unknown;
+    return Array.isArray(values)
+      ? values.flatMap((v) => (typeof v === 'string' ? v.split(',') : [])).map((v) => v.trim()).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * ✉ "INVITED TO ▾" BY CHAPTER (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO" CHAPTERS") → this guest's
+ * exceptions (`guest_chapter_not_invited`, 20271302948959): a chapter on the invitation and NOT ticked is a row; a ticked
+ * one has none. Only chapters ON THIS EVENT'S INVITATION are touched — read here, never taken from the form. With a base
+ * (the autosave), only THIS screen's change is made (a chapter another host unticked meanwhile stays unticked).
+ *
+ * The database drops the guest's answer to a chapter they are taken off (so its count stops counting them) and refuses
+ * one later; 🪑 taken off every SEATED chapter ("after party only") gives their chair back (`needsNoSeat`).
+ * Returns a refusal code, or null when it landed.
+ */
+async function syncInvitedChapters(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  guestId: string,
+  pickedIds: string[],
+  baseIds?: string[],
+): Promise<'invited_to_none' | 'invited_to_failed' | null> {
+  const [chaptersRes, haveRes] = await Promise.all([
+    onlyInvitationChapters(supabase.from('event_schedule_blocks').select('block_id, label, block_type').eq('event_id', eventId)),
+    supabase.from('guest_chapter_not_invited').select('block_id').eq('guest_id', guestId),
+  ]);
+  if (chaptersRes.error || haveRes.error) {
+    console.error('updateGuest: invited-to read failed — left as it was', eventId, guestId, (chaptersRes.error ?? haveRes.error)?.message);
+    return 'invited_to_failed';
+  }
+  const chapters = (chaptersRes.data ?? []) as { block_id: string; label: string; block_type: string | null }[];
+  const ours = new Set(chapters.map((c) => c.block_id));
+  if (ours.size === 0) return null;
+  const off = new Set(((haveRes.data ?? []) as { block_id: string }[]).map((r) => r.block_id).filter((id) => ours.has(id)));
+  const picked = new Set(pickedIds.filter((id) => ours.has(id)));
+  const wantOff = new Set<string>();
+  if (baseIds) {
+    const was = new Set(baseIds);
+    for (const id of ours) {
+      const tickedNow = picked.has(id);
+      const tickedBefore = was.has(id);
+      if (tickedNow === tickedBefore) {
+        if (off.has(id)) wantOff.add(id);
+      } else if (!tickedNow) wantOff.add(id);
+    }
+  } else {
+    for (const id of ours) if (!picked.has(id)) wantOff.add(id);
+  }
+  if (wantOff.size >= ours.size) return 'invited_to_none';
+  const add = [...wantOff].filter((id) => !off.has(id));
+  const drop = [...off].filter((id) => !wantOff.has(id));
+  if (add.length > 0) {
+    const { error } = await supabase
+      .from('guest_chapter_not_invited')
+      // event_id is replaced by the database from the chapter; sent only because the column is NOT NULL.
+      .upsert(add.map((block_id) => ({ guest_id: guestId, block_id, event_id: eventId })), { onConflict: 'guest_id,block_id', ignoreDuplicates: true });
+    if (error) {
+      console.error('updateGuest: invited-to remove failed', eventId, guestId, error.message);
+      return 'invited_to_failed';
+    }
+  }
+  if (drop.length > 0) {
+    const { error } = await supabase.from('guest_chapter_not_invited').delete().eq('guest_id', guestId).in('block_id', drop);
+    if (error) {
+      console.error('updateGuest: invited-to add failed', eventId, guestId, error.message);
+      return 'invited_to_failed';
+    }
+  }
+  // 🪑 Off every seated chapter now (and was not before) → their chair goes back, as a guest who passed away's does.
+  const seated = seatedChapterIds(chapters);
+  if (add.length > 0 && needsNoSeat(seated, wantOff) && !needsNoSeat(seated, off)) {
+    const { error } = await supabase.from('event_seat_assignments').delete().eq('event_id', eventId).eq('guest_id', guestId);
+    if (error) console.error('updateGuest: invited-to seat release failed', eventId, guestId, error.message);
+  }
+  return null;
+}
+
 /**
  * The card's Table dropdown → this guest's seat. Written ONLY when the table
  * actually changed: the card autosaves every field on every pause, and
@@ -203,7 +304,8 @@ async function syncCardTable(
   const { error } = await supabase
     .from('event_seat_assignments')
     .upsert(
-      { event_id: eventId, guest_id: guestId, table_id: tableId, seat_number: null },
+      // 🪑 The card's Table pick — placed by hand (lib/seat-why.ts).
+      { event_id: eventId, guest_id: guestId, table_id: tableId, seat_number: null, ...placedByCouple() },
       { onConflict: 'event_id,guest_id' },
     );
   return error ? { ok: false, error: 'seat_failed' } : { ok: true };
@@ -373,7 +475,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
    */
   const extraRolesPosted = clean(formData.get('extra_roles_posted')) === '1';
   const groupsPosted = clean(formData.get('groups_posted')) === '1';
+  // 🍽 "Not counted for ▾" (owner 2026-11-02) — the same marker rule: no marker, nothing changed (`lib/guest-not-counted.ts`).
+  const notCountedPosted = clean(formData.get(NOT_COUNTED_POSTED)) === '1';
   const tablePosted = clean(formData.get('table_posted')) === '1';
+  const invitedChaptersPosted = clean(formData.get('invited_chapters_posted')) === '1';
   const postedTableId = clean(formData.get('table_id'));
 
   /**
@@ -833,6 +938,32 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
         .map((v) => v.trim())
         .filter(Boolean),
       merge.based ? baseGroupIds(formData.get(MERGE_BASE_FIELD)) : undefined,
+    );
+  }
+  // ✉ "Invited to ▾" by chapter (owner 2026-11-02) — with a base, only when this screen changed it.
+  if (invitedChaptersPosted && (!merge.based || merge.changed.has('invited_chapters'))) {
+    const refused = await syncInvitedChapters(
+      supabase,
+      eventId,
+      guestId,
+      clean(formData.get('invited_chapters'))
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
+      merge.based ? baseChapterIds(formData.get(MERGE_BASE_FIELD)) : undefined,
+    );
+    if (refused) return refuse(refused);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+  }
+  // 🍽 "Not counted for ▾", as ticked on the card — never for the couple (always counted), and with a base only as THIS
+  // screen's change (a tick another host added stays).
+  if (notCountedPosted && role !== 'bride' && role !== 'groom' && (!merge.based || merge.changed.has(NOT_COUNTED_FIELD))) {
+    await syncCardNotCounted(
+      supabase,
+      eventId,
+      guestId,
+      parseNotCounted(clean(formData.get(NOT_COUNTED_FIELD))),
+      merge.based ? baseNotCounted(formData.get(MERGE_BASE_FIELD)) : undefined,
     );
   }
   if (tablePosted && (!merge.based || merge.changed.has('table_id')) && !passed_away && effectiveRsvp !== 'declined') {

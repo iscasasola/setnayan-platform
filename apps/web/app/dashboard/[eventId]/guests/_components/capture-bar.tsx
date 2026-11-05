@@ -26,10 +26,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Upload, Users } from 'lucide-react';
-import type { GuestSide } from '@/lib/guests';
+import type { GuestRole, GuestSide } from '@/lib/guests';
+import { useRotatingHint } from '@/lib/use-rotating-hint';
+import { AddPreviewLine } from '@/components/search-add-row';
+import { useRoleNames } from './role-names-context';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import { useGuestActions } from './guest-actions-context';
-import { guestAdds, queueTypedGuest } from './guest-add-queue';
+import { guestAdds, queueTypedGuest, typedGuestPreview } from './guest-add-queue';
 
 // One size for all four doors. 36px is the smallest this row can give a tap
 // target without pushing the name box off a 380px phone.
@@ -42,6 +45,8 @@ export function CaptureBar({
   withDoors = true,
   placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
   initialValue = '',
+  hints,
+  offeredRoles,
 }: {
   eventId: string;
   /** The active Side lens — a new guest inherits it (prototype `:855`). */
@@ -53,12 +58,21 @@ export function CaptureBar({
   placeholder?: string;
   /** What the Guests search box held when its ＋ Add opened the sheet (PR 4f). */
   initialValue?: string;
+  /** 💡 Examples the empty box cycles through after its placeholder (owner 2026-11-01, `lib/use-rotating-hint.ts`). */
+  hints?: readonly string[];
+  /** The roles this event offers — "+Groomsmen" is the role only when it is one, else a group (owner 2026-11-01). */
+  offeredRoles?: readonly GuestRole[];
 }) {
   const [value, setValue] = useState(initialValue);
   const [needs, setNeeds] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { addSingleGuest } = useGuestActions();
+  const roleNames = useRoleNames();
+  useRotatingHint(inputRef, placeholder, hints);
+  /* 👁 What Enter will add, under the box before Enter (owner 2026-11-01) — the same draft `submitAdd` sends. */
+  const typed = { offeredRoles, roleNames };
+  const preview = typedGuestPreview(value, defaultSide, typed);
   // The list re-reads ONCE when every queued name is written (guest-add-queue.ts).
   // one-render: keep (batched) — the queued writes go `{ refresh: false }`; this is their one re-read.
   useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
@@ -69,7 +83,7 @@ export function CaptureBar({
      — that refusal (`if (pending) return`) is what dropped 8 of 10 names typed in a row.
      🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   const submitAdd = () => {
-    const res = queueTypedGuest(eventId, value, defaultSide, addSingleGuest);
+    const res = queueTypedGuest(eventId, value, defaultSide, addSingleGuest, guestAdds, typed);
     if (!res.ok) {
       // Keep the text so the host can fix it (e.g. add a last name) — said at once, never sent to be refused.
       if (res.error) setNeeds(res.error);
@@ -181,6 +195,7 @@ export function CaptureBar({
           </div>
         ) : null}
       </div>
+      <AddPreviewLine text={needs ? null : preview} className="mt-1.5" />
       {needs ? (
         <p role="alert" className="mt-1.5 text-xs text-danger-700" data-capture-needs="">
           {needs}

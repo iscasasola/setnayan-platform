@@ -40,8 +40,10 @@ import {
 } from '@/lib/demo-mode';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SampleEventSwitch } from '../_components/sample-event-switch';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 type Props = {
   searchParams: Promise<{ toggled?: string }>;
@@ -78,6 +80,17 @@ export async function DemoModeSurface({ searchParams }: Props) {
     .order('created_at', { ascending: false })
     .limit(1);
   const lastToggle = auditRows?.[0] ?? null;
+
+  // 🎭 The Maria and Jose sample's switch (lib/sample-event/switch.server.ts).
+  // A refused read says so instead of drawing a picker that guesses "Default".
+  const { data: sampleRow, error: sampleErr } = await admin
+    .from('platform_settings')
+    .select('sample_event_enabled')
+    .eq('id', 1)
+    .maybeSingle();
+  if (sampleErr) logQueryError('admin.demoMode.sampleEventSwitch', sampleErr);
+  const sampleStored = (sampleRow as { sample_event_enabled?: boolean | null } | null)?.sample_event_enabled;
+  const sampleMode = sampleStored === true ? 'on' : sampleStored === false ? 'off' : 'default';
 
   let lastToggleActorLabel: string | null = null;
   if (lastToggle?.actor_user_id) {
@@ -189,6 +202,29 @@ export async function DemoModeSurface({ searchParams }: Props) {
             tracking transitions from the first toggle.
           </p>
         )}
+      </section>
+
+      <section className="mt-6 space-y-3 sn-tile p-5" data-sample-event-section="">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Sample event
+        </h2>
+        <p className="text-sm text-ink/70">
+          Maria and Jose at <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">/sample</code>.
+          While it is off, only internal accounts can open it; everyone else gets a page-not-found.
+        </p>
+        {sampleErr ? (
+          <p className="text-sm text-danger-700">Couldn’t read the sample switch. Reload to try again.</p>
+        ) : (
+          <SampleEventSwitch initial={sampleMode} />
+        )}
+        {/* 🚪 The sample's way in from inside the app (Root map: a page with no door is a page nobody reaches). */}
+        <Link
+          href="/sample"
+          className="inline-flex items-center gap-1.5 text-sm text-ink/80 underline-offset-2 hover:underline"
+        >
+          Open the sample
+          <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        </Link>
       </section>
 
       <section className="mt-6 space-y-3 sn-tile p-5">

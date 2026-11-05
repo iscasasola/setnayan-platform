@@ -54,6 +54,9 @@ const HOME = {
   part: `${EDITOR}/part-inspector.tsx`,
   sheet: `${EDITOR}/element-sheet.tsx`,
   shell: `${EDITOR}/editor-shell.tsx`,
+  /* 🖨 R8 (owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints MOVED out of the Maker — Home's line opens its own page. */
+  printsHome: 'app/dashboard/[eventId]/_components/home-prints-line.tsx',
+  printsPage: 'app/dashboard/[eventId]/prints/page.tsx',
 } as const;
 
 /** [today's control, its new home, what the home must still say]. */
@@ -66,7 +69,10 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // → 2026-10-04 (PR-0, owner: ⋯ → 👁 Preview; "apply icon · undo icon · exit
   // icon"): ⋯'s rows moved to 👁 Preview (how the page is seen) and Page ▾ (the
   // rest, `makerPageActions`) — re-pointed again, still not dropped.
-  ['✕ Exit (now ‹, a 44 px icon)', 'topBar', ['data-maker-tool="exit"', 'aria-label="Exit"']],
+  // 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): ✕ Exit is DROPPED — its home is the app's own
+  // nav, which now stays on screen around the Maker (the shell sits in its room); Home is the ✕'s old door.
+  ['✕ Exit → the app’s nav (top bar · rail · bottom nav), kept on screen', 'topBar', ['MAKER_IN_THE_APP_CSS', 'useTheAppsRoom(shellRef)']],
+  ['…and "Your Event Hub" (who can view · the QR) → the pinned row’s ⚙', 'topBar', ['<HubSettingsGear', 'onOpenChange={setMoreOpen}']],
   // ▤ Show / hide the scenes (👁 Preview › Scenes) — the OLD desktop's scenes column; deleted with the old Maker
   //   (owner 2026-10-25). The desktop's parts column lists the page's parts (`maker-desk.tsx`, `DeskParts`).
   ['▶ Play this scene · Preview the whole stage (👁 Preview)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
@@ -96,8 +102,12 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['↺ Restore (Page ▾ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', "act === 'restore'"]],
   ['…its row', 'pageMenu', ["label: 'Restore what guests see'"]],
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],
-  ['Details (now "Event Details") and Prints (Page ▾) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
-  ['…Prints\' row', 'pageMenu', ['label: MAKER_PRINTS_LABEL']],
+  ['Details (now "Event Details") — the door into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL']],
+  // 🖨 MOVED, NOT LOST (R8, 2026-10-27): Page ▾ › Prints and Settings › Prints left the Maker. Prints is its own page —
+  // the same Maker page drawing Prints alone — opened from Home's Prints line; a print opened in the Maker forwards there.
+  ['Prints (Page ▾ / Settings) — MOVED to its own page, opened from Home', 'printsHome', ['printsPageHref(eventId)', 'PRINTS_PAGE_LABEL']],
+  ['…the page: the shipped Maker page, drawing Prints alone', 'printsPage', ['<LaunchHubPage', '[PRINTS_PAGE_SURFACE]: true']],
+  ['…a print opened in the Maker lands there', 'topBar', ['usePrintsForward(eventId, { hasWork, printsPage, detailsItem })']],
   ['Look — the Look part of Details (Studio › Look; the old bar door went 2026-10-25)', 'topBar', ['MAKER_LOOK_LABEL', "pressDoor('look')"]],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],

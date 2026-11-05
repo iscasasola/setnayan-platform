@@ -235,7 +235,10 @@ test('the card draws its label from the rule — the literal "See the quote" is 
   assert.equal(count(branch, /quoteState\.offerRevise && reviseHref \?/g), 1, 'Update this quote is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerLock && lockTarget \?/g), 1, 'Lock is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerLockAnswer &&/g), 1, 'the supplier’s answer is not gated on the rule');
-  assert.equal(count(branch, /Update this quote/g), 1);
+  // 4 Nov 2026: the revise label now comes from the rule ("Update this quote" → "Update again"
+  // once updated) — the literal must not come back beside it.
+  assert.equal(count(branch, /quoteState\.reviseLabel/g), 1, 'the revise label is not the rule’s');
+  assert.equal(count(branch, /Update this quote/g), 0, 'a hard-coded revise label is back');
   assert.equal(count(branch, /to confirm your booking`/g), 1, 'the couple’s lock label must render once');
   assert.match(branch, /handshake: lockHandshake\?\.state \?\? null/, 'the rule is not told the handshake');
   assert.match(branch, /isLatest: isLatestProposal/, 'the rule is not told which card is the live one');

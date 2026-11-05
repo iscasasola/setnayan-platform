@@ -38,7 +38,7 @@
  */
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
-import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
+import { MakerDetails, detailsFactEditors, hubSettingsEditor } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
@@ -69,6 +69,44 @@ import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP, LAB_SUGGEST_SWATCHES } from '../su
 import { coupleNameColumns } from '@/lib/typed-names';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** The lab's QR ink — one fixture, shared by Details and the Hub's ⚙. */
+const LAB_QR_INKS = ['#1A1A1A'];
+
+/* 🎂 Three events with a celebrant (lab only): the guest list, the role set its type resolves to, and a dress code.
+   The celebrant's first pick (FOR WOMEN) is `roles.celebrant`, the second (FOR MEN) `women.roles.celebrant`. */
+/* 🎂 Each lab event's type and its celebrants' woman-or-man (owner 2026-11-05, (J) · (L)): the debut's and the
+   christening's are known (one column), the birthday's is not (both), the graduation has nobody tagged yet (the row is
+   there from the start). */
+const LAB_CELEBRANT: Record<string, { roleSet: string; eventType: string; celebrants: Array<'woman' | 'man' | null>; tally: Array<{ role: never; count: number }>; config: object }> = {
+  debut: {
+    roleSet: 'generic',
+    eventType: 'debut',
+    celebrants: ['woman'],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 12 }, { role: 'host', count: 2 }, { role: 'guest', count: 140 }] as never,
+    config: { roles: { celebrant: { style: 'ball_gown', callTime: '17:00' }, guest: { style: 'long_gown' } }, women: { roles: { celebrant: { style: 'barong_tagalog' } } } },
+  },
+  birthday: {
+    roleSet: 'birthday',
+    eventType: 'birthday',
+    celebrants: [null],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 8 }, { role: 'guest', count: 60 }] as never,
+    config: { roles: { celebrant: { style: 'cocktail_dress', callTime: '18:00' }, guest: { style: 'smart_casual' } }, women: { roles: { celebrant: { style: 'smart_casual' } } } },
+  },
+  christening: {
+    roleSet: 'generic',
+    eventType: 'christening',
+    celebrants: ['woman'],
+    tally: [{ role: 'celebrant', count: 1 }, { role: 'family', count: 10 }, { role: 'guest', count: 50 }] as never,
+    config: { roles: { celebrant: { style: 'party_dress', callTime: '09:30' }, guest: { style: 'filipiniana' } }, women: { roles: { celebrant: { style: 'barong_tagalog' } } } },
+  },
+  graduation: {
+    roleSet: 'generic',
+    eventType: 'graduation',
+    celebrants: [],
+    tally: [{ role: 'family', count: 6 }, { role: 'guest', count: 40 }] as never,
+    config: { roles: { guest: { style: 'smart_casual' } } },
+  },
+};
 
 /* 🤝🖼 `&suggest=1`'s board: the couple's own photos, and what the lab florist sent (`suggestion-lab-fixture.ts`). */
 const LAB_SUGGEST_INSPIRATIONS = [
@@ -137,6 +175,31 @@ export function detailsLabFacts(
 }
 
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
+/**
+ * ⚙ "Your Event Hub" for the Hub's ⚙ Event Hub settings in the Maker lab (owner 2026-10-30) — the SAME builder the
+ * launch page hands the Maker (`hubSettingsEditor`, open), on the lab's own Your Event Hub fixtures (`?studio=1`'s).
+ */
+export function detailsLabHubSettings(sp: Record<string, string | string[] | undefined>) {
+  const pro = sp.pro === '1';
+  return hubSettingsEditor(
+    {
+      eventId: EVENT,
+      slug: LAB_SAMPLE.slug,
+      slugAction: updateEventSlug.bind(null, EVENT, 'launch'),
+      qr: { ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false },
+      qrStyleAction: updateQrStyle.bind(null, EVENT),
+      studio: {
+        hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
+        egiftMethods: null,
+        whatToBring: null,
+        livePath: `/${LAB_SAMPLE.slug}`,
+        qrShown: true,
+      },
+    },
+    { bare: true },
+  );
+}
+
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const pro = one('pro') === '1';
@@ -185,6 +248,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const manHonour = one('attire') === 'man-honour';
   const caleIce = one('attire') === 'cale' || one('attire') === 'cale-now' || one('attire') === 'cale-honour' || manHonour;
   const caleIceHonour = one('attire') === 'cale-honour' || manHonour;
+  /* 🎂 `?attire=debut|birthday|christening|graduation` — an event with a celebrant, on that type's own role set (2026-11-04): the
+     rows `studioAttireRows` really builds, with the celebrant's figures (`LAB_CELEBRANT`). */
+  const celebrantLab = LAB_CELEBRANT[one('attire') ?? ''] ?? null;
   const caleIceAfter = one('attire') === 'cale-now' || caleIceHonour;
   const rolesPick = { groom: one('groom'), bride: one('bride'), men: one('men'), women: one('women'), boys: one('boys'), girls: one('girls'), gm: one('gm'), gw: one('gw') };
   const wishState = labWishState(one('wish'));
@@ -279,7 +345,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         eventId={EVENT}
         slug={slug}
         slugAction={updateEventSlug.bind(null, EVENT, 'launch')}
-        qr={{ ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false }}
+        qr={{ ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false }}
         qrStyleAction={updateQrStyle.bind(null, EVENT)}
         theme={{
           themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
@@ -457,7 +523,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}
                     changes={[{ id: 'c1', who: 'Your florist', what: 'Bouquets', from: '#F2C8C2', to: '#C99A9A' }]}
-                    attire={caleIce ? studioAttireRows(manHonour ? LAB_MAN_OF_HONOR_ROLE_TALLY : LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour), LAB_CALE_ICE_ROLE_NAMES as never) : [
+                    attire={celebrantLab ? studioAttireRows(celebrantLab.tally, celebrantLab.config, null, { offered: resolveRoleSet(celebrantLab.roleSet).offeredRoles, eventType: celebrantLab.eventType, celebrants: celebrantLab.celebrants }) : caleIce ? studioAttireRows(manHonour ? LAB_MAN_OF_HONOR_ROLE_TALLY : LAB_CALE_ICE_ROLE_TALLY, labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour), LAB_CALE_ICE_ROLE_NAMES as never) : [
                       { tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: null },
                       { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
                       ...(sharedAttire || rolesAttire ? [{ tier: 'groups', key: 'principal_sponsors', label: 'Principal Sponsors', paletteKey: 'principal_sponsors', arrives: '2:00 PM', people: 6 }] : []),
@@ -469,7 +535,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                       { tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null },
                     ] as never}
                     dressConfig={
-                      designsAttire
+                      celebrantLab
+                        ? (celebrantLab.config as never)
+                        : designsAttire
                         ? (labDesignsDressConfig(one('gmd'), one('gwd')) as never)
                         : caleIce
                         ? (labCaleIceDressConfig(caleIceAfter, caleIceHonour, manHonour) as never)

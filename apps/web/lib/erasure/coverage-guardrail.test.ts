@@ -162,6 +162,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // user column is `created_by` (no FK), the actor who pressed a spend. Same
   // blind spot as hub_music_tracks; the stamp is nulled (AUTHOR_UUID_NULLS).
   'shop_papic_wallet_entries',
+  // Supplier gifts (2026-11-05) — the shop's gift purchases and its gift-stock ledger, keyed by vendor_profile_id;
+  // the one user column of each is `created_by` (no FK), the actor who pressed Buy or caused the entry. Same blind
+  // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_gift_purchases',
+  'shop_gift_stock_entries',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

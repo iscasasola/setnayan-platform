@@ -27,7 +27,7 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { venueNowMs } from '@/lib/schedule';
 import { wallDateKey } from '@/lib/schedule-rail';
-import { PLAN_DATE, seedMoments } from './lab-moments';
+import { PLAN_DATE, labAfterChange, seedMoments } from './lab-moments';
 
 const LAB_SLOT = 'schedule-lab-inspector';
 /** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
@@ -164,7 +164,8 @@ export default function ScheduleLabClient({
   tags?: Readonly<Record<string, readonly string[]>>;
 } = {}) {
   const [role, setRole] = useState<DayRole>('host');
-  const [when, setWhen] = useState<'plan' | 'live'>('plan');
+  // `?live=1` (slice 8): open on the day itself — "Happening now" on the running chapter (pair it with a fixed clock).
+  const [when, setWhen] = useState<'plan' | 'live'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('live') === '1' ? 'live' : 'plan'));
   const [refuse, setRefuse] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   /* ⚡ `?maker=1` — the rail as the Event Hub Maker draws it (Details › Schedule,
@@ -177,6 +178,8 @@ export default function ScheduleLabClient({
      delete — owner 2026-11-03), on the same fixtures. Only `stagesStudio` is said; nothing else of the Maker is drawn. */
   const [studio] = useState(() => maker && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1');
   const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
+  // 🗓 `?after=move|skip` — the day after the coordinator's crew changed it (Change the schedule, 2026-11-04).
+  const [after] = useState(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('after') : null));
   const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
   const venueNow = new Date(venueNowMs());
@@ -190,7 +193,7 @@ export default function ScheduleLabClient({
      stable between renders; so is this now. */
   const seedNowMin = when === 'live' ? nowMin : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is taken once per day shown, not per clock tick
-  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin, tags), [dateKey]);
+  const seeded = useMemo(() => labAfterChange(seedMoments(dateKey, seedNowMin, tags), after), [dateKey]);
   const moments = byMode[dateKey] ?? seeded;
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
     setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
@@ -367,8 +370,8 @@ export default function ScheduleLabClient({
         canStage={false}
         rosEnabled
         templates={[]}
-        isEventDay={false}
-        daysToGo={81}
+        isEventDay={when === 'live'}
+        daysToGo={when === 'live' ? 0 : 81}
         emcee={null}
         hostPanel={null}
       />

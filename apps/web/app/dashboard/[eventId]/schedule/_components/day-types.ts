@@ -17,7 +17,7 @@ export type DayMoment = {
   notes: string | null;
   is_public: boolean;
   parent_block_id: string | null;
-  run_state: 'upcoming' | 'live' | 'done';
+  run_state: 'upcoming' | 'live' | 'done' | 'skipped';
   /** A coordinator's unreleased moment — only the coordinator sees it. */
   staged: boolean;
   responsible_party: string | null;

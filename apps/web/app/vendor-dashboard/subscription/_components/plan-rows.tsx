@@ -139,8 +139,8 @@ export function PlanRows({
           title="Papic credits"
           line={
             papicPackPrice !== null
-              ? `Buy 100 for ${formatPhp(papicPackPrice)} · for each booked event, in its Hub`
-              : 'Bought for each booked event, in its Hub'
+              ? `Papic packs from ${formatPhp(papicPackPrice)} · into your shop wallet`
+              : 'Papic packs · into your shop wallet'
           }
           href="/vendor-dashboard/on-the-day"
         />

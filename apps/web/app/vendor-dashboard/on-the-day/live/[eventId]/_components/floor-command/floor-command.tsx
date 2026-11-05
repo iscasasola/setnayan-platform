@@ -103,6 +103,7 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
             action={model.schedule.action}
             remaining={model.schedule.remaining}
             driftMinutes={model.schedule.driftMinutes}
+            parts={blocksRaw ?? []}
           />
         </>
       ) : (

@@ -4,6 +4,7 @@ import { logQueryError } from './supabase/error-detect';
 import { readScheduleSuppliers } from './schedule-suppliers-read';
 import { ROLE_LABELS, fetchGuestsByEventMeasured, guestDisplayName, readEventGroupMemberships, guestRoleLabel, type GuestRole } from './guests';
 import { isOnEveryChapter } from './supplier-where';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 import { sanitizeRoleNames } from './role-names';
 import { eventCoupleWebsiteProActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
@@ -83,9 +84,10 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
   // 📋 Which booked suppliers are coordinators (on every chapter) — their trade. A refused read lists none (logged).
   const tradesRes = await supabase.from('event_vendors').select('vendor_id, category').eq('event_id', eventId);
   if (tradesRes.error) logQueryError('readViewAsExtras.trades', tradesRes.error, { event_id: eventId }, 'graceful_degrade');
-  const coordinatorIds = ((tradesRes.data ?? []) as Array<{ vendor_id: string; category: string | null }>)
-    .filter((t) => isOnEveryChapter(null, t.category))
-    .map((t) => t.vendor_id);
+  const tradeRows = (tradesRes.data ?? []) as Array<{ vendor_id: string; category: string | null }>;
+  const coordinatorIds = tradeRows.filter((t) => isOnEveryChapter(null, t.category)).map((t) => t.vendor_id);
+  // 🧭 Side by side (slice 9): each supplier's trade under their name, and which one is the Host / MC.
+  const tradeOf = new Map(tradeRows.map((t) => [t.vendor_id, t.category]));
   const people = pro ? await readViewPeople(supabase, eventId) : null;
   const roleNames: Record<string, string> = {};
   for (const t of taskRows ?? []) {
@@ -95,7 +97,17 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
   return {
     groups,
     suppliers: suppliers
-      ? suppliers.map((s) => ({ vendor_id: s.vendor_id, name: s.vendor_name, booked: s.standing === 'Booked', everyChapter: coordinatorIds.includes(s.vendor_id) }))
+      ? suppliers.map((s) => {
+          const cat = tradeOf.get(s.vendor_id) ?? null;
+          return {
+            vendor_id: s.vendor_id,
+            name: s.vendor_name,
+            booked: s.standing === 'Booked',
+            everyChapter: coordinatorIds.includes(s.vendor_id),
+            host: cat === 'host_mc',
+            trade: cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null,
+          };
+        })
       : null,
     people,
     released: pro && eventHead.releasedAt !== null,

@@ -7,6 +7,10 @@
  * Share · Save · Show. A forwarded QR admits nobody: every new phone waits here for the Allow. The pass ends after the
  * event by itself (the database's rule, not this screen's).
  *
+ * 🗂 A row is a tap (owner 2026-11-04, "crew row opens what Member / Helper get"; prototype v59 `crewSheet`): it opens a
+ * sheet with what the phone's role gets on the crew's Event Hub (`crewRoleGets` — the crew page's own rule), the other
+ * role beside it, and its Role ▾ (Member · Helper · Remove from the crew) — the same writes as the row's own ▾.
+ *
  * Every press writes on the caller's own session (`lib/crew-writes.ts` — the database is the boundary) and answers in
  * the row; a refused one says why and the row goes back.
  */
@@ -16,7 +20,8 @@ import { ActionButton } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CREW_ROLE_LABEL, crewRowLine, crewToolsWords, type CrewRole, type CrewStatus } from '@/lib/crew-pass';
+import { ChosenRow, FormRows } from '@/app/_components/form-row';
+import { CREW_ROLE_LABEL, crewRoleGets, crewRowLine, crewToolsWords, type CrewRole, type CrewStatus } from '@/lib/crew-pass';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { changeCrew, type CrewChange } from '@/lib/crew-writes';
@@ -50,6 +55,7 @@ export function CrewPanel({
   const [pending, start] = useTransition();
   const [showing, setShowing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const router = useRouter();
   const write = async (change: CrewChange) => {
     const res = await changeCrew(createClient(), shopId, eventId, change);
@@ -106,6 +112,7 @@ export function CrewPanel({
 
   const live = rows.filter((r) => r.status !== 'removed');
   const removed = rows.filter((r) => r.status === 'removed');
+  const opened = live.find((r) => r.passId === openId) ?? null;
 
   return (
     <div data-hub-crew="">
@@ -133,7 +140,14 @@ export function CrewPanel({
           <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-full bg-sn-accent/10 text-[12px] font-semibold text-ink">
             {initials(p.name)}
           </span>
-          <span className="min-w-0 flex-1">
+          {/* 🗂 The row's name and line are its tap — what this phone's role gets, in a sheet. */}
+          <button
+            type="button"
+            onClick={() => setOpenId(p.passId)}
+            aria-haspopup="dialog"
+            className="sn-press min-w-0 flex-1 text-left"
+            data-crew-row-open=""
+          >
             <span className="block truncate text-[15px] text-ink">{p.name}</span>
             {/* The line WRAPS, never truncates: at 390 px the role ▾ and Allow leave it ~130 px, and "Wants to join ·
                 Helper · scanner only" cut to "Helpe…" hid the one thing the Allow is deciding. It breaks only between
@@ -148,7 +162,7 @@ export function CrewPanel({
                   </Fragment>
                 ))}
             </span>
-          </span>
+          </button>
           <PickMenu
             label={`${p.name}’s role`}
             value={p.role}
@@ -167,6 +181,10 @@ export function CrewPanel({
           ) : null}
         </div>
       ))}
+      {opened ? <CrewRowSheet pass={opened} coordinator={coordinator} pending={pending} onClose={() => setOpenId(null)} decide={(next) => {
+        if (next.status === 'removed') setOpenId(null);
+        decide(opened, next);
+      }} /> : null}
       {/* 🔎 The thumb row's crew search (`HubThumbRow`) hides the rows that do not match; this says so when none is left. */}
       <p hidden className="py-3 text-[14px] text-ink/65" data-crew-none="">
         No one on this crew matches — a phone joins by the QR below.
@@ -230,6 +248,66 @@ export function CrewPanel({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** 🗂 What this phone's role gets — the row's sheet. The role's own list first, the other role in one line under it. */
+function CrewRowSheet({
+  pass,
+  coordinator,
+  pending,
+  onClose,
+  decide,
+}: {
+  pass: CrewPanelPass;
+  coordinator: boolean;
+  pending: boolean;
+  onClose: () => void;
+  decide: (next: Partial<Pick<CrewPanelPass, 'status' | 'role'>>) => void;
+}) {
+  const gets = crewRoleGets(pass.role, coordinator);
+  const other: CrewRole = pass.role === 'member' ? 'helper' : 'member';
+  return (
+    <Sheet open onClose={onClose} labelledById="crew-row-sheet" rise>
+      <div className="px-5 pb-6 pt-5" data-crew-row-sheet={pass.role}>
+        <h2 id="crew-row-sheet" className="pr-12 text-[17px] font-semibold text-ink">
+          {pass.name}
+        </h2>
+        <p className="text-[13px] text-ink/60">{crewRowLine(pass.status, pass.role, coordinator)}</p>
+        <p className="home-k2 pt-4">What a {CREW_ROLE_LABEL[pass.role]} gets</p>
+        <ul className="pt-1" data-crew-gets="">
+          {gets.opens.map((line) => (
+            <li key={line} className="flex gap-2 border-b border-ink/10 py-2 text-[14px] leading-snug text-ink">
+              <Check aria-hidden className="mt-0.5 h-4 w-4 flex-none text-success-700 dark:text-success-600" strokeWidth={2} />
+              <span>{line}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="pt-2 text-[12.5px] leading-snug text-ink/60">{gets.never}</p>
+        <p className="pt-2 text-[12.5px] leading-snug text-ink/60" data-crew-gets-other="">
+          A {CREW_ROLE_LABEL[other]} gets {crewToolsWords(other, coordinator)}.
+        </p>
+        <FormRows width="wide">
+          <ChosenRow
+            name="Role"
+            label={`${pass.name}’s role`}
+            value={pass.role}
+            options={[
+              { key: 'member', label: CREW_ROLE_LABEL.member, hint: crewToolsWords('member', coordinator) },
+              { key: 'helper', label: CREW_ROLE_LABEL.helper, hint: crewToolsWords('helper', coordinator) },
+              { key: 'remove', label: 'Remove from the crew', hint: 'This phone leaves the Hub now' },
+            ]}
+            onPick={(k) => (k === 'remove' ? decide({ status: 'removed' }) : decide({ role: k as CrewRole }))}
+            dataAttr="data-crew-row-role"
+          />
+        </FormRows>
+        {pass.status === 'waiting' ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ActionButton tone="brand" main icon={Check} label="Allow" name={`Allow ${pass.name}`} disabled={pending} onClick={() => decide({ status: 'allowed' })} />
+          </div>
+        ) : null}
+      </div>
+    </Sheet>
   );
 }
 

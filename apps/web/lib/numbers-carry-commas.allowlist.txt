@@ -33,6 +33,8 @@ app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — the s
 app/dashboard/[eventId]/checkout/actions.ts :: regularTotal.toString() :: IDENTIFIER — an integrity-log error_message recording the raw centavos for a mismatch investigation; never shown to a customer
 lib/package-credit.ts :: String(pkg.total_price_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim; grouping would misreport it
 lib/package-credit.ts :: String(option.per_pax_delta_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim
+lib/iap/products.ts :: credits :: IDENTIFIER — the App Store product name "Papic 1000", the owner's name with no thousands comma (2026-11-04); it must match the name set in App Store Connect exactly
+lib/iap/products.ts :: credits :: IDENTIFIER — the supplier gift product's App Store name "Gift · Papic 1000", the same owner name, matched exactly in App Store Connect
 
 # ── BOUNDED: cannot reach 1,000 ──
 app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx :: j + 1 :: BOUNDED — the dish's position in an aria-label ("Dish 3 of Cocktails"); a moment holds at most MENU_MAX_DISHES (16) dishes (lib/print-pieces.ts)

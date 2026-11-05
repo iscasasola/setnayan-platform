@@ -85,3 +85,25 @@ export function crewRowLine(status: CrewStatus, role: CrewRole, coordinator: boo
   if (status === 'removed') return `Removed · ${tools}`;
   return `${tools} · in`;
 }
+
+/**
+ * 📱 WHAT THE ROLE GETS — the crew row's sheet (owner 2026-11-04, SUPPLIER_PLANS_GIFTS_QUOTES_BUILD_NOTES · Hub: *"crew
+ * row opens what Member / Helper get"*; prototype v59 `crewSheet`). One line per tool the pass opens on the crew's Event
+ * Hub, in the order the crew phone draws them, then what it never opens — from the same rule (`crewRoleOpens`) the crew
+ * page asks, so the sheet can never promise a tool the phone does not draw.
+ *
+ * `coordinator` — the shop's trade. Asking to change the schedule is a Member's of the coordinator's crew
+ * (`crew_schedule_door`); it is a REQUEST the coordinator / hosts approve with one tap (owner 2026-11-05 (D)) — said
+ * as a request, never as a change.
+ */
+export function crewRoleGets(role: CrewRole, coordinator: boolean): { opens: string[]; never: string } {
+  const can = crewRoleOpens(role, coordinator);
+  const opens: string[] = [];
+  if (can.scanner) opens.push('Seat scanner — scan a guest’s QR to find their table.');
+  if (can.runOfShow) opens.push('Run of show — every moment of the day, as it moves.');
+  if (can.runOfShow && coordinator) {
+    opens.push('Ask to change the schedule — move a part earlier or later; the hosts approve it with one tap.');
+  }
+  if (opens.length === 0) opens.push('The event’s day and place, and their pass — no tools on this event.');
+  return { opens, never: 'Never Today, Customers, Shop or money — and only this event. The pass ends after the event.' };
+}

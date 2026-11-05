@@ -25,18 +25,20 @@ export const NOT_COUNTED_FIELD = 'not_counted_for';
  */
 export const NOT_COUNTED_POSTED = 'not_counted_posted';
 
-/** The bookings a supplier is counted under — the same four statuses every supplier reader gates on. */
-export const COUNTED_BOOKING_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'] as const;
-
-/** One booked service as the card lists it: the booking's id, and its words ("Catering"). */
-export type BookedService = { id: string; label: string; shop: string | null };
+/**
+ * 🧮 WHICH SERVICES ARE LISTED (owner 2026-11-04): every supplier on the event — considering, quoted or booked — whose
+ * service card is priced PER HEAD (*"not counted for will be for service cards with pax only"*). A tick on one not yet
+ * booked applies the moment it is booked; the supplier readers only ever count booked ones. The list, its words and
+ * each service's count come from ONE read (`get_event_service_counts`, `lib/supplier-count.ts`).
+ */
+export type { CountedService as BookedService } from '@/lib/supplier-count';
 
 /** The dropdown's button while nothing is ticked — the default. */
 export const COUNTED_FOR_ALL = 'Counted for all';
 
 /** The row's ⓘ — the title and the button stay visible; this is the rest (house rule: detail lives in the ⓘ). */
 export const NOT_COUNTED_ABOUT =
-  'Tick a booked service that should not count this guest — a toddler, or crew who eat separately. That supplier’s headcount leaves them out; every other service still counts them. The supplier sees the number only, never who.';
+  'Tick a service that should not count this guest, like a toddler who doesn’t eat from the buffet. That supplier’s headcount leaves them out, and every other service still counts them. Only services priced per head are listed. The supplier sees the number only, never who.';
 
 /** "Not counted for Catering" · "Not counted for Catering, Photo Booth" — null when nothing is ticked. */
 export function notCountedWords(labels: readonly string[]): string | null {
@@ -53,7 +55,7 @@ export function parseNotCounted(raw: string): string[] {
  * The bookings to leave this guest out of after a save, as a DIFF from what the card started from (two hosts never
  * overwrite each other — `lib/guest-card-merge.ts`): a tick another screen added and this one never saw stays; a tick
  * this card took off goes; a tick this card added joins. Without a base (an older form): exactly what was posted.
- * Only bookings of THIS event are ever kept (`booked`).
+ * Only this event's listed (per-head) services are ever kept (`booked`).
  */
 export function notCountedAfterSave(
   have: readonly string[],

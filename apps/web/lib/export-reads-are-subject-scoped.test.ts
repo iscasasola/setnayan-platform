@@ -90,6 +90,34 @@ const ANCHORS: Record<string, RegExp> = {
   event_vendors: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   // the subject's OWN vendor profile (vp ← vendor_profiles .eq('user_id', user.id))
   editorial_vendor_media: /\.eq\(\s*'vendor_profile_id'\s*,\s*vp\.vendor_profile_id\s*\)/,
+
+  // ── 2026-11-05: the 39 undecided tables, sorted (lib/export-completeness.ts) ──
+  // Addressed to the subject: what we told them, what we issued them, what they asked.
+  notifications: eqUid('user_id'),
+  receipts: eqUid('user_id'),
+  account_deletion_requests: eqUid('user_id'),
+  chat_thread_reads: eqUid('user_id'),
+  comp_grants: eqUid('user_id'), // the comp's recipient — never `granted_by`, the admin
+  couple_event_type_notify_signups: eqUid('user_id'),
+  couple_wedding_type_notify_signups: eqUid('user_id'),
+  creator_chapters: eqUid('user_id'),
+  discount_code_eligible_users: eqUid('user_id'),
+  event_moderators: eqUid('user_id'), // the role holder — never the inviter
+  founder_seats: eqUid('user_id'),
+  guest_saved_vendors: eqUid('user_id'),
+  help_messages: eqUid('user_id'),
+  referral_codes: eqUid('owner_user_id'),
+  user_face_profiles: eqUid('user_id'),
+  vendor_date_waitlist: eqUid('user_id'),
+  vendor_member_token_wallets: eqUid('user_id'),
+  vendor_team_members: eqUid('user_id'),
+  // AUTHOR-scoped: a shared list or a shared day must not hand one person another's entries.
+  event_preparation_items: eqUid('created_by'),
+  budget_builds: eqUid('created_by'),
+  service_slot_reservations: eqUid('created_by'),
+  event_stage_notes: eqUid('author_user_id'),
+  // the history of the subject's OWN orders (ownOrderIds ← orders .eq('user_id', user.id), pinned below)
+  order_ledger: /\.in\(\s*'order_id'\s*,\s*ownOrderIds\s*\)/,
 };
 
 /**
@@ -202,4 +230,10 @@ test('the derived ids are the subject’s own (where each anchor’s list comes 
   );
   // vp ← the subject's own vendor profile
   assert.match(route, /const vp = vendorProfile\.row;/);
+  // own order ids → order_ledger
+  assert.match(
+    route,
+    /const own = await supabase\.from\('orders'\)\.select\('order_id'\)\.eq\('user_id', user\.id\);[\s\S]{0,400}?const ownOrderIds = own\.data/,
+    'order_ledger must read only the history of orders the subject owns',
+  );
 });

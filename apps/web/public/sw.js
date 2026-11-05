@@ -914,11 +914,47 @@ async function forgetOfflineEvent(eventKey) {
   }
 }
 
+// 🧹 …and the guest's pages the DAY-OF fallback keeps (`DAYOF_CACHE`: `/<slug>`, `/<slug>/find-my-table`, the other
+// `?tab=` pages) plus the copy of `/<slug>` that `GuestPreload` asks for (`PRELOAD_ASSETS` → `IMAGE_CACHE`). Both are ONE
+// copy per address for whoever opened it last, and the no-signal fallback reads them with `caches.match` — every cache —
+// so a shared phone's next person, with no signal, opened the previous guest's table page. A guest's sign-out erases
+// that slug's; an account's erases every guest page. Only same-origin keys whose first segment is a guest slug (never a
+// reserved route, an icon, an image or code) are touched.
+function guestPageSlug(key) {
+  try {
+    const u = new URL(typeof key === 'string' ? key : key.url, self.location.origin);
+    if (u.host !== self.location.host) return null;
+    const first = (u.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
+    return /^[a-z0-9-]{3,32}$/.test(first) && !RESERVED.has(first) ? first : null;
+  } catch {
+    return null;
+  }
+}
+
+async function forgetGuestPages(slug) {
+  for (const name of [DAYOF_CACHE, IMAGE_CACHE]) {
+    try {
+      if (!(await caches.has(name))) continue;
+      const cache = await caches.open(name);
+      for (const key of await cache.keys()) {
+        const owner = guestPageSlug(key);
+        if (owner && (slug === null || owner === slug)) {
+          await cache.delete(key);
+          if (lru[name]) lru[name].delete(typeof key === 'string' ? key : key.url);
+        }
+      }
+    } catch {
+      // Storage gone: nothing is left to open.
+    }
+  }
+}
+
 // 🧹 SIGN-OUT, AS THE WORKER SEES IT. Every guest sign-out door (the Me button, "Not you?", "Remove it from this
 // browser") is ONE request: a navigation to `/<slug>/sign-out`. The worker sees it go by — it never answers it — and
-// erases that event's saved guest page before the browser even sends it (with no signal too: the person asked to be
-// removed). `/auth/sign-out` (an account's sign-out) erases every copy, beside the signed-out landing pages' own wipe
-// (`OFFLINE_COPIES_WIPE_SCRIPT`). Returns the event key to forget, `'*'` for all, or null.
+// erases that event's saved guest page and its day-of pages before the browser even sends it (with no signal too: the
+// person asked to be removed). `/auth/sign-out` (an account's sign-out) erases every copy and every guest page, beside
+// the signed-out landing pages' own wipe (`OFFLINE_COPIES_WIPE_SCRIPT`). Returns the event key to forget, `'*'` for
+// all, or null.
 function signOutForget(request, url) {
   if (request.mode !== 'navigate') return null;
   if (url.host !== self.location.host) return null;
@@ -1349,7 +1385,10 @@ self.addEventListener('fetch', (event) => {
   const forget = signOutForget(request, url);
   if (forget) {
     event.waitUntil(
-      withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
+      Promise.all([
+        withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
+        forgetGuestPages(forget === '*' ? null : forget).catch(() => undefined),
+      ]),
     );
   }
 

@@ -48,7 +48,12 @@ test('the vendor tree still bounces people who own nothing — to shop set-up, a
   assert.match(VENDOR, /if \(vendorAccess === 'unmeasured'\) redirect\('\/dashboard'\);/, 'the vendor tree no longer sends unmeasured visitors away');
   assert.match(VENDOR, /switcherData\.context\.hasVendor \? 'vendor' : switcherData\.context\.canOpenShop \? 'no-vendor' : 'unmeasured'/, 'no-vendor must mean MEASURED and none');
   const OPEN = readFileSync(join(WEB, 'app/open-shop/page.tsx'), 'utf8');
-  const back = OPEN.split('\n').filter((l) => l.includes("redirect('/vendor-dashboard')") && !l.trim().startsWith('//'));
+  // 2026-11-05: the forward is `redirect(landing)`, where `landing = shopConsolePath(next)` — always a page
+  // of the vendor tree (Today by default; executed in lib/shop-console-path.test.ts). Same edge, same condition.
+  assert.match(OPEN, /const landing = shopConsolePath\(next\);/, '/open-shop forwards to something other than a console page');
+  const back = OPEN.split('\n').filter(
+    (l) => (l.includes("redirect('/vendor-dashboard')") || l.includes('redirect(landing)')) && !l.trim().startsWith('//'),
+  );
   assert.ok(back.length > 0, '/open-shop no longer sends a shop owner on to their dashboard');
   for (const b of back) {
     assert.match(b, /business_name/, `/open-shop bounces to the vendor tree on something other than the shop row: ${b}`);

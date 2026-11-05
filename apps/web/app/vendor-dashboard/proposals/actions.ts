@@ -312,7 +312,21 @@ export async function respondToProposal(formData: FormData) {
   }
 
   revalidatePath(`/proposals/${publicId}`);
+  // 4 Nov 2026 · "Accept the update" on the chat's quote card answers IN the conversation
+  // (a save never resets the screen). Only this app's own thread paths are honoured —
+  // never an outside URL.
+  const returnTo = safeThreadReturn(formData.get('return_to'));
+  if (returnTo) {
+    revalidatePath(returnTo);
+    redirect(`${returnTo}${error ? '?notice=respond_failed' : ''}`);
+  }
   redirect(`/proposals/${publicId}${error ? '?notice=respond_failed' : ''}`);
+}
+
+/** A chat thread path on this app (couple or supplier side), or null. */
+function safeThreadReturn(raw: FormDataEntryValue | null): string | null {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  return /^\/(dashboard\/[A-Za-z0-9-]+\/messages|vendor-dashboard\/messages)\/[A-Za-z0-9-]+$/.test(v) ? v : null;
 }
 
 /**

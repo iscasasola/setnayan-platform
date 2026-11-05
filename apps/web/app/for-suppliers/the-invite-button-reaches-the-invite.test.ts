@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { openShopLanding } from '@/lib/open-shop-landing';
+import { shopConsolePath } from '@/lib/shop-console-path';
 import { inviteLinkHref, INVITE_LINK_PATH } from './_components/vendor-grow-sections';
 
 test('"Get your invite link" goes to the invite page for a supplier, and through /open-shop for everyone else', () => {
@@ -18,7 +18,7 @@ test('"Get your invite link" goes to the invite page for a supplier, and through
   assert.equal(href, '/open-shop?next=%2Fvendor-dashboard%2Finvite');
   // …and /open-shop accepts exactly that next.
   const next = new URL(href, 'https://x.invalid').searchParams.get('next');
-  assert.equal(openShopLanding(next), INVITE_LINK_PATH);
+  assert.equal(shopConsolePath(next), INVITE_LINK_PATH);
 });
 
 test('the page decides from the viewer, and the button reads that decision', () => {

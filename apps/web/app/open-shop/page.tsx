@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
-import { openShopLanding } from '@/lib/open-shop-landing';
+import { shopConsolePath } from '@/lib/shop-console-path';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -44,7 +44,7 @@ export default async function OpenShopPage({
   // on /for-suppliers → `?next=/vendor-dashboard/invite`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
   // general-purpose redirector. Default: Today.
-  const landing = openShopLanding(next);
+  const landing = shopConsolePath(next);
   const supabase = await createClient();
   const {
     data: { user },

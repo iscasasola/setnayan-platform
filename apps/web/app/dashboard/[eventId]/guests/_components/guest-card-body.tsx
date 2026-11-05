@@ -78,6 +78,8 @@ import { tableWords } from '@/lib/table-words';
 import { GuestSeatPreview } from './guest-seat-preview';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
+import { serviceHint } from '@/lib/supplier-count';
+import { NotCountedResult } from './not-counted-result';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -1173,17 +1175,32 @@ export function GuestCardBody({
           <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
             {/* 📏 The row FIRST, its marker after it (owner 2026-11-04: "i see a double line in between access and not counted
                 for"): a Form row drops its own top rule only as its box's first child (`first:border-t-0`). Behind the hidden
-                marker it was not first, so its rule drew under Access's — two hairlines. */}
-            <K.Pick
-              name={NOT_COUNTED_FIELD}
-              label="Not counted for"
-              multi
-              form={formId}
-              value={notCounted.picked.join(',')}
-              options={notCounted.services.map((s) => ({ key: s.id, label: s.label, hint: s.shop ?? undefined }))}
-              emptyText={COUNTED_FOR_ALL}
-              about={NOT_COUNTED_ABOUT}
-            />
+                marker it was not first, so its rule drew under Access's — two hairlines. The Pick is the first child of the
+                result's own box, and the marker follows that box. */}
+            {/* 🧮 Every supplier on the event priced per head, booked or not (owner 2026-11-04) — the hint says which: "<shop> ·
+                Booked" · "<shop> · Quoted · applies once booked". The line under it is the count the tick makes. */}
+            <NotCountedResult
+              services={notCounted.services}
+              saved={notCounted.picked}
+              field={NOT_COUNTED_FIELD}
+              self={{
+                attending: guest.rsvp_status === 'attending' && !guest.represented_by_guest_id, // passed_away is already ruled out above
+                roles: [guest.role, ...(guest.extra_roles ?? [])],
+                groupIds: ownPicked,
+                firstName: guest.first_name?.trim() || name,
+              }}
+            >
+              <K.Pick
+                name={NOT_COUNTED_FIELD}
+                label="Not counted for"
+                multi
+                form={formId}
+                value={notCounted.picked.join(',')}
+                options={notCounted.services.map((s) => ({ key: s.id, label: s.label, hint: serviceHint(s) }))}
+                emptyText={COUNTED_FOR_ALL}
+                about={NOT_COUNTED_ABOUT}
+              />
+            </NotCountedResult>
             <input type="hidden" name={NOT_COUNTED_POSTED} value="1" form={formId} />
           </div>
         )}

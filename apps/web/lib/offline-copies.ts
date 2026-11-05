@@ -9,14 +9,16 @@
  * WHO KEEPS WHAT (the four rules, each held by `lib/offline-copies.test.ts` and `app/sw-offline-copies.test.ts`):
  *   1. ONE VIEWER AT A TIME. The worker records whose copies it holds (`OfflineRegistry.viewer`). A save by anyone else
  *      erases every copy first — a shared phone never opens the previous person's guest list.
- *   2. ONLY THEIR OWN EVENT VIEWS. A copy is a page the viewer's own session just rendered, at one of four addresses
- *      (`OFFLINE_COPY_SHAPES`), for the event named in the save — never a page the worker composes, never another
+ *   2. ONLY THEIR OWN EVENT VIEWS. A copy is a page the viewer's own session just rendered, at one of the addresses
+ *      (`OFFLINE_COPY_SHAPES` — incl. each person's "Your schedule"), for the event named in the save — never a page the worker composes, never another
  *      event's address, never a redirect (a refused or signed-out render is never kept).
  *   3. ERASED AFTER THE EVENT. Every copy carries its event's `until` (the end of the day after the event, Philippine
- *      time); past it the worker deletes it. Sign-out deletes them all (`OFFLINE_COPIES_WIPE_SCRIPT`).
+ *      time); past it the worker deletes it. Sign-out deletes them all (`OFFLINE_COPIES_WIPE_SCRIPT`); a guest's
+ *      "Remove it from this browser" (the POST to `/<slug>/sign-out`, every guest sign-out door) deletes that event's.
  *   4. SMALL. Four pages per event at most; no photos or albums are kept by this cache.
  *
- * `public/sw.js` cannot import this file, so it holds a COPY of `isOfflineCopyPath` / `offlineCopyEventId`;
+ * `public/sw.js` cannot import this file, so it holds a COPY of `isOfflineCopyPath` / `offlineCopyEventId` (those two live
+ * in `./offline-copy-addresses.ts`);
  * `app/sw-offline-copies.test.ts` runs both over one table and fails if they ever disagree.
  *
  * PURE — no I/O. Client-safe.
@@ -61,34 +63,88 @@ const PH_OFFSET = '+08:00';
 const EVENT_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 /**
- * The four page shapes a copy may be kept for — and no others. Query-less, exact paths:
+ * The page shapes a copy may be kept for — and no others. Exact addresses (a query only where it is part of the shape):
  *   coordinator · `/dashboard/<event>` (Home › Today) and `/dashboard/<event>/guests/checkin` (the Check-in desk)
  *   supplier    · `/vendor-dashboard/on-the-day` (Hub) and `/vendor-dashboard/on-the-day/live/<event>` (the event's
- *                 console, where the scanner lives)
+ *                 console, where the scanner lives — and the crew's day: crew see only the Hub)
  * A supplier who runs the hosts' check-in also keeps that event's Check-in desk (the same coordinator address).
+ *
+ * 📅 YOUR SCHEDULE (owner-approved 5 Nov, the schedule plan's "each person's day: Your schedule, saved for no signal"):
+ *   coordinator · `/dashboard/<event>/schedule` (the day, as the hosts and their coordinator run it)
+ *   supplier    · `/vendor-dashboard/clients/<event>?tab=schedule` (Customer › Schedule — a Host/MC's too)
+ *   guest       · `/<slug>?tab=me` (Event Hub › Me — "Your schedule"; a role holder's call time is on it)
+ * The guest's address names no event id: its owner is the SLUG (a guest save is kept under the slug), and a reserved
+ * first segment (`/dashboard?tab=me`) is never a guest's page.
  */
 export const OFFLINE_COPY_SHAPES = [
   /^\/dashboard\/([A-Za-z0-9-]{8,64})$/,
   /^\/dashboard\/([A-Za-z0-9-]{8,64})\/guests\/checkin$/,
   /^\/vendor-dashboard\/on-the-day$/,
   /^\/vendor-dashboard\/on-the-day\/live\/([A-Za-z0-9-]{8,64})$/,
+  /^\/dashboard\/([A-Za-z0-9-]{8,64})\/schedule$/,
+  /^\/vendor-dashboard\/clients\/([A-Za-z0-9-]{8,64})\?tab=schedule$/,
+  /^\/([a-z0-9-]{3,32})\?tab=me$/,
 ] as const;
 
-/** True when `path` (a pathname, no query) is one of the four shapes. */
-export function isOfflineCopyPath(path: string): boolean {
-  return OFFLINE_COPY_SHAPES.some((re) => re.test(path));
+/**
+ * `isOfflineCopyPath` / `offlineCopyEventId` / `guestMePath` live in `./offline-copy-addresses.ts`: the guest's shape
+ * asks the reserved-word list (`lib/reserved-slugs.ts`), which only the server and the tests need — kept out of this
+ * module so no page's client code carries it (the shared bundle has bytes, not kilobytes, of room).
+ */
+
+/** 📅 The coordinator's own day: the event's Schedule. */
+export function coordinatorSchedulePath(eventId: string): string | null {
+  return EVENT_ID.test(eventId) ? `/dashboard/${eventId}/schedule` : null;
+}
+
+/** 📅 The supplier's own day (a Host/MC's too): Customer › Schedule. */
+export function supplierSchedulePath(eventId: string): string | null {
+  return EVENT_ID.test(eventId) ? `/vendor-dashboard/clients/${eventId}?tab=schedule` : null;
 }
 
 /**
- * The event a path belongs to — its event segment — or `null` for the supplier Hub, which is the supplier's own page
- * (it names no event, and it is kept under whichever event saved it). `undefined` = not a copy path at all.
+ * 🧾 THE COPY'S VERSION — what makes "a copy from before the Release" tellable from "the copy of now".
+ *
+ * A "Your schedule" page renders `data-sn-copy-version="<version>"` (`ScheduleSavedMark`); the worker reads it out of
+ * every copy it keeps and records it beside the copy's time (`OfflineRegistry.events[e].versions`). The page asks with
+ * the version IT was rendered with; a copy whose recorded version differs is stale — re-rendered on the next save
+ * however fresh its clock, and never drawn as "Saved for offline" meanwhile.
+ *
+ * The version is a fingerprint of what the page DRAWS (the person's chapters, lines, call time, places, contacts —
+ * after Release, the full day), not a clock: a Release, an edit, a deleted moment and a moved call time each change it,
+ * and no phone clock that is a few minutes off can make an old copy look new.
+ *
+ * `OFFLINE_COPY_UNREAD` — the page could not read the schedule. The worker never keeps such a page (a copy of "we
+ * couldn't read your schedule" is not a saved schedule) and the older copy stays.
  */
-export function offlineCopyEventId(path: string): string | null | undefined {
-  for (const re of OFFLINE_COPY_SHAPES) {
-    const m = re.exec(path);
-    if (m) return m[1] ?? null;
+export const OFFLINE_COPY_UNREAD = 'unread';
+export const COPY_VERSION_ATTR = 'data-sn-copy-version';
+const COPY_VERSION = /^[A-Za-z0-9._-]{1,64}$/;
+
+/** FNV-1a (32-bit) over the JSON of what the page draws → `v<base36>.<length>`. Pure; the same value on every server. */
+export function copyVersionOf(value: unknown): string {
+  let json: string;
+  try {
+    json = JSON.stringify(value) ?? 'null';
+  } catch {
+    return OFFLINE_COPY_UNREAD;
   }
-  return undefined;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < json.length; i++) {
+    h ^= json.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `v${h.toString(36)}.${json.length.toString(36)}`;
+}
+
+/** The version a kept page's HTML carries, or null. The worker holds a COPY of this (`copyVersionIn` in sw.js). */
+export function copyVersionIn(html: string): string | null {
+  const m = /data-sn-copy-version="([A-Za-z0-9._-]{1,64})"/.exec(html);
+  return m ? m[1]! : null;
+}
+
+export function isCopyVersion(v: unknown): v is string {
+  return typeof v === 'string' && COPY_VERSION.test(v);
 }
 
 /** The coordinator's pages for one event. */
@@ -119,6 +175,14 @@ export function offlineCopiesUntil(eventDate: string | null, eventEndDate?: stri
   return last + 2 * DAY_MS;
 }
 
+/** The event is today (or one of its days), Philippine time — only then does an old copy turn amber. */
+export function offlineEventDay(eventDate: string | null, now: number, eventEndDate?: string | null): boolean {
+  const start = phMidnight(eventDate || '');
+  const end = phMidnight(eventEndDate || eventDate || '');
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+  return now >= start && now < end + DAY_MS;
+}
+
 /** True while copies of this event are kept: from T-3 days to `offlineCopiesUntil`. A dateless event keeps none. */
 export function offlineSavingOpen(eventDate: string | null, now: number, eventEndDate?: string | null): boolean {
   const start = phMidnight(eventDate || '');
@@ -130,9 +194,10 @@ export function offlineSavingOpen(eventDate: string | null, now: number, eventEn
 /** The worker's registry, as stored at `OFFLINE_REGISTRY_PATH`. */
 export type OfflineRegistry = {
   v: 1;
-  /** Whose copies these are (the signed-in account). Exactly one at a time. */
+  /** Whose copies these are (the signed-in account, or a guest pass holder `g-<guest id>`). Exactly one at a time. */
   viewer: string;
-  events: Record<string, { until: number; pages: Record<string, number> }>;
+  /** `versions`: the copy version each kept page's HTML carried (only pages that carry one — `COPY_VERSION_ATTR`). */
+  events: Record<string, { until: number; pages: Record<string, number>; versions?: Record<string, string> }>;
 };
 
 /** Parses a stored registry; anything malformed reads as none (never as somebody's copy). */
@@ -164,6 +229,25 @@ export function savedAtFor(
     oldest = Math.min(oldest, at);
   }
   return Number.isFinite(oldest) ? oldest : null;
+}
+
+/**
+ * 🧾 Is THIS viewer's copy of these pages older than the version the page on screen was rendered with? True when any
+ * page's recorded version differs (a copy kept before versions existed has none — it differs too). False when there is
+ * no version to compare (`version` null / unread) or no copy at all (then there is nothing to call stale).
+ */
+export function staleFor(
+  reg: OfflineRegistry | null,
+  viewer: string,
+  eventId: string,
+  paths: readonly string[],
+  version: string | null | undefined,
+): boolean {
+  if (!isCopyVersion(version) || version === OFFLINE_COPY_UNREAD) return false;
+  if (!reg || reg.viewer !== viewer) return false;
+  const ev = reg.events[eventId];
+  if (!ev) return false;
+  return paths.some((p) => typeof ev.pages[p] === 'number' && ev.versions?.[p] !== version);
 }
 
 /** "just now" · "5 minutes" · "9 hours" · "2 days" — the age, in words. */
@@ -205,8 +289,10 @@ export function savedMark(input: {
   eventDay: boolean;
   /** The page on screen IS the saved copy (`savedCopyOnScreen()`), saved at this time. */
   onCopy?: number | null;
+  /** 🧾 The kept copy is from before the latest change (`staleFor`) — a Release, an edit. Never drawn as saved. */
+  stale?: boolean;
 }): SavedMark {
-  const { phase, savedAt, now, online, eventDay, onCopy = null } = input;
+  const { phase, savedAt, now, online, eventDay, onCopy = null, stale = false } = input;
   if (onCopy !== null) {
     return online
       ? { tone: 'amber', text: `Showing the copy from ${clockWords(onCopy)} · load the latest when the signal is back` }
@@ -228,6 +314,8 @@ export function savedMark(input: {
       : { tone: 'bad', text: 'Couldn’t save for offline · try Update now' };
   }
   if (phase !== 'saved' || savedAt === null) return { tone: 'muted', text: 'Not saved on this phone yet' };
+  // 🧾 A copy from before the latest change is not the saved day — said with the failed line's own words.
+  if (stale) return { tone: 'bad', text: `Couldn’t update · the copy from ${clockWords(savedAt)} is still on this phone` };
   const age = now - savedAt;
   if (eventDay && age > STALE_AFTER_MS) {
     return { tone: 'amber', text: `Saved ${ageWords(age)} ago · update before you leave for the venue` };

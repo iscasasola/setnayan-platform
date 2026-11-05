@@ -248,17 +248,9 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          {/* ₱500 = the Logo & QR part (COUPLE_HUB_PART_LOGO_QR) since 2026-10-22, when the standalone
-              ANIMATED_MONOGRAM was retired into it. Earlier history: ANIMATED_MONOGRAM was repriced from ₱1,000 on 2026-09-05 by the
-              owner: the SKU lost the LED Live Background on 2026-08-11 ("that
-              half of the ₱1,000 could never be delivered") and kept its number,
-              so the figure was halved to match what it actually buys — the six
-              CSS animation signatures, on a mark whose maker is already free.
-              Before that it was ₱2,499, the retired pre-2026-07-10 price, 2.5×
-              the live one, found stale 2026-07-31. Declared in
-              lib/public-price-literals.ts; the daily SEO audit re-checks it
-              against the catalog so it cannot silently drift again. */}
-          <p className="font-mono text-[8px] text-ink/55">One price for your wedding · ₱500</p>
+          {/* No figure (owner 2026-11-04, "make sure there is no record of the older prices"): the animated mark
+              is part of Event Pro now, and a price typed into a demo frame is a price nobody re-checks. */}
+          <p className="font-mono text-[8px] text-ink/55">Comes with Event Pro</p>
           <button type="button" className="mt-1 w-full rounded-md bg-mulberry py-1.5 text-[10px] font-medium text-cream">Draw my monogram live</button>
         </div>
       </div>
@@ -947,8 +939,8 @@ const PAKANTA_SCENES: RichFrame[] = [
             <div className="rounded border border-ink/15 px-2 py-1.5 text-[8px] text-ink/40">Moira</div>
           </div>
           <button type="button" className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-mulberry py-1.5 text-[9px] font-medium text-cream">
-            {/* ₱3,300 = PAKANTA (the one price, 2026-10-28; was ₱2,500). Registered in lib/public-price-literals.ts. */}
-            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment · ₱3,300
+            {/* No figure (owner 2026-11-04): Music Maker's price is read from PAKANTA at checkout, never typed into a demo. */}
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} /> Continue to payment
           </button>
         </div>
       </div>

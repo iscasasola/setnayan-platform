@@ -87,7 +87,9 @@ export type TwoAdminPromise = {
 };
 
 /**
- * § 9.1's major-decisions table, all nine rows, in the contract's own order.
+ * § 9.1's major-decisions table, all eight rows, in the contract's own order. (The ninth —
+ * "adding a team member to the shared pool" — was REMOVED from the agreement on 2026-11-05,
+ * owner: "no remove it." The pool was retired the same day and there was nothing to add anyone to.)
  * ⚠ Do not add a row that is not in § 9.1, and do not drop one that is. The
  * page is generated from this; the contract is not.
  */
@@ -105,13 +107,6 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     whyPerClause: 'Bypasses all billing permanently',
     actionType: 'grant_internal_account',
     note: 'Enforced (§ 10a). `users.is_internal = TRUE` passes every paid gate, which is why it is here.',
-  },
-  {
-    key: 'team-pool',
-    asPublished: 'adding a team member to the shared pool',
-    whyPerClause: 'Grants ongoing pool draw rights',
-    actionType: null,
-    note: 'Nothing to enforce: the shared service-credit pool was RETIRED 2026-11-05 (owner: "retire. we already have our pool = papic credits") — no pool table or draw ever existed, so no one can be added to it, and the `grant_team_pool` approval is no longer offered. The row stays because § 9.1 still names it; taking it out of the Vendor Agreement is an owner and counsel edit. `users.is_team_member` itself is kept (it is staff admin access, lib/admin/admin-predicate.ts).',
   },
   {
     key: 'large-comp-grant',

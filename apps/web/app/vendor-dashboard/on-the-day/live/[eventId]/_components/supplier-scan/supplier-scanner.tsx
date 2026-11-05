@@ -166,7 +166,7 @@ export function SupplierClaimScanner({
           on the number tells the guest it is waiting, and the second scan hands it over. In Unlimited, every scan
           counts with a new number. In Group session, tap New shot, scan everyone in the photo — they share one
           number — then Done with the prints; Ready tells each of them, and each pickup scan counts “3 of 5 claimed”.
-          You see numbers and counts, never names. The mode is set once per service, under Shop › Services.
+          You see the number and the guest’s first name. The mode is set once per service, under Shop › Services.
         </Explain>
       </div>
 

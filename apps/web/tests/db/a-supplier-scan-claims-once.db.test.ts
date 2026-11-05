@@ -9,7 +9,9 @@
  *   4 · refused: a shop not booked, a stranger, a scanner switched OFF, a service the booking did not name;
  *   5 · a SOUVENIR service writes the couple's own souvenir record (one record, two desks), and a guest the couple's
  *       desk already handed a souvenir is "already" at the supplier;
- *   6 · counts only: nothing the supplier is handed names a guest, and the supplier cannot read the claim rows;
+ *   6 · the claim answer itself names nobody, and the supplier cannot read the claim rows;
+ *   8 · the FIRST name (owner 2026-11-05 "name is fine"): only to the booked shop, only after its claim is recorded,
+ *       never the last name; a stranger, an unclaimed guest and another shop's service get NULL; anon cannot call it;
  *   7 · the couple reads the claims (their desk shows names); the shop's own setting is the shop's alone.
  *
  * Run: pnpm --filter @setnayan/web test:db
@@ -246,7 +248,7 @@ test('5 · a souvenir service writes the couple’s own souvenir record — one 
   assert.equal(other.rows[0]!.n, 0, 'a souvenir must not be written twice');
 });
 
-test('6 · counts only: the supplier is handed no name and cannot read the claim rows', async () => {
+test('6 · the claim answer names nobody, and the supplier cannot read the claim rows', async () => {
   const a = await scan(F.booth, F.boothCov, F.tokens[1]!);
   assert.deepEqual(Object.keys(a).sort(), ['claimed', 'number', 'outcome', 'total']);
   await asUser(F.booth);
@@ -277,4 +279,25 @@ test('7 · the couple reads the claims; a shop cannot touch another shop’s set
     db.query(`INSERT INTO public.supplier_scan_settings (coverage_id, enabled, mode) VALUES ($1, TRUE, 'unlimited')`, [F.unbookedCov]),
     /check constraint|duplicate key/,
   );
+});
+
+test('8 · the first name: only the booked shop, only after its claim is recorded, never the last name', async () => {
+  const first = async (uid: string, cov: number, token: string) => {
+    await asUser(uid);
+    return (await db.query<{ n: string | null }>(`SELECT public.supplier_scan_first_name($1,$2,$3) AS n`, [F.eventId, cov, token]))
+      .rows[0]!.n;
+  };
+  assert.equal(await first(F.booth, F.boothCov, F.tokens[0]!), 'Guest0', 'claimed at the booth → the first name');
+  assert.equal(await first(F.booth, F.boothCov, F.tokens[0]!.toUpperCase()), 'Guest0', 'the token reads case-blind');
+  assert.equal(await first(F.booth, F.boothCov, F.tokens[3]!), null, 'never claimed at this service → nothing');
+  assert.equal(await first(F.stranger, F.boothCov, F.tokens[0]!), null, 'not the shop → nothing');
+  assert.equal(await first(F.unbooked, F.unbookedCov, F.tokens[0]!), null, 'a shop not booked → nothing');
+  assert.equal(await first(F.booth, F.boothCov, F.otherToken), null, 'another event’s guest → nothing');
+  assert.equal(await first(F.souvenir, F.souvenirCov, F.tokens[0]!), 'Guest0', 'a souvenir the shop’s scanner handed out');
+  assert.equal(await first(F.souvenir, F.souvenirCov, F.tokens[2]!), null, 'a souvenir the couple’s desk gave is not the shop’s claim');
+  await asOwner();
+  const grants = await db.query<{ anon: boolean }>(
+    `SELECT has_function_privilege('anon', 'public.supplier_scan_first_name(uuid, bigint, text)', 'EXECUTE') AS anon`,
+  );
+  assert.equal(grants.rows[0]!.anon, false, 'anon must not look a guest up');
 });

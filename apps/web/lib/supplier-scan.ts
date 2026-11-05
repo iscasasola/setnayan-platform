@@ -182,7 +182,7 @@ export function tallyWords(
 ): string {
   if (mode === 'unlimited') return `Served ${formatCount(t.served ?? 0)} · ${formatCount(t.unique ?? 0)} ${t.unique === 1 ? 'guest' : 'guests'}`;
   if (isSessionMode(mode)) {
-    return `${mode === 'roaming' ? 'Shots' : 'Sessions'} ${formatCount(t.sessions ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Claimed ${formatCount(t.claimed)}`;
+    return `Shots ${formatCount(t.sessions ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Claimed ${formatCount(t.claimed)}`;
   }
   if (mode === 'ordered_received') {
     return `Ordered ${formatCount(t.ordered ?? 0)} · Ready ${formatCount(t.ready ?? 0)} · Received ${claimedOfWords(t.claimed, t.total)}`;

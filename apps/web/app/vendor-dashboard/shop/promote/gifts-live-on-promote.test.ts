@@ -55,3 +55,10 @@ test('4 · buying a gift refreshes Promote, not the Plan page', () => {
 test('5 · a quote still reuses the section’s Buy sheet (giving stays in the quote)', () => {
   assert.match(read('_components/quote-shop-gifts.tsx'), /import \{ BuyGiftsSheet \} from '@\/app\/vendor-dashboard\/shop\/promote\/_components\/shop-gifts-section'/);
 });
+
+test('6 · nothing sells inside the iPhone app — Promote is open there, the Plan page was not', () => {
+  // The Plan page is refused in the store shell; Promote is not. Buy (button + sheet) hangs off `canOffer`, which needs
+  // `canBuy`, which the loader sets false in the store shell (`lib/store-shell.test.ts` cites the same gate).
+  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx'), /const canOffer = data\.canBuy && /);
+  assert.match(read('vendor-dashboard/shop/promote/_components/shop-gifts-data.ts'), /canBuy: papicOn && !storeShell,/);
+});

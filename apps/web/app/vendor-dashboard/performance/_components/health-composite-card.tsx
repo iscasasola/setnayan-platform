@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import type {
   VendorHealthComposite,
@@ -127,6 +128,9 @@ export function HealthCompositeCard({
   children?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // 🔭 A tap that opens the growth recs glides the card's head to the pin line when they run past the bottom (owner 2026-11-04).
+  const cardRef = useRef<HTMLElement>(null);
+  const intend = useRevealOnOpen(expanded, () => ({ head: cardRef.current }));
 
     // Glass PR-7: the My Performance focal, retuned from solid --m-ink to the
     // `.sn-tile-dark` obsidian-glass recipe (§ 1.3 · the one sanctioned dark tile
@@ -134,6 +138,7 @@ export function HealthCompositeCard({
     // recipe's surface here rather than the padded utility class.
   return (
     <section
+      ref={cardRef}
       className="rounded-tile"
       style={{
         background:
@@ -146,7 +151,10 @@ export function HealthCompositeCard({
     >
       <button
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={() => {
+          intend();
+          setExpanded((v) => !v);
+        }}
         aria-expanded={expanded}
         className="w-full rounded-tile p-6 text-left sm:p-8"
       >

@@ -7,8 +7,7 @@ app/_components/file-upload.tsx 3
 app/_components/home/HomeOverlays.tsx 1
 app/_components/paper-picker.tsx 1
 app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1
-app/dashboard/(account)/people/_components/dependents-section.tsx 2
-app/dashboard/(account)/people/_components/people-roster-view.tsx 4
+app/dashboard/(account)/people/_components/people-roster-view.tsx 2
 app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx 1
 app/dashboard/[eventId]/_components/payment-plan-rows.tsx 1
 app/dashboard/[eventId]/_components/vendor-itemization-card.tsx 2
@@ -23,11 +22,6 @@ app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx 1
 app/dashboard/[eventId]/monogram/studio.tsx 1
-app/dashboard/[eventId]/schedule/_components/chapter-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx 2
-app/dashboard/[eventId]/schedule/_components/moment-sheets.tsx 1
-app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx 1
-app/dashboard/[eventId]/schedule/page.tsx 1
 app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx 1
 app/dashboard/[eventId]/sponsors/page.tsx 1
 app/dashboard/[eventId]/story/_components/make-it-yours.tsx 6
@@ -44,4 +38,3 @@ app/papic/_components/camera-controls.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
 app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx 1
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1
-app/vendor-dashboard/repertoire/page.tsx 1

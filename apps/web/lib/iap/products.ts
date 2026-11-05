@@ -32,6 +32,19 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *       Apple's and the catalogue is the admin's — this file types neither.
  *       `appStorePriceMatchesWeb` is the check a sale is held to.
  *   (5) Papic credit packs: 100 · 500 · 1,000 · 5,000 · 10,000.
+ *       ↳ ⚠ SUPERSEDED 2026-11-03 (DECISION_LOG "PAPIC IS THREE PACKS"): Papic is sold as THREE packs only —
+ *         150 · 1,000 · 3,000 credits (one price on web and in the app — the figures live in the catalogue only). The five
+ *         `papic_credits_*` products are RETIRED (`RETIRED_IAP_PRODUCT_IDS`, ids never reused) and three new
+ *         `papic_pack_*` products sell the packs. New ids, not a reprice of `papic_credits_1000`, because the
+ *         owner retired all five by name.
+ *
+ * 💰 FINAL PRICE SHEET (owner 2026-11-04, DECISION_LOG "FINAL PRICE SHEET — ONE PRICE, APPLE AND WEBSITE"; *"same price
+ * for both"*). The app sells: Event Plus (`event_plus`, new — EVENT_PLUS, 100 Papic credits + Setnayan AI) · Event Pro
+ * (`event_pro`, new — COUPLE_WEBSITE_PRO, 1,000 Papic credits + everything Plus has) · Papic 150 / 1000 / 3000 · Live
+ * Watch · Music Maker · Patiktok. RETIRED from sale (ids forever; an already-charged transaction still delivers through
+ * `iapProductForDelivery` in lib/iap/products-delivery.ts): `event_hub_pro` (replaced by `event_pro`, owner 2026-11-02)
+ * and the four Setnayan AI products (owner 2026-11-04, *"Setnayan ai no separate purchase will be part of event plus and
+ * event pro"*).
  *
  * 🔑 NO PRICE LIVES HERE. The app shows the price StoreKit returns
  * (`Product.displayPrice`); the web keeps `platform_retail_catalog_v2`. Two
@@ -58,10 +71,13 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
 const EVENT_HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
 export type IapProductKind =
+  /** Event Pro (COUPLE_WEBSITE_PRO) — and the retired `event_hub_pro` that sold the same code. */
   | 'event-hub-pro'
+  /** 💰 Event Plus (owner 2026-11-04): one per event; never sold to an event that already has Pro. */
+  | 'event-plus'
   | 'live-watch'
   | 'papic-credits'
-  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Setnayan AI · Music Maker · Patiktok · Thank You). */
+  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Music Maker · Patiktok; Setnayan AI and Thank You retired). */
   | 'event-unlock';
 
 export type IapProduct = {
@@ -77,8 +93,8 @@ export type IapProduct = {
   /** Papic packs: the credits this product's name promises. */
   credits: number | null;
   /**
-   * ✦ Setnayan AI only (owner 2026-10-23, "four consumables, one per web tier"): the web price TIER this product is
-   * sold for. All four sell the SAME `SETNAYAN_AI` order (one activation, one ownership), each priced in App Store
+   * ✦ The RETIRED Setnayan AI products only (owner 2026-10-23, "four consumables, one per web tier"; retired from sale
+   * 2026-11-04, still delivered — lib/iap/products-delivery.ts): the web price TIER this product was sold for. All four sell the SAME `SETNAYAN_AI` order (one activation, one ownership), each priced in App Store
    * Connect from its tier's catalogue row (`AI_TIER_SKU`). The server refuses a tier product for an event of another tier.
    */
   aiTier?: Exclude<AiPriceTier, 'E'>;
@@ -109,13 +125,33 @@ const RETIRED_HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKe
   ['address', 'COUPLE_HUB_PART_ADDRESS', 'Custom address'],
 ];
 
+/**
+ * 📸 THE THREE PAPIC PACKS (owner 2026-11-03): `[credits, catalogue code]`. Prices are NOT here — App Store Connect
+ * holds Apple's and `platform_retail_catalog_v2` the web's, and they are the same figure (owner 2026-11-04 sheet).
+ */
+const PAPIC_PACKS = [
+  [150, 'PAPIC_GUEST_150'],
+  [1_000, 'PAPIC_GUEST_1K'],
+  [3_000, 'PAPIC_GUEST'],
+] as const;
+
 export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
+  /* 💰 Event Plus and Event Pro (owner 2026-11-02 ids, DECISION_LOG "IN THE APP, EVENT PLUS = …"; names and one
+     price 2026-11-04). `event_pro` replaces `event_hub_pro` (retired, still delivered — products-delivery.ts). */
   {
-    productId: `${PREFIX}event_hub_pro`,
+    productId: `${PREFIX}event_plus`,
+    serviceKey: 'EVENT_PLUS',
+    kind: 'event-plus',
+    appleType: 'consumable',
+    appStoreName: 'Event Plus',
+    credits: null,
+  },
+  {
+    productId: `${PREFIX}event_pro`,
     serviceKey: EVENT_HUB_PRO_SERVICE_KEY,
     kind: 'event-hub-pro',
     appleType: 'consumable',
-    appStoreName: 'Event Hub Pro',
+    appStoreName: 'Event Pro',
     credits: null,
   },
   {
@@ -126,52 +162,23 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     appStoreName: 'Live Watch',
     credits: null,
   },
-  ...(
-    [
-      [100, 'PAPIC_GUEST_100'],
-      [500, 'PAPIC_GUEST_500'],
-      [1_000, 'PAPIC_GUEST_1K'],
-      [5_000, 'PAPIC_GUEST_5K'],
-      [10_000, 'PAPIC_GUEST_10K'],
-    ] as const
-  ).map(
+  ...PAPIC_PACKS.map(
     ([credits, serviceKey]): IapProduct => ({
-      productId: `${PREFIX}papic_credits_${credits}`,
+      productId: `${PREFIX}papic_pack_${credits}`,
       serviceKey,
       kind: 'papic-credits',
       appleType: 'consumable',
-      appStoreName: `Papic · ${credits.toLocaleString('en-US')} credits`,
+      // "Papic 150" · "Papic 1000" · "Papic 3000" — the owner's names (2026-11-04), no thousands comma.
+      appStoreName: `Papic ${credits}`,
       credits,
     }),
   ),
   /*
-   * 🍎 FIVE MORE (owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood Board
-   * pack as Apple products before submitting build 6.") Same model as Live Watch: CONSUMABLE, for the CURRENT event,
+   * 🍎 Music Maker and Patiktok (owner 2026-10-23, "five more Apple products"): CONSUMABLE, for the CURRENT event,
    * activated by the web's own hook. The ids were named by the controller and are FOREVER.
+   * 🗑 The four Setnayan AI products (`setnayan_ai`, `setnayan_ai_tier_b/c/d`) left sale 2026-11-04 — Setnayan AI comes
+   * with Event Plus and Event Pro. They live in lib/iap/products-delivery.ts (delivery only); never re-add them here.
    */
-  /*
-   * ✦ SETNAYAN AI, ONE PRODUCT PER WEB TIER (owner 2026-10-23): Apple has one price per product, the web four rungs.
-   * `setnayan_ai` stays Tier A (the wedding, the plain SETNAYAN_AI row) — never renamed; B · C · D are their own ids.
-   * Tier E (simple event) has no product, as it has no price on the web.
-   */
-  ...(
-    [
-      ['setnayan_ai', 'A'],
-      ['setnayan_ai_tier_b', 'B'],
-      ['setnayan_ai_tier_c', 'C'],
-      ['setnayan_ai_tier_d', 'D'],
-    ] as const
-  ).map(
-    ([id, aiTier]): IapProduct => ({
-      productId: `${PREFIX}${id}`,
-      serviceKey: 'SETNAYAN_AI',
-      kind: 'event-unlock',
-      appleType: 'consumable',
-      appStoreName: 'Setnayan AI',
-      credits: null,
-      aiTier,
-    }),
-  ),
   ...(
     [
       ['music_maker', 'PAKANTA', 'Music Maker'],
@@ -191,6 +198,57 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
   ),
   /* 🗑 `mood_board_renders_50` ("Mood Board · 50 renders") is RETIRED with Mood Board renders (owner 2026-10-26,
      "mood board render is no longer available. can we delete that?"). Never re-add it, and never reuse its id. */
+]);
+
+/**
+ * 💝 THE SUPPLIER GIFT PRODUCTS (owner 2026-11-04, "GIFT PRICES" + *"they can purchase inside apple as well"*): what a
+ * Verified-and-up SUPPLIER pays to gift one of the couple's products, sold in the iPhone app through Apple. The price
+ * is the row's `gift_price_php` in `platform_retail_catalog_v2` (never typed here); in App Store Connect each is set to
+ * the Philippine price point equal to that figure (build-sessions/APPLE-IAP-PRICES-2026-11-04.md).
+ *
+ * ⚠ DELIBERATELY NOT IN `IAP_PRODUCTS`, so NOT in `IAP_PRODUCT_IDS` and NOT answered by `iapProductById`: the purchase
+ * path (`startAppStorePurchase`) is a COUPLE's — event-scoped and coordinator-checked — and has no supplier buyer, no
+ * recipient event and no gift delivery. Listing these there would let a couple buy their own product at the gift price.
+ * They join the sellable list only together with a supplier-buyer intent + delivery (not built — PR body). Ids are
+ * FOREVER once created in App Store Connect.
+ */
+export type IapSupplierGiftProduct = {
+  productId: string;
+  /** The couple product gifted — its catalogue row carries the `gift_price_php` this product is priced from. */
+  serviceKey: string;
+  appleType: 'consumable';
+  appStoreName: string;
+  /** Papic packs: the credits gifted (re-checked against `papic_pass_tiers` exactly as `papicCreditsMatch`). */
+  credits: number | null;
+};
+
+export const IAP_SUPPLIER_GIFT_PRODUCTS: readonly IapSupplierGiftProduct[] = Object.freeze([
+  ...PAPIC_PACKS.map(
+    ([credits, serviceKey]): IapSupplierGiftProduct => ({
+      productId: `${PREFIX}gift_papic_pack_${credits}`,
+      serviceKey,
+      appleType: 'consumable',
+      appStoreName: `Gift · Papic ${credits}`,
+      credits,
+    }),
+  ),
+  ...(
+    [
+      ['gift_event_plus', 'EVENT_PLUS', 'Gift · Event Plus'],
+      ['gift_event_pro', EVENT_HUB_PRO_SERVICE_KEY, 'Gift · Event Pro'],
+      ['gift_live_watch', 'LIVE_STUDIO', 'Gift · Live Watch'],
+      ['gift_music_maker', 'PAKANTA', 'Gift · Music Maker'],
+      ['gift_patiktok', 'PATIKTOK_COMPILER', 'Gift · Patiktok'],
+    ] as const
+  ).map(
+    ([id, serviceKey, name]): IapSupplierGiftProduct => ({
+      productId: `${PREFIX}${id}`,
+      serviceKey,
+      appleType: 'consumable',
+      appStoreName: name,
+      credits: null,
+    }),
+  ),
 ]);
 
 /**
@@ -216,6 +274,10 @@ export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
   ...RETIRED_HUB_PART_PRODUCT_IDS,
   // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
   `${PREFIX}papic_thank_you`,
+  // The five `papic_credits_*` products retired 2026-11-03, and `event_hub_pro` + the four Setnayan AI products retired
+  // 2026-11-04, are listed in lib/iap/products-delivery.ts (RETIRED_PAPIC_CREDIT_PRODUCT_IDS ·
+  // RETIRED_EVENT_PRODUCT_IDS) — they still DELIVER an already-charged transaction, and are kept out of this
+  // client-read file for the first-load budget.
 ]);
 
 /** Every product id, for StoreKit's `Product.products(for:)`. */
@@ -226,32 +288,23 @@ export function iapProductById(productId: string | null | undefined): IapProduct
   return IAP_PRODUCTS.find((p) => p.productId === productId) ?? null;
 }
 
-/**
- * The product that sells this catalogue code. For `SETNAYAN_AI` that is Tier A's (`setnayan_ai`) — a page that knows
- * the event's tier asks `iapSetnayanAiProductForTier` instead.
- */
+/** The product that sells this catalogue code (`COUPLE_WEBSITE_PRO` → `event_pro`). */
 export function iapProductForServiceKey(serviceKey: string): IapProduct | null {
   return IAP_PRODUCTS.find((p) => p.serviceKey === serviceKey) ?? null;
 }
 
-/** ✦ The Setnayan AI product for a web price tier; null for Tier E (not offered) or no tier. */
+/**
+ * ✦ The Setnayan AI product for a web price tier. 🗑 Since 2026-11-04 Setnayan AI is NOT sold on its own (it comes with
+ * Event Plus and Event Pro), so this answers null for every tier — a page that drew an Apple door from it draws none.
+ */
 export function iapSetnayanAiProductForTier(tier: AiPriceTier | null | undefined): IapProduct | null {
   if (!tier || tier === 'E') return null;
   return IAP_PRODUCTS.find((p) => p.aiTier === tier) ?? null;
 }
 
 /**
- * ✦ May THIS product be sold to an event of THIS tier? Only its own tier: a Tier D product can never unlock a wedding,
- * and a wedding can never be sold the Tier D price. Every other product has no tier and is unaffected.
- */
-export function iapProductFitsAiTier(product: IapProduct, eventTier: AiPriceTier | null): boolean {
-  if (!product.aiTier) return true;
-  return eventTier !== null && product.aiTier === eventTier;
-}
-
-/**
  * The catalogue row an Apple price is checked against (ruling 4, one price everywhere) — the product's own code, except a
- * Setnayan AI tier product, which is checked against its tier's row (`AI_TIER_SKU`, the one tier → row map the web
+ * (retired) Setnayan AI tier product being delivered, which is checked against its tier's row (`AI_TIER_SKU`, the one tier → row map the web
  * charges from).
  */
 export function iapPriceRowFor(product: IapProduct): string {

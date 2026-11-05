@@ -12,18 +12,22 @@
 //     Fields: type, label (required), amount (payment), date (required),
 //     optional notes. Calls the addPreparationItem server action.
 //
-//   • DeletePreparationItemButton — a small inline Trash2 affordance rendered
-//     on the deletable agenda rows (the event_preparation_items rows only,
-//     NOT the autofill rows). Calls deletePreparationItem. A couple may
-//     remove their own items AND dismiss vendor-added ones (RLS allows both).
+//   • PrepItemSwipe — the deletable agenda rows' swipe-left Delete, with Undo
+//     (owner 2026-11-03; it was a small inline Trash2 button). The
+//     event_preparation_items rows only, NOT the autofill rows. Calls
+//     deletePreparationItem. A couple may remove their own items AND dismiss
+//     vendor-added ones (RLS allows both).
 //
 // Clean Editorial tokens only (cream / ink / terracotta / mulberry). All
 // interaction is contained here; the agenda stays a server component and
 // receives these as leaf controls.
 // ============================================================================
 
-import { useId, useState, useTransition } from 'react';
-import { Loader2, Plus, Trash2, X } from 'lucide-react';
+import { useId, useState, useTransition, type ReactNode } from 'react';
+import { Plus, X } from 'lucide-react';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
 import { PREP_KIND_OPTIONS, type PrepKind } from './prep-kind-picker';
 import { ScheduleAddPill, ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
@@ -193,53 +197,51 @@ export function AddPreparationItem({ eventId, door = 'button', hidden = false }:
 // ── Delete ──────────────────────────────────────────────────────────────
 
 /**
- * Inline delete affordance rendered on deletable agenda rows (manual /
- * vendor-added). Single-tap delete — these rows are cheap to re-add and a
- * confirm dialog would be heavy for a planning list. Removes the row +
- * refreshes; errors surface inline as a tiny tooltip-style title.
+ * 👈 A HAND-ADDED STEP'S DELETE IS ITS SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST ROW —
+ * NO VISIBLE ✕ ON ROWS"). It was a small trash button on the row (`DeletePreparationItemButton`); now the row itself is
+ * wrapped in THE ONE SWIPE (`app/_components/swipe-to-delete.tsx`) — swipe left on a phone, the hover trash on a
+ * computer — and the delete waits out the Undo window (`deleteWithUndo`): the row goes at once, Undo brings it back and
+ * nothing was written, a refusal brings it back and says so. Same write as before (`deletePreparationItem`, the same
+ * FormData). Only the manual / supplier-added rows (`event_preparation_items`) get it; autofill rows stay read-only.
+ *
+ * The page's Undo toast is mounted here, once per list (`UndoToastHost` draws only its first mount).
  */
-export function DeletePreparationItemButton({
+export function PrepItemSwipe({
   eventId,
   itemId,
   label,
+  children,
 }: {
   eventId: string;
   itemId: string;
   label: string;
+  children: ReactNode;
 }) {
-  const [isPending, startTransition] = useTransition();
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  function onDelete() {
-    setErrorMessage(null);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('item_id', itemId);
-    startTransition(async () => {
-      try {
-        await deletePreparationItem(fd);
-      } catch (err) {
-        setErrorMessage(
-          err instanceof Error ? err.message : 'Could not remove this item.',
-        );
-      }
-    });
-  }
-
+  const [gone, setGone] = useState(false);
+  if (gone) return <div hidden data-swipe-gone="" />;
   return (
-    <button
-      type="button"
-      onClick={onDelete}
-      disabled={isPending}
-      title={errorMessage ?? `Remove “${label}”`}
-      aria-label={`Remove ${label}`}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink/40 transition-colors hover:bg-ink/5 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
-    >
-      {isPending ? (
-        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-      ) : (
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      )}
-    </button>
+    <>
+      <UndoToastHost />
+      <SwipeToDelete
+        label={`Delete ${label}`}
+        surfaceClass="bg-cream"
+        onDelete={() =>
+          deleteWithUndo({
+            label: `“${label}” deleted`,
+            hide: () => setGone(true),
+            restore: () => setGone(false),
+            commit: () => {
+              const fd = new FormData();
+              fd.set('event_id', eventId);
+              fd.set('item_id', itemId);
+              return deletePreparationItem(fd);
+            },
+            failed: `Couldn’t delete “${label}”. It’s back — try again.`,
+          })
+        }
+      >
+        {children}
+      </SwipeToDelete>
+    </>
   );
 }

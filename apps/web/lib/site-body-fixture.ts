@@ -163,6 +163,7 @@ export const fixtureStranger = (): SiteBodyFixtureProps['identity'] => ({
   publicCandidCameraActive: false,
   publicAlbumHref: null,
   signedInNotListed: false,
+  seatUnread: false,
 });
 
 /** Every prop `SiteBody` takes, for the fixture invitation. A fresh object each call — a render cannot dirty the next. */

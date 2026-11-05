@@ -84,7 +84,7 @@ export async function postVendorReply(formData: FormData) {
 export async function submitFlagAsFake(formData: FormData) {
   const reviewId = formData.get('review_id');
   const reason = formData.get('reason');
-  if (typeof reviewId !== 'string' || typeof reason !== 'string') {
+  if (typeof reviewId !== 'string' || typeof reason !== 'string' || !reason.trim()) {
     throw new Error('Invalid input');
   }
 

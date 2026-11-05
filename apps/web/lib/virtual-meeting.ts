@@ -174,7 +174,7 @@ export function virtualLocationFromForm(formData: { get(name: string): unknown }
 // link shows. we can have a button conference room created. you can enter. no conference room created, create
 // one") ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 // From 15 min before the start, ONE button for everyone on the meeting: "Create the room" until somebody presses it
-// (`event_appointments.room_created_at`, set once — migration 20271308276036), then "Room created · Enter the room".
+// (`event_appointments.room_created_at`, set once — migration 20271311895322), then "Room created · Enter the room".
 // The proposer (`initiated_by`) is offered Create first — the filled button; the other side sees it outlined with a
 // note, and may still create it if the proposer has not.
 export const CREATE_ROOM_TIP = 'You open the room — sign in once with Google, Facebook or GitHub.';

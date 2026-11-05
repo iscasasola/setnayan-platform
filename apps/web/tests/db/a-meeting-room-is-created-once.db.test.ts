@@ -1,5 +1,5 @@
 /**
- * A MEETING ROOM IS CREATED ONCE, BY SOMEBODY ON THE MEETING — migration 20271308276036, proven as REAL
+ * A MEETING ROOM IS CREATED ONCE, BY SOMEBODY ON THE MEETING — migration 20271311895322, proven as REAL
  * `authenticated` sessions (SET ROLE + JWT claims), never as the superuser the replay otherwise runs as.
  *
  * Owner 2026-11-04 (DECISION_LOG "ONE BUTTON THAT SAYS WHAT THE ROOM NEEDS"), verbatim: "if a link shows. we can

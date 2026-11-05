@@ -31,11 +31,11 @@ chat"* · *"Guest card 1. Yes."*).
   code (`thread-call-actions`, `thread-call-room`, `call-webrtc`) is kept — deleting it is the owner's call; the
   `ugat-both-ends` baseline gains that one honest row (thread-call-room now has no importer), 41 → 42.
 
-**Schema** — migration `20271308276036_meeting_room_created_once.sql`: `event_appointments.room_created_at` /
+**Schema** — migration `20271311895322_meeting_room_created_once.sql`: `event_appointments.room_created_at` /
 `room_created_by` + trigger `tg_event_appointments_room_set_once` — never set on insert; on the first press the values
 are the database's own `now()` / `auth.uid()` (whatever the client sent); frozen after (a second press is a no-op). Who
 may press is the existing UPDATE policies (the two sides of the meeting). Earlier in this PR, data-only migration
-`20271305721935` moved catalog presets off 'voice' and deactivated the "Voice call" preset. `kind` stays a text CHECK;
+`20271311598756` moved catalog presets off 'voice' and deactivated the "Voice call" preset. `kind` stays a text CHECK;
 Virtual is stored as 'video'; the link lives in `location` as `"jitsi|<link>"`.
 
 **Admin**: no admin surface shows appointments today (`grep event_appointments app/admin` is empty), so there is no

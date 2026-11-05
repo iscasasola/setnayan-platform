@@ -44,6 +44,7 @@ import {
   shiftWall,
   tasksLine,
   wallDay,
+  wallTime,
   wallIso,
   wallLocal,
   type Chapter,
@@ -62,6 +63,8 @@ import { ViewAsMenu } from './schedule-view-as';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
 import { ChapterDeleteWords, ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors, type ChapterDoors } from './chapter-sheets';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { SchedulePeople } from './schedule-people';
+import { chapterMove, draggedStart, type ChapterMove } from '@/lib/chapter-move';
 import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
 import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
@@ -152,6 +155,8 @@ export type ChaptersInput =
       viewAs?: ViewAsInput | null;
       /** 🗓 The hosts' and the coordinator's asks of suppliers (D2); null = the read failed (said on the moment sheet). */
       asks?: HostAsk[] | null;
+      /** 📋 Booked suppliers with no chapter yet, by the chapters their trade usually serves (slice 8, dashed faces). */
+      picking?: Record<string, string[]>;
     }
   | { measured: false };
 
@@ -201,6 +206,10 @@ export function ChaptersHost({
   const [marches, setMarches] = useState<MarchList>(input.measured ? input.marches : { ok: false });
   const [asks, setAsks] = useState<HostAsk[] | null | undefined>(input.measured ? input.asks : undefined);
   const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
+  /** 🔎 The day narrowed to one chapter from the "N chapters" door (slice 8). */
+  const [dayFilter, setDayFilter] = useState<string | null>(null);
+  /** ↕ The desktop board's last drag (slice 10): its Undo, or the failure said in words. */
+  const [moved, setMoved] = useState<{ id: string; label: string; back: ChapterMove } | { failed: string } | null>(null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
   const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
     lab && labOpen ? { kind: 'edit', id: labOpen.moment } : null,
@@ -217,13 +226,14 @@ export function ChaptersHost({
      and the open sheet redraws when one changes. */
   const [lens, setLens] = useState<ViewLens>(EVERYONE);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsParts = useRef<{ line: ReactNode; tools: ReactNode }>({ line: null, tools: null });
+  const settingsParts = useRef<{ line: ReactNode; tools: ReactNode; needs: ReactNode }>({ line: null, tools: null, needs: null });
   const [, redrawSettings] = useState(0);
   const settingsOpenRef = useRef(false);
   settingsOpenRef.current = settingsOpen;
-  const setSettingsPart = useRef((part: 'line' | 'tools', node: ReactNode) => {
+  const setSettingsPart = useRef((part: 'line' | 'tools' | 'needs', node: ReactNode) => {
     settingsParts.current = { ...settingsParts.current, [part]: node };
-    if (settingsOpenRef.current) redrawSettings((n) => n + 1);
+    // The people column (desktop) is always on screen: what needs you redraws it at once.
+    if (settingsOpenRef.current || part === 'needs') redrawSettings((n) => n + 1);
   }).current;
   const [deleteAsk, setDeleteAsk] = useState<Chapter | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Chapter | null>(null);
@@ -323,9 +333,34 @@ export function ChaptersHost({
             setLens,
             openSettings: () => setSettingsOpen(true),
             setSettingsPart,
+            moments: moments.filter((m) => m.parent_block_id !== pendingDelete?.block_id),
+            tasks,
+            suppliers: who.suppliers,
+            picking: input.picking ?? {},
+            dayFilter: dayFilter && chapters.some((c) => c.block_id === dayFilter && c.block_id !== pendingDelete?.block_id) ? dayFilter : null,
+            setDayFilter,
+            moveChapter: (id, minutes) => {
+              const c = chapters.find((x) => x.block_id === id);
+              if (!c || !input.canEdit || c.time_tba) return;
+              const to = draggedStart(c.start_at, minutes);
+              const move = chapterMove(c, to.day, to.hhmm, input.lastDay);
+              if (!move || move.delta === 0) return;
+              const before: Partial<Chapter> = { start_at: c.start_at, end_at: c.end_at, time_tba: c.time_tba };
+              // In place, at once — the page never resets; a refused save puts it back and says so.
+              setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...move.next } : x)));
+              void doors.save(id, move.fields).then((ok) => {
+                if (!ok) {
+                  setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...before } : x)));
+                  setMoved({ failed: `${c.label} couldn’t be moved. Try again.` });
+                  return;
+                }
+                const back = chapterMove({ ...c, ...move.next }, wallDay(c.start_at), wallTime(c.start_at), input.lastDay);
+                if (back) setMoved({ id, label: c.label, back });
+              });
+            },
           }
         : null,
-    [chapters, input, openId, pendingDelete, lens, setSettingsPart],
+    [chapters, moments, tasks, who, input, openId, pendingDelete, lens, setSettingsPart, dayFilter, doors],
   );
 
   if (!input.measured || !api) {
@@ -365,10 +400,14 @@ export function ChaptersHost({
 
   return (
     <ChaptersContext.Provider value={api}>
-      {/* The views stay mounted (each drawn once by the server) — a chapter's page lays over them, never a request. */}
-      <div hidden={current !== null}>
+      {/* 🖥 SLICE 10 — ONE PAGE, THREE WIDTHS. A phone and an iPad in portrait: the day, and a chapter's page laid over it.
+          An iPad in landscape: the day BESIDE the opened chapter. A desktop: the day · the chapter · the people. The
+          views stay mounted (each drawn once by the server) — opening a chapter is never a request. */}
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_17rem]" data-schedule-panes="">
+      <div className={current ? 'min-w-0 max-lg:hidden' : 'min-w-0'} data-schedule-day-pane="">
         {children}
       </div>
+      <div className={current ? 'min-w-0' : 'hidden min-w-0 lg:block'} data-schedule-chapter-pane="">
       {current ? (
         <ChapterPage
           key={`page:${current.block_id}`}
@@ -409,7 +448,16 @@ export function ChaptersHost({
               : null
           }
         />
-      ) : null}
+      ) : (
+        <p className="pt-16 text-center text-[14px] text-ink/55" data-schedule-chapter-empty="">
+          Open a chapter to see it here.
+        </p>
+      )}
+      </div>
+      <aside className="hidden min-w-0 xl:block" data-schedule-people="">
+        <SchedulePeople needs={settingsParts.current.needs} />
+      </aside>
+      </div>
 
       {/* ONE sheet for a moment — Add swaps the new moment's body for the moment's own, never a second sheet. */}
       {momentSheet && current && (momentSheet.kind === 'new' || openMoment) ? (
@@ -593,6 +641,29 @@ export function ChaptersHost({
         </Sheet>
       ) : null}
 
+      {moved && 'back' in moved ? (
+        <PeekToast
+          key={`moved:${moved.id}:${moved.back.fields.start_at}`}
+          tone="ok"
+          data="chapter-moved"
+          action={{
+            label: 'Undo',
+            onPress: () => {
+              const { id, back } = moved;
+              setMoved(null);
+              setChapters((cs) => cs.map((x) => (x.block_id === id ? { ...x, ...back.next } : x)));
+              void doors.save(id, back.fields);
+            },
+          }}
+          onGone={() => setMoved(null)}
+        >
+          {moved.label} moved
+        </PeekToast>
+      ) : moved ? (
+        <PeekToast tone="bad" data="chapter-move-failed" onGone={() => setMoved(null)}>
+          {moved.failed}
+        </PeekToast>
+      ) : null}
       {pendingDelete ? (
         <PeekToast
           key={`deleted:${pendingDelete.block_id}`}
@@ -696,7 +767,10 @@ function ChapterPage({
   const about = [
     c.notes ? `Notes: ${c.notes}.` : null,
     c.time_tba ? 'No call time until the time is set.' : `Call time: ${c.call_lead_minutes} minutes before each person’s first task.`,
-    c.on_invitation ? 'On the invitation: guests reply to it.' : 'Not on the invitation.',
+    // 👁 Who sees this chapter lives here, in its ⓘ — never an eye on the day's rows (slice 8).
+    c.on_invitation
+      ? 'Who sees it: guests — it is on the invitation and they reply to it. Its Backstage moments stay hidden from them.'
+      : 'Who sees it: you, your coordinator and its suppliers. It is not on the invitation, so guests don’t see it.',
   ]
     .filter(Boolean)
     .join(' ');
@@ -850,7 +924,7 @@ function ChapterPage({
                       const clash = clashed.has(m.block_id);
                       const inner = (
                         <>
-                          <span className="w-[4.5rem] flex-none font-mono text-[14px] text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
+                          <span className="w-[4.5rem] flex-none text-[14px] tabular-nums text-ink/80" data-moment-clock={m.time_tba ? 'right-after' : 'time'}>
                             {momentClockWords(m, c, clockWords)}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -933,6 +1007,19 @@ function ChapterPage({
       ) : null}
 
       {canEdit ? <ChapterThumbRow onEdit={onEdit} onAddMoment={() => onAddMoment(open)} /> : null}
+      {/* 🖥 A desktop's tools are inline (slice 10): Edit · + Add a moment, a right-aligned bar at the chapter's foot. */}
+      {canEdit ? (
+        <div className="mt-4 hidden justify-end gap-2 border-t border-ink/10 pt-3 xl:flex" data-chapter-foot="">
+          <button type="button" onClick={onEdit} className={actionButtonClass('neutral')}>
+            <Pencil aria-hidden strokeWidth={2} />
+            Edit
+          </button>
+          <button type="button" onClick={() => onAddMoment(open)} className={actionButtonClass('brand', { main: true })}>
+            <Plus aria-hidden strokeWidth={2} />
+            Add a moment
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -946,7 +1033,7 @@ function ChapterThumbRow({ onEdit, onAddMoment }: { onEdit: () => void; onAddMom
   if (!host) return null;
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto xl:hidden"
       data-chapter-thumb=""
       data-safe-x=""
     >

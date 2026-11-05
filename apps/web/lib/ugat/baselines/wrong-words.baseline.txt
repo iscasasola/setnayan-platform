@@ -75,7 +75,6 @@ app/dashboard/[eventId]/website/editor/page.tsx "Reminders" → /dashboard/[even
 app/download/page.tsx "setnayan.com" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/download/page.tsx "Use it on the web instead" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/download/page.tsx "use Setnayan on the web" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/for-suppliers/_components/vendor-grow-sections.tsx "Get your invite link" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-grow-sections.tsx "List your business — free" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-hero-gate.tsx "List your business for free" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-tier-deltas.tsx "Talk to us →" → /help	# first run 2026-10-02 · public site · a "Messages" row that opens the roster

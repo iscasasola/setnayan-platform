@@ -39,3 +39,7 @@ SPEC IMPACT: DECISION_LOG row "SUPPLIER CLAIM SCANNER — SLICE 1 BUILT" added t
 "count only". Still noted: the
 2026-10-28 EV3 ruling queues day-of scans offline — a claim's number is allocated by the database, so this slice says
 "No signal" and records nothing rather than queue a claim without a number.
+
+- **Export (RA 10173), 2026-11-06:** the scans a crew member made are in their own "Download my data" file as
+  `supplier_scans_made` (read by `scanned_by_user_id`; the guest and the event are not selected), so the table is
+  exported rather than added to `KNOWN_GAPS` — main had lowered that ceiling to 68.

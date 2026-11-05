@@ -101,7 +101,7 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
                     onClick={() => run(() => kwentoOffWall(eventId, row.messageId))}
                     className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2.5 py-1.5 text-xs text-ink/70 hover:bg-ink/5 disabled:opacity-60"
                   >
-                    <MonitorOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Take off wall
+                    <MonitorOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Take off Memory lane
                   </button>
                 ) : (
                   <button
@@ -109,13 +109,13 @@ export function KwentoQueueControls({ eventId, rows }: { eventId: string; rows: 
                     disabled={pending || row.moderation !== 'clean'}
                     title={
                       row.moderation !== 'clean'
-                        ? 'Held messages can never go on the venue wall'
-                        : 'Show this message on the venue wall'
+                        ? 'Held messages can never go on Memory lane'
+                        : 'Show this message on Memory lane'
                     }
                     onClick={() => run(() => kwentoToWall(eventId, row.messageId))}
                     className="inline-flex items-center gap-1 rounded-md border border-terracotta/40 px-2.5 py-1.5 text-xs font-medium text-terracotta hover:bg-terracotta/10 disabled:opacity-40"
                   >
-                    <MonitorPlay aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Show on wall
+                    <MonitorPlay aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Show on Memory lane
                   </button>
                 )
               ) : (

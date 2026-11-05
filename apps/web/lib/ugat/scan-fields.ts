@@ -825,11 +825,15 @@ interface RawForm {
   children: string[];
 }
 
+/** The Form row family (`app/_components/form-row.tsx`, `form-row-date.tsx`): `name` is its label, `fieldName` what it posts. */
+const FORM_ROW_TAGS = /^(?:TypedRow|ChosenRow|SwitchRow|DateRow|FormRow|FactRow|OpensRow)$/;
+
 function formsIn(rel: string, src: string): RawForm[] {
   const out: RawForm[] = [];
-  for (const m of src.matchAll(/<form\b/g)) {
+  // `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings.
+  for (const m of src.matchAll(/<(form|SafeForm)\b/g)) {
     // the opening tag ends at the first depth-0 `>` that is not `=>`
-    let k = m.index! + 5;
+    let k = m.index! + m[0].length;
     let depth = 0;
     let openEnd = -1;
     while (k < src.length) {
@@ -852,7 +856,7 @@ function formsIn(rel: string, src: string): RawForm[] {
     }
     if (openEnd < 0) continue;
     const open = src.slice(m.index!, openEnd + 1);
-    const closeAt = src.indexOf('</form>', openEnd);
+    const closeAt = src.indexOf(`</${m[1]}>`, openEnd);
     const inner = closeAt > 0 ? src.slice(openEnd, closeAt) : '';
     const exprs: string[] = [];
     for (const a of (open + inner).matchAll(/\b(?:action|formAction)=\{/g)) {
@@ -864,9 +868,17 @@ function formsIn(rel: string, src: string): RawForm[] {
     const inputs = new Set<string>();
     for (const n of inner.matchAll(/<([A-Za-z][\w.]*)\b[^<>]*?\bname=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\}|\{`([^`$]+)`\})/g)) {
       if (/^meta$/i.test(n[1]!)) continue;
+      // A Form row's `name` is the WORDS on its left ("Contact", "From") — never a posted field. What a Form row
+      // posts is its `fieldName` (`form-row.tsx`: "the name this row's kept words are POSTED under"), read below.
+      if (FORM_ROW_TAGS.test(n[1]!)) continue;
       const name = (n[2] ?? n[3] ?? n[4] ?? n[5])!;
       if (/\s/.test(name)) continue;
       inputs.add(name);
+    }
+    for (const n of inner.matchAll(/<([A-Z][\w.]*)\b[^<>]*?\bfieldName=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\})/g)) {
+      if (!FORM_ROW_TAGS.test(n[1]!)) continue;
+      const name = (n[2] ?? n[3] ?? n[4])!;
+      if (!/\s/.test(name)) inputs.add(name);
     }
     if (exprs.length === 0 && inputs.size === 0) continue;
     const children = [...new Set([...inner.matchAll(/<([A-Z][\w]*)\b/g)].map((c) => c[1]!))].sort();
@@ -962,7 +974,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       return c ? literalAt(c) : null;
     };
     const reads = src.includes('.select(') ? readsIn(src, constLiteral) : [];
-    const forms = rel.endsWith('.tsx') && src.includes('<form') ? formsIn(rel, src) : [];
+    const forms = rel.endsWith('.tsx') && /<(?:form|SafeForm)\b/.test(src) ? formsIn(rel, src) : [];
     const stores: string[] = [];
     for (const m of src.matchAll(/\b(?:window\.)?(local|session)Storage\.setItem\(\s*/g)) {
       const lit = literalAt(src.slice(m.index! + m[0].length));

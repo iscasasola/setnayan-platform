@@ -42,6 +42,7 @@
  */
 import type { DemoOverlayId } from './demo-overlay-bus';
 import type { ProfileSurface } from './event-type-profile';
+import type { EventMenuIconName } from './customer-menu';
 
 export type StudioApp = {
   /** Stable id. Also the rail row's key. */
@@ -59,12 +60,8 @@ export type StudioApp = {
    * because rewording it would have quietly rewritten seven live search results.
    */
   description: string;
-  /**
-   * The rail's one line. A faithful compression of `description` — same claim,
-   * fewer words. Never a NEW claim: if these two ever say different things
-   * about what a product does, this file has failed at its only job.
-   */
-  railLine: string;
+  // `railLine` (the signed-out rail's one line per product) left with the rail's
+  // tool lists, 2026-10-23 — owner 2026-10-01: /features says what each one does.
   /**
    * The product's live demo, when one EXISTS — read by BOTH the rail's "try it"
    * marker and the demo button on the product's own page.
@@ -135,7 +132,7 @@ export type StudioApp = {
    * event the person is handed these same three destinations twice:
    *   · the event's own rail (`EventRailContext` via `customer-nav-config.ts`)
    *     carries **Guests · Marketplace→`/vendors` · Seat plan** — read
-   *     `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
+   *     the retired `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
    *     reason and calls a second copy *"the exact 'same destination, two
    *     names' defect … the Studio/Suite rail once shipped precisely this
    *     duplicate and had to be corrected."*
@@ -180,6 +177,20 @@ export type StudioApp = {
    * `doorwayOnly` and `surface` still decide that, independently.
    */
   railGroup?: 'studio' | 'planner' | 'together';
+  /**
+   * THE ROW'S ICON, BY NAME — drawn from `EVENT_MENU_ICONS`, the event menu's
+   * own vocabulary, so a product wears the same glyph in the rail as it does
+   * in the event menu and the More sheet.
+   *
+   * 🔴 REQUIRED, BECAUSE THE ROW HAD NONE AND THE STRIP SHOWED IT. The tool
+   * rows drew a 6-px bullet where every other rail row draws a Lucide icon.
+   * Beside a word, at 1280+, a bullet reads as a list marker; in the 72-px
+   * strip (1024–1279, and an iPad 13" held upright at 1032) the word is gone,
+   * so seven rows rendered as a lone dot over a caption — read on the device
+   * as icons that failed to load (PR #6716 walk, D6). A name and not a
+   * component because these rows cross the server→client boundary.
+   */
+  railIcon: EventMenuIconName;
 };
 
 /**
@@ -198,16 +209,16 @@ export type StudioApp = {
 export const STUDIO_APPS: readonly StudioApp[] = [
   {
     key: 'setnayan-ai',
+    railIcon: 'ai',
     name: 'Setnayan AI',
     href: '/setnayan-ai',
     description:
       'Every other wedding AI waits for you to ask. Setnayan AI watches the suppliers you’re eyeing and the ones you’ve booked — finding your best-fit Filipino suppliers, then flagging a payment due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
-    railLine:
-      'Watches your suppliers and flags a payment, a price change or a clash before it costs you.',
     addOnKey: 'setnayan-ai',
   },
   {
     key: 'pawebsite',
+    railIcon: 'hub',
     // ⚠ NAME ≠ ROUTE, DELIBERATELY (owner 2026-08-15). The product is "Event
     // Hub"; the address stays `/pawebsite` so the sitemapped, indexed URL keeps
     // its search history. This is EXACTLY the shape Live Studio already ships
@@ -218,17 +229,16 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/pawebsite',
     description:
       'Your Event Hub is one beautiful home for your whole event — your save-the-date, your RSVP, your event details, and your love story, told like a magazine feature. One address you share once, and everything your guests need is there.',
-    railLine: 'One link for your save-the-date, RSVP, details and love story.',
     addOnKey: 'landing-page',
     surface: 'website',
   },
   {
     key: 'papic',
+    railIcon: 'papic',
     name: 'Papic',
     href: '/papic',
     description:
-      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own gallery — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
-    railLine: 'Turns your guests into your photo crew.',
+      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
     demo: {
       id: 'papic-demo',
       label: 'Try it now with a friend',
@@ -238,11 +248,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'panood',
+    railIcon: 'live',
     name: 'Live Watch',
     href: '/panood',
     description:
       'Live Watch brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own Event Hub. Presence across distance, for everyone you love.',
-    railLine: 'Brings the people who can’t be in the room into your day — live.',
     demo: {
       id: 'panood-demo',
       label: 'Try the control room with two phones',
@@ -256,20 +266,20 @@ export const STUDIO_APPS: readonly StudioApp[] = [
   },
   {
     key: 'patiktok',
+    railIcon: 'patiktok',
     name: 'Patiktok',
     href: '/patiktok',
     description:
       'Patiktok turns your wedding moments into short, vertical highlight reels — set to music, ready to share, no editing required. The first dance, the entrance, the toast: the moments that travel, made the moment they happen.',
-    railLine: 'Turns your moments into short, vertical highlight reels.',
     addOnKey: 'patiktok',
   },
   {
     key: 'pa3d',
+    railIcon: 'plan3d',
     name: '3D Plan',
     href: '/pa3d',
     description:
       '3D Plan lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there, and 3D Plan — free as well — lets you walk it.',
-    railLine: 'Stand in your reception before it’s built.',
     demo: {
       id: 'plan3d-demo',
       label: 'Walk around a sample reception',
@@ -328,11 +338,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       product to.
     */
     key: 'mood-board',
+    railIcon: 'mood-board',
     name: 'Mood Board',
     href: '/mood-board',
     description:
       'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
-    railLine: 'Pick your colors once — every piece dresses to match.',
     addOnKey: 'mood-board',
   },
   {
@@ -358,12 +368,11 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       that, matching the `add-ons-catalog.ts` entry it opens.
     */
     key: 'pakanta',
+    railIcon: 'pakanta',
     name: 'Music Maker',
     href: '/pakanta',
     description:
       'Music Maker writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
-    railLine:
-      'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
     surface: 'song',
   },
@@ -400,33 +409,33 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       decision, recorded as open in the corpus DECISION_LOG, not made here.
     */
     key: 'marketplace',
+    railIcon: 'team',
     name: 'Marketplace',
     href: '/marketplace',
     description:
       'Browse verified Filipino wedding suppliers — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
-    railLine: 'Browse verified Filipino suppliers free, and compare two side by side.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',
   },
   {
     key: 'guest-list',
+    railIcon: 'guests',
     name: 'Guest list',
     href: '/guest-list',
     description:
       'Every guest is one row — RSVP, plus-one, meal preference, role and table, with a personal QR that updates your list the moment they answer. Free with every Setnayan account.',
-    railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
     eventHref: (eventId) => `/dashboard/${eventId}/guests`,
     doorwayOnly: true,
     railGroup: 'planner',
   },
   {
     key: 'seat-plan',
+    railIcon: 'seat',
     name: 'Seat plan',
     href: '/seat-plan',
     description:
       'Seat Plan is the free seating chart in every Setnayan wedding. Lay out your tables, drag every guest into a chair, keep the right people apart and the right groups together, then print the chart and hand it to your coordinator.',
-    railLine: 'Lay out your tables and seat every guest — free.',
     addOnKey: 'seating',
     surface: 'seating',
     eventHref: (eventId) => `/dashboard/${eventId}/seating`,
@@ -443,22 +452,22 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       event's own rail already carries Budget and Schedule.
     */
     key: 'budget',
+    railIcon: 'budget',
     name: 'Budget',
     href: '/budget',
     description:
       'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
-    railLine: 'Your budget in PHP: planned, agreed, paid and owed. Free.',
     eventHref: (eventId) => `/dashboard/${eventId}/budget`,
     doorwayOnly: true,
     railGroup: 'planner',
   },
   {
     key: 'schedule',
+    railIcon: 'schedule',
     name: 'Schedule',
     href: '/schedule',
     description:
-      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s invitation site with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
-    railLine: 'Your wedding day, block by block, live for guests and suppliers.',
+      'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s Event Hub with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
     eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -482,20 +491,20 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       join route is untouched.
     */
     key: 'samahan',
+    railIcon: 'groups',
     name: 'Groups',
     href: '/samahan',
     description:
       'Groups are the shared spaces in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
-    railLine: 'Your barkada, ninongs, family — chat, stories, the next reunion.',
     railGroup: 'together',
   },
   {
     key: 'palogo',
+    railIcon: 'logo',
     name: 'Logo Maker',
     href: '/palogo',
     description:
-      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your website, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
-    railLine: 'One monogram of your own, carried across your whole day.',
+      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
     addOnKey: 'animated-monogram',
     surface: 'monogram',
     // ⚠ /palogo IS STILL A LIVE PAGE. The LED backdrop was removed from the

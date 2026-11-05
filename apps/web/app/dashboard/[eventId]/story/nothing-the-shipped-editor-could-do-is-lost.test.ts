@@ -175,7 +175,8 @@ test('the PRO abilities are still Pro on the server, open on the client — and 
   assert.doesNotMatch(editor, /disabled=\{!isPro/, 'a Pro touch is disabled for a couple without Pro — Apply is the gate');
   assert.doesNotMatch(editor, /state=\{?['"]locked['"]|: 'locked'/, 'a padlock on a Pro touch');
   // The non-Pro branch drafts them — never onto the live story.
-  const heldBlock = actions.slice(actions.indexOf('if (!isPro) {'), actions.indexOf('const sectionOrder ='));
+  // (RE-AIMED 2026-10-18: the held block now ends where the one draft builder begins — `const heldColumnIds =`.)
+  const heldBlock = actions.slice(actions.indexOf('if (!isPro) {'), actions.indexOf('const heldColumnIds ='));
   assert.ok(heldBlock.length > 0 && /saveHubDraftPatch\(eventId, \{ editorial: heldPatch \}\)/.test(actions), 'a non-Pro save no longer keeps its Pro touches in the Event Hub draft');
   assert.doesNotMatch(heldBlock, /draft\.(chapterOverrides|customColumns|reviews)\s*=/, 'a non-Pro save wrote a Pro touch onto the LIVE story');
   // The client flag is presentation only — the SERVER strip is the real gate.
@@ -184,13 +185,15 @@ test('the PRO abilities are still Pro on the server, open on the client — and 
     'saveEditorial no longer strips the PRO keys from a non-PRO save',
   );
   // Section order: free on both sides, and the order can only name columns the story holds.
-  const proBlock = actions.match(/if \(isPro\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite, round 3): the draft is built by ONE function (`buildDraft`) for what the
+     screen sends AND what it started from, so the block sits one level deeper and reads `inp`. Same property. */
+  const proBlock = actions.match(/if \(isPro\) \{[\s\S]*?\n {2,4}\}/)?.[0] ?? '';
   assert.ok(proBlock.includes('chapterOverrides'), 'the Pro block was not found');
   assert.ok(!/draft\.sectionOrder =/.test(proBlock), 'section order went back behind Pro on the server');
   // …the columns it HOLDS, and the ones a couple without Pro is trying (held in the draft).
   assert.match(
     actions,
-    /sanitizeSectionOrder\(input\.sectionOrder, \[\s*\.\.\.sanitizeCustomColumns\(draft\.customColumns\)[^\]]*\.\.\.\(heldPatch\?\.customColumns/,
+    /sanitizeSectionOrder\(inp\.sectionOrder, \[\s*\.\.\.sanitizeCustomColumns\(draft\.customColumns\)[^\]]*\.\.\.heldColumnIds/,
   );
   assert.match(editor, /moveSection\(i, -1\)\}\s*disabled=\{i === 0\}/, 'moving a section up went back behind Pro');
   assert.match(editor, /moveSection\(i, 1\)\}\s*disabled=\{i === sectionOrder\.length - 1\}/, 'moving a section down went back behind Pro');

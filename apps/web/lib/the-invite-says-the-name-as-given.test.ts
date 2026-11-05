@@ -5,8 +5,11 @@
  * to them"*. The `{name}` in "Send invite" / "Copy message" (the guest card, the
  * guest page, "Send invites one by one", the Invitation page, an accepted
  * request) is the guest's name exactly as the couple entered it on the Guest
- * list — `guestFullName`: their Display name when they set one, else the five
- * parts composed — never a first name alone.
+ * list — `guestNameAsGiven`: their "Shown as" when they set one, else the five
+ * parts composed (`guestFullName`) — never a first name alone. The message is
+ * addressed TO the guest, which is where the 2026-10-20 ruling keeps "Shown as"
+ * (DECISION_LOG "THE INVITATION PRINTS A GUEST'S FULL NAME — SHOWN AS NEVER
+ * REPLACES IT"); the invitation's formal surfaces print `guestFullName`.
  *
  * Held two ways: what the builder writes, and that every couple-side caller
  * hands it the formal name (`SendInviteGuest.formalName` is required, so the
@@ -19,7 +22,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { buildGuestInviteMessage } from '@/lib/guest-invite-message';
-import { guestFullName } from '@/lib/guests';
+import { guestFullName, guestNameAsGiven } from '@/lib/guests';
 
 const MANUEL = {
   display_name: null,
@@ -51,9 +54,9 @@ test('the message for a guest with all five parts greets the whole formal name',
   assert.match(own ?? '', /^Dear Mr\. Manuel Cortez Casasola Jr\., see you!/);
 });
 
-test('the couple’s Display name, when they set one, is the name as given', () => {
+test('the couple’s Shown as, when they set one, is the name as given — the message is addressed to the guest', () => {
   const msg = buildGuestInviteMessage({
-    formalName: guestFullName({ ...MANUEL, display_name: 'Tito Boy & Tita Cora' }),
+    formalName: guestNameAsGiven({ ...MANUEL, display_name: 'Tito Boy & Tita Cora' }),
     firstName: 'Manuel',
     inviteUrl: 'https://www.setnayan.com/x?invite=t',
   });

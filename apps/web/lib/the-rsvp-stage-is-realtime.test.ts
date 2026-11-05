@@ -71,7 +71,9 @@ test('A · the shell draws the stage for its bar item, and the launch page build
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /selection\.key === 'rsvp-stage' \? \(\s*<div[^>]*data-maker-rsvp-layer/, 'the shell has no layer for the RSVP stage');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /rsvpStage=\{rsvpStage\}/, 'the launch page does not hand the stage to the shell');
+  /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`). */
+  assert.match(page, /return \{[^}]*\brsvpStage,[^}]*opensOnGuide:/s, 'the launch page does not hand the stage to the shell');
+  assert.match(page, /late=\{late\}/, 'the launch page does not hand the stage to the shell');
   assert.match(page, /import \{[^}]*\bMakerRsvpStage\b[^}]*\} from '\.\/_components\/details-lazy'/, 'the stage must come through details-lazy');
   // Raw, not comment-stripped: the chunk's NAME is a comment (`webpackChunkName`).
   const lazy = readFileSync(join(ROOT, `${L}/details-lazy.tsx`), 'utf8');
@@ -248,10 +250,16 @@ test('E · every save the RSVP stage makes is held, batched, and asks for the ba
   const branch = stageSaveBranch(panel);
   assert.match(branch, /announceRsvpPreview\(next\);[\s\S]*makerSave\(/, 'the canvas must be told BEFORE the save goes');
   assert.match(branch, /makerLatestWrite\(canvasWriteKey\(RSVP_DRAFT_TYPE\)/, 'the stage save is not batched');
-  assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true \}/, 'the stage save is not held');
+  /* (2026-10-13: …and hands its ↺ inverse — `undo`, `lib/maker-drawn-undo.ts`) */
+  assert.match(branch, /\{ held: true, ok: \(r\) => r !== SUPERSEDED && r\.ok === true, undo \}/, 'the stage save is not held');
   assert.match(branch, /fd\.set\(HUB_DRAFT_BAR_FIELD, '1'\)/, 'the Apply count must come back with the save');
-  const liveAt = panel.indexOf('function LiveReplyByField(');
-  const live = panel.slice(liveAt, panel.indexOf('\nfunction ', liveAt + 1) > 0 ? panel.indexOf('\nfunction ', liveAt + 1) : undefined);
+  /* The reply-by field is the shared `ReplyBy` part (2026-10-07) — the Maker's stage mounts it. */
+  /* …as the first of the reply's rows — the app's date row, framed (2026-10-08, the templates; it was `layout="stack"`). */
+  assert.match(panel, /<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}/, 'the stage no longer mounts the reply-by field');
+  assert.match(panel, /data-rsvp-stage-controls="form">\s*\{formRows\}/, 'the stage’s form does not draw the reply’s rows');
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  const liveAt = part.indexOf('export function ReplyBy(');
+  const live = part.slice(liveAt, part.indexOf('\nexport function ', liveAt + 1));
   assert.ok(live.length > 100, 'the stage reply-by field is gone');
   assert.match(live, /makerLatestWrite\(/, 'the reply-by save is not batched');
   assert.match(live, /\{ held: true,/, 'the reply-by save is not held');

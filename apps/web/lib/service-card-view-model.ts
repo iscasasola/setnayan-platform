@@ -41,6 +41,9 @@ const SERVICE_CARD_INCLUSION_LIMIT = 3;
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
 export type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
+/** 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30). */
+export type CoupleLook = { id: string; url: string; credit: string };
+
 export type ServiceCard = {
   id: string;
   /**
@@ -87,6 +90,15 @@ export type ServiceCard = {
   photos: string[];
   /** Showcase clip display URL (presigned server-side). null → no video. */
   videoUrl: string | null;
+  /**
+   * 🔗🖼 THE CARD'S OWN INSPIRATION LOOKS (owner 2026-10-30, "CONNECTED FOUR WAYS" + the approved website-by-plan
+   * design: "a user can see inspiration cards inside the service card"): the shop's ADMIN-APPROVED library photos linked
+   * to THIS card (`fetchShopInspirationLooks` → `looksByCard`). OPTIONAL and ABSENT unless a caller read them — every
+   * other surface's card serializes byte-for-byte as before. `[]` = read, and this card has none ("No looks yet").
+   */
+  inspirationLooks?: CardInspirationLook[];
+  /** The in-page anchor the page's Inspiration section links a look to ("Open card"). Present with `inspirationLooks`. */
+  anchorId?: string;
   // ── Card Record (2026-07-28, flag NEXT_PUBLIC_CARD_RECORD_ENABLED) ────────
   /** Compiled history of THIS card — booked count, event-type mix, anonymized
    *  ledger, milestone medals. Compiled server-side by compileCardRecord(); the
@@ -104,7 +116,18 @@ export type ServiceCard = {
    * card is offered in chat. A yes/no — never a photo count (see that file).
    */
   givesSetnayanGift: boolean;
+  /**
+   * 📸 FROM COUPLES (owner 2026-10-30): couples' own photos of this card's work, APPROVED by the shop, each with its
+   * credit line ("Ana & Ben · Feb 2027" / "A couple"). OPTIONAL and ABSENT when there are none, so every card without
+   * one serializes byte-for-byte as before. Filled only from `fetchServiceCardCouplePhotos` (approved rows only).
+   */
+  coupleLooks?: CoupleLook[];
 };
+
+/** Attach a card's approved couple photos — absent (not `[]`) when there are none. */
+export function withCoupleLooks(card: ServiceCard, looks: CoupleLook[] | undefined): ServiceCard {
+  return looks && looks.length > 0 ? { ...card, coupleLooks: looks } : card;
+}
 
 export function toServiceCard(
   row: VendorServiceRow,
@@ -278,4 +301,22 @@ export function toServiceCard(
     recordRating: cardRecordHasSomethingToSay(cardRecord) ? cardRecordRating : null,
     givesSetnayanGift: row.includes_setnayan_gift === true,
   };
+}
+
+/** 🔗🖼 One approved inspiration photo inside its service card (2026-10-30). */
+export type CardInspirationLook = { id: string; url: string; part: string };
+
+/** The anchor a card's Inspiration links land on — its PUBLIC id when it has one, never the internal uuid in a URL. */
+export function cardAnchorId(publicId: string | null | undefined, id: string): string {
+  return `card-${publicId || id.slice(0, 8)}`;
+}
+
+/** Attach a card's inspiration looks (read by the caller); `undefined` = not read → the card is untouched. */
+export function withInspirationLooks(
+  card: ServiceCard,
+  looks: readonly CardInspirationLook[] | undefined,
+  anchorId: string,
+): ServiceCard {
+  if (looks === undefined) return card;
+  return { ...card, inspirationLooks: looks.map((l) => ({ id: l.id, url: l.url, part: l.part })), anchorId };
 }

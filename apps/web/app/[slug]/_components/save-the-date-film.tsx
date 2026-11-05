@@ -40,11 +40,15 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
+import { VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { fitLockupScale, measureLockupInk, type LockupInk } from '@/lib/film-lockup-fit';
+import { isAppleTouchDevice } from '@/lib/apple-device';
 
 /**
  * Set an <audio>/<video> volume safely. The HTML spec requires the setter to
@@ -79,9 +83,7 @@ function setVol(el: HTMLMediaElement | null, v: number) {
  */
 function isIOSWebKit(): boolean {
   if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  if (/iPad|iPhone|iPod/.test(ua)) return true;
-  return /Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1;
+  return isAppleTouchDevice(navigator.userAgent || '', navigator.maxTouchPoints);
 }
 
 /**
@@ -192,6 +194,23 @@ const ANIM = {
 export const STD_FILM_EXIT_EVENT = 'std:film-exit';
 
 /**
+ * 👆 A PRESS IS AT LEAST 44px ON THE GLASS — WHATEVER THE STAGE'S SCALE.
+ *
+ * The film is drawn on a fixed BASE_W×BASE_H stage and the whole stage is
+ * scaled to fit the screen (`fitScale`). On a phone that scale is BELOW one —
+ * 0.85 at 375 wide, 0.73 at 320 — so a control that is 44px tall on the stage
+ * was 37px on a 375 phone and 32px on a 320 one (a guest's walk 2026-10-11:
+ * "See our page" measured 117×37 and 93×32). This is the height to give a
+ * control ON THE STAGE so that it is 44px once scaled; on a screen that scales
+ * the stage up it is simply 44.
+ */
+export const FILM_PRESS_PX = 44;
+export function stagePressPx(fitScale: number): number {
+  const scale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 1;
+  return Math.max(FILM_PRESS_PX, Math.ceil(FILM_PRESS_PX / scale));
+}
+
+/**
  * 🎬 The film has reached its CLOSE (the last beat, which holds for good). The
  * stage's Auto runner (`stage-autoplay.tsx`) listens for it to carry the stage
  * on to its next scenes — before this, nothing heard the end, so the Save the
@@ -254,7 +273,9 @@ function FilmMonogram({
   textCls,
   textStyle,
   lockup,
-  lockupScaleCls,
+  lockupScale,
+  fitScale,
+  roomW,
   animatedMonogram,
   studioAnim,
   monoReplayKey,
@@ -272,9 +293,15 @@ function FilmMonogram({
   textStyle?: React.CSSProperties;
   /** The onboarding lockup — rendered when there's no uploaded/lab SVG. */
   lockup?: StdLockup | null;
-  /** Fixed Tailwind scale class for the 80px HeroMonogram so it fills this beat
-   *  (the stage's transform-scale handles all responsiveness — no breakpoints). */
-  lockupScaleCls: string;
+  /** The beat's designed scale for the 80px HeroMonogram so it fills this beat
+   *  (the stage's transform-scale handles all responsiveness — no breakpoints).
+   *  It is the CEILING: on a screen too narrow for the lockup's ink it comes down
+   *  (`fitLockupScale`, B5 2026-10-19). */
+  lockupScale: number;
+  /** The stage's scale on this screen, and the width the film is drawn into
+   *  (screen px) — what `fitLockupScale` fits the ink against. */
+  fitScale: number;
+  roomW: number;
   /** Paid Animated Monogram motion, or false. Truthy → the lockup animates + a
    *  bespoke mark gets a one-shot bloom entrance. */
   animatedMonogram: MonogramMotionKey | false;
@@ -297,6 +324,30 @@ function FilmMonogram({
    *  degrade to the CSS Gold Turn. Default false → safe (no shader while hidden). */
   active?: boolean;
 }) {
+  // 📐 Where the lockup's ink really reaches (glyph overhang included), measured
+  // once laid out and again when the couple's face finishes loading — the scale
+  // below comes down only if that ink would cross the screen's edge (B5).
+  const lockupRef = useRef<HTMLDivElement>(null);
+  const [ink, setInk] = useState<LockupInk | null>(null);
+  useEffect(() => {
+    if (!lockup || svg) return;
+    let live = true;
+    const read = () => {
+      if (!live) return;
+      const next = measureLockupInk(lockupRef.current);
+      if (next) setInk((was) => (was && Math.abs(was.left - next.left) < 0.5 && Math.abs(was.right - next.right) < 0.5 ? was : next));
+    };
+    read();
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+    fonts?.ready.then(read).catch(() => {});
+    fonts?.addEventListener?.('loadingdone', read);
+    return () => {
+      live = false;
+      fonts?.removeEventListener?.('loadingdone', read);
+    };
+  }, [lockup, svg, monoReplayKey, fitScale, roomW]);
+  const shownScale = fitLockupScale(lockupScale, fitScale, roomW, ink);
+
   // The logo ink = the couple's ACCENT (the CTA button colour), NOT the monogram's
   // own colour (owner 2026-06-22). A soft tone-glow still lifts the mark off the
   // background so it stays legible on any background.
@@ -348,14 +399,19 @@ function FilmMonogram({
     // HeroMonogram's inkOverride (a plain `color` override on monogram is ignored,
     // since HeroMonogram re-resolves ink from the design columns).
     return (
-      /* 📐 THE SLOT IS THE SCALED SIZE. `lockupScaleCls` is a transform: it grows
+      /* 📐 THE SLOT IS THE SCALED SIZE. `lockupScale` is a transform: it grows
          the ink, never the layout box, so the 80px mark kept reserving 80px while
          painting ~216px — straight over the "Save the Date" label above it (the
          label sat behind the divider rule). The outer box reserves what the mark
          will paint (`sizeCls`, the same box a bespoke mark gets), the inner one
          scales inside it. */
       <div aria-hidden data-film-lockup-slot="" className={`${sizeCls} inline-flex items-center justify-center`}>
-        <div className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
+        <div
+          ref={lockupRef}
+          data-film-lockup-ink=""
+          className="inline-flex origin-center items-center justify-center"
+          style={{ filter: glow, transform: `scale(${shownScale})` }}
+        >
           <HeroMonogram
             key={monoReplayKey}
             event={lockup.design}
@@ -489,6 +545,11 @@ export function SaveTheDateFilm({
   const [started, setStarted] = useState(false); // flips true when the film first starts (reveal-done) so the opening monogram replays when it's actually shown
   const monoReplayKey = String(idx) + '-' + String(started);
 
+  // The stage's scale on this screen (measured below, where the stage is laid out). Declared HERE because the
+  // closing beat's "See our page" — built into the slides just under this line — sizes its press by it.
+  const [fitScale, setFitScale] = useState(1);
+  // …and the width it is drawn into (screen px; 0 until measured). The monogram beats fit their lockup's ink to it.
+  const [roomW, setRoomW] = useState(0);
   const slides: Slide[] = [];
 
   // 1 — monogram / logo
@@ -505,7 +566,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[2.7]"
+          lockupScale={2.7}
+          fitScale={fitScale}
+          roomW={roomW}
           sizeCls="h-[13.5rem] w-[13.5rem]"
           textCls={`${theme.fontCls} text-7xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
@@ -587,7 +650,7 @@ export function SaveTheDateFilm({
       anim: ANIM.slideR,
       node: (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className={LABEL}>The celebration</p>
+          <p className={LABEL}>The event</p>
           <p className={`${theme.fontCls} text-xl italic ${theme.subtleText}`}>And we&rsquo;ll celebrate together at</p>
           <h2 className={`${theme.fontCls} text-5xl font-medium`}>{content.receptionVenue}</h2>
           {content.receptionCity ? (
@@ -610,7 +673,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[1.35]"
+          lockupScale={1.35}
+          fitScale={fitScale}
+          roomW={roomW}
           sizeCls="h-24 w-24"
           textCls={`${theme.fontCls} text-3xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
@@ -671,6 +736,7 @@ export function SaveTheDateFilm({
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
+            {...{ [VEIL_FREE_ATTR]: '' }}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"
@@ -725,7 +791,9 @@ export function SaveTheDateFilm({
           svg={content.monogramSvg}
           text={content.monogram}
           lockup={lockup}
-          lockupScaleCls="scale-[1.65]"
+          lockupScale={1.65}
+          fitScale={fitScale}
+          roomW={roomW}
           sizeCls="h-36 w-36"
           textCls={`${theme.fontCls} text-4xl font-medium ${accentMarkCls}`}
           textStyle={accentMarkStyle}
@@ -770,16 +838,26 @@ export function SaveTheDateFilm({
             the film has played is not a finale. */}
         {(content.icsHref || content.gcalUrl) && idx === closeIdx ? (
           <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-            <a
-              href={content.icsHref ?? content.gcalUrl ?? '#'}
-              {...(content.icsHref
-                ? { download: content.icsFilename }
-                : { target: '_blank', rel: 'noopener noreferrer' })}
-              className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
-              style={accentBtnStyle}
-            >
-              Add to calendar
-            </a>
+            {content.icsHref ? (
+              <SaveFileLink
+                href={content.icsHref}
+                filename={content.icsFilename}
+                className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
+                style={accentBtnStyle}
+              >
+                Add to calendar
+              </SaveFileLink>
+            ) : (
+              <a
+                href={content.gcalUrl ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
+                style={accentBtnStyle}
+              >
+                Add to calendar
+              </a>
+            )}
           </div>
         ) : null}
         {/* THE WAY OUT — open browse only, and ONLY once this beat is ACTIVE,
@@ -790,7 +868,7 @@ export function SaveTheDateFilm({
               type="button"
               onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
               className={`inline-flex items-center gap-1.5 rounded-full border px-5 py-2.5 text-sm font-medium opacity-80 transition-opacity hover:opacity-100 ${theme.outerFg}`}
-              style={{ borderColor: 'currentColor' }}
+              style={{ borderColor: 'currentColor', minHeight: stagePressPx(fitScale) }}
             >
               See our page
               <span aria-hidden>↓</span>
@@ -849,7 +927,6 @@ export function SaveTheDateFilm({
   // the BASE_W×BASE_H stage is transform-scaled by `fitScale` to the largest
   // size that fits within both dimensions, keeping every element proportional.
   const containerRef = useRef<HTMLDivElement>(null);
-  const [fitScale, setFitScale] = useState(1);
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -859,6 +936,7 @@ export function SaveTheDateFilm({
       if (cw < 2 || ch < 2) return;
       const s = Math.min(cw / BASE_W, ch / BASE_H);
       setFitScale(Math.max(FIT_MIN, Math.min(FIT_MAX, s)));
+      setRoomW(cw);
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -1528,8 +1606,11 @@ export function SaveTheDateFilm({
         // when the film actually starts (`started` flips true at the veil lift) —
         // an already-playing element can be unmuted off-gesture, which is how the
         // music auto-starts on iOS where a fresh off-gesture play() is blocked.
+        // 🙈 `data-veil-free` (here and on both clips): the film owns its own wait for the lift — it keeps
+        // these RUNNING, muted, from the first touch to bank iOS audio credit — so the veil's hold
+        // (`lib/hub-veil.ts`) must never pause them; pausing would spend the very credit this protects.
         // eslint-disable-next-line jsx-a11y/media-has-caption
-        <audio ref={audioRef} src={content.musicUrl} loop preload="auto" muted={muted || !started} />
+        <audio ref={audioRef} src={content.musicUrl} loop preload="auto" muted={muted || !started} {...{ [VEIL_FREE_ATTR]: '' }} />
       ) : null}
 
       {/* Chrome removed (owner 2026-06-19): NO stories scrub bars, NO transport
@@ -1576,11 +1657,24 @@ export function SaveTheDateFilm({
           page" — two of the same button on one screen (owner 2026-10-03, "too
           many buttons"). */}
       {canExit && started && !preview && idx !== closeIdx ? (
-        <div className="absolute bottom-5 left-4 z-20" onClick={(e) => e.stopPropagation()}>
+        /* 🍪 ABOVE THE FIRST-VISIT COOKIE NOTICE (hub leftovers 2026-10-13): the notice is z-70, full width, over this
+           full-screen film, so a first-time guest's way out sat under it until they answered. The notice publishes its
+           own height (`--cookie-banner-top`, 0 once answered or off a phone) — this stands that far above the edge. */
+        /* ↔ ON THE FILM'S CENTRE LINE (sweep 2026-10-19, C7): it sat in the bottom-LEFT corner, so beside a centred
+           film — and with no mute on the right to balance it (a film with no music has none) — it read as misaligned.
+           Centred in the bottom row it lines up with everything above it; the mute keeps the right corner, clear of it
+           at every width (the stage is 440 wide; this is ~130). The row lets presses through to the mute. */
+        <div
+          data-film-way-out=""
+          className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center"
+          style={{ bottom: 'calc(1.25rem + var(--cookie-banner-top, 0px))' }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent(STD_FILM_EXIT_EVENT))}
-            className="flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            style={{ minHeight: stagePressPx(fitScale) }}
           >
             See our page
             <span aria-hidden>↓</span>
@@ -1614,40 +1708,62 @@ export function SaveTheDateFilm({
       {/* ☝ Not on the closing beat either: it has its own full "Add to
           calendar" — one per screen (owner 2026-10-03). */}
       {started && !preview && idx !== closeIdx && (content.icsHref || content.gcalUrl) ? (
+        /* ↕ ABOVE THE WAY-OUT, NOT BESIDE IT (C7 2026-10-19): the way-out now stands on the centre line, so this
+           chip stacks over it — clear of its tallest press (`stagePressPx` at `FIT_MIN`, 74 stage px, on a 20px
+           foot) — and rises with it over the first-visit cookie notice. */
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center px-4"
+          className="pointer-events-none absolute inset-x-0 bottom-[6rem] z-20 flex justify-center px-4"
+          style={{ bottom: 'calc(6rem + var(--cookie-banner-top, 0px))' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <a
-            href={content.icsHref ?? content.gcalUrl ?? '#'}
-            {...(content.icsHref
-              ? { download: content.icsFilename }
-              : { target: '_blank', rel: 'noopener noreferrer' })}
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
-          >
-            <CalendarPlus aria-hidden className="h-4 w-4" />
-            Add to calendar
-          </a>
+          {content.icsHref ? (
+            <SaveFileLink
+              href={content.icsHref}
+              filename={content.icsFilename}
+              className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            >
+              <CalendarPlus aria-hidden className="h-4 w-4" />
+              Add to calendar
+            </SaveFileLink>
+          ) : (
+            <a
+              href={content.gcalUrl ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            >
+              <CalendarPlus aria-hidden className="h-4 w-4" />
+              Add to calendar
+            </a>
+          )}
         </div>
       ) : null}
 
       {/* The film carries no "swipe up to continue" cue — it duplicated the veil's
-          "Lift the veil ↑ / or double-tap" swipe-up pill, so the two were
+          unveil pill ("Tap or swipe up to unveil" since 2026-10-15), so the two were
           consolidated into that single pill (owner 2026-06-21). What remains is a
           DIFFERENT, one-time cue: "press and hold to pause", since the film has no
           transport chrome and pausing would otherwise be undiscoverable. It fades
           after a few seconds and never returns. pointer-events-none so it never
           blocks a press or hold.
-          bottom-28, not bottom-16: the persistent "Add to calendar" chip took
-          that row (H-5). This cue is transient — it fades after a few seconds and
-          never returns — so it yields to the control that stays. */}
+          bottom-36, above the persistent "Add to calendar" chip's row (H-5; both
+          rose one step when the way-out moved to the centre line, C7). This cue is
+          transient — it fades after a few seconds and never returns — so it yields
+          to the control that stays. */}
       {!preview ? (
         <div
-          className={`pointer-events-none absolute inset-x-0 bottom-28 z-20 flex justify-center transition-opacity duration-700 ${
+          className={`pointer-events-none absolute inset-x-0 bottom-36 z-20 flex justify-center transition-opacity duration-700 ${
             showHoldHint ? 'opacity-100' : 'opacity-0'
           }`}
+          style={{ bottom: 'calc(9rem + var(--cookie-banner-top, 0px))' }}
         >
-          <p className="rounded-full bg-black/35 px-5 py-2.5 font-serif text-sm uppercase tracking-[0.16em] text-cream/90 backdrop-blur-[2px] [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">
+          {/* 🖼 A WORD, NOT A BUTTON (sweep 2026-10-19, C7). This was a grey pill —
+              `bg-black/35` behind cream type — which read as something to press
+              (a frame only goes on what you press) and measured ~2:1 on the
+              cream film. It is a cue, so it is set as one: plain type in the
+              film's own text colour, the colour the legibility tone already
+              keeps readable on any background, like the label above the mark. */}
+          <p data-film-hold-hint="" className="px-6 text-center font-serif text-sm uppercase tracking-[0.16em]">
             Press and hold to pause
           </p>
         </div>
@@ -1848,6 +1964,7 @@ export function SaveTheDateFilm({
           {/* eslint-disable-next-line jsx-a11y/media-has-caption -- couple-uploaded keepsake clip, no caption track */}
           <video
             ref={videoElRef}
+            {...{ [VEIL_FREE_ATTR]: '' }}
             src={content.videoUrl ?? undefined}
             playsInline
             preload="auto"

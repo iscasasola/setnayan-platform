@@ -1,7 +1,7 @@
 {
   "name": "Setnayan",
   "short_name": "Setnayan",
-  "description": "Plan, share and relive every celebration — your Event Hub, verified suppliers, Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.",
+  "description": "Plan, share and relive every event — your Event Hub, verified suppliers, Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -62,6 +62,8 @@ const JOBS = [
   // stops riding on admin traffic, the NPC pack goes back to declaring a
   // deletion period that nothing enforces — which is the defect they closed.
   { fn: 'maybeRunFaceDataRetention', what: 'face data deleted 3 months after the event ends' },
+  // 🗂 Owner 2026-10-28 (CHAT FILES). Ships OFF — a dry run until CHAT_FILE_EXPIRY_ENABLED=true.
+  { fn: 'maybeRunChatFileExpiry', what: 'chat files deleted 90 days after the event (kept-forever files excepted)' },
   // 🧽 Owner 2026-09-30: the face-tagging selfie ends when the event's Papic
   // closes (12 h after the event). Also carried by the public home page.
   { fn: 'maybeRunPapicCloseSelfieErase', what: "a guest's face-tagging selfie erased when the event's Papic closes" },
@@ -72,10 +74,12 @@ const JOBS = [
   },
   { fn: 'maybeRunPapicFullResDrop', what: 'the Papic full-resolution compression sweep' },
   { fn: 'maybeRunPapicNsfwRescreen', what: 'the NSFW re-screen heal for dropped screens' },
+  { fn: 'maybeRunPapicUploadSweep', what: 'the removal of Papic uploads that were never recorded (save first, send later)' },
   { fn: 'maybeRunDriveCopyRetry', what: 'the Google Drive copy retry' },
   { fn: 'maybeRunAnonDraftSweep', what: 'the abandoned anonymous-draft cleanup' },
   { fn: 'maybeRunPhotoDeliveryDrain', what: 'the stalled "Release to Drive" drainer' },
   { fn: 'maybeRunEmailDeliveryCheck', what: 'asking Resend whether each email was delivered' },
+  { fn: 'maybeRunSupplierPagePublish', what: 'a supplier’s event photo going on its page after the guests’ 7-day notice' },
   // PR-H. Nudges a supplier at day 5 and closes an unanswered booking request at
   // day 7. Mounted here AND on the vendor layout: the DB claim picks one winner
   // per window, and an admin-only mount would leave a supplier's fuse waiting on

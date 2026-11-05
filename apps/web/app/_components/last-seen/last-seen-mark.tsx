@@ -12,6 +12,13 @@ import type { ReactNode } from 'react';
  * any snapshot.
  */
 export type LastSeenPhase = 'updating' | 'failed' | 'updated';
+/*
+ * ✍ THE WORDS (controller brief 2026-10-16, the owner's "load fast… a practical reason to use"):
+ *   updating → "Showing your last copy · updating…"   (it says WHAT is on screen, not only that work runs)
+ *   failed   → "Couldn't update — showing your last copy from <when>. It may be out of date." + Try again
+ *   updated  → "Updated just now"
+ * One mark, one spot, five pages. A copy is never presented as current.
+ */
 
 /**
  * The one address each kept page lives at. A page is kept and shown ONLY
@@ -52,8 +59,8 @@ export function LastSeenMark({ phase, savedAt }: { phase: LastSeenPhase; savedAt
     body = (
       <>
         <span>
-          Couldn&rsquo;t refresh — this is what you saw{savedAt ? ` ${lastSeenWhen(savedAt)}` : ''}, and it
-          may be out of date.
+          Couldn&rsquo;t update — showing your last copy{savedAt ? ` from ${lastSeenWhen(savedAt)}` : ''}. It may be
+          out of date.
         </span>
         <button
           type="button"
@@ -71,7 +78,7 @@ export function LastSeenMark({ phase, savedAt }: { phase: LastSeenPhase; savedAt
           aria-hidden
           className={`h-1.5 w-1.5 flex-none rounded-full ${phase === 'updating' ? 'animate-pulse bg-ink/45' : 'bg-success-600'}`}
         />
-        <span>{phase === 'updating' ? 'Updating…' : 'Updated just now'}</span>
+        <span>{phase === 'updating' ? 'Showing your last copy · updating…' : 'Updated just now'}</span>
       </>
     );
   }

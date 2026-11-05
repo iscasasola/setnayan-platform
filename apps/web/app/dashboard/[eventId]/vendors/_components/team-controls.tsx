@@ -7,7 +7,7 @@
  * `BuildLocked` stays a SERVER component (it reads the whole plan/budget model),
  * so the rail's interactive bits live here as small, prop-thin leaves:
  *
- *   • `TeamRemoveCandidate` — the ✕ on a "ready to lock" row. Calls the shipped
+ *   • `TeamCandidateSwipe` — a "ready to lock" row's swipe-left Remove, with Undo (owner 2026-11-03; it was a ✕). Calls the shipped
  *     `removeBuildPick` (vendor-scoped, so a multi-pick category loses only THIS
  *     candidate). It never touches the shortlist and never touches a lock.
  *   • `TeamClearCandidates` — "Clear candidates" (spec §8.3), MOVED here from the
@@ -22,10 +22,15 @@
  * All three are rendered only behind `isExploreReplanEnabled()` by their caller.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, ChevronRight, Circle, Eraser, Loader2, X } from 'lucide-react';
+import { Bookmark, ChevronRight, Circle, Eraser, Loader2, Save } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useConfirm } from '@/app/_components/confirm-dialog';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { haptic } from '@/lib/haptics';
 import {
   BB_RENAME_PLAN_EVENT,
@@ -52,45 +57,54 @@ import {
   MAX_BUILD_TITLE_LEN,
 } from '@/lib/named-builds';
 
-/** ✕ — take ONE candidate back off the build. */
-export function TeamRemoveCandidate({
+/**
+ * 👈 ONE CANDIDATE OFF THE BUILD IS THE ROW'S SWIPE (owner 2026-11-03, DECISION_LOG "SWIPE LEFT TO DELETE ON EVERY LIST
+ * ROW — NO VISIBLE ✕ ON ROWS"). It was a small ✕ beside the price (`TeamRemoveCandidate`); now the row itself is
+ * wrapped in THE ONE SWIPE (`app/_components/swipe-to-delete.tsx`) and the remove waits out the Undo window
+ * (`deleteWithUndo`) — the same `removeBuildPick` (vendor-scoped: a multi-pick category keeps its other candidates;
+ * the guard lives in removeBuildPickRow). A soft, reversible build pick — nothing booked is touched — so no warning.
+ */
+export function TeamCandidateSwipe({
   eventId,
   groupId,
   vendorId,
   vendorName,
+  children,
 }: {
   eventId: string;
   groupId: string;
   vendorId: string;
   vendorName: string;
+  children: ReactNode;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [gone, setGone] = useState(false);
+  if (gone) return <div hidden data-swipe-gone="" />;
   return (
-    <button
-      type="button"
-      disabled={pending}
-      aria-label={`Remove ${vendorName} from your build`}
-      title="Remove from your build"
-      onClick={() => {
-        haptic('tick');
-        startTransition(async () => {
-          // Vendor-scoped by design — a multi-pick category keeps its other
-          // candidates (the guard lives in removeBuildPickRow).
-          await removeBuildPick({ eventId, planGroupId: groupId, vendorId });
-          router.refresh();
-        });
-      }}
-      className="shrink-0 rounded-full p-1.5 text-ink/35 transition hover:bg-ink/5 hover:text-danger-600 disabled:opacity-40"
-    >
-      <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-    </button>
+    <>
+      <UndoToastHost />
+      <SwipeToDelete
+        label={`Remove ${vendorName} from your build`}
+        word="Remove"
+        radiusClass=""
+        onDelete={() => {
+          haptic('tick');
+          deleteWithUndo({
+            label: `${vendorName} taken off your build`,
+            hide: () => setGone(true),
+            restore: () => setGone(false),
+            commit: () => removeBuildPick({ eventId, planGroupId: groupId, vendorId }),
+            failed: `Couldn’t take ${vendorName} off your build. It’s back — try again.`,
+          });
+        }}
+      >
+        {children}
+      </SwipeToDelete>
+    </>
   );
 }
 
 /** "Clear candidates" — empties the BUILD only. Confirm-first: it's a bulk discard. */
 export function TeamClearCandidates({ eventId }: { eventId: string }) {
-  const router = useRouter();
   // `dialog` is the portal node the hook renders — it MUST be mounted or the
   // confirm promise never resolves (the same contract build-compare uses).
   const { confirm, dialog } = useConfirm();
@@ -117,7 +131,6 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
           if (!ok) return;
           startTransition(async () => {
             await clearBuildPicks({ eventId });
-            router.refresh();
           });
         }}
         className="inline-flex items-center gap-1 text-xs text-ink/45 underline-offset-2 transition hover:text-danger-600 hover:underline disabled:opacity-50"
@@ -153,7 +166,6 @@ export function TeamSavePlan({
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState('');
   // '' = create a new named plan; a build_id = overwrite that one.
@@ -214,7 +226,6 @@ export function TeamSavePlan({
         else setNamedNotice(null);
         setName('');
         setOverwriteId('');
-        router.refresh();
       }
     });
   }
@@ -222,7 +233,7 @@ export function TeamSavePlan({
   return (
     <div className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-4">
       <div className="flex flex-wrap items-center gap-2 text-sm text-ink/80">
-        <Bookmark className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
+        <Bookmark className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={1.75} aria-hidden />
         Save your current candidates as
         <input
           value={name}
@@ -235,28 +246,28 @@ export function TeamSavePlan({
           className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
           aria-label="Plan name (optional — we’ll name it for you)"
         />
-        <select
+        {/* New, or one of the saved plans → the one dropdown (2026-10-12 look sweep). */}
+        <PickMenu
+          label="Save as a new plan or overwrite an existing one"
           value={overwriteId}
-          onChange={(e) => setOverwriteId(e.target.value)}
-          className="rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm"
-          aria-label="Save as a new plan or overwrite an existing one"
-        >
-          <option value="">as a new plan</option>
-          {orderedBuilds.map((b, i) => (
-            <option key={b.build_id} value={b.build_id}>
-              overwrite “{displayBuildTitle(b, i)}”
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
+          dataAttr="data-team-save-target"
+          options={[
+            { key: '', label: 'as a new plan' },
+            ...orderedBuilds.map((b, i) => ({
+              key: b.build_id,
+              label: `overwrite “${displayBuildTitle(b, i)}”`,
+            })),
+          ]}
+          onPick={setOverwriteId}
+        />
+        <ActionButton
+          tone="brand"
+          main
+          icon={pending ? <Loader2 className="animate-spin" aria-hidden /> : Save}
+          label={overwriteId ? 'Save' : 'Save plan'}
           onClick={onSaveNamed}
           disabled={pending}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
-          {overwriteId ? 'Save' : 'Save plan'}
-        </button>
+        />
       </div>
       {!err ? (
         <p className="text-xs text-ink/45">

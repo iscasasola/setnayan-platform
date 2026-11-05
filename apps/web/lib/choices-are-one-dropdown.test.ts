@@ -41,7 +41,6 @@ const SURFACES: Surface[] = [
   { name: 'Papic Decorate — filter + caption colour', file: 'app/papic/decorate/_components/kwento-decorator.tsx' },
   { name: 'Live Wall layout', file: 'app/dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx' },
   { name: 'Live Wall mode', file: 'app/dashboard/[eventId]/live/_components/mode-control.tsx' },
-  { name: 'Papic gallery filter', file: 'app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx' },
   {
     name: 'Patiktok categories',
     file: 'app/dashboard/[eventId]/studio/patiktok/page.tsx',
@@ -51,14 +50,11 @@ const SURFACES: Surface[] = [
   {
     name: 'Your Team — Sort by',
     file: 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
-    from: '<div className="sortbar">',
-    to: '<div className="bench-search">',
-  },
-  {
-    name: 'Budget — Save / Standard / Splurge',
-    file: 'app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx',
-    from: 'function TiltEditor(',
-    to: 'Or set your own (PHP)',
+    // The ONE dropdown is built once (`sortMenu`) and drawn by the pre-replan
+    // bar and by each "More to compare" head — re-anchored 2026-10-08 when it
+    // moved out of the bar's own JSX.
+    from: 'const sortMenu = (',
+    to: '<UnreadCtx.Provider value={benchUnread}>',
   },
   {
     name: 'Budget tour — Save / Standard / Splurge',
@@ -67,12 +63,20 @@ const SURFACES: Surface[] = [
     to: 'Or set your own (PHP)',
   },
   {
+    // Budget B3 (2026-10-18): the thumb row's All · Owing · Paid — the
+    // prototype draws it as ONE "All ▾" dropdown, "never pills".
+    name: 'Budget — All · Owing · Paid',
+    file: 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',
+    from: 'function ThumbRow(',
+    to: 'function GroupUnread(',
+  },
+  {
     name: 'Seat plan — room size',
     file: 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx',
     from: 'change it if your room is different.',
     to: 'Stage + dance-floor dimensions',
   },
-  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/page.tsx' },
+  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/_components/memories-thumb.tsx' },
   {
     name: 'Remove frame — reason',
     file: 'app/dashboard/(launcher)/_components/event-card-menu.tsx',
@@ -130,12 +134,12 @@ for (const s of SURFACES) {
 // ── First-visit tours ────────────────────────────────────────────────────────
 
 const TOUR_MOUNTS: { key: TourKey; file: string; tag: 'MiniTour' | 'GuestGuidedTour' }[] = [
-  { key: 'guest_papic_camera_v1', file: 'app/papic/guest/page.tsx', tag: 'GuestGuidedTour' },
-  { key: 'guest_papic_me_v1', file: 'app/papic/me/[token]/page.tsx', tag: 'GuestGuidedTour' },
-  { key: 'customer_guest_list_v1', file: 'app/dashboard/[eventId]/guests/page.tsx', tag: 'MiniTour' },
-  { key: 'customer_budget_v1', file: 'app/dashboard/[eventId]/budget/page.tsx', tag: 'MiniTour' },
+  // The guest's Papic camera and Papic page, and the Guest list, are SPOTLIGHTS since 2026-10-25 (guest_papic_camera_v2 ·
+  // guest_papic_me_v2 · customer_guest_list_v2, owner "the spotlight tour is missing so many parts") — held by
+  // `lib/every-page-tour-points-at-its-page.test.ts` and `lib/the-host-page-tours-land.test.ts`.
   { key: 'customer_galleries_v1', file: 'app/dashboard/[eventId]/galleries/page.tsx', tag: 'MiniTour' },
-  { key: 'customer_papic_v1', file: 'app/dashboard/[eventId]/studio/papic/page.tsx', tag: 'MiniTour' },
+  // Budget and Papic are SPOTLIGHTS since 2026-10-22 (customer_budget_v2 · customer_papic_v2, owner "yes to all" on
+  // journey_fixes_later Host 4) — their mounts, order and words are held by `lib/the-host-page-tours-land.test.ts`.
 ];
 
 for (const t of TOUR_MOUNTS) {

@@ -48,17 +48,31 @@ test('3 · Studio › Info draws ONE dropdown over the shipped actions — no se
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
   const hub = tools.slice(tools.indexOf('export function StudioHubSettings('), tools.indexOf('export function StudioQrActions('));
   assert.ok(hub.length > 200, 'StudioHubSettings moved — re-read this guard');
-  assert.equal((hub.match(/<PickMenu\b/g) ?? []).length, 2, 'Your Event Hub is Who can view ▾ and Which version ▾ — one dropdown each');
-  assert.equal((hub.match(/options=\{WHICH_VERSION_OPTIONS\}/g) ?? []).length, 1);
+  /* Each is the Form row's chosen answer (`ChosenRow` — the house `PickMenu` inside it), since the 2026-10-08 Info redesign. */
+  /* Two copies since 2026-10-30: the ⚙'s compact rows (`compactRows`, owner "Redraw to prototype") and Info's fold
+     (`body`) — each is Who can view ▾ + Which version ▾, one dropdown each, over the SAME pick handlers. */
+  const compact = hub.slice(hub.indexOf('const compactRows = ('), hub.indexOf('if (bare) return compactRows;'));
+  const fold = hub.slice(hub.indexOf('const body = ('), hub.indexOf('<Fold data="more-for-guests"'));
+  assert.ok(compact.length > 200 && fold.length > 200, 'anti-vacuity: the two copies were not found');
+  for (const [where, copy] of [['the ⚙', compact], ['Info', fold]] as const) {
+    assert.equal((copy.match(/<ChosenRow\b/g) ?? []).length, 2, `${where}: Your Event Hub is Who can view ▾ and Which version ▾ — one dropdown each`);
+    assert.equal((copy.match(/options=\{WHICH_VERSION_OPTIONS\}/g) ?? []).length, 1, where);
+    assert.match(copy, /onPick=\{pickVersion\}/, `${where}: Which version does not write through the one handler`);
+  }
+  assert.doesNotMatch(hub, /<PickMenu\b/, 'a dropdown is hand-made beside the Form row’s');
   assert.match(hub, /setOpenBrowse\(stayForm\(eventId, \{ open_browse:/, 'All of them no longer writes the shipped open_browse');
   assert.match(hub, /setLaunchPhase\(stayForm\(eventId, \{ launch_phase: writes\.launchPhase \}\)\)/, 'the pick no longer writes the shipped launch_mode');
   assert.match(tools, /import \{ setLaunchPhase, setOpenBrowse \} from '\.\.\/\.\.\/website\/editor\/actions';/);
   assert.doesNotMatch(hub, /Open browsing|OpenBrowsePanel|open-browse/i, 'a separate Open browsing control is drawn behind the flag');
-  const studioSwitches = [...hub.matchAll(/<StudioSwitch\b[^>]*label="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(studioSwitches, ['Event Bar'], 'a switch other than the Event Bar is drawn in Your Event Hub');
+  const studioSwitches = [...hub.matchAll(/<SwitchRow\b[\s\S]*?name="([^"]+)"/g)].map((m) => m[1]);
+  assert.doesNotMatch(hub, /<StudioSwitch\b/, 'a switch is hand-made beside the Form row’s');
+  assert.deepEqual(studioSwitches, ['Event Bar', 'Event Bar'], 'a switch other than the Event Bar is drawn in Your Event Hub (the QR and Go live are their own rows)');
   /* …and Info is where it is drawn: MakerDetails mounts it only under `studio`. */
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
   const block = details.slice(details.indexOf('if (props.studio) {'));
-  assert.match(block, /<StudioTool part="hub" eventId=\{eventId\} slug=\{slug\} hub=\{st\.hub\} \/>/);
+  /* (Built by `hubSettingsEditor` since 2026-10-30 — the same rows, also drawn open in the Hub's ⚙.) */
+  assert.match(block, /editors\.address = hubSettingsEditor\(props, \{ bare: false \}\);/);
+  const builder = details.slice(details.indexOf('export function hubSettingsEditor('), details.indexOf('export function MakerDetails('));
+  assert.match(builder, /if \(!st\) return null;[\s\S]*<StudioTool\s+part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}/);
   assert.doesNotMatch(details, /OpenBrowsePanel/, 'Details draws the old Open browsing panel');
 });

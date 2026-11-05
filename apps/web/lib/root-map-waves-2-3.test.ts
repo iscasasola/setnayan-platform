@@ -152,7 +152,7 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/admin/accounts/_surfaces/users-surface.tsx', /COMP_GRANT_CO_REVIEW_PESOS/],
     ['app/admin/users/actions.ts', /COMP_GRANT_CO_REVIEW_PESOS \* 100/],
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', /\{DATE_CHANGE_DUE_DAYS\} days/],
-    ['app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx', /\{POOL_METER_LOW_PCT\}%/],
+    ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', /\{POOL_METER_LOW_PCT\}%/],
     ['app/dashboard/[eventId]/story/_components/make-it-yours.tsx', /formatCount\(input\.poolCap\)/],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', /\{MAX_PER_TYPE\} photos/],
     ['app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx', /\$\{REPLY_SPREAD_PCT\}% within/],
@@ -176,21 +176,20 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
 /* ── The same fact, drawn once ── */
 
 test('one rendering per fact: the shared words and the shared reads', () => {
-  // The RSVP answers' words — one list, three surfaces.
+  // The RSVP answers' words — one list, every surface.
   for (const file of [
-    'app/dashboard/[eventId]/guests/_components/chip-editors.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
-    'app/dashboard/[eventId]/guests/_components/roster-controls.tsx',
-    'app/dashboard/[eventId]/guests/page.tsx',
+    // ⤷ Maker PR 4f: the filter row (roster-controls.tsx) and the page's counts
+    // line are retired; the screen and its sections carry the words now.
+    'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
+    'lib/guest-roster-view.ts',
   ]) {
     const src = code(file);
     assert.match(src, /RSVP_ROW_WORDS/, `${file} must take the roster's RSVP words from lib/guests`);
     assert.doesNotMatch(src, /['"`]No reply['"`]/, `${file} spells "No reply" itself`);
   }
-  // The Paid / Still owing read has one copy.
-  const lens = code('app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx');
-  assert.match(lens, /readBudgetLiveSummary\(/);
-  assert.doesNotMatch(lens, /resolveEventMoney|buildBudgetLiveSummary|fetchBudgetSnapshot/, 'the lens re-derives the money');
+  // The Paid / Still owing read has one copy. (The Suppliers lens that also read
+  // it was retired 2026-10-13 — Booked draws the B4 block over the one resolver.)
   const home = code('app/dashboard/[eventId]/page.tsx');
   assert.match(home, /readBudgetLiveSummary\(/);
   // The customers' queue no longer restates days to go (the roster does).
@@ -207,7 +206,7 @@ test('one rendering per fact: the shared words and the shared reads', () => {
 test('SABOTAGE — type the literal back and the shown-values scan finds it', () => {
   const cases: Array<[string, string, string]> = [
     ['app/dashboard/[eventId]/launch/_components/details-date-clash.tsx', '{DATE_CHANGE_DUE_DAYS} days to answer', '3 days to answer'],
-    ['app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx', 'under {POOL_METER_LOW_PCT}% of your pool', 'under 10% of your pool'],
+    ['app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx', 'under ${POOL_METER_LOW_PCT}% of what you bought', 'under 10% of what you bought'],
     ['app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx', '{MAX_PER_TYPE} photos</strong>', '3 photos</strong>'],
     ['app/(shell)/explore/_components/vendor-badge-row.tsx', 'top ${topPercentLabel(TOP_PICK_PERCENTILE)}% by', 'top 5% by'],
   ];

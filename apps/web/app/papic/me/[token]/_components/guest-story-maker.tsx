@@ -29,7 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
-  Download,
+  Share,
   Film,
   Loader2,
   ListChecks,
@@ -276,6 +276,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
     <section
       id="story"
       aria-label="Make my Story"
+      data-tour="me-story"
       className="mt-6 rounded-2xl border border-mulberry/25 bg-mulberry/5 p-5"
     >
       <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
@@ -546,7 +547,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
               onClick={onShare}
               className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save
             </button>
             <button

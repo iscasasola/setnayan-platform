@@ -76,6 +76,9 @@ export async function fetchMyPendingAsk(
     .select('requested_areas, created_at')
     .eq('event_id', eventId)
     .eq('requester_user_id', user.id)
+    // The line-by-line ask only — a claim ask (joined from the couple's link,
+    // 2026-10-20) is the couple's Approve, not an area request.
+    .eq('kind', 'areas')
     .eq('status', 'pending')
     .maybeSingle();
 

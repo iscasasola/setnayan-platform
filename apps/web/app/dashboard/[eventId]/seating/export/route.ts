@@ -1,8 +1,10 @@
+import { bytesStream } from '@/lib/stream-file';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
+import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchSigns, fetchTables } from '@/lib/seating';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -14,8 +16,12 @@ import {
 } from '@/lib/seating-pdf';
 import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
 import { printFileName } from '@/lib/print-pieces';
+import { PAPER_HOW, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 export async function GET(
   req: Request,
@@ -37,7 +43,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences, logo_wanted',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -48,19 +54,23 @@ export async function GET(
   // 🪑 The A3 seat plan (owner 2026-10-01): the SAME layout as the 2D and 3D
   // plan — every placed element (booths and signs included), every table with
   // its chairs, who sits where, and who still needs a seat.
-  const [tables, assignments, guests, floorPlan, booths, signs, roleSet] = await Promise.all([
+  const [tables, assignments, guestsRead, floorPlan, booths, signs, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
     fetchSigns(supabase, eventId),
     resolveRoleSetForEvent(eventId),
   ]);
+  // 🔌 A refused guest read is never a seat plan of empty tables (audit #14).
+  if (!guestsRead.measured) return guestListUnreadResponse();
+  const guests = guestsRead.rows;
 
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
-    name: guestDisplayName(g),
+    // 🖨 The full name, the nickname beside it — never cut on the plan (owner 2026-10-29).
+    name: guestPrintName(g),
     role: g.role,
     rsvp_status: g.rsvp_status,
   }));
@@ -94,7 +104,12 @@ export async function GET(
     for (const a of assignments) seated.set(a.table_id, (seated.get(a.table_id) ?? 0) + 1);
     return new NextResponse(seatPlanPreviewSvg({ tables, floorPlan, seatedByTable: seated, mode, palette: flatHexPalette }), {
       status: 200,
-      headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'private, max-age=60',
+        /* 📄 One A3 page; how many tables and seats it shows (Studio › Prints' preview, owner 2026-10-14). */
+        ...printPaperHeader({ pages: 1, page: 1, how: PAPER_HOW.seatPlan(tables.length, assignments.length), empty: tables.length === 0 ? 'tables' : null }),
+      },
     });
   }
 
@@ -131,7 +146,8 @@ export async function GET(
 
   // `<event slug>-seat-plan.pdf` (owner's naming rule — event first, then the
   // print; the per-guest QR is `eventname-guestname.jpg`).
-  return new NextResponse(new Uint8Array(pdf), {
+  /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+  return new NextResponse(bytesStream(new Uint8Array(pdf)), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

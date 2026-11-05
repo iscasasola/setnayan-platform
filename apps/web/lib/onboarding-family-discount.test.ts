@@ -16,15 +16,18 @@ import {
 } from './onboarding-family-discount';
 import { PAPIC_LADDER_EXPECTED } from '../tests/db/papic-ladder.expected';
 
-test('AT 10%, PAPIC MOVES NOTHING — all sixteen rungs land on their stored price', () => {
+test("AT 10%, every Papic pack lands on a whole peso, ties down", () => {
   // Derived from the ladder pin, never retyped. The stored sign-up price is
   // exactly 10% off the regular one on every rung today, so the single-discount
   // shape must reproduce all sixteen or it is a repricing.
   for (const [shots, regular] of PAPIC_LADDER_EXPECTED) {
     const signup = signupPriceFor(regular, 10);
+    // 💲 2026-10-28: the one-price rungs ₱95 / ₱465 land on a .5 at 10% — the house rule rounds a tie DOWN
+    // (`roundPesoTiesDown`), which `Math.round` does not, so the expectation spells the house rule out.
+    const exact = regular * 0.9;
     assert.equal(
       signup,
-      Math.round(regular * 0.9),
+      exact - Math.floor(exact) === 0.5 ? Math.floor(exact) : Math.round(exact),
       `${shots} shots: 10% of ₱${regular} must reproduce the stored sign-up price`,
     );
     assert.equal(signup, Math.trunc(signup!), `${shots} shots: whole pesos only`);
@@ -151,7 +154,8 @@ test('there is no per-family default any more — ONE sign-up number (owner d18)
   const mod = await import('./onboarding-family-discount');
   assert.equal('FAMILY_DISCOUNT_DEFAULT_PCT' in mod, false, 'a per-family default is a second number');
   const { DEFAULT_ONBOARDING_DISCOUNT_PCT } = await import('./onboarding-discount');
-  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 40);
+  // ⚖ 2026-11-03: no sign-up price on anything ("drop the 40% on all then") — was 40 (owner d18).
+  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 0);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

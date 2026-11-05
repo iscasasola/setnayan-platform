@@ -8,6 +8,7 @@
  * body: "This is a Setnayan invitation page. Scan your personal QR or open the
  * link the couple sent you." Addressed to the people who SEND that link, with a
  * read-only ribbon on top saying "your event". The page contradicted itself.
+ * (The ribbon went on 2026-10-15 — owner: "Remove it". The host body stays.)
  *
  * The fix (PR #4483) ships: `site-body.tsx` swaps that sentence, and the
  * "Have an invitation? → Open my invitation" card, for host copy.
@@ -39,7 +40,6 @@ import {
   OWNER_CAPABILITY_KEYS,
   type OwnerCapability,
 } from './site-identity';
-import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 
 const hostOf = (eventId: string): OwnerCapability => ({
   capability: 'owner',
@@ -68,47 +68,11 @@ test('🔒 a host of ANOTHER event is refused — the grant is spendable only wh
   assert.equal(viewerIsEventHost(hostOf('event-A'), 'event-B'), false);
 });
 
-test('the ribbon and the body agree about the same person — one rule, not two', () => {
-  // The defect this shares-a-function prevents: the ribbon says "your event"
-  // while the body talks to a stranger, or the reverse. Same inputs, same answer.
-  for (const [capEvent, pageEvent] of [
-    ['event-A', 'event-A'],
-    ['event-A', 'event-B'],
-  ] as const) {
-    const cap = hostOf(capEvent);
-    const bodySaysHost = viewerIsEventHost(cap, pageEvent);
-    const ribbon = buildOwnerRibbon({
-      ownerCapability: cap,
-      eventId: pageEvent,
-      slug: 'maria-and-jose',
-      phasesEnabled: true,
-      lifecyclePhase: 'rsvp',
-    });
-    assert.equal(
-      bodySaysHost,
-      ribbon !== null,
-      `body and ribbon disagreed for capability ${capEvent} on page ${pageEvent}`,
-    );
-  }
-});
-
-test('a host of a SLUGLESS event still gets the body variant, though no ribbon', () => {
-  // The reason the body must not be derived from `ownerRibbon !== null`: the
-  // ribbon is also null for the unrelated reason that there is no URL to build
-  // phase links on. That must not silently mute the copy fix.
+test('a host of a SLUGLESS event still gets the body variant — host-ness reads no URL', () => {
+  // The body must never be derived from anything that also needs a slug (the old owner ribbon was null for a
+  // missing slug — the strip went 2026-10-15, owner: "Remove it"). Being the host is the capability alone.
   const cap = hostOf('event-A');
   assert.equal(viewerIsEventHost(cap, 'event-A'), true, 'still the host');
-  assert.equal(
-    buildOwnerRibbon({
-      ownerCapability: cap,
-      eventId: 'event-A',
-      slug: null,
-      phasesEnabled: true,
-      lifecyclePhase: 'rsvp',
-    }),
-    null,
-    'and still no ribbon — the two answers are allowed to differ HERE, only here',
-  );
 });
 
 // ── 2 · WHAT BEING THE HOST MUST NOT HAND THEM ─────────────────────────────
@@ -165,7 +129,7 @@ test('the body asks the SHARED question, not a re-typed copy of it', () => {
     SITE_BODY,
     /const viewerIsHost = viewerIsEventHost\(ownerCapability, event\.event_id\)/,
     'site-body re-derives host-ness instead of asking the one shared function — ' +
-      'that is how the ribbon and the body drift into disagreeing.',
+      'that is how two host reads drift into disagreeing.',
   );
 });
 
@@ -181,8 +145,8 @@ test('the stranger sentence is behind the host branch, not shown to a host', () 
     'the host branch is gone; the couple is back to being told to scan their own QR',
   );
   // 2026-10-03 (owner, "too much going on"): the host's explaining paragraph
-  // went — the ribbon above already says "Your Event Hub — as a guest sees it".
-  // The host branch draws NOTHING, so the host meets no "Get inside".
+  // went; 2026-10-15 ("Remove it") the host strip above it went too. The host
+  // branch draws NOTHING, so the host meets no "Get inside".
   assert.match(SITE_BODY, /\{viewerIsHost \? \([\s\S]{0,900}?\bnull\s*\) : \(/, 'the host branch draws something again');
   assert.ok(!SITE_BODY.includes('This is your event page'), 'the host’s explaining paragraph is back');
 });

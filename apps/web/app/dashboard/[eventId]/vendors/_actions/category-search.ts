@@ -25,11 +25,12 @@
  * Verified vendor's real name stays hidden until first reply.
  */
 
-import { cookies } from 'next/headers';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
-import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { readNearAnchors } from '@/lib/find-near-anchors.server';
+import type { EventVenueColumns } from '@/lib/event-venues';
+import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
@@ -63,10 +64,11 @@ import {
 } from '@/lib/last-minute';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
-  canonicalServicesForTile,
-  canonicalServicesForFolder,
+  getCanonicalBuckets,
+  servicesForPlanGroup,
+  servicesInTile,
+  type CanonicalBuckets,
 } from '@/lib/vendor-counts';
-import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventPreferences } from '@/lib/event-preferences';
 import {
   fetchCategoryFacets,
@@ -89,6 +91,7 @@ import {
 import { resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -109,6 +112,8 @@ export type CategoryVendorResult = {
   reviewCount: number | null;
   /** km from the event's reception/ceremony/target coords; null when unknown. */
   distanceKm: number | null;
+  /** km from the CEREMONY venue's pin — read only by Find's "Nearest to ceremony" (owner 2026-10-30). */
+  ceremonyDistanceKm?: number | null;
   verified: boolean;
   boosted: boolean;
   /** Compatibility score (0–100) + tier · lib/compat-score · the §2 GATE+SCORE
@@ -227,6 +232,9 @@ export type CategorySearchResult = {
    * result shape is unchanged.
    */
   savedPhotoTallyFailed?: boolean;
+  /** 🔌 TRUE when the suppliers could not be READ (the event or the vendor read was refused) — the overlay says
+   *  "Couldn't load suppliers · Try again", never "No … suppliers here yet" (reads-are-honest, audit #22). */
+  unreadable?: boolean;
   total: number;
   /** Null when the event has no stored coords (distance tier falls back to
    *  review order + the overlay hides distance chips). */
@@ -307,7 +315,8 @@ const EMPTY: CategorySearchResult = {
  * The values a vendor's `services` may hold for this scope to match them.
  *
  * ⚠ THIS IS NOT "the canonicals of a tile" — that question belongs to
- * `canonicalServicesForTile`, and answering it there breaks something.
+ * `servicesInTile` (and its const fallback `canonicalServicesForTile`), and
+ * answering it there breaks something.
  * `taxonomy-tile-reachability.test.ts` reads its `length > 0` to decide a tile
  * is ALIVE and to self-clean `KNOWN_DEAD_TILES`; widen it and every tile looks
  * healthy, silently retiring a real regression detector. The first draft of
@@ -332,9 +341,9 @@ const EMPTY: CategorySearchResult = {
  * 🔑 A VOCABULARY THE PRODUCT SAVES HAS TO BE ONE ITS READERS ACCEPT — the same
  * conclusion `/services/new/[category]` reached the same day.
  */
-function canonicalsForScope(groupId: string, tile: string): string[] {
+function canonicalsForScope(groupId: string, tile: string, buckets: CanonicalBuckets): string[] {
   if (tile) {
-    const fromTile = canonicalServicesForTile(tile as WeddingTile);
+    const fromTile = servicesInTile(buckets, tile);
     // Widen, never replace: a shop stored the CORRECT way must keep matching.
     if (fromTile.length > 0) {
       return fromTile.includes(tile) ? fromTile : [...fromTile, tile];
@@ -344,9 +353,7 @@ function canonicalsForScope(groupId: string, tile: string): string[] {
   }
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
-  if (g.subcategoryHint) return [g.subcategoryHint];
-  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
-  return canonicalServicesForFolder(g.catalogFolder);
+  return servicesForPlanGroup(buckets, g);
 }
 
 /** Haversine great-circle distance in km. */
@@ -399,6 +406,7 @@ export async function searchCategoryVendors(input: {
    *  See lib/bench-bookable-days. */
   hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const tile = String(input.tile ?? '').trim();
@@ -412,7 +420,7 @@ export async function searchCategoryVendors(input: {
   // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
   const smartSort = isSmartSortEnabled();
 
-  const groupCanonicals = canonicalsForScope(groupId, tile);
+  const groupCanonicals = canonicalsForScope(groupId, tile, await getCanonicalBuckets());
   if (groupCanonicals.length === 0) return EMPTY;
 
   // Auth + membership gate in one RLS-bounded read: events RLS restricts to
@@ -424,13 +432,17 @@ export async function searchCategoryVendors(input: {
   } = await supabase.auth.getUser();
   if (!user) return EMPTY;
 
-  const { data: ev } = await supabase
+  const { data: ev, error: evError } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
+      'venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax, planning_mode, setnayan_ai_active, event_date, event_date_precision',
     )
     .eq('event_id', eventId)
     .maybeSingle();
+  if (evError) {
+    logQueryError('searchCategoryVendors.event', evError, { event_id: eventId }, 'graceful_degrade');
+    return { ...EMPTY, unreadable: true };
+  }
   if (!ev) return EMPTY; // not a member of this event
 
   // Outer-gate scoping (2026-06-11) — the SAME shared predicates the /vendors
@@ -520,8 +532,12 @@ export async function searchCategoryVendors(input: {
   const brief = buildEventBrief(ev as unknown as EventBriefSource);
   const coupleFaiths = brief.constraints.ceremony.faiths;
 
-  const lat = (ev.venue_latitude as number | null) ?? null;
-  const lng = (ev.venue_longitude as number | null) ?? null;
+  // 📍 The reception's pin and the ceremony's (owner 2026-10-30, "Reception + Ceremony") — the Event Hub's own two
+  // venues (a booked venue's pin, else the couple's own), read with the service role only AFTER the membership read
+  // above came back with this event. The reception is what every distance here has always meant.
+  const anchors = await readNearAnchors(createAdminClient(), eventId, ev as EventVenueColumns);
+  const lat = anchors.reception?.latitude ?? null;
+  const lng = anchors.reception?.longitude ?? null;
   const hasCoords = lat !== null && lng !== null;
 
   // ── Last-minute config (Setnayan AI §4) ──────────────────────────────────
@@ -674,23 +690,14 @@ export async function searchCategoryVendors(input: {
   // never see `is_demo = TRUE` vendors; only an admin in demo mode (admin
   // profile + the demo cookie) does. Cheap fast-path: skip the admin lookup
   // unless the demo cookie is present.
-  const cookieStore = await cookies();
-  const hasDemoCookie =
-    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
-  let inDemoMode = false;
-  if (hasDemoCookie) {
-    const { data: viewerProfile } = await supabase
-      .from('users')
-      .select('account_type, is_internal, is_team_member')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    inDemoMode = isAdminProfile(viewerProfile);
-  }
-  const excludeVendorIds: ReadonlyArray<string> = inDemoMode
-    ? []
-    : await fetchDemoVendorIds(admin);
+  // ONE rule with the bench's whole-marketplace search (`lib/demo-vendor-exclusion.ts`).
+  const excludeVendorIds: ReadonlyArray<string> = await demoVendorIdsHiddenFrom(supabase, admin, user.id);
 
+  let recsRefused = false;
   const recs = await fetchWizardVendorRecommendations(admin, {
+    onReadRefused: () => {
+      recsRefused = true;
+    },
     canonicalServices: canonicals,
     excludeVendorIds,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
@@ -719,6 +726,7 @@ export async function searchCategoryVendors(input: {
     searchQuery: input.query,
     limit: input.includeFarther === true ? 100 : 60,
   });
+  if (recsRefused) return { ...EMPTY, unreadable: true };
   if (recs.length === 0)
     return { ...EMPTY, hasReceptionCoords: hasCoords, facets: facetCatalog, facetDefaults };
 
@@ -1108,6 +1116,10 @@ export async function searchCategoryVendors(input: {
       hasCoords && vLat !== null && vLng !== null
         ? Math.round(distanceKm(lat as number, lng as number, vLat, vLng) * 10) / 10
         : null;
+    const ceremonyKm =
+      anchors.ceremony && vLat !== null && vLng !== null
+        ? Math.round(distanceKm(anchors.ceremony.latitude, anchors.ceremony.longitude, vLat, vLng) * 10) / 10
+        : null;
     // Service-radius coverage — same fail-open as the recs radiusOk gate
     // (vendor-tier-caps): unknown/Free tier → 0 (unscoped → within), Enterprise
     // → ∞ (within), Verified 20 / Pro 50 → within iff distance ≤ radius.
@@ -1208,6 +1220,7 @@ export async function searchCategoryVendors(input: {
           : null,
       reviewCount: r.review_count ?? null,
       distanceKm: dKm,
+      ceremonyDistanceKm: ceremonyKm,
       // Q7/Q4/Q5 (owner 2026-09-11): the Verified BADGE follows its own
       // deadline (hasVerifiedBadge), separate from public_visibility (listing/
       // bookability, untouched — a shop past its badge deadline stays listed).
@@ -1405,6 +1418,7 @@ export async function searchCategoryVendors(input: {
     rating: s.rating,
     reviewCount: s.reviewCount,
     distanceKm: s.distanceKm,
+    ceremonyDistanceKm: s.ceremonyDistanceKm,
     verified: s.verified,
     boosted: s.boosted,
     compatScore: s.compatScore,

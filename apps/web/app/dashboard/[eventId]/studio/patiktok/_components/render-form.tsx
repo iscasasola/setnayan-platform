@@ -151,8 +151,8 @@ export function RenderForm({
           what does or does not exist on the server. */}
       <p className="text-[11px] text-ink/55">
         Your reel renders in your browser on the next screen. Keep that tab open
-        while it works — then download it, and a copy is saved to your event
-        gallery.
+        while it works — then download it, and a copy is saved to your
+        Memories.
       </p>
     </form>
   );

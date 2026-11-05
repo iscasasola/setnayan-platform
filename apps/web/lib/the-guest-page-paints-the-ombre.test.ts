@@ -124,6 +124,9 @@ test('5 · the draft holds an ombré exactly, overlays it on the row, and Apply 
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', ' ombre:diagonal:#1A0608 '), STORED);
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', '#F5EFE6'), '#f5efe6', 'a plain hex still lands');
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', 'ombre:swirl:#000000'), undefined, 'noise is dropped');
+  // 🎨🎨 A second colour (owner 2026-10-08): the draft keeps the fourth segment, canonical — and drops a malformed one whole.
+  assert.equal(sanitizeHubDraftEventValue('site_bg_color', ' ombre:glow:#F6F1E7:#C5A059 '), 'ombre:glow:#f6f1e7:#c5a059');
+  assert.equal(sanitizeHubDraftEventValue('site_bg_color', 'ombre:glow:#f6f1e7:#c5a05'), undefined, 'a half-read second colour reached the draft');
   assert.equal(sanitizeHubDraftEventValue('site_bg_color', null), null, 'null still clears');
 
   const draft = mergeHubDraft(emptyHubDraft(), { events: { site_bg_color: STORED } });
@@ -173,7 +176,7 @@ test('6 · the Colors panel posts ONE bg_color, filled by the Plain | Ombré fie
   assert.equal((field.match(/name="bg_color"/g) ?? []).length, 1, 'exactly one bg_color is posted');
   // One colour + one effect → the column's own text form (owner: "pick a color,
   // and you apply either plain, dawn, diagonal or glow effect. that's it").
-  assert.match(field, /const posted = encodeBackgroundChoice\(hex, effect\);/);
+  assert.match(field, /const posted = encodeBackgroundChoice\(hex, effect, stored\?\.kind === 'ombre' \? stored\.ombre\.to : null\);/);
   // ONE colour picker — Keynote's split well since the toolbar rebuild (2026-09-27),
   // which replaced the native swatch; still no multi-colour builder.
   assert.equal((field.match(/<ColourWell\b/g) ?? []).length, 1, 'exactly ONE colour picker — no multi-colour builder');

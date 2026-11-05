@@ -381,7 +381,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             <select name="promoted_vendor_tier" required className="input-field w-full">
               <option value="solo">Solo</option>
               <option value="pro">Pro</option>
-              <option value="enterprise">Enterprise</option>
+              <option value="enterprise">Ultra</option>
             </select>
           </label>
           <label className="block text-sm">

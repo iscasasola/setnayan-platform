@@ -206,8 +206,8 @@ export async function POST(req: Request) {
               await emitNotification({
                 userId: uid,
                 type: 'kwento_flash_auto_walled',
-                title: 'Flash moments are appearing on your live wall',
-                body: 'Guest Flash captures are being auto-approved and posted to the live wall — turn this off any time from the live console.',
+                title: 'Flash moments are appearing on your Memory lane',
+                body: 'Guest Flash captures are being auto-approved and posted to Memory lane — turn this off any time from the live console.',
                 relatedUrl: flashUrl,
               });
             }

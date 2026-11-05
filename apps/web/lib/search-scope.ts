@@ -167,7 +167,7 @@ export function resolveSearchScope(pathname: string | null | undefined): SearchS
  * `discover` admits everything BECAUSE OF THE RULE, not as a shortcut: the
  * widest place contains all of it.
  */
-export function itemInScope(kind: 'event' | 'space' | 'action', scope: SearchScopeKey): boolean {
+export function itemInScope(kind: 'event' | 'space' | 'action' | 'supplier', scope: SearchScopeKey): boolean {
   if (scope === 'discover') return true;
   // The guests scope has no palette rows at all: on the Guest list the top bar
   // IS the roster's `?q=` filter, never the palette over your own things.
@@ -175,5 +175,11 @@ export function itemInScope(kind: 'event' | 'space' | 'action', scope: SearchSco
   // Your events board is about events. The action rows beneath it ("Profile &
   // account", "Notifications") are navigation, not contents — they are still
   // one keystroke away through the escape row, which climbs to Discover.
-  return kind === 'event';
+  //
+  // 🔑 A SUPPLIER ON YOUR EVENT IS PART OF YOUR EVENTS (owner 2026-10-22,
+  // searching "seda" for a supplier he had booked). The events board contains
+  // the events, and each event contains its suppliers — the places nest — so
+  // "Search your events" finds them. Leaving them out told him his own
+  // supplier did not exist.
+  return kind === 'event' || kind === 'supplier';
 }

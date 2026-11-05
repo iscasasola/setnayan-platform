@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
+import { ArrowRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -29,6 +29,21 @@ import { registeredSpecializationSets } from './_components/specialization-regis
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
+import { loadMarch } from '@/app/[slug]/_lib/loaders';
+import { marchSections } from '@/lib/march-sections';
+import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
+import { MarchRead } from './_components/march-read';
+import { EventHubBar, EventHubCounts } from './_components/event-hub-bar';
+import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
+import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
+import { eventHubViewOf } from '@/lib/event-hub-views';
+import { hubDayWords, hubHref } from '@/lib/hub-events';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
+import type { EventYouRun } from '@/lib/events-you-run';
+import { isCoordinatorP3Enabled, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
+import { deriveRunOfShow } from '@/lib/run-of-show';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 export const metadata = { title: 'Live · Event Hub' };
 
@@ -86,10 +101,11 @@ export default async function VendorOnTheDayLivePage({
   params: Promise<{ eventId: string }>;
   /** `?role=` — which desk this person is running tonight. UNTRUSTED: validated
    *  against the entitlement inside `buildDayOfFrame`, never here. */
-  searchParams: Promise<{ role?: string }>;
+  searchParams: Promise<{ role?: string; view?: string }>;
 }) {
   const { eventId } = await params;
-  const { role: requestedRole } = await searchParams;
+  const { role: requestedRole, view: rawView } = await searchParams;
+  const view = eventHubViewOf(rawView);
   const supabase = await createClient();
   const {
     data: { user },
@@ -232,6 +248,15 @@ export default async function VendorOnTheDayLivePage({
     bookedCategories: brief?.booked_categories ?? null,
     bookedServiceCategories,
   });
+  /* 🚶 THE BAND AND THE COORDINATOR SEE THE WEDDING MARCH, read-only (owner, tracker 2026-10-23: YES). Asked of
+     what they were booked FOR on this event — the same two lists the tiles are built from — never of the shop's
+     whole service list. Read with the admin client because `march_walks` RLS admits only the couple and their
+     moderators; this page has already proved the booking (or the day-of grant) above, and the read is scoped to
+     this `eventId`. The SAME loader the couple's march maker reads (`loadMarch` → `marchSections`), as applied. */
+  const seesMarch = supplierSeesMarch([...(brief?.booked_categories ?? []), ...bookedServiceCategories]);
+  const march = seesMarch ? await loadMarch(createAdminClient(), eventId) : null;
+  const marchShown = march ? (march.unread ? [] : marchSections(march.walking)) : [];
+
   const modules = resolveModules(profile.services, eventTiles, override).filter((m) => m.enabled);
   const has = (id: DayOfModuleId) => modules.some((m) => m.id === id);
 
@@ -268,24 +293,53 @@ export default async function VendorOnTheDayLivePage({
         x.href != null && !(x.mod.id === 'vendor_papic' && !papicEnabled),
     );
 
+  // ── THE v13 EVENT HUB ROW (owner "Approved." 2026-10-29; prototype `renderEventHub`) ────────────────────────
+  // ‹ Exit · "Event Hub · <event> ▾" (The Day · Scanner · Announce) · 💬 · ⓘ, then Now · Next · Coming. Now/Next are
+  // the run of show's own derivation; Coming is the RSVP headcount (a supplier cannot read arrivals yet — said, not
+  // invented). "Events you run" (the Hub's read, cache()d) says whether this person coordinates THIS event: the
+  // Check-in desk and Announce are theirs only then.
+  const [{ events: runEvents }, announceOn] = await Promise.all([
+    readEventsYouRun(supabase, user.id).catch(() => ({ events: [] as EventYouRun[], measured: false })),
+    isCoordinatorP3Enabled().catch(() => false),
+  ]);
+  const run = runEvents.find((e) => e.eventId === eventId) ?? null;
+  const ros = deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ);
+  const dayWords = hubDayWords(booking.bookedDate);
+  const counts = [
+    { key: 'now', value: ros.current ? formatWallClock(ros.current.start_at) || '—' : '—', word: ros.current ? `now · ${ros.current.label}` : 'now', href: '#schedule', hot: true },
+    { key: 'next', value: ros.next ? formatWallClock(ros.next.start_at) || '—' : '—', word: ros.next ? `next · ${ros.next.label}` : 'next', href: '#schedule' },
+    { key: 'coming', value: brief ? `${formatCount(attending)}/${formatCount(invited)}` : '—', word: brief ? 'coming (RSVP)' : 'couldn’t load' },
+  ];
+  const recent =
+    view === 'announce' && run?.canAnnounce && announceOn ? await fetchLatestBroadcasts(supabase, eventId) : null;
+
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
-      {/* Close / back to the console */}
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/vendor-dashboard/on-the-day"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Exit
-        </Link>
-        <span className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
-          Day-of · live
-        </span>
+    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6" data-event-hub-view={view}>
+      <div>
+        <EventHubBar
+          eventId={eventId}
+          name={coupleName}
+          dayWords={dayWords}
+          view={view}
+          exitHref={hubHref(eventId)}
+          chatHref={booking.threadId ? `/vendor-dashboard/messages/${booking.threadId}` : null}
+          about={[place, brief ? `${formatCount(attending)} of ${formatCount(invited)} guests coming` : null, 'Your tools for the day — only this event.'].filter(Boolean).join(' · ')}
+        />
+        <EventHubCounts tiles={counts} />
       </div>
 
+      {view === 'scanner' ? (
+        <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} />
+      ) : view === 'announce' ? (
+        <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
+      ) : (
+      <>
+
       {/* Obsidian focal — couple + live clock. Kept dark on purpose (see the
-          page doc): it is the one glare-legible anchor on a venue floor. */}
-      <div>
+          page doc): it is the one glare-legible anchor on a venue floor.
+          `id="schedule"`: where a "Schedule moved" notice lands (lib/schedule-shift-notice.ts) — the clock's
+          now/next, with the run of show under it. On a block that ALWAYS renders, so the link never misses. */}
+      <div id="schedule" className="scroll-mt-4">
         <div
           aria-hidden
           className="h-2 border border-b-0 border-ink/10 bg-gradient-to-r from-veil via-paper-deep to-gild/25"
@@ -296,6 +350,8 @@ export default async function VendorOnTheDayLivePage({
             className="pointer-events-none absolute inset-2 border border-gild/20"
           />
           <div className="relative">
+            {/* 📶 The offline copy's mark (EV3) — this phone's own copy of the Event Hub, for a venue without signal. */}
+            <SupplierSavedStrip viewer={user.id} eventId={eventId} eventDate={booking.bookedDate} checkin={run != null} />
             <p className="truncate font-pahina text-2xl font-light leading-snug tracking-tight text-paper">
               {coupleName}
             </p>
@@ -334,6 +390,13 @@ export default async function VendorOnTheDayLivePage({
 
         {/* Run of show (reused realtime header) */}
         {has('run_of_show') ? <RunOfShowHeader eventId={eventId} initial={blocks} /> : null}
+
+        {/* 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks. */}
+        {march && (march.unread || marchWalkCount(marchShown) > 0) ? (
+          <ConsolePlate>
+            <MarchRead sections={marchShown} unread={march.unread === true} />
+          </ConsolePlate>
+        ) : null}
 
         {/* Headcount */}
         {has('pax_headcount') ? (
@@ -399,6 +462,8 @@ export default async function VendorOnTheDayLivePage({
         blocks={blocks}
         bookedCategories={brief?.booked_categories ?? null}
       />
+      </>
+      )}
     </section>
   );
 }

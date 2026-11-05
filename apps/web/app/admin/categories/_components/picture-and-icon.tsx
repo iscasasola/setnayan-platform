@@ -1,19 +1,17 @@
 'use client';
 
 /**
- * picture-and-icon.tsx — the "Picture & icon" section of a category (or a
- * group): the card exactly as couples see it, beside the two controls that
- * change it. Icon ▾ saves on pick (setCategoryIcon; "Group default" clears
- * it); the photo uploads to the samples bucket and saves with Save photo
- * (setCategoryPhoto; Clear removes it). Both are the shipped actions.
+ * picture-and-icon.tsx — the "Look" fold of a category: the card exactly as couples see it, beside the two controls
+ * that change it. Icon ▾ saves on pick ("Group default" clears it); the photo SAVES THE MOMENT IT IS CHOSEN (owner
+ * 2026-10-29 panels approved — no "Save photo" button), Clear removes it. Both through the shipped actions
+ * (`setCategoryIcon` · `setCategoryPhoto`), answered in place (`mapWriteForm`), each with Undo.
  */
-import { useState, useTransition } from 'react';
-import { Circle, ImageIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Circle } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FileUpload } from '@/app/_components/file-upload';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { setCategoryIcon, setCategoryPhoto } from '../actions';
+import { Row, postForm, useInPlace } from './drawer-kit';
 
 function Icon({ name, fallback, className }: { name: string | null; fallback: string | null; className: string }) {
   const C = getLucideIcon(name) ?? getLucideIcon(fallback) ?? Circle;
@@ -28,7 +26,6 @@ export function PictureAndIcon({
   photoRaw,
   photoUrl,
   iconNames,
-  back,
 }: {
   id: string;
   label: string;
@@ -38,17 +35,19 @@ export function PictureAndIcon({
   photoRaw: string | null;
   photoUrl: string | null;
   iconNames: readonly string[];
-  back: Record<string, string>;
 }) {
   const [icon, setIcon] = useState(iconName);
   const [photo, setPhoto] = useState(photoUrl);
-  const [pending, start] = useTransition();
-  const hidden = Object.entries(back).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />);
+  const [ref, setRef] = useState(photoRaw);
+  const iconRun = useInPlace();
+  const photoRun = useInPlace();
+  const saveIcon = (key: string) => postForm('icon', { category_id: id, icon_name: key });
+  const save = (r: string) => postForm('photo', { category_id: id, photo_ref: r });
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start" data-picture-and-icon="">
-      <div className="w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl bg-white" aria-label={`${label} as couples see it`}>
-        <div className="flex h-24 items-center justify-center bg-cream">
+      <div className="w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl bg-raised shadow-[0_0_0_1px_rgb(var(--color-ink)/0.08)]" aria-label={`${label} as couples see it`}>
+        <div className="flex h-24 items-center justify-center bg-ink/5">
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element -- a signed preview of our own upload
             <img src={photo} alt="" className="h-full w-full object-cover" aria-hidden />
@@ -58,80 +57,80 @@ export function PictureAndIcon({
         </div>
         <div className="flex items-center gap-2 px-3 py-2.5">
           <Icon name={icon} fallback={defaultIcon} className="h-4 w-4 shrink-0 text-ink/70" />
-          <span className="truncate text-sm font-semibold text-ink">{label}</span>
+          <span className="text-sm font-semibold text-ink [overflow-wrap:anywhere]">{label}</span>
         </div>
       </div>
 
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className={`flex items-center gap-2 ${pending ? 'opacity-60' : ''}`}>
-          <span className="w-14 shrink-0 text-xs font-medium text-ink/70">Icon</span>
-          <PickMenu
-            label="Icon"
-            value={icon ?? ''}
-            buttonText={icon ?? 'Group default'}
-            options={[
-              { key: '', label: 'Group default' },
-              ...iconNames.map((n) => ({ key: n, label: n, icon: <Icon name={n} fallback={null} className="h-4 w-4" /> })),
-            ]}
-            compact
-            className="border border-ink/15"
-            onPick={(key) => {
-              setIcon(key || null);
-              const fd = new FormData();
-              for (const [k, v] of Object.entries(back)) fd.set(k, v);
-              fd.set('category_id', id);
-              fd.set('icon_name', key);
-              start(async () => {
-                await setCategoryIcon(fd);
-              });
-            }}
-          />
-        </div>
-
-        {/* ONE photo_ref per form. The Studio carried the stored ref in a hidden
-            input placed BEFORE the uploader's own, so FormData.get() always
-            returned the OLD value and a new upload (or Clear) saved nothing.
-            The uploader now carries the current ref itself, and Clear is its
-            own form. */}
-        <form action={setCategoryPhoto} className="space-y-2" data-photo-form="">
-          {hidden}
-          <input type="hidden" name="category_id" value={id} />
-          <div className="flex items-start gap-2">
-            <span className="w-14 shrink-0 pt-1 text-xs font-medium text-ink/70">Photo</span>
-            <div className="min-w-0 flex-1">
-              <FileUpload
-                bucket="samples"
-                pathPrefix={`taxonomy/${id}`}
-                name="photo_ref"
-                currentValue={photoRaw}
-                initialDisplayUrls={photoRaw && photoUrl ? { [photoRaw]: photoUrl } : undefined}
-                unsavedHint="press Save photo"
-                maxSizeMB={5}
-                acceptedTypes={['image/webp', 'image/jpeg', 'image/png']}
-                variant="square"
-                onChange={(v) => {
-                  if (typeof v === 'string') setPhoto(v);
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <Row label="Icon">
+          <span className={iconRun.pending ? 'opacity-60' : undefined}>
+            <PickMenu
+              label="Icon"
+              value={icon ?? ''}
+              buttonText={icon ?? 'Group default'}
+              options={[
+                { key: '', label: 'Group default' },
+                ...iconNames.map((n) => ({ key: n, label: n, icon: <Icon name={n} fallback={null} className="h-4 w-4" /> })),
+              ]}
+              compact
+              className="border border-ink/15"
+              onPick={(key) => {
+                const before = icon ?? '';
+                if (key === before) return;
+                setIcon(key || null);
+                iconRun.run(() => saveIcon(key), {
+                  what: 'Icon',
+                  said: `Icon — ${key || 'group default'}`,
+                  undo: async () => {
+                    setIcon(before || null);
+                    return saveIcon(before);
+                  },
+                  onDone: (r) => {
+                    if (!r.ok) setIcon(before || null);
+                  },
+                });
+              }}
+            />
+          </span>
+        </Row>
+        <div className={photoRun.pending ? 'opacity-60' : undefined} data-photo-form="">
+          <Row label="Photo">
+            <FileUpload
+              bucket="samples"
+              pathPrefix={`taxonomy/${id}`}
+              name="photo_ref"
+              currentValue={ref}
+              initialDisplayUrls={photoRaw && photoUrl ? { [photoRaw]: photoUrl } : undefined}
+              unsavedHint={null}
+              maxSizeMB={5}
+              acceptedTypes={['image/webp', 'image/jpeg', 'image/png']}
+              variant="square"
+              onChange={(v) => {
+                if (typeof v !== 'string' || v === ref) return;
+                const before = ref ?? '';
+                setRef(v);
+                setPhoto(v);
+                photoRun.run(() => save(v), { what: 'Photo', said: 'Photo saved', undo: () => save(before) });
+              }}
+            />
+          </Row>
+          {ref ? (
+            <div className="pl-[112px] sm:pl-[140px]">
+              <button
+                type="button"
+                onClick={() => {
+                  const before = ref;
+                  setRef(null);
+                  setPhoto(null);
+                  photoRun.run(() => save(''), { what: 'Photo', said: 'Photo cleared', undo: () => save(before) });
                 }}
-              />
+                className="sn-press inline-flex min-h-11 items-center rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink"
+              >
+                Clear photo
+              </button>
             </div>
-            {!photo ? <ImageIcon className="mt-1 h-4 w-4 shrink-0 text-ink/30" aria-hidden /> : null}
-          </div>
-          <div className="pl-16">
-            <SubmitButton className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-cream" pendingLabel="Saving…">
-              Save photo
-            </SubmitButton>
-          </div>
-        </form>
-        {photoRaw ? (
-          <form action={setCategoryPhoto} className="pl-16">
-            {hidden}
-            <input type="hidden" name="category_id" value={id} />
-            <input type="hidden" name="photo_ref" value="" />
-            <SubmitButton className="text-xs font-medium text-ink/70 underline hover:text-ink" pendingLabel="Clearing…">
-              Clear photo
-            </SubmitButton>
-          </form>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );

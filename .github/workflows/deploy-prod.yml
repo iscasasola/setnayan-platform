@@ -23,6 +23,13 @@ name: deploy-prod
 # (apps/web/vercel.json → "git.deploymentEnabled.main": false — JSON takes no
 # comments, so this is its note). Schema is therefore always ahead of code.
 #
+# 2026-10-08: the same `git.deploymentEnabled` map also turns Vercel's git builds OFF
+# for every branch except `preview/*` (`"**": false`, `"*": false`, `"preview/*": true`) —
+# a builder branch used to start a build machine only for the Ignored Build Step to
+# cancel it ~16 s later, dozens of times a day (Build CPU Minutes were ~98% of the bill).
+# This workflow's deploy hook is unaffected: it has deployed `main` with
+# `"main": false` since the hook was introduced.
+#
 # ── The prerequisite, and why it took two tries ──
 # The first attempt (#3916) turned Vercel's auto-deploy off while push-triggered
 # workflows were SILENTLY SUPPRESSED, so nothing deployed at all for three

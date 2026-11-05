@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
 import { recordedDepositPhp } from '@/lib/paid-to-vendor';
+import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effects.server';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -308,6 +309,18 @@ export async function settleDepositDispute(formData: FormData) {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[admin/disputes] deposit settlement audit insert failed (non-fatal):', e);
+  }
+
+  /*
+    💸 "THE PAYMENT STANDS" ACKNOWLEDGES THE DEPOSIT, SO IT RUNS THE SAME
+    EFFECTS AS EVERY OTHER DOOR (audit 2026-10-12, C5). The RPC stamps
+    `deposit_acknowledged_at` inside SQL and nothing else ran — the fee was made
+    and the schedule reserved only when that supplier next happened to open
+    their dashboard (the catch-up). Fail-soft by contract: the effects never
+    throw, and the settlement has already committed.
+  */
+  if (outcome === 'payment_stands') {
+    await runDepositAcknowledgedEffects(admin, { eventVendorId, door: 'dispute_settle' });
   }
 
   /*

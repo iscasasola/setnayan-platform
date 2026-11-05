@@ -14,7 +14,13 @@
  *  4 · ONE SEGMENTED CONTROL. Roster · Share the link were underline tabs
  *      beside the List · Mind map pill. The doors are one `.sn-seg` now, with
  *      List · Mind map standing where Roster stood.
+ *
+ *  ⤷ 2026-10-07 (Maker PR 4f): the ⋯ sheet is retired — its tools moved to the
+ *     thumb row — and the doors are the prototype's `List N · Map · Setup`
+ *     (`guests-screen.tsx`). 1 and 2 hold for the add sheet; 3 retires with the
+ *     ⋯; 4 holds for the new segmented control.
  */
+import { GUESTS_VIEW_LABEL, GUESTS_TOP_LABEL } from '@/lib/guests-views';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,49 +30,61 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
-const MENU = read('guests-phone-menu.tsx');
 const ADD = read('add-guest-sheet.tsx');
-const TABS = read('roster-tabs.tsx');
-const SWITCH = read('view-switcher.tsx');
-const PAGE = read('../page.tsx');
+const SCREEN = read('guests-screen.tsx');
 const CSS = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'globals.css'), 'utf8'));
 
 test('1 · both guest sheets are drawn on <body>, above the bottom bar', () => {
   // The reason, so this guard dies loudly if the reason ever goes away.
   assert.match(CSS, /\.sn-vt-page\s*\{[^}]*view-transition-name/, 'the page <main> no longer names a view transition');
-  for (const [name, src] of [['guests-phone-menu.tsx', MENU], ['add-guest-sheet.tsx', ADD]] as const) {
-    assert.match(src, /createPortal\(/, `${name} draws its sheet inside the page — the bottom bar covers it`);
-    assert.match(src, /document\.body,?\s*\)/, `${name} portals somewhere other than <body>`);
+  // ⤷ 2026-10-09: the portal is `GuestPopup`'s, once, for every guest-list sheet; the add sheet is drawn by it.
+  const popup = read('guest-popup.tsx');
+  assert.match(popup, /createPortal\(/, 'guest-popup.tsx draws its sheet inside the page — the bottom bar covers it');
+  assert.match(popup, /document\.body,?\s*\)/, 'guest-popup.tsx portals somewhere other than <body>');
+  assert.match(ADD, /<GuestPopup\b/, 'the add sheet is not drawn by the shared pop-up');
+  assert.doesNotMatch(ADD, /createPortal\(/, 'the add sheet draws a portal of its own');
+});
+
+test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wash or blur written here', () => {
+  // ⤷ 2026-10-09 (owner rule, INTERACTION_RULES § 9): dark AND blurred (`.sn-popup-dark`), a tap on it closes, nothing behind
+  // works. This was a 1-px blur so the round + could be read through it; the rule replaced that.
+  const popup = read('guest-popup.tsx');
+  // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`, `.sn-popup-dark` on the button itself) — a separate
+  // close layer under the dark was made inert by the page lock, and a tap outside closed nothing.
+  assert.match(popup, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the sheet has no pop-up dark, or a tap on it does not close the sheet');
+  assert.doesNotMatch(popup, /pointer-events-none/, 'a dark that takes no tap is back over a separate close layer');
+  for (const [name, src] of [['add-guest-sheet.tsx', ADD], ['guest-popup.tsx', popup]] as const) {
+    assert.doesNotMatch(src, /backdrop-blur-|\bbg-ink\/\d/, `${name} writes a wash or blur of its own`);
   }
 });
 
-test('2 · the blur behind a guest sheet is light enough to read the + through', () => {
-  for (const [name, src] of [['guests-phone-menu.tsx', MENU], ['add-guest-sheet.tsx', ADD]] as const) {
-    const blurs = src.match(/backdrop-blur-\[(\d+)px\]/g) ?? [];
-    assert.ok(blurs.length > 0, `${name} lost its scrim blur rule`);
-    for (const b of blurs) assert.equal(b, 'backdrop-blur-[1px]', `${name}: ${b} turns the round + into a black circle`);
-  }
+test('4 · the doors are ONE dropdown in ONE row — "Guests · List ▾" listing Guests · Seats · March, one word each, then the view’s counts, rounds and the ⚙ (owner 2026-10-27 ⚙; R4 2026-10-28; slice 2 2026-10-29; ONE row 2026-10-30)', () => {
+  // ⤷ 2026-10-30 (owner, iPhone app: *"The menu does not work properly"*): the segmented `Guests | Seats ▾ | March` pill is
+  // gone from every view — the doors are the ONE shared dropdown (`PickMenu`, "any set of choices is a dropdown").
+  assert.doesNotMatch(SCREEN, /aria-label="Guest list views"|data-guests-segmented|<PillThumb \/>/, 'the segmented pill is back beside the ▾');
+  assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
+  const menuAt = SCREEN.indexOf('const pinMenu = (');
+  const menu = SCREEN.slice(menuAt, SCREEN.indexOf('\n  );', menuAt));
+  assert.match(menu, /<PickMenu\b[^]*dataAttr="data-guests-pin-menu"[^]*buttonText=\{pinnedMenuWords\(gview, seatMode\)\}/, 'the doors are not the one shared dropdown naming the view');
+  // Its groups are the TOPS this event has, each in its one word (`lib/guests-views.ts`).
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.guests/);
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.seats/);
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.march/);
+  const words = Object.values(GUESTS_TOP_LABEL);
+  assert.deepEqual(words, ['Guests', 'Seats', 'March'], `the groups read ${words.join(' · ')}`);
+  assert.ok(words.every((w) => !/\s/.test(w)), 'a group says more than one word');
+  assert.deepEqual(Object.values(GUESTS_VIEW_LABEL), ['List', 'Map', 'Seats', 'March'], 'a view lost its one word');
+  // The ⚙ ends the first row after the face (menu · counts) and the view's own rounds (Seats' Edit · ⋯).
+  const rowAt = SCREEN.indexOf('data-first-row="" data-guests-top-row=""');
+  assert.ok(rowAt > -1, 'the one top row is gone');
+  assert.match(
+    SCREEN.slice(rowAt),
+    // ☑ 3 Nov: the view's rounds slot holds the List's ☑ Select (it left the ≡); Seats still portals its rounds into it.
+    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)*<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="">\s*\{gview === 'list' && !selectMode[\s\S]*?data-testid="guests-select" \/>\s*\) : null\}\s*<\/span>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
+    'the ⚙ does not end the first row after the menu and the rounds',
+  );
 });
 
-test('3 · the ⋯ sheet says Sort once — the dropdown names itself', () => {
-  assert.match(MENU, /\{sort\}/, 'the ⋯ sheet dropped Sort');
-  assert.doesNotMatch(MENU, />\s*Sort\s*</, 'a second "Sort" label is back beside the Sort dropdown');
-});
-
-test('4 · the doors are ONE segmented control', () => {
-  assert.match(TABS, /className="sn-seg\b/, 'the doors are not the shipped .sn-seg control');
-  assert.doesNotMatch(TABS, /border-b-2/, 'underline tabs are back beside the segmented pill');
-  assert.match(TABS, /d\.key === 'roster' && viewSwitch/, 'List · Mind map no longer stand where Roster stood');
-  assert.match(TABS, /className=\{SEG_ITEM\}/, 'a door is drawn in its own look, not the one segment look');
-  // The switch, inside it, draws no pill of its own.
-  assert.match(SWITCH, /if \(bare\) return <>\{items\}<\/>;/, 'the bare switch draws its own .sn-seg inside the doors');
-  assert.match(PAGE, /<GuestsViewSwitcher [^>]*\bbare\b/, 'the page hands the doors a switch with its own pill — two controls');
-});
-
-test('4 · the segmented doors are a <nav> of LINKS — Share the link is a link, never a broken tab', () => {
-  const nav = TABS.slice(TABS.indexOf('<nav'), TABS.indexOf('>', TABS.indexOf('<nav')));
-  assert.match(nav, /aria-label="Guest list"/, 'the doors lost their nav landmark name');
-  assert.doesNotMatch(TABS, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
-  assert.match(TABS, /aria-current=\{current \? 'page' : undefined\}/, 'the current door does not say it is the current page');
-  assert.match(SWITCH, /bare \? \{ 'aria-current': on \? \('page' as const\) : undefined \}/, 'List · Mind map pose as tabs inside the nav');
+test('4 · the doors never pose as tabs', () => {
+  assert.doesNotMatch(SCREEN, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
 });

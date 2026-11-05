@@ -137,31 +137,45 @@ export type OtFace = {
   variation?: { set: (coords: Record<string, number>) => void };
 };
 
-/** The words' outlines, pen at (x, y) on the baseline, `size` units per em. */
-export function outlineWords(face: OtFace, words: string, x: number, y: number, size: number): OtPath {
-  try {
-    return face.getPath(words, x, y, size);
-  } catch {
-    const scale = size / face.unitsPerEm;
-    let pen = x;
-    let prev: OtGlyph | null = null;
-    let out: OtPath | null = null;
-    for (const ch of Array.from(words)) {
-      const g = face.charToGlyph(ch);
-      if (prev) {
-        try {
-          pen += face.getKerningValue(prev, g) * scale;
-        } catch {
-          /* no kerning for this pair */
-        }
-      }
-      const p = g.getPath(pen, y, size);
-      if (out) out.extend(p);
-      else out = p;
-      pen += (g.advanceWidth ?? 0) * scale;
-      prev = g;
+/** The words' outlines, pen at (x, y) on the baseline, `size` units per em. `spacing` (L4, hundredths of the size)
+ *  adds that much room after every letter — set glyph by glyph, the way the fallback below already sets them. */
+export function outlineWords(face: OtFace, words: string, x: number, y: number, size: number, spacing = 0): OtPath {
+  if (!spacing) {
+    try {
+      return face.getPath(words, x, y, size);
+    } catch {
+      /* set glyph by glyph, below */
     }
-    if (!out) return face.getPath('', x, y, size);
-    return out;
   }
+  let out: OtPath | null = null;
+  for (const g of letterRun(face, words, x, y, size, spacing)) {
+    if (out) out.extend(g.path);
+    else out = g.path;
+  }
+  return out ?? face.getPath('', x, y, size);
+}
+
+/**
+ * The words set glyph by glyph — each letter's own outline at its pen, with the face's kerning and `spacing` (hundredths
+ * of the size) after each. What `outlineWords` falls back to, and what Split into letters cuts the word with (L4).
+ */
+export function letterRun(face: OtFace, words: string, x: number, y: number, size: number, spacing = 0): Array<{ ch: string; path: OtPath }> {
+  const scale = size / face.unitsPerEm;
+  let pen = x;
+  let prev: OtGlyph | null = null;
+  const out: Array<{ ch: string; path: OtPath }> = [];
+  for (const ch of Array.from(words)) {
+    const g = face.charToGlyph(ch);
+    if (prev) {
+      try {
+        pen += face.getKerningValue(prev, g) * scale;
+      } catch {
+        /* no kerning for this pair */
+      }
+    }
+    out.push({ ch, path: g.getPath(pen, y, size) });
+    pen += (g.advanceWidth ?? 0) * scale + (spacing / 100) * size;
+    prev = g;
+  }
+  return out;
 }

@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from './pro-quiet-line';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -14,7 +15,7 @@ import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
 // ⚡ The sheet opens on a tap — it loads with the Details pieces (`details-lazy.tsx`).
 import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
-import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
+import { LOOK_PART_LABEL, LOOK_SECTIONS, LOOK_SECTION_LABEL, LOOK_SECTION_PARTS, type LookPart, type LookSection } from '@/lib/maker-look-sections';
 import { stagePageSrc, type GuidedStepBody } from '@/lib/guided-step-layout';
 import { usePickedTheme } from './theme-pick-context';
 
@@ -61,41 +62,63 @@ export type LookPageKey = 'logo' | 'hero' | 'reveal' | 'look';
 const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 'reveal', look: 'page' };
 
 /**
- * 🎨 LOOK IS ONE PANEL (owner, live iPhone test 2026-10-02 — tracker f40;
- * `lib/maker-look-sections.ts`; design `maker_in_four_2026-09-30_fable.html`
- * frame E): Background · Font · Colours · Buttons, in that order, in the one
- * editor the toolbar's Look opens. 🚫 No Theme section since 2026-10-05
- * (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"): every
- * theme's moving loop is a choice under Background instead. The sections are
- * the rows the work area built (`MakerLookPages.look`), moved here — the same
- * controls, the same fields, into the draft. A section the event does not offer
- * (the store shell's Main background) is simply absent; one that has not
- * arrived SAYS so. `filmLine` (the Save the Date film's "Same as the Event Hub")
- * sits under Background, the ground it hands the film back to.
+ * 🎨 LOOK IS ONE PANEL — BACKGROUND · ELEMENTS · MUSIC (owner 2026-10-08,
+ * DECISION_LOG "APPROVED — THE LOOK RESTUDY"; `lib/maker-look-sections.ts`), in
+ * that order, in the one editor the toolbar's Look opens. 🚫 No Theme section
+ * since 2026-10-05: every theme's moving loop is a choice under Background.
+ *
+ * A section is drawn from its PARTS (`LOOK_SECTION_PARTS`) — the rows the work
+ * area built (`MakerLookPages.look`), moved here: the same controls, the same
+ * fields, into the draft. Background holds the main background, the page fill
+ * (it was under Colours) and the hero video (it was under Music); Elements holds
+ * Colours (with the Dress code palette's style), Font and Buttons, each under
+ * its own small name. A part the event does not offer (the store shell's Main
+ * background) is simply absent, and a section with none of its parts is not
+ * drawn; a section that has not arrived SAYS so.
+ *
+ * 🎞 NO FILM LINE (2026-10-08): the Save the Date film's "Same as the Event Hub"
+ * left Look — the film's own background is handed back in its own studio until
+ * it retires (restudy § 4, plan row 6).
  */
 export function LookPanel({
-  filmLine = null,
   sections = LOOK_SECTIONS,
   item,
+  extras,
 }: {
-  filmLine?: ReactNode;
   sections?: readonly LookSection[];
   /**
    * 🔑 ONE MOUNT OF EACH CONTROL (review 2026-10-06): the whole Look (`theme`) and
-   * Background · Colours · Font · Music draw the SAME registered nodes — mounted
+   * Background · Elements · Music draw the SAME registered nodes — mounted
    * twice they would hold two states and two on-open measurements. Named, a
    * panel draws only while its item is the one open in the Maker.
    */
   item?: string;
+  /** More of a part's OWN controls, drawn straight under it (the new Maker's Studio: the five main colours under Colours, the background's extras). */
+  extras?: Partial<Record<LookPart, ReactNode>>;
 }) {
   const maker = useMaker();
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
   if (item && maker && maker.detailsItem !== item) return null;
-  const of = (k: LookSection): ReactNode =>
-    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
+  /* 🧭 THE NEW MAKER'S STUDIO, WITH A MAIN BACKGROUND: its ONE Source ▾ (`main-background-panel.tsx`, restudy
+     row 2) draws the page fill (Colour), the hero video (Your photo or video) and the extras (Shade · Blur ·
+     Focus) itself — so Look does not draw them a second time. Without that panel (the app-store shell builds
+     none) they stay rows of Look, as in the shipped Maker. */
+  const sourceHolds = maker?.stagesStudio === true && Boolean(look?.background);
+  /* 🎨 THE PALETTE-TYPE ROW LEFT LOOK (owner 2026-10-08, on the local copy: *"remove Palette Type"*). `look.palette`
+     ("Palette · Fabric swatches ▾") is no longer drawn under Colours. Nothing is written by leaving it out: the
+     stored palette look stays as it is and keeps drawing on the guest page, and the SAME control is still where
+     the palette itself lives — the Dress code scene's own settings (`editor-shell.tsx` `paletteRow`). */
+  const part = (k: LookPart): ReactNode => (!look || (sourceHolds && (k === 'page' || k === 'video')) ? null : (look[k] ?? null));
+  /** A section's parts that are there — each with what rides under it. */
+  const partsOf = (k: LookSection) =>
+    LOOK_SECTION_PARTS[k].flatMap((p) => {
+      const node = part(p);
+      const more = sourceHolds && p === 'background' ? null : (extras?.[p] ?? null);
+      return node || more ? [{ p, node, more }] : [];
+    });
   /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */
-  if (look && sections.every((k) => !of(k))) {
+  if (look && sections.every((k) => partsOf(k).length === 0)) {
     return (
       <p className="text-sm text-ink/70" data-look-panel-empty={sections.join(' ')}>
         Nothing to set here for this event.
@@ -104,24 +127,34 @@ export function LookPanel({
   }
   return (
     <div data-look-panel={sections.length === LOOK_SECTIONS.length ? '' : sections.join(' ')} className="flex flex-col gap-5">
+      {/* 💎 The quiet line (owner 2026-10-22) — Look's ◆ rows are Style's; Background's and Music's name their own part. */}
+      <ProQuietLine part={sections.length === 1 && sections[0] === 'background' ? 'background' : sections.length === 1 && sections[0] === 'music' ? 'music' : 'style'} />
       {sections.map((k, i) => {
-        const node = of(k);
-        if (look && !node) return null;
+        const parts = partsOf(k);
+        if (look && parts.length === 0) return null;
+        /* Elements is three controls of different kinds — each is named; Background and Music name themselves. */
+        const named = k === 'elements';
         return (
           <section key={k} data-look-section={k} className={`flex flex-col gap-2${i > 0 ? ' border-t border-ink/10 pt-4' : ''}`}>
             {/* One section alone is named by its item's row — no second heading. */}
             {sections.length > 1 ? <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3> : null}
-            {node ??
-              (late ? (
-                <p role="alert" className="text-sm text-terracotta-700" data-look-section-failed={k}>
-                  This could not be opened just now. Nothing was changed — please reopen Look in a moment.
-                </p>
-              ) : (
-                <p role="status" className="text-sm text-ink/60" data-look-section-waiting={k}>
-                  Opening…
-                </p>
-              ))}
-            {k === 'background' ? filmLine : null}
+            {look ? (
+              parts.map(({ p, node, more }) => (
+                <div key={p} data-look-part={p} className="flex flex-col gap-2">
+                  {named ? <h4 className="text-[13px] font-semibold text-ink/70">{LOOK_PART_LABEL[p]}</h4> : null}
+                  {node}
+                  {more}
+                </div>
+              ))
+            ) : late ? (
+              <p role="alert" className="text-sm text-terracotta-700" data-look-section-failed={k}>
+                This could not be opened just now. Nothing was changed — please reopen Look in a moment.
+              </p>
+            ) : (
+              <p role="status" className="text-sm text-ink/60" data-look-section-waiting={k}>
+                Opening…
+              </p>
+            )}
           </section>
         );
       })}
@@ -160,7 +193,27 @@ export function DetailsLookBody({ item }: { item: LookPageKey }) {
       <CouldNotOpen item={item} />
     );
   }
+  /* 🪟 STUDIO › LOOK SHOWS A SAMPLE, NOT THE PAGE (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF
+     WHAT IS BEING EDITED — NOT THE COVER PAGE": *"a sample of the header text, buttons on the actual screen"*). In the
+     new Maker's Studio, Look's body is the sample screen the work area built (`look-sample.tsx`) — drawn in the
+     browser from the values in hand, answering every control at the tap. NO guest-page frame is mounted here: a Look
+     open fetches no guest-page document, and a pick asks for no render of one. The whole page is one tap away, where
+     it always was — Stages. The shipped Maker (the flag off) keeps its page frame. */
+  if (lookShowsSample(item, maker.stagesStudio === true)) {
+    return look.look?.sample ? (
+      <div className="flex min-h-0 flex-1 flex-col" data-details-look="look" data-details-look-sample="">
+        {look.look.sample}
+      </div>
+    ) : (
+      <CouldNotOpen item={item} />
+    );
+  }
   return <LookFrame item={item} />;
+}
+
+/** Studio › Look draws the sample screen in place of the page frame — the Hero and the Reveal keep their page (they ARE the page). */
+export function lookShowsSample(item: LookPageKey, stagesStudio: boolean): boolean {
+  return item === 'look' && stagesStudio;
 }
 
 /** The editor of a Look item: the controls its page always had beside it. */
@@ -236,17 +289,6 @@ function HeroPartSheet() {
   if (!parts || !piece || !isHubElementKey(piece)) return null;
   const el: HubElementKey = piece;
   const canvases = parts.canvases;
-  const usedColours = (() => {
-    const out = new Set<string>();
-    for (const c of Object.values(canvases)) {
-      if (c.color) out.add(c.color);
-      for (const st of Object.values(c.elements ?? {})) {
-        if (st?.color) out.add(st.color.slice(0, 7));
-        for (const r of st?.runs ?? []) if (r.color) out.add(r.color.slice(0, 7));
-      }
-    }
-    return [...out].slice(0, 15);
-  })();
   const post = (message: unknown) => heroFrame()?.contentWindow?.postMessage(message, window.location.origin);
   return (
     <div
@@ -267,7 +309,6 @@ function HeroPartSheet() {
           setPiece(next);
         }}
         sceneLabel="Hero"
-        usedColours={usedColours}
         onPreview={(message) => post(message)}
         onPlay={() => post({ source: 'setnayan-editor', t: 'playEl', key: HERO_KEY, el })}
         onClose={() => {

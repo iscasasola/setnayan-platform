@@ -29,8 +29,10 @@ import {
 } from 'lucide-react';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { createClient } from '@/lib/supabase/client';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -269,7 +271,7 @@ export function ConnectionLogsClient({
         what is still broken.
       </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-full border border-[#A9834B]/30 bg-white p-1">
+        <PillTrack data-connection-log-tabs="">
           <TabButton active={tab === 'active'} onClick={() => setTab('active')}>
             Active issues
             <Count n={active.length} active={tab === 'active'} />
@@ -278,7 +280,7 @@ export function ConnectionLogsClient({
             Resolved archive
             <Count n={resolved.length} active={tab === 'resolved'} />
           </TabButton>
-        </div>
+        </PillTrack>
 
         {tab === 'active' && active.length > 0 ? (
           <button
@@ -469,13 +471,13 @@ function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void 
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1B1A17]/40 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
       role="presentation"
     >
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={dialogRef}
-        className="m-card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white focus:outline-none sm:rounded-2xl"
+        className="m-card relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white focus:outline-none sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -603,15 +605,11 @@ function TabButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition ${
-        active ? 'bg-[#1B1A17] text-white' : 'text-[#5B5B5B] hover:text-[#1B1A17]'
-      }`}
-    >
+    /* The app's ONE pill selector (owner 2026-10-08). `aria-pressed` is new: the tab said nothing about being
+       picked, and the sliding thumb finds the picked one by it. */
+    <PillButton on={active} aria-pressed={active} onClick={onClick} className="gap-1.5 px-4">
       {children}
-    </button>
+    </PillButton>
   );
 }
 

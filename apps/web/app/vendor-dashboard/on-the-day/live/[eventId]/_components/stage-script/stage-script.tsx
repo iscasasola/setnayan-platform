@@ -12,7 +12,7 @@ import {
 import type { SpecializationSurfaceProps } from '../specialization-registry';
 import { lentScheduleState, nextAdvanceAction, remainingBlockCount } from '@/lib/floor-command';
 import { deriveRunOfShow } from '@/lib/run-of-show';
-import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { DEFAULT_EVENT_TZ, onlyTimedBlocks } from '@/lib/schedule';
 import { fetchStageNotes } from '@/lib/stage-notes';
 import { StageNotesCard } from '../stage-notes-card';
 import { fetchMyAreaGrants } from '../floor-command/access-actions';
@@ -68,10 +68,8 @@ export async function StageScript({
 }: SpecializationSurfaceProps) {
   const supabase = await createClient();
   const [blocksRes, scriptsRes] = await Promise.all([
-    supabase
-      .from('event_schedule_blocks')
-      .select(BLOCK_COLUMNS)
-      .eq('event_id', eventId)
+    // ⏰ A Time-TBA chapter cannot be run on the day — left out, never a 12:00 AM cue (onlyTimedBlocks).
+    onlyTimedBlocks(supabase.from('event_schedule_blocks').select(BLOCK_COLUMNS).eq('event_id', eventId))
       .order('start_at', { ascending: true })
       .order('sort_order', { ascending: true }),
     // HIS OWN LINES for this wedding (owner-locked 2026-08-01). Scoped to his
@@ -186,6 +184,7 @@ export async function StageScript({
             action={advance}
             remaining={remainingBlockCount(blocks)}
             driftMinutes={deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ).driftMinutes}
+            parts={blocks}
             onLoan
           />
         </Card>

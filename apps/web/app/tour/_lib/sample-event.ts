@@ -35,7 +35,7 @@ const readSample = cache(async () => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, display_name, slug, is_sample, event_type, role_palette, reception_design, venue_setting, event_date, bride_name, groom_name',
+      'event_id, display_name, slug, is_sample, event_type, role_palette, dress_code_config, reception_design, venue_setting, event_date, bride_name, groom_name',
     )
     .eq('is_sample', true)
     .eq('slug', SAMPLE_SLUG)

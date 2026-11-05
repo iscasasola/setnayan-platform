@@ -16,7 +16,7 @@
  * service they can purchase on top to offer that exclusive deal" already exists
  * and is already priced, owner-locked on 2026-09-09: the SETNAYAN GIFT, free
  * Papic photos for the couple, sized at `GIFT_SHARE_OF_FEE_PCT`% of the booking
- * fee, capped at `GIFT_CAP_CREDITS`, billed to the supplier on top of the fee.
+ * fee, capped at the top pack on sale (never above `GIFT_CAP_CREDITS`), billed to the supplier on top of the fee.
  * `lib/setnayan-gift.ts` is the rule; this file does not re-derive one centavo
  * of it.
  *
@@ -48,14 +48,12 @@
  */
 
 import {
-  GIFT_CAP_CREDITS,
   GIFT_SHARE_OF_FEE_PCT,
   formatGiftPhotos,
   previewGiftForTotal,
   type GiftQuoteBasis,
 } from '@/lib/setnayan-gift';
 import { feePesos, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /** Where the supplier's own service cards — and the gift switch — live. */
 export const VENDOR_SERVICE_CARDS_PATH = '/vendor-dashboard/services';
@@ -85,6 +83,13 @@ export type PapicQuoteStanding =
   | { kind: 'included'; basis: GiftQuoteBasis }
   | { kind: 'available'; basis: GiftQuoteBasis }
   | { kind: 'free_booking' }
+  /**
+   * RPC `'fee_waived'` (2026-10-12, owner #7 "no fee, no couple gift — the
+   * quote stops promising it while waived"): a free-fee window is running, or
+   * this booking's charge is already waived for a reason other than the free
+   * five. No fee is charged, so there is nothing to size a gift from.
+   */
+  | { kind: 'fee_waived' }
   | { kind: 'not_sourced' }
   | { kind: 'unreadable' };
 
@@ -142,6 +147,8 @@ export function standingForGiftArm(
       return { kind: 'not_sourced' };
     case 'free_booking':
       return { kind: 'free_booking' };
+    case 'fee_waived':
+      return { kind: 'fee_waived' };
     case 'applies':
       return basis ? { kind: 'included', basis } : { kind: 'unreadable' };
     case 'card_says_no':
@@ -280,7 +287,7 @@ export function papicTopUpForQuote(
         detail:
           `Your exclusive Papic deal is capped at ${sharePct()} of your booking fee` +
           (gift.capped
-            ? `, and this quote is at the ceiling of ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos`
+            ? `, and this quote is at the ceiling of ${formatGiftPhotos(gift.credits)} photos`
             : '') +
           '. The switch above is on, so the photos above are part of this quote ' +
           'and are billed to you with the fee.',
@@ -323,7 +330,7 @@ export function papicTopUpForQuote(
         cta,
         detail:
           `That is the most this booking can carry: ${sharePct()} of your booking fee` +
-          (gift.capped ? `, stopping at ${formatGiftPhotos(GIFT_CAP_CREDITS)} photos` : '') +
+          (gift.capped ? `, stopping at ${formatGiftPhotos(gift.credits)} photos` : '') +
           '. The switch above is off, so this quote carries none — switch it on and ' +
           'the photos reach your couple when your fee bill is paid.',
       };
@@ -344,8 +351,19 @@ export function papicTopUpForQuote(
         headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
-          `booking's fee is waived — one of your first ${FREE_BOOKING_LIMIT} on Setnayan. Your first ` +
+          `booking's fee is waived — your first booking from Setnayan is on us. Your first ` +
           'billed booking can carry one.',
+      };
+
+    case 'fee_waived':
+      // Same rule as the free five, for a waiver that is Setnayan's, not the
+      // shop's: the deal is a share of money actually charged, and none is.
+      return {
+        tone: 'good',
+        headline: 'Papic deal · none — and nothing to pay.',
+        detail:
+          'Your exclusive Papic deal is a share of the booking fee you actually pay, and the ' +
+          "Setnayan booking fee on this booking is waived. A booking you are billed for can carry one.",
       };
 
     case 'not_sourced':

@@ -18,8 +18,10 @@
  * Pure: the groups in, the groups out. Only while the new Maker is on
  * (`MakerDetails`'s `studio`); every couple today keeps the shipped list.
  */
-import { FREE_PRINT_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
+import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
+import { EVERYTHING_HEAD } from '@/lib/studio-prints-settings';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -58,6 +60,23 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
 }
 
 /**
+ * 🗂 THE FORMS' GROUP HEADINGS (prototype `infoForm` / `EDITORS.prints` `.gh`): the item each
+ * group starts at. Info: "Your event" then "Your Event Hub" (from its address on). Prints: "Your
+ * invitation set" then "For the day". Words only — no field, no write.
+ */
+/* 🧾 INFO HAS NO HEADINGS NOW (owner 2026-10-08: *"prioritize only what they need to input here"*; the Info redesign
+   opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
+   the optional rows are the fold "More for guests". */
+export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
+  /* ⚙ The head of Prints is the Print settings row (owner 2026-10-17) — it names itself; "On every print" is the first heading
+     INSIDE its sheet now (`PRINT_SETTINGS_HEADS`). */
+  invitation: { title: 'Your invitation set', line: 'one at a time is free' },
+  [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
+  /* 🗂 Everything ◆ — one file of every piece (owner 2026-10-17). */
+  download: { title: EVERYTHING_HEAD.title, line: EVERYTHING_HEAD.line },
+};
+
+/**
  * 📱 FULL SCREEN — every Studio tool but Look (owner 2026-10-06: *"We want to provide the maximum
  * screen experience for all 10 with respect to the task they need to do"*). On a phone, while a
  * Studio tool is open (`[data-maker-studio-full]`, the shell's), a FORM tool's editor fills the
@@ -76,15 +95,143 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   'qr',
   ...STUDIO_GIFT_ITEMS,
   'rsvp',
+  EVERY_PRINT_ITEM,
   ...PRINT_SET_KEYS,
+  DIGITAL_TICKET_ITEM,
   ...FREE_PRINT_KEYS,
   'download',
 ];
-/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body. */
-export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board'];
+/* 🎨 Mood Board & Dress Code (plan PR 5) fills the screen too — its four tabs and their tools are all in its body.
+   🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
+export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
-/** The top nav (52 px) and the tool's row (52 px), less the panel's own 4 px inset each side. */
-const UNDER_THE_ROWS = 'calc(100dvh - 100px - env(safe-area-inset-bottom))';
+/**
+ * 🎠 THE CAROUSEL'S SLIDES, IN ORDER (owner 2026-10-26, Studio › Prints as a swipe carousel — `studio-prints-carousel.tsx`; it was
+ * the retired piece bar's list, owner 2026-10-16): every print of the Prints form, in the form's order, under the form's own group
+ * words — "Your invitation set" · "For the day · free for every event" · "Everything". The name ▾ under a slide lists them, grouped,
+ * and jumps. ⚙ Print settings is NOT a slide — it is a setting of every print, opened from every slide's ⚙. Read from
+ * `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
+ */
+export type StudioPrintsPiece = { key: DetailsItemKey; label: string; group: string; caption: string };
+export function studioPrintsPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsPiece[] {
+  const set = STUDIO_FORM_HEADS.invitation!;
+  const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
+  return items
+    .filter((i) => i.key !== EVERY_PRINT_ITEM)
+    .map((i) => {
+      const label = i.label.replace(/^the\s+/i, '');
+      if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
+      if (i.group === 'download') return { key: i.key, label: EVERYTHING_HEAD.title, group: EVERYTHING_HEAD.title, caption: EVERYTHING_HEAD.title };
+      return { key: i.key, label, group: `${set.title} · ${set.line}`, caption: set.title };
+    });
+}
+
+/** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
+ *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —
+ *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.)
+ *  🧭 …AND THE APP'S OWN BARS (2026-10-31): since the Hub keeps the app's nav (owner 2026-10-30, DECISION_LOG "EVENT HUB
+ *  PRO (look redesign) — THE APP'S NAV STAYS") the shell starts under the app's top bar and ends over its bottom nav
+ *  (`MAKER_IN_THE_APP_CSS`: `--maker-app-top`/`--fd-bar`, `--maker-nav`). `100dvh − 44px` from the screen's foot then
+ *  reached 52 px from the screen's TOP — over the Maker's own bar (measured in /dev/maker-lab?prints=1 at 390: the panel
+ *  52 → 844, the bar 51 → 103, its ⚙ and ✓ Apply under the carousel, the bottom nav under the Download). The panel now
+ *  fills the shell's room under its bar, and stops at the nav (`bottom: var(--maker-nav)` below). */
+const UNDER_THE_ROWS = 'calc(100dvh - var(--maker-app-top,var(--fd-bar,0px)) - var(--maker-nav,0px) - 44px)';
+/** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
+export const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
+
+/**
+ * 🎨 THE PROTOTYPE'S ROWS ON THE SHIPPED FIELDS (owner 2026-10-07 side-by-side: *"seems like nothing
+ * was built properly"*). Inside a full-screen Studio tool only (`[data-maker-studio-full]`, a phone):
+ *
+ *   · each field of a form (`[data-details-form-field]`) is a row on a white band, a hairline above
+ *     (prototype `.grp .fr`) — never a box (`lint-no-card`); its group heading (`.gh`) sits on the
+ *     warm page above the band; its name is the row's 14 px label;
+ *   · every switch is the prototype's `.sw` — 46 × 28, green when on;
+ *   · every text field is 44 px on the warm page (`.gx-f input`).
+ *
+ * CSS only, drawn by the server beside Details — the shipped Maker (flag off) never has the attribute.
+ */
+/** A form field that holds Form rows (`data-studio-info-rows`, Studio › Info): the rows ARE the form — no heading over them, no band padding around them. */
+const INFO_FIELD = '[data-details-workspace] [data-details-form-field]:has([data-studio-info-rows])';
+/**
+ * 🧾 STUDIO › INFO IS FORM ROWS (owner 2026-10-08; `app/_components/form-row.tsx`). Each field of the form that draws
+ * rows gives up its own heading (the row names itself) and its own spacing (a row is 52 px on one hairline — the
+ * field's own top line is that hairline). At every width; the phone's white band comes from the skin below.
+ */
+const STUDIO_INFO_CSS =
+  `${INFO_FIELD}{gap:0;padding-top:0;padding-bottom:0}` +
+  `${INFO_FIELD} > [data-details-form-heading]{display:none}` +
+  /* The form's last field holds only the quiet rows now (Restore · Reset… · About — the QR moved into the fold): it
+     has no "QR code" heading over them (controller 2026-10-08: a bare heading with nothing under it). */
+  '[data-details-workspace] [data-details-editor]:has(> [data-studio-quiet]) > [data-details-form-heading]{display:none}' +
+  /* Two lists of rows in one field (Special message, then What to bring): the hairline between rows, between lists too. */
+  '[data-studio-info-rows] + [data-studio-info-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}' +
+  /* 🖨 Studio › Prints: each include switch, size row and fact is its own list of rows — the same one hairline runs between one list and the next. */
+  '[data-studio-print-rows] + [data-studio-print-rows]{border-top:1px solid rgb(var(--color-ink)/.1)}';
+const W = '[data-maker-studio-full] [data-details-workspace]';
+/**
+ * 📏 ONE HAIRLINE BETWEEN INFO'S ROWS, AT EVERY WIDTH (owner 2026-10-09, *"no lines on row?"*; the template's `.fr` is a
+ * `border-top` on every row but the first — `control_templates_2026-10-08.html` § 6).
+ *
+ * THE FAULT: the phone skin below gives every form field `margin: 0 -16px` (its cream band runs edge to edge) and a
+ * `border-top` — so a boundary BETWEEN two Info fields was a hairline running the whole width of the screen, while a boundary
+ * between two rows INSIDE one field (Opening line → Start from, Special message → What to bring, Restore → Reset → About) is
+ * the Form row's own hairline, which sits inside the field's 16 px of padding. Two kinds of line, alternating.
+ *
+ * THE FIX, Info's own wrapper only (the shared Form rows already draw ONE line, and the other Studio forms are not Info): an
+ * Info field's own top line is drawn INSET by the same 16 px, in the same colour — a one-pixel gradient at the field's top edge
+ * instead of the border — so every boundary in Info, between fields or inside one, starts and ends where the rows' text does.
+ * The first Info field has none (the template's first row has none).
+ * At 1024 px and up the skin is off: fields have no side padding, and both lines already run the panel's width.
+ */
+export const STUDIO_INFO_HAIRLINE_INSET_PX = 16;
+const INFO_FIELDS = `${W} :is([data-details-form-field]:has([data-studio-info-rows]),[data-details-form-field]:has(> [data-studio-quiet]))`;
+export const STUDIO_INFO_HAIRLINE_CSS =
+  `${INFO_FIELDS}{border-top-color:transparent;background-image:linear-gradient(rgb(var(--color-ink)/.1),rgb(var(--color-ink)/.1));background-repeat:no-repeat;background-origin:border-box;background-position:${STUDIO_INFO_HAIRLINE_INSET_PX}px 0;background-size:calc(100% - ${STUDIO_INFO_HAIRLINE_INSET_PX * 2}px) 1px}` +
+  `${INFO_FIELDS}[data-details-editor="${STUDIO_TILE_ITEM.info}"]{background-image:none}`;
+export const STUDIO_SKIN_CSS =
+  `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
+  `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
+  `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +
+  /* The print words' Save: the prototype's one ink pill, its "The card redraws." helper gone (helper text lives behind ⓘ). */
+  `${W} [data-save-words-note]{display:none}` +
+  /* 🏷 The Event name row names itself ("Event name · Maria & Jose") — no "Names" heading over it. */
+  `${W} [data-details-editor]:has([data-studio-event-name]) > [data-details-form-heading]{display:none}` +
+  /* A print's row names it (Studio › Prints, `data-print-studio`) — the form's own heading would say it twice. */
+  `${W} [data-details-editor]:has(> [data-print-studio]) > [data-details-form-heading]{display:none}` +
+  /* The tool's name is the Tool ▾ row's — no second masthead over the march, the Mood Board, the Logo (prototype `.full`). */
+  `${W} [data-details-body-head]{display:none}` +
+  '[data-details-workspace]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-body-head]{display:none}' +
+  `${W} [data-save-words] button[type=submit]{min-height:44px;padding:0 22px;border-radius:9999px;background:rgb(var(--color-ink));color:rgb(var(--color-cream))}` +
+  `${W} input[role=switch]+span{width:46px;height:28px}` +
+  `${W} input[role=switch]+span::after{width:22px;height:22px;left:3px;top:3px}` +
+  `${W} input[role=switch]:checked+span{background-color:#4f6b4a}` +
+  `${W} input[role=switch]:checked+span::after{transform:translateX(18px)}` +
+  /* …but never a Form row's own field (`data-form-row-input`): that one is the template's pill, 16 px so a phone does not zoom. */
+  `${W} [data-details-editor] :is(input:not([type]),input[type=text],input[type=url],input[type=tel],input[type=email],input[type=search],input[type=date],textarea):not([data-form-row-input]){min-height:44px;border-radius:var(--m-r-sm);border-color:rgb(var(--color-ink)/.1);background:${STUDIO_PAGE};font-size:14px}`;
+
+/**
+ * 🚶 STUDIO › WEDDING MARCH GETS THE SCREEN FOR THE WALKS (owner 2026-10-07, verbatim *"yes parents
+ * is automatically part of the wedding march, hosts are just access so this can live under the
+ * guestlist since there is a access column already"*; DECISION_LOG "STUDIO REDRAW ANSWERS" (4)).
+ * Parents keep their place IN the march — they walk, their rows are the march's own; hosts are
+ * access, set in ONE place — Event Details › People with access (owner 2026-10-07, *"put people
+ * with access in event details"*). So the tray's "Parents & hosts" block
+ * (`[data-march-parents]`) steps aside in Studio — hidden, never unmounted — and the lower part
+ * shrinks to the prototype's Not-walking strip (`.mx-tray`): the heading and one row of names,
+ * the rest behind "+N more" (`fitChips`, scroll-less). The shipped Maker (flag off) is unchanged.
+ */
+export const STUDIO_MARCH_TRAY_PX = 112;
+const STUDIO_MARCH_CSS =
+  '[data-maker-studio-full] [data-march-parents]{display:none}' +
+  `[data-maker-studio-full]:has([data-details-workspace][data-details-item="march"]){--maker-lt-h:${STUDIO_MARCH_TRAY_PX}px!important}`;
+
+/** 🔀 Look › Music's "Play music on my Event Hub" as a switch (owner 2026-10-08) — drawn here, by the server, so the Maker's first load carries none of it. */
+const STUDIO_MUSIC_SWITCH_CSS =
+  '[data-music-switch]{min-height:44px;justify-content:space-between;flex-direction:row-reverse;font-size:14px;color:rgb(var(--color-ink))}' +
+  '[data-music-switch] input[role=switch]{appearance:none;-webkit-appearance:none;position:relative;width:46px;height:28px;border:0;border-radius:9999px;background:rgb(var(--color-ink)/.2);cursor:pointer;flex:none;transition:background-color .2s}' +
+  '[data-music-switch] input[role=switch]::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:9999px;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.2);transition:left .2s}' +
+  '[data-music-switch] input[role=switch]:checked{background:#4f6b4a}[data-music-switch] input[role=switch]:checked::after{left:21px}';
 
 export function studioFullScreenCss(): string {
   const on = (keys: readonly DetailsItemKey[]) => `:is(${keys.map((k) => `[data-details-item="${k}"]`).join(',')})`;
@@ -94,11 +241,30 @@ export function studioFullScreenCss(): string {
   return (
     '@media (max-width:1023.98px){' +
     `${form}{--maker-lt-h:${UNDER_THE_ROWS}}` +
+    /* 📐 The prototype's `.full`: the editor is the screen under the Tool row — edge to edge, the warm
+       page behind it, no floating sheet (no inset, no rounded top, no ring). */
+    `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:var(--maker-nav,0px);border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
+    `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
+    /* No empty band over a form: its first field starts right under the top nav (the 8-px strip that showed under
+       the old title row is gone with it). */
+    `${form} div:has(> [data-details-form-field]){padding-top:0}` +
     `${page} [data-details-editor-panel]{display:none}` +
-    /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */
+    /* 🪑 Seat plan (owner 2026-10-08, *"there is no space to see the whole seatplan"*): its people are a
+       pull-up sheet over the map (`PeopleSheet`), so the lower third steps aside and the map takes the screen. */
+    `${ws(['seating'])} [data-details-editor-panel]{display:none}` +
+    `[data-maker-studio-full]:has([data-details-workspace]${on(['seating'])}) [data-maker-studio-room]{display:none}` +
+    /* 🌄 Look: its one bar (Background · Elements · Music) is the section picker — no second ▾ above it. */
     '[data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-sheet-head]{display:none}' +
+    /* 🌄 …and Look's panel is the lower third's whole width at half the screen (prototype `.lt`, owner "the toolbar is half the screen"): no column beside it, no
+       floating sheet — a hairline over the page, the controls under it. */
+    '[data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]){left:0;right:0;bottom:0;height:calc(50dvh - 26px);border-radius:0;box-shadow:none;border-top:1px solid rgb(var(--color-ink)/.1)}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
-    '}'
+    STUDIO_SKIN_CSS +
+    STUDIO_INFO_HAIRLINE_CSS +
+    STUDIO_MARCH_CSS +
+    '}' +
+    STUDIO_MUSIC_SWITCH_CSS +
+    STUDIO_INFO_CSS
   );
 }

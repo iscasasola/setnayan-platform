@@ -95,6 +95,12 @@ export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
+// 📱 The venue cards' Picture ▾ in the new Maker's Venue scene › Edit (2026-10-17) — the same file, the same chunk.
+export const VenuePictureRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuePictureRows), { loading: SlotNone });
+// 🖼 A scene of their own's pictures in the new Maker's Edit (2026-10-18) — Upload and the couple's media, per slot.
+export const ScenePhotoRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/scene-photos').then((m) => m.ScenePhotoRow), { loading: SlotNone });
+// 🏷 The Wedding March's Edit names its sections (2026-10-19) — Section ▾ and the heading's words, rows 2–3.
+export const SectionNames = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/section-names').then((m) => m.SectionNames), { loading: SlotNone });
 export const MarchMaker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchMaker), { loading: SlotFill });
 export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
 export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });
@@ -131,6 +137,9 @@ export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "make
 export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
 export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
+/* 🪟 Studio › Look's sample screen (owner 2026-10-08, "THE LOOK PREVIEW IS A SAMPLE") — drawn in the browser from the
+   values in hand, in place of a guest-page frame. It rides this chunk: never in the Maker's first load. */
+export const LookSample = dynamic(() => import(/* webpackChunkName: "maker-details" */ './look-sample').then((m) => m.LookSample), { loading: SlotFill });
 export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.StageStepPreview), { loading: SlotFill });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
@@ -162,20 +171,32 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
-/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
-   home and its Tool ▾ row, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `stagesStudio`, the one Maker since 2026-10-25) — Stages | Studio, Studio's
+   home, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
    of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
 export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
   loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
 });
+/* 🖨 The Prints page's desktop columns (it has no switch to mount them — `PrintsPageDesk`). */
+export const PrintsPageDesk = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.PrintsPageDesk), { loading: () => null });
 export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
-export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+/* 🎓 "About the Maker" (Page ▾) — the tour is drawn only when the couple asks for it, never on a first open, so its
+   slides' frame and words load with the first ask (08 Oct: #6413's Maker first load was 0.4 KB over its budget). */
+export const MakerTour = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-tour').then((m) => m.MakerTour), { loading: SlotNone });
+/* 🔁 "Updating Setnayan…" — the words said before the Maker reloads itself (`lib/maker-resume.ts`). */
+export const MakerUpdating = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-updating').then((m) => m.MakerUpdating), { loading: SlotNone });
+export const StudioBackToPart = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioBackToPart), { loading: SlotNone });
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
 /* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,
    the page's parts, swipe) — lazy like the rest of its chrome, never in the Maker's first load. */
 export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-tools').then((m) => m.StageTools), { loading: SlotFill });
+/* ⚙ The Hub's ⚙ Event Hub settings (owner 2026-10-30) — the house sheet and its button ride this chunk, never the Maker's
+   first load; until it arrives the row holds its 44-px place. */
+export const HubSettingsGear = dynamic(() => import(/* webpackChunkName: "maker-details" */ './hub-settings').then((m) => m.HubSettingsGear), {
+  loading: () => <span aria-hidden className="block h-11 w-11 shrink-0 rounded-full bg-ink/[0.06]" />,
+});
 
 /* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
    every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new
@@ -190,3 +211,26 @@ export const PhotoMomentsEditor = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ '../../website/photo-moments/_components/photo-moments-editor').then((m) => m.PhotoMomentsEditor),
   { loading: SlotRows },
 );
+/* ▶ The Stages ▶'s status line — first pressed, then loaded (`stage-panel/play-status.tsx`). */
+export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
+/** 🧱 A fixed block's own Animate (`lib/block-looks.ts`) — with the toolbar, never in the first load. */
+export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/block-animate').then((m) => m.BlockAnimateRows), { loading: SlotRows });
+
+
+/* ── 🗂 The Maker rows' own panels (`website/editor/page.tsx` → `rows[…].node`, `setLookPages`) — each is drawn only
+   when its row or look page is opened, so none rides the Maker's first load (headroom, 2026-10-18: the first load sat
+   AT its 507KB ceiling; these were ~6.8KB gz of it). Each is a WHOLE panel with its own form, so a panel that has not
+   arrived is a slot, never half a form. The ⋯ sheet's "Go live" control goes the same way. ── */
+export const HeroPhotoPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.HeroPhotoPanel), { loading: SlotRows });
+export const GalleryPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.GalleryPanel), { loading: SlotRows });
+export const SiteChromePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.SiteChromePanel), { loading: SlotRows });
+export const VisibilityPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.VisibilityPanel), { loading: SlotRows });
+export const OpenBrowsePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.OpenBrowsePanel), { loading: SlotRows });
+export const LaunchPhasePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.LaunchPhasePanel), { loading: SlotRows });
+export const RsvpBackdropPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.RsvpBackdropPanel), { loading: SlotRows });
+/* 👗 The Dress code row's panel — the whole form, fields and Save (`dress-code-panel.tsx`, 2026-10-21): its attire
+   fields were ~8.6KB gz of the first load, which sat over its 507KB ceiling again. */
+export const DressCodePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/dress-code-panel').then((m) => m.DressCodePanel), { loading: SlotRows });
+export const LaunchStdButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../studio/save-the-date/_components/launch-std-button').then((m) => m.LaunchStdButton), { loading: SlotButton });
+/* ⋯ Scan to view's strip (Download · Write to NFC · Copy link — the NFC writer is the weight) under the ⋯ sheet's rows. */
+export const ScanQrStrip = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scan-qr-strip').then((m) => m.ScanQrStrip), { loading: SlotNone });

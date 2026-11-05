@@ -160,12 +160,11 @@ test('the group that pushes in arrives with motion', () => {
   );
   assert.equal(
     (SHELL.match(/className="fd-rgroup"/g) ?? []).length,
-    5,
-    'Expected exactly five animated rail groups — the context group, Planner, ' +
-      'Builder, Together, and Studio ("Browse by category" was removed ' +
-      '2026-09-24). Planner/Builder/Together (added above Studio, ' +
-      'free-tools-rail.ts) arrive the same way the context group does; a ' +
-      'group that arrives without one is the only one that still snaps.',
+    1,
+    'Expected exactly one animated rail group — the context group. The ' +
+      'Planner · Builder · Together · Studio groups left the rail on ' +
+      '2026-10-23 (owner 2026-10-01: one Features row), so a second group ' +
+      'here is a tool list coming back.',
   );
 });
 

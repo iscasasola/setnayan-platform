@@ -24,6 +24,7 @@ import type { EventTypeProfile } from '@/lib/event-type-profile';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { hasTwoNamedPeople } from '@/lib/two-named-people';
 import { yourEventItems, type YourEventKind } from '@/lib/details-your-event';
+import { printsPageHref } from '@/lib/prints-page-href';
 
 export type HubItemKey = 'address' | 'qr';
 /**
@@ -81,15 +82,38 @@ export type AnswerItemKey = 'papic' | 'gifts';
 export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['papic', 'gifts'];
 /**
  * 🎨 THE LOOK'S OWN SECTIONS AS ITEMS (owner 2026-10-06, DECISION_LOG "APPROVED —
- * EVENT DETAILS IS REBUILT: ONE BUTTON, OWN-EDITOR ITEMS, ONE 'YOUR EVENT' FORM"):
- * Background · Colours · Font · Music each a row of the Look group. Each opens
+ * EVENT DETAILS IS REBUILT: ONE BUTTON, OWN-EDITOR ITEMS, ONE 'YOUR EVENT' FORM";
+ * restudied 2026-10-08, "APPROVED — THE LOOK RESTUDY: BACKGROUND · ELEMENTS ·
+ * MUSIC"): Background · Elements · Music each a row of the Look group. Each opens
  * the SAME Look panel (`LookPanel`) on its one section — never a second control.
  * `theme` stays an item (hidden from the list) — the whole panel the guided
- * "Look" step and an old `?item=theme` open.
+ * "Look" step and an old `?item=theme` open. They ARE `LOOK_SECTIONS`
+ * (`lib/maker-look-sections.ts`), held equal by `the-look-is-one-panel.test.ts`.
  */
-export type LookSectionItemKey = 'background' | 'colours' | 'font' | 'music';
-export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['background', 'colours', 'font', 'music'];
-export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+export type LookSectionItemKey = 'background' | 'elements' | 'music';
+export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['background', 'elements', 'music'];
+/**
+ * 🔗 An address written before 2026-10-08 (`?item=colours`, `?item=font`) still
+ * opens where those controls live now — Elements — never the first row.
+ */
+const RETIRED_LOOK_ITEM: Readonly<Record<string, LookSectionItemKey>> = { colours: 'elements', font: 'elements' };
+/**
+ * 🖨 "ON EVERY PRINT" (owner 2026-10-16, DECISION_LOG "STUDIO › PRINTS GETS A PIECE BAR, ONE 'ON EVERY PRINT' BLOCK AND
+ * SHORT SIZE LINES"): the head of Studio › Prints — the Event Hub QR line (Always printed), the NFC sticker spot and their
+ * one Save, drawn ONCE instead of under three pieces. The same print words form, the same field names. Present only in
+ * the new Maker's Studio (`MakerDetails`'s `studio`); the shipped list never draws it.
+ */
+export type EveryPrintItemKey = 'every-print';
+export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
+/**
+ * 🎫 THE DIGITAL TICKET (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾…"): the PNG each
+ * guest saves, a row of its own under the Event pass — View as ▾, Download (that guest's ticket, free), All guests ◆ (the zip, Event
+ * Hub Pro). It was "The ticket guests save" block under the pass; its look (Ticket style) moved into Print settings. Present only in
+ * the new Maker's Studio, like "On every print".
+ */
+export type DigitalTicketItemKey = 'digital-ticket';
+export const DIGITAL_TICKET_ITEM: DigitalTicketItemKey = 'digital-ticket';
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | DigitalTicketItemKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -101,6 +125,8 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
   'qr-codes',
   'seat-plan',
   'seating-pack',
+  /* 🪧 The entrance seating chart — its own row since 2026-10-14 (owner, on the Studio › Prints previews). */
+  'seating-chart',
   'caterer',
   'event-qr',
 ];
@@ -122,7 +148,7 @@ export type DetailsItemGroup = 'look' | 'story' | 'event' | 'elsewhere' | 'set' 
 /**
  * 🗂 THE LIST, AS THE OWNER APPROVED IT (2026-10-06, "EVENT DETAILS IS REBUILT"):
  *
- *   Look          — Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal
+ *   Look          — Background · Elements · Music · Mood Board · Logo · Cover page · Reveal
  *   Story & plans — the items with an editor of their own: Wedding March (it holds
  *                   Parents & hosts too) · Love Story · Schedule · Seat plan
  *   Your event    — ONE scrolling form (`form: true` — one row; its items' editors
@@ -155,7 +181,9 @@ export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
     form: true,
   },
   { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
-  { group: 'set', label: 'Invitation set', keys: PRINT_SET_KEYS },
+  /* 🖨 "On every print" heads the set — drawn only in Studio (it is `present` only there). */
+  /* 🎫 …and the Digital ticket sits under the Event pass — drawn only in Studio too. */
+  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : [k]))] },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
 ];
@@ -233,6 +261,7 @@ export function detailsItemFor(search: {
   menuFlash?: boolean;
 }): DetailsItemKey {
   if (isDetailsItemKey(search.item)) return search.item;
+  if (search.item === 'colours' || search.item === 'font') return RETIRED_LOOK_ITEM[search.item]!;
   if (search.menuFlash) return 'menu';
   if (search.printTheme) return 'background';
   const moved = movedPageItem(search.tool);
@@ -259,8 +288,7 @@ const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
      fills the body, so every Look change shows on it; Look is the right column. */
   theme: 'fill',
   background: 'fill',
-  colours: 'fill',
-  font: 'fill',
+  elements: 'fill',
   music: 'fill',
   hero: 'fill',
   reveal: 'fill',
@@ -413,8 +441,12 @@ export const DETAILS_LT_SECTION_FIRST: Readonly<Record<DetailsLtSection, Details
   prints: DETAILS_FIRST_PRINT,
 };
 
-/** The address of one item — every link into Details names its item this way. */
+/**
+ * The address of one item — every link into Details names its item this way. 🖨 A PRINT is no item of the Maker any
+ * more (R8, 2026-10-27 "PRINTS LEAVES STUDIO"): its address is the Prints page's, at the same piece, with the same query.
+ */
 export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = ''): string {
+  if (isPrintsItem(item)) return printsPageHref(eventId, item, extra);
   return `/dashboard/${eventId}/launch?tool=details&item=${item}${extra}`;
 }
 

@@ -103,14 +103,20 @@ const CASES: Case[] = [
     name: 'payment · confirm received',
     formSource: slice(VIEW, 'function PaymentReply('),
     actionBody: slice(PAY, 'export async function confirmVendorPayment('),
-    optional: {},
+    optional: {
+      return_to:
+        'posted only by the customer card’s Money fold (it names the card to redraw); the thread’s own forms re-draw the thread and need none',
+    },
   },
   {
     reply: "case 'payment':",
     name: 'payment · not received',
     formSource: slice(VIEW, 'function PaymentReply(') + NOT_RECEIVED,
     actionBody: slice(PAY, 'export async function refuseVendorPayment('),
-    optional: {},
+    optional: {
+      return_to:
+        'posted only by the customer card’s Money fold (it names the card to redraw); the thread’s own forms re-draw the thread and need none',
+    },
   },
   // The payment section on the supplier's thread page is the other door to the
   // same two actions; the same two-sided check holds there.
@@ -119,14 +125,20 @@ const CASES: Case[] = [
     name: 'payment section · confirm received',
     formSource: slice(PAY_LIVE, 'function PendingPaymentAnswer('),
     actionBody: slice(PAY, 'export async function confirmVendorPayment('),
-    optional: {},
+    optional: {
+      return_to:
+        'posted only by the customer card’s Money fold (it names the card to redraw); the thread’s own forms re-draw the thread and need none',
+    },
   },
   {
     reply: 'payment section',
     name: 'payment section · not received',
     formSource: slice(PAY_LIVE, 'function PendingPaymentAnswer(') + NOT_RECEIVED,
     actionBody: slice(PAY, 'export async function refuseVendorPayment('),
-    optional: {},
+    optional: {
+      return_to:
+        'posted only by the customer card’s Money fold (it names the card to redraw); the thread’s own forms re-draw the thread and need none',
+    },
   },
   {
     reply: "case 'guest_count':",

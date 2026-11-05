@@ -64,7 +64,7 @@ export function VendorsAvailabilityBanner({
           />
           <div className="space-y-1">
             <p>
-              Your booked vendors have no shared availability in{' '}
+              Your booked suppliers have no shared availability in{' '}
               <strong className="font-medium">{windowLabel}</strong>.
             </p>
             <p className="text-xs text-ink/65">
@@ -75,12 +75,12 @@ export function VendorsAvailabilityBanner({
               >
                 your event home
               </Link>
-              , or release a vendor via the{' '}
+              , or release a supplier via the{' '}
               <Link
                 href={`/dashboard/${eventId}/vendors`}
                 className="underline underline-offset-2 hover:text-terracotta"
               >
-                vendor dispute flow
+                supplier dispute flow
               </Link>
               .
             </p>
@@ -118,7 +118,7 @@ export function VendorsAvailabilityBanner({
             .
           </p>
           <p className="text-xs text-ink/65">
-            Pick one to lock your wedding date — only vendors free on that day are
+            Pick one to lock your wedding date — only suppliers free on that day are
             shown below.
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -145,10 +145,15 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
     fd.set('precision', 'day');
     startTransition(async () => {
       try {
-        await save.run(() => updateEventDate(fd), {
-          steps: ['Locking the date'],
-          hint: 'Saving',
-        });
+        // 💍 A refusal comes back as words (lib/event-date-floor.ts) — thrown HERE, on the
+        // client, so the loader never says "Saved" and the words are said beside the day.
+        await save.run(
+          async () => {
+            const res = await updateEventDate(fd);
+            if (res && res.ok === false) throw new Error(res.error);
+          },
+          { steps: ['Locking the date'], hint: 'Saving' },
+        );
         // Server action revalidates the event paths; the marketplace
         // surface will reload with day-precision applied. No client-side
         // navigation needed.
@@ -159,6 +164,7 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
   }
 
   return (
+    <>
     <button
       type="button"
       onClick={handleLock}
@@ -169,6 +175,12 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
     >
       {isPending ? 'Saving…' : prettyDay(day)}
     </button>
+    {error ? (
+      <p role="alert" className="basis-full text-xs text-danger-700">
+        {error}
+      </p>
+    ) : null}
+    </>
   );
 }
 

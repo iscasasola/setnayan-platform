@@ -175,25 +175,25 @@ test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', a
   }
 });
 
-test('free-5 then 5% at the 6th — the boundary + the base', async () => {
+// ⚖ One free booking since 2026-10-23 (owner: "Your first booking is on us.
+// Not 5."). The boundary moved from 5th-vs-6th to 1st-vs-2nd.
+test('the first booking free, then 5% at the 2nd — the boundary + the base', async () => {
   const { vendorProfileId } = await newVendor('free5@fee.test');
 
-  // Bookings 1..5 → FREE (waived_free5, no money).
-  for (let i = 1; i <= 5; i++) {
-    const res = await lockAndCharge(vendorProfileId, 100_000, `free5-${i}`);
-    assert.equal(res.is_free, true, `booking ${i} is free`);
-    assert.equal(res.status, 'waived_free5', `booking ${i} → waived_free5`);
-    assert.equal(res.amount_charged_centavos, 0, `booking ${i} charges nothing`);
-    assert.equal(res.booking_ordinal, i, `booking ${i} ordinal frozen`);
-  }
+  // Booking 1 → FREE (waived_free5, no money).
+  const first = await lockAndCharge(vendorProfileId, 100_000, 'free1-1');
+  assert.equal(first.is_free, true, 'booking 1 is free');
+  assert.equal(first.status, 'waived_free5', 'booking 1 → waived_free5');
+  assert.equal(first.amount_charged_centavos, 0, 'booking 1 charges nothing');
+  assert.equal(first.booking_ordinal, 1, 'booking 1 ordinal frozen');
 
-  // Booking 6 → CHARGED 5% of the confirmed ₱100,000 = ₱5,000 (500000c), pending.
-  const sixth = await lockAndCharge(vendorProfileId, 100_000, 'free5-6');
-  assert.equal(sixth.is_free, false, '6th booking is not free');
-  assert.equal(sixth.status, 'pending', '6th → pending (awaits QR payment)');
-  assert.equal(sixth.booking_ordinal, 6);
-  assert.equal(sixth.computed_fee_centavos, 500_000, 'fee = 5% of ₱100,000 (all inside the band)');
-  assert.equal(sixth.amount_charged_centavos, 500_000);
+  // Booking 2 → CHARGED 5% of the confirmed ₱100,000 = ₱5,000 (500000c), pending.
+  const second = await lockAndCharge(vendorProfileId, 100_000, 'free1-2');
+  assert.equal(second.is_free, false, '2nd booking is not free');
+  assert.equal(second.status, 'pending', '2nd → pending (awaits QR payment)');
+  assert.equal(second.booking_ordinal, 2);
+  assert.equal(second.computed_fee_centavos, 500_000, 'fee = 5% of ₱100,000 (all inside the band)');
+  assert.equal(second.amount_charged_centavos, 500_000);
 
   // Exactly ONE non-free charge row exists for this vendor.
   const chargeCount = await db.query<{ c: number }>(
@@ -201,7 +201,7 @@ test('free-5 then 5% at the 6th — the boundary + the base', async () => {
        WHERE vendor_profile_id = $1 AND status = 'pending'`,
     [vendorProfileId],
   );
-  assert.equal(chargeCount.rows[0]!.c, 1, 'only the 6th booking has a pending charge');
+  assert.equal(chargeCount.rows[0]!.c, 1, 'only the 2nd booking has a pending charge');
 });
 
 test('idempotent re-lock: same (vendor,event) never double-charges', async () => {

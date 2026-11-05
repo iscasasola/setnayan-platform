@@ -20,6 +20,8 @@ export type Group = {
   label: string;
   short: string;
   iconName: string | null;
+  /** The ⓘ text the owner wrote (`service_categories.hint_en`, owner 2026-10-31); null = not written. */
+  hint: string | null;
 };
 
 export type RefinementOption = {
@@ -61,6 +63,12 @@ export type Category = {
   serviceCount: number;
   faithCount: number;
   refinementCount: number;
+  /** One per event (`service_categories.one_per_event`, owner 2026-10-29). null = the switch could not be read. */
+  onePerEvent: boolean | null;
+  /** 📖 Usual chapters (`service_categories.default_chapters`, 2026-11-04) — a booking's prefill. null = unread. */
+  defaultChapters?: string[] | null;
+  /** The ⓘ text the owner wrote (`service_categories.hint_en`, owner 2026-10-31); null = not written. */
+  hint: string | null;
 };
 
 export type SupplierFieldOption = { value: string; retired: boolean };
@@ -161,6 +169,8 @@ export type EventType = {
   enabled: boolean;
   onboardingHref: string | null;
   heroPhotoUrl: string | null;
+  /** `event_type_vocab.for_whom` — who the create grid offers it for. NULL = not read. */
+  forWhom: string[] | null;
 };
 
 // ── Religions ───────────────────────────────────────────────────────────────
@@ -465,4 +475,35 @@ export function nearMatches<T extends RankableOption>(name: string, options: rea
     .sort((a, b) => b.hits - a.hits || a.firstAt - b.firstAt || a.opt.label.localeCompare(b.opt.label))
     .slice(0, limit)
     .map((s) => s.opt);
+}
+
+// ── "Also listed under" — the cross-listing rule (③0-d one source) ───────────
+
+export type SecondaryTilesVerdict =
+  | { ok: true; next: string[] }
+  | { ok: false; unknown: string[] };
+
+/**
+ * What a service's "Also listed under" becomes when the admin saves it.
+ *
+ * 🔑 VALIDATED AGAINST THE LIVE CATEGORIES, never a list in code. The page offers every tier-2
+ * `service_categories` row, including one the admin created a minute ago; the save used to check
+ * the const `WEDDING_TILE_ORDER` and answered "Unknown category(s)" for exactly that row — the
+ * page could not cross-list onto a category it had just made (audit B1, corpus PLAN § 8.3 ③0-d).
+ * The caller passes the ids it just read from `service_categories` where `tier = 2`.
+ *
+ * The home category is dropped (it is not a "secondary"); duplicates collapse; the result is
+ * sorted. An empty selection is `[]` — the column is `NOT NULL DEFAULT '{}'`, so writing NULL to
+ * clear it was refused by the database and "None" could never be saved.
+ */
+export function secondaryTilesVerdict(
+  selected: readonly string[],
+  homeTile: string | null,
+  liveCategoryIds: Iterable<string>,
+): SecondaryTilesVerdict {
+  const live = new Set(liveCategoryIds);
+  const cleaned = [...new Set(selected.map((t) => t.trim()).filter(Boolean))].filter((t) => t !== homeTile);
+  const unknown = cleaned.filter((t) => !live.has(t));
+  if (unknown.length > 0) return { ok: false, unknown };
+  return { ok: true, next: cleaned.sort() };
 }

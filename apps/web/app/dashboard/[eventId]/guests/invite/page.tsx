@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { ArrowLeft, Send } from 'lucide-react';
-import { InvitePanel } from './_components/invite-panel';
+import { ShareLinkPanel } from './_components/share-link-panel';
 
 export const metadata = { title: 'Invite guests' };
 
@@ -59,7 +59,7 @@ export default async function GuestInvitePage({ params }: Props) {
 
       {/* The link, its QR, the pending-requests notice, the theme line and
           the crew Event QR — shared with the guest list's Share the link tab. */}
-      <InvitePanel eventId={eventId} />
+      <ShareLinkPanel eventId={eventId} />
     </div>
   );
 }

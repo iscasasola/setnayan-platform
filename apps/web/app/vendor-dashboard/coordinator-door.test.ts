@@ -1,0 +1,338 @@
+/**
+ * coordinator-door.test.ts — 🗂 the coordinator's door into the events they run, and NOTHING wider.
+ *
+ * Owner, verbatim, 2026-10-28: *"for coordinators, since they have access to the whole event as well. we can add that
+ * additional menu for them? to enter the event dashboard?"* → *"approved"* (DECISION_LOG "COORDINATORS GET A DOOR INTO
+ * THE EVENTS THEY RUN"; prototype `prototypes/coordinator_door_2026-10-28/`).
+ *
+ * The properties (the rule itself — which seat is LIVE — is held in `lib/events-you-run.test.ts`):
+ *   1 · "EVENTS" FOLDED INTO HUB (owner 2026-10-29, DECISION_LOG "THE SUPPLIER'S BOTTOM BAR = TODAY · CUSTOMERS · SHOP
+ *       · HUB"): the bar and the rail are the four for everyone — no fifth tab; a scoped helper who runs an event gets
+ *       the Hub (where "Events you run" now lives) exactly as on an event day; `/vendor-dashboard/events` forwards to the
+ *       Hub; and `runsEvents` is still the layout's read of LIVE seats, failing closed;
+ *   2 · Today's "Events you run" is drawn only from that read and only when it has a row;
+ *   3 · "Open their event" (and the Coordinator pill) on the customer card show only when THIS event is one they run;
+ *   4 · the "Coordinating … · Back to your shop" line renders only for a viewer the event layout admitted through the
+ *       coordinator's seat, and only after its shipped admission check;
+ *   5 · NO NEW PERMISSION PATH: every door is the shipped `/dashboard/<id>` address, the SEATS are read on the
+ *       person's own session, the live rule is the shipped window + the hosts' switch, the admission query is
+ *       unchanged, and no server action was added for any of it;
+ *   8 · 🛑 ONLY EVENTS THIS SHOP SERVES (fixed 2026-10-29 — the owner's own wedding was listed under his shop as
+ *       "Co-host"): every row also needs a live `event_vendors` row pointing at the ACTIVE shop, read with the admin
+ *       client scoped by the session-resolved shop id (event_vendors has no vendor SELECT policy), and a co-host seat
+ *       counts only when it is the hosts' "Full access" answer. A host's own event never appears.
+ *
+ * SABOTAGE (each seen red once, then restored — the PR body has the runs).
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+
+import { stripComments } from '@/lib/strip-comments';
+import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';
+import type { NavSlotLite } from '@/lib/nav-registry-types';
+import type { VendorTeamRole } from '@/lib/vendor-team';
+import { barItemsForShell } from '@/app/_components/nav/bottom-nav';
+import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
+import { eventsYouRun, type CoordinatorSeatRow } from '@/lib/events-you-run';
+import { COORDINATOR_ON_AREAS } from '@/lib/people-with-access';
+import { VENDOR_BOTTOM_NAV_ITEMS, vendorBarItems } from './_components/vendor-bottom-nav';
+import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
+
+const VD = import.meta.dirname;
+const WEB = join(VD, '..', '..');
+const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+const DEFAULT_SLOTS: Record<string, NavSlotLite> = Object.fromEntries(
+  NAV_SLOT_DEFAULTS.map((d): [string, NavSlotLite] => [
+    d.key,
+    { label: d.label, icon: { kind: 'lucide', lucideName: d.lucideName ?? 'Circle', customRef: null, customUrl: null }, isHidden: false },
+  ]),
+);
+
+/* ══ 1 · the tab — only while they run an event ══════════════════════════════ */
+
+test('1 · Events folded into Hub — four tabs for everyone; a helper who runs an event gets the Hub', () => {
+  const roles: (VendorTeamRole | null)[] = ['owner', 'admin', 'agent', 'viewer', null];
+  for (const role of roles) {
+    for (const navSlots of [undefined, DEFAULT_SLOTS]) {
+      for (const shell of [false, true]) {
+        const without = barItemsForShell(vendorBarItems({ role, navSlots }), shell);
+        const withIt = barItemsForShell(vendorBarItems({ role, navSlots, runsEvents: true }), shell);
+        const onDay = barItemsForShell(vendorBarItems({ role, navSlots, eventToday: true }), shell);
+        assert.ok(![...without, ...withIt].some((i) => i.key === 'events'), `${role}: a fifth Events tab came back`);
+        assert.ok(withIt.length <= 4, `${role}: more than four tabs`);
+        // Running an event opens the SAME door an event day does — the Hub — and nothing more.
+        assert.deepEqual(withIt.map((i) => i.key), onDay.map((i) => i.key), `${role}: running an event is not the Hub door`);
+        assert.ok(withIt.some((i) => i.key === 'onday'), `${role}: a coordinator has no Hub`);
+      }
+    }
+  }
+  assert.equal(VENDOR_BOTTOM_NAV_ITEMS.length, 4);
+  const hub = VENDOR_BOTTOM_NAV_ITEMS.find((i) => i.key === 'onday');
+  assert.equal(EVENTS_YOU_RUN_HREF, hub?.href, '"Events you run" does not live in the Hub');
+  assert.ok([hub?.activeMatch].flat().includes('/vendor-dashboard/events'), 'the old Events address does not light the Hub');
+  assert.equal(isStoreShellWebOnlyPath(EVENTS_YOU_RUN_HREF), false, 'the Hub is refused in the iPhone app');
+  assert.match(src('app/vendor-dashboard/events/page.tsx'), /redirect\('\/vendor-dashboard\/on-the-day'\)/, 'an old Events link does not forward to the Hub');
+});
+
+test('1 · the rail says the same: no Events row; a helper who runs an event gets the Hub row', () => {
+  for (const role of ['owner', 'viewer', null] as const) {
+    for (const navSlots of [undefined, DEFAULT_SLOTS]) {
+      const withIt = resolveVendorDestinations({ role, navSlots, runsEvents: true });
+      const onDay = resolveVendorDestinations({ role, navSlots, eventToday: true });
+      assert.ok(!withIt.some((r) => r.key === 'events'), `${role}: the rail kept an Events row`);
+      assert.deepEqual(withIt.map((r) => r.key), onDay.map((r) => r.key), `${role}: the rail and the bar disagree on the Hub`);
+    }
+  }
+  // Neither registry carries an Events slot any more — an admin cannot rename a tab that is gone.
+  for (const key of ['vendor.bottom-nav.events', 'vendor.sidebar.events']) {
+    assert.equal(NAV_SLOT_DEFAULTS.find((d) => d.key === key), undefined, `${key} is still in the nav registry`);
+  }
+});
+
+test('1 · the layout reads LIVE seats, fails closed, and tells the bar AND the rail', () => {
+  const layout = src('app/vendor-dashboard/layout.tsx');
+  assert.match(
+    layout,
+    /readEventsYouRun\(supabase, user\.id\)\s*\.then\(\(r\) => r\.events\.length > 0\)\s*\.catch\(\(\) => false\)/,
+    'the tab must come from the live-seat read and HIDE on a refused read — never a dead tab',
+  );
+  assert.match(layout, /<VendorBottomNav[\s\S]*?runsEvents=\{runsEvents\}/, 'the bar is not told');
+  assert.match(layout, /<VendorRailContext[\s\S]*?runsEvents=\{runsEvents\}/, 'the rail is not told');
+  assert.match(src('app/vendor-dashboard/_components/vendor-rail-context.tsx'), /resolveVendorDestinations\(\{[\s\S]*?runsEvents,?[\s\S]*?\}\)/);
+});
+
+/* ══ 2 · Today — "Events you run" only from that read ═════════════════════════ */
+
+test('2 · Today draws "Events you run" only when the live read has a row', () => {
+  const page = src('app/vendor-dashboard/page.tsx');
+  assert.match(page, /readEventsYouRunWithNeeds\(supabase, user\.id\)\.catch\(\(\) => \(\{ events: \[\], measured: false \}\)\)/);
+  assert.match(page, /eventsYouRun=\{eventsYouRun\}/, 'Today is not handed the rows');
+  const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
+  assert.match(screen, /eventsYouRun = \[\]/, 'an absent list must default to none');
+  assert.match(
+    screen,
+    /\{eventsYouRun\.length > 0 \? \(\s*<div data-today-events-you-run>/,
+    'the section is drawn without a live row',
+  );
+});
+
+/* ══ 3 · the customer card ══════════════════════════════════════════════════ */
+
+test('3 · "Open their event" and the Coordinator pill — only for an event THIS person runs, on both shells', () => {
+  const card = src('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  // (2026-10-29: `.some` → `.find`, so the pill can say WHICH seat — Coordinator or Co-host — from the same row.)
+  assert.match(
+    card,
+    /const runThisEvent = \(await eventsYouRunP\)\.events\.find\(\(e\) => e\.eventId === eventId\) \?\? null;\s*const runsThisEvent = runThisEvent !== null;/,
+    'the button is not decided by the live read for THIS event',
+  );
+  const mounts = [...card.matchAll(/<OpenTheirEvent\b/g)].length;
+  const gated = [...card.matchAll(/runsThisEvent \? \(?\s*(?:<div[^>]*>\s*)?<OpenTheirEvent\b/g)].length;
+  assert.equal(mounts, 2, 'expected one door per shell (flag-off action row, flag-on header)');
+  assert.equal(gated, mounts, 'a door is drawn without runsThisEvent');
+  assert.match(card, /runsThisEvent \? \(\s*<Badge tone="quiet" data="coordinator">\{runThisEvent\?\.seatWord \?\? 'Coordinator'\}<\/Badge>/);
+  const btn = src('app/vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx');
+  assert.match(btn, /href=\{`\/dashboard\/\$\{eventId\}`\}/, 'the door is not the shipped event dashboard');
+  assert.match(btn, /min-h-11/, 'the door is under 44 px');
+});
+
+/* ══ 4 · inside the event — the line, for a coordinator only ════════════════ */
+
+test('4 · the coordinating line renders only for a seat-admitted coordinator with a shop, after the shipped check', () => {
+  const layout = src('app/dashboard/[eventId]/layout.tsx');
+  // The admission query is the shipped one, untouched.
+  assert.match(
+    layout,
+    /\.from\('event_moderators'\)\s*\.select\('moderator_id, role_subtype, permissions_json'\)\s*\.eq\('event_id', eventId\)\s*\.eq\('user_id', user\.id\)\s*\.not\('accepted_at', 'is', null\)\s*\.is\('removed_at', null\)/,
+    'the event layout’s admission query changed',
+  );
+  // The flag is set ONLY inside the non-couple branch, AFTER a missing seat has already 404'd.
+  const notFoundAt = layout.indexOf('if (!moderator) {\n      notFound();');
+  const setAt = layout.indexOf('coordinatorSeat = seat.role_subtype === COORDINATOR_SEAT_ROLE;');
+  assert.ok(notFoundAt > 0 && setAt > notFoundAt, 'the line is decided before (or without) the shipped admission check');
+  assert.equal([...layout.matchAll(/(?<!let )coordinatorSeat = /g)].length, 1, 'something else sets coordinatorSeat');
+  assert.match(layout, /let coordinatorSeat = false;/, 'the line must default to off');
+  assert.equal([...layout.matchAll(/<CoordinatingLine\b/g)].length, 1);
+  assert.match(
+    layout,
+    /\{coordinatorSeat && switcherData\.context\.hasVendor \? \(\s*<CoordinatingLine\b/,
+    'the line is drawn for someone who is not a coordinator with a shop',
+  );
+  const line = src('app/dashboard/[eventId]/_components/coordinating-line.tsx');
+  assert.match(line, /href="\/vendor-dashboard"/, 'Back to your shop must go to the shop');
+  assert.match(line, /Back to your shop/);
+  assert.match(line, /min-h-11/, 'the way back is under 44 px');
+});
+
+/* ══ 5 · no new permission path ═════════════════════════════════════════════ */
+
+test('5 · no new permission path — the shipped window, the hosts’ switch, the person’s own session', () => {
+  const rule = src('lib/events-you-run.ts');
+  assert.match(rule, /permissionsWithinWindow\(row\.permissions_json/, 'the live rule does not apply the shipped window');
+  // 👥 (owner 2026-10-29) A co-host seat is a run seat only through the SHIPPED full-co-host rule (the SQL mirror),
+  // and still inside the shipped window — never a new kind list of our own.
+  assert.match(rule, /if \(!row\.role_subtype \|\| !seatIsFullCohost\(row\.role_subtype\)\) return false;/, 'a non-co-host seat slips through');
+  assert.match(rule, /RUN_SEAT_ROLES: readonly string\[\] = \[COORDINATOR_SEAT_ROLE, \.\.\.FULL_COHOST_SEAT_KINDS\]/);
+  assert.match(src('lib/events-you-run.server.ts'), /\.in\('role_subtype', \[\.\.\.RUN_SEAT_ROLES\]\)/, 'the read asks for other seats');
+  assert.match(rule, /coordinatorHasHostAccess\(areaCells\(perms\)\)/, 'the live rule ignores the hosts’ switch');
+  assert.match(rule, /href: `\/dashboard\/\$\{ev\.event_id\}`/, 'a row opens somewhere other than the event dashboard');
+  const read = src('lib/events-you-run.server.ts');
+  // The SEATS are the person's own (their session, their RLS) — the admin client reads ONE column of ONE table (§8).
+  assert.match(
+    read,
+    /await supabase\s*\.from\('event_moderators'\)[\s\S]*?\.eq\('user_id', userId\)/,
+    'the seat read must be the person’s own session',
+  );
+  assert.doesNotMatch(read, /service_role/i);
+  // The event layout must not consult the door to ADMIT anyone — the door follows access, never the reverse.
+  assert.doesNotMatch(src('app/dashboard/[eventId]/layout.tsx'), /readEventsYouRun|seatRunsTheEvent|eventsYouRun\(/);
+  // +0 server actions: none of the door's files is a server-action module.
+  const door = [
+    'lib/events-you-run.ts',
+    'lib/events-you-run-words.ts',
+    'lib/events-you-run.server.ts',
+    'app/vendor-dashboard/events/page.tsx',
+    'app/vendor-dashboard/_components/events-you-run-rows.tsx',
+    'app/vendor-dashboard/_components/events-you-run-screen.tsx',
+    'app/vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx',
+    'app/dashboard/[eventId]/_components/coordinating-line.tsx',
+  ];
+  for (const f of door) assert.doesNotMatch(src(f), /['"]use server['"]/, `${f} is a server-action module`);
+});
+
+test('5 · words — supplier never vendor, event never celebration, in every visible string of the door', () => {
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const n of readdirSync(d)) {
+      const p = join(d, n);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.tsx$/.test(n)) files.push(p);
+    }
+  };
+  walk(join(VD, 'events'));
+  for (const f of [
+    'app/vendor-dashboard/_components/events-you-run-rows.tsx',
+    'app/vendor-dashboard/_components/events-you-run-screen.tsx',
+    'app/vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx',
+    'app/dashboard/[eventId]/_components/coordinating-line.tsx',
+    'lib/events-you-run-words.ts',
+  ])
+    files.push(join(WEB, f));
+  for (const f of files) {
+    const text = stripComments(readFileSync(f, 'utf8'));
+    const strings = [...text.matchAll(/'([^'\n]*)'|"([^"\n]*)"|>([^<>{}\n]+)</g)].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+    for (const s of strings) {
+      if (/^[@./]|^(use|data-)|className|^[\w-]+$/.test(s)) continue;
+      assert.doesNotMatch(s, /\bvendors?\b/i, `${relative(WEB, f)} says "vendor": ${s}`);
+      assert.doesNotMatch(s, /celebration/i, `${relative(WEB, f)} says "celebration": ${s}`);
+    }
+  }
+});
+
+/* ══ 6 · what needs them — the events board's own read (owner 2026-10-28) ═══════ */
+
+test('6 · the rows print WHAT NEEDS THEM from the board’s own attention read; a refusal is said', () => {
+  const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
+  assert.match(rows, /data-needs="">\{e\.needs\}/, 'the row prints something other than what needs them');
+  assert.doesNotMatch(rows.split('export function CheckinDeskRows')[0]!, /\{e\.status\}/, 'the countdown is back on the row');
+  const read = src('lib/events-you-run.server.ts');
+  for (const shipped of ['readEventDecisionCounts(supabase, ids)', 'readEventUnreadCounts(supabase)', 'readPlanningProgress(supabase, e.eventId, e.anchor', 'summarizeEventDecisions(', 'items.overdue']) {
+    assert.ok(read.includes(shipped), `the needs line does not reuse the shipped read: ${shipped}`);
+  }
+  assert.match(
+    read,
+    /if \(counts === null \|\| unread === null \|\| items === null \|\| items === undefined\) \{\s*summaries\.set\(e\.eventId, null\)/,
+    'a refused read must reach the row as null ("Couldn’t load"), never as zeros',
+  );
+  // The surfaces that PRINT it read the needs; the tab and the door only ask whether (no attention reads).
+  assert.match(src('app/vendor-dashboard/page.tsx'), /readEventsYouRunWithNeeds\(supabase, user\.id\)/);
+  assert.doesNotMatch(src('app/vendor-dashboard/layout.tsx'), /readEventsYouRunWithNeeds/);
+});
+
+/* ══ 7 · the Check-in desk, one tap from the coordinator's event and their Hub ══ */
+
+test('7 · the shipped Check-in desk admits a live coordinator (no new permission)', () => {
+  const desk = src('app/dashboard/[eventId]/guests/checkin/page.tsx');
+  assert.match(desk, /\.in\('member_type', \['couple', 'coordinator'\]\)/, 'the desk no longer admits a coordinator member');
+  assert.match(desk, /isDelegateWithoutArea\(viewer, 'guest_list'\)/, 'the desk’s own guest-list rule moved');
+  // A live coordinator = the hosts' switch ON, which shares the guest list (so the desk opens for every row we draw).
+  assert.ok(COORDINATOR_ON_AREAS.includes('guest_list'), 'the switch no longer shares the guest list — the desk would refuse');
+});
+
+test('7 · the coordinating line carries Check-in only when the desk’s own rule admits the seat', () => {
+  const layout = src('app/dashboard/[eventId]/layout.tsx');
+  assert.match(
+    layout,
+    /if \(coordinatorSeat\) \{\s*coordinatorCheckInP = applyDelegateAccessWindow\(supabase, eventId, seat\.permissions_json \?\? null, false\)\s*\.then\(\(p\) => resolveAreaLevel\(p, 'guest_list'\) !== null\)\s*\.catch\(\(\) => false\);/,
+    'the Check-in door is not the desk’s own rule (window + guest list), or fails open',
+  );
+  assert.match(layout, /checkInHref=\{coordinatorCheckIn \? `\/dashboard\/\$\{eventId\}\/guests\/checkin` : null\}/);
+  const line = src('app/dashboard/[eventId]/_components/coordinating-line.tsx');
+  assert.match(line, /\{checkInHref \? \(\s*<Link\s+href=\{checkInHref\}/, 'Check-in is drawn without an address');
+  assert.equal([...line.matchAll(/min-h-11/g)].length, 2, 'both doors on the line must be 44 px');
+});
+
+test('7 · the supplier Hub opens the desk for each event they run — and for nobody else', () => {
+  const hub = src('app/vendor-dashboard/on-the-day/page.tsx');
+  assert.match(hub, /readEventsYouRun\(supabase, user\.id\)\.catch\(\(\) => \(\{ events: \[\], measured: false \}\)\)/);
+  // v13: the Hub sets up ONE event; its Check-in desk door is drawn only when this person runs THAT event.
+  assert.match(hub, /const run = runEvents\.find\(\(e\) => e\.eventId === selected\.eventId\) \?\? null;/);
+  assert.match(hub, /<CheckinDeskRows events=\{\[run\]\} \/>/);
+  const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
+  assert.match(rows, /checkinDeskHref = \(eventId: string\) => `\/dashboard\/\$\{eventId\}\/guests\/checkin`/, 'the Hub opens something other than the shipped desk');
+  assert.match(rows, /const live = events\.filter\(\(e\) => e\.rank !== 2\);\s*if \(live\.length === 0\) return null;/, 'rows drawn with no live event');
+});
+
+/* ══ 8 · only events THIS SHOP serves (fixed 2026-10-29) ═══════════════════════ */
+
+test('8 · the read hands the rule the events THIS SHOP is on — the active shop, its live rows, failing closed', () => {
+  const read = src('lib/events-you-run.server.ts');
+  // The shop is the ONE active-shop resolver, on the person's own session — never a client-supplied id.
+  assert.match(read, /resolveActiveShop\(supabase, userId\)\)\?\.vendorProfileId/, 'the shop is not the session’s active shop');
+  // The admin client reads event_vendors ONLY, scoped by that shop, to the seat read's events, live rows only.
+  const adminFroms = [...read.matchAll(/admin\s*\.from\('([a-z_]+)'\)/g)].map((m) => m[1]);
+  assert.deepEqual(adminFroms, ['event_vendors'], 'the admin client reads something other than the shop’s own event_vendors rows');
+  assert.equal([...read.matchAll(/createAdminClient\(\)/g)].length, 1, 'a second admin client appeared in the door read');
+  assert.match(
+    read,
+    /admin\s*\.from\('event_vendors'\)\s*\.select\('event_id'\)\s*\.eq\('marketplace_vendor_id', shopId\)\s*\.in\('event_id', eventIds\)\s*\.is\('archived_at', null\);/,
+    'the bond read is not scoped to this shop’s live rows on these events (or selects more than event_id)',
+  );
+  // Refused → fails closed (measured: false), never a list of every seat.
+  assert.match(read, /if \(served === null\) return \{ events: \[\], measured: false \};/);
+  assert.match(read, /return \{ events: eventsYouRun\(seats, new Date\(\), manilaToday\(\), served\), measured: true \};/);
+  assert.match(read, /catch \(e\) \{\s*logQueryError\('readEventsYouRun\.activeShop'[\s\S]*?return null;/, 'a refused shop read does not fail closed');
+  assert.match(read, /logQueryError\('readEventsYouRun\.shopEvents'[\s\S]*?return null;/, 'a refused bond read does not fail closed');
+  // The rule requires the set — no default that would list every seat.
+  const rule = src('lib/events-you-run.ts');
+  assert.match(rule, /shopEventIds: ReadonlySet<string>,\s*\): EventYouRun\[\]/, 'the shop’s events must be a required argument');
+  assert.match(rule, /if \(!shopServesTheEvent\(r, shopEventIds\)\) continue;/, 'the list ignores the shop’s events');
+  assert.match(
+    rule,
+    /if \(levelOf\(\{ permissions_json: row\.permissions_json as LevelledPermissions \| null \}\) !== 'full'\) return false;/,
+    'a co-host seat runs the event without the hosts’ Full-access answer',
+  );
+});
+
+test('8 · 🛑 REGRESSION — a host’s own event never appears under their shop’s Events you run', () => {
+  const now = new Date('2026-10-29T00:00:00Z');
+  const ev = { event_id: 'own', display_name: 'Indalecio & Claire', event_type: 'wedding', event_date: '2026-12-18', event_end_date: null, event_date_precision: 'day', venue_name: null };
+  const hostsOwnSeat: CoordinatorSeatRow = {
+    event_id: 'own',
+    role_subtype: 'co_host',
+    permissions_json: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
+    accepted_at: '2026-06-01T00:00:00Z',
+    removed_at: null,
+    events: ev,
+  };
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], now, '2026-10-29', new Set()), [], 'the host’s own event is listed under his shop');
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], now, '2026-10-29', new Set(['own'])), [], 'a partner’s co-host seat is read as a supplier’s');
+  // The event's REAL coordinator (another shop's person, Full access) still gets it — through their own shop's bond.
+  const realCoordinator: CoordinatorSeatRow = { ...hostsOwnSeat, permissions_json: { ...hostsOwnSeat.permissions_json!, access_level: 'full' } as CoordinatorSeatRow['permissions_json'] };
+  assert.equal(eventsYouRun([realCoordinator], now, '2026-10-29', new Set(['own'])).length, 1);
+  assert.deepEqual(eventsYouRun([realCoordinator], now, '2026-10-29', new Set()), [], 'a shop not on the event lists it');
+});

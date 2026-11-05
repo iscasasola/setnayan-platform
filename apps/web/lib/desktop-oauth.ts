@@ -31,8 +31,13 @@
  * Console needs NO change — Google only ever redirects to Supabase's own callback.
  */
 
-import { createClient } from '@/lib/supabase/client';
+// ⚡ `@/lib/supabase/client` is import()ed inside `signInWithProviderDesktop`, never statically: `isTauri`/`tauri`
+// below are read by the root providers' desktop-updater listener on EVERY page, and a static import here put the
+// whole browser client (~43KB gzipped) in every page's first load, the Maker's included
+// (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Only the desktop shell's sign-in button ever reaches it.
 import { safeNext } from '@/lib/safe-next';
+import { acceptTermsNow } from '@/app/_components/terms-reaccept/actions';
+import { TERMS_FIELD } from '@/lib/terms-agreement';
 
 export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
 
@@ -88,12 +93,22 @@ const LOOPBACK_TIMEOUT_MS = 5 * 60_000;
 export async function signInWithProviderDesktop(
   provider: DesktopOAuthProvider,
   next: string = '/dashboard',
+  /** A typed Google address (lib/google-address.ts) — Google opens on that account. */
+  loginHint: string | null = null,
+  /**
+   * ✅ The sign-up card's ONE Terms box was ticked (owner 2026-10-22, Host 1). This loopback never passes through
+   * `app/auth/callback` — where the web and phone doors record the carried tick — so it records it itself, right
+   * after the session exists, through the SAME action the one-time re-ask posts (`acceptTermsNow`: fails closed
+   * without the tick, writes only where the current version is not already on record). Absent / false → nothing is recorded.
+   */
+  opts: { agreed?: boolean } = {},
 ): Promise<void> {
   const t = tauri();
   if (!t) {
     fail('Desktop sign-in is unavailable here. Please use email sign-in.');
     return;
   }
+  const { createClient } = await import('@/lib/supabase/client');
   const supabase = createClient();
 
   let port: number;
@@ -141,6 +156,12 @@ export async function signInWithProviderDesktop(
           fail(error.message);
           return;
         }
+        if (opts.agreed) {
+          const fd = new FormData();
+          fd.set(TERMS_FIELD, 'on');
+          // Best-effort: a missed record leaves the one-time re-ask as the net, never a failed sign-in.
+          await acceptTermsNow(fd).catch(() => undefined);
+        }
         window.location.assign(safeNext(next)); // THE ONE RULE (lib/safe-next.ts)
       } catch (err) {
         settled = true;
@@ -159,7 +180,11 @@ export async function signInWithProviderDesktop(
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true },
+    options: {
+      redirectTo: `http://localhost:${port}`,
+      skipBrowserRedirect: true,
+      ...(provider === 'google' && loginHint ? { queryParams: { login_hint: loginHint } } : {}),
+    },
   });
   if (error || !data?.url) {
     settled = true;

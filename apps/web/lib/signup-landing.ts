@@ -24,7 +24,7 @@
  * one; the page never renders the field in that case, and the plan is the
  * second lock behind the screen.
  */
-import { signInDestination } from '@/lib/sign-in-landing';
+import { SIGNED_IN_LANDING, signInDestination } from '@/lib/sign-in-landing';
 import { SLUG_FORMAT } from '@/lib/slug-availability';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import {
@@ -194,4 +194,21 @@ export function planYouCard(
   // An account that already has an @name keeps it: renaming lives on the profile
   // page, behind its cap and its change log. A posted slug is ignored, not applied.
   return { ok: true, patch, slug };
+}
+
+/**
+ * 🚪 THE YOU CARD HANDS A BRAND-NEW COUPLE STRAIGHT TO THEIR FIRST EVENT (owner 2026-10-21, prototype
+ * `first_run_you_and_next_steps_2026-10-21.html` §2 — controller decision, owner may veto).
+ *
+ * Done (and Later, which goes exactly where Done goes) used to land on `/dashboard`, which for an account with
+ * no event is an empty board whose one door is "Create an event". Now, when — and only when — the card would
+ * have gone to that default AND the account holds no event at all, it goes to the event-type picker instead:
+ * the first thing after naming yourself is choosing your event. A real destination (an invitation, an
+ * onboarding resume) is never replaced, and an account whose events could not be read (`null`) keeps the
+ * board, which says what it could not read — the unknown never reads as "no events".
+ */
+export const FIRST_EVENT_PATH = '/dashboard/create-event';
+
+export function youCardOnward(next: string, hasEvent: boolean | null): string {
+  return next === SIGNED_IN_LANDING && hasEvent === false ? FIRST_EVENT_PATH : next;
 }

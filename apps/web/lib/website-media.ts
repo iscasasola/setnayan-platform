@@ -69,6 +69,7 @@ export type SiteMediaPrefix = {
  *   onboarding/     ← onboarding-surface.tsx          pathPrefix="onboarding/background-music"
  *   brand-icon/     ← admin/settings/actions.ts      `brand-icon/${randomUUID()}`
  *   nav-icons/      ← admin/menus/actions.ts         `nav-icons/${slot}-${randomUUID()}.${ext}`
+ *   hub-music/      ← admin/hub-music/hub-music-manager.tsx  HUB_MUSIC_ROOT (lib/hub-music.ts)
  *
  * Deliberately ABSENT (customer or financial content in the same bucket):
  *   events/ · living-heroes/ · locked-qr-proof/ · merchant-qr/ · editorial-vendor/
@@ -115,6 +116,15 @@ export const SITE_MEDIA_PREFIXES: readonly SiteMediaPrefix[] = [
     label: 'Menu icons',
     blurb:
       'Custom icons uploaded for individual menu items. Changing one leaves the previous icon here.',
+  },
+  {
+    // Removing a track removes its file too (admin/hub-music/actions.ts), and a
+    // file that was refused on the way in is taken back out — so what is left
+    // here is an upload whose page was closed before it became a track.
+    prefix: 'hub-music/',
+    label: 'Event Hub music',
+    blurb:
+      'The tracks couples can pick as their Event Hub music. Every track on the music list is in use; a file here that is not on the list was uploaded and never added.',
   },
 ] as const;
 

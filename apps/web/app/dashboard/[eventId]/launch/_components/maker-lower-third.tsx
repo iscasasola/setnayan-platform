@@ -105,7 +105,7 @@ export function MakerLowerThird({
    */
   bare?: boolean;
   /**
-   * 🧭 THE NEW MAKER (`makerStagesStudioEnabled`): the menu is ONE item ▾ — a
+   * 🧭 THE NEW MAKER (`stagesStudio`, the one Maker since 2026-10-25): the menu is ONE item ▾ — a
    * `PickMenu` of the side's items (Stages: the five stages; Studio › Look: the
    * eleven tools), its pill the short name, opening as the one bottom sheet.
    * It takes the menu button's place; the two-group sheet is not drawn. Null:
@@ -227,12 +227,13 @@ export function MakerLowerThird({
       ref={rootRef}
       aria-label="Edit"
       data-maker-lower-third=""
+      data-tour="maker-tools"
       data-lt-tool={tool ? tool.key : undefined}
       data-phone-chrome="bottom"
       data-phone-chrome-name="the lower third"
       data-lt-bare={short ? '' : undefined}
       /* In the shell's flow, under the page — the page ends where it begins. */
-      className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden`}
+      className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[var(--maker-safe-b,env(safe-area-inset-bottom))] lg:hidden`}
     >
       {grab}
       <div className={`relative flex min-h-0 flex-1 gap-2 p-1 ${grab ? 'pt-0' : 'pt-2'}`}>

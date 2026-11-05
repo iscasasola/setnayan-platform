@@ -96,6 +96,17 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+
+/** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
+const VOUCHER_NOT_CHECKED = 'We couldn’t check that code. Please try again.';
+/**
+ * 📵 The order submit never answered. NOT "your order failed" — an unanswered request may have reached us. It says what
+ * is known: we could not confirm it, this page charges nothing, and sending it again cannot make a second order (the
+ * drawer's one pre-minted reference + UNIQUE `orders.reference_code`).
+ */
+const ORDER_NOT_CONFIRMED =
+  'We couldn’t confirm that your order reached us, and nothing was charged here. Please send it again — sending it twice cannot create a second order.';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -173,6 +184,11 @@ export type InlineCheckoutDrawerProps = {
    * preference must never block somebody from paying for the thing itself.
    */
   onBeforeOpen?: () => Promise<void> | void;
+  /**
+   * 💎 Several Event Hub Pro parts in one order (owner 2026-10-22) — sent as `hub_parts` ("style,motion") with the
+   * `COUPLE_HUB_PARTS` key; the server prices each from the catalogue. Every other caller omits it.
+   */
+  hubParts?: string;
 };
 
 /**
@@ -236,6 +252,7 @@ export function InlineCheckoutDrawer({
   triggerLabel,
   triggerClassName,
   onBeforeOpen,
+  hubParts,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -322,11 +339,45 @@ export function InlineCheckoutDrawer({
     setReferenceCode(generateClientReference());
   }, []);
 
-  // Compute final price displayed in the drawer header.
+  // 💲 The website-only welcome price (owner 2026-10-28, "ONE PRICE EVERYWHERE"):
+  // an account's FIRST purchase, asked of the server when the drawer opens. The
+  // server answers null unless it is on — and ALWAYS null in the App Store / Play
+  // Store shell. 🔒 AND THIS DRAWER NEVER ASKS THERE: the shell never opens it
+  // (the trigger is an inert chip), and the effect refuses `isNativeApp` before
+  // it calls anything. Held by `the-welcome-price-never-reaches-the-app.test.ts`.
+  const [welcomeQuote, setWelcomeQuote] = useState<{ welcomeCentavos: string; pct: number } | null>(null);
+  useEffect(() => {
+    if (isNativeApp || !open) return;
+    let live = true;
+    const fd = new FormData();
+    fd.set('intent', 'welcome_quote');
+    fd.set('event_id', eventId);
+    fd.set('service_key', serviceKey);
+    if (hubParts) fd.set('hub_parts', hubParts);
+    applyVoucherAction(null, fd)
+      .then((r) => {
+        if (live) setWelcomeQuote(r.welcome ?? null);
+      })
+      // A quote that never answered shows the regular price — the server then
+      // charges the regular price too, because the drawer did not claim one.
+      .catch(() => {
+        if (live) setWelcomeQuote(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [isNativeApp, open, eventId, serviceKey, hubParts]);
+
+  // Compute final price displayed in the drawer header. A voucher REPLACES the
+  // welcome price (they never stack — the server decides the same way).
+  const voucherApplied = voucherResult?.applied === true && voucherResult.code !== null;
+  const welcomeShown = !isNativeApp && welcomeQuote !== null && !voucherApplied;
   const finalPriceStr =
     voucherResult?.applied && voucherResult.code
       ? voucherResult.final_centavos
-      : originalPriceCentavos;
+      : welcomeShown
+        ? welcomeQuote.welcomeCentavos
+        : originalPriceCentavos;
   const finalPesoDisplay = formatPesoCentavos(finalPriceStr);
   const originalPesoDisplay = formatPesoCentavos(originalPriceCentavos);
   // VAT-inclusive gross = what the couple actually pays (the server charges this).
@@ -339,7 +390,7 @@ export function InlineCheckoutDrawer({
     Number(finalPriceStr) / 100,
     vatRatePct,
   ).gross;
-  const hasVoucher = voucherResult?.applied === true && voucherResult.code !== null;
+  const hasVoucher = voucherApplied;
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
   // then reveal the confirmation card. Gives the completion beat room to play.
@@ -421,18 +472,13 @@ export function InlineCheckoutDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="inline-checkout-title"
-        className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
+        className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-center tab:justify-end focus:outline-none"
       >
         {/* Backdrop */}
-        <button
-          type="button"
-          aria-label="Close checkout"
-          onClick={() => setOpen(false)}
-          className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-        />
+        <OverlayBackdrop onClose={() => setOpen(false)} label="Close checkout" />
 
         {/* Sheet — bottom on mobile, right drawer on desktop. */}
-        <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
+        <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl tab:h-full tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-l-3xl tab:rounded-tr-none">
           <header className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
             <div className="space-y-0.5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -445,7 +491,7 @@ export function InlineCheckoutDrawer({
                 {displayName}
               </h2>
               <p className="font-mono text-xs text-ink/55">
-                {hasVoucher ? (
+                {hasVoucher || welcomeShown ? (
                   <>
                     <span className="line-through opacity-60">
                       {originalGrossDisplay}
@@ -456,6 +502,11 @@ export function InlineCheckoutDrawer({
                   finalGrossDisplay
                 )}
               </p>
+              {welcomeShown ? (
+                <p className="text-xs font-medium text-terracotta">
+                  Welcome price · {welcomeQuote.pct}% off your first purchase
+                </p>
+              ) : null}
               {/*
                 🚨 THIS SAID "incl. 12% VAT" TO EVERY CUSTOMER, ALWAYS. The
                 PRICE above it was already right — it is computed from the
@@ -538,7 +589,16 @@ export function InlineCheckoutDrawer({
                       fd.set('code', voucherInput);
                       fd.set('service_key', serviceKey);
                       fd.set('original_centavos', originalPriceCentavos);
-                      const result = await applyVoucherAction(null, fd);
+                      /* 📵 A check that never answered (no signal, a 5xx) is the same answer the action gives when it
+                         cannot check — said under the box, the code still typed. Thrown into this transition it
+                         replaced the whole page with the app's error screen, mid-payment. Nothing is redeemed by
+                         a check: a voucher is only used when an order is placed. */
+                      let result: ApplyVoucherResult;
+                      try {
+                        result = await applyVoucherAction(null, fd);
+                      } catch {
+                        result = { applied: false, code: null, discount_centavos: '0', final_centavos: originalPriceCentavos, discount_php: '', final_php: '', reason: VOUCHER_NOT_CHECKED };
+                      }
                       setVoucherResult(result);
                       if (result.applied) {
                         // Lock the input visually · user can Remove to retry.
@@ -608,6 +668,7 @@ export function InlineCheckoutDrawer({
                     fd.set('event_id', eventId);
                     if (typeof cycles === 'number') fd.set('cycles', String(cycles));
                     fd.set('service_key', serviceKey);
+                    if (hubParts) fd.set('hub_parts', hubParts);
                     fd.set('display_name', displayName);
                     fd.set('original_centavos', originalPriceCentavos);
                     fd.set('channel', channel);
@@ -617,6 +678,9 @@ export function InlineCheckoutDrawer({
                     // server accepts it (validated) so the order carries the
                     // same code the couple put in their transfer note.
                     if (referenceCode) fd.set('preminted_reference', referenceCode);
+                    // Says only what the screen SHOWED; the server decides the
+                    // price and refuses if it now disagrees.
+                    fd.set('welcome_quoted', welcomeShown ? '1' : '0');
                     if (hasVoucher && voucherResult?.code) {
                       fd.set('voucher_code', voucherResult.code);
                       fd.set(
@@ -625,7 +689,22 @@ export function InlineCheckoutDrawer({
                       );
                     }
                     startSubmitTransition(async () => {
-                      const result = await submitOrderAction(fd);
+                      /* 📵 MONEY. A submit that never answered (no signal, a 5xx) must not take the screen — the
+                         person has ALREADY sent their transfer and the proof is in this form. Thrown into this
+                         transition it replaced the page with the app's error screen and the form went with it.
+                         It is answered as a refusal instead, in the form's own alert line, with every field and
+                         the screenshot still here.
+                         🔑 What the line may claim: an unanswered request is not known to have failed — the order
+                         may have reached us. So it never says "not ordered"; it says we could not confirm, that
+                         this page charges nothing, and that sending again is safe. It IS safe: every submit from
+                         this drawer carries the ONE reference minted when it opened (`preminted_reference`), and
+                         `orders.reference_code` is UNIQUE — a second order with it cannot be created. */
+                      let result: SubmitOrderResult;
+                      try {
+                        result = await submitOrderAction(fd);
+                      } catch {
+                        result = { ok: false, reason: ORDER_NOT_CONFIRMED };
+                      }
                       // Anon-draft: the order was blocked because the buyer
                       // hasn't secured their account. Route to /signup (convert
                       // in place) with a return path back to this page so they

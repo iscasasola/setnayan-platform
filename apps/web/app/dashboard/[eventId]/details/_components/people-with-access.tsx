@@ -1,10 +1,12 @@
 'use client';
 
+
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UserMinus } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AREA_LEVEL_WORD, DELEGATE_AREA_DOES, type AreaChoice } from '@/lib/delegate-areas';
@@ -16,7 +18,9 @@ import {
   COORDINATOR_SWITCH_WHY,
   FIXED_AREA_WHY,
   SUPPLIERS_BY_CATEGORY,
+  accessDayLabel as dayLabel,
   accessGroupOf,
+  askedRowWords,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
   type AreaCell,
@@ -24,6 +28,10 @@ import {
 } from '@/lib/people-with-access';
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
+import { ACCESS_LEVEL_AREA, COORDINATOR_ACCESS_LEVELS, LEVEL_WORD, type CoordinatorAccessLevel } from '@/lib/coordinator-access-level';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
+import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
 
 /**
  * people-with-access.tsx — Event Details › PEOPLE WITH ACCESS (owner
@@ -50,10 +58,21 @@ import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/acces
  * (`ACCESS_GROUPS`). Plain rows and dividers like every other fold: no box of
  * its own (the fold is the tile).
  *   · HELPER — per area: name + ⓘ, then ONE three-way toggle Edit · Off · View.
- *   · COORDINATOR — ONE switch, "Same access as you", ON by default.
+ *   · COORDINATOR — ONE switch, "Same access as you", ON by default, until the
+ *     hosts pick Limited · Full access; on Limited, the helper's per-area
+ *     toggles (Mood Board Edit · View among them, owner 2026-10-30).
  *   · BOOKED SUPPLIER — name and category; what they see is set by their
  *     category (`SUPPLIERS_BY_CATEGORY`); nothing to switch.
+ *
+ * ⚙ AND HOME'S ⚙ EVENT SETTINGS MOUNTS THIS SAME SECTION, as its last one
+ * (owner 2026-10-30, *"no. that shoud be inside home settings"* → *"move them
+ * all in the event settings"*; `event-settings-rows.tsx`). One component, one
+ * set of actions — never a second editor; `returnTo` only says where a Remove
+ * lands (`lib/seat-return-path.ts`).
  */
+
+/** The screen the section is drawn on — what a Remove posts as `return_to` (`lib/seat-return-path.ts`). */
+type AccessReturnTo = 'details' | 'home';
 
 const REASONS: PickOption[] = [
   { key: 'no_longer_availing', label: 'No longer availing their services' },
@@ -62,18 +81,17 @@ const REASONS: PickOption[] = [
   { key: 'other', label: 'Other' },
 ];
 
-function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
-
 /**
  * 🎚 ONE AREA'S THREE-WAY TOGGLE (owner 2026-10-07: *"no edit. Guestlist (i)
  * toggle. so it is easy to control"* → *"3 way toggle Edit - OFF - View"*) —
  * Edit · Off · View, Off in the middle, one segmented switch. This OVERRIDES
  * the standing "any set of choices is a dropdown" rule for this control only.
  * A position the area cannot take (Budget / Photos never Edit) is drawn and
- * disabled; a fixed area (Event Hub, Mood Board) is drawn at its value,
+ * disabled; a fixed area (Event Hub) is drawn at its value,
  * disabled, with an ⓘ saying why.
+ *
+ * Drawn by the app's ONE pill selector (owner 2026-10-08, `app/_components/pill-track.tsx`): the picked position is
+ * the terracotta, the others grey. It stays a radio group (`aria-checked`).
  */
 function AreaToggle({
   label,
@@ -89,29 +107,27 @@ function AreaToggle({
   onPick: (next: AreaChoice) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex h-10 shrink-0 rounded-full bg-ink/[0.06] p-0.5" data-area-toggle="">
+    <PillTrack role="radiogroup" aria-label={label} className="shrink-0" data-area-toggle="">
       {AREA_TOGGLE_ORDER.map((pos) => {
         const on = pos === choice;
         const can = !disabled && (choices?.includes(pos) ?? false);
         return (
-          <button
+          <PillButton
             key={pos}
-            type="button"
+            on={on}
             role="radio"
             aria-checked={on}
             disabled={!can && !on}
             aria-disabled={!can}
             onClick={() => (can && !on ? onPick(pos) : undefined)}
-            className={`h-full min-h-0 min-w-[3.25rem] rounded-full px-2.5 text-[12.5px] transition-colors ${
-              on ? 'bg-ink font-semibold text-cream' : can ? 'text-ink/70 hover:text-ink' : 'text-ink/30'
-            } ${on && !can ? 'opacity-60' : ''}`}
+            className={`min-w-[3.25rem] ${on && !can ? 'opacity-60' : ''}`}
             data-area-pos={pos}
           >
             {AREA_LEVEL_WORD[pos]}
-          </button>
+          </PillButton>
         );
       })}
-    </div>
+    </PillTrack>
   );
 }
 
@@ -208,11 +224,12 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
         if (!res.ok) {
           setOn(!next);
           setError(res.error);
+          // one-render: keep (after-failure) — the refused write revalidated nothing; re-read what the earlier ones landed.
           router.refresh();
           return;
         }
       }
-      router.refresh();
+      // ⚡ Each landed write revalidated the page — its answer carried the redraw; no second render.
     });
   };
   const locked = readOnly || row.ended || busy;
@@ -237,16 +254,9 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
             aria-label={`${COORDINATOR_SWITCH_LABEL} — ${row.name}`}
             disabled={locked}
             onClick={flip}
-            className={`relative h-[25px] min-h-0 w-11 flex-none rounded-full transition-colors after:absolute after:-inset-2.5 after:content-[''] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
-              on && !row.ended ? 'bg-success-600' : 'bg-ink/15'
-            }`}
+            className={SWITCH_BUTTON}
           >
-            <span
-              aria-hidden
-              className={`absolute top-[2.5px] h-5 w-5 rounded-full bg-cream shadow transition-transform ${
-                on && !row.ended ? 'left-[2.5px] translate-x-[19px]' : 'left-[2.5px]'
-              }`}
-            />
+            <SwitchTrack on={on && !row.ended} />
           </button>
         </span>
       </div>
@@ -259,8 +269,56 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
   );
 }
 
+/**
+ * 🔑 THE COORDINATOR'S LEVEL — Limited · Full access (owner 2026-10-29, "only TWO levels"). Where Home's one-time
+ * answer stays changeable: the same door (`setDelegateArea`, area `access_level`). Full access moves her onto the
+ * co-host seat; Limited back onto the coordinator's seat with view on every part. A refusal puts the pick back.
+ */
+function CoordinatorLevelPick({ eventId, row }: { eventId: string; row: PersonRow }) {
+  const start = row.coordinatorLevel === 'limited' || row.coordinatorLevel === 'full' ? row.coordinatorLevel : null;
+  const [level, setLevel] = useState<CoordinatorAccessLevel | null>(start);
+  const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+  if (!row.moderatorId || row.coordinatorLevel === undefined) return null;
+  const moderatorId = row.moderatorId;
+  const pick = (key: string) => {
+    const next = key as CoordinatorAccessLevel;
+    if (next === level) return;
+    const before = level;
+    setLevel(next);
+    setError(null);
+    startTransition(async () => {
+      const res = await setDelegateArea(eventId, moderatorId, ACCESS_LEVEL_AREA, next);
+      if (!res.ok) {
+        setLevel(before);
+        setError(res.error);
+      }
+    });
+  };
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-3" data-coordinator-level-pick="">
+      <span className="text-[13px] text-ink/75">Access</span>
+      <span className="flex flex-col items-end gap-0.5">
+        <PickMenu
+          label={`${row.name}'s access to this event`}
+          value={level ?? ''}
+          options={COORDINATOR_ACCESS_LEVELS.map((k) => ({ key: k, label: LEVEL_WORD[k] }))}
+          onPick={pick}
+          dataAttr="data-coordinator-level-menu"
+          buttonText={level ? undefined : 'Pick one'}
+          compact
+        />
+        {error ? (
+          <span role="alert" className="max-w-[16rem] text-right text-[11px] text-terracotta-700">
+            {error}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
-  const router = useRouter();
   const [level, setLevel] = useState<GuestAccessLevel>(row.access?.level ?? 'none');
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -276,9 +334,9 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
     setLevel(next);
     setError(null);
     startTransition(async () => {
+      // ⚡ A landed change revalidates the page, so the answer carries the redraw; a refusal puts the pick back and says why.
       const res = await setGuestAccess(eventId, guestId, next);
-      if (res.ok) router.refresh();
-      else {
+      if (!res.ok) {
         setLevel(before);
         setError(res.error);
       }
@@ -303,7 +361,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   );
 }
 
-function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }) {
+function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: PersonRow; returnTo: AccessReturnTo }) {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   if (!row.moderatorId) return null;
@@ -325,7 +383,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
         <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
-          <input type="hidden" name="return_to" value="details" />
+          <input type="hidden" name="return_to" value={returnTo} />
           <input type="hidden" name="reason" value={reason} />
           <PickMenu
             label={`Why ${row.name} is leaving`}
@@ -351,7 +409,6 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
 }
 
 function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: string; name: string }[] }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [adding, startTransition] = useTransition();
   if (addable.length === 0) return null;
@@ -361,8 +418,7 @@ function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: 
       // A new person starts as a limited helper — View on every area — and the
       // host raises what they need, area by area, on the row that appears.
       const res = await setGuestAccess(eventId, guestId, 'limited_helper');
-      if (res.ok) router.refresh();
-      else setError(res.error);
+      if (!res.ok) setError(res.error);
     });
   };
   return (
@@ -384,9 +440,19 @@ function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: 
   );
 }
 
-function PersonItem({ eventId, row, readOnly }: { eventId: string; row: PersonRow; readOnly: boolean }) {
+function PersonItem({
+  eventId,
+  row,
+  readOnly,
+  returnTo,
+}: {
+  eventId: string;
+  row: PersonRow;
+  readOnly: boolean;
+  returnTo: AccessReturnTo;
+}) {
   return (
-    <li className="space-y-2 py-3" data-person={row.kind}>
+    <li className="space-y-2 py-3" data-person={row.kind} data-person-id={row.moderatorId ?? undefined}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
@@ -399,9 +465,15 @@ function PersonItem({ eventId, row, readOnly }: { eventId: string; row: PersonRo
             {!row.live ? ' · waiting to join' : ''}
             {row.ended ? ' · access ended' : row.lastDay ? ` · until ${dayLabel(row.lastDay)}` : ''}
           </p>
+          {/* 🪪 What this helper asked the hosts for (owner 2026-10-31, "Ask the hosts") — the notice lands here. */}
+          {row.asked ? (
+            <p className="text-[12px] font-medium text-terracotta-700" data-person-asked="">
+              {askedRowWords(row.asked)}
+            </p>
+          ) : null}
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
-          <RemoveCoordinator eventId={eventId} row={row} />
+          <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />
         ) : row.kind === 'supplier' && row.canInviteAsCoordinator && row.vendorId ? (
           <Link
             href={`/dashboard/${eventId}/vendors/${row.vendorId}/workspace?tab=details#promote-coordinator`}
@@ -413,11 +485,23 @@ function PersonItem({ eventId, row, readOnly }: { eventId: string; row: PersonRo
           <AccessPick eventId={eventId} row={row} />
         )}
       </div>
+      {/* 🔑 Limited · Full access — the coordinator's level, changeable here (owner 2026-10-29). */}
+      {row.coordinatorLevel !== undefined && !row.isViewer && !readOnly ? <CoordinatorLevelPick eventId={eventId} row={row} /> : null}
       {row.kind === 'coordinator' && !row.isViewer ? (
-        <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        // The old one switch stays only until the hosts answer the level (a recorded level replaces it).
+        row.coordinatorLevel === 'unanswered' || row.coordinatorLevel === undefined ? (
+          <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        ) : row.coordinatorLevel === 'limited' && row.areas ? (
+          /* 🖼 LIMITED = "changes only what you allow" (LEVEL_MORE: "…until you allow a part in Event details ›
+             Access"). This is that place — the helper's own per-part toggles on the coordinator's seat, Mood Board
+             among them (owner 2026-10-30: "Only the host and whoever supplier they give access to"). */
+          <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly} />
+        ) : null
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
       ) : null}
+      {/* ⚙ The supplier's "Their photos in your Memories" switch left for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS
+          ITS ⚙" — one home each); access stays here. */}
     </li>
   );
 }
@@ -429,6 +513,8 @@ export function PeopleWithAccess({
   readOnly,
   failed,
   flash,
+  claims = null,
+  returnTo = 'details',
 }: {
   eventId: string;
   rows: PersonRow[];
@@ -438,10 +524,28 @@ export function PeopleWithAccess({
   /** The reads failed — say so, never "nobody else has access". */
   failed: boolean;
   flash: string | null;
+  /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
+  claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
+  /** Where a Remove lands (`seatReturnPath`): Event Details, or Home with its ⚙ Event Settings sheet open on access. */
+  returnTo?: AccessReturnTo;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
       <p className="pb-1 text-[12.5px] text-ink/60">Who can open this event, and what each person can change.</p>
+      {claims && !claims.measured ? (
+        <p className="py-2.5 text-sm text-terracotta-700" data-claim-asks-refused="">
+          We could not check for suppliers who joined from your link. Reload to try again.
+        </p>
+      ) : claims && claims.asks.length > 0 ? (
+        <div className="pb-3" data-access-group="waiting">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-terracotta-700">Waiting for you</h3>
+          <ul className="divide-y divide-ink/5">
+            {claims.asks.map((a) => (
+              <ClaimAccessCard key={a.requestId} eventId={eventId} ask={a} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {flash ? (
         <p role="status" className="mb-2 text-xs text-ink/70">
           {flash}
@@ -468,7 +572,13 @@ export function PeopleWithAccess({
                 ) : (
                   <ul className="divide-y divide-ink/5">
                     {inGroup.map((row) => (
-                      <PersonItem key={row.key} eventId={eventId} row={row} readOnly={readOnly} />
+                      <PersonItem
+                        key={row.key}
+                        eventId={eventId}
+                        row={row}
+                        readOnly={readOnly}
+                        returnTo={returnTo}
+                      />
                     ))}
                   </ul>
                 )}
@@ -481,3 +591,4 @@ export function PeopleWithAccess({
     </div>
   );
 }
+

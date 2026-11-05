@@ -9,6 +9,15 @@
  */
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
+import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
+
+/*
+ * 📐 PLAN ALLOWANCES ARE READ, NEVER TYPED (owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES" + "BRANCHES PER
+ * PLAN"). Every reach / category / card / seat / branch / waitlist number below is a `TIER_CAPS` read, so the next
+ * ruling moves these lines with the table. Before this, "3 seats", "Three categories + 50 km", "Up to 10 team seats"
+ * and "Reach up to 100 km" were typed here and went stale the day the owner moved them.
+ */
+const many = (n: number, one: string, more: string) => (n === 1 ? `${n} ${one}` : `${n} ${more}`);
 
 export type VendorTier = 'free' | 'solo' | 'pro' | 'enterprise';
 
@@ -39,7 +48,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Lead capture & matchmaking', b: 'Every couple who finds you is a captured, well-fitted lead.' },
           { n: 'Shortlist radar', b: 'See how many couples saved you; get a rival-in-your-area demand feed.' },
           { n: 'First-look window', b: 'Reply fast, complete your profile, earn a head-start in front of new couples.' },
-          { n: 'Booked-out waitlist', b: 'Fully booked? Couples wait instead of bouncing, a cancellation becomes a recovered booking.' },
           { n: 'Pay only for inquiries that fit', b: 'Charged only for matched, intent-qualified inquiries, never junk.' },
         ],
       },
@@ -56,7 +64,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Self-review blocker', b: 'The system detects and blocks fake self-reviews before they post.' },
           { n: 'Flag a suspicious review', b: 'Flag a fake or unfair review; HQ reviews it within 48 hours.' },
           { n: 'Merit-only ranking', b: 'No pay-to-rank. You can’t buy your way up, and neither can rivals.' },
-          { n: 'No fake reviews, no ghost listings', soon: true, b: 'We screen bought reviews and ghost listings, protecting honest suppliers most.' },
           { n: 'Stand-up-for-yourself dispute mediation', soon: true, b: 'A neutral team reviews the record before anything touches your rating.' },
         ],
       },
@@ -71,6 +78,12 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Run every booking',
         items: [
+          // ⚖ PLANS PRICE REACH, NEVER INCOME (owner 2026-10-23). Everything that leads to a booking is on every
+          // plan, so these four live on Free and no paid tier re-sells them. Numbers read from the plan table.
+          { n: 'Answer every couple', b: 'No weekly limit on answering, on any plan.' },
+          { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
+          { n: `${many(TIER_CAPS.verified.servicesPerLeaf, 'service card', 'service cards')} per category`, b: `Put up ${many(TIER_CAPS.verified.servicesPerLeaf, 'service', 'services')} in ${TIER_CAPS.verified.parentCategories === 1 ? 'the category' : 'each category'} you cover.` },
+          { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
           { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },
@@ -79,9 +92,8 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Bookings pipeline', b: 'Accepted inquiries become tracked booking items on the event.' },
           { n: 'Contract-on-record', b: 'Upload each contract to a timestamped, per-event paper trail.' },
           { n: 'Automated bookings', b: 'Inquiries flow into a live pipeline with quotes and milestones auto-attached.' },
-          { n: 'One-tap RA 8792 contracts', soon: true, b: 'Pull a clause, fill, and both e-sign in-app. No printing.' },
           { n: 'Change-order trail', b: 'Mid-plan add-ons become logged, both-acknowledged change orders.' },
-          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the gallery delivered.' },
+          { n: 'Day-of run-of-show & handover', b: 'A shared minute-by-minute timeline; mark the photos delivered.' },
         ],
       },
       {
@@ -90,7 +102,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           // Was '0% commission at launch' with a HAND-TYPED 5% / 1% / ₱100,000 —
           // two ways to go stale in one row, and the launch half was already
           // false the day a supplier was billed ₱837.50. Both derive now.
-          { n: supplierCommissionShort(), b: supplierCommissionPromise() },
+          // A module constant has no render to read the live schedule in, so it
+          // names the fee WITHOUT a rate (null) rather than printing the code
+          // default (audit 2026-10-12, item 5). Pages that can read the live
+          // rate print it beside this — the /for-suppliers matrix footer.
+          { n: supplierCommissionShort(null), b: supplierCommissionPromise(null) },
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
           { n: 'PH-style milestone tracking', b: 'Log reservation → progress → balance with proof, the way PH couples pay.' },
@@ -115,7 +131,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },
           { n: 'Auto-shared to our socials', b: 'Your couples’ standout moments hit our FB/IG with your name and logo.' },
           { n: 'Couple referral rewards', soon: true, b: 'Happy couples refer; when their referral books you, both get a perk.' },
-          { n: 'One profile, every life event', soon: true, b: 'Reviews, calendar and history carry across weddings, debuts, christenings and more.' },
         ],
       },
     ],
@@ -127,14 +142,16 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     groups: [
       {
         items: [
+          { n: `${TIER_CAPS.solo.serviceRadiusKm} km reach`, b: 'Couples farther from you see you in their search.' },
+          { n: `${many(TIER_CAPS.solo.parentCategories, 'category', 'categories')} · ${many(TIER_CAPS.solo.servicesPerLeaf, 'service card', 'service cards')} each`, b: `List under ${many(TIER_CAPS.solo.parentCategories, 'parent category', 'parent categories')}, with up to ${many(TIER_CAPS.solo.servicesPerLeaf, 'service', 'services')} in each.` },
+          { n: `${many(TIER_CAPS.solo.agentAccounts, 'team seat', 'team seats')}`, b: 'Give a helper their own login, scoped to their services.' },
+          { n: 'Your own web address', b: 'Point your own domain at your Setnayan page.' },
           { n: 'Personalize your public page', b: 'Add an About intro, pick an accent colour, feature your top services, and choose which sections show. Your page, your look.' },
-          { n: 'Unlimited answering', b: 'Answer every matched couple, no weekly cap (Free is capped at 10 a week).' },
           { n: 'Quote-to-booking funnel', b: 'See views → inquiries → signed over time, plus every booking’s source.' },
           { n: 'Won & lost reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
           { n: 'Your own funnel metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
           { n: 'Earnings dashboard', b: 'Year-to-date revenue, monthly subtotals and scheduled payouts in one view.' },
           { n: 'Recap sharing', b: 'One-tap share of every wedding you helped create, straight to your Facebook Page.' },
-          { n: 'Three services per category', b: 'List up to three distinct service packages under your category.' },
         ],
       },
     ],
@@ -147,21 +164,23 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         items: [
           { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Stories.' },
-          { n: 'Team sub-accounts (3 seats)', b: 'Give each crew member a login scoped to their services, no shared passwords.' },
+          { n: `Team sub-accounts (${many(TIER_CAPS.pro.agentAccounts, 'seat', 'seats')})`, b: 'Give each crew member a login scoped to their services, no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
-          { n: 'Three categories + 50 km reach', b: 'List under three parent categories and serve a wider radius.' },
+          { n: `${many(TIER_CAPS.pro.parentCategories, 'category', 'categories')} + ${TIER_CAPS.pro.serviceRadiusKm} km reach`, b: `List under ${many(TIER_CAPS.pro.parentCategories, 'parent category', 'parent categories')} and serve a wider radius.` },
+          { n: `${TIER_CAPS.pro.servicesPerLeaf} service cards per category`, b: `Put up to ${TIER_CAPS.pro.servicesPerLeaf} services in each category you cover.` },
+          { n: `${many(TIER_CAPS.pro.branchesIncluded, 'branch', 'branches')} included`, b: 'Run other locations under your one shop, with no branch fee.' },
+          { n: 'Booked-out waitlist', b: `Fully booked? Couples wait instead of bouncing — take up to ${many(TIER_CAPS.pro.waitlistAcceptances, 'couple', 'couples')} off it per date, so a cancellation becomes a recovered booking.` },
           { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
           { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
-          { n: 'Multiple events per day', b: 'Take more than one booking on the same date.' },
           { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
           { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
+          // ⛔ SEVEN "soon" ROWS RETIRED 2026-11-05 (owner: "retire this") — nothing was behind them: no fake reviews /
+          // ghost listings screen, RA 8792 contracts, one profile every life event, resell Setnayan Productions,
+          // white-label couple tools, certified partner, earn on your crew. Three "soon" rows stay (dispute mediation,
+          // couple referral rewards, reply-time stats). A "soon" label is not a licence to advertise an unstarted thing.
           { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
-          { n: 'Resell Setnayan Productions', soon: true, b: 'Bundle Papic, Live Watch, monogram or Music Maker into your own quote.' },
-          { n: 'White-label couple tools', soon: true, b: 'Hand couples the seating chart, mood board and schedule under your brand.' },
-          { n: 'Setnayan-certified partner', soon: true, b: 'Get badged to deliver in-app services; couples who bought them route to you.' },
-          { n: 'Earn on your crew', soon: true, b: 'Post your second shooters and HMUA. Earn a referral cut when they’re booked.' },
           { n: 'Priority support', b: 'Move to the front of the support queue.' },
         ],
       },
@@ -169,17 +188,18 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
   {
     tier: 'enterprise',
-    name: 'Enterprise',
+    name: 'Ultra',
     tagline: 'Scale as an organization: with a flagship page. Everything in Pro, plus:',
     groups: [
       {
         items: [
           { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
-          { n: 'All categories', b: 'List under every parent category, no cap.' },
-          { n: 'Up to 10 team seats + multi-admin', b: 'A full team with shared, voted governance.' },
-          { n: 'Reach up to 100 km', b: 'Serve couples across a wide service area. Nationwide reach is available on Custom.' },
-          { n: 'Up to 300 portfolio photos', b: 'A deep portfolio to show your full range.' },
-          { n: 'Up to 8 events per category / day', b: 'Run at real studio volume.' },
+          { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Pro.' },
+          { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
+          { n: 'Nationwide reach', b: 'Couples anywhere in the Philippines find you in their search.' },
+          { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
+          { n: `Waitlist: ${many(TIER_CAPS.enterprise.waitlistAcceptances, 'couple', 'couples')} per date`, b: 'Take more couples off a booked-out date.' },
+          { n: `${many(TIER_CAPS.enterprise.servicesPerLeaf, 'service card', 'service cards')} per category`, b: 'More services per category than Pro.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
           // business review" and "a named contact" promised HUMAN ATTENTION
@@ -244,14 +264,15 @@ export const VENDOR_CUSTOM_TIER = {
     // prices. What is left is only what the dials actually deliver.
     // ⚠ "a bigger portfolio" also went: the +100-photo pack was dropped the
     // same day, so portfolio size is no longer a Custom dial at all.
-    'Everything in Enterprise, with its limits removed: more branches, nationwide reach, more team seats, more event slots per category, and your own web address.',
+    'Everything in Ultra, with its limits removed: more branches, more team seats, more event slots per category, and your own web address.',
   // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
   // surface AND the cross-tier benefit count reflect the full negotiated tier.
   // Each is a real thing a Custom vendor gets — the single source of truth for
   // the Custom column.
   dials: [
     { label: 'Additional branches', priced: (p: string) => `Additional branches (${p} each)` },
-    { label: 'Nationwide reach' },
+    // ⛔ 'Nationwide reach' was a Custom-only dial until 2026-11-04 — Ultra reaches nationwide now (owner, "ultra
+    // nationwide"), so it is not a Custom add any more.
     { label: 'Your own custom domain' },
     { label: 'Negotiated team-seat ceiling' },
     { label: 'Negotiated event-slot ceiling' },

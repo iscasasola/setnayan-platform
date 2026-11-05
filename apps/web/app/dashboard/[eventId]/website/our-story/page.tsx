@@ -13,26 +13,28 @@ import { HubDraftField } from '../_components/hub-draft-field';
 import { PickFromOurEvents, type OtherEvent } from './_components/pick-from-our-events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { eventCoupleWebsiteProActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
+import { eventHubPartActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { formatEventDate } from '@/lib/events';
+import { TimelineReadProblem } from '@/app/_components/timeline-read-problem';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { HUB_MOTION_PRESET_LABEL } from '@/lib/hub-canvas';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
-import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
-import { resolveMoments } from '@/lib/love-story-moments';
-import { readOurEvents } from './_components/our-events-read';
+import { loveStoryPartners, resolveMoments } from '@/lib/love-story-moments';
+import { readOurEventsOffer } from './_components/our-events-offer';
+import { photosFromOtherEvents } from './_components/our-events-rule';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { themeColours } from '@/lib/theme-colours';
 import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export const metadata = { title: 'Our Love Story' };
 
@@ -72,11 +74,16 @@ export default async function OurStoryEditorPage({
     slotted?: string;
     /** `1` = drawn as Love Story's PAGE inside the Event Hub Maker (its body). */
     maker?: string;
+    /** `1` = …and that Maker is the new one, whose Studio draws the moments as rows (handed in by the launch page). */
+    studio?: string;
   }>;
 }) {
   const { eventId } = await params;
   const search = await searchParams;
   const inMaker = search.maker === '1';
+  /* 🧭 Studio › Love Story never draws the "Pick from our events" block below — its photo slots ask for the pair's
+     other events only when that is opened (`intent=offer`). So this page does not read them for it. */
+  const inStudio = inMaker && search.studio === '1';
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -117,6 +124,17 @@ export default async function OurStoryEditorPage({
     logQueryError('OurStoryPage.widget', widgetError, { event_id: eventId }, 'graceful_degrade');
   }
 
+  /* 🛑 A REFUSED READ OF THE STORY IS SAID, NEVER ACTED ON. Inside the Maker (Studio › Love Story) a read that
+     ERRORED — the event's, or who is asking — says so where the moments would be, with Try again. Before this it
+     fell into the two redirects below and threw the couple out of the Maker as if the event were not theirs. A read
+     that ANSWERED (no such event, not the couple) still redirects exactly as before. */
+  if (inMaker && (eventError || membershipError)) {
+    return (
+      <TimelineReadProblem title="We could not load your Love Story">
+        Your moments are safe. This is a problem on our side or your connection.
+      </TimelineReadProblem>
+    );
+  }
   if (!event) redirect(`/dashboard/${eventId}`);
   // Couple-only, like the website hub (moderators are read-only on events —
   // the form would silently no-op for them).
@@ -168,16 +186,21 @@ export default async function OurStoryEditorPage({
 
   // The EVENT holds Pro, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
-  const [proActive, proOwned, proSku, storeShell, look, otherEvents] = await Promise.all([
+  const [proActive, proOwned, proSku, iapGate, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
-    asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
+    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => false)),
     asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
-    isStoreShellRequest(),
+    getIapGate(),
     resolveHubTheme(event).catch(() => null),
-    readOtherEvents(user.id, eventId),
+    inStudio ? Promise.resolve<OtherEvent[] | null>(null) : readOurEventsOffer(user.id, eventId),
   ]);
   const theme = INVITE_THEMES[look?.theme ?? 'house'];
+  const storeShell = iapGate.storeShell;
+  /* 🍎 The store shell FOR PRO TRYING only (the Maker editor's `proShell`, owner 2026-10-18): where Apple sells Pro at
+     Apply, more stories and photos are TRIED here as on the web, and Apply asks for Pro through Apple's sheet.
+     Every price, link and tour keeps `storeShell` (no ₱, no "Go Event Hub Pro" link in the app). */
+  const proShell = storeShell && !iapGate.iap;
 
   // Every photo the page draws, signed in ONE pass.
   const refs = [...new Set(moments.flatMap((m) => m.media ?? []))];
@@ -188,8 +211,29 @@ export default async function OurStoryEditorPage({
     if (url) mediaUrls[r] = url;
   });
 
-  const { first, second } = splitCoupleNames(event.display_name ?? '', event.event_type === 'wedding');
-  const partners = [first, second].filter((n): n is string => Boolean(n && n.trim())).map((n) => n.trim());
+  /* 🔗 A PHOTO PICKED FROM ANOTHER EVENT is known by its own ref (`photosFromOtherEvents`): it may be removed from
+     a moment here, and the row says where it came from. The event's NAME comes from the offer when this render has
+     it; in the Studio (which does not read the offer) from ONE read of just those events' names — made only when
+     the story holds such a photo. A name that cannot be read is left empty, and the row says "another of your
+     events" — never a guess. */
+  const borrowed = photosFromOtherEvents(refs, eventId);
+  const eventNames = new Map((otherEvents ?? []).map((e) => [e.eventId.toLowerCase(), e.name]));
+  if (inStudio && borrowed.size > 0) {
+    const { data: named, error: namedError } = await supabase
+      .from('events')
+      .select('event_id, display_name')
+      .in('event_id', [...new Set(borrowed.values())]);
+    if (namedError) logQueryError('OurStoryPage.photoFrom', namedError, { event_id: eventId }, 'graceful_degrade');
+    for (const e of (named ?? []) as { event_id: string; display_name: string | null }[]) {
+      if (e.display_name) eventNames.set(e.event_id.toLowerCase(), e.display_name);
+    }
+  }
+  const photoFrom: Record<string, string> = {};
+  for (const [ref, from] of borrowed) photoFrom[ref] = eventNames.get(from) ?? '';
+
+  /* 🗣 The ONE reading of the partners — "Added by" and the two voices' slots (a = the first), shared with the
+     guest page (`loveStoryPartners`, owner 2026-10-17). */
+  const partners = loveStoryPartners(event.display_name, event.event_type);
   const years = moments.map((m) => m.date?.y).filter((y): y is number => typeof y === 'number');
 
   const base = `/dashboard/${eventId}`;
@@ -199,12 +243,12 @@ export default async function OurStoryEditorPage({
   /* 💎 Every save here drafts, so on the web more stories and photos are TRIED
      without Pro (◆ PRO) and Apply asks (owner 2026-09-28); the app-store shell
      keeps the free cap in the UI. */
-  const proUsable = makerProUsable({ owns: proActive, storeShell });
+  const proUsable = makerProUsable({ owns: proActive, storeShell: proShell });
   const refused = search.pro === 'photos' ? 'photos' : search.pro === 'stories' ? 'stories' : null;
   /* 🎨 The scrapbook wears the page's colours — the Mood Board over the theme
      (`themeColours`, owner 2026-10-05 "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
   const p = themeColours(theme.id, board).colours;
-  const pickSlot = (
+  const pickSlot = inStudio ? null : (
     <PickFromOurEvents
       events={otherEvents}
       moments={moments}
@@ -232,11 +276,13 @@ export default async function OurStoryEditorPage({
     ownsPro: proUsable,
     tryingPro: proUsable && !proActive,
     storeShell,
+    appleIap: iapGate.iap,
     proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,
     proPrice,
     refused,
     sectionHidden: !widgetError && widget?.mode === 'hidden',
     mediaUrls,
+    photoFrom,
     action,
     pickSlot,
   };
@@ -315,13 +361,13 @@ export default async function OurStoryEditorPage({
           <summary className="cursor-pointer text-sm font-medium text-ink/70">
             The words your invitation weaves into its story paragraph
           </summary>
-          <form action={updateAction} className="mt-6 space-y-8">
+          <SafeForm action={updateAction} className="mt-6 space-y-8">
             <HubDraftField />
             <StoryFields story={story} />
             <SubmitButton pendingLabel="Saving…" className="button-primary">
               Save our story
             </SubmitButton>
-          </form>
+          </SafeForm>
         </details>
       ) : null}
     </section>
@@ -341,29 +387,4 @@ function daysToTheDay(eventDate: string | null, timezone: string | null): number
   const b = Date.parse(`${eventDate.slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(a) || Number.isNaN(b)) return null;
   return Math.round((b - a) / 86_400_000);
-}
-
-/**
- * The OTHER events both partners were at (owner 2026-09-27: "this should show
- * all events that they are both there") and, for the ones the pair hosts, the
- * public photos each already shows — or NULL when the read was refused, so the
- * block says it could not look rather than "no other events". The scope lives
- * in `readOurEvents` (admin read, fail-closed), shared with the pick action.
- */
-async function readOtherEvents(userId: string, eventId: string): Promise<OtherEvent[] | null> {
-  const events = await readOurEvents({ userId, eventId });
-  if (events === null) return null;
-  return Promise.all(
-    events.map(async (e) => {
-      const photos = (
-        await Promise.all(
-          e.refs.slice(0, 12).map(async (ref) => {
-            const url = await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null);
-            return url ? { ref, url } : null;
-          }),
-        )
-      ).filter((x): x is { ref: string; url: string } => x !== null);
-      return { eventId: e.eventId, name: e.name, date: e.date, hosted: e.hosted, photos };
-    }),
-  );
 }

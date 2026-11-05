@@ -11,7 +11,7 @@
  * controller as well."*
  *
  * ── WHAT THIS IS NOT ────────────────────────────────────────────────────────
- * It is NOT nine upgrade slots, and it is NOT a shop tab. The nine Pro items
+ * It is NOT one upgrade slot per item, and it is NOT a shop tab. The Pro items
  * are ONE unlock — `COUPLE_WEBSITE_PRO`, titled "Event Hub Pro" in the live
  * catalog — and `pro-panels.tsx` has said so since it shipped: *"the Pro items
  * are ONE unlock … no per-feature buy button."* So the controller grows
@@ -51,8 +51,9 @@ import {
   type WebsiteProItem,
 } from '@/lib/website-pro-items';
 import { PRO_THEMES, themeNames } from '@/lib/invite-themes';
+import { formatCount } from '@/lib/format-number';
 
-/** One chip in the nine — `here` is the item this channel is being sold on. */
+/** One chip in the list — `here` is the item this channel is being sold on. */
 export type HubProChip = {
   name: WebsiteProItem;
   /** True for exactly one chip: the item the couple is standing in front of. */
@@ -67,7 +68,7 @@ export type HubProOffer = {
   channel: LifecyclePhase;
   headline: string;
   blurb: string;
-  /** All nine, in catalog order, exactly one flagged `here`. */
+  /** Every Pro item (`WEBSITE_PRO_ITEMS`), in list order, exactly one flagged `here`. */
   chips: readonly HubProChip[];
   ctaLabel: string;
   /** Path RELATIVE to `/dashboard/<eventId>` — the shipped buy surface. */
@@ -95,7 +96,7 @@ const LEAD_BY_CHANNEL: Record<LifecyclePhase, WebsiteProItem> = {
   // The reveal is the thing the couple watches and cannot have yet.
   save_the_date: 'Cinematic Reveal',
   // The invitation is where the photos go.
-  rsvp: 'Photo gallery',
+  rsvp: 'Photos you add',
   /*
     The day itself. Nothing here is for sale on the day — `hubOffersAllowed`
     collapses the whole block — so this entry exists for totality. It names a
@@ -103,12 +104,21 @@ const LEAD_BY_CHANNEL: Record<LifecyclePhase, WebsiteProItem> = {
     the offer that appears is at least true.
   */
   event: 'Background music',
-  // The story. Photos again — never "Editorial editing", which is free (below).
-  editorial: 'Photo gallery',
+  // The story. Photos again — editorial editing is free for everyone and is not on the list.
+  editorial: 'Photos you add',
 };
 
-/** The headline + blurb for each item the controller may lead with. */
-const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
+/**
+ * The headline + blurb for each item the controller may lead with.
+ *
+ * PARTIAL SINCE 2026-10-22: the list grew by six lines the code already gated
+ * (`lib/website-pro-items.ts`), and no channel leads with any of them, so they are
+ * shown as chips and carry no pitch — copy written for an offer that can never be
+ * made would be invented, not grounded. A lead with no pitch is NO offer
+ * (`resolveHubProOffer`), and `event-hub-pro.test.ts` asserts every
+ * `LEAD_BY_CHANNEL` lead has one.
+ */
+const PITCH: Partial<Record<WebsiteProItem, { headline: string; blurb: string }>> = {
   'Cinematic Reveal': {
     headline: 'Open with a cinematic reveal.',
     blurb:
@@ -119,26 +129,22 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     blurb:
       'A clip of the two of you, where the hero photo is — the first thing anyone sees when your link goes out.',
   },
-  'Photo gallery': {
+  'Photos you add': {
     headline: 'Give your guests the photos.',
     blurb:
-      'A gallery on the page itself, so the people you invited can look through the day rather than hunt for a folder.',
+      'Photos on the page itself, so the people you invited can look through the day rather than hunt for a folder.',
   },
   'Background music': {
     headline: 'Your page can have a song.',
     blurb:
       'One track, playing quietly behind whichever page your guests land on. It carries across all four.',
   },
-  'Editorial editing': {
-    /*
-      ⛔ UNREACHABLE BY CONSTRUCTION — `resolveHubProOffer` refuses to lead on any
-      item in `NOT_SOLD_ON`, and this is the only member. The entry exists so the
-      `Record` stays total; if the owner ever reverses the free ruling, the copy
-      is already here rather than invented in a hurry.
-    */
-    headline: 'Write the story yourself.',
-    blurb: 'Chapters, named moments and your own words, in the after-story your guests come back to.',
-  },
+  /*
+    "Editorial editing" left the list 2026-10-22 (free for everyone since
+    2026-08-23). Its unreachable copy read: "Write the story yourself." /
+    "Chapters, named moments and your own words, in the after-story your guests
+    come back to." — kept here in words, for the day the free ruling reverses.
+  */
   /*
     2026-09-28 (the free-vs-Pro redraw): the two colour items left the list —
     colours are free for everyone — and media behind a scene took their place.
@@ -153,7 +159,7 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
       'Put a photo or a few seconds of your own video behind any scene, or behind the whole page. Colours stay free for everyone.',
   },
   /*
-    THE EIGHTH (owner Q3 = A, 2026-09-11). Grounded ONLY in what ships today:
+    THE INVITE THEMES (owner Q3 = A, 2026-09-11). Grounded ONLY in what ships today:
     four themes under this unlock, opening on the couple's own reveal, their
     save-the-date background behind the card, their monogram as the seal and
     their colour on the one button. No theme count is written into the sentence
@@ -162,8 +168,7 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
 
     ⚠ NOT LED ON BY ANY CHANNEL. `LEAD_BY_CHANNEL` is unchanged: the invite link
     is not one of the four public pages an offer attaches to, so this copy is
-    here for totality (the `Record` is exhaustive) and for the day a channel is
-    added — the same reason 'Editorial editing' carries copy it never shows.
+    here for the day a channel is added.
   */
   [PRO_THEMES_ITEM]: {
     // Drafted with the Fable model (the owner's standing preference for product
@@ -176,9 +181,9 @@ const PITCH: Record<WebsiteProItem, { headline: string; blurb: string }> = {
     blurb: `Choose ${themeNames(PRO_THEMES, 'or')}. Each one sets the background film, the colours, the lettering and how every section moves, from your invite link to the last page.`,
   },
   /*
-    THE NINTH (owner "A then", 2026-09-24): Event Hub Pro also unlocks the
+    THE LOGO ANIMATION (owner "A then", 2026-09-24): Event Hub Pro also unlocks the
     logo animation. Like the invite theme, NOT led on by any channel —
-    `LEAD_BY_CHANNEL` is unchanged — so this copy is here for totality.
+    `LEAD_BY_CHANNEL` is unchanged.
     Grounded only in what ships: the Logo Maker's five reveal effects play
     the couple's own mark, and the chosen one plays for guests once owned.
   */
@@ -247,15 +252,15 @@ export function resolveHubProOffer(args: {
   /*
     ⛔ THE ONE WE MAY NOT SELL ON. If a channel's lead item is free for everyone
     the controller says nothing rather than charging for an inclusion the couple
-    already has. Today that is only 'Editorial editing', and no channel leads
+    already has. Today the list holds none ("Editorial editing" left it), and no channel leads
     with it — but the mapping and the free list are two separate owner decisions,
     and this is the line that keeps them from silently colliding.
   */
   if (NOT_SOLD_ON.includes(lead)) return null;
 
-  // The Pro-themes item's key is COMPUTED from the registry (`PRO_THEMES_ITEM`),
-  // which makes PITCH an index signature to the compiler — so the lookup can
-  // miss in its eyes. A missing pitch is no offer, never an empty one.
+  // PITCH is partial (only the items a channel can lead with carry copy), and the
+  // Pro-themes key is COMPUTED from the registry. A missing pitch is no offer,
+  // never an empty one.
   const pitch = PITCH[lead];
   if (!pitch) return null;
 
@@ -265,7 +270,8 @@ export function resolveHubProOffer(args: {
     headline: pitch.headline,
     blurb: pitch.blurb,
     chips: WEBSITE_PRO_ITEMS.map((name) => ({ name, here: name === lead })),
-    ctaLabel: 'Unlock all nine',
+    // The count is the list's, never typed — a typed number word went stale each time the list grew.
+    ctaLabel: `Unlock all ${formatCount(WEBSITE_PRO_ITEMS.length)}`,
     // The SHIPPED buy surface — the same href `website/editor/page.tsx` uses for
     // `ProLockPanel`. No new checkout, no new route.
     ctaPath: '/studio/website-pro',

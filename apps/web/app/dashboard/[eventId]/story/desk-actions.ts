@@ -14,6 +14,7 @@ import {
   type DeskSource,
   type DeskStatus,
 } from '@/lib/story-desk';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * THE DESK'S DECISIONS — accept · reject · undo · edit (08 step 1.2).
@@ -53,7 +54,7 @@ import {
 
 export type DeskActionResult = { ok: true } | { ok: false; error: string };
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
+const NO_ACCESS = 'You don’t have access to this event.';
 const HELD_BACK =
   'This one is already held back — you cannot accept it. Someone in it asked ' +
   'not to be shown, or it is still being screened.';
@@ -182,6 +183,8 @@ export async function decideDeskItem(
   id: string,
   decision: DeskStatus,
 ): Promise<DeskActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!id?.trim()) return { ok: false, error: 'missing_input' };
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: NO_ACCESS };
@@ -245,6 +248,8 @@ export async function editDeskItem(
   id: string,
   body: string,
 ): Promise<DeskActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!id?.trim()) return { ok: false, error: 'missing_input' };
   if (source !== 'kwento' && source !== 'letter') {
     return { ok: false, error: 'Those words are not yours to change.' };

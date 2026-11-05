@@ -96,11 +96,16 @@ test('6 · Filter ▾: area / rating drop, price sorts with unpriced last', () =
 });
 
 test('7 · the page builds its list from the bench scope, not a second rule', () => {
-  const src = readFileSync(
+  // The list's read moved into `lib/supplier-find-read.ts` (2026-10-21) — the Find page and the
+  // Suppliers page's bottom search both call it, so the scope rule still lives in ONE place.
+  const page = readFileSync(
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'vendors', 'categories', 'page.tsx'),
     'utf8',
   );
+  assert.match(page, /await readFindList\(\{/);
+  const src = readFileSync(join(__dirname, 'supplier-find-read.ts'), 'utf8');
   assert.match(src, /buildShortlistFolders\(\{\s*vendorRows: \[\]/);
   assert.match(src, /buildFindList\(\{/);
+  assert.doesNotMatch(page, /PLAN_GROUPS/, 'Find a supplier walks the wedding ladder again');
   assert.doesNotMatch(src, /PLAN_GROUPS/, 'Find a supplier walks the wedding ladder again');
 });

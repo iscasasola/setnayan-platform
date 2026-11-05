@@ -2,8 +2,9 @@
 /**
  * lint-nested-forms.mjs
  *
- * Fails when a `<form>` element — or a `<ConfirmForm>`, which renders its own
- * `<form>` (see app/_components/confirm-form.tsx) — is nested inside another
+ * Fails when a `<form>` element — or a `<ConfirmForm>` / `<SafeForm>`, each of
+ * which renders its own `<form>` (see app/_components/confirm-form.tsx and
+ * app/dashboard/[eventId]/_components/safe-form.tsx) — is nested inside another
  * form element in any .tsx under app/.
  *
  * WHY THIS GUARD EXISTS (2026-07-03 · real production bug):
@@ -23,7 +24,8 @@
  *   1. Strip comments + string/template-literal bodies (offset-preserving, so
  *      reported line numbers are true) — a `</form>` in a comment can't skew
  *      the depth count.
- *   2. Tokenize `<form …>` / `</form>` / `<ConfirmForm …>` / `</ConfirmForm>`.
+ *   2. Tokenize `<form …>` / `</form>` / `<ConfirmForm …>` / `</ConfirmForm>` /
+ *      `<SafeForm …>` / `</SafeForm>`.
  *      Tag-end detection is attribute-aware (quotes + `{…}` expressions, so an
  *      `onSubmit={(e) => …}` arrow can't fake the closing `>`); self-closing
  *      tags don't open depth.
@@ -153,8 +155,8 @@ function tagEnd(code, from) {
   return { end: code.length, selfClosing: false };
 }
 
-const OPEN_RE = /<(form|ConfirmForm)(?=[\s/>])/g;
-const CLOSE_RE = /<\/(form|ConfirmForm)\s*>/g;
+const OPEN_RE = /<(form|ConfirmForm|SafeForm)(?=[\s/>])/g;
+const CLOSE_RE = /<\/(form|ConfirmForm|SafeForm)\s*>/g;
 
 function lineOf(src, idx) {
   let line = 1;
@@ -164,7 +166,7 @@ function lineOf(src, idx) {
 
 function scanFile(abs, rel) {
   const src = readFileSync(abs, 'utf8');
-  if (!/<(form|ConfirmForm)[\s/>]/.test(src)) return [];
+  if (!/<(form|ConfirmForm|SafeForm)[\s/>]/.test(src)) return [];
   const code = stripNonCode(src);
 
   // Collect open/close events in document order.

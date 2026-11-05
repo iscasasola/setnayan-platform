@@ -47,8 +47,16 @@ export type SettableVendorTier = (typeof VENDOR_TIER_SETTABLE)[number];
 // meetings retired" lock stands.
 export type ChatLevel = 'none' | 'chat';
 export type SchedulingMode = 'manual' | 'hybrid';
-/** hidden = ✗ (no marketplace presence) · screen = anonymized screen name · true = real business name day-1 */
-export type NameMode = 'hidden' | 'screen' | 'true';
+/**
+ * hidden = ✗ (no marketplace presence) · screen = anonymized screen name · true = real business name day-1 ·
+ * verified = the real business name ONCE THE SHOP IS VERIFIED (`vendor_profiles.verification_state = 'verified'`).
+ *
+ * `verified` is the Free plan's mode (owner 2026-10-23). The tier alone never reveals a Free shop — an unverified
+ * shop stays a placeholder on surfaces whose query is not verification-gated — and the reveal comes from
+ * `is_verified` at `resolveVendorDisplayName`, which already shows a verified Free shop's real name day-1. So
+ * `isTrueNameTier()` stays `false` for it, by construction (it asks `=== 'true'`).
+ */
+export type NameMode = 'hidden' | 'screen' | 'true' | 'verified';
 export type WebsiteMode = 'basic' | 'custom';
 
 /**
@@ -73,6 +81,118 @@ export type WebsiteMode = 'basic' | 'custom';
  */
 export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
 
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * ⚖ PLANS PRICE REACH, NEVER INCOME — owner 2026-10-23 (DECISION_LOG), verbatim:
+ *   "their price differences is based on their type of business reach and not
+ *    their capability to maximize the app features that return us income. We
+ *    want everybody to be able to give us booking fee. let them create at least
+ *    3 per category."
+ *
+ * Every plan earns Setnayan the same way — the booking fee — so nothing that
+ * leads to a booking is rationed by plan any more:
+ *   · bookings a day      — NO plan limit. The supplier's own daily-capacity
+ *                           setting governs (`vendor_schedule_pools.
+ *                           daily_booking_capacity`, DEFAULT 1, CHECK 1..50, and
+ *                           the per-card `vendor_services.daily_capacity`).
+ *   · answering couples   — NO weekly limit, on any plan, Free included.
+ *   · service cards       — SUPERSEDED 2026-11-04 (owner, "SUPPLIER PLAN ALLOWANCES": *"service cards free 1,
+ *                           solo 3, pro 10, ultra unlimited"*). Cards per category are a plan allowance again —
+ *                           `TIER_CAPS[t].servicesPerLeaf`. The 23 Oct "at least 3 per category" floor is retired.
+ *   · couples per date    — {@link WHITELIST_PER_DATE_ALL_PLANS} on every plan (the SQL
+ *                           twin is `vendor_tier_limit(…,'whitelist_per_date')`).
+ *   · portfolio photos    — {@link PORTFOLIO_FREE_BASE} free on every plan; more is
+ *                           paid with Papic credits (Phase 2 — until then, blocked
+ *                           with {@link PORTFOLIO_OVER_BASE_MESSAGE}).
+ * What a plan still buys is REACH: service area, categories, team seats, SEO
+ * level, own web address, and the business tools / insights.
+ * Held by `plans-price-reach-not-income.test.ts`.
+ * ════════════════════════════════════════════════════════════════════════════
+ */
+
+/**
+ * The most bookings a day a supplier may set on one calendar — the SQL CHECK on
+ * `vendor_schedule_pools.daily_booking_capacity` (1..50). NOT a plan limit: it is the same on every plan, and it is
+ * the only ceiling on the supplier's own daily-capacity setting (owner 2026-10-23).
+ */
+export const DAILY_CAPACITY_MAX = 50;
+
+/*
+ * ⛔ `MIN_SERVICES_PER_LEAF` (= 3, "at least 3 per category", owner 2026-10-23) was RETIRED 2026-11-04. The owner's
+ * "SUPPLIER PLAN ALLOWANCES" ruling made cards per category a plan allowance again — Free·Verified 1 · Solo 3 ·
+ * Pro 10 · Ultra unlimited — so a constant claiming one floor for every plan would now be false. Read
+ * `TIER_CAPS[tier].servicesPerLeaf`; never re-add a shared floor.
+ */
+
+/** Couples a shop may hold for one date — the same on every plan (owner 2026-10-23). */
+export const WHITELIST_PER_DATE_ALL_PLANS = 5;
+
+/**
+ * The FREE portfolio base — every shop, every plan (owner 2026-10-23: "free 50"). Photos beyond it are paid with
+ * Papic credits (Phase 2, after the owner approves that prototype); until then an upload past it is refused with
+ * {@link PORTFOLIO_OVER_BASE_MESSAGE}. A shop already holding more keeps every photo — the check counts NEW photos
+ * only (see `capPortfolioRefs`).
+ */
+export const PORTFOLIO_FREE_BASE = 50;
+
+/** What a supplier reads when a new photo would go past the free base. Words fixed by the owner's ruling. */
+export const PORTFOLIO_OVER_BASE_MESSAGE = `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free. More photos with Papic credits is coming soon.`;
+
+/**
+ * THE CAP A SHOP'S PAGE HOLDS — the plan's number (the every-plan base) or the shop's OWN allowance, whichever is
+ * more. The allowance (`vendor_profiles.portfolio_photo_allowance`) is given by a personal invite — the owner's 100
+ * (2026-10-23) — and is not the plan's, so it is KEPT after a gifted plan ends (owner ruling, DECISION_LOG
+ * 2026-10-23). Null / unread allowance = the base, never more. Every place that reads the 50 reads this instead.
+ */
+export function portfolioPhotoCap(tier: string | null | undefined, allowance: number | null | undefined): number {
+  const base = tierCaps(tier).portfolioPhotos;
+  const own = typeof allowance === 'number' && Number.isFinite(allowance) && allowance > 0 ? Math.floor(allowance) : 0;
+  return Math.max(base, own);
+}
+
+/**
+ * What the shop reads when its own allowance could not be read. 🔑 Never "50 free" in its place: a shop holding a
+ * personal invite's 100 would be told a smaller number that is not true. Saves stay inside the base while it is
+ * unread (withholding, never granting) and refuse with these words rather than the over-cap ones.
+ */
+export const PORTFOLIO_ALLOWANCE_UNREAD = "Couldn't read your photo allowance";
+export const PORTFOLIO_ALLOWANCE_UNREAD_SAVE = `${PORTFOLIO_ALLOWANCE_UNREAD}. Nothing was saved — try again.`;
+
+/** The refusal past the cap — the owner's words, with the shop's own number (100 for a personal invite's gift). */
+export function portfolioOverCapMessage(cap: number): string {
+  return cap === PORTFOLIO_FREE_BASE
+    ? PORTFOLIO_OVER_BASE_MESSAGE
+    : `Your first ${cap} portfolio photos are free. More photos with Papic credits is coming soon.`;
+}
+
+/**
+ * Keep a requested portfolio list inside the free base — GRANDFATHERED. Pure.
+ *
+ * `requested` is the list the supplier is saving (already validated + deduped), `stored` the list on the row now.
+ * Every photo already stored is kept, however many there are; a NEW photo is admitted only while the total stays
+ * within `max`. So a shop that held 80 photos before the base existed can re-save, reorder or remove freely, and
+ * only an ADDITION past the base is refused. `refused` counts the new photos that did not fit (order preserved).
+ */
+export function capPortfolioRefs(
+  requested: readonly string[],
+  stored: readonly string[],
+  max: number = PORTFOLIO_FREE_BASE,
+): { refs: string[]; refused: number } {
+  const had = new Set(stored.filter(Boolean));
+  const keptCount = requested.filter((r) => had.has(r)).length;
+  let room = Math.max(0, max - keptCount);
+  const refs: string[] = [];
+  let refused = 0;
+  for (const r of requested) {
+    if (had.has(r)) refs.push(r);
+    else if (room > 0) {
+      refs.push(r);
+      room -= 1;
+    } else refused += 1;
+  }
+  return { refs, refused };
+}
+
 export interface TierCaps {
   /** Service/distance coverage radius. Infinity = unlimited, 0 = ✗. */
   serviceRadiusKm: number;
@@ -82,21 +202,31 @@ export interface TierCaps {
    * leaf). Infinity = unlimited.
    */
   servicesPerLeaf: number;
-  /** Chat capability. 'none' = ✗ (FREE), 'chat' = text (Verified/Pro/Enterprise). Video removed 2026-06-09. */
+  /** Chat capability. 'chat' = text, on EVERY plan (Free included since 2026-10-23); 'none' is no longer used. Video removed 2026-06-09. */
   chat: ChatLevel;
   /** Distinct parent (of the 10) categories the vendor may list under. Infinity = unlimited. */
   parentCategories: number;
   /** Agent (sub) seats beyond the main holder. Infinity = unlimited, 0 = none. */
   agentAccounts: number;
+  /**
+   * BRANCHES INCLUDED beyond the main shop (owner 2026-11-04, DECISION_LOG "BRANCHES PER PLAN", verbatim:
+   * *"branches 0,0,3,10"*) — Free·Verified 0 · Solo 0 · Pro 3 · Ultra 6 (trimmed the same day, "WITH TRIMMED ALLOWANCES"). An included branch is live without a branch
+   * fee. Only Ultra (and Custom, which runs as Ultra) may BUY more — {@link canBuyExtraBranches}. The SQL twin is
+   * `vendor_tier_limit(…,'branches_included')`, held in step by `vendor-plan-allowances.db.test.ts`.
+   */
+  branchesIncluded: number;
   scheduling: SchedulingMode;
-  /** Appears in marketplace search. FREE = false. */
+  /** Appears in marketplace search — every plan once verified (owner 2026-10-23). The queries gate on `verification_state`, never on tier. */
   marketplaceSearchable: boolean;
   nameMode: NameMode;
-  /** Bookable slots/day. Infinity = unlimited, 0 = ✗. */
+  /**
+   * Bookable slots/day as a PLAN limit — `Infinity` on every plan since 2026-10-23 (no plan limit). The supplier's
+   * own daily-capacity setting is what governs; the database's CHECK (1..50) is the only ceiling on that setting.
+   */
   slotsPerDay: number;
   /** Slots are time-bounded (am/pm split → effective slots double). */
   slotsTimeBounded: boolean;
-  /** In-app customer inquiries the vendor may answer per rolling week. Infinity = unlimited, 0 = ✗. */
+  /** In-app customer inquiries the vendor may answer per rolling week — `Infinity` on every plan (owner 2026-10-23; the inbox has been ungated since 2026-07-24). */
   inAppCustomersPerWeek: number;
   /**
    * Whether answering an in-app inquiry burns tokens.
@@ -112,7 +242,7 @@ export interface TierCaps {
    * tier matrix's shape; not read for gating.
    */
   importCustomerTokenCost: number;
-  /** Portfolio photo cap. Infinity = unlimited. */
+  /** Portfolio photo cap — {@link PORTFOLIO_FREE_BASE} on every plan (the free base, owner 2026-10-23). */
   portfolioPhotos: number;
   /**
    * BACK-CATALOGUE photos the shop may put into the couple-facing moodboard
@@ -206,8 +336,17 @@ export interface TierCaps {
   /** See above — never tiered. */
   reviewCommentsViewable: boolean;
   website: WebsiteMode;
-  /** Custom website name/slug. */
+  /**
+   * The shop's OWN web address (its own domain → its Setnayan page). Solo · Pro · Ultra (owner 2026-11-04, "SUPPLIER
+   * PLAN ALLOWANCES": *"website applies to solo as well"*). Until then it was Pro+ and ALSO stood in for the Pro page
+   * parts — those now read {@link TierCaps.premiumPage}, so giving Solo its address does not give it the Pro page.
+   */
   customWebsiteName: boolean;
+  /**
+   * The Pro page parts on the public shop page: the chosen cover photo, the pinned review, editorial picks and the
+   * two-column layout. Pro+. Split out of `customWebsiteName` 2026-11-04 (see above) with the SAME values it had.
+   */
+  premiumPage: boolean;
   /** Inquire link surfaced. True for all tiers. */
   inquireLink: boolean;
   /**
@@ -244,16 +383,12 @@ export interface TierCaps {
   performanceAdvanced: boolean;
   /** Solo business back-office (earnings analytics + recap sharing). Solo+ (2026-07-01 beef-up). */
   soloBusinessTools: boolean;
-  /**
-   * In-thread 1:1 voice/video CALLS with couples (the "Call" tab + appointment
-   * video/voice join). PAID-tier capability — any paid plan (Solo+), NOT
-   * Free/Verified (owner 2026-07-13: "a service for the paid"). The media is
-   * free P2P; a TURN relay covers hard-NAT couples, so gating it to paying
-   * vendors also keeps the relay a paid-vendor cost. Enforced flag-dark via
-   * isVendorFeatureGateEnabled() — see lib/vendor-feature-gate.ts — so the
-   * transport un-gates unchanged until the owner flips the gate on.
+  /*
+   * ⛔ `calls` (in-thread 1:1 voice/video calls, Solo+) was REMOVED 2026-11-04 (owner, "SUPPLIER PLAN ALLOWANCES":
+   * the stale `calls` capability is removed). In-app calls were retired 2026-10-28 ("remove both voice and video
+   * call"); a meeting is In-person or Virtual on the proposer's own app, for booked suppliers on every plan — no plan
+   * buys it, so there is no cap to read.
    */
-  calls: boolean;
   /**
    * WHITELIST — how many ACCEPTED-BUT-NOT-YET-LOCKED customers the vendor may
    * hold for ONE date (owner 2026-08-09). Their live pipeline for that day:
@@ -276,23 +411,23 @@ export interface TierCaps {
 
 export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   free: {
-    calls: false,
-    whitelistPerDate: 1,
-    waitlistAcceptances: 0, // FREE: one live candidate per date, no waitlist (owner 2026-08-09)
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
+    waitlistAcceptances: 0, // FREE: no waitlist (owner 2026-08-09)
     serviceRadiusKm: 0,
-    servicesPerLeaf: 2,
-    chat: 'none',
+    servicesPerLeaf: 1, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": Free·Verified 1 (was 3, the retired "at least 3")
+    chat: 'chat', // 2026-10-23 — every plan answers couples (the inbox was ungated 2026-07-24)
     parentCategories: 1,
     agentAccounts: 0,
+    branchesIncluded: 0, // owner 2026-11-04 "BRANCHES PER PLAN"
     scheduling: 'manual',
-    marketplaceSearchable: false,
-    nameMode: 'hidden',
-    slotsPerDay: 0,
+    marketplaceSearchable: true, // once verified — the queries gate on verification_state (2026-10-23)
+    nameMode: 'verified', // real name once verified (2026-10-23) — see NameMode
+    slotsPerDay: Infinity, // no plan limit — the supplier's own daily capacity governs (2026-10-23)
     slotsTimeBounded: false,
-    inAppCustomersPerWeek: 0,
+    inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23)
     inAppGated: false,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 30,
+    portfolioPhotos: PORTFOLIO_FREE_BASE, // the free base (2026-10-23; was 30)
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     marketIntel: false,
     theftWatch: false,
@@ -306,29 +441,31 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewCommentsViewable: true,
     website: 'basic',
     customWebsiteName: false,
+    premiumPage: false,
     inquireLink: true,
   },
   // Verified — legacy FREE tier kept for backward compatibility. RETUNED
   // 2026-06-25 (owner-approved) so the ladder is strictly monotonic
   // Free < Verified < Solo: parentCategories 3→1, agentAccounts 1→0, and
   // inAppGated false→true (verified now burns tokens per in-app answer — but
-  // still keeps its 10/week cap, enforced in unlock_vendor_event). Solo stays
-  // strictly better (servicesPerLeaf 3 vs 2, inAppCustomersPerWeek ∞ vs 10).
+  // still keeps its 10/week cap, enforced in unlock_vendor_event). ⚠ The 10/week
+  // cap and the 2-per-category edge are GONE (owner 2026-10-23, "plans price reach,
+  // not income"): Solo is better on reach and tools, never on how much a shop may sell.
   verified: {
-    calls: false,
     // OWNER 2026-08-29 — verified gets its OWN pair, 2 / 1. It used to clone the
     // FREE numbers (1 / 0) because the 2026-08-09 grid gave four numbers for five
     // tiers and `verified` was the row the build had to invent. Asked directly, the
     // owner answered *"we already had a table for this"* — so the table wins. Both
     // moves WIDEN, and free <= verified <= solo still holds on both keys (solo's
     // waitlist is also 1), which the ladder test asserts.
-    whitelistPerDate: 2,
-    waitlistAcceptances: 1,
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 2)
+    waitlistAcceptances: 0, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": 0 (was 1, owner 2026-08-29)
     serviceRadiusKm: 20,
-    servicesPerLeaf: 2,
+    servicesPerLeaf: 1, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3)
     chat: 'chat',
     parentCategories: 1,
     agentAccounts: 0,
+    branchesIncluded: 0,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     // NAME IS NEVER GATED (owner "open it up" lock · Vendor_Subscription_Ladder_
@@ -343,12 +480,12 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: false,
     performanceAdvanced: false,
     soloBusinessTools: false,
-    slotsPerDay: 1,
+    slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: false,
-    inAppCustomersPerWeek: 10,
+    inAppCustomersPerWeek: Infinity, // no weekly limit (2026-10-23; was 10)
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 50,
+    portfolioPhotos: PORTFOLIO_FREE_BASE,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
@@ -357,6 +494,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: false,
+    premiumPage: false,
     inquireLink: true,
   },
   // Solo — ₱999/28d entry-level paid tier (price from vendor_billing_catalog).
@@ -364,28 +502,28 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // Token-burn model same as Pro/Enterprise (inAppGated = true). One agent seat
   // (owner 2026-07-02 — Solo now sits one seat above Free · Verified's 0).
   solo: {
-    calls: true,
-    whitelistPerDate: 3,
-    waitlistAcceptances: 1, // owner 2026-08-09
-    serviceRadiusKm: 20,
-    servicesPerLeaf: 3,
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
+    waitlistAcceptances: 0, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": 0 (was 1, owner 2026-08-09)
+    serviceRadiusKm: 30, // owner 2026-10-23: Solo reaches 30 km (was 20) — Free·Verified 20 · Pro 100 · Ultra nationwide
+    servicesPerLeaf: 3, // owner 2026-11-04 (unchanged number; no longer a shared floor)
     marketIntel: false,
     theftWatch: false,
     performanceTrends: true,
     performanceAdvanced: false,
     soloBusinessTools: true,
     chat: 'chat',
-    parentCategories: 1,
+    parentCategories: 2, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 1)
     agentAccounts: 1,
+    branchesIncluded: 0,
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
-    slotsPerDay: 1,
+    slotsPerDay: Infinity, // no plan limit (2026-10-23; was 1)
     slotsTimeBounded: false,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 50,
+    portfolioPhotos: PORTFOLIO_FREE_BASE,
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true, // always free (Simplicity Canon rule 2 · 2026-07-16)
     editorialFeatures: false, // proactive editorial featuring — Pro+ (§ 1 GROW)
@@ -395,14 +533,14 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewStarsCounted: true,
     reviewCommentsViewable: true,
     website: 'custom',
-    customWebsiteName: false,
+    customWebsiteName: true, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "website applies to solo as well" (was false)
+    premiumPage: false,
     inquireLink: true,
   },
   pro: {
-    calls: true,
-    whitelistPerDate: 5,
-    waitlistAcceptances: 3, // owner 2026-08-09
-    serviceRadiusKm: 50,
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
+    waitlistAcceptances: 1, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3, owner 2026-08-09)
+    serviceRadiusKm: 100, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "pro reach 100" (was 50)
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
     // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
     // the marketing copy had already been advertising as a Pro benefit). Pro also
@@ -412,19 +550,20 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
-    servicesPerLeaf: 5,
+    servicesPerLeaf: 10, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 5)
     chat: 'chat',
-    parentCategories: 3,
-    agentAccounts: 3,
+    parentCategories: 8, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3)
+    agentAccounts: 5, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES" (was 3)
+    branchesIncluded: 3, // owner 2026-11-04 "BRANCHES PER PLAN"
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
-    slotsPerDay: 3,
+    slotsPerDay: Infinity, // no plan limit (2026-10-23; was 3)
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 100,
+    portfolioPhotos: PORTFOLIO_FREE_BASE, // the free base (2026-10-23; was 100) — more via Papic credits, Phase 2
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
@@ -435,6 +574,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: true,
+    premiumPage: true,
     inquireLink: true,
   },
   // Enterprise is now a BOUNDED "larger range", not truly unlimited (owner
@@ -444,28 +584,28 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // multi-location / truly-unlimited. Left unbounded: parentCategories ("all
   // categories" — taxonomy-bounded already) + servicesPerLeaf + inApp volume.
   enterprise: {
-    calls: true,
-    whitelistPerDate: 10,
-    waitlistAcceptances: 5, // owner 2026-08-09
-    serviceRadiusKm: 100, // nationwide-marketed (top of the Local→20→50→100 ladder)
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
+    waitlistAcceptances: 3, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
+    serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
-    servicesPerLeaf: Infinity,
+    servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
     chat: 'chat',
-    parentCategories: Infinity,
-    agentAccounts: 10,
+    parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    agentAccounts: 10, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (15 earlier the same day) — extra seats are priced by the price PR
+    branchesIncluded: 6, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" ("BRANCHES PER PLAN" said 10) — and only Ultra may buy more
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
-    slotsPerDay: 8,
+    slotsPerDay: Infinity, // no plan limit (2026-10-23; was 8)
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 300,
+    portfolioPhotos: PORTFOLIO_FREE_BASE, // the free base (2026-10-23; was 300)
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
@@ -476,6 +616,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: true,
+    premiumPage: true,
     inquireLink: true,
   },
   // Custom — the negotiated "Talk to us" tier ABOVE Enterprise (owner-signed
@@ -487,28 +628,28 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
   // caps.ts) — the static base here is the Enterprise clone, never edited per
   // vendor. Keep this in lockstep with `enterprise` above on any Enterprise edit.
   custom: {
-    calls: true,
-    whitelistPerDate: 10,
-    waitlistAcceptances: 5, // runs as Enterprise (keep in lockstep on any Enterprise edit)
-    serviceRadiusKm: 100,
+    whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10) — runs as Enterprise
+    waitlistAcceptances: 3, // runs as Enterprise (keep in lockstep on any Enterprise edit) — owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was 5)
+    serviceRadiusKm: Infinity, // owner 2026-11-04 "SUPPLIER PLAN ALLOWANCES": "ultra nationwide" (was 100)
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true,
     performanceAdvanced: true,
     soloBusinessTools: true,
-    servicesPerLeaf: Infinity,
+    servicesPerLeaf: 25, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
     chat: 'chat',
-    parentCategories: Infinity,
-    agentAccounts: 10,
+    parentCategories: 15, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (was unlimited)
+    agentAccounts: 10, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" (15 earlier the same day) — extra seats are priced by the price PR
+    branchesIncluded: 6, // owner 2026-11-04 "ULTRA … WITH TRIMMED ALLOWANCES" ("BRANCHES PER PLAN" said 10) — and only Ultra may buy more
     scheduling: 'hybrid',
     marketplaceSearchable: true,
     nameMode: 'true',
-    slotsPerDay: 8,
+    slotsPerDay: Infinity, // no plan limit (2026-10-23; was 8)
     slotsTimeBounded: true,
     inAppCustomersPerWeek: Infinity,
     inAppGated: true,
     importCustomerTokenCost: 0,
-    portfolioPhotos: 300,
+    portfolioPhotos: PORTFOLIO_FREE_BASE, // the free base (2026-10-23; was 300)
     galleryBackCatalogPhotosPerCategory: 20, // MB19 — per category, every tier; event-linked is never counted
     editorialTagged: true,
     editorialFeatures: true, // GROW row unlocks at Pro (§ 1)
@@ -519,6 +660,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     reviewCommentsViewable: true,
     website: 'custom',
     customWebsiteName: true,
+    premiumPage: true,
     inquireLink: true,
   },
 };
@@ -537,9 +679,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  solo: { monthly: 1000, annual: 10000 },
-  pro: { monthly: 2500, annual: 25000 },
-  enterprise: { monthly: 8000, annual: 80000 },
+  // 💰 FINAL PRICE SHEET (owner 2026-11-04): Solo ₱990 · Pro ₱2,490 · Ultra ₱5,990 per 4 weeks (owner, same day: "ULTRA = ₱5,990…"); a year = 10×.
+  // A fallback that lags the catalogue is how an unreadable read shows a superseded price — it moves with the rows.
+  solo: { monthly: 990, annual: 9900 },
+  pro: { monthly: 2490, annual: 24900 },
+  enterprise: { monthly: 5990, annual: 59900 },
   // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
   // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
   // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is
@@ -552,7 +696,9 @@ export const TIER_LABEL: Record<VendorTier, string> = {
   verified: 'Free · Verified',
   solo: 'Solo',
   pro: 'Pro',
-  enterprise: 'Enterprise',
+  // ⚖ The plan a person sees is "Ultra" (owner 2026-10-23: plan names are Solo · Pro · Ultra). The internal key
+  // `enterprise` and every SKU id stay unchanged — only the words move. `no-enterprise-plan-name.test.ts` holds it.
+  enterprise: 'Ultra',
   custom: 'Custom',
 };
 
@@ -596,6 +742,42 @@ export function canBuyExtraSeats(tier: string | null | undefined): boolean {
 }
 
 /**
+ * May this tier BUY branches beyond its included ones? Ultra (and Custom, which runs as Ultra) only — owner
+ * 2026-11-04, "BRANCHES PER PLAN": *"branches 0,0,3,10"*, and only Ultra buys more. The fee is the live
+ * `vendor_additional_branch` catalogue price (`fetchBranchFeePhp`), never typed here.
+ */
+export function canBuyExtraBranches(tier: string | null | undefined): boolean {
+  return isTierAtLeast(tier, 'enterprise');
+}
+
+/**
+ * Does this plan have branches at all — included ones (Pro, Ultra) or ones it may buy (Ultra)? What decides whether
+ * a branch picker / manager is worth reading for. Owner 2026-11-04, "BRANCHES PER PLAN".
+ */
+export function planHasBranches(tier: string | null | undefined): boolean {
+  return tierCaps(tier).branchesIncluded > 0 || canBuyExtraBranches(tier);
+}
+
+/**
+ * How many MORE included (fee-free) branches this plan may add, given how many live included branches the shop
+ * already holds. Never negative: a shop already over a lowered allowance keeps every branch it has (they stay live —
+ * owner 2026-11-04, "shops already over the limit keep their branches, but can't add more") and simply has 0 left.
+ */
+export function includedBranchesLeft(tier: string | null | undefined, includedInUse: number): number {
+  return Math.max(0, tierCaps(tier).branchesIncluded - Math.max(0, includedInUse));
+}
+
+/**
+ * The first MARKETED plan (Verified · Solo · Pro · Ultra) whose caps pass `has` — what "Comes with Solo" says.
+ * Read from the table, never typed, so moving a feature down a rung moves every sentence with it. Null when no
+ * marketed plan has it.
+ */
+export function firstPlanWith(has: (c: TierCaps) => boolean): VendorTier | null {
+  for (const t of ['verified', 'solo', 'pro', 'enterprise'] as const) if (has(TIER_CAPS[t])) return t;
+  return null;
+}
+
+/**
  * The allowance the LOWEST plan that includes a counted feature gives — e.g.
  * the first tier with any team seats, or any waitlist places. Read from the
  * table above, never typed in, so it follows every owner edit to the ladder.
@@ -634,25 +816,19 @@ export function isTrueNameTier(tier: string | null | undefined): boolean {
   return tierCaps(tier).nameMode === 'true';
 }
 
-/** Can this tier receive/answer in-app inquiries at all? (FREE cannot.) */
+/** Can this tier receive/answer in-app inquiries at all? Every plan can (owner 2026-10-23). */
 export function canAcceptInAppInquiries(tier: string | null | undefined): boolean {
   return tierCaps(tier).inAppCustomersPerWeek > 0;
 }
 
 /**
- * Tier #3 (owner 2026-06-07): only ENTERPRISE may plot time-bound booking
- * slots. Keyed directly on the enterprise tier — NOT on a numeric slot cap:
- * Enterprise is now BOUNDED to slotsPerDay=8 (owner 2026-07-01), so the old
- * `slotsPerDay === Infinity` test went permanently false and broke the feature
- * for every tier. `slotsTimeBounded` is also unusable (true for Pro too). Pro
- * keeps the #2 daily_capacity model; only Enterprise gets the separate
- * named-window model. Re-checked server-side on every plot/edit action so a
- * downgrade can't keep adding slots.
+ * EXACT TIME SLOTS ARE ON EVERY PLAN (owner 2026-10-14, DECISION_LOG 🧑‍🤝‍🧑 call 3: *"Time slots open to all plans
+ * (were Enterprise-only)"*, kept by ✅ "APPROVE"). Until then only Enterprise could plot named time windows; every
+ * plan may now — Free included. The function stays so every caller keeps one place to ask; there is no SQL tier gate
+ * on slots and none is added. `time-slots-are-on-every-plan.test.ts` holds it.
  */
-export function canPlotTimeSlots(tier: string | null | undefined): boolean {
-  // Enterprise-or-higher (rank-derived so Custom, which runs as Enterprise,
-  // inherits automatically) rather than a hard `=== 'enterprise'` equality.
-  return isTierAtLeast(tier, 'enterprise');
+export function canPlotTimeSlots(_tier: string | null | undefined): boolean {
+  return true;
 }
 
 /**
@@ -677,9 +853,6 @@ export function canSeePerformanceAdvanced(tier: string | null | undefined): bool
 export function canUseSoloBusinessTools(tier: string | null | undefined): boolean {
   return tierCaps(tier).soloBusinessTools; // earnings dashboard + recap sharing (Solo+)
 }
-export function canUseCalls(tier: string | null | undefined): boolean {
-  return tierCaps(tier).calls; // in-thread voice/video calls with couples — any paid plan (Solo+)
-}
 
 /**
  * GROWTH row of the locked matrix — proactive EDITORIAL FEATURING (Pro+).
@@ -695,7 +868,8 @@ export function canUseEditorialFeatures(tier: string | null | undefined): boolea
 
 /**
  * WHITELIST cap — accepted-but-not-yet-locked customers the vendor may hold for
- * ONE date. Free 1 · Solo 3 · Pro 5 · Enterprise 10 (owner 2026-08-09).
+ * ONE date. {@link WHITELIST_PER_DATE_ALL_PLANS} on every plan (owner 2026-10-23; was
+ * Free 1 · Verified 2 · Solo 3 · Pro 5 · Enterprise 10 from 2026-08-09).
  *
  * Enforcement lives in the DATABASE (`enforce_vendor_whitelist_per_date`,
  * migration 20271121655918), because accepting is reachable from the vendor
@@ -709,8 +883,10 @@ export function vendorWhitelistPerDate(tier: string | null | undefined): number 
 
 /**
  * WAITLIST cap — queued couples the vendor may accept for one taken date.
- * Free 0 · Solo 1 · Pro 3 · Enterprise 5 (owner 2026-08-09). `0` means the plan
- * has no waitlist at all.
+ * Free·Verified 0 · Solo 0 · Pro 1 · Ultra 5 (owner 2026-11-04, "SUPPLIER PLAN
+ * ALLOWANCES"; was Free 0 · Verified 1 · Solo 1 · Pro 3 · Ultra 5). `0` means the
+ * plan has no waitlist at all. Couples a shop already accepted stay accepted — the
+ * cap is counted only when it picks another (`pickWaitlistCouple`).
  */
 export function vendorWaitlistAcceptances(tier: string | null | undefined): number {
   return tierCaps(tier).waitlistAcceptances;
@@ -744,4 +920,31 @@ export function isSeoLevelAtLeast(
   min: VendorSeoLevel,
 ): boolean {
   return SEO_LEVEL_RANK[vendorSeoLevel(tier)] >= SEO_LEVEL_RANK[min];
+}
+
+/**
+ * 📍 THE REACH LADDER, IN WORDS — read from `TIER_CAPS.serviceRadiusKm`, never typed (owner 2026-10-29, Supplier
+ * dashboard v13 note 3: *"＋ past the cap says the next plan's reach"*). The plans a shop can move to, in order:
+ * Verified (free, once approved) · Solo · Pro · Ultra. Custom reaches what Ultra does and is hand-priced, so it is not a
+ * rung here. Free is 0 until verified — said by the caller, not listed.
+ */
+const REACH_LADDER: readonly VendorTier[] = ['verified', 'solo', 'pro', 'enterprise'];
+const reachName = (t: VendorTier) => (t === 'verified' ? 'Verified' : TIER_LABEL[t]);
+
+/** "Verified 20 km · Solo 30 · Pro 100 · Ultra nationwide" — Ultra is `Infinity` since 2026-11-04. */
+export function reachLadderWords(): string {
+  return REACH_LADDER.map((t, i) => {
+    const km = TIER_CAPS[t].serviceRadiusKm;
+    return `${reachName(t)} ${Number.isFinite(km) ? `${km}${i === 0 ? ' km' : ''}` : 'nationwide'}`;
+  }).join(' · ');
+}
+
+/** The first plan above `tier` that reaches farther — what ＋ at the plan's farthest says. Null at the top. */
+export function nextPlanReach(tier: string | null | undefined): { plan: string; km: number } | null {
+  const here = TIER_CAPS[asVendorTier(tier)].serviceRadiusKm;
+  const rank = tierRank(tier);
+  for (const t of REACH_LADDER) {
+    if (TIER_RANK[t] > rank && TIER_CAPS[t].serviceRadiusKm > here) return { plan: reachName(t), km: TIER_CAPS[t].serviceRadiusKm };
+  }
+  return null;
 }

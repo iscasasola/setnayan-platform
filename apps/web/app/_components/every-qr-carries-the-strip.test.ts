@@ -31,16 +31,17 @@ const count = (src: string, needle: string) => src.split(needle).length - 1;
 /** File → how many times it mounts the strip. Exactly, not at least. */
 const STRIP_MOUNTS: Record<string, number> = {
   // Supplier side
-  'app/vendor-dashboard/_components/qr-section.tsx': 1, // Shortlist QR (My Customers)
-  'app/vendor-dashboard/invite/page.tsx': 2, // Shortlist + the just-issued Locked QR
-  'app/vendor-dashboard/locked-qr/page.tsx': 1, // each pending Locked QR row
+  // The QR card (kind 24, 2026-10-12) — Share · Download as its buttons, the strip (NFC · Copy link) under it. ONE
+  // mount, drawn by every card: the supplier's QR codes page (Shortlist + the issued Booked code — S-PR3 merged
+  // `/invite` and `/locked-qr`, whose ledger rows now open a code's card instead of carrying a strip each).
+  'app/_components/qr-card.tsx': 1,
   'app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx': 1, // review QR
   // Couple side
   'app/dashboard/[eventId]/invitation/page.tsx': 2, // per-guest rows, table + list
   // The join-link QR — lives in the panel both the invite page and the
   // guest list's Share tab render, so it is ONE mount, not two.
-  'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx': 1,
-  'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx': 1, // scan-to-view
+  'app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx': 1,
+  'app/dashboard/[eventId]/website/editor/_components/scan-qr-strip.tsx': 1, // scan-to-view's strip (the ⋯ sheet; out of editor-shell.tsx 2026-10-18 so it loads lazily)
   // ⤷ 2026-09-30: the guest's own card NO LONGER draws a QR (owner, the Fable
   // guest card: "QR look leaves the card"). It draws their Digital ticket — the
   // QR is ON it — with Save ticket, and "Write to NFC" in the ⋯ menu (below).
@@ -87,6 +88,17 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
   console.log(report.join('\n'));
 });
 
+test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
+  const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  // Five codes (2026-10-28 · 2026-11-01): Shortlist · the issued Booked code · Check a date (`lib/check-a-date-qr.ts`) ·
+  // My page · Crew for an event (`lib/supplier-qr-codes.ts`).
+  assert.equal(count(page, '<QrCard'), 5, 'the Shortlist, the issued Booked code, Check a date, My page and the crew code are not all QR cards');
+  assert.match(page, /from '@\/app\/_components\/qr-card'/);
+  for (const gone of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/locked-qr/page.tsx']) {
+    assert.equal(count(read(gone), 'dangerouslySetInnerHTML'), 0, `${gone} draws a code outside the QR card`);
+  }
+});
+
 test('a QR that is not a link carries none of the strip', () => {
   for (const rel of NO_STRIP) {
     const src = read(rel);
@@ -95,9 +107,9 @@ test('a QR that is not a link carries none of the strip', () => {
   }
 });
 
-test('the strip is Download · Write to NFC · Copy link, in that order', () => {
+test('the strip is Download (the Share mark) · Write to NFC · Copy link, in that order', () => {
   const src = read('app/_components/qr-actions.tsx');
-  const dl = src.indexOf('<Download');
+  const dl = src.indexOf('<Share ');
   const nfc = src.indexOf('<NfcWriteButton');
   const copy = src.indexOf('<CopyButton');
   assert.ok(dl > 0 && nfc > dl && copy > nfc, `order was ${[dl, nfc, copy].join(',')}`);

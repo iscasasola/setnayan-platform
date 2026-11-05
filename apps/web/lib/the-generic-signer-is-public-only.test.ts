@@ -156,10 +156,11 @@ test('the list, logo and guest-photo helpers all go through the gated signer', (
  * private-bucket WRITER (test below) and following each column to its readers:
  *   payments.screenshot_url · force_majeure_flags.evidence_urls ·
  *   event_paperwork.document_r2_key · event_vendor_payments.proof_r2_key ·
- *   event_vendors.deposit_proof_url ·
+ *   event_vendors.deposit_proof_url · event_gift_records.screenshot_r2_key ·
  *   vendor_verification_applications.doc_uploads · the catalogue's sample art.
- * (Chat attachments and mood-board renders have their own dedicated routes —
- * lib/chat-attachment-signs-only-its-own-thread.test.ts, every-render-read-is-pinned.)
+ * (Chat attachments have their own dedicated route —
+ * lib/chat-attachment-signs-only-its-own-thread.test.ts; mood-board renders are retired and
+ * nothing may sign one — every-render-read-is-pinned.)
  */
 const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   ['app/admin/payments/page.tsx', /displayUrlForPrivateStoredAsset\(\s*p\.screenshot_url,\s*paymentProofPolicy\(/],
@@ -172,6 +173,10 @@ const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   // event_vendors.deposit_proof_url — N5: moved off the public bucket; its
   // readers all go through this one helper (lib/deposit-proofs-are-private.test.ts).
   ['lib/deposit-proof.server.ts', /displayUrlForPrivateStoredAsset\(value, policy\)/],
+  // event_gift_records.screenshot_r2_key — a guest's "I sent it" screenshot, signed for a HOST only, for the
+  // ONE gift they opened (readGiftShotUrl), and only from this event's own gift-shots folder
+  // (shotPolicy = giftShotEventPolicy(eventId), pinned in lib/the-couples-gift-list-follows-the-drawing.test.ts).
+  ['lib/wish-list.server.ts', /displayUrlForPrivateStoredAsset\(ref, shotPolicy, \{ ttlSeconds: GIFT_SHOT_TTL_SECONDS \}\)/],
   ['app/vendor-dashboard/shop/inline-docs-actions.ts', /displayUrlForPrivateStoredAsset\(ref, vendorVerificationDocPolicy\(vendorProfileId\)\)/],
   ['app/(shell)/explore/page.tsx', /displayUrlForCatalogueArt\(ref\)/],
   ['app/admin/categories/_components/load.ts', /displayUrlForCatalogueArt\(raw\)/],
@@ -221,6 +226,10 @@ const PRIVATE_UPLOADERS: Record<string, number> = {
   // shelf as the manager above, posted through the same `saveEgiftMethod`
   // (`pabuyaQrPolicy`); its readers are already the manager's.
   'app/dashboard/[eventId]/launch/_components/studio-tools.tsx': 1, // thread-files → event_egift_methods.qr_r2_key
+  // The record card's "How to pay them" (2026-10-29) — a supplier's QR in the event's own private payment folder,
+  // kept by `saveSelfAddedServiceCard` only through `budgetPaymentProofPolicy`, read back only through
+  // `displayUrlForPrivateStoredAsset(…, budgetPaymentProofPolicy)` (`lib/self-added-pay-ways.server.ts`).
+  'app/dashboard/[eventId]/_components/pay-ways-editor.tsx': 1, // thread-files → event_manual_vendors.pay_ways[].qr
 };
 
 test('the private-bucket UPLOADERS are exactly the known ones (a new one names its reader first)', () => {
@@ -254,7 +263,6 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'lib/std-video-gate.ts': 'parseClientRef(stdVideo*/stdSealed policy) first',
   'lib/vendor-image-repost-watch.ts': 'server-side byte fetch for analysis; never served',
   'lib/vendor-qr-media-guard.ts': 'server-side byte fetch for analysis; never served',
-  'lib/moodboard-render-serve.ts': 'the render’s own key (#5415)',
   'lib/background-videos.ts': 'admin-curated media',
   'app/admin/app-performance/actions.ts': 'admin-only, named bucket',
   'app/admin/verification-docs/actions.ts': 'admin-only, named bucket',

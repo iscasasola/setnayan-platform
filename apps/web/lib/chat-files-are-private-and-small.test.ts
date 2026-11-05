@@ -79,7 +79,8 @@ test('🔑 2 · photographs are compressed; evidence is not', () => {
 test('🔑 3 · a file is judged against ITS OWN ceiling', () => {
   const doc = chatAttachmentLimit('application/pdf');
   assert.equal(doc.maxBytes, CHAT_DOCUMENT_MAX_BYTES);
-  assert.match(doc.tooLargeMessage, /10 MB/);
+  // 10 MB → 20 MB, in the owner's words (2026-10-28, CHAT FILES).
+  assert.match(doc.tooLargeMessage, /over 20 MB\. Send a Drive or YouTube link instead\./);
   const img = chatAttachmentLimit('image/jpeg');
   // A 4 MB phone photo is the most ordinary thing anyone sends and must not be
   // refused — it is about to be compressed in the browser.
@@ -106,21 +107,14 @@ test('🔑 4 · the picker offers exactly what the server accepts', () => {
 });
 
 test('🔑 5 · the composer compresses before the file leaves the browser', () => {
+  // 2026-10-28 (C1 on C2): the composer no longer compresses inline — EVERY file goes through the one helper,
+  // `prepareChatFile` (photo → compressImageForWeb, video → compressVideoForWeb, refused if it cannot shrink), and
+  // only its prepared, uploaded result reaches the send as a ref. The helper's own guard is `chat-file-prepare.test.ts`.
   const composer = read(COMPOSER);
-  assert.equal(
-    (composer.match(/compressImageForWeb\(/g) ?? []).length,
-    1,
-    'the composer stopped compressing images before upload',
-  );
-  assert.equal(
-    (composer.match(/isCompressibleImage\(/g) ?? []).length,
-    1,
-    'compression is no longer gated on what may be compressed',
-  );
-  assert.ok(
-    /formData\.set\('attachment'/.test(composer),
-    'the compressed file is not the one that gets sent',
-  );
+  assert.equal((composer.match(/\bprepareChatFile\(/g) ?? []).length, 1, 'the composer stopped compressing images before upload');
+  assert.match(composer, /uploadPreparedChatFile\(\{ threadId, userId, prepared: prep\.prepared \}\)/, 'what is sent is not the prepared file');
+  assert.match(composer, /formData\.set\('attachment_ref', up\.ref\)/, 'the compressed file is not the one that gets sent');
+  assert.doesNotMatch(composer, /compressImageForWeb\(/, 'a second, inline compression path is back');
 });
 
 test('🔑 6 · the row stores the private REF, never a public URL', () => {

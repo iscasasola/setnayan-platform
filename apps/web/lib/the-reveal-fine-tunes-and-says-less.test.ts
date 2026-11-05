@@ -94,8 +94,10 @@ test('the opening on the guest page reads the tuned look, never the raw house lo
 test('each opening offers only the knobs its engine reads', () => {
   const on = { petals: true, butterflies: true };
   const keys = (opening: string, fx = on) => revealTuneKnobsFor(opening, fx).map((k) => k.key);
-  assert.deepEqual(keys('veil-sheer'), ['feather', 'wind', 'petalsDensity']);
-  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['feather', 'wind']);
+  /* 2026-10-17: the veil's wind is Wind ▾ (Still · Breeze · Gusty, `lib/veil-style.ts`) on Cover Scene › Style — onto the
+     same `tune.wind` — so the Sway slider is no longer offered beside it (one control per fact). */
+  assert.deepEqual(keys('veil-sheer'), ['feather', 'petalsDensity']);
+  assert.deepEqual(keys('veil-sheer', { petals: false, butterflies: false }), ['feather']);
   assert.deepEqual(keys('church-doors'), ['petalDensity', 'petalSize', 'petalFall']);
   for (const env of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal']) {
     assert.deepEqual(keys(env), ['butterflyCount', 'butterflySpeed', 'butterflySize'], env);
@@ -158,9 +160,12 @@ test('the fine-tune sliders fold shut by default and save when let go', () => {
   assert.match(fold, /aria-expanded=\{open\}/);
   assert.match(fold, /\{open \? \(/, 'the sliders must render only when open');
   const slider = src.slice(src.indexOf('function TuneSlider('), src.indexOf('function ColourRow('));
-  assert.match(slider, /type="range"/);
-  assert.match(slider, /onPointerUp=\{\(e\) => onCommit\(/, 'a slider saves when let go');
-  assert.match(slider, /onKeyUp=\{\(e\) => onCommit\(/);
+  /* The app's one slider since 2026-10-09 (`app/_components/slider.tsx`): it is the range, and IT commits on let-go. */
+  assert.match(slider, /<Slider\b[^>]*onChange=\{setLocal\} onCommit=\{onCommit\} \/>/, 'a slider saves when let go');
+  const shared = stripComments(read('app/_components/slider.tsx'));
+  assert.match(shared, /type="range"/);
+  assert.match(shared, /onPointerUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/, 'a slider saves when let go');
+  assert.match(shared, /onKeyUp=\{onCommit \? \(e\) => onCommit\(Number\(e\.currentTarget\.value\)\) : undefined\}/);
   assert.doesNotMatch(slider, /onChange=\{[^}]*onCommit/, 'a slider must not save on every tick');
   assert.match(src, /<TuneFold\s+knobs=\{revealTuneKnobsFor\(opening, effects\)\}/);
 });

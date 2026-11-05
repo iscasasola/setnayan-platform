@@ -85,16 +85,17 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
     purpose:
       'Run the event the customer is planning: the account, the event page, the guest list, the suppliers they book, and the money they pay Setnayan for services.',
     retention:
-      'No automatic clock on the account. Chat is purged at 5 years (lib/retention-sweep.ts), except where the event carries a payment record — those events are held under the 10-year BIR books-of-account floor. Photos: the full-resolution original is replaced by a compressed copy 6 months from first capture, never sooner than 3 months after the day the event ends — its end date where the celebration spans several days, else its start date (lib/papic-fullres-drop.ts); the photo itself is never deleted. Everything else is cleared on an erasure request (lib/erasure/purge.ts).',
+      'No automatic clock on the account. Chat is purged at 5 years (lib/retention-sweep.ts), except where the event carries a payment record — those events are held under the 10-year BIR books-of-account floor. Photos: the full-resolution original is replaced by a 720p copy 3 months after the day the event ends — its end date where the celebration spans several days, else its start date (lib/papic-fullres-drop.ts); the photo itself is never deleted. Everything else is cleared on an erasure request (lib/erasure/purge.ts).',
     disposalDateSettled: false,
   },
 
   vendor: {
     label: 'Vendors — the business representative behind a supplier profile',
     holdsAccount: true,
-    identityAnchors: ['users.display_name', 'users.email'],
+    identityAnchors: ['users.display_name', 'users.email', 'vendor_crew_passes.display_name'],
     personalData: [
       'name, email and the business profile they publish',
+      'for a supplier’s crew on the day: the name a crew phone typed to join one event’s Event Hub, its role and whether the shop let it in (vendor_crew_passes — deleted with the account, lib/erasure/coverage.ts)',
       'business identifiers — TIN, registered address, DTI/SEC papers',
       'government ID and verification documents, held in a private bucket',
       'subscription and booking-fee payment records',
@@ -109,13 +110,18 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
   guest: {
     label: 'Guests invited to an event',
     holdsAccount: false,
-    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name'],
+    // 📇 `event_schedule_task_contacts.name` (migration 20271303218631): a day-of contact the hosts name on a task — the
+    // bridal-car driver — not on the guest list, but the same kind of person this category covers: named for the day by
+    // the hosts, never an account holder. DPO: may deserve its own line; folded here, said in the PR.
+    identityAnchors: ['guests.first_name', 'guests.last_name', 'guests.display_name', 'event_gift_records.giver_name', 'event_schedule_task_contacts.name'],
     personalData: [
       'name and, where the couple enters it, contact details',
       'RSVP answers, seat and table assignment, dietary notes',
       'photos and video they appear in, and any tags on them',
       'a face vector, only where the guest gave biometric consent and affirmed 18+',
       'anything they write themselves — messages on a photo, a public column',
+      'what they say they sent as a gift — the amount, their words for the hosts, and a screenshot of their own bank or e-wallet screen, held in a private bucket for the hosts only',
+      'a day-of contact the hosts name on a schedule task (the bridal-car driver, who may not be on the guest list) — a name and a phone, seen only by the hosts, the coordinator and that moment\'s crew, deleted with the task or the event',
     ],
     purpose:
       'Deliver the invitation, the seating, the day-of experience, and the photos that belong to them.',
@@ -224,6 +230,8 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
     'The title of an event ("Ice & Claire\'s Wedding"). It can contain the customers\' names, but the customer is already a declared category and the event record is listed among their personal data — the event is not a separate data subject.',
   event_clusters:
     'The name one person gives a GROUP of their own celebrations — "Our year", "The Cruz wedding" (item 7 phase 7a, migration 20271189765490). Exactly the settled line already drawn for `events` above and `households` below: it can contain the owner\'s own name, but the owner is a declared category, the row is readable by nobody else, and it is exported to them as `years_you_grouped`. A grouping is not a separate data subject. ⚠ It names no THIRD party — the celebrations it groups are joined by uuid, and each carries its own subjects.',
+  event_wish_items:
+    'The name of a THING the couple would love as a gift — "Air fryer", "Luggage set" (the E-Gifts wish list, migration 20271266228704). Not a person. Its sibling `event_gift_records` DOES record a person — `giver_name`, their words and a screenshot of their own bank or e-wallet screen — under a column name this scan does not match; that is the GUEST category\'s data and is anchored there (`event_gift_records.giver_name`, since the change that first wrote a record — wish list 4/5).',
   households: 'A household label the couple types ("The Cruz Family") — a grouping, not an individual.',
   moodboard_theme_templates:
     'The display name of a curated admin-authored starter theme ("Rustic Filipiniana Heritage"), not a person. Admin content — no couple/customer row.',

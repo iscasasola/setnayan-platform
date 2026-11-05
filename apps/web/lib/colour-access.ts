@@ -240,6 +240,17 @@ const DRESSING_LABEL: Readonly<Record<keyof RoomDressing, string>> = {
   chairs: 'Chairs',
   florals: 'Floral statement',
   lighting_warmth: 'Ambient warmth',
+  /* The parts every Palette circle sets since 2026-10-19 — not in a supplier's grant yet (the SQL lane,
+     `colour_domain_covers`, still names the four above), so no target lists them. */
+  stage: 'Stage',
+  ceiling: 'Ceiling',
+  walls: 'Walls',
+  tunnel: 'Tunnel',
+  ribbons_candles: 'Ribbons & candles',
+  bridal_bouquet: 'Bridal bouquet',
+  entourage_bouquets: 'Entourage bouquets',
+  flower_accents: 'Flower accents',
+  cake: 'Cake',
 };
 
 export function targetsForDomains(domains: readonly ColourDomain[]): ColourTarget[] {
@@ -406,12 +417,13 @@ function slotLabel(key: string, base: string, index: number): string {
    EACH" venue rule: florals + lighting = Dominant · linens = Supporting · chairs
    = Accent · walls / base drapes = Neutral · ribbons, candles, details = Accent 2.
 
-   🔑 ONLY FOUR PARTS CAN BE "SET BY YOU", AND THAT IS THE SCHEMA, NOT A CHOICE.
-   A part with `field` is a real `room_dressing` override (`RoomDressing`,
-   read by the 3D room through `resolveRoomDressing`, and the fields a booked
-   supplier's grant reaches — §3 above). The rest have no colour of their own to
-   store: they FOLLOW their main colour, and the row says which. Giving them one
-   is a storage change (the SQL lane mirror included), not a screen change.
+   🔑 EVERY PART CAN BE "SET BY YOU" (owner 2026-10-19, DECISION_LOG "PALETTE +
+   INSPIRATION AS ONE LIST": "yes all circles"). It used to be four — linens,
+   chairs, florals, the light's warmth — because only those had a
+   `room_dressing` field; since that day every part has one (`RoomDressing`),
+   and a part not set still FOLLOWS its main colour, and says which. A booked
+   supplier's grant (§3 above, and its SQL mirror `colour_domain_covers`) still
+   reaches only the original four — widening it is the supplier side's change.
 
    The lanes are the ones §2 already decides: the stylist's `decor` (+ the five
    main colours) and the florist's `florals`. Pure, like the rest of the file.
@@ -431,23 +443,26 @@ export type LanePart = {
 
 /** 🛋 The room — for your stylist (`reception_decor`'s lane). */
 export const ROOM_LANE_PARTS: readonly LanePart[] = [
-  { label: 'Stage', follows: 0 },
-  { label: 'Ceiling', follows: 0 },
-  { label: 'Walls', follows: 3 },
-  { label: 'Tunnel', follows: 1 },
+  { label: 'Stage', follows: 0, field: 'stage' },
+  { label: 'Ceiling', follows: 0, field: 'ceiling' },
+  { label: 'Walls', follows: 3, field: 'walls' },
+  { label: 'Tunnel', follows: 1, field: 'tunnel' },
   { label: 'Table linens', follows: 1, field: 'linens' },
   { label: 'Chairs', follows: 2, field: 'chairs' },
-  { label: 'Ribbons & candles', follows: 4 },
+  { label: 'Ribbons & candles', follows: 4, field: 'ribbons_candles' },
   { label: 'Lights · warmth', follows: 0, field: 'lighting_warmth' },
 ];
 
 /** 💐 Flowers — for your florist (`florist`'s lane). */
 export const FLORIST_LANE_PARTS: readonly LanePart[] = [
-  { label: 'Bridal bouquet', follows: 0 },
-  { label: 'Entourage bouquets', follows: 1 },
+  { label: 'Bridal bouquet', follows: 0, field: 'bridal_bouquet' },
+  { label: 'Entourage bouquets', follows: 1, field: 'entourage_bouquets' },
   { label: 'Centrepieces', follows: 0, field: 'florals' },
-  { label: 'Accents', follows: 4 },
+  { label: 'Accents', follows: 4, field: 'flower_accents' },
 ];
+
+/** 🎂 The cake — for your cake maker (owner 2026-10-19: Cake has its own row, "3. yes"). Follows Neutral until set. */
+export const CAKE_LANE_PARTS: readonly LanePart[] = [{ label: 'Cake', follows: 3, field: 'cake' }];
 
 export type LanePartColour = {
   hex: string;

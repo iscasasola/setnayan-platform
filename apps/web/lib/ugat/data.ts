@@ -94,8 +94,6 @@ export interface UgatCounts {
   runofshow: number;
   /** Live Studio: claimed camera operators. */
   livestudio: number;
-  /** Mood Board renders: "Make it real" images produced. */
-  render: number;
   /**
    * Mood Board library: EVERY asset in the pool — admin placeholders, generated
    * attire figures, florals AND suppliers' own gallery photos. Not "supplier
@@ -121,6 +119,8 @@ export interface UgatCounts {
    * walk_no).
    */
   march: number;
+  /** Inspiration parts: every part row, hidden ones included (they still hold photos). */
+  inspirationpart: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -223,12 +223,12 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     tableRows,
     blockRows,
     cameraRows,
-    renderRows,
     libraryRows,
     signoffRows,
     colourGrantRows,
     colourGrantHostRows,
     marchRows,
+    inspirationPartRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -290,10 +290,6 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'event_tables'),
     headCount(admin, 'event_schedule_blocks'),
     headCount(admin, 'panood_camera_operators'),
-    // Mood Board renders: every render ever made, paid or free-from-library. The
-    // node counts the IMAGE, not the credit — credits are a balance, and a
-    // balance is per event, not a platform tally.
-    headCount(admin, 'event_renders'),
     // Mood Board library: the whole pool. The supplier-gallery slice is a
     // filter on asset_type, deliberately NOT what this node counts — see the
     // warning on UgatCounts.gallery and on TYPE-GALLERY itself.
@@ -308,6 +304,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
     // Wedding March: every person placed in a march (one row each).
     headCount(admin, 'march_walks'),
+    // Inspiration parts: every part, hidden included.
+    headCount(admin, 'inspiration_parts'),
   ]);
 
   return {
@@ -332,11 +330,11 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     seatplan: tableRows,
     runofshow: blockRows,
     livestudio: cameraRows,
-    render: renderRows,
     gallery: libraryRows,
     signoff: signoffRows,
     colourgrant: colourGrantRows + colourGrantHostRows,
     march: marchRows,
+    inspirationpart: inspirationPartRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

@@ -16,12 +16,24 @@ import {
   type CleanupScope,
 } from '@/lib/cleanup-delete-scope';
 
-/** Free full-res window before OUR R2 original is dropped (owner 2026-07-11). */
-export const DEFAULT_FULL_RES_RETENTION_DAYS = 183;
+/**
+ * Days counted from the event's FIRST CAPTURE before an original may be dropped.
+ *
+ * ⚖ 0 SINCE 2026-11-03 — THE PHOTO RULE (DECISION_LOG "THE PHOTO RULE"). Owner,
+ * verbatim: *"after 3 months, we compress to 720p download and 400px for
+ * thumbnail"* · *"3 months after the event date"* · multi-day: *"last day"*.
+ * Originals are kept until 3 months after the event's LAST day and nothing else
+ * — so the first-capture clock (183 days, owner 2026-07-11; it held an
+ * early-capture event's originals past three months) no longer adds anything,
+ * and `papic_events_past_fullres_clock(0, FULL_RES_POST_EVENT_GRACE_DAYS)` is
+ * exactly the rule. The env override `PAPIC_FULLRES_RETENTION_DAYS` still exists
+ * and can only HOLD originals longer, never drop them sooner.
+ */
+export const DEFAULT_FULL_RES_RETENTION_DAYS = 0;
 
 /**
- * Days after the EVENT DATE before an original may be dropped, whatever the
- * 6-month clock says.
+ * Days after the event's LAST day before an original may be dropped — since
+ * 2026-11-03 this is THE whole rule (see DEFAULT_FULL_RES_RETENTION_DAYS).
  *
  * 🔒 RAISED 30 → 92 (one month → three) by the owner on 2026-08-07, verbatim:
  * *"still preserve 3 months all their photos in high res before we compress it."*
@@ -96,6 +108,9 @@ const KNOWN_BUCKETS: readonly string[] = [MEDIA_BUCKET];
 export type DropCandidate = {
   r2_object_key: string;
   display_r2_key: string | null;
+  /** Web copies — read so a shot whose "original" IS one of them is never dropped. */
+  thumb_r2_key?: string | null;
+  tile_r2_key?: string | null;
   captured_at: string;
   full_res_dropped_at: string | null;
 };
@@ -137,6 +152,19 @@ export function isEligibleForDrop(
   if (row.full_res_dropped_at) return false;
   if (!row.display_r2_key) return false;
   if (!row.r2_object_key || row.r2_object_key.startsWith('sample/')) return false;
+  // 🛡 GUARD A — THE ORIGINAL IS NOT A SEPARATE FILE. A save-first shot from an
+  // event that does not keep full-res (2026-10-23, lib/papic-upload/) never
+  // sends an original: its r2_object_key IS its display copy (or, for a moment,
+  // its thumbnail). "Dropping the original" there would delete the only copy
+  // of the photograph. Only a key that is distinct from every web copy is an
+  // original this sweep may replace.
+  if (
+    row.r2_object_key === row.display_r2_key ||
+    (row.thumb_r2_key != null && row.r2_object_key === row.thumb_r2_key) ||
+    (row.tile_r2_key != null && row.r2_object_key === row.tile_r2_key)
+  ) {
+    return false;
+  }
   // captured_at must still PARSE — an unreadable timestamp is a row we do not
   // understand, and we never delete what we do not understand.
   const capturedMs = new Date(row.captured_at).getTime();

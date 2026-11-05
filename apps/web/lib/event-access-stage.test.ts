@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   ALWAYS_OPEN_SURFACES,
   FEE_SETTLED_STATUSES,
+  FEE_VOID_STATUSES,
   FEE_UNSETTLED_STATUSES,
   SHOW_BUDGET_BAND_WHILE_QUOTING,
   VENUE_WHILE_QUOTING,
@@ -138,10 +139,62 @@ test('🚨 AN UNREADABLE FEE FAILS OPEN — a refused SELECT never locks a suppl
   );
 });
 
-test('no charge at all unlocks — a booking that was never billed owes nothing', () => {
-  const d = eventAccessUnlocked({ charge: { kind: 'none' }, enforced: true });
+test('⚖ NO HANDSHAKE, NO ACCESS — a BOOKED shop with no charge is locked while the fee is minting (2026-10-12)', () => {
+  // Owner 2026-10-12 #1: the fee is made at the supplier's yes. A booked shop
+  // that holds no charge never said a yes that made one. This test read "no
+  // charge at all unlocks" until then. SABOTAGE: return unlocked for `none` →
+  // RED on the first assertion.
+  const d = eventAccessUnlocked({ charge: { kind: 'none' }, enforced: true, feeMinting: true });
+  assert.equal(d.unlocked, false, 'a booking with no handshake opened the whole event');
+  assert.equal(d.reason, 'no_charge');
+  assert.equal(d.owed, null, 'there is no bill — the screen must not invent one');
+  assert.equal(
+    resolveEventAccessStage({ booked: true, charge: { kind: 'none' }, enforced: true, feeMinting: true })
+      .stage,
+    'booked_fee_due',
+  );
+  // …but a shop that is not booked is only quoting, exactly as before.
+  assert.equal(
+    resolveEventAccessStage({ booked: false, charge: { kind: 'none' }, enforced: true, feeMinting: true })
+      .stage,
+    'quoting',
+  );
+  // A former booking's VOIDED charge is no charge — never a settled one.
+  assert.ok(FEE_VOID_STATUSES.has('cancelled_unbilled'));
+  assert.ok(!FEE_SETTLED_STATUSES.has('cancelled_unbilled'));
+  assert.ok(!FEE_UNSETTLED_STATUSES.has('cancelled_unbilled'));
+  assert.equal(
+    eventAccessUnlocked({ charge: charge('cancelled_unbilled'), enforced: true, feeMinting: true })
+      .reason,
+    'no_charge',
+  );
+});
+
+test('…and with minting OFF, no charge still unlocks — nothing could ever make one', () => {
+  // NEXT_PUBLIC_BOOKING_FEE_ENABLED off: no charge can exist, so locking on
+  // "none" would shut every booked shop out with nothing to pay.
+  const d = eventAccessUnlocked({ charge: { kind: 'none' }, enforced: true, feeMinting: false });
   assert.equal(d.unlocked, true);
   assert.equal(d.reason, 'no_charge');
+});
+
+test('the no-charge lock asks for no payment — it says what is missing', () => {
+  const copy = feeLockCopy({
+    stage: 'booked_fee_due',
+    owed: null,
+    withheld: ['venue'],
+    reason: 'no_charge',
+  });
+  assert.equal(copy.cta, null, 'a pay button with no bill behind it');
+  assert.match(copy.headline, /not confirmed on Setnayan yet/);
+  assert.match(copy.detail, /accept this booking on Setnayan/);
+  assert.doesNotMatch(`${copy.headline} ${copy.detail}`, /₱|Pay /);
+  // A real bill keeps its words.
+  assert.match(
+    feeLockCopy({ stage: 'booked_fee_due', owed: { amountPhp: 837.5, dueAt: null, orderId: 'o' }, withheld: [] })
+      .headline,
+    /Pay ₱837\.50/,
+  );
 });
 
 test('an UNKNOWN status unlocks — the lock is an allowlist, not a denylist', () => {

@@ -118,7 +118,7 @@ test('each refusal gets its own sentence — "no" and "we could not tell" are di
   for (const reason of ['not_yours', 'not_your_pull']) {
     assert.ok(body.includes(reason), `wallPull must handle the ${reason} refusal by name.`);
   }
-  const sentences = [...body.matchAll(/'([^']*(?:take down|put back|reach the wall)[^']*)'/gi)].map(
+  const sentences = [...body.matchAll(/'([^']*(?:take down|put back|reach Memory lane)[^']*)'/gi)].map(
     (m) => m[1],
   );
   assert.equal(

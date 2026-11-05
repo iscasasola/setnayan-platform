@@ -33,6 +33,7 @@ import {
   parseDossierText,
   type DeepSearchInputs,
 } from '@/lib/vendor-deep-search';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -764,6 +765,8 @@ async function applyApplicationDecisionForDemote(opts: {
       updated_at: now,
     })
     .eq('vendor_profile_id', opts.vendorProfileId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (updErr) return { ok: false, error: plainRefusal('AdminVerifyActions (updErr)', updErr) };
 
   // Best-effort tier_history insert — UUIDs that don't match a real row will

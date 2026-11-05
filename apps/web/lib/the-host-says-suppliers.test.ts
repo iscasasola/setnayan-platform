@@ -17,7 +17,10 @@ import { stripComments } from '@/lib/strip-comments';
  *
  * 🔑 WHAT IS NOT A HOST'S SUPPLIER LIST, and is allow-listed below by path:
  *   · a SUPPLIER's own staff — vendor-dashboard/ and the for-suppliers pitch
- *     ("Add your team" there means their crew, with their own logins);
+ *     ("Add your team" there means their crew, with their own logins), and the
+ *     banner on a shop's own page that only its owner and helpers are shown
+ *     before couples can see it ("Only you and your team can see this.",
+ *     owner 2026-10-23 — `own-shop-preview.ts`, `team-preview-banner.tsx`);
  *   · the admin console's own people (`what-you-change.tsx`);
  *   · the co-hosts who can see a private schedule moment
  *     ("only your team sees it");
@@ -35,6 +38,8 @@ const WEB = join(HERE, '..');
 const NOT_THE_HOSTS_SUPPLIERS = [
   /^app\/vendor-dashboard\//,
   /^app\/for-suppliers\//,
+  /^lib\/own-shop-preview\.ts$/,
+  /^app\/v\/\[slug\]\/_components\/team-preview-banner\.tsx$/,
   /^app\/admin\/_components\/what-you-change\.tsx$/,
   /^app\/dashboard\/\[eventId\]\/schedule\/_components\/moment-inspector\.tsx$/,
   /^app\/\(shell\)\/realstories\/page\.tsx$/,

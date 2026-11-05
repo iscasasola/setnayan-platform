@@ -53,13 +53,14 @@
  * honest; a block we cannot justify is worse than no block.
  */
 
-import {
-  canonicalServicesForSlot,
-  slotHasSupplierTrade,
-  GALLERY_SLOT_KEYS,
-} from './moodboard-gallery';
-import type { MoodboardSlotKey } from './moodboard-slots';
+import { canonicalServicesForSlot, slotHasSupplierTrade } from './moodboard-gallery';
 import { HIT_LABEL, type ContentHit } from './moodboard-screen-findings';
+import { libraryPhotoParts, type PhotoPartGroup } from './inspiration-slots';
+import {
+  inspirationPart,
+  partCategories,
+  type InspirationPartsSnapshot,
+} from './inspiration-parts';
 
 /* ══════════════════════════════════════════════════════════════════════════
    1 · THE RIGHTS WARRANTY
@@ -80,65 +81,33 @@ export {
    2 · WHICH SLOT, AND MAY THIS SHOP FILL IT
    ══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * The vendor-facing name of each gallery slot. A `Record` over the FULL slot
- * union (not the derived gallery keys), so a slot added to
- * lib/moodboard-slots.ts is a compile error here until somebody names it or
- * says it has no supplier shelf — the same mechanism MB10 uses for the trade
- * map itself.
- *
- * ⚠ The couple sees its own wording in `inspiration-board.tsx`'s GROUPS. These
- * are the supplier's side of the same shelf and are deliberately phrased for
- * somebody uploading their work ("Bridal gown", not "Bride").
+/*
+ * 🧩 THE NAMES COME FROM THE PARTS SNAPSHOT (step ② of PLAN `admin_inspiration_groups_2026-10-25`). The
+ * per-slot shelf-name map that lived here (`GALLERY_SLOT_LABEL`) is gone: a part's one name is
+ * `inspiration_parts.label_en`, read by `getInspirationParts()`, and its fallback names
+ * (`INSPIRATION_PART_FALLBACK`) are the ones this file used to print. Every function below takes the
+ * snapshot as its last argument; omitted, it is the consts the table was seeded from.
  */
-export const GALLERY_SLOT_LABEL: Readonly<
-  Record<MoodboardSlotKey, string | null>
-> = {
-  venue: 'Ceremony venue',
-  reception_venue: 'Reception venue',
-  backdrop: 'Wall design / backdrop',
-  tunnel: 'Entrance tunnel',
-  stage: 'Stage',
-  table: 'Table styling',
-  ceiling: 'Ceiling',
-  flowers: 'Flowers',
-  cocktail: 'Cocktail hour',
-  cake: 'Cake',
-  bridal_bouquet: 'Bridal bouquet',
-  centrepieces: 'Centrepieces',
-  overall: 'Overall styling',
-  bride: 'Bridal gown / hair & make-up',
-  groom: 'Groom’s attire',
-  principal_sponsor: 'Principal sponsors’ attire',
-  entourage: 'Entourage attire',
-  parents: 'Parents’ attire',
-  guests: 'Guest attire',
-  // 🔑 NULL IS THE ANSWER, NOT A GAP. `palette` has no supplying trade at all
-  // (MB10: a colour reference is nobody's portfolio), so there is no supplier
-  // shelf to name. Typed `string | null` over the FULL slot union rather than
-  // over the derived gallery keys, so a slot added to lib/moodboard-slots.ts
-  // is a COMPILE ERROR here until somebody says whether suppliers fill it.
-  palette: null,
-};
 
 export type SlotUploadVerdict =
-  | { allowed: true; slotKey: MoodboardSlotKey }
+  | { allowed: true; slotKey: string }
   | { allowed: false; reason: 'unknown_slot' | 'no_supplier_trade' | 'wrong_trade'; message: string };
 
 /**
  * MAY THIS SHOP UPLOAD INTO THIS INSPIRATION SLOT?
  *
  * The shop's own `vendor_profiles.services[]` (canonical service keys) must
- * intersect the slot's supplying trades. `palette` has no supplying trade at
+ * intersect the part's supplying categories (home + also). `palette` has no supplying trade at
  * all — a colour reference is nobody's portfolio — and is refused for every
  * shop rather than quietly accepted into a shelf couples never browse.
  */
 export function slotUploadVerdict(
   slotKey: string,
   vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
 ): SlotUploadVerdict {
-  if (!(GALLERY_SLOT_KEYS as readonly string[]).includes(slotKey)) {
-    if (!slotHasSupplierTrade(slotKey)) {
+  if (partCategories(inspirationPart(parts, slotKey)).length === 0) {
+    if (!slotHasSupplierTrade(slotKey, parts)) {
       return {
         allowed: false,
         reason: 'no_supplier_trade',
@@ -153,28 +122,98 @@ export function slotUploadVerdict(
     };
   }
 
-  const wanted = new Set(canonicalServicesForSlot(slotKey));
+  const wanted = new Set(canonicalServicesForSlot(slotKey, parts));
   const owned = (vendorServices ?? []).filter((s) => wanted.has(s));
   if (owned.length === 0) {
-    const label = GALLERY_SLOT_LABEL[slotKey as MoodboardSlotKey] ?? 'that shelf';
+    const label = libraryPartLabel(slotKey, parts) ?? 'that shelf';
     return {
       allowed: false,
       reason: 'wrong_trade',
       message: `Your shop’s services don’t cover ${label}. Add that service under Coverage first, then upload here.`,
     };
   }
-  return { allowed: true, slotKey: slotKey as MoodboardSlotKey };
+  return { allowed: true, slotKey };
 }
 
-/** Every slot this shop may upload into, in board order — drives the picker. */
+/**
+ * Does this shop's own services[] supply ANY supplier shelf of the parts snapshot? (Palette-style parts with no
+ * supplying trade are not shelves and never count.)
+ */
+export function shopSuppliesAnyShelf(
+  vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+): boolean {
+  const owned = new Set(vendorServices ?? []);
+  if (owned.size === 0) return false;
+  const keys = new Set<string>([...libraryPhotoParts(parts).map((p) => p.key), ...parts.parts.map((p) => p.slotKey)]);
+  for (const key of keys) {
+    if (canonicalServicesForSlot(key, parts).some((s) => owned.has(s))) return true;
+  }
+  return false;
+}
+
+/**
+ * 🖼 THE INSPIRATION BOX IS OPEN TO EVERY TRADE (owner 2026-11-02, the supplier gate: "creating services, service
+ * cards and inspiration box"; audit G5). MAY THIS SHOP FILE A PHOTO IN ITS OWN INSPIRATION LIBRARY UNDER THIS SHELF?
+ *
+ * The trade rule (`slotUploadVerdict`) stands for every shop whose services supply a shelf — a gown designer still
+ * files under the bride, not under the cake. But a shop whose trade supplies NO shelf yet (the parts for every service
+ * are still for approval, DECISION_LOG 2026-10-28) was refused the whole box, so a supplier who joined for the gate
+ * could not do one of its five things. Such a shop may file under ANY supplier shelf until its trade has one. Every
+ * photo is still screened and approved before a couple sees it, the rights tick is still required, and a shelf with
+ * no supplying trade (the palette) stays refused for everyone.
+ *
+ * ⚠ For the LIBRARY only (`uploadableSlotsForShop`, the upload and the import in `moodboard-library/actions.ts`). A
+ * couple's inspiration SUGGESTION is still routed by `slotUploadVerdict`, the rule its SQL mirror keeps.
+ */
+export function libraryUploadVerdict(
+  slotKey: string,
+  vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+): SlotUploadVerdict {
+  const verdict = slotUploadVerdict(slotKey, vendorServices, parts);
+  if (verdict.allowed || verdict.reason !== 'wrong_trade') return verdict;
+  if (shopSuppliesAnyShelf(vendorServices, parts)) return verdict;
+  return { allowed: true, slotKey };
+}
+
+/**
+ * 🌱🖼 THE NAME A SUPPLIER READS FOR A SLOT — the part's one name in the snapshot. One name per slot
+ * everywhere the supplier meets it: the dropdown, the "your services don't cover …" refusal and the
+ * per-category allowance line.
+ */
+export function libraryPartLabel(
+  slotKey: string,
+  parts: InspirationPartsSnapshot,
+): string | null {
+  return inspirationPart(parts, slotKey)?.label ?? null;
+}
+
+/**
+ * Every slot this shop may upload into — drives the picker.
+ *
+ * 🌱🖼 IN THE COUPLE'S ORDER, BY THE PARTS' NAMES (owner 2026-10-19, "SUPPLIERS FILL THE INSPIRATION LIBRARY
+ * WITHOUT AN EVENT"): Venue & decor → the room's parts → the flowers → Cake → the Attire boards, exactly as
+ * `libraryPhotoParts` lists them (the same list the couple's Studio upload bar reads), then every other part
+ * of the snapshot in its order ("More boards" — until step ④ heads every run by its home category). Which of
+ * them THIS shop is offered is the part's categories (`slotUploadVerdict`) — the list decides the order and
+ * the words, never the access. A part HIDDEN from couples stays a supplier shelf.
+ */
 export function uploadableSlotsForShop(
   vendorServices: readonly string[] | null | undefined,
-): Array<{ key: MoodboardSlotKey; label: string }> {
-  const out: Array<{ key: MoodboardSlotKey; label: string }> = [];
-  for (const k of GALLERY_SLOT_KEYS) {
-    const label = GALLERY_SLOT_LABEL[k];
-    if (!label) continue;
-    if (slotUploadVerdict(k, vendorServices).allowed) out.push({ key: k, label });
+  parts: InspirationPartsSnapshot,
+): Array<{ key: string; label: string; group: PhotoPartGroup }> {
+  const out: Array<{ key: string; label: string; group: PhotoPartGroup }> = [];
+  const seen = new Set<string>();
+  for (const part of libraryPhotoParts(parts)) {
+    if (seen.has(part.key)) continue;
+    seen.add(part.key);
+    if (libraryUploadVerdict(part.key, vendorServices, parts).allowed) out.push({ key: part.key, label: part.label, group: part.group });
+  }
+  for (const part of parts.parts) {
+    if (seen.has(part.slotKey)) continue;
+    seen.add(part.slotKey);
+    if (libraryUploadVerdict(part.slotKey, vendorServices, parts).allowed) out.push({ key: part.slotKey, label: part.label, group: 'more' });
   }
   return out;
 }
@@ -250,7 +289,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message: `You can add ${input.categoryLabel} photos from celebrations you were booked on, but not from your back catalogue. Those never count against any category.`,
+      message: `You can add ${input.categoryLabel} photos from events you were booked on, but not from your back catalogue. Those never count against any category.`,
     };
   }
   if (used >= cap) {
@@ -258,7 +297,7 @@ export function backCatalogueQuotaVerdict(input: {
       allowed: false,
       cap,
       used,
-      message: `You’ve used all ${cap} ${input.categoryLabel} photo${cap === 1 ? '' : 's'}. Retire one, or add photos from a celebration you were booked on — those never count.`,
+      message: `You’ve used all ${cap} ${input.categoryLabel} photo${cap === 1 ? '' : 's'}. Retire one, or add photos from an event you were booked on — those never count.`,
     };
   }
   return { allowed: true, cap, used, message: '' };

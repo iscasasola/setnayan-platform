@@ -36,13 +36,13 @@ export const VENDOR_DEEP_SEARCH_SKU_CODE = 'vendor_deep_search';
 export const VENDOR_DEEP_SEARCH_PERIOD_DAYS = 28;
 
 /**
- * Fallback ₱500 / search price. The live catalog value wins; this is the
+ * Fallback per-search price (the Pro/Ultra row's, 2026-11-04). The live catalog value wins; this is the
  * last-resort figure used only when the `vendor_deep_search` row is missing or
  * unreadable (e.g. the seeding migration hasn't been applied, or a CI build with
  * no service-role key). Never hardcode this in UI copy — read via
  * {@link fetchVendorDeepSearchPricePhp}.
  */
-export const VENDOR_DEEP_SEARCH_FALLBACK_PHP = 500;
+export const VENDOR_DEEP_SEARCH_FALLBACK_PHP = 499;
 
 /** A positive finite price, or the fallback when the catalog value is missing/invalid. */
 function coercePrice(value: number | null | undefined, fallback: number): number {
@@ -99,7 +99,7 @@ export function deepSearchEligibility(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const DEEP_SEARCH_DENY_MESSAGE: Record<DeepSearchDenyReason, string> = {
   tier_too_low:
-    'Running a Deep Search is part of the paid plans (Solo, Pro, Enterprise). Pick one on the Plans page to run it.',
+    'Running a Deep Search is part of the paid plans (Solo, Pro, Ultra). Pick one on the Plans page to run it.',
   unverified: 'Get your shop verified first — Deep Search unlocks once you’re verified.',
 };
 

@@ -361,6 +361,39 @@ export function eventMediaPolicy(eventId: string): ClientRefPolicy {
   return { prefixes: [`events/${eventId}/`] };
 }
 
+/**
+ * A wish's photo on the E-Gifts wish list (owner 2026-10-08). PUBLIC on purpose:
+ * it is a picture of a thing the couple would love, drawn on the guest's gift
+ * page — never a payment detail. Its own folder under the event, so a ref posted
+ * for a wish can name nothing else of the event's (not the hero, not a QR).
+ */
+export function wishPhotoPolicy(eventId: string): ClientRefPolicy {
+  return { prefixes: [`events/${eventId}/wish-list/`] };
+}
+
+/**
+ * A guest's SCREENSHOT of what they sent (E-Gifts › a gift record, owner
+ * 2026-10-08: "they also give screenshot of their payment"). PRIVATE, under its
+ * own ROOT prefix — the same class as a payment receipt: a picture of the
+ * guest's own GCash, Maya or bank confirmation, with their name and account on
+ * it. Only the couple may ever be shown it; there is no public URL.
+ *
+ * Two policies, one folder shape (`gift-shots/<event>/<guest>/…`):
+ *   · `giftShotPolicy`      — what ONE guest may name when they record a gift:
+ *                             their own folder, and nothing of another guest's;
+ *   · `giftShotEventPolicy` — the whole event's folder, for the host's read and
+ *                             for the sweep that deletes them with the event.
+ * The key is minted by the server from the guest's session (`/api/guest-selfie`,
+ * purpose `gift-shot`) — the browser never chooses the path.
+ */
+export function giftShotPolicy(eventId: string, guestId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`gift-shots/${eventId}/${guestId}/`] };
+}
+
+export function giftShotEventPolicy(eventId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`gift-shots/${eventId}/`] };
+}
+
 /** Pabuya / e-gift QR images the couple uploads for their guests. */
 /**
  * Where a NEW Pabuya gift QR may be written: the private bucket, under its own
@@ -393,6 +426,16 @@ export function pabuyaQrPolicy(eventId: string): ClientRefPolicy {
   };
 }
 
+
+/**
+ * 📸 A couple's photo approved onto a supplier's service card, NON-public copy (owner 2026-10-30, #7089) — the
+ * server makes it at Approve as `couple-looks/<share_id>/<attempt>.<ext>` in the private thread-files bucket; the
+ * key is written only by SECURITY DEFINER doors and CHECK-pinned to the share's own id. Scoped to ONE share's
+ * folder, so a signed URL can never be minted for another share's copy.
+ */
+export function couplePhotoLookPolicy(shareId: string): ClientRefPolicy {
+  return { bucket: 'setnayan-thread-files', prefixes: [`couple-looks/${shareId}/`] };
+}
 
 /** Seating walkthrough zone videos. */
 export function walkthroughVideoPolicy(eventId: string, zoneId: string): ClientRefPolicy {
@@ -534,7 +577,10 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // `pabuya-qr` added 2026-09-17 — the couple's gift QR moved out of the public
   // bucket. Its own ROOT rather than `events/…` so bucketForPrefix can carry a
   // defence-in-depth rule for it (see pabuyaQrPolicy).
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr'])],
+  // `chat` added 2026-10-28 (CHAT FILES) — a video up to 50 MB cannot ride the
+  // send action, so the phone presigns `chat/<thread>/<own uid>` here; the route
+  // checks thread membership AND that the folder is the caller's own.
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr', 'chat'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.

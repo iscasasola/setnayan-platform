@@ -731,11 +731,18 @@ test('THE HEAT USES THE FROZEN SEATING AS ITS ONLY SOURCE — no live fallback',
         elseArm.indexOf('if (tableByGuest.size === 0)'),
     'the live seat read is no longer confined to the un-frozen branch.',
   );
-  // And one freeze read feeds both the lens and the heat.
+  // And one freeze read feeds both the lens and the heat. RE-AIMED 2026-10-23 (`rd/post-event-reads-together`): the
+  // read may be STARTED with the spine's other event-only reads (`ahead.roomFreeze`) and awaited here — still ONE
+  // read, held to exactly one `loadRoomFreeze(` call in the loader for it.
   assert.match(
     src,
-    /const freeze = await loadRoomFreeze\([\s\S]{0,200}?frozenSeats: freeze\.seats/,
+    /const freeze = await (?:loadRoomFreeze\(|ahead\.roomFreeze;)[\s\S]{0,200}?frozenSeats: freeze\.seats/,
     'the room and the seating no longer come from ONE read of the frozen ' +
       'document — the plan and the attribution can now be from two moments.',
   );
+  if (/const freeze = await ahead\.roomFreeze;/.test(src)) {
+    assert.match(src, /\broomFreeze:\s*early\(\(\)\s*=>\s*loadRoomFreeze\(admin, args\.eventId\)\)/, 'ahead.roomFreeze is not the one freeze read');
+    const loader = src.slice(src.indexOf('export async function loadStorySpineFacts'), src.indexOf('export async function loadStoryRoom'));
+    assert.equal((loader.match(/loadRoomFreeze\(/g) ?? []).length, 1, 'the spine reads the freeze more than once — two moments again');
+  }
 });

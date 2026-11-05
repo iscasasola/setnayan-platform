@@ -22,7 +22,7 @@ export function AnnouncementNotice({ body, stage }: Props) {
   return (
     <aside role="status" aria-live="polite" className="mx-auto mt-4 w-full max-w-3xl px-4" data-scene-style="notice">
       <div className={`border-l-4 px-4 py-4 ${live ? 'border-terracotta bg-ink text-cream' : 'border-ink/30 bg-paper-deep text-ink'}`}>
-        <p className={`font-sans text-xs font-bold uppercase tracking-[0.14em] ${live ? 'text-cream/80' : 'text-ink/60'}`}>
+        <p className={`font-sans text-xs font-bold uppercase tracking-[0.14em] ${live ? 'text-cream/80' : 'text-ink/70'}`}>
           {live ? 'From the coordinator' : 'Announcement'}
         </p>
         <p className="mt-2 whitespace-pre-line font-pahina text-2xl font-light leading-snug">{lead}</p>
@@ -38,7 +38,7 @@ export function AnnouncementLine({ body, stage }: Props) {
   return (
     <aside role="status" aria-live="polite" className="mx-auto mt-2 w-full max-w-3xl px-4" data-scene-style="line">
       <p className={`flex items-start gap-2 border-b py-2 text-[15px] leading-snug ${live ? 'border-terracotta/40 text-ink' : 'border-ink/12 text-ink/80'}`}>
-        <Megaphone aria-hidden className={`mt-0.5 h-4 w-4 shrink-0 ${live ? 'text-terracotta-700' : 'text-ink/60'}`} strokeWidth={1.75} />
+        <Megaphone aria-hidden className={`mt-0.5 h-4 w-4 shrink-0 ${live ? 'text-terracotta-700' : 'text-ink/70'}`} strokeWidth={1.75} />
         <span className="sr-only">{live ? 'From the coordinator: ' : 'Announcement: '}</span>
         <span className="min-w-0 whitespace-pre-line">{body}</span>
       </p>

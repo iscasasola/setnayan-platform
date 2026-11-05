@@ -33,7 +33,7 @@ import { formatCount } from '@/lib/format-number';
 const say = (words: PeWords, part: keyof PeWords, fallback: string): string => words[part] ?? fallback;
 const EYEBROW = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700';
 const EYEBROW_ON_DARK = 'pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-cream/90';
-const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/60';
+const MICRO = 'font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70';
 const H2 = 'mt-1.5 font-serif text-[2rem] leading-[1.02] text-ink';
 const fmt = (n: number) => n.toLocaleString('en-PH');
 
@@ -150,7 +150,7 @@ export function PhotoNotesScene({
                 </span>
               ) : null}
               <blockquote className="m-0 px-1.5 pt-3.5 text-[1.05rem] leading-snug text-ink">{q.body}</blockquote>
-              <figcaption className="flex items-baseline justify-between px-1.5 pt-2.5 text-xs text-ink/60">
+              <figcaption className="flex items-baseline justify-between px-1.5 pt-2.5 text-xs text-ink/70">
                 {q.author ? <span className="font-script text-[1.35rem] text-terracotta-700">{q.author}</span> : <span />}
                 {at ? <span>{at}</span> : null}
               </figcaption>
@@ -228,7 +228,7 @@ export function MessagesScene({
                 &ldquo;
               </span>
               <blockquote className={`m-0 font-serif leading-[1.15] text-ink ${i === 0 ? 'text-[2rem]' : 'text-2xl'}`}>{cut(c.body)}</blockquote>
-              {c.author ? <figcaption className="mt-2 text-sm text-ink/60">{byline(c)}</figcaption> : null}
+              {c.author ? <figcaption className="mt-2 text-sm text-ink/70">{byline(c)}</figcaption> : null}
             </figure>
           ))}
         </div>
@@ -259,7 +259,7 @@ export function MessagesScene({
             {c.author ? (
               <>
                 <span className="mt-5 block font-script text-[2rem] leading-none text-terracotta-700">{c.author}</span>
-                {roleLabel(c.role, names) ? <span className="block text-sm text-ink/60">{roleLabel(c.role, names)}</span> : null}
+                {roleLabel(c.role, names) ? <span className="block text-sm text-ink/70">{roleLabel(c.role, names)}</span> : null}
               </>
             ) : null}
           </article>
@@ -301,7 +301,7 @@ export function ChallengeScene({
           return (
             <section key={prompt} className="flex min-h-[60svh] flex-col py-4">
               <h3 className="m-0 font-serif text-[1.9rem] leading-[1.05] text-ink">&ldquo;{prompt}&rdquo;</h3>
-              <span className="mt-2 block text-sm text-ink/60">
+              <span className="mt-2 block text-sm text-ink/70">
                 {fmt(list.length)} photo {list.length === 1 ? 'answer' : 'answers'}
                 {times.length > 1 ? ` · ${times[0]} – ${times[times.length - 1]}` : ''}
               </span>
@@ -342,7 +342,7 @@ export function ChallengeScene({
                 <span className="relative col-span-2 block h-1.5 overflow-hidden rounded-full bg-ink/10">
                   <span className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-terracotta/60 to-terracotta" style={{ width: `${pct}%` }} />
                 </span>
-                <span className="col-span-2 text-xs text-ink/60">
+                <span className="col-span-2 text-xs text-ink/70">
                   {fmt(list.length)} of {fmt(answers.length)} answers
                 </span>
               </div>

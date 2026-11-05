@@ -127,14 +127,20 @@ test('media is REFERENCED, never moved, copied or deleted', () => {
 
 test('the maker can only INSERT — the original cannot be edited through it', () => {
   const canvas = code(CANVAS);
-  // No service id on the wire ⇒ `commitVendorService` has nothing to update.
-  // This is what makes "the copy is a new card" true by construction rather
-  // than by anybody remembering it.
-  assert.doesNotMatch(
+  // A COPY carries no service id ⇒ `commitVendorService` has nothing to update. Since 2026-10-14 the same maker is
+  // also the edit sheet of an EXISTING card, so the id posts — but ONLY from the `editing` prop, which the copy door
+  // never passes: the id input is drawn under `editing ?` and its value is `editing.serviceId`, never `initial`'s.
+  const ids = [...canvas.matchAll(/name="vendor_service_id"/g)].length;
+  assert.ok(ids >= 1, 'the edit sheet stopped posting its card id');
+  assert.match(
     canvas,
-    /name="vendor_service_id"/,
-    'the maker must never post a service id, or a copy could overwrite its source',
+    /\{editing \? <input type="hidden" name="vendor_service_id" value=\{editing\.serviceId\} \/> : null\}/,
+    'the card id posts from somewhere other than the edit sheet’s own prop — a copy could overwrite its source',
   );
+  assert.ok(!/value=\{initial[^}]*sourceServiceId\}/.test(canvas), 'a copy’s source id reached the form');
+  // …and the copy door never passes `editing`.
+  const page = code(PAGE);
+  assert.ok(!/editing=/.test(page), 'the [category] door (copy · claim) started passing an editing card');
 });
 
 test('the copy SAYS what happened to the ★ options, whichever way it went', () => {

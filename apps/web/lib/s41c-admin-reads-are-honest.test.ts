@@ -187,16 +187,22 @@ test('auto-recap logs the patiktok_render_jobs read it used to discard, without 
 });
 
 test('brand-settings and loader-settings log their platform_settings refusal without changing the built-in fallback', () => {
+  /* Re-aimed 2026-10-15 (stability sweep): the refusal is still LOGGED and the built-in fallback is still
+     what the page gets — but the fallback is now returned OUTSIDE `unstable_cache`, for that request only.
+     Returned inside it, the data cache remembered the defaults for an hour
+     (`a-failed-settings-read-is-never-remembered.test.ts`). */
   const brand = src('lib/brand-settings.ts');
   assert.match(
     brand,
-    /\.from\('platform_settings'\)[\s\S]{0,200}?if \(error\) \{\s*logQueryError\('brand-settings: platform_settings', error\);\s*return FALLBACK;/,
+    /\.from\('platform_settings'\)[\s\S]{0,200}?if \(error\) \{\s*logQueryError\('brand-settings: platform_settings', error\);\s*throw new Error\(/,
   );
+  assert.match(brand, /export const getBrandSettings = cache\(async \(\): Promise<BrandSettings> => \{\s*try \{\s*return await loadBrandSettings\(\);\s*\} catch \{\s*return FALLBACK;/);
   const loader = src('lib/loader-settings.ts');
   assert.match(
     loader,
-    /\.from\('platform_settings'\)[\s\S]{0,200}?if \(error\) \{\s*logQueryError\('loader-settings: platform_settings', error\);\s*return DEFAULT_LOADER_CONFIG;/,
+    /\.from\('platform_settings'\)[\s\S]{0,200}?if \(error\) \{\s*logQueryError\('loader-settings: platform_settings', error\);\s*throw new Error\(/,
   );
+  assert.match(loader, /export const getLoaderSettings = cache\(async \(\): Promise<LoaderConfig> => \{\s*try \{\s*return await loadLoaderSettings\(\);\s*\} catch \{\s*return DEFAULT_LOADER_CONFIG;/);
 });
 
 test('every daily-email-jobs.ts lock-insert logs an UNEXPECTED failure but stays silent on the expected 23505 (already sent)', () => {

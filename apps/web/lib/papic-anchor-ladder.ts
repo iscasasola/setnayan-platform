@@ -1,5 +1,9 @@
 /**
- * THE PAPIC LADDER AS FIVE NUMBERS INSTEAD OF SIXTEEN — pure, no I/O.
+ * THE PAPIC LADDER — pure, no I/O.
+ *
+ * ⚖ SUPERSEDED 2026-10-28 (owner: *"No use the price agreed and what i inputed"*): EVERY priced rung is now an anchor,
+ * so a Save writes exactly the seventeen prices the owner typed and nothing computes. The history below is why the
+ * engine exists; the anchor set (`PAPIC_ANCHOR_SHOTS`) is what is in force.
  *
  * ⚖ OWNER RULING 2026-08-28: he sets FIVE prices; ELEVEN compute from them.
  *
@@ -34,39 +38,21 @@
  * source of truth this codebase keeps paying for.
  */
 
-/** The credit counts of the five rungs the owner types a price into. */
+/** The credit counts of the rungs the owner types a price into — every priced rung since 2026-10-28. */
 export const PAPIC_ANCHOR_SHOTS: readonly number[] = [
-  // ⚖ 100,000 IS AN ANCHOR, NOT A COMPUTED RUNG (owner 2026-08-29: *"place an
-  //   editable row like 50,000 and make the value 24000 php"*). Computed, it
-  //   would have inherited the 50,000 rate and landed at exactly two lots of
-  //   50,000 — the same reason he removed 40,000. An anchor is the only shape
-  //   that lets it be worth buying.
-  100, 3_000, 10_000, 20_000, 50_000, 100_000,
+  // ⚖ PAPIC IS THREE PACKS (owner 2026-11-03, DECISION_LOG): 150 · 1,000 · 3,000, each typed. Was seventeen rungs,
+  //   100 → 100,000, all typed since 2026-10-28 ("No use the price agreed and what i inputed").
+  150, 1_000, 3_000,
 ] as const;
 
 /** `[shots, pesos]` — the anchor prices as they stand today (the seed, not a rule). */
 export const PAPIC_ANCHORS_DEFAULT: readonly (readonly [number, number])[] = [
-  // ⚠ THESE ARE PRODUCTION'S ANCHOR PRICES, RE-READ 2026-08-29, and they had
-  // drifted badly from what used to be here. The admin pricing screen writes
-  // STRAIGHT to the catalog, so prod was repriced with no migration behind it
-  // while this seed still described the 2026-08-26 ladder (100 → ₱50,
-  // 50,000 → ₱11,200). Harmless while nothing new was added; the moment a
-  // 100,000 rung arrived, "₱24,000" was correct against prod's ₱0.30 a credit
-  // and a RISE against the stale seed's ₱0.224 — a right price that the
-  // never-rises guard would have refused.
-  //
-  // Migration 20271182141904 un-drifts the catalog seed and this list follows
-  // it, so the anchors reproduce the ladder that is actually charged. The
-  // catalog stays the source of truth; this is a fallback, never a price.
-  [100, 70],
-  [3_000, 1_680],
-  [10_000, 4_500],
-  [20_000, 7_200],
-  [50_000, 15_000],
-  // ⚖ Owner 2026-08-29: *"place an editable row like 50,000 and make the value
-  // 24000 php."* ₱0.24 a credit — a real saving on 50,000's ₱0.30, where a
-  // COMPUTED rung would have inherited ₱0.30 and cost exactly two 50,000s.
-  [100_000, 24_000],
+  // ⚠ The seed, never a price: the catalogue (`platform_retail_catalog_v2`) is the source of truth. These are the
+  //   owner's 2026-11-04 final price sheet (migration `*_the_final_price_sheet.sql`; was ₱90 / ₱490 / ₱990 from
+  //   `*_papic_is_three_packs_and_no_signup_price.sql`).
+  [150, 99],
+  [1_000, 499],
+  [3_000, 999],
 ] as const;
 
 /** True when this rung is one the owner types into rather than one that computes. */

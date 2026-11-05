@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -13,6 +12,8 @@ import { CameraBridgePanel } from './_components/camera-bridge-panel';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { CAMERA_BRIDGE_SHOWN_ON_CAMERA } from '@/lib/hidden-guest-extras';
+import { papicCameraChapter } from '@/lib/papic-chapter.server';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -37,8 +38,11 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { bridge, papic_buy_error: buyError, papic_release: released } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
+  // 🙈 AND HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now"): the constant is asked FIRST, so neither
+  // ?bridge=demo nor the env flag draws it. Bring-back steps: lib/hidden-guest-extras.ts.
   const bridgeEnabled =
-    bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED);
+    CAMERA_BRIDGE_SHOWN_ON_CAMERA &&
+    (bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED));
 
   const supabase = await createClient();
   const {
@@ -72,9 +76,6 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         title="This seat was reissued."
         sub="The host handed this seat to someone else. Ask them for a fresh claim link if you'd still like to shoot."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }
@@ -104,7 +105,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         .is('superseded_at', null),
       admin
         .from('events')
-        .select('papic_style, papic_face_mode, event_type')
+        .select('papic_style, papic_face_mode, event_type, slug')
         .eq('event_id', seat.event_id as string)
         .maybeSingle(),
     ]);
@@ -148,6 +149,15 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // credential — this is only an offer.
   const canReloadOwnCamera = papicGuestBuyEnabled();
 
+  // 📷 THE CHAPTER THIS CAMERA SHOOTS INTO (owner 2026-11-01): the event's chapter now, only when this claimer may
+  // shoot into it (the database's own refusal — its window and its photo rule). Null = the whole event, as before.
+  const { data: seatGuest } = await admin.from('paparazzi_seats').select('guest_id').eq('seat_id', seat.seat_id as string).maybeSingle();
+  const chapter = await papicCameraChapter(admin, {
+    eventId: seat.event_id as string,
+    guestId: ((seatGuest as { guest_id?: string | null } | null)?.guest_id as string | null) ?? null,
+    userId: user.id,
+  });
+
   return (
     <>
       <PapicSeatCapture
@@ -162,9 +172,12 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         eventStyle={eventStyle}
         faceMode={faceMode}
         geoEnabled={geoEnabled}
+        // ✕ back to this event's Event Hub (owner 31 Oct) — the event's own slug, re-checked as a slug.
+        exitSlug={hubSlugOf((styleRow as { slug?: string | null } | null)?.slug)}
         // The buy panel below is withheld in the store shell, so the camera
         // must not point the guest at it ("add more shots below").
         buyOffered={canReloadOwnCamera && !storeShell}
+        chapter={chapter}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel
@@ -188,4 +201,9 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
       )}
     </>
   );
+}
+
+/** The event's own slug as a one-segment internal path, or null — never a URL. */
+function hubSlugOf(slug: string | null | undefined): string | null {
+  return typeof slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(slug) ? slug : null;
 }

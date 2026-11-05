@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState, useId } from 'react';
 import { ShieldAlert, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { initiateFraudWipeBan } from '../actions';
 
@@ -54,12 +55,10 @@ export function WipeBanDialog({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 focus:outline-none"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) close();
-          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 focus:outline-none"
         >
-          <div className="m-card w-full max-w-lg overflow-hidden p-0">
+          <OverlayBackdrop onClose={close} />
+          <div className="m-card relative w-full max-w-lg overflow-hidden p-0">
             <div className="flex items-start justify-between gap-3 border-b border-ink/10 bg-terracotta-50/50 px-5 py-4">
               <div className="flex items-start gap-2">
                 <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-terracotta-700" aria-hidden="true" />

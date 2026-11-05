@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * "Close out the day" — the event-level clearance that flips the lifecycle phase
@@ -17,6 +18,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  * actions use).
  */
 export async function closeOutTheDay(eventId: string): Promise<void> {
+  await refuseLimitedHelper(eventId, null);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();

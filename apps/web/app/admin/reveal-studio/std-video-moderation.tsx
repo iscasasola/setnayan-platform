@@ -124,7 +124,7 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
         <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-[var(--m-slate,#4f535b)]">
           The automatic screen only ever looks at a video&rsquo;s still frame, so it can block a
           video but never publish one. Watch each clip below and approve it to make it live, or
-          reject to keep the couple&rsquo;s photo gallery instead.
+          reject to keep the couple&rsquo;s photos instead.
         </p>
       </div>
 

@@ -179,9 +179,11 @@ test('the persistent chip reads as chrome, not as a competing call to action', (
 test('the persistent chip and the transient hold-hint do not share a row', () => {
   const src = code();
   // Both were `bottom-16`. Stacked, a fading cue would sit on top of a real
-  // control for the first seconds of every film.
-  const chipRow = /inset-x-0 bottom-16 z-20 flex justify-center px-4/.test(src);
-  const hintRow = /inset-x-0 bottom-28 z-20 flex justify-center transition-opacity/.test(src);
+  // control for the first seconds of every film. (Both rose one step on
+  // 2026-10-19, C7, when the way-out moved to the centre line under the chip —
+  // `the-film-chrome-stacks.test.ts` holds the three rows apart by their heights.)
+  const chipRow = /inset-x-0 bottom-\[6rem\] z-20 flex justify-center px-4/.test(src);
+  const hintRow = /inset-x-0 bottom-36 z-20 flex justify-center transition-opacity/.test(src);
   assert.ok(chipRow, 'the persistent chip left its row');
   assert.ok(
     hintRow,

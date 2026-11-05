@@ -23,16 +23,16 @@ import {
 test('the catalog price wins; the fallback is the owner’s number', () => {
   assert.equal(resolveVendorPhotoChallengePricePhp(2500), 2500);
   assert.equal(resolveVendorPhotoChallengePricePhp(3000), 3000, 'an admin edit wins');
-  assert.equal(VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP, 2500);
+  assert.equal(VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP, 1490); // owner 2026-11-04, final price sheet
 });
 
-test('an unreadable catalog falls back to 2,500 — never to the retired ₱400', () => {
+test('an unreadable catalog falls back to 1,490 — never to a retired price', () => {
   // A fallback that lags the owner's price is how an unreadable catalog quietly
   // sells a 28-day subscription for the old per-event fee.
   for (const bad of [null, undefined, 0, -1, Number.NaN]) {
     assert.equal(
       resolveVendorPhotoChallengePricePhp(bad as number | null),
-      2500,
+      1490,
       `a ${String(bad)} catalog price must fall back to the owner's figure`,
     );
   }
@@ -253,10 +253,10 @@ test('every deny reason has copy, and none of it quotes a price', () => {
   assert.equal(Object.keys(PHOTO_CHALLENGE_DENY_MESSAGE).length, reasons.length);
 });
 
-test('the not-subscribed sentence promises EVERY celebration, not this one', () => {
+test('the not-subscribed sentence promises EVERY event, not this one', () => {
   assert.match(
     PHOTO_CHALLENGE_DENY_MESSAGE.not_subscribed,
-    /every other celebration/,
+    /every other event/,
     'the whole product change is "unlimited"; the sentence has to say so',
   );
 });

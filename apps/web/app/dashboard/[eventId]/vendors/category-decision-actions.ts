@@ -18,6 +18,12 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getHostUserId, limitedHelperRefusal } from '@/lib/host-gate';
+import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
+import { ADDED_CATEGORIES_KEY, withAddedCategory } from '@/lib/explore-in-plan';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { REMOVE_BLOCKED_LOCKED } from '@/lib/explore-info-copy';
 import { categoriesForTile, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
@@ -33,6 +39,8 @@ export async function markCategoryComplete(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -60,6 +68,8 @@ export async function clearCategoryDecision(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,7 +80,10 @@ export async function clearCategoryDecision(input: {
     .from('event_category_decisions')
     .delete()
     .eq('event_id', input.eventId)
-    .eq('plan_group_id', input.planGroupId);
+    .eq('plan_group_id', input.planGroupId)
+    // Clearing a decision that is already clear is the cleared state — RLS's DELETE and SELECT doors
+    // are the same here (current_event_ids), so "matched nothing" cannot be a silent refusal.
+    .setHeader(ABSENT_IS_FINE_HEADER, '1');
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/dashboard/${input.eventId}/vendors`);
@@ -106,6 +119,8 @@ export async function excludeTileFromPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();
   const {
@@ -223,6 +238,8 @@ export async function restoreTileToPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();
   const {
@@ -276,6 +293,40 @@ export async function restoreTileToPlan(input: {
             .in('thread_id', targets);
         }
       }
+    }
+  }
+
+  // ── KEEP THE CATEGORY ON THE EVENT (owner 2026-10-08) ─────────────────────
+  // Clearing an exclusion brings back a category the couple once removed; it
+  // does nothing for one that was simply never on their event, which is most
+  // of what "＋ Add to your event" offers. So the tile is also written to the
+  // event's own `added_categories` list (`lib/explore-in-plan.ts` says why it
+  // is NOT the onboarding picks list: the checklist, the supplier brief and the
+  // onboarding auto-inquiries read that one).
+  //
+  // `authenticated` holds no UPDATE on `events.style_preferences`, so this goes
+  // through the one shared read-merge-write (admin client) — AFTER the host
+  // check that function leaves to its caller. A refused write is said, not
+  // swallowed: the category would vanish on the next load, which the couple
+  // would read as the app losing their choice.
+  const added = withAddedCategory([], input.tile);
+  if (added) {
+    if ((await getHostUserId(input.eventId)) === null) {
+      return { ok: false, error: 'Only a host of this event can add a category.' };
+    }
+    const kept = await writeStylePreferenceKey(
+      createAdminClient(),
+      input.eventId,
+      ADDED_CATEGORIES_KEY,
+      (current) => withAddedCategory(current, input.tile) ?? current,
+    );
+    if (!kept.ok) {
+      logQueryError(
+        'restoreTileToPlan.addedCategories',
+        { message: `${kept.stage}: ${kept.message}` },
+        { event_id: input.eventId, tile: input.tile },
+      );
+      return { ok: false, error: 'That category did not save. Please try again.' };
     }
   }
 

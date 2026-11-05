@@ -37,6 +37,7 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
+  papicSeatCaptureSource,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
@@ -50,6 +51,8 @@ import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { papicSeatCapturePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { captureWindowState } from '@/lib/papic-window';
 import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
+import { papicChapterCaptureDecision, readChapterId } from '@/lib/papic-chapter';
+import { linkCaptureToChapter, papicChapterRefusal } from '@/lib/papic-chapter.server';
 
 // Server-side 10-second clip cap (owner 2026-07-22 · §0 · not configurable). The
 // client enforces 10s with a recorder timer; this tolerance (10.5s) absorbs
@@ -301,6 +304,8 @@ export async function recordSeatCapture(
    *  a caller that does not know (the dashboard's add-to-library import) sends
    *  nothing and the row falls to the upload minute, exactly as before. */
   capturedAtMs?: number,
+  /** 📷 The chapter the camera showed at the shutter (owner 2026-11-01). Optional and last: no chapter = event-wide. */
+  chapterId?: string | null,
 ): Promise<RecordSeatCaptureResult> {
   // RAW-ONLY record path (Papic storage PR-1): this writes the raw clip/photo row
   // with NULL clip_web columns. The small H.264 web copy is a separate, off-drain
@@ -608,7 +613,12 @@ export async function recordSeatCapture(
       //
       // An event holding the Papic Unlock pass shoots unmetered — cost stays 0.
       if (!unlocked) {
-        meterCost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
+        // 📤 Added by hand (the Uploads camera's seat) → the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26).
+        meterCost = papicCaptureCost(
+          kind === 'clip' ? 'clip' : 'photo',
+          durationMs,
+          papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null),
+        );
       }
     }
   }
@@ -679,6 +689,32 @@ export async function recordSeatCapture(
     writer = createAdminClient();
   } catch {
     return { ok: false, error: 'unavailable' };
+  }
+
+  /*
+    📷 THE CHAPTER THE CAMERA SHOWED (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER"). Asked of the
+    database BEFORE the spend below — may THIS claimer shoot into it at THE SHUTTER (its window, its photo rule)? A seat
+    camera is open by its own window (checked above), so a "no" never refuses the shot: it lands event-wide, exactly as
+    before chapters (`papicChapterCaptureDecision` — laneOpen). A "yes" is linked once the row exists, and the link's
+    trigger asks the same question again.
+  */
+  let intoChapter: string | null = null;
+  {
+    const cleanChapter = readChapterId(chapterId);
+    if (cleanChapter) {
+      // The guest a seat camera was handed to (read here on the service role — the claimer's own read is kept to the
+      // columns it always asked for).
+      const { data: seatGuest } = await writer.from('paparazzi_seats').select('guest_id').eq('seat_id', seat.seat_id as string).maybeSingle();
+      const verdict = await papicChapterRefusal(writer, {
+        blockId: cleanChapter,
+        eventId: seat.event_id as string,
+        guestId: ((seatGuest as { guest_id?: string | null } | null)?.guest_id as string | null) ?? null,
+        userId: user.id,
+        atMs: typeof capturedAtMs === 'number' && Number.isFinite(capturedAtMs) ? Math.min(capturedAtMs, Date.now()) : Date.now(),
+      });
+      const decision = papicChapterCaptureDecision({ chapterId: cleanChapter, verdict, laneOpen: true });
+      if (decision.kind === 'into') intoChapter = decision.blockId;
+    }
   }
 
   /*
@@ -770,6 +806,10 @@ export async function recordSeatCapture(
         return { ok: false, error: 'record_failed' };
     }
     insertedPhotoId = result.photo_id ?? null;
+  }
+  if (intoChapter && insertedPhotoId) {
+    // Non-fatal: a link that fails leaves the shot event-wide (Unsorted), never unrecorded.
+    await linkCaptureToChapter(writer, intoChapter, { seatPhotoId: insertedPhotoId });
   }
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs in

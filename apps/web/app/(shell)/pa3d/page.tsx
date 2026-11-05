@@ -238,7 +238,7 @@ const VS = [
 
 export default function ThreeDPlanLandingPage() {
   return (
-    <main className="relative px-5 pb-24 pt-10 sm:pt-14">
+    <main className="relative overflow-x-clip px-5 pb-24 pt-10 sm:pt-14">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }}

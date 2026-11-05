@@ -61,10 +61,11 @@ test('a FAILED permission read fails toward showing the caveat', async () => {
 });
 
 test('the permission question is asked separately from the photo read', () => {
+  // 📍 The library moved from the Papic page to Memories (2026-10-23) — the rule moved with it.
   // Deriving it from the photo count is the bug: zero photos and zero
   // permission produce the identical response.
   const page = readFileSync(
-    join(HERE, '..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx'),
+    join(HERE, '..', 'app', 'dashboard', '[eventId]', 'memories', 'page.tsx'),
     'utf8',
   );
   assert.match(page, /viewerSeesCoupleScopedPapic\(supabase, eventId\)/);
@@ -77,7 +78,7 @@ test('the permission question is asked separately from the photo read', () => {
 
 test('the caveat copy does not claim the album is empty', () => {
   const page = readFileSync(
-    join(HERE, '..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx'),
+    join(HERE, '..', 'app', 'dashboard', '[eventId]', 'memories', 'page.tsx'),
     'utf8',
   );
   assert.match(page, /aren&rsquo;t\s*\n?\s*shared with you/, 'it must say withheld, not absent');

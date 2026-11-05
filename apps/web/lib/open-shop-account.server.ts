@@ -132,7 +132,7 @@ export async function createVendorAccountForShop(input: {
           `${appUrl}/login`,
           ``,
           `What's next:`,
-          `• Open ${appUrl}/vendor-dashboard/shop and finish your business profile — couples find you on Setnayan and message you there.`,
+          `• Open ${appUrl}/vendor-dashboard — Today shows your next step, one at a time. Couples find you on Setnayan and message you there.`,
           ``,
           `Need help? ${appUrl}/help`,
           ``,

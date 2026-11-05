@@ -33,10 +33,11 @@
  *
  *   3. ⛔ "IN DEMAND RIGHT NOW" IS NOT OFFERED HERE, DELIBERATELY. It is the one
  *      signal on the marketplace that tells a couple something about OTHER
- *      couples, and it has **no per-couple opt-out** — a couple cannot exclude
- *      their own enquiry from other people's counts. `lib/privacy-coverage.ts`
- *      records that missing opt-out as the open question for the NPC filing,
- *      which lodges January 2027. The DPO approval it has (`same_date_demand`,
+ *      couples. 🔄 A per-couple opt-out exists since 2026-10-23
+ *      (`events.same_date_count_opt_out`, DPO ruling), which answers the open
+ *      question this note used to cite — but showing the count on a PUBLIC
+ *      page is still a separate exposure from the one approved, so it stays
+ *      off here until the owner says otherwise. The DPO approval it has (`same_date_demand`,
  *      active 2026-07-30) covers the couple's own dashboard; a PUBLIC page is a
  *      different exposure than the one approved. It comes back when the filing
  *      speaks to the opt-out — not before, and not on an engineer's judgement.

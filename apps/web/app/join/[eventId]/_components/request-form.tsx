@@ -5,6 +5,7 @@ import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { REQUEST_ANSWERS, REQUEST_MAX_SEATS } from '@/lib/guest-requests';
 import { FORMAL_NAME_FIELDS, type FormalName } from '@/lib/formal-name';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
+import { RequestKeyInput } from '@/app/_components/request-key-input';
 
 /**
  * ASK TO JOIN — the request form (guest pathway prototype frame 7b, owner
@@ -48,6 +49,7 @@ export function RequestForm({
   const meals = Object.keys(MEAL_LABELS) as MealPreference[];
   return (
     <form action={action} className="space-y-6" data-join-request="">
+      <RequestKeyInput />
       {fixedParts ? (
         FORMAL_NAME_FIELDS.map((f) => <input key={f} type="hidden" name={f} value={fixedParts[f] ?? ''} />)
       ) : (

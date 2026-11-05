@@ -83,14 +83,20 @@ test('3 · the supplier gets a desk card with exactly two buttons — Move to <d
   assert.match(sections, /card\.kind === 'date_change' \? \(\s*<DateChangeBody card=\{card\} answerDateChange=\{answerDateChange\} \/>/);
   const body = sections.slice(sections.indexOf('function DateChangeBody('), sections.indexOf('function DeleteRequestBody('));
   assert.equal((body.match(/<form action=\{answerDateChange\}>/g) ?? []).length, 2, 'not exactly two answers');
-  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \{to\}/);
+  // The words ride on the shared submit's `label` since 2026-10-12 (the button rule): `label={`Move to ${to}`}`.
+  assert.match(body, /name="answer" value="moved"[\s\S]*?Move to \$?\{to\}/);
   assert.match(body, /name="answer" value="unlocked"[\s\S]*?Unlock my service/);
   // 💸 Said BEFORE the press: the deposit follows the booking's own terms.
   assert.match(body, /settled by the cancellation terms on the booking/);
   assert.doesNotMatch(body, /\bvendor\b/i, 'a supplier page says "supplier", never "vendor"');
-  // Both seams (the feed AND the closed list) carry the action — counted, not matched.
+  // The page hands the ONE action to the ONE drawing (simpler Today 2026-10-14: `SupplierTodayScreen`, which the
+  // dev lab shares), and the drawing hands it to the card AND to every row (the asks and the closed lines are one
+  // list now) — counted, not matched.
   const page = code('app/vendor-dashboard/page.tsx');
-  assert.equal((page.match(/answerDateChange=\{vendorAnswerDateChange\}/g) ?? []).length, 2);
+  assert.equal((page.match(/answerDateChange: vendorAnswerDateChange,/g) ?? []).length, 1);
+  const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.equal((screen.match(/answer: actions\.answerDateChange/g) ?? []).length, 1, 'the Next card lost the answer');
+  assert.equal((screen.match(/<WhatsNewFeed[\s\S]*?\{\.\.\.actions\}/g) ?? []).length, 1, 'the rows lost the answer');
   assert.equal((sections.match(/answerDateChange=\{answerDateChange\}/g) ?? []).length, 2);
   // The action exists, reads the answer from the form, and asks the database.
   const actions = code('app/vendor-dashboard/clients/[eventId]/actions.ts');

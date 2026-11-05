@@ -41,7 +41,10 @@ test('uploadOne re-checks maxBytes AFTER both compression steps, against the fil
   // Everything past here is real code, so it is found in the stripped `code`.
   const compressVideoCall = code.indexOf('compressVideoForWeb(file');
   const postCheck = code.indexOf('if (file.size > maxBytes) {', compressVideoCall);
-  const presignFetch = code.indexOf("fetch('/api/upload'");
+  // The network round-trip (sign, then PUT) is `lib/upload-send.ts` since 2026-10-08 — the uploader hands the file
+  // to it here, so THIS is where the bytes that were just checked leave for the network.
+  const presignFetch = code.indexOf("await import('@/lib/upload-send')");
+  assert.ok(presignFetch > -1, 'the hand-off to the upload run is gone — re-point this guard');
   assert.ok(compressVideoCall > -1, 'the video compression call must exist');
   assert.ok(postCheck > compressVideoCall, 'the post-compression size check must come after BOTH compression steps');
   assert.ok(postCheck < presignFetch, 'the check must run before the network round-trip (presign)');

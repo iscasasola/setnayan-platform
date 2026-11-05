@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { pressedSaveMethod } from '@/lib/guest-one-path';
 
 /**
  * "DIDN'T OPEN? TRY AGAIN" — the way back when the sign-in provider does not
@@ -37,7 +38,11 @@ export function stallLine(provider: string): string {
 }
 
 export function ProviderStall({ provider }: { provider: 'Apple' | 'Google' }) {
-  const { pending } = useFormStatus();
+  const { pending, data } = useFormStatus();
+  /* 🍏🤖 Two provider buttons can share this form (owner 2026-10-25, "Show both"): the line names the provider that
+     was PRESSED (`pressedSaveMethod`), and `provider` is only the fallback for a press that names none. */
+  const pressed = pressedSaveMethod(data);
+  const named = pressed === 'apple' ? 'Apple' : pressed === 'google' ? 'Google' : provider;
   const [stalled, setStalled] = useState(false);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function ProviderStall({ provider }: { provider: 'Apple' | 'Google' }) {
   if (!stalled) return null;
   return (
     <p role="status" className="text-center text-sm text-ink/70" data-provider-stall="">
-      {stallLine(provider)}{' '}
+      {stallLine(named)}{' '}
       <button
         type="button"
         onClick={() => window.location.reload()}

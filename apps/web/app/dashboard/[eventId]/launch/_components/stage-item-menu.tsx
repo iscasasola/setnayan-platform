@@ -7,7 +7,8 @@ import type { LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, type RsvpStageScene } from '@/lib/rsvp-stage';
 import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
-import { STAGE_ITEM_BUTTON, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { makerStagesPages } from '@/lib/maker-stage-filing';
+import { STAGE_ITEM_BUTTON, STAGE_PANEL_VARS, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { useOneOpen } from '@/lib/one-open';
 import { MakerSheet } from './stages-studio-parts';
 import { makerPagePick, makerStageLabel } from './maker-bar';
@@ -42,6 +43,7 @@ export function StageItemMenu({
   rsvpScreen,
   onPick,
   onRsvpScreen,
+  bar,
 }: {
   /** Every stage's pages, as the shell's Page ▾ lists them. */
   options: readonly StagePageOption[];
@@ -55,8 +57,16 @@ export function StageItemMenu({
   onPick: (key: string) => void;
   /** One of the RSVP stage's three screens picked. */
   onRsvpScreen: (screen: RsvpStageScene) => void;
+  /**
+   * 🧭 THE TOP BAR'S "Stages ▾" HALF draws this SAME list and sheet with no button of its own (owner 2026-10-08:
+   * *"Stages and Studio both has dropdown"*): the bar says when it is open, and whether the stage on screen is HERE —
+   * only on the Stages side (from Studio nothing is ticked, and a pick takes you to that stage).
+   */
+  bar?: { open: boolean; onClose: () => void; here: boolean };
 }) {
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const open = bar ? bar.open : own;
+  const setOpen = (next: false) => (bar ? bar.onClose() : setOwn(next));
   useOneOpen(open, setOpen);
 
   const pagesOf = (s: MakerStageKey): Array<{ key: string; label: string; icon: LucideIcon | null; here: boolean; note?: string; pick: () => void }> => {
@@ -72,8 +82,14 @@ export function StageItemMenu({
         },
       }));
     }
+    /* 🧭 The pages the CANVAS draws this stage as (`makerStagesPages` — the one list its groups and the tab bar
+       under the page share), so "3 pages" here is three pages there; a stage it draws as one page says "One page". */
+    const own = new Set(makerStagesPages(s).map((p) => p.key));
     return options
-      .filter((o) => stageOf(o.key) === s)
+      .filter((o) => {
+        const pk = makerPagePick(o.key);
+        return stageOf(o.key) === s && pk?.kind === 'page' && own.has(pk.page);
+      })
       .map((o) => {
         const pk = makerPagePick(o.key);
         const key = pk?.kind === 'page' ? pk.page : '';
@@ -95,24 +111,30 @@ export function StageItemMenu({
   const STAGE_ICON: Record<string, LucideIcon> = { save_the_date: CalendarDays, [RSVP_STAGE_KEY]: Reply, rsvp: FileText, event: Clock, editorial: Heart };
   return (
     <>
+      {bar ? null : (
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
         data-stage-item-menu=""
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOwn((o) => !o)}
         className={STAGE_ITEM_BUTTON}
       >
         <span className="min-w-0 truncate">{label}</span>
-        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 text-[var(--sp-gold)] transition-transform duration-[220ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
+        <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 text-sn-accent transition-transform duration-[220ms] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2.2} />
       </button>
+      )}
       {/* ▁ Portalled to <body>: the panel moves (it slides away while typing), and a moved box would hold a fixed sheet. */}
       {open && typeof document !== 'undefined' ? createPortal(
         <MakerSheet label="Stages" onClose={() => setOpen(false)}>
+          {/* From Studio the Stages panel is not drawn, and its colours go with it: the bar's list carries them itself. */}
+          {bar ? <style>{`[data-stage-menu]{${STAGE_PANEL_VARS}}`}</style> : null}
           <ul className="flex flex-col gap-0.5 pb-1" data-stage-menu="">
             {MAKER_STAGE_KEYS.map((s) => {
+              /* 🚪 A stage Page ▾ does not list (this event does not need it — `needsHidesStage`) is not listed here. */
+              if (options[0] && !options.some((o) => o.key.split(':')[0] === s)) return null;
               const pages = pagesOf(s);
-              const on = s === stage;
+              const on = s === stage && (bar?.here ?? true);
               const Icon = STAGE_ICON[s] ?? FileText;
               const first = pages.find((p) => !p.note);
               return (

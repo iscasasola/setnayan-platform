@@ -18,6 +18,10 @@ export async function register() {
     } catch {
       /* the app must start even if the recorder cannot */
     }
+    // 💸 The booking-fee minting stamp is NOT here (stability sweep 2, 2026-10-16): a network
+    // call at start-up is frozen with the instance — first "fetch failed", then, awaited, an
+    // abort on every wake. It runs after the first response instead: app/layout.tsx →
+    // lib/booking-fee-minting-stamp.server.ts.
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

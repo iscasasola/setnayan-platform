@@ -95,12 +95,14 @@ test('the take-back path refuses to report success when it changed nothing', () 
   const at = src.indexOf('export async function setDelegateArea');
   assert.ok(at > 0, 'setDelegateArea is gone — nothing sets or takes back one area');
   const fn = src.slice(at, src.indexOf('\nexport ', at + 10));
+  // 👥 Since 2026-10-18 the write is `updateJsonColumn` (a compare-and-set on the access it read), whose `written` IS
+  // the rows-it-changed proof (lib/update-json-column.ts: `.select(...)` after the update, a zero-row answer is not written).
   assert.match(
     fn,
-    /\.update\(\{ permissions_json: permissions[^}]*\}\)[\s\S]{0,200}?\.select\(/,
+    /column: 'permissions_json'[\s\S]*?\)\s*\)\.written;/,
     'the take-back no longer asks for the rows it changed — a zero-row write reads as success again',
   );
-  assert.match(fn, /length === 0[\s\S]{0,300}?ok: false/, 'a zero-row take-back no longer returns ok:false');
+  assert.match(fn, /if \(!written\) \{[\s\S]{0,300}?ok: false/, 'a zero-row take-back no longer returns ok:false');
   // The sentence a person actually reads must say the access is still shared.
   assert.match(fn, /they still have/i, 'the refusal stopped telling the host that the person still has access');
   // …under the HOST's own session (the policies this file pins), never the

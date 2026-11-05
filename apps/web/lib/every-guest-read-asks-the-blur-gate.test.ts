@@ -52,6 +52,8 @@ const GATED: Record<string, { load: number; apply: number; answersFailure: boole
  * reason, because a bare allowlist is a bill nobody re-reads.
  */
 const NOT_A_GUEST_READ: Record<string, string> = {
+  'app/dashboard/[eventId]/memories/photo-tag-actions.ts':
+    "the host's and coordinator's own tag editor (memoriesManagerRole proved first): reads photo_tags rows and guest names, never a capture's image or key",
   'lib/papic-gallery.ts':
     "the COUPLE's own studio gallery — ruling 1 keeps the couple's album unblurred",
   'lib/life-story-moment-graph.ts':
@@ -97,6 +99,7 @@ const NOT_A_GUEST_READ: Record<string, string> = {
   'app/[slug]/actions.ts':
     'WRITES tag tombstones (untag me / ask for a takedown); serves no image key',
   'lib/face-match.ts': 'writes auto-face tags; serves no image key',
+  'lib/face-rescan.ts': 'the end-of-event look-back: reads which guests a photo already carries (to skip it), serves no image key to anyone',
   'lib/guest-wall-unpost.ts':
     'answers "is this on the wall right now" — a state, never an object key',
 };

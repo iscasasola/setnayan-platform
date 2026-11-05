@@ -4,6 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchQuoteShopGifts } from '@/lib/shop-gifts.server';
+import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { markProposalViewed } from '@/lib/proposal-send';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
@@ -16,6 +18,7 @@ import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
   formatCentavos,
+  proposalPaperStatus,
   type ProposalLineItem,
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
@@ -39,6 +42,8 @@ import { proposalBackDoor } from '@/lib/proposal-back';
 import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
+import { readQuoteWhere } from '@/lib/booked-call-times.server';
+import { BookedWhere, QuoteWhereFact } from '@/app/dashboard/[eventId]/vendors/_components/booked-where';
 
 export const metadata = { title: 'Quote' };
 
@@ -247,6 +252,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         })
       : null;
 
+  /*
+    🎁 THE SHOP'S OWN GIFT on this quote (owner 2026-11-04) — Papic credits from the supplier's gift stock, promised on
+    the quote and given when the couple's first payment clears. Read after the RLS read above proved this viewer may
+    see the quote; a failed read says nothing rather than invent a gift (and the supplier's composer said it first).
+  */
+  const shopGifts =
+    !['declined', 'expired', 'superseded'].includes(proposal.status)
+      ? await fetchQuoteShopGifts(createAdminClient(), {
+          proposalId: proposal.proposal_id,
+          vendorProfileId: proposal.vendor_profile_id,
+          eventId: proposal.event_id ?? null,
+        })
+      : null;
+
   /** The gift block's two lines, from the ONE shared copy (see giftQuoteCopy). */
   const giftCopy = giftQuoteCopy(gift, isVendorSide ? 'supplier' : 'couple', { businessName });
 
@@ -357,6 +376,19 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     }
   }
 
+  const paperStatus = proposalPaperStatus(proposal.status);
+
+  /*
+    📍 WHERE, ON THE QUOTE (owner 2026-11-01: *"The can set it even on quotation"* — DECISION_LOG "MANY VENUES PER
+    EVENT; SUPPLIERS PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan: best set on the quote, since it changes
+    the price). The couple picks the chapters this supplier works, right here; the supplier who sent it reads what was
+    picked (through the admin client, as the rest of their copy of this page reads the couple's side). A shop not on the
+    couple's list for the event yet has nothing to pick on — no row is drawn.
+  */
+  const quoteWhere = proposal.event_id
+    ? await readQuoteWhere(isVendorSide ? createAdminClient() : supabase, proposal.event_id, proposal.vendor_profile_id)
+    : null;
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -404,23 +436,28 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Letterhead */}
       <header className="border-b border-ink/15 pb-4">
+        {paperStatus ? (
+          <p className="mb-3 hidden text-sm font-semibold uppercase tracking-wide text-ink print:block" data-paper-status="">
+            {paperStatus}
+          </p>
+        ) : null}
         <div className="flex items-center gap-3">
           {logoDisplayUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoDisplayUrl}
               alt=""
-              className="h-12 w-12 rounded-lg border border-ink/10 object-cover"
+              className="h-12 w-12 shrink-0 rounded-lg border border-ink/10 object-cover"
             />
           ) : null}
-          <div>
-            <p className="text-lg font-semibold">{businessName}</p>
+          <div className="min-w-0">
+            <p className="break-words text-lg font-semibold">{businessName}</p>
             {vendorProfile?.location_city ? (
               <p className="text-xs text-ink/55">{vendorProfile.location_city}</p>
             ) : null}
           </div>
         </div>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">{proposal.title}</h1>
+        <h1 className="mt-4 break-words text-2xl font-semibold tracking-tight">{proposal.title}</h1>
         <p className="mt-1 text-xs text-ink/50">
           {proposal.public_id}
           {snapshotAt ? ` · details as of ${snapshotAt}` : ''}
@@ -428,6 +465,18 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {proposal.valid_until ? ` · valid until ${fmtDate(proposal.valid_until)}` : ''}
         </p>
       </header>
+
+      {quoteWhere && quoteWhere.kind !== 'none' && proposal.event_id ? (
+        <section data-quote-where={quoteWhere.kind} aria-label="Where">
+          {quoteWhere.kind === 'unread' ? (
+            <QuoteWhereFact where={{ kind: 'unread' }} />
+          ) : isVendorSide ? (
+            <QuoteWhereFact where={quoteWhere.where} />
+          ) : (
+            <BookedWhere eventId={proposal.event_id} vendorId={quoteWhere.vendorId} where={quoteWhere.where} booked={quoteWhere.booked} />
+          )}
+        </section>
+      ) : null}
 
       {/* Body */}
       <section className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink/85">
@@ -440,13 +489,13 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {lineItems.length > 0 ? (
             <ul className="divide-y divide-ink/10">
               {lineItems.map((item, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{item.label}</p>
-                    {item.detail ? <p className="text-xs text-ink/50">{item.detail}</p> : null}
+                <li key={i} className="flex items-baseline justify-between gap-3 py-2 print:break-inside-avoid">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">{item.label}</p>
+                    {item.detail ? <p className="break-words text-xs text-ink/50">{item.detail}</p> : null}
                   </div>
                   {item.amount_centavos ? (
-                    <span className="text-sm tabular-nums text-ink/70">
+                    <span className="shrink-0 text-sm tabular-nums text-ink/70">
                       {formatCentavos(item.amount_centavos)}
                     </span>
                   ) : null}
@@ -475,6 +524,14 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               <p className="mt-0.5 text-xs text-ink/60">{giftCopy?.detail}</p>
             </div>
           ) : null}
+          {shopGifts ? (
+            <QuoteShopGiftNote
+              credits={shopGifts.credits}
+              given={shopGifts.given}
+              shopName={businessName}
+              side={isVendorSide ? 'supplier' : 'couple'}
+            />
+          ) : null}
         </section>
       ) : null}
 
@@ -484,8 +541,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">Payment schedule</h2>
           <ul className="mt-2 divide-y divide-ink/10">
             {schedule.installments.map((inst) => (
-              <li key={inst.seq} className="flex items-baseline justify-between gap-3 py-2">
-                <div>
+              <li key={inst.seq} className="flex items-baseline justify-between gap-3 py-2 print:break-inside-avoid">
+                <div className="min-w-0">
                   <p className="flex items-center gap-2 text-sm font-medium">
                     {inst.label}
                     {inst.is_downpayment ? (
@@ -526,7 +583,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">How to pay</h2>
           <ul className="mt-2 space-y-3">
             {paymentMethods.map((m) => (
-              <li key={m.payment_method_id} className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+              <li key={m.payment_method_id} className="rounded-lg border border-ink/10 bg-cream/50 p-3 print:break-inside-avoid">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">
                     {m.label}
@@ -688,7 +745,6 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
               wrapperClassName="flex w-full flex-col items-start"
-              source="quote_page"
             />
           ) : (
             <Link

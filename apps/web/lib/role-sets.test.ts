@@ -124,12 +124,35 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
   // pick either best man or best woman and maid or matron of honor." It stands
   // where the best man stands — tier 2, beside him — so it is checked against
   // HIM below rather than against the sponsors' tier-1 rule.
-  const SANCTIONED_ALTERNATIVES = [['best_woman', 'best_man']] as const;
+  // 🤵‍♂️ …and on 2026-10-19 the bride's side gained its man's word: "we give them
+  // a choice maid/matron/man of honor. so they can have male/female version like
+  // bestman and best woman". He stands where the maid and the matron stand —
+  // tier 2, offered right after the matron.
+  const SANCTIONED_ALTERNATIVES = [['best_woman', 'best_man'], ['man_of_honor', 'matron_of_honor']] as const;
+
+  // 👵 …and on 2026-10-17 the owner gave grandparents their own roles ("the 2
+  // grandparents should not be named immediate family on the wedding march
+  // list"; "Okay" to two roles the same way Parents works). Each stands beside
+  // its side's parents — offered right after them, tier 1, NOT self-claimable
+  // (the VIP-family rule) — so each is checked against its parent role.
+  const SANCTIONED_KIN = [
+    ['bride_grandparents', 'bride_parents'],
+    ['groom_grandparents', 'groom_parents'],
+  ] as const;
 
   assert.equal(
     WEDDING_ROLE_SET.offeredRoles.length,
-    24 + SANCTIONED_ADDITIONS.length + SANCTIONED_ALTERNATIVES.length - SANCTIONED_RETIREMENTS.length,
+    24 +
+      SANCTIONED_ADDITIONS.length +
+      SANCTIONED_ALTERNATIVES.length +
+      SANCTIONED_KIN.length -
+      SANCTIONED_RETIREMENTS.length,
   );
+  for (const [kin, of] of SANCTIONED_KIN) {
+    assert.ok(WEDDING_ROLE_SET.offeredRoles.includes(kin), `${kin} must be offered`);
+    assert.equal(WEDDING_ROLE_SET.selfClaimableRoles.includes(kin), WEDDING_ROLE_SET.selfClaimableRoles.includes(of));
+    assert.equal(WEDDING_ROLE_SET.tier1Roles.has(kin), WEDDING_ROLE_SET.tier1Roles.has(of));
+  }
   for (const [alt, of] of SANCTIONED_ALTERNATIVES) {
     assert.ok(WEDDING_ROLE_SET.offeredRoles.includes(alt), `${alt} must be offered`);
     assert.equal(WEDDING_ROLE_SET.selfClaimableRoles.includes(alt), WEDDING_ROLE_SET.selfClaimableRoles.includes(of));
@@ -181,6 +204,8 @@ test('WEDDING_ROLE_SET reproduces the pre-0053 wedding role data', () => {
     'groom',
     'bride_parents',
     'groom_parents',
+    'bride_grandparents',
+    'groom_grandparents',
     'bride_immediate_family',
     'groom_immediate_family',
   ]) {

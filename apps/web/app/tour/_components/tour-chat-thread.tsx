@@ -17,7 +17,7 @@
  * parent RSC.
  */
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { Send } from 'lucide-react';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 
@@ -32,7 +32,7 @@ type ScriptMsg = { role: 'couple' | 'vendor'; body: string };
 const VENDOR_SCRIPT: string[] = [
   "Hi! Thanks so much for reaching out about Maria & Jose's wedding — congratulations to the couple! 🤍 We'd love to be part of the day.",
   "Yes, December 12, 2026 is still open on our calendar. We pencil dates in lightly until there's a signed agreement, so it's a good idea to book it soon.",
-  "Our coverage usually runs the full event day — prep, ceremony, and reception. I can send our package details and sample galleries so you can see if our style fits your moodboard.",
+  "Our coverage usually runs the full event day — prep, ceremony, and reception. I can send our package details and Portfolio so you can see if our style fits your moodboard.",
   "Perfect. I'll put together a quote based on your guest count and venue, and we can hop on a quick call this week to walk through everything. Talk soon! ✨",
 ];
 
@@ -48,7 +48,18 @@ function formatTs(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+/** false while the server renders and while React hydrates, true after. The
+ *  first message's time is `new Date()` formatted in the VIEWER's zone and
+ *  locale — the server (UTC, another minute) can never print the same text, and
+ *  printing it during hydration was React error #418 on /tour/vendors (quality
+ *  sweep 2026-10-13, item 4). So the time joins the line after hydration. */
+const noSubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
+}
+
 export function TourChatThread({ counterpartyLabel }: { counterpartyLabel: string }) {
+  const hydrated = useHydrated();
   const [messages, setMessages] = useState<Array<ScriptMsg & { id: number; at: Date }>>([
     { id: 0, role: 'vendor', body: VENDOR_SCRIPT[0]!, at: new Date() },
   ]);
@@ -110,8 +121,7 @@ export function TourChatThread({ counterpartyLabel }: { counterpartyLabel: strin
                   }`}
                 >
                   {owns ? 'You' : counterpartyLabel}
-                  {' · '}
-                  {formatTs(m.at)}
+                  {hydrated ? ` · ${formatTs(m.at)}` : null}
                 </p>
               </div>
             </li>

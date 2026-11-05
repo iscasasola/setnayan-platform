@@ -148,7 +148,7 @@ export async function OwnCapturesStrip({
       <p className="mt-3 flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
         <Images aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         <span>
-          These are in the couple&rsquo;s gallery too. If they take one down, it leaves here
+          These are in the couple&rsquo;s Memories too. If they take one down, it leaves here
           as well.
         </span>
       </p>

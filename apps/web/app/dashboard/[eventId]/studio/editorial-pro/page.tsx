@@ -120,7 +120,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
           productName="Editorial PRO"
           promise="Your story, arranged the way you would arrange it — the order of the day, the moments worth naming, the wishes worth showing."
           price={pricePhp != null ? formatPhp(pricePhp) : undefined}
-          priceNote={pricePhp != null ? 'One upgrade, for this celebration' : undefined}
+          priceNote={pricePhp != null ? 'One upgrade, for this event' : undefined}
         />
       ) : (
         <PageMasthead title="Editorial PRO" />

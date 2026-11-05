@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Share } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { OpenFileLink } from '@/app/_components/open-file-link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   fetchContract,
@@ -65,15 +66,15 @@ export default async function CustomerContractDetailPage({ params }: Props) {
             <p className="text-sm font-medium text-ink">{contract.file_name}</p>
             <p className="text-xs text-ink/55">{formatFileSize(contract.file_size_bytes)} · PDF</p>
           </div>
-          <a
+          <OpenFileLink
             href={contract.file_url}
             target="_blank"
             rel="noreferrer"
             className="button-secondary inline-flex items-center justify-center gap-2 text-sm"
           >
-            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             View / download
-          </a>
+          </OpenFileLink>
         </div>
       </section>
 

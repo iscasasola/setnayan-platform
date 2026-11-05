@@ -22,13 +22,14 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveGuestSessionSecret } from '@/lib/guest-session';
+import { guestSessionVerifyMaterials, resolveGuestSessionSecret } from '@/lib/guest-session';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventSkuActive } from '@/lib/entitlements';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
+import { eventRowOnce } from '@/lib/event-row-once';
 import {
   displayCodeFrom,
   resolveWallMode,
@@ -72,15 +73,21 @@ export async function readWallDisplayCookie(): Promise<WallDisplaySession | null
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
   if (!cookie?.value) return null;
-  try {
-    const { payload } = await jwtVerify(cookie.value, getSecret());
-    if (typeof payload.session_id !== 'string' || typeof payload.event_id !== 'string') {
-      return null;
+  // Signed with the guest seal; checked against it AND, while a dedicated key is
+  // new, the legacy one — so setting GUEST_SESSION_SECRET never blanks a venue
+  // wall mid-day (lib/guest-session.ts, "SETTING THE DEDICATED KEY…").
+  for (const material of guestSessionVerifyMaterials()) {
+    try {
+      const { payload } = await jwtVerify(cookie.value, new TextEncoder().encode(material));
+      if (typeof payload.session_id !== 'string' || typeof payload.event_id !== 'string') {
+        return null;
+      }
+      return { session_id: payload.session_id, event_id: payload.event_id };
+    } catch {
+      // not this seal — try the next
     }
-    return { session_id: payload.session_id, event_id: payload.event_id };
-  } catch {
-    return null;
   }
+  return null;
 }
 
 /** A claimed screen is valid while its session row is unrevoked. */
@@ -376,11 +383,14 @@ export async function guestWallMirrorActive(
   // Supabase resolves with { error }, it does not throw — a phantom column or a
   // pre-migration schema comes back as `error`, not an exception. Treating that
   // as "no objection" is exactly how a guard ends up unable to fire.
-  const { data, error } = await client
-    .from('events')
-    .select('live_photo_wall_visibility, archived')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const { data, error } = await eventRowOnce(client, eventId, 'live_photo_wall_visibility, archived', () =>
+    client
+      .from('events')
+      .select('live_photo_wall_visibility, archived')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (error) console.error('[supabase-error] lib/live-wall.ts · from:events.select', error);
   if (error || !data) return false;
 
@@ -563,11 +573,14 @@ export async function getWallSnapshot(
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
     }),
-    admin
-      .from('events')
-      .select('display_name, event_date, live_mode_override')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+    eventRowOnce(admin, eventId, 'display_name, event_date, live_mode_override', () =>
+      admin
+        .from('events')
+        .select('display_name, event_date, live_mode_override')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ),
     fetchWallArmedChallenge(admin, eventId),
   ]);
 

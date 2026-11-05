@@ -1,10 +1,12 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { cache } from 'react';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
 import { roleNameOne, type RoleNames } from '@/lib/role-names';
 import { styledName, type NameStyle } from '@/lib/name-style';
+import { isPlaceholderNameWord, realNameParts } from '@/lib/seat-placeholder-words';
 
 export type GuestRole =
   | 'guest'
@@ -18,10 +20,26 @@ export type GuestRole =
   // migration 20260607040000_guest_role_add_vip_family.sql.
   | 'bride_parents'
   | 'groom_parents'
+  // 👵 GRANDPARENTS — owner 2026-10-17: *"the 2 grandparents should not be named
+  // immediate family on the wedding march list."* Their own roles, standing
+  // beside the parents in every tier (VIP family, seating tier 1, inner-circle
+  // invite blocks, published entourage). Enum values added via migration
+  // 20271271089555 (guest_role_add_grandparents). Not single-instance.
+  | 'bride_grandparents'
+  | 'groom_grandparents'
   | 'bride_immediate_family'
   | 'groom_immediate_family'
   | 'maid_of_honor'
   | 'matron_of_honor'
+  // 🤵‍♂️ OWNER 2026-10-19: *"we give them a choice maid/matron/man of honor. so
+  // they can have male/female version like bestman and best woman"*. The bride's
+  // honour attendant may be a man — the mirror of `best_woman`. Same place in
+  // the march (the bride's column), same group (Bridesmaids / the couple's
+  // crew), same colour slot (`maid_of_honor`); dressed by the honour row's FOR
+  // MEN column (the best man's list). Enum value added via migration
+  // 20271277879483 (guest_role_add_man_of_honor). NOT exclusive with the maid
+  // or the matron.
+  | 'man_of_honor'
   | 'best_man'
   // ⚖ OWNER 2026-09-30: *"We can pick either best man or best woman and maid or
   // matron of honor."* The groom's honour attendant may be a woman. Same place
@@ -124,6 +142,9 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
   bride: 'gown',
   maid_of_honor: 'gown',
   matron_of_honor: 'gown',
+  // The bride's honour attendant who is a man (owner 2026-10-19) — the one role
+  // whose attire is the reason it exists, as the best woman's is.
+  man_of_honor: 'suit',
   bridesmaid: 'gown',
   flower_girl: 'gown',
   groom: 'suit',
@@ -147,9 +168,23 @@ const ATTIRE_BY_ROLE: Partial<Record<GuestRole, GuestAttire>> = {
  * Resolve what a guest wears: an explicit couple-set value wins; otherwise a
  * gendered wedding-party role implies it; otherwise 'neutral'. Pure + shared so
  * the 3D lab and any future surface (print, day-of) dress guests identically.
+ *
+ * 👗 2026-10-20 (owner: "the attire depends on the dress code of their role"): the 3D seat plan no longer dresses from
+ * here — it reads the role's dress code (`seatPlanOutfitOf(guestOutfitOf(…))`, lib/guest-outfit.ts), which calls this
+ * with `'neutral'` only to ask what a GENDERED ROLE implies when the dress code cannot tell (a wali is a man).
  */
-export function resolveGuestAttire(role: GuestRole, attire: GuestAttire): GuestAttire {
+export function resolveGuestAttire(
+  role: GuestRole,
+  attire: GuestAttire,
+  /**
+   * 👗 Woman or man as picked WITH the title ("Atty. (Woman)", `guests.gender`, owner 2026-10-17) — after the
+   * couple's own Wear pick, BEFORE the role: a man standing as a bridesmaid is dressed as a man.
+   */
+  gender?: 'woman' | 'man' | null,
+): GuestAttire {
   if (attire !== 'neutral') return attire;
+  if (gender === 'woman') return 'gown';
+  if (gender === 'man') return 'suit';
   return ATTIRE_BY_ROLE[role] ?? 'neutral';
 }
 
@@ -211,6 +246,12 @@ export type GuestRow = {
   plus_one_count: number;
   plus_one_name: string | null;
   plus_one_of_guest_id: string | null;
+  /** A +1 seat's name was given (the reply, the card, their own door) — unset while it is a "TBA" placeholder
+   *  (`plusOneHasNoName`, lib/extra-seats.ts). Optional: a read that did not select it reads as never stamped. */
+  plus_one_name_confirmed_at?: string | null;
+  /** 🖐 Who set the reply — 'host' (the card's Reply pick, Select → Set reply) or 'guest' (their own reply). NULL = not
+   *  said: every row before 2026-10-21, never guessed. Optional: a read that did not select it says nothing. */
+  rsvp_set_by?: 'guest' | 'host' | null;
   plus_one_mode: 'full' | 'limited' | null;
   email: string | null;
   mobile: string | null;
@@ -249,12 +290,24 @@ export type GuestRow = {
    *  seated or sent an invitation — see `countsTowardEvent`. Optional so
    *  hand-built rows in tests and fixtures read as living. */
   passed_away?: boolean | null;
+  /** 🧍‍♀️➡️🧍 On a ROLE HOLDER: the guest who stands in for them (owner 2026-10-27, "A ROLE HOLDER CAN SEND A PROXY").
+   *  The holder is LISTED (roster, entourage, prints "(represented by …)") but NOT COUNTED — the pair counts once, as the
+   *  proxy (`countsTowardEvent`). Optional so hand-built rows read as not represented. `lib/guest-proxy.ts`. */
+  represented_by_guest_id?: string | null;
+  /** When the link above was made (the database stamps it). */
+  represented_since?: string | null;
+  /** The name a role holder typed on their own reply ("someone will stand in for me") — the host confirms it. */
+  proxy_named_by_guest?: string | null;
   /** COUPLE-PRIVATE note ABOUT this guest. Never render on a guest-facing
    *  surface — it used to be, via the RSVP form, which also overwrote it. */
   notes: string | null;
   /** The GUEST's own message to the couple, written on their invitation page.
    *  Read-only to the couple. Added 2026-08-06. */
   guest_note: string | null;
+  /** 💌 The HOSTS' note TO this one guest (owner 2026-10-20) — shown on that guest's own Me page only. Read by the
+   *  guest card alone (`fetchGuestById`, `GUEST_CARD_FIELDS`), never by the list (`GUEST_FIELDS`), so it reaches no
+   *  roster, print or export. Optional: every list row and fixture is without it. */
+  host_note_for_guest?: string | null;
   qr_token: string;
   custom_tags: string[];
   // Explicit seating-priority tier override (1–4); null = derive from role +
@@ -262,6 +315,11 @@ export type GuestRow = {
   seating_priority: number | null;
   // What this guest wears on their 3D seat-plan avatar (see resolveGuestAttire).
   attire: GuestAttire;
+  /**
+   * Woman or man, picked WITH the title on the guest card ("Atty. (Woman)") — never printed. NULL = not said.
+   * Mr. / Ms. / Mrs. / Miss keep it by trigger. `lib/guest-title.ts`; migration `a_title_carries_woman_or_man`.
+   */
+  gender?: 'woman' | 'man' | null;
   // Chinese tea-ceremony serving order — within-side serve order (lower serves
   // first; null = unset, falls back to role importance) + a free-text relation
   // label ("Grandparents", "Eldest Uncle"). Both optional · migration
@@ -303,10 +361,13 @@ const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
   'groom',
   'bride_parents',
   'groom_parents',
+  'bride_grandparents',
+  'groom_grandparents',
   'bride_immediate_family',
   'groom_immediate_family',
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'bridesmaid',
@@ -386,10 +447,13 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   groom: 'Groom',
   bride_parents: "Bride's Parents",
   groom_parents: "Groom's Parents",
+  bride_grandparents: "Bride's Grandparents",
+  groom_grandparents: "Groom's Grandparents",
   bride_immediate_family: "Bride's Immediate Family",
   groom_immediate_family: "Groom's Immediate Family",
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
+  man_of_honor: 'Man of Honor',
   best_man: 'Best Man',
   best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',
@@ -547,7 +611,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by,represented_by_guest_id,represented_since,proxy_named_by_guest';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -616,9 +680,32 @@ export const REQUEST_ENTRY_SOURCE = 'self_added_unlisted';
  */
 export const PASSED_AWAY = 'passed_away';
 
+/**
+ * 🧍‍♀️➡️🧍 REPRESENTED — LISTED, COUNTED ONCE AS THEIR PROXY (owner, 2026-10-27, verbatim: *"make sure the seats are
+ * properly counted. not having 2 guests but 1."*). A role holder with `represented_by_guest_id` set sends someone in
+ * their place: they keep the role (entourage, sponsor counts, prints), the PROXY takes their seat, and only the proxy
+ * counts — with the proxy's own reply. Every counter applies `.is(REPRESENTED_BY, null)` beside `.eq(PASSED_AWAY,
+ * false)`; the SQL readers carry the same predicate (migration 20271292712479). `lib/guest-proxy.ts` holds the rest.
+ */
+export const REPRESENTED_BY = 'represented_by_guest_id';
+
 /** Does this row count — in a headcount, a seat, a caterer's number? */
-export function countsTowardEvent(g: { entry_source?: string | null; passed_away?: boolean | null }): boolean {
-  return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true;
+/**
+ * 🖐 "MARKED BY YOU" (owner 2026-10-21: *""Marked by you" on replies I set"*): a reply a HOST set
+ * (`guests.rsvp_set_by = 'host'`) — never "No reply", and never a row that does not say (NULL: every row before the
+ * column, never guessed). The card's RSVP row, the list row's quiet "marked" and the Excel file's "Reply set by" read it.
+ */
+export function replyMarkedByHost(g: { rsvp_status: RsvpStatus; rsvp_set_by?: 'guest' | 'host' | null }): boolean {
+  return g.rsvp_set_by === 'host' && g.rsvp_status !== 'pending';
+}
+
+export function countsTowardEvent(g: {
+  entry_source?: string | null;
+  passed_away?: boolean | null;
+  represented_by_guest_id?: string | null;
+}): boolean {
+  // 🧍 A represented role holder counts as their proxy — the proxy's row is the one counted (REPRESENTED_BY).
+  return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true && !g.represented_by_guest_id;
 }
 
 /**
@@ -643,8 +730,11 @@ export function guestHasTicket(g: {
   entry_source?: string | null;
   rsvp_status?: string | null;
   passed_away?: boolean | null;
+  represented_by_guest_id?: string | null;
 }): boolean {
-  return Boolean(g.qr_token) && g.entry_source !== REQUEST_ENTRY_SOURCE && g.rsvp_status !== 'declined' && g.passed_away !== true;
+  return Boolean(g.qr_token) && g.entry_source !== REQUEST_ENTRY_SOURCE && g.rsvp_status !== 'declined' && g.passed_away !== true &&
+    // 🧍 A represented role holder does not come — their proxy checks in with their OWN ticket.
+    !g.represented_by_guest_id;
 }
 
 export async function fetchGuestsByEventMeasured(
@@ -657,6 +747,8 @@ export async function fetchGuestsByEventMeasured(
     /** The roster and the reception-desk registry only: they LIST a guest who
      *  passed away (never counting them). Everyone else reads the living list. */
     includePassedAway?: boolean;
+    /** 🧍 Roster + export only: they LIST a represented role holder (REPRESENTED_BY). */
+    includeRepresented?: boolean;
   } = {},
 ): Promise<MeasuredGuests> {
   let q = supabase
@@ -666,6 +758,7 @@ export async function fetchGuestsByEventMeasured(
     .is('deleted_at', null);
   if (!opts.includeRequests) q = q.neq('entry_source', REQUEST_ENTRY_SOURCE);
   if (!opts.includePassedAway) q = q.eq(PASSED_AWAY, false);
+  if (!opts.includeRepresented) q = q.is(REPRESENTED_BY, null);
   const { data, error } = await q
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
@@ -740,7 +833,8 @@ export async function countGuestsByEvent(
       .eq('event_id', eventId)
       .is('deleted_at', null)
       .neq('entry_source', REQUEST_ENTRY_SOURCE)
-      .eq(PASSED_AWAY, false);
+      .eq(PASSED_AWAY, false)
+      .is(REPRESENTED_BY, null);
     if (error) {
       logQueryError(
         'countGuestsByEvent',
@@ -761,18 +855,42 @@ export async function countGuestsByEvent(
   }
 }
 
+/**
+ * 💌 THE CARD'S ONE GUEST — the list's columns plus the hosts' note to this guest (`host_note_for_guest`, owner
+ * 2026-10-20). Only the card reads it, so it never rides in the roster, the prints or the export (all `GUEST_FIELDS`).
+ * ⚠ Spelled out WHOLE, not `${GUEST_FIELDS},…`: the Root map reads a select only from a plain literal, and a template
+ * reads as `guests.*`. That it is exactly GUEST_FIELDS + the note is held by `a-note-reaches-only-its-guest.test.ts`.
+ */
+const GUEST_CARD_FIELDS =
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by,represented_by_guest_id,represented_since,proxy_named_by_guest,host_note_for_guest';
+
 export async function fetchGuestById(
   supabase: SupabaseClient,
   eventId: string,
   guestId: string,
 ): Promise<GuestRow | null> {
-  const { data, error } = await supabase
+  const first = await supabase
     .from('guests')
-    .select(GUEST_FIELDS)
+    .select(GUEST_CARD_FIELDS)
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .is('deleted_at', null)
     .maybeSingle();
+  let data: unknown = first.data;
+  let error = first.error;
+  // A database not yet carrying the note (a build ahead of its migration) still opens the card — without the fold's
+  // stored words, never as "guest not found". Only THIS column's absence is forgiven; any other error is the read's own.
+  if (error && (error as { code?: string }).code === '42703' && /host_note_for_guest/.test(error.message ?? '')) {
+    const again = await supabase
+      .from('guests')
+      .select(GUEST_FIELDS)
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    data = again.data;
+    error = again.error;
+  }
 
   // Same graceful-degrade pattern as fetchGuestsByEvent — the guest
   // detail page should render an empty state instead of crashing when
@@ -823,6 +941,36 @@ export function computeGuestStats(all: GuestRow[]): GuestStats {
   }
 
   return stats;
+}
+
+/**
+ * 🪑 SEATS THAT ARE NOT A ROW YET — the heads `computeGuestStats().total` does not already hold. Every +1 seat is its
+ * own guest row (`plus_one_of_guest_id`, owner 2026-09-21) and `total` counts those rows, so "N expected with their
+ * plus-ones" adding `plus_ones` (the NUMBER) counted every seat twice (2026-10-22: a guest with +2 and their two rows
+ * read as five heads). This is each counted guest's number minus their live seat rows, never below zero.
+ * 🔒 lib/every-seat-is-counted.test.ts
+ */
+export function seatsNotYetOnTheList(
+  all: readonly {
+    guest_id: string;
+    plus_one_of_guest_id?: string | null;
+    plus_one_count?: number | null;
+    plus_one_allowed?: boolean | null;
+    entry_source?: string | null;
+    passed_away?: boolean | null;
+  }[],
+): number {
+  const rows = new Map<string, number>();
+  for (const g of all) {
+    const h = g.plus_one_of_guest_id;
+    if (h && h !== g.guest_id) rows.set(h, (rows.get(h) ?? 0) + 1);
+  }
+  let n = 0;
+  for (const g of all) {
+    if (!countsTowardEvent(g)) continue;
+    n += Math.max(0, plusOneSeats(g) - (rows.get(g.guest_id) ?? 0));
+  }
+  return n;
 }
 
 // Which guests count toward the live headcount + the pax sent to vendors
@@ -909,7 +1057,10 @@ export function computePaxProgress(
 export function guestDisplayName(
   guest: Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
 ): string {
-  return guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`.trim();
+  // 🪪 A +1 named "Ben" keeps the stored stand-in "+1" as their last name (NOT NULL) — it reads "Ben", never "Ben +1"
+  // (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const { first, last } = realNameParts(guest.first_name, guest.last_name);
+  return guest.display_name?.trim() || `${first} ${last}`.trim();
 }
 
 /**
@@ -932,8 +1083,19 @@ export function guestDisplayName(
  * a prefix** — Atty., Comm., Associate Dean — and the invitation dropped every
  * one. On a Filipino invitation a ninong's title is not decoration.
  *
- * 🔑 The couple's own `display_name` still WINS when they set one: it is the
- * name they chose for this person, and a composed one must never override it.
+ * 🪪 "SHOWN AS" NEVER REPLACES THE FULL NAME (owner, verbatim, 2026-10-20, on
+ * the live cale-ice entourage reading "Frocie · MOTHER OF THE GROOM": *"why the
+ * nickname replaced on the invitation. do not change the invitation. used the
+ * full name."* — DECISION_LOG "THE INVITATION PRINTS A GUEST'S FULL NAME —
+ * SHOWN AS NEVER REPLACES IT"). Until that day this function let the couple's
+ * `display_name` WIN over the five parts (since the entourage first shipped,
+ * #5487/#5492, 2026-09-14), and the guest card's "Shown as (optional)" box —
+ * placeholder "e.g. Tito Boy & Tita Cora" — invites exactly a nickname. So a
+ * nickname typed for the couple's own list was printed on the invitation.
+ * Now: the five parts print whenever there are any; `display_name` is read
+ * ONLY when there are none at all (a row with nothing else to print beats a
+ * dropped person). The couple's list, search and the guest's own greeting keep
+ * "Shown as" through `guestNameAsGiven` below — never through this function.
  *
  * Returns null when there is nothing usable, so a caller can drop the row
  * rather than print an empty line where a person should be.
@@ -941,7 +1103,7 @@ export function guestDisplayName(
  * 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE PICKS
  * A NAME STYLE"): `style` prints the parts as Full · Middle initial · Surname
  * first (`lib/name-style.ts`). Omitted = Full = the line this printed before.
- * A Display name still wins in every style — it is printed as given.
+ * 🔒 lib/the-invitation-prints-the-full-name.test.ts
  */
 export function guestFullName(guest: {
   /* ⚠ EVERY PART IS `string | null | undefined`, AND NOT `Partial<Pick<GuestRow,…>>`.
@@ -957,12 +1119,89 @@ export function guestFullName(guest: {
   last_name?: string | null;
   name_suffix?: string | null;
 }, style?: NameStyle): string | null {
-  const chosen = guest.display_name?.trim();
-  if (chosen) return chosen;
   /* Order is the printed order, and every part is optional EXCEPT that at least
      one must survive — `styledName` skips a blank part, so `${a} ${b}` with
      both empty (a lone stray space) can never print. */
-  return styledName(guest, style);
+  // 🪪 A stand-in part ("TBA" / "+1") beside a real one is not printed (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const { first, last } = realNameParts(guest.first_name, guest.last_name);
+  const formal = styledName({ ...guest, first_name: first, last_name: last }, style);
+  if (formal) return formal;
+  /* Only a row with NO name parts at all falls back to "Shown as" — there is
+     no full name for it to replace, and dropping the person is worse. */
+  return guest.display_name?.trim() || null;
+}
+
+/**
+ * 🖨 THE NAME A PRINTOUT GIVES A GUEST — the full name (`guestFullName`), and their "Shown as" nickname beside it in
+ * quotes when the couple set one that the full name does not already say: `Ramon Francisco Dela Cruz-Villanueva
+ * “Monching”` (owner 2026-10-29, on the printouts: full names, the nickname beside them). Falls back to the compact
+ * name (`guestDisplayName`) for a row with no parts. Printed WHOLE — never cut (`lib/print-name-fit.ts`).
+ */
+export function guestPrintName(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  /** The event's Name style (`lib/name-style.ts`) — omitted = Full, as `guestFullName`. */
+  style?: NameStyle,
+): string {
+  // An unnamed extra seat ("TBA" / "+1") has no name to print in full — it reads as the list reads it ("+1 · TBA").
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) return guestDisplayName(guest);
+  const full = guestFullName(guest, style);
+  if (!full) return guestDisplayName(guest);
+  const nick = guestNickBeside(guest, full);
+  return nick ? `${full} “${nick}”` : full;
+}
+
+/**
+ * 💬 THE NICKNAME THAT SITS BESIDE A FULL NAME — the couple's "Shown as" (`guests.display_name`, no new column), or
+ * null when there is none or `full` already says it ("Monching" beside "Ramon “Monching” Cruz" would say it twice).
+ * The one rule behind `guestPrintName` and `guestNameWithNick`.
+ */
+export function guestNickBeside(guest: { display_name?: string | null }, full: string | null | undefined): string | null {
+  const nick = guest.display_name?.replace(/\s+/g, ' ').trim();
+  if (!nick || !full) return null;
+  // WHOLE WORDS: "Ramon" is said by "Atty. Ramon Dela Cruz"; "Dan" is NOT said by "Daniel Ramos" (a substring is not a name).
+  const said = new RegExp(`(?:^|[\\s“"'(])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s”"'),.])`, 'i');
+  return said.test(full) ? null : nick;
+}
+
+/**
+ * 🪪 THE NAME IN GUESTS (owner, Guests prototype v24–v26, 2026-10-29): wherever Guests names a person — the list row,
+ * a March chip, a Seats list face, the guest card's head, a search result — the FULL name (`guestFullName`: title ·
+ * first · middle · last · suffix) with the nickname (`guestNickBeside`) BESIDE it, drawn muted in quotes by
+ * `<GuestNick>` (app/_components/guest-nick.tsx). A row with no name parts keeps its compact name and no nickname.
+ * An unnamed +1 seat reads as the list reads it ("+1 · TBA"). Never cut: the caller wraps.
+ * 🔒 lib/guests-names-wear-the-nickname.test.ts
+ */
+export function guestNameWithNick(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  style?: NameStyle,
+): { name: string; nick: string | null } {
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) {
+    return { name: guestDisplayName(guest), nick: null };
+  }
+  const full = guestFullName(guest, style);
+  // No parts at all: guestFullName fell back to the "Shown as" itself — it IS the name, not a nickname beside it.
+  const parts = [guest.name_prefix, guest.first_name, guest.middle_name, guest.last_name, guest.name_suffix].some((p) => p?.trim());
+  if (!full || !parts) return { name: guestDisplayName(guest), nick: null };
+  return { name: full, nick: guestNickBeside(guest, full) };
+}
+
+/**
+ * 💬 THE NAME AS THE COUPLE GAVE IT — their "Shown as" (`display_name`) when
+ * they set one, else the full name (`guestFullName`).
+ *
+ * For exactly the surfaces the 2026-10-20 ruling leaves "Shown as" on: the
+ * couple's own Guest list and its search, and words addressed TO the guest
+ * themself — the couple's invite message `{name}` ("Hi Tito Boy & Tita Cora!",
+ * owner 2026-09-30 "the name as given. to them") and the greeting on the
+ * invitation they open. Never a formal surface: the entourage, the march,
+ * Dress with us, prints, tickets and passes print `guestFullName`.
+ * 🔒 lib/the-invitation-prints-the-full-name.test.ts holds which files may call it.
+ */
+export function guestNameAsGiven(
+  guest: Parameters<typeof guestFullName>[0],
+  style?: NameStyle,
+): string | null {
+  return guest.display_name?.trim() || guestFullName(guest, style);
 }
 
 /**
@@ -1099,6 +1338,26 @@ export type GuestGroupRow = {
   updated_at: string;
 };
 
+/**
+ * ⚡ ONE READ OF AN EVENT'S GROUP MEMBERSHIPS PER RENDER (measured 2026-10-16: the guest
+ * list read `guest_group_memberships` twice per load — once for the per-group counts, once
+ * for the guest→groups map — the same rows with and without `guest_id`). Both readers take
+ * this one, React-`cache()`d on (client, event), and each keeps its own refusal handling:
+ * an error still reaches each of them as the error it was. 🔒 lib/the-groups-are-read-once.test.ts
+ */
+export const readEventGroupMemberships = cache(
+  async (
+    supabase: SupabaseClient,
+    eventId: string,
+  ): Promise<{ data: Array<{ guest_id: string; group_id: string }> | null; error: PostgrestError | null }> => {
+    const { data, error } = await supabase
+      .from('guest_group_memberships')
+      .select('guest_id, group_id, guest_groups!inner(event_id)')
+      .eq('guest_groups.event_id', eventId);
+    return { data: (data ?? null) as Array<{ guest_id: string; group_id: string }> | null, error };
+  },
+);
+
 export type GuestGroupWithCount = GuestGroupRow & {
   member_count: number;
 };
@@ -1106,10 +1365,19 @@ export type GuestGroupWithCount = GuestGroupRow & {
 const GUEST_GROUP_FIELDS =
   'group_id,public_id,event_id,label,team_side,created_at,updated_at';
 
-export async function fetchGuestGroupsByEvent(
+/**
+ * The event's custom groups, and WHETHER THE READ HAPPENED.
+ *
+ * `measured: false` = the groups read was refused or never answered: `groups` is `[]` because nobody knows, not
+ * because the couple made none. The guest list drew that as a list with no groups on anyone — the "Cousins" a couple
+ * built last week, silently gone until the next load (owner 2026-10-11: requests must not fail quietly either).
+ * `countsMeasured: false` = the groups are real but each `member_count` is an unread 0.
+ * Never throws — the "empty page > error page" rule above stands; the measurement now reaches the render.
+ */
+export async function fetchGuestGroupsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<GuestGroupWithCount[]> {
+): Promise<{ groups: GuestGroupWithCount[]; measured: boolean; countsMeasured: boolean }> {
   const [groupsRes, membershipsRes] = await Promise.all([
     supabase
       .from('guest_groups')
@@ -1118,11 +1386,10 @@ export async function fetchGuestGroupsByEvent(
       .order('label', { ascending: true }),
     // Pull all memberships for groups in this event in one round trip;
     // join through group_id then count client-side. Avoids a per-group
-    // count(*) which would N+1.
-    supabase
-      .from('guest_group_memberships')
-      .select('group_id, guest_groups!inner(event_id)')
-      .eq('guest_groups.event_id', eventId),
+    // count(*) which would N+1. ⚡ The SAME read the guest→groups map makes
+    // (`readEventGroupMemberships`, cached per render) — the guest list asked
+    // it twice per load, once without `guest_id` (measured 2026-10-16).
+    readEventGroupMemberships(supabase, eventId),
   ]);
 
   // 5th-pass hotfix 2026-05-23: collapse to "always graceful-degrade,
@@ -1145,7 +1412,7 @@ export async function fetchGuestGroupsByEvent(
       },
       'graceful_degrade',
     );
-    return [];
+    return { groups: [], measured: false, countsMeasured: false };
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
 
@@ -1165,7 +1432,22 @@ export async function fetchGuestGroupsByEvent(
   for (const m of (membershipsRes.data ?? []) as Array<{ group_id: string }>) {
     counts.set(m.group_id, (counts.get(m.group_id) ?? 0) + 1);
   }
-  return groups.map((g) => ({ ...g, member_count: counts.get(g.group_id) ?? 0 }));
+  return {
+    groups: groups.map((g) => ({ ...g, member_count: counts.get(g.group_id) ?? 0 })),
+    measured: true,
+    countsMeasured: !membershipsRes.error,
+  };
+}
+
+/**
+ * Array-only view, for the callers that list the groups and state no absence (the seating pages).
+ * 🛑 If you render "no groups", a count, or a chip per guest, use `fetchGuestGroupsByEventMeasured`.
+ */
+export async function fetchGuestGroupsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<GuestGroupWithCount[]> {
+  return (await fetchGuestGroupsByEventMeasured(supabase, eventId)).groups;
 }
 
 /**
@@ -1177,10 +1459,19 @@ export async function fetchGroupMembershipsByEvent(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Map<string, string[]>> {
-  const { data, error } = await supabase
-    .from('guest_group_memberships')
-    .select('guest_id, group_id, guest_groups!inner(event_id)')
-    .eq('guest_groups.event_id', eventId);
+  return (await fetchGroupMembershipsByEventMeasured(supabase, eventId)).memberships;
+}
+
+/**
+ * The same map, and WHETHER THE READ HAPPENED. `measured: false` = refused or never answered: the empty map is
+ * "nobody knows who is in which group", never "nobody is in a group". Never throws.
+ * 🛑 If you draw a guest's groups, or a group's absence, use this — the array-only form above cannot tell you.
+ */
+export async function fetchGroupMembershipsByEventMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ memberships: Map<string, string[]>; measured: boolean }> {
+  const { data, error } = await readEventGroupMemberships(supabase, eventId);
 
   // Graceful-degrade on any error — render the page with no custom-group
   // memberships rather than crashing. Symmetric with the 5th-pass
@@ -1206,7 +1497,7 @@ export async function fetchGroupMembershipsByEvent(
       },
       'graceful_degrade',
     );
-    return new Map();
+    return { memberships: new Map(), measured: false };
   }
   const map = new Map<string, string[]>();
   for (const row of (data ?? []) as Array<{ guest_id: string; group_id: string }>) {
@@ -1214,8 +1505,27 @@ export async function fetchGroupMembershipsByEvent(
     existing.push(row.group_id);
     map.set(row.guest_id, existing);
   }
-  return map;
+  return { memberships: map, measured: true };
 }
+
+/**
+ * 🚫 A +1 CANNOT HAVE THEIR OWN +1. Owner, verbatim, 2026-10-21: *"a +1 of a guest cannot have their own +1."*
+ *
+ * A +1 is a guest row whose `plus_one_of_guest_id` names the guest who brings them — the predicate every surface
+ * already used inline (`Boolean(guest.plus_one_of_guest_id)`), named here once. Such a row never brings anyone:
+ *   · the guest card draws `A_PLUS_ONE_BRINGS_NO_ONE` where "Extra seats" would be, and posts 0;
+ *   · `plusOneSeats` reads 0 for them, so the List's "+N" chip, the head counts and their own reply never offer one;
+ *   · every writer refuses a number above 0 (`checkExtraSeats`, `nameTheSeats`, the import), and the database refuses
+ *     it too — CHECK `a_plus_one_brings_no_one` + trigger `a_plus_one_has_no_plus_one` (migration
+ *     `*_a_plus_one_brings_no_plus_one.sql`), and `guest_plus_one_seat_mint` answers `bringer_is_plus_one`.
+ * 🔒 apps/web/lib/a-plus-one-brings-no-plus-one.test.ts
+ */
+export function isAPlusOne(guest: { plus_one_of_guest_id?: string | null }): boolean {
+  return Boolean(guest.plus_one_of_guest_id);
+}
+
+/** The one quiet line said wherever a +1's extra seats would be offered — and every refusal's words. */
+export const A_PLUS_ONE_BRINGS_NO_ONE = 'A +1 can’t bring their own +1.';
 
 /**
  * How many extra seats a guest brings — 0 to 4 (owner 2026-09-21: "+1/+2/+3/+4
@@ -1223,7 +1533,13 @@ export async function fetchGroupMembershipsByEvent(
  * select it (older callers) falls back to the boolean's one seat, so a missing
  * column under-counts by the old rule rather than reading zero.
  */
-export function plusOneSeats(guest: { plus_one_count?: number | null; plus_one_allowed?: boolean | null }): number {
+export function plusOneSeats(guest: {
+  plus_one_count?: number | null;
+  plus_one_allowed?: boolean | null;
+  plus_one_of_guest_id?: string | null;
+}): number {
+  // 🚫 A +1 brings nobody (owner 2026-10-21) — whatever a stale row says.
+  if (isAPlusOne(guest)) return 0;
   const n = guest.plus_one_count;
   if (typeof n === 'number' && Number.isFinite(n)) return Math.max(0, Math.min(4, Math.trunc(n)));
   return guest.plus_one_allowed ? 1 : 0;

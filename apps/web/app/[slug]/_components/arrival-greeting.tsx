@@ -44,7 +44,7 @@ export function ArrivalGreeting({ tableLabel }: Props) {
         <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 ring-1 ring-ink/10">
           <MapPin aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <p className="relative mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+        <p className="relative mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
           You&rsquo;re checked in
         </p>
         <h2 className="relative mt-1.5 font-serif text-2xl italic leading-tight tracking-tight text-ink sm:text-3xl">

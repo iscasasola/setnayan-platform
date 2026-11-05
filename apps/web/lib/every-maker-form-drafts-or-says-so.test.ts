@@ -45,6 +45,8 @@ const MAKER_FILES = [
   `${C}media-panels.tsx`,
   `${C}pro-panels.tsx`,
   `${C}authoring-panels.tsx`,
+  // The Dress code row's panel — its own client file since 2026-10-21 (lazy, Maker headroom).
+  `${C}dress-code-panel.tsx`,
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
@@ -154,7 +156,7 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: PAGE,
     binds: /<StoryPanel\s+action=\{(\w+)\.bind/g,
   },
-  [`${C}authoring-panels.tsx#DressCodePanel#action`]: {
+  [`${C}dress-code-panel.tsx#DressCodePanel#action`]: {
     writers: ['updateDressCode'],
     caller: PAGE,
     binds: /<DressCodePanel\s+action=\{(\w+)\.bind/g,
@@ -256,10 +258,11 @@ type Form = { file: string; component: string; action: string; body: string; lin
 /** Every `<form …>…</form>` in a file, with its action expression and enclosing component. */
 function formsIn(file: string, src: string): Form[] {
   const out: Form[] = [];
-  const re = /<form\b/g;
+  /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+  const re = /<(form|SafeForm)\b/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(src))) {
-    let i = m.index + 5;
+    let i = m.index + m[0].length;
     let depth = 0;
     for (; i < src.length; i += 1) {
       const c = src[i];
@@ -268,8 +271,8 @@ function formsIn(file: string, src: string): Form[] {
       else if (c === '>' && depth === 0) break;
     }
     const tag = src.slice(m.index, i + 1);
-    const close = src.indexOf('</form>', i);
-    assert.ok(close > 0, `${file}: a <form> with no </form>`);
+    const close = src.indexOf(`</${m[1]}>`, i);
+    assert.ok(close > 0, `${file}: a <${m[1]}> with no </${m[1]}>`);
     const body = src.slice(m.index, close);
     const own = /\baction=\{([^}]*)\}/.exec(tag)?.[1]?.trim();
     const viaButtons = [...body.matchAll(/\bformAction=\{([^}]*)\}/g)].map((x) => x[1]!.trim());
@@ -403,7 +406,8 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // Phase 9 · Details: the address (the shipped SlugField — never drafted) and
   // the E-Gifts thank-you message (PabuyaMessageEditor posts from a transition).
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<SlugField\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the address is never drafted'],
-  ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
+  // (The E-Gifts thank-you message left this list on 2026-10-08: it is DRAFTED in the Maker now —
+  // owner "draft 1-3" — held by lib/draft-1-3-waits-for-apply.test.ts.)
   // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
   // DRAFTED now — owner "yes to all 3" — held by the test below.)
   // Details part 2a · Your event (2026-09-29): the march's order (the Guest
@@ -412,7 +416,11 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // for apply" / "venues wait for Apply" — held by the test below.)
   // 🚶 The march left this list on 2026-10-06 (owner: *"Wait for apply"*): its drops are
   // DRAFTED now — held by `the-march-waits-for-apply.test.ts`.
-  ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
+  // 🪪 A guest's card opened in the Maker (a parent, a Wedding March name) writes live: it is THE guest card since
+  // 2026-10-24 (`GuestCardSheet` → `GuestCard`), and it says so itself — its header's "✓ Saved" (`CardSaveState`), the
+  // Guest list's own line, never a second "Guests see this right away" the Guest list's card does not carry.
+  ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /<GuestCardSheet\b/, "a parent's card writes live and must open THE card, which says so"],
+  ['app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', /<K\.SaveState copy=\{GUEST_CARD_ERROR_COPY\} \/>/, 'the guest card writes live and must say so (✓ Saved)'],
 ];
 
 test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediately" beside it', () => {

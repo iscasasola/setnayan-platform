@@ -83,7 +83,7 @@ import { deriveVenue, normalizeMajors } from './palette-styles';
 export function resolveRoomPalette(rp: RolePalette): Lab3DPalette {
   // MB1's mapping, in full. `accent` / `floor` / `wall` / `accent2` are taken
   // from here and never recomputed below.
-  const base = resolvePaletteFromRoles(rp);
+  const base = { ...resolvePaletteFromRoles(rp), ...partOverrides(rp) };
   const majors = effectiveMajors(rp);
   if (majors.length === 0) return base;
 
@@ -97,6 +97,23 @@ export function resolveRoomPalette(rp: RolePalette): Lab3DPalette {
     chairs: o.chairs ?? dressed.chairs,
     florals: o.florals ?? dressed.florals,
   };
+}
+
+/**
+ * 🎨 The Palette's other parts the room draws (2026-10-19) — the couple's OWN colour for each, and nothing when they set
+ * none (never `resolveRoomDressing`'s derived value: see `Lab3DPalette`). Keys absent, not undefined, so a room with
+ * no override is the same object it always was.
+ */
+function partOverrides(rp: RolePalette): Partial<Lab3DPalette> {
+  const o = rp.room_dressing ?? {};
+  const out: Partial<Lab3DPalette> = {};
+  if (o.stage) out.stage = o.stage;
+  if (o.walls) out.walls = o.walls;
+  if (o.ceiling) out.ceiling = o.ceiling;
+  if (o.tunnel) out.tunnel = o.tunnel;
+  if (o.ribbons_candles) out.candles = o.ribbons_candles;
+  if (o.cake) out.cake = o.cake;
+  return out;
 }
 
 /**

@@ -16,6 +16,8 @@ import {
   type ExistingGuest,
   type ImportPlan,
 } from '@/lib/guest-import-file';
+import { refuseLimitedHelper } from '@/lib/host-gate';
+import { guestImportGate } from '@/lib/guest-import-gate.server';
 
 /**
  * What the import page shows between the two clicks. `rows` is the whole
@@ -38,7 +40,7 @@ async function planFor(eventId: string, csv: string) {
   const supabase = await createClient();
   const { data: existing, error } = await supabase
     .from('guests')
-    .select('guest_id,first_name,last_name,name_prefix,middle_name,name_suffix,side,group_category,role,mobile,plus_one_count')
+    .select('guest_id,first_name,last_name,name_prefix,gender,middle_name,name_suffix,side,group_category,role,mobile,plus_one_count,plus_one_of_guest_id')
     .eq('event_id', eventId)
     .is('deleted_at', null);
   // 🔒 A refused read must not look like an empty list: matching against
@@ -66,8 +68,11 @@ export async function importGuestsCsv(
   _prev: GuestImportState,
   formData: FormData,
 ): Promise<GuestImportState> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const mode = String(formData.get('mode') ?? 'preview');
   if (mode === 'reset') return { stage: 'idle' };
+  const notYet = await guestImportGate(eventId);
+  if (notYet) return { stage: 'error', message: notYet };
 
   if (mode !== 'add') {
     const file = formData.get('file');

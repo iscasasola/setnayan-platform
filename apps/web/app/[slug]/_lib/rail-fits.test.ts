@@ -77,7 +77,7 @@ function railWidthRem(): number {
  * Read the offset and the clamp out of the component.
  */
 function railAnchor(): { offsetRem: number; clampRem: number } {
-  const m = /left-\[max\((\d+(?:\.\d+)?)rem,calc\(50%-(\d+(?:\.\d+)?)rem\)\)\]/.exec(railBlock());
+  const m = /left-\[max\((\d+(?:\.\d+)?)rem,calc\(50%-(\d+(?:\.\d+)?)rem\)(?:,var\(--sn-safe-l\))?\)\]/.exec(railBlock());
   assert.ok(m, 'the rail is no longer anchored to the content column');
   return { clampRem: Number(m![1]), offsetRem: Number(m![2]) };
 }

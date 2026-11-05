@@ -18,6 +18,10 @@ import { renderRealStoryOgJpeg } from '@/lib/social/realstory-card';
  * /api/social/card/[postId].
  */
 export const runtime = 'nodejs';
+// ⏱ A share picture takes seconds. Without this the function's limit is the
+// platform's 300 s, so a stalled read held a crawler for five minutes. The photo
+// fetch has its own limit (lib/social/card-photo-fetch.ts); this bounds the rest.
+export const maxDuration = 30;
 
 const CARD_HEADERS = {
   'Content-Type': 'image/jpeg',

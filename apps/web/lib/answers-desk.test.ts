@@ -215,7 +215,8 @@ test('the answer is taken ON the row, not linked away from', () => {
     /revalidatePath\('\/vendor-dashboard'\)/,
     'an answered review would sit on the desk still asking to be answered',
   );
-  assert.match(read(PAGE), /postReviewReply=\{postVendorReply\}/, 'the desk is not wired to the reply action');
+  // The page hands the shipped actions to the one drawing (`SupplierTodayScreen`, simpler Today 2026-10-14).
+  assert.match(read(PAGE), /postReviewReply: postVendorReply,/, 'the desk is not wired to the reply action');
 });
 
 test('the money row offers BOTH answers, and shows what they sent', () => {
@@ -258,8 +259,9 @@ test('the money row offers BOTH answers, and shows what they sent', () => {
   );
   assert.match(body, /They attached no receipt\./, 'the no-receipt case says nothing at all');
   // The refusal stays behind a fold: a no must not be one mis-tap from a yes.
-  assert.match(body, /<details/, 'the refusal came out from behind its fold');
-  assert.match(read(PAGE), /rejectLock=\{vendorRejectDeposit\}/, 'the desk is not wired to the shipped reject action');
+  // (The fold is the shared `Fold` since 2026-10-12 — kind 19, one open at a time; it was a hand-made <details>.)
+  assert.match(body, /<Fold\b[^>]*title="It hasn’t reached you\?"[\s\S]*action=\{rejectLock\}[\s\S]*<\/Fold>/, 'the refusal came out from behind its fold');
+  assert.match(read(PAGE), /rejectLock: vendorRejectDeposit,/, 'the desk is not wired to the shipped reject action');
   /*
     ONE MECHANISM FOR ONE ANSWER. A second RPC or a second notification type
     would be two ways to say no, which is how they come to disagree.
@@ -315,7 +317,7 @@ test('a closed window carries no control at all', () => {
       /<form/,
       `${fn} grew a form — a lapsed ask cannot be agreed and a quote must never be sent from a feed card`,
     );
-    assert.doesNotMatch(body, /SubmitButton/, `${fn} grew a submit control`);
+    assert.doesNotMatch(body, /SubmitButton|SupplierSubmit|type="submit"/, `${fn} grew a submit control`);
   }
 });
 

@@ -22,11 +22,30 @@
  *   · the server's moved on to something else after our writes landed (Undo,
  *     Restore, a reset, another tab)  → the server's: ours is dropped.
  *
+ * ↺ …AND THE FIRST RENDER AFTER A WRITE THE CANVAS DID NOT DRAW IS THE TRUTH —
+ * decided by the ORDER of things, because content cannot tell it (walked in the
+ * lab 2026-10-12: Title › Style › Size 110 % → ↺ → the draft was empty, the
+ * panel still read 110 %, and the next Colour pick wrote the 110 % back). When
+ * the only pick of a visit on a scene is undone, the server is back at EXACTLY
+ * the value ours was built on — which reads as "no render brought anything
+ * newer". So: ↺ · Restore · Reset · ✓ Apply · a form announce themselves
+ * (`MAKER_UNHELD_WRITE_EVENT`) after sending every pick still waiting
+ * (`announceUnheldWrite`), and the router runs writes and renders in the order
+ * they were sent. Every copy kept at that moment is OWED: the first Maker render
+ * that lands after it (`makerRendered` — the shell's `renderStamp` moved), with
+ * no write of that scene's — and no unheld write — still on its way, holds
+ * everything of ours sent before it, and ours is dropped. A pick noted AFTER the
+ * announcement is a later write than it: judged by content, as before.
+ * (`lib/rsvp-stage-truth.ts` is the RSVP stage's own form of the rule, for its
+ * frames; this is every panel's.)
+ *
  * `createDraftedCanvases` is the pure core (`maker-draft-store.test.ts`);
  * `noteDraftedCanvas` / `draftedCanvasOr` are the one shared instance.
  */
+import type { AccentScene, SceneAccents } from './art-kit-accents';
 import type { HubSectionCanvas } from './hub-canvas';
-import { makerSavesInFlight, makerWritesPending } from './maker-refresh';
+import { MERGE_BASE_FIELD } from './merge-base-field';
+import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerUnheldSavesInFlight, makerWritesPending } from './maker-refresh';
 
 /** One canvas in one spelling — keys sorted, `undefined` dropped (absent = empty). */
 export function canvasFingerprint(canvas: object | null | undefined): string {
@@ -50,19 +69,48 @@ export type DraftedCanvases<T extends object = HubSectionCanvas> = {
   note(type: string, canvas: T, server: T | null | undefined): void;
   /** The canvas a panel must build on: ours while it is newer, else the server's. */
   read(type: string, server: T | null | undefined): T;
+  /** A write the canvas did not draw was announced: every copy kept now is owed the truth by the next render. */
+  unheld(): void;
+  /** A Maker render landed (its stamp): a copy owed the truth, with nothing of its own on the way, is dropped. */
+  rendered(stamp: string): void;
   /** Scenes held here — the test's probe. */
   size(): number;
 };
 
-export function createDraftedCanvases<T extends object = HubSectionCanvas>(pending: (type: string) => boolean): DraftedCanvases<T> {
-  const mine = new Map<string, { canvas: T; fp: string; base: string }>();
+/**
+ * `pending(type)`: a write that carries this scene's copy is still waiting or in flight (ours is newer than any render).
+ * `settling(type)`: at a render, a write still on its way that the render cannot hold — the truth is owed by a LATER
+ * render (default: `pending`).
+ */
+export function createDraftedCanvases<T extends object = HubSectionCanvas>(
+  pending: (type: string) => boolean,
+  settling: (type: string) => boolean = pending,
+): DraftedCanvases<T> {
+  /** `owed`: the render stamp an unheld write was announced at — the first render with another stamp is the truth. */
+  const mine = new Map<string, { canvas: T; fp: string; base: string; owed: string | null }>();
+  /** The stamp of the last Maker render (null until the first). */
+  let stamp: string | null = null;
   return {
     note(type, canvas, server) {
       const had = mine.get(type);
       const serverFp = canvasFingerprint(server);
       /* Built on OUR copy while one is kept: its base stays the server value it
-         was first built on, until a render shows something else. */
-      mine.set(type, { canvas, fp: canvasFingerprint(canvas), base: had ? had.base : serverFp });
+         was first built on, until a render shows something else. A note is a
+         write sent after any unheld one announced before it: nothing is owed. */
+      mine.set(type, { canvas, fp: canvasFingerprint(canvas), base: had ? had.base : serverFp, owed: null });
+    },
+    unheld() {
+      for (const own of mine.values()) own.owed = stamp ?? '';
+    },
+    rendered(next) {
+      stamp = next;
+      for (const [type, own] of mine) {
+        /* Not owed — or the shell drawn again with the stamp it was announced at: no render. */
+        if (own.owed === null || own.owed === next) continue;
+        /* A write of ours still on its way: this render was asked before it — a later one owes the truth. */
+        if (settling(type)) own.owed = next;
+        else mine.delete(type);
+      }
     },
     read(type, server) {
       const own = mine.get(type);
@@ -90,6 +138,7 @@ export const canvasWriteKey = (type: string) => `canvas:${type}`;
 
 const shared = createDraftedCanvases(
   (type) => makerWritesPending(canvasWriteKey(type)) > 0 || makerSavesInFlight() > 0,
+  (type) => makerWritesPending(canvasWriteKey(type)) > 0 || makerUnheldSavesInFlight() > 0,
 );
 
 /** A Maker panel wrote this scene's canvas (on the canvas already; its save may still be on its way). */
@@ -117,6 +166,31 @@ export function draftedCanvasOr(type: string, server: HubSectionCanvas | null | 
 }
 
 /**
+ * 👥 THE CANVAS THIS SCREEN LAST SENT, per scene — the base its next canvas save is merged from (`lib/merge-from-base.ts`,
+ * owner 2026-10-18: two hosts never overwrite). A canvas goes in WHOLE, so a screen holding a copy from before another
+ * host's pick on the same scene wiped that pick. ONE map for every canvas writer (a part's look, the part sheet, the
+ * hero's design, the cover's rows, a scene's tabs): they share the scene's write queue, so each builds on what the
+ * others last SENT. Dropped when the page brings a newer canvas (`server` moved past it), or by `forgetCanvasSent` when a
+ * send was refused. Called at SEND time (inside `makerLatestWrite`'s write): a pick a later one replaced was never sent.
+ * `built`: a writer that sends every pick on its own (no burst) and builds on its OWN copy says what it built on — that,
+ * exactly, is its base.
+ */
+const sentCanvas = new Map<string, { server: string; canvas: HubSectionCanvas }>();
+export function sendCanvasBase(fd: FormData, type: string, server: HubSectionCanvas | null | undefined, next: HubSectionCanvas, built?: HubSectionCanvas): void {
+  const fp = canvasFingerprint(server);
+  const kept = sentCanvas.get(type);
+  const base = built ?? (kept && kept.server === fp ? kept.canvas : (server ?? {}));
+  sentCanvas.set(type, { server: fp, canvas: next });
+  // A save of several scenes at once (Every scene's background) says each one's base, in one field.
+  const had = fd.get(MERGE_BASE_FIELD);
+  const widgets = typeof had === 'string' ? (JSON.parse(had) as { widgets: Record<string, unknown> }).widgets : {};
+  fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { ...widgets, [type]: { canvas: base } } }));
+}
+export function forgetCanvasSent(type: string): void {
+  sentCanvas.delete(type);
+}
+
+/**
  * ✍ …AND EVERY SCENE OF THEIR OWN'S WORDS a typed heading or body wrote
  * (`type-in-place.tsx`). The draft replaces a scene's `custom` whole, so a
  * heading typed after its words must carry the words as just typed, not as the
@@ -126,6 +200,7 @@ export function draftedCanvasOr(type: string, server: HubSectionCanvas | null | 
 export type OwnWords = { title: string; body: string };
 const ownWordsShared = createDraftedCanvases<OwnWords>(
   (type) => makerWritesPending(`custom:${type}`) > 0 || makerSavesInFlight() > 0,
+  (type) => makerWritesPending(`custom:${type}`) > 0 || makerUnheldSavesInFlight() > 0,
 );
 export function noteDraftedOwnWords(type: string, words: OwnWords, server: OwnWords | null | undefined): void {
   ownWordsShared.note(type, words, server);
@@ -133,4 +208,77 @@ export function noteDraftedOwnWords(type: string, words: OwnWords, server: OwnWo
 export function draftedOwnWordsOr(type: string, server: OwnWords | null | undefined): OwnWords {
   const w = ownWordsShared.read(type, server);
   return { title: w.title ?? '', body: w.body ?? '' };
+}
+
+/**
+ * 🎫 …AND THE TICKET STYLE PICKED IN STUDIO › PRINTS (owner "approved" 2026-10-13; batch-4 walk F1). A pick is drawn at the
+ * tap and drafted; the strip must then show what the DRAFT holds — after ↺ the first render is the truth, exactly as for a
+ * canvas — and never a look the draft no longer has (it stayed ringed, and a tap on it again saved nothing). The same rule,
+ * the same core, one more copy. Keyed by the one look there is (`pass`).
+ */
+export type DraftedPassLook = { design: string };
+const passLookShared = createDraftedCanvases<DraftedPassLook>(
+  () => makerSavesInFlight() > 0,
+  () => makerUnheldSavesInFlight() > 0,
+);
+/** A pick of the ticket style was drawn (its draft save may still be on its way). */
+export function noteDraftedPassLook(design: string, server: string): void {
+  passLookShared.note('pass', { design }, { design: server });
+}
+/** The ticket style to show: the Maker's own pick while it is newer than the draft the page was drawn from, else that draft's. */
+export function draftedPassLookOr(server: string): string {
+  return passLookShared.read('pass', { design: server }).design ?? server;
+}
+
+/**
+ * 🕯 …AND EVERY SCENE'S ACCENT PICK (owner 17 Oct, verbatim: *"the accents are not saving"*). The accents are ONE map
+ * (`style_preferences.scene_accents`, every scene's pick) and the draft takes it WHOLE, like a canvas — so the next pick
+ * must be built on the map as the Maker last wrote it, never on the render's. A pick is a held save (no Maker render),
+ * so the render's map stayed as it was: the Countdown's Narra columns, then the E-Gifts' spray — and the spray's map,
+ * built on the render, carried no columns, and the draft lost them. Measured on cale-ice: live held only the last
+ * scenes picked. The same rule, the same core, one more copy. Keyed by the one map there is (`accents`).
+ */
+const accentsShared = createDraftedCanvases<SceneAccents>(
+  () => makerSavesInFlight() > 0,
+  () => makerUnheldSavesInFlight() > 0,
+);
+/** An Accent pick was drawn: `picks` is the WHOLE map it saves (its draft save may still be on its way). */
+export function noteDraftedAccents(picks: SceneAccents, server: SceneAccents): void {
+  accentsShared.note('accents', picks, server);
+}
+/** The map to show and to build the next pick on: the Maker's own while it is newer than the render's, else the render's. */
+export function draftedAccentsOr(server: SceneAccents): SceneAccents {
+  return accentsShared.read('accents', server);
+}
+/**
+ * ONE Accent pick, as every scene's row makes it: the WHOLE map it saves — every scene's pick as the Maker last wrote it,
+ * with this scene's laid on — noted at once, so the next row (another scene, or this one opened again) builds on it.
+ * `before` is what a refused save puts back.
+ */
+export function noteAccentPick(scene: AccentScene, id: string, server: SceneAccents): { before: SceneAccents; next: SceneAccents } {
+  const before = draftedAccentsOr(server);
+  const next: SceneAccents = { ...before, [scene]: id };
+  noteDraftedAccents(next, server);
+  return { before, next };
+}
+
+/* ↺ THE ORDER OF THINGS (the docblock): an unheld write owes every copy kept now the truth… */
+if (typeof window !== 'undefined') {
+  window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
+    shared.unheld();
+    ownWordsShared.unheld();
+    passLookShared.unheld();
+    accentsShared.unheld();
+  });
+}
+
+/**
+ * …which the first Maker render after it brings. Called by the Maker's shell with its `renderStamp` while it renders —
+ * before any panel under it reads, so that very render's panels already read the truth. The same stamp again is nothing.
+ */
+export function makerRendered(stamp: string): void {
+  shared.rendered(stamp);
+  ownWordsShared.rendered(stamp);
+  passLookShared.rendered(stamp);
+  accentsShared.rendered(stamp);
 }

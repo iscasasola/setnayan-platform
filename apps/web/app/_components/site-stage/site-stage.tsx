@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState, type ReactNode, type Ref } from 'react';
-import { ArrowRight, ExternalLink, Eye, Info, Monitor, Smartphone } from 'lucide-react';
+import { ArrowRight, ExternalLink, Eye, Monitor, Smartphone } from 'lucide-react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HubRole, HubRoleView } from '@/lib/event-hub-control';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -23,9 +23,9 @@ import { formatCount } from '@/lib/format-number';
  *   WHEN is REAL. The frame is the couple's own `/{slug}`, and a picked stage
  *   asks it for `?phase=` — the host-gated preview `app/[slug]/page.tsx` has
  *   honoured for months. So the frame genuinely becomes that stage's page.
- *   WHO is DESCRIBED. The frame is always the HOST's signed-in page (the owner
- *   ribbon rides it, and `buildOwnerRibbon` gates on a server-verified
- *   capability alone — no param may hide it). Each role's read of the picked
+ *   WHO is DESCRIBED. The frame is always the HOST's signed-in page (the host
+ *   body is drawn from a server-verified capability alone — `viewerIsEventHost`;
+ *   no param may change it. The owner ribbon that also rode it went 2026-10-15). Each role's read of the picked
  *   stage is the card under the frame, resolved server-side by
  *   `resolveHubRoleView`. Rendering a different viewer INSIDE the frame needs a
  *   server-verified "as <role>" preview that `/[slug]` does not have; the only
@@ -283,16 +283,9 @@ export function SiteStage({
             Stage {formatCount(index + 1)} of {formatCount(stages.length)}
           </span>
         ) : null}
-        <InfoTip label={`About ${label}`}>
-          {stage?.blurb}
-          {slug ? (
-            <>
-              {' '}
-              That strip across the top is yours alone — you are signed in, so your page knows you.
-              Your guests never see it.
-            </>
-          ) : null}
-        </InfoTip>
+        {/* The tip once said "That strip across the top is yours alone" — the host strip was removed on 2026-10-15
+            (`the-host-page-has-no-host-strip.test.ts`), so a signed-in host's page now looks like a guest's. */}
+        <InfoTip label={`About ${label}`}>{stage?.blurb}</InfoTip>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {previewHref ? (
@@ -449,8 +442,17 @@ const MARK_WORD = { full: 'Yes:', partial: 'Partly:', none: 'No:' } as const;
  * never on the page, revealed on hover or on a tap.
  *
  * ⚠ The text is always in the DOM and only `hidden` toggles, so a screen
- * reader reaches it through `aria-describedby` and a test can read it. When the
- * design foundation's shared `InfoTip` (PR #5944) lands, swap this for it.
+ * reader reaches it through `aria-describedby` and a test can read it.
+ *
+ * 🎯 THE CIRCLE IS THE HOUSE ⓘ — `<InfoTip>`'s trigger, shape for shape (16 px,
+ * a hairline, a 10-px semibold "i", the 46-px `.sn-dot-btn` press). Owner
+ * 2026-10-25: *"the (i) is not consistent across the app"*; this one was a
+ * lucide glyph. Only its two colours differ, and must: the stage is obsidian
+ * in both themes and `ink/*` reads 1.27:1 here (`obsidian.ts`), so the hairline
+ * is white/25, the "i" is `OB.soft` (9.22:1) and its hover/open gold is
+ * `OB.gold` #CBA766 (7.99:1) — the dark-ground value of InfoTip's `terracotta` —
+ * classes, not a `style`, so the open state can win. Not the shared component:
+ * its popover and its ink are the light page's. `there-is-one-info-dot.test.ts`.
  */
 function InfoTip({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -465,10 +467,9 @@ function InfoTip({ label, children }: { label: string; children: ReactNode }) {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300 ease-in-out active:scale-95"
-        style={{ color: OB.soft }}
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/25 text-[10px] font-semibold leading-none text-[#B6B9BE] transition-all duration-sn-control ease-sn hover:border-[#CBA766] hover:text-[#CBA766] aria-expanded:border-[#CBA766] aria-expanded:text-[#CBA766]"
       >
-        <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <span aria-hidden="true">i</span>
       </button>
       <span
         id={id}

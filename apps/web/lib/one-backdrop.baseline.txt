@@ -1,0 +1,2 @@
+# Hand-made full-screen dimmers still to move onto <OverlayBackdrop> (app/_components/overlay-backdrop.tsx).
+# file<TAB>count. EMPTY since 2026-10-25 — every pop-up wears <OverlayBackdrop>. ONLY EVER LOWER A COUNT OR DELETE A LINE; never add one.

@@ -127,7 +127,7 @@ test('EVERY phone sticky on this route clears the bar by reading its height', ()
   // sticky left on this route is in `page.tsx` or the list itself.
   const files: Array<[string, string]> = [
     ['page.tsx', read('page.tsx')],
-    ['_components/guest-list-multiselect.tsx', read('_components', 'guest-list-multiselect.tsx')],
+    ['_components/guests-screen.tsx', read('_components', 'guests-screen.tsx')],
   ];
   for (const [name, src] of files) {
     const stickies = src.match(/sticky top-\[[^\]]*\]/g) ?? [];

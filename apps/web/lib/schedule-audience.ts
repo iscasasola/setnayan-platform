@@ -52,6 +52,27 @@ export function isForEveryone(block: { audience?: string | null }): boolean {
   return readScheduleAudience(block.audience ?? null) === 'everyone';
 }
 
+/**
+ * 🔒 ON THE GUESTS' SCHEDULE — a moment every guest may be shown: public, for
+ * Everyone, and released (not a coordinator's unreleased prep). The in-memory
+ * twin of the guests' fence — the database's anonymous read
+ * (`event_schedule_blocks_public_read`, migration 20271267138064) asks the same
+ * three things: `is_public = TRUE AND visibility <> 'coordinator_only' AND
+ * audience IS NULL`. For a reader that already holds the rows (the printed
+ * Details card's programme), so DB, pages and prints say one thing.
+ *
+ * Strict where the database is strict: only a NULL audience is Everyone here
+ * (the CHECK allows nothing else, and an unknown word is never read as wider).
+ * A row read without `visibility` is not staged — the column has a default.
+ */
+export function isOnTheGuestsSchedule(block: {
+  is_public?: boolean | null;
+  audience?: string | null;
+  visibility?: string | null;
+}): boolean {
+  return block.is_public === true && (block.audience ?? null) === null && block.visibility !== 'coordinator_only';
+}
+
 /** The guests' schedule: only the Everyone moments. */
 export function momentsForEveryone<T extends { audience?: string | null }>(blocks: readonly T[]): T[] {
   return blocks.filter(isForEveryone);

@@ -16,6 +16,7 @@ import { Check, Images, Film, Maximize2, Minimize2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
 import { formatCount } from '@/lib/format-number';
+import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 
 /** What the picker hands up when a video is uploaded (or null on clear). */
 export type StdVideoUpload = {
@@ -203,11 +204,11 @@ export function StdMediaPicker({
       <div className="space-y-1">
         <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
           <Film aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Step 3 · Video / Gallery
+          Step 3 · Video / Photos
         </p>
         <h2 className="font-serif text-xl italic">How your film ends</h2>
         <p className="text-sm text-ink/65">
-          Close on a gallery of your photos, or upload a short video that plays right in your film.
+          Close on your photos, or upload a short video that plays right in your film.
         </p>
       </div>
 
@@ -224,7 +225,7 @@ export function StdMediaPicker({
             <Check aria-hidden className="absolute right-2 top-2 h-4 w-4 text-terracotta" strokeWidth={2.5} />
           ) : null}
           <Images aria-hidden className="h-6 w-6 text-ink/60" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-ink">Photo gallery</span>
+          <span className="text-sm font-medium text-ink">Photos</span>
           <span className="text-[11px] text-ink/50">
             {galleryCount > 0 ? `${formatCount(galleryCount)} photo${galleryCount === 1 ? '' : 's'}` : 'Your engagement / pre-wedding photos'}
           </span>
@@ -278,7 +279,10 @@ export function StdMediaPicker({
             <div className="space-y-1.5 rounded-xl border border-ink/10 bg-white/60 p-2.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[11px] font-medium text-ink/70">How the video plays</span>
-                <div className="inline-flex rounded-xl border border-ink/15 bg-cream p-0.5">
+                {/* The app's ONE pill selector (owner 2026-10-08). Worn straight from `pill-selector.tsx` — which the
+                    Maker already loads — because this picker is also drawn inside the Maker (its first-load budget). */}
+                <div className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} inline-flex`} data-std-video-fit="">
+                  <PillThumb />
                   {(
                     [
                       { id: 'fill', label: 'Fill', Icon: Maximize2 },
@@ -287,15 +291,7 @@ export function StdMediaPicker({
                   ).map(({ id, label, Icon }) => {
                     const active = (value.fit ?? 'fill') === id;
                     return (
-                      <button
-                        key={id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => onChange({ ...value, fit: id })}
-                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                          active ? 'bg-mulberry text-cream' : 'text-ink/60 hover:text-ink'
-                        }`}
-                      >
+                      <button key={id} type="button" aria-pressed={active} onClick={() => onChange({ ...value, fit: id })} className={pillSegClass(active)}>
                         <Icon aria-hidden className="h-3 w-3" strokeWidth={2} />
                         {label}
                       </button>
@@ -316,7 +312,7 @@ export function StdMediaPicker({
                 <span className="text-success-700">Reviewed — your video is live in the film.</span>
               ) : nsfwStatus === 'rejected' ? (
                 <span className="text-danger-700">
-                  This video didn&rsquo;t pass review, so your film closes on your photo gallery instead. Try a different clip.
+                  This video didn&rsquo;t pass review, so your film closes on your photos instead. Try a different clip.
                 </span>
               ) : (
                 <span className="text-ink/60">Your video is being reviewed — it appears on your page once it&rsquo;s cleared.</span>

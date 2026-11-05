@@ -40,6 +40,8 @@
  * Pure. No I/O.
  */
 
+import { deviceOs } from './apple-device';
+
 /** The second path segment, under `/{slug}/…`, of a route that writes or clears the pass. */
 const SLUG_PASS_ROUTES: ReadonlySet<string> = new Set(['redeem', 'sign-out']);
 
@@ -135,14 +137,63 @@ export const REENTRY_TTL_SECONDS: Record<ReentryPurpose, number> = {
   landing: 30 * 60,
   tile: 24 * 60 * 60,
 };
-/** Where a successful exchange opens: the landing (from the landing) or the Event Hub (the tile). */
-export type ReentryDestination = 'landing' | 'hub';
+/** Where a successful exchange opens: the landing (from the landing), the reply's questions (from the
+ *  landing's Reply — `replyEntry` below) or the Event Hub (the tile). */
+export type ReentryDestination = 'landing' | 'reply' | 'hub';
 export function reentryDestinationOf(raw: string | null | undefined): ReentryDestination {
-  return raw === 'landing' ? 'landing' : 'hub';
+  return raw === 'landing' || raw === 'reply' ? raw : 'hub';
+}
+/** The address a destination opens — built from the slug the DATABASE returned, never from input. */
+export function reentryDestinationPath(slug: string, to: ReentryDestination): string {
+  if (to === 'landing') return `/${slug}/invite/enter`;
+  if (to === 'reply') return `/${slug}/invite/reply`;
+  return `/${slug}`;
 }
 export function reentryRedeemPath(slug: string, code: string, to: ReentryDestination): string {
   const q = new URLSearchParams({ slug, [REENTRY_PARAM]: code, to });
   return `/${slug}/redeem?${q.toString()}`;
+}
+
+/* ══ THE REPLY CARRIES THE LANDING'S CODE (2026-10-12, live fault on d2e38b7) ══
+
+   The owner opened a guest's personal link SIGNED OUT on maria-and-jose (dated,
+   Invitation stage), saw the landing, pressed "Reply to the invitation" — and met
+   the stranger door ("Get inside · Upload your QR · Sign in"). No questions.
+   Production: the landing rendered WITH the pass (its re-entry code was never
+   spent), the pass card read it a second later, and 13 s after that the Reply's
+   request reached `invite/reply` with NO pass for this event, so the page's
+   `redirect(/{slug})` sent the guest to the door. (Not reproduced in Chromium on
+   the same guest; the browser was desktop Safari. The pass is ONE cookie per
+   browser — any other pass write replaces it — so it can go missing between two
+   pages. Why it did that day is not known.)
+
+   The landing ALREADY holds the tool made for exactly this: its own single-use
+   re-entry code (`?k=`, minted by the redeem). The Reply link dropped it, and the
+   reply page had no fallback — the landing has one. THE RULE NOW: the Reply
+   carries the landing's code, and the reply page, finding no pass, spends it at
+   the redeem and comes back to the questions. Owner: "you can still reply
+   without an account" — no sign-in and no account on this path, ever.
+   A code is spent only when the pass is missing; a stranger with no code still
+   meets the door. 🛡 app/[slug]/invite/reply/a-guest-without-the-pass-still-replies.test.ts */
+
+/** The Reply's address: the questions, carrying the landing's own code when it has one. */
+export function replyHrefCarrying(slug: string, code: string | null | undefined): string {
+  const base = `/${slug}/invite/reply`;
+  return isUrlSecretShaped(code) ? `${base}?${new URLSearchParams({ [REENTRY_PARAM]: code })}` : base;
+}
+
+/* 🧾 EVIDENCE (2026-10-12): a `rekey` or a `door` here writes ONE Problems-log row —
+   `reply:rekey` / `reply:door` with what the browser held (`passHeldKind`: none = pass
+   missing · other-event = a pass for another event · revoked = a pass that is unusable)
+   and how many passes its pass book held — so the next occurrence says whether the
+   pass was GONE or REPLACED (app/[slug]/invite/reply/page.tsx). */
+export type ReplyEntry = { kind: 'ask' } | { kind: 'rekey'; href: string } | { kind: 'door'; href: string };
+/** Who the reply page asks: the guest it holds a pass for; else, carrying a code, the guest that code
+ *  re-keys (back to these questions); else nobody — the event's own door. */
+export function replyEntry(input: { slug: string; hasPass: boolean; code: string | null | undefined }): ReplyEntry {
+  if (input.hasPass) return { kind: 'ask' };
+  if (isUrlSecretShaped(input.code)) return { kind: 'rekey', href: reentryRedeemPath(input.slug, input.code, 'reply') };
+  return { kind: 'door', href: `/${input.slug}` };
 }
 
 /* ══ EVIDENCE — WHEN A PERSONAL-LINK VISIT DOES NOT END ON THE LANDING ════════
@@ -156,7 +207,11 @@ export type PassHopMissRule =
   | 'enter:guest-gone'
   | 'redeem:missing'
   | 'redeem:unknown-token'
-  | 'reentry:refused';
+  | 'reentry:refused'
+  /** The Reply found no pass for this event and spent the landing's code (`replyEntry` → rekey). */
+  | 'reply:rekey'
+  /** The Reply found no pass for this event and no code: the event's own door. */
+  | 'reply:door';
 
 export type PassHopHeld = 'none' | 'other-event' | 'revoked' | 'this-event';
 
@@ -185,7 +240,13 @@ export function uaFamily(userAgent: string | null | undefined): string {
   const ua = userAgent ?? '';
   if (!ua) return 'none';
   if (isLinkPreviewFetch(ua)) return 'link-preview';
-  const os = /iPhone|iPad|iPod/i.test(ua) ? 'ios' : /Android/i.test(ua) ? 'android' : /Macintosh|Windows|Linux|CrOS/i.test(ua) ? 'desktop' : 'other';
+  // One reading of the device (lib/apple-device.ts): the iPad app's Macintosh UA is 'ios', not 'desktop'.
+  const device = deviceOs(ua);
+  const os =
+    device === 'iphone' || device === 'ipad' ? 'ios'
+    : device === 'android' ? 'android'
+    : device === 'mac' || device === 'windows' || device === 'desktop' ? 'desktop'
+    : 'other';
   const app =
     /SetnayanApp/.test(ua) ? 'setnayan-app'
     : /Messenger|FBAN\/Messenger|MessengerForiOS|\bOrca-Android/i.test(ua) ? 'messenger'
@@ -215,6 +276,8 @@ export type PassHopMiss = {
   carriedCode: boolean;
   /** For `reentry:refused`: why (expired · used · unknown · wrong-event · guest-gone). */
   reason?: string;
+  /** How many passes the browser's pass book held (lib/guest-pass-book.ts) — a COUNT, never a value. */
+  bookPasses?: number;
 };
 
 const MISS_PATH: Record<PassHopMissRule, string> = {
@@ -223,6 +286,8 @@ const MISS_PATH: Record<PassHopMissRule, string> = {
   'redeem:missing': '/[slug]/redeem',
   'redeem:unknown-token': '/[slug]/redeem',
   'reentry:refused': '/[slug]/redeem',
+  'reply:rekey': '/[slug]/invite/reply',
+  'reply:door': '/[slug]/invite/reply',
 };
 
 /** The `recordFault` input for one miss — pure, so the test can read exactly what is stored. */
@@ -230,7 +295,9 @@ export function passHopMissFault(miss: PassHopMiss) {
   return {
     kind: 'DEAD_END' as const,
     action: `guest-pass-hop#${miss.rule}`,
-    message: `A personal-link visit did not land on the invitation (${miss.rule}${miss.reason ? `: ${miss.reason}` : ''})`,
+    message: miss.rule.startsWith('reply:')
+      ? `The Reply found no pass for this event (${miss.rule}, held ${miss.held})`
+      : `A personal-link visit did not land on the invitation (${miss.rule}${miss.reason ? `: ${miss.reason}` : ''})`,
     filePath: MISS_PATH[miss.rule],
     trace: {
       rule: miss.rule,
@@ -240,6 +307,7 @@ export function passHopMissFault(miss: PassHopMiss) {
       held: miss.held,
       code: miss.carriedCode ? 'carried' : 'none',
       ...(miss.reason ? { why: miss.reason } : {}),
+      ...(typeof miss.bookPasses === 'number' ? { book: miss.bookPasses } : {}),
       // The service worker is not on these steps BY RULE (isGuestPassHop above;
       // `/{slug}/invite/enter` is not a day-of navigation in public/sw.js), so
       // it cannot have answered them — the server cannot observe the worker
@@ -247,4 +315,24 @@ export function passHopMissFault(miss: PassHopMiss) {
       sw: 'off-hop-by-rule',
     },
   };
+}
+
+/* ══ THE INVITATION'S OWN ADDRESS CARRIES THE CODE NOW (owner 2026-10-19) ═════
+   A personal link opens the invitation itself (`personalLinkLandingPath`,
+   lib/invite-destination.ts), so the 30-minute landing code the redeem mints
+   rides on `/{slug}?k=` instead of `/{slug}/invite/enter?k=`. The same rule the
+   landing runs: a browser with NO pass for this event (a chat app's "Open in
+   Safari" opens the bare address bar) spends the code once at the redeem, which
+   comes back to the bare `/{slug}`; a browser that holds this event's pass, or
+   an address with no code (the plain address, the passcode's door), is never
+   sent anywhere by it. */
+export function invitationReentryHref(input: {
+  slug: string;
+  code: string | null | undefined;
+  passEventId: string | null | undefined;
+  eventId: string;
+}): string | null {
+  if (!isUrlSecretShaped(input.code)) return null;
+  if (input.passEventId && input.passEventId === input.eventId) return null;
+  return reentryRedeemPath(input.slug, input.code, 'hub');
 }

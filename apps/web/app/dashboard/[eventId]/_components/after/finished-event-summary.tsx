@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { studioHubHref } from '@/lib/studio-hub';
 import { ArrowRight, Users, Compass, Sparkles, Newspaper, Images } from 'lucide-react';
 import type { AfterSummary } from '@/lib/after-summary';
 import { formatCount } from '@/lib/format-number';
@@ -49,6 +48,13 @@ type Props = {
   /** The event's public address, when it has one. */
   slug: string | null;
   summary: AfterSummary;
+  /**
+   * 🍎 The iPhone app (lib/store-shell.ts). Its "More Services" card is not
+   * drawn there: every service it counts is a paid web extra the app does not
+   * offer or unlock, and its door (Home `?more=services`) opens nothing in
+   * the app — it landed on Home. Held by `app/the-app-names-no-paid-service.test.ts`.
+   */
+  storeShell?: boolean;
 };
 
 /** A figure, or nothing at all when it was never measured. */
@@ -67,15 +73,18 @@ function Card({
   title,
   children,
   cta,
+  tour,
 }: {
   href: string;
   Icon: typeof Users;
   title: string;
   children: React.ReactNode;
   cta: string;
+  /** 🔦 A spotlight tour's `data-tour` token (`lib/tours.ts`). */
+  tour?: string;
 }) {
   return (
-    <Link href={href} className="sn-tile sn-press group flex flex-col gap-2 text-left">
+    <Link href={href} className="sn-tile sn-press group flex flex-col gap-2 text-left" data-tour={tour}>
       <span className="flex items-center gap-2">
         <Icon aria-hidden className="h-4 w-4 flex-none text-terracotta" strokeWidth={1.75} />
         <span className="text-[13px] font-semibold uppercase tracking-wide text-ink/55">
@@ -95,7 +104,7 @@ function Card({
   );
 }
 
-export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }: Props) {
+export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, storeShell = false }: Props) {
   const base = `/dashboard/${eventId}`;
 
   const editorialLine =
@@ -176,14 +185,18 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={studioHubHref(eventId)} Icon={Sparkles} title="More Services" cta="Open More Services">
-          <Figure value={summary.services} unit="service" />
-          <span className="mt-0.5 block text-[12.5px] text-ink/55">
-            What you had switched on for this one.
-          </span>
-        </Card>
+        {storeShell ? null : (
+          /* More left the bar (owner 22 Oct 2026, "Yes remove more"): the services are listed on this page,
+             under the summary (`YourServices`, id="your-services") — the card scrolls there. */
+          <Card href={`${base}#your-services`} Icon={Sparkles} title="Your services" cta="See your services">
+            <Figure value={summary.services} unit="service" />
+            <span className="mt-0.5 block text-[12.5px] text-ink/55">
+              What you had switched on for this one.
+            </span>
+          </Card>
+        )}
 
-        <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos">
+        <Card href={`${base}/galleries`} Icon={Images} title="Memories" cta="Open the photos" tour="post-photos">
           <Figure value={summary.photos} unit="photo" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.photos === 0
@@ -199,6 +212,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
         <Link
           href={`${base}/story`}
           className="sn-tile sn-press group flex flex-col gap-2 border-mulberry/30 bg-mulberry/[0.05] text-left"
+          data-tour="post-story"
         >
           <span className="flex items-center gap-2">
             <Newspaper aria-hidden className="h-4 w-4 flex-none text-mulberry" strokeWidth={1.75} />

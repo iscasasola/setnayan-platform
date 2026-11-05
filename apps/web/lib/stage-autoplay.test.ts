@@ -222,10 +222,14 @@ test('7 · each scene holds for its OWN clock, and a mark never goes inside a pi
   // A Scrub run: the marks sit ON the pinned wrappers — never a child inside
   // one (an empty pinned scene must stay `:empty`) — and never on a spacer.
   const scrub = withCanvas(list, { countdown: { transition: 'scrub' } });
-  const run = await renderScenes(scrub, { scrubAllowed: true, stageMarks: true });
+  /* 🌑 2026-10-09: through the lab's door (`scrubOut`) — "Scrub out" ships dark, and this is the mark's place WHEN it is drawn. */
+  const run = await renderScenes(scrub, { scrubAllowed: true, stageMarks: true, scrubOut: true } as never);
   assert.deepEqual(marksIn(run.html), ['w:countdown', 'w:our_love_story']);
   assert.doesNotMatch(run.html, /<span hidden/, 'no marker element inside a scene wrapper');
-  assert.match(run.html, /class="hub-scene hub-scrub" style="--hub-tl:--hub-s0" data-stage-scene="w:countdown"/);
+  /* 🔁 RE-AIMED 2026-10-09 (commit 8c): a Scrub scene is an ordinary scene of the page now (`hub-scroll`), wrapped in its
+     hand-over's cell — the mark is still ON its own wrapper, never an element inside it, and the Scrub island draws
+     nothing among the scenes. */
+  assert.match(run.html, /class="hub-scene hub-scroll" style="--hub-tl:--hub-s0" data-hub-fx="" data-stage-scene="w:countdown"/);
   assert.doesNotMatch(run.html, /class="hub-sp"[^>]*data-stage-scene/);
   // Off, the run is exactly the run it was.
   const off = await renderScenes(scrub, { scrubAllowed: true });

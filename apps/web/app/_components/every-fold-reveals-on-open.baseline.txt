@@ -1,0 +1,65 @@
+# every-fold-reveals-on-open.baseline.txt — expand/collapse presses that PREDATE the app-wide reveal-on-open rule (owner
+# 2026-11-04) and do not yet use the shared Fold / useRevealOnOpen. ONLY SHRINKS: migrate one, delete its line.
+# 'menu-like' = the file draws a menu, popover, sheet or dropdown (likely not a fold: confirm, then mark it aria-haspopup).
+# 'fold' = a section that opens in place: migrate it to Fold or useRevealOnOpen.
+# Native <details> are NOT listed: RevealDetailsOnOpen (root layout) already covers every one of them.
+app/(shell)/explore/_components/taxonomy-search.tsx  # menu-like
+app/[slug]/_components/our-love-story-styles.tsx  # fold
+app/[slug]/_components/schedule-widget.tsx  # fold
+app/[slug]/_components/story/find-in-this-day.tsx  # menu-like
+app/[slug]/_components/story/your-own-consent.tsx  # fold
+app/[slug]/_components/supplier-page-notice-line.tsx  # fold
+app/[slug]/find-seat/_components/name-search.tsx  # fold
+app/_components/chat-privacy-notice.tsx  # fold
+app/_components/chat-thread-views.tsx  # fold
+app/_components/form-row.tsx  # menu-like
+app/_components/info-tip.tsx  # menu-like
+app/_components/nav/sidebar-section.tsx  # fold
+app/_components/proposal-maker.tsx  # menu-like
+app/_components/site-stage/site-stage.tsx  # menu-like
+app/admin/accounts/_surfaces/users-surface.tsx  # fold
+app/admin/categories/_components/what-couples-choose.tsx  # fold
+app/admin/pricing/_components/catalog-editor.tsx  # menu-like
+app/admin/queues/_components/queues-triage-feed.tsx  # menu-like
+app/dashboard/(launcher)/_components/year-moments-list.tsx  # fold
+app/dashboard/(launcher)/page.tsx  # menu-like
+app/dashboard/[eventId]/_components/event-rail-context.tsx  # menu-like
+app/dashboard/[eventId]/_components/expand-card.tsx  # menu-like
+app/dashboard/[eventId]/_components/papic-home-card.tsx  # menu-like
+app/dashboard/[eventId]/details/_components/people-with-access.tsx  # menu-like
+app/dashboard/[eventId]/details/_components/record-fold.tsx  # menu-like
+app/dashboard/[eventId]/details/_components/record-row-link.tsx  # menu-like
+app/dashboard/[eventId]/find-date/_components/find-your-date.tsx  # fold
+app/dashboard/[eventId]/guests/_components/guest-seat-doors.tsx  # fold
+app/dashboard/[eventId]/guests/_components/guests-screen.tsx  # menu-like
+app/dashboard/[eventId]/guests/send/_components/send-run.tsx  # menu-like
+app/dashboard/[eventId]/invitation/_components/slug-field.tsx  # fold
+app/dashboard/[eventId]/launch/_components/details-city-pick.tsx  # menu-like
+app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx  # menu-like
+app/dashboard/[eventId]/launch/_components/icon-pill.tsx  # menu-like
+app/dashboard/[eventId]/launch/_components/maker-play-menu.tsx  # menu-like
+app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx  # menu-like
+app/dashboard/[eventId]/launch/_components/stage-tools.tsx  # menu-like
+app/dashboard/[eventId]/monogram/animate-rows.tsx  # fold
+app/dashboard/[eventId]/schedule/_components/chapters-host.tsx  # menu-like
+app/dashboard/[eventId]/schedule/_components/day-ui.tsx  # menu-like
+app/dashboard/[eventId]/seating/_components/seat-list.tsx  # menu-like
+app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx  # fold
+app/dashboard/[eventId]/vendors/_components/build-compare.tsx  # menu-like
+app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx  # menu-like
+app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx  # menu-like
+app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx  # menu-like
+app/dashboard/[eventId]/website/editor/_components/scene-template-picker.tsx  # menu-like
+app/dashboard/[eventId]/website/our-story/_components/moment-order-cards.tsx  # menu-like
+app/dashboard/[eventId]/website/our-story/_components/moment-sheet-studio.tsx  # menu-like
+app/dashboard/[eventId]/website/our-story/_components/moment-sheet.tsx  # menu-like
+app/for-suppliers/_components/vendor-tier-deltas.tsx  # fold
+app/onboarding/_shared/setup-card.tsx  # menu-like
+app/onboarding/wedding/_components/wedding-cards.tsx  # menu-like
+app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx  # fold
+app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx  # menu-like
+app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx  # menu-like
+app/vendor-dashboard/performance/_components/funnel-preview-card.tsx  # fold
+app/vendor-dashboard/services/_components/coverage-panel.tsx  # menu-like
+app/vendor-dashboard/shop/_components/service-radius-fields.tsx  # fold
+components/thumb-row.tsx  # menu-like

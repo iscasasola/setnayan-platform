@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,6 +8,12 @@ import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
+import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailOptions } from '@/lib/payment-channels';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolvePapicQuoteStanding } from '@/lib/papic-on-a-quote.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -39,6 +45,9 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import { InfoTip } from '@/app/_components/info-tip';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -50,8 +59,7 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -79,12 +87,13 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
-import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import {
@@ -93,11 +102,13 @@ import {
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
-import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatInfoRailTrigger } from './_components/chat-info-rail';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
+import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import {
@@ -106,7 +117,6 @@ import {
   type QuoteRevisionSeed,
   type QuoteRevisionSource,
 } from '@/lib/quote-revision-seed';
-import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
@@ -116,6 +126,13 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { ThreadToolsSheet } from './_components/thread-tools-sheet';
+import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
+import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
+import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
+import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
+import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { manilaDate } from '@/lib/vendor-schedule';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
@@ -154,7 +171,12 @@ type Props = {
     compose?: string;
     /** The RPC status of a booking-ask answer given from this thread's quote card. */
     lock_agree?: string;
+    /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
+    fee?: string;
     lock_decline?: string;
+    /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
+    taken?: string;
+    free?: string;
     competing?: string;
   }>;
 };
@@ -170,6 +192,8 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // rests on. Name the door that IS open instead of saying "failed".
   proposal_deal_locked:
     'This booking is already locked at the accepted quote — changes to it go through a change order, not a new quote.',
+  proposal_gift_refused:
+    'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6).
@@ -205,6 +229,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const lockAnswer =
     lockAgreeNotice(sp?.lock_agree, {
       competing: Number.isFinite(lockCompeting) ? lockCompeting : null,
+      feeHeld: lockAgreeFeeHeld(sp?.fee),
+      halls: lockAgreeHalls(sp?.taken, sp?.free),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
   const {
@@ -217,6 +243,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  /*
+    📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a
+    first chat"): a pending inquiry opens on the event's fixed lines and Accept · Decline · Ask, the same lines Today and
+    Customers draw (`readSupplierEventLines`). Started now, beside every other read; only for a pending inquiry.
+  */
+  const askLinesRead =
+    thread.inquiry_status === 'pending'
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId: profile.vendor_profile_id,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: [{ eventId: thread.event_id, stage: 'asking' }],
+        })
+          .then((m) => m.get(thread.event_id) ?? null)
+          .catch(() => null)
+      : Promise.resolve(null);
 
   // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
   // The 2026-07-01 batch below took the first fourteen reads off the serial
@@ -239,9 +281,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of the page.
 
-  // Voice/video calling is a paid-vendor capability (gate-dark by default).
-  // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
-  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
+  // 📵 No calls in the chat (owner 2026-10-28, "remove both voice and video call") — the calls-gate read is gone
+  // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
 
   /**
    * THE TWO MONEY LINES UNDER THE QUOTE TOTAL — resolved ONCE here so the
@@ -276,11 +317,29 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
   });
+  // 🎁 THE SHOP'S OWN GIFTS for this quote (owner 2026-11-04): stock free to offer here (this event's old holds left
+  // out), the live packs and the fee schedule; plus what buying from inside the quote needs. Best-effort: a failure
+  // draws no gift block rather than fail the thread.
+  const shopGiftsRead = (async () => {
+    const giftAdmin = createAdminClient();
+    const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
+      fetchShopGiftQuoteBasis(giftAdmin, profile.vendor_profile_id, thread.event_id),
+      fetchVendorPaysGiftPrice(giftAdmin, profile.vendor_profile_id),
+      fetchPlatformSettings(supabase),
+      isVendorPapicCaptureEnabled(),
+      isStoreShellRequest(),
+    ]);
+    if (!basis || !papicOn) return { basis: null, buy: null };
+    const openRails = openRailOptions(settings);
+    return { basis, buy: storeShell ? null : { paysGiftPrice, openRails } };
+  })().catch((err) => {
+    console.error('[supabase-error] messages thread · shop gifts', err);
+    return { basis: null, buy: null };
+  });
   // The two writes in the batch below wait for these three — they used to be
   // awaited in turn before the batch started, so no write ran while one of them
   // could still fail the page.
   const writesWaitFor = Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
   ]);
@@ -687,6 +746,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       : null;
   })();
 
+  // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
+  // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
+  const dayCheckRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.state === 'requested' && lockHandshake.eventVendorId
+      ? await readDayCheck(supabase, lockHandshake.eventVendorId)
+      : null;
+  })();
+
   // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
   // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
   // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
@@ -722,6 +791,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     [profile.vendor_profile_id],
     standingNowMs,
   ).then((extras) => extras.get(profile.vendor_profile_id));
+
+  /* THE ANSWER LINE (simpler supplier dashboard step 4 · prototype "Sat 12 Dec · Free"). The couple's date read off the
+     supplier's OWN schedules — four narrow reads, `readThreadDayAnswer` — and only when there is a question: no date
+     → "No date yet", already booked → "Booked", both with no read at all. It waits for the event and the stage, both
+     already started above, so it never costs a read the answer does not need. */
+  const todayIso = manilaDate(new Date().toISOString());
+  const dayAnswerRead: Promise<ThreadDayAnswer | null> = (async () => {
+    const [{ data: ev }, stage] = await Promise.all([eventRead, railStageRead]);
+    if (!ev?.event_date) return { kind: 'no_date' };
+    if (THREAD_STAGE_HAS_AGREEMENT[stage]) return { kind: 'booked' };
+    return readThreadDayAnswer(supabase, {
+      vendorProfileId: profile.vendor_profile_id,
+      date: String(ev.event_date).slice(0, 10),
+      todayIso,
+    });
+  })();
 
   /* ── THE LEFT COLUMN: every conversation, beside the one being read ────────
      Owner 2026-09-08: "list · conversation · context".
@@ -904,9 +989,33 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     return conversationRows;
   })();
 
+  // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
+  // Its own read (admin, like `eventRead`: the ownership gate above already passed), so the brief's read stays as it is.
+  const eventFileDayRead = (async () => {
+    const { data, error } = await createAdminClient()
+      .from('events')
+      .select('event_date_precision, event_end_date')
+      .eq('event_id', thread.event_id)
+      .maybeSingle();
+    if (error) logQueryError('VendorThreadPage.eventDay', error, { event_id: thread.event_id }, 'graceful_degrade');
+    return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
+  })();
+
+  // ✓✓ "Seen" under the supplier's last message (owner 2026-10-28, *"yes show seen"*) — one started read, like the
+  // rest; it waits for the batch only to know who has written for the couple (`lib/chat-thread-receipts.server.ts`).
+  const receiptsRead = (async () => {
+    const batch = await batchRead;
+    return readThreadReceipts(createAdminClient(), {
+      threadId,
+      viewerRole: 'vendor',
+      viewerUserId: user.id,
+      vendorProfileId: thread.vendor_profile_id,
+      messages: batch[2],
+    });
+  })();
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
-    callsEnabled,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -939,12 +1048,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBands,
     lockHandshake,
     chatFeeForecast,
+    dayCheck,
     bookedMoney,
     payoutReadiness,
     standingExtras,
     conversationRows,
+    dayAnswer,
+    receipts,
+    eventFileDay,
   ] = await Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -963,13 +1075,20 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBandsRead,
     lockHandshakeRead,
     chatFeeForecastRead,
+    dayCheckRead,
     bookedMoneyRead,
     payoutReadinessRead,
     standingExtrasRead,
     conversationRowsRead,
+    dayAnswerRead,
+    receiptsRead,
+    eventFileDayRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
+  const shopGifts = await shopGiftsRead;
+  // The couple's booking ask is open — the one fact that lists "Answer their booking ask" and mounts its panel.
+  const askOpen = lockHandshake?.state === 'requested' && Boolean(lockHandshake.eventVendorId);
 
   // WHO IS ASKING — one label, the same before and after accepting. The
   // anonymization-until-accept placeholder ("A couple planning a wedding in
@@ -979,7 +1098,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Owner ruling 2026-09-08: "we do not need to hide anything, since no more
   // tokens." 'Couple' remains only for a genuinely missing event row.
   const coupleLabel = event?.display_name ?? 'Couple';
-  const headerLabel = coupleLabel;
   const inquiryCity = inquiryCityLabel(event?.region ?? null);
 
   const alreadyOnThread = new Set(
@@ -1219,6 +1337,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
           papicStanding={composerPapicStanding}
+          shopGifts={shopGifts.basis}
+          shopGiftsBuy={shopGifts.buy}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
@@ -1227,6 +1347,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           brief={quoteBrief}
           paymentMethods={proposalPaymentMethods}
           revision={quoteRevision}
+          // Start from · a saved quote — hidden when the shop has none (owner 2026-10-14).
+          savedQuotes={proposalTemplates.map((t) => ({ id: t.id, name: t.name }))}
+          // The card this couple asked about, when it is one of the shop's active cards — the quote starts from it.
+          askedCardId={existingInterests.find((i) => i.vendor_service_id)?.vendor_service_id ?? null}
+          todayIso={todayIso}
           viewerPromo={
             attribution?.audienceRateTerms
               ? {
@@ -1246,23 +1371,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
       </div>
     ),
-    'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
-    'thread-call': (
-        <ThreadCallLauncher
-          threadId={threadId}
-          currentUserId={user.id}
-          counterpartyLabel={coupleLabel}
-          callsEnabled={callsEnabled}
-          viewerRole="vendor"
-          upgradeHref="/vendor-dashboard/subscription"
-          // Gives the two Start buttons the ids `thread-call-voice` and
-          // `thread-call-video`, which is what lets the rail offer "Voice call"
-          // and "Video call" as two entries that open ONE panel and land on the
-          // right button. Passed here only — the launcher is mounted on three
-          // other screens and must not grow duplicate ids there.
-          buttonIdPrefix="thread-call"
+    /*
+      THE COUPLE'S BOOKING ASK — the customer card's own panel (`LockRequestAnswer`), answered here: the fee named
+      ABOVE Agree (`forecastForBooking`, the same forecast Today and the card read), Agree = `vendorAgreeToLock`, Turn it
+      down = `vendorDeclineLock` with the reason. The answer lands back in this thread (`return_to`) and the line at
+      the top of the page says what it did — "You said yes. Pay the booking fee…" with its Pay door when the fee held
+      the couple's news back. Null (no panel) while no ask is open.
+    */
+    'booking-ask':
+      askOpen && lockHandshake?.eventVendorId ? (
+        <LockRequestAnswer
+          eventVendorId={lockHandshake.eventVendorId}
+          expiresAt={lockHandshake.expiresAt}
+          payoutReadiness={payoutReadiness}
+          feeForecast={chatFeeForecast}
+          returnTo={`/vendor-dashboard/messages/${threadId}`}
+          agreeLock={vendorAgreeToLock}
+          declineLock={vendorDeclineLock}
+          dayCheck={dayCheck}
+          waitlistAsk={vendorWaitlistTheAsk}
         />
-    ),
+      ) : null,
+    'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
     'deal-or-meeting': (
         <NegotiationComposerMenu
           embedded
@@ -1292,7 +1422,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
      what keeps the rail cheap and every anchor id unique. */
   const vendorTools = toolsMounted ? (
       <div>
-        {VENDOR_THREAD_PANELS.map((t) => (
+        {/* A panel whose body is null (the booking ask, while none is open) is not drawn at all. */}
+        {VENDOR_THREAD_PANELS.map((t) => toolNodes[t.id] == null ? null : (
           <ThreadToolPanel
             key={t.id}
             id={t.id}
@@ -1364,17 +1495,39 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     service: railService,
     threadId,
     eventId: thread.event_id,
-    // The launchers are only honest while the panels they open are on the page.
-    toolsMounted,
-    templateCount: proposalTemplates.length,
-    /*
-      Whether this couple has actually agreed — the one fact "Propose schedule"
-      needs, because the Schedule tab it leaves for is shut before a booking and
-      says so. Read from the STAGE VALUE through the exhaustive map, never from
-      the stage pill's label beside it: the pill is display text.
-    */
-    hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
+    // Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the vendor; NULL resolves to "Website Inquiry". The
+    // returning flag is a COMPANION chip: it combines with any origin, never replaces it.
+    source: { label: sourceChipLabel, returning: thread.is_returning ? RETURNING_CUSTOMER_LABEL : null },
   };
+
+  /*
+    WHAT DECIDES EACH ROW OF THE ＋ TOOLS SHEET — facts this page already holds, no extra read. `hasAgreement` is
+    read from the STAGE VALUE through the exhaustive map, never from the stage pill's label beside it: the pill is
+    display text, and "Your call time" / "Ask for a payment" open only once they book you.
+  */
+  const toolsState = {
+    hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
+    askOpen,
+    paymentsToConfirm: pendingPayments.length,
+    guestCountChanges: paxProposals.length,
+  };
+
+  /* THE ANSWER LINE — the couple's initials, their date and the day's answer (`ThreadAnswerLine`). */
+  const eventDay = event?.event_date ? String(event.event_date).slice(0, 10) : null;
+  const answerLine = (
+    <ThreadAnswerLine
+      initials={railInitials}
+      eventDay={eventDay}
+      todayIso={todayIso}
+      answer={dayAnswer}
+      askOpen={askOpen && toolsMounted}
+    />
+  );
+
+  /* QUICK REPLIES — offered only while the couple spoke last, so they never sit over a conversation the supplier
+     already answered; "Yes po, that day is free" only on an open day (`quickRepliesFor`). */
+  const lastFromCouple = lastThreadMessage?.sender_role === 'couple';
+  const quickReplies = quickRepliesFor(dayAnswer);
 
   msgTimer.flush();
 
@@ -1411,67 +1564,77 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     panel past 55dvh.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
-  const dealOpen = toolsMounted && chatNegotiationEnabled();
+  const askLines = await askLinesRead;
+
+  /*
+    📦 ARCHIVE LIVES IN THE CHAT NOW (owner 2026-10-28: the Customers list IS the messages, so the Messages fold and
+    its per-row archive button are gone). ⋮ › "Archive this chat" takes it off Customers' list (into "Archived and
+    closed chats"); a new message brings it back on its own. Read AFTER the mark-read write, which upserts the same
+    row — the shop's own marker (RLS scopes it), archived ⇔ marked no earlier than the last message (`lib/chat.ts`).
+    ⚠ Unread → no archive item at all, never one that claims the wrong state.
+  */
+  await markedRead;
+  const { data: archiveMark, error: archiveMarkError } = await supabase
+    .from('chat_thread_reads')
+    .select('archived_at')
+    .eq('thread_id', threadId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (archiveMarkError) {
+    logQueryError('VendorThreadPage.archiveMark', archiveMarkError, { thread_id: threadId }, 'graceful_degrade');
+  }
+  const archivedAt = (archiveMark as { archived_at?: string | null } | null)?.archived_at ?? null;
+  const threadArchive = archiveMarkError
+    ? null
+    : {
+        archived: Boolean(archivedAt && new Date(archivedAt).getTime() >= new Date(thread.updated_at).getTime()),
+        returnTo: '/vendor-dashboard/customers',
+      };
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
-      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
-          xl, where there is room for all three without squeezing the middle —
-          the whole point was to give the conversation back its space. */}
-      <ConversationColumn
-        rows={conversationRows}
-        activeThreadId={threadId}
-        side="vendor"
-        hrefBase="/vendor-dashboard/messages"
-      />
-      {/* A deep link from the client brief (Quote / Call / Log payment) and the
-          rail's own launchers both land on an id inside a CLOSED disclosure.
-          This opens it; without it those four controls scroll to a collapsed
-          strip and read as doing nothing. */}
-      <ThreadToolHashReveal />
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {lockAnswer ? (
-          <p
-            role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
-            className={`mb-2 rounded-xl border px-4 py-2.5 text-sm ${
-              lockAnswer.tone === 'refused'
-                ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
-                : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
-            }`}
-          >
-            {lockAnswer.text}
-          </p>
-        ) : null}
+    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
+    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
+    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
+    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
+    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
+    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="vendor"
+          hrefBase="/vendor-dashboard/messages"
+        />
+      }
+    >
         <ChatBox
           header={
-            <>
-              <Link
-                href="/vendor-dashboard/messages"
-                aria-label="Back to Messages"
-                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
-              >
-                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-              </Link>
-              <span
-                aria-hidden
-                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
-              >
-                {railInitials}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">
-                  {headerLabel}
+            <ChatThreadHead
+              back={<BackButton route="/vendor-dashboard/messages/[threadId]" params={{ threadId }} variant="chat" />}
+              // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
+              nameHref={`/vendor-dashboard/clients/${thread.event_id}?tab=details`}
+              name={
+                <>
+                  {eventChatTitle({
+                    name: event?.display_name ?? null,
+                    kind: event?.event_type && event.event_type !== 'unspecified' ? eventTypeLabel(event.event_type) : null,
+                    date: event?.event_date ?? null,
+                    nowMs: Date.now(),
+                  })}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                       {FOUNDER_BADGE_LABEL}
                     </span>
                   ) : null}
-                </p>
-                {/* ONE muted line: what they asked about · the date, as a date
-                    ("December 18, 2026", never the raw ISO key — owner
-                    2026-09-08) · the live count, naming the inquiry count
-                    whenever the two differ, either way. */}
-                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+                </>
+              }
+              initials={railInitials}
+              // ONE muted line: what they asked about · the date, as a date ("December 18, 2026", never the raw ISO
+              // key — owner 2026-09-08) · the live count, naming the inquiry count whenever the two differ.
+              line={
+                <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
                   {guestCountLine(guestCounts) ? (
@@ -1479,30 +1642,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                       Planning for {guestCountLine(guestCounts)}
                     </span>
                   ) : null}
-                </p>
-                {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
-                    vendor; NULL resolves to "Website Inquiry". The returning
-                    flag is a COMPANION chip: it combines with any origin, never
-                    replaces it. */}
-                <p className="mt-0.5 flex flex-wrap items-center gap-1">
-                  <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
-                    {sourceChipLabel}
-                  </span>
-                  {thread.is_returning ? (
-                    <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                      {RETURNING_CUSTOMER_LABEL}
-                    </span>
-                  ) : null}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {/* Mobile: opens the customer info rail as a sheet. Desktop
-                    shows the rail as a docked column instead (see below). */}
+                </>
+              }
+              actions={
+                <>
+                {/* "Customer" opens the customer card as a sheet, at every width — the same head as the couple's, with
+                    the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
+                    private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}
                   blockedByMe={blockState.blockedByMe}
+                  archive={threadArchive}
                   // The client page's sections live behind ⋮ (One Chat Box,
                   // 2026-09-18). That page used to embed its own copy of this
                   // conversation; it now sends a chat landing HERE, and these
@@ -1510,16 +1662,44 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   // `?tab=` — a bare link would bounce straight back to this
                   // frame.
                   links={[
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments', icon: 'quote' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
                   ]}
                 />
-              </div>
+                </>
+              }
+            />
+          }
+          notice={
+            <>
+              {/* THE ANSWER TO A BOOKING ASK, with its Pay door — inside the box, so a phone sees it (it sat above the
+                  box until 2026-10-29, where the full-screen takeover covered it). */}
+              {lockAnswer ? (
+                <p
+                  role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
+                  // A band across the box, like the answer line under it — no frame: nothing here is pressed but the door.
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    lockAnswer.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-lock-answer=""
+                >
+                  {lockAnswer.text}
+                  {lockAnswer.door ? (
+                    <>
+                      {' '}
+                      <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                        {lockAnswer.door.label}
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+              {answerLine}
+              <ChatPrivacyNotice inBox viewer="vendor" />
             </>
           }
-          notice={<ChatPrivacyNotice inBox viewer="vendor" />}
           pinned={
             /* The cards that must stay in sight. Empty for most threads, and
                then it takes no space at all (`empty:hidden`). The band carries
@@ -1528,6 +1708,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               id="pending-payments"
               className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-ink/10 px-3 py-2 empty:hidden sm:px-4"
             >
+      {/* 📋 THEIR ASK — the inquiry card at the top of a first chat (supplier dashboard v13): the event's fixed lines, then
+          Decline · Ask a question · Accept (Accept starts a quote here). The band under the conversation keeps the
+          shipped "Talk to them" — the same answer, one more door. */}
+      {askLines && thread.inquiry_status === 'pending' ? (
+        <section data-chat-inquiry-card="" aria-label="Their ask" className="pb-2">
+          <p className="home-k2 pt-1">
+            <InfoTip label="Their ask" align="start">
+              What they asked, read from their event before you answer. Accept says yes and starts a quote; Ask a question
+              says yes and opens the chat to type; Decline tells them kindly. Nothing is booked until they ask to book.
+            </InfoTip>
+          </p>
+          <EventLinesBody lines={askLines} />
+          <InquiryAnswers
+            threadId={threadId}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            pinned
+            acceptTo={`/vendor-dashboard/messages/${threadId}?compose=quote`}
+            acceptInquiry={acceptInquiry}
+            declineInquiry={declineInquiry}
+          />
+        </section>
+      ) : null}
       {showDayPrep ? (
         <VendorEventDayPrepCta
           threadId={threadId}
@@ -1596,6 +1798,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       {/* Pending surcharge confirms (Adaptive Pax Pricing Phase 5) — the count
           moved a booked service's cost; nothing changes until the vendor taps
           Accept. Symmetric: a drop shows a credit. Owner-locked confirm flow. */}
+      <div id="guest-count" className="space-y-2 scroll-mt-24 empty:hidden">
       {paxProposals.map((p) => {
         const up = p.delta > 0;
         return (
@@ -1640,6 +1843,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           </div>
         );
       })}
+      </div>
 
       {/* Pending payment confirms + per-booking plan progress — moved into a
           live client component so the vendor's payment cards update in real
@@ -1669,26 +1873,29 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     {proposalNotice}
                   </p>
                 ) : null}
+                {lastFromCouple ? (
+                  <QuickReplies threadId={threadId} replies={quickReplies} sendAction={sendChatMessage} />
+                ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
-                    attach · message · 🧾 deal · 📞 call · send; the two icons
-                    open panels in the tray below, the seven other tools open
-                    from the rail. Neither icon dials or sends. */}
+                    ＋ · message · Send (simpler supplier dashboard step 4, 2026-10-14): the grey ＋ opens ONE sheet
+                    of every tool this conversation has (`thread-tools-sheet.tsx`), grouped Money · Plan · Talk & files ·
+                    Just you (chat prototype 2026-10-28, frame D) — 📵 no call. The paperclip is its ONE "Share a file"
+                    (file · photo · video · the contract); its input stays here so the file still rides this form, and
+                    📷 · 🖼 are the composer's shortcuts into the same input. */}
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  accessories={
-                    <>
-                      {dealOpen ? <RevealToolButton affordance="deal" entry={dealEntry} /> : null}
-                      <RevealToolButton affordance="call" label={`Call ${coupleLabel}`} />
-                    </>
-                  }
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} />}
+                  attachInputId={CHAT_ATTACH_INPUT_ID}
+                  userId={user.id}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+          {/* TALK TO THEM (prototype `inquiry`: "New inquiry · Say yes to talk — nothing is booked yet"). The
+              shipped accept-to-reply, in plain words: it opens the conversation, it books nothing. */}
           <p className="text-sm text-ink">
-            <span className="font-semibold">New inquiry.</span> Accept to reply,
-            or decline if you&rsquo;re not available for this date.
+            <span className="font-semibold">New inquiry.</span> Say yes to talk — nothing is booked yet.
           </p>
           {/* The facts a supplier decides on. These came from the gated
               get_pending_inquiry_basics RPC, which returned four deliberately
@@ -1802,10 +2009,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 value={`/vendor-dashboard/messages/${threadId}`}
               />
               <SubmitButton
-                pendingLabel="Accepting…"
+                pendingLabel="Opening…"
                 className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
-                Accept inquiry
+                Talk to them
               </SubmitButton>
             </form>
             <form action={declineInquiry}>
@@ -1893,13 +2100,15 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                private signer — see the prop in chat-message-stream.tsx. */
             paymentProofUrl={bookedMoney.deposit?.proofUrl ?? null}
             payoutReadiness={payoutReadiness}
+            theirLastReadAt={receipts.theirLastReadAt}
+            fileExpiry={{
+              eventDate: event?.event_date ?? null,
+              endDate: eventFileDay?.event_end_date ?? null,
+              precision: eventFileDay?.event_date_precision ?? null,
+            }}
           />
         </ChatBox>
-      </section>
-
-      {/* Customer info rail — docked column on lg+ (mobile uses the header
-          trigger + sheet above). Customer Card respine PR-3. */}
-      <ChatInfoRailColumn {...railProps} />
+    </ChatThreadFrame>
     </div>
   );
 }

@@ -10,7 +10,6 @@ import {
   APPLICATION_STATUS_LABEL,
   CLIENT_REFERENCES_MAX,
   PORTFOLIO_MAX,
-  REQUIRED_DOC_SLOT_KEYS,
   SOCIAL_PLATFORMS,
   VENDOR_DOC_SLOTS,
   emptyClientReference,
@@ -101,12 +100,6 @@ export function DocsBody({
           return (
             <li key={slot.key}>
               <DocSlotCard slot={slot} complete={complete}>
-                <p
-                  className="font-mono text-[10px] uppercase tracking-[0.15em]"
-                  style={{ color: 'var(--m-slate-3)' }}
-                >
-                  {REQUIRED_DOC_SLOT_KEYS.has(slot.key) ? 'Required' : 'Optional'}
-                </p>
                 {locked ? (
                   <p className="text-xs" style={{ color: complete ? 'var(--m-sage-deep)' : 'var(--m-slate-3)' }}>
                     {complete ? 'Submitted' : 'Not submitted'}

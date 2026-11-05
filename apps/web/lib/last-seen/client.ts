@@ -10,5 +10,5 @@
  * (measured +4.3KB gzipped on `/dashboard/[eventId]/launch`) — because
  * `[eventId]/loading.tsx` is Home's loading screen AND every child route's.
  */
-export { deviceStorage, readLastSeen, saveLastSeen } from './store';
+export { deviceStorage, readLastSeen, saveLastSeen, readLastSeenData, saveLastSeenData } from './store';
 export { snapshotFromRoot } from './snapshot-dom';

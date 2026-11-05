@@ -74,7 +74,11 @@ test('🔴 a drafted section move changes the printed section order on the canva
 
 test('the guest page passes the HOST’s draft only — a guest reads the live march', () => {
   const page = stripComments(readFileSync(join(__dirname, '../app/[slug]/page.tsx'), 'utf8'));
-  assert.match(page, /entourage: await loadEntourage\([\s\S]*?hostDraft\?\.march\?\.flat\(\),\s*\)/, 'the canvas no longer reads the drafted march');
+  // The drafted steps are read ONCE into `draftedMarch` and handed to the loader by both the line that starts
+  // the read ahead and the line that awaits it (`lib/start-ahead.ts` — the same arguments, so one read).
+  assert.match(page, /const draftedMarch = hostDraft\?\.march\?\.flat\(\);/, 'the canvas no longer reads the drafted march');
+  assert.match(page, /entourage: await loadEntourage\([\s\S]*?draftedNameStyle,\s*draftedMarch,\s*\)/, 'the awaited read no longer takes the drafted march');
+  assert.match(page, /startAhead\(loadEntourage\(admin, event\.event_id, draftedNameStyle, draftedMarch\)\);/, 'the read started ahead must take the SAME arguments, or the host canvas reads the entourage twice');
   const loaders = stripComments(readFileSync(join(__dirname, '../app/[slug]/_lib/loaders.ts'), 'utf8'));
   assert.match(loaders, /if \(marchSteps\?\.length\) \{[\s\S]{0,400}?await draftedMarchPrint\(/, 'loadEntourage ignores the drafted steps');
 });

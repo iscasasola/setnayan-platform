@@ -159,7 +159,7 @@ export const CHAPTER_AUDIENCES = ['draft', 'event', 'published'] as const;
 
 export const CHAPTER_AUDIENCE_LABEL: Record<ChapterStatus, string> = {
   draft: 'Only me',
-  event: 'The people of this celebration',
+  event: 'The people of this event',
   published: 'Everyone',
 };
 
@@ -169,7 +169,7 @@ export const CHAPTER_AUDIENCE_NOTE: Record<ChapterStatus, string> = {
   event:
     'The people of that day can read it — the hosts, the guests who have a seat, ' +
     'and the shops you booked, including the staff those shops send to work your ' +
-    'celebration. It stays off your public page and off Setnayan’s Stories.',
+    'event. It stays off your public page and off Setnayan’s Stories.',
   published:
     'Anyone with your address can read it, and Setnayan may feature it on Stories.',
 };

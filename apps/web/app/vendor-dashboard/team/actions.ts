@@ -1,12 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { gearReturn } from '@/lib/gear-return.server';
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
 import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatPhp } from '@/lib/php';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -19,6 +21,7 @@ import {
 } from '@/lib/vendor-team';
 import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
+import { FREE_HELPER_ROLE, FREE_HELPER_SEATS, canSeat, type SeatMember } from '@/lib/vendor-free-helper';
 import {
   effectiveSeatCap,
   fetchExtraAgentSeats,
@@ -30,8 +33,9 @@ import {
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
 const TEAM = '/vendor-dashboard/team';
-const err = (msg: string): never =>
-  redirect(`${TEAM}?error=${encodeURIComponent(msg)}`);
+// 🏪 Sent from the Shop ⚙'s Team fold, a save comes back to that sheet (`gearReturn`); from the Helpers page, here.
+const back = async (status: string): Promise<never> => redirect(await gearReturn(TEAM, status, 'team'));
+const err = (msg: string): Promise<never> => back(`error=${encodeURIComponent(msg)}`);
 
 function parseRole(raw: FormDataEntryValue | null): VendorTeamRole {
   if (typeof raw !== 'string' || !ROLE_SET.has(raw)) {
@@ -62,6 +66,35 @@ async function ensureAdmin() {
   return { supabase, ctx, currentUserId: user.id };
 }
 
+/** The plan's effective seat cap — base allowance (flag-aware) + paid extra seats. */
+async function seatCapFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ctx: { tierState: string | null; vendorProfileId: string },
+): Promise<number> {
+  const baseCap = vendorAllowance(
+    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
+    entryTierAllowance('agentAccounts'),
+  );
+  const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
+  return effectiveSeatCap(baseCap, extraSeats);
+}
+
+/** Every member with their role — what `canSeat` counts. `null` = the read failed (refuse, never guess a seat free). */
+async function readSeatMembers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  vendorProfileId: string,
+): Promise<SeatMember[] | null> {
+  const { data, error } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_team_member_id,user_id,role')
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) {
+    logQueryError('team/actions: seat members', error, { vendor_profile_id: vendorProfileId });
+    return null;
+  }
+  return (data ?? []) as SeatMember[];
+}
+
 /**
  * V1 invite: only existing users by email. Looks up the user via the admin
  * client (RLS on public.users is per-user), then inserts a vendor_team_members
@@ -74,10 +107,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // bouncing to the Team page (owner rule 2026-07 — no navigation off My Shop
   // except Profile). A local `err` shadows the module helper so every early
   // return here honours the same destination.
-  const back =
-    formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : TEAM;
-  const err = (msg: string): never =>
-    redirect(`${back}?error=${encodeURIComponent(msg)}`);
+  const shopBack = formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : null;
+  const err = (msg: string): Promise<never> =>
+    shopBack ? Promise.resolve(redirect(`${shopBack}?error=${encodeURIComponent(msg)}`)) : back(`error=${encodeURIComponent(msg)}`);
 
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
@@ -105,28 +137,29 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // ₱250/28d add-on, owner 2026-07-02; 0 for every other tier).
   // A plan with 0 seats is a PAYWALL, so it goes through the one flag-aware
   // allowance — while VENDOR_TIER_FEATURE_GATE is off, the entry plan's seats.
-  const baseCap = vendorAllowance(
-    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
-    entryTierAllowance('agentAccounts'),
-  );
-  const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
-  const seatCap = effectiveSeatCap(baseCap, extraSeats);
+  //
+  // 🧑‍🤝‍🧑 ONE FREE HELPER (owner 2026-10-14): up to FREE_HELPER_SEATS members in
+  // the Helper role ride free on every plan — `canSeat` (lib/vendor-free-helper.ts)
+  // is the one rule; the read below names the role so it can be applied (the
+  // same one request the head-count used to be).
+  const seatCap = await seatCapFor(supabase, ctx);
   if (seatCap !== Infinity) {
-    const { count: seatCount } = await supabase
-      .from('vendor_team_members')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', ctx.vendorProfileId)
-      .neq('user_id', ctx.founderUserId);
-    if ((seatCount ?? 0) >= seatCap) {
+    const members = await readSeatMembers(supabase, ctx.vendorProfileId);
+    if (members === null) return err('We couldn’t check your team’s seats just now. Please try again.');
+    if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role } })) {
       // The fee is the live catalogue price (`vendor_extra_seat`), read the same
       // way the buy-a-seat action and the Team page read it — never typed here.
       const moreHint = canBuyExtraSeats(ctx.tierState)
         ? `Add a seat (${formatPhp(await fetchSeatFeePhp(supabase))}/${SEAT_PERIOD_DAYS}d) for more.`
         : 'Upgrade for more.';
+      const helperHint =
+        role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
+          ? ' A Helper (sees the schedule) is free on every plan.'
+          : '';
       return err(
         seatCap === 0
-          ? 'Team seats are part of the paid plans. Pick one on the Plans page to add team members.'
-          : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. ${moreHint}`,
+          ? `Team seats are part of the paid plans. Pick one on the Plans page to add team members.${helperHint}`
+          : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. ${moreHint}${helperHint}`,
       );
     }
   }
@@ -157,8 +190,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
     );
   }
 
-  revalidatePath(back);
-  redirect(`${back}?invited=1`);
+  revalidatePath(shopBack ?? TEAM);
+  if (shopBack) redirect(`${shopBack}?invited=1`);
+  return back('invited=1');
 }
 
 /**
@@ -200,6 +234,29 @@ export async function updateVendorTeamMember(formData: FormData) {
     return err('Changing an admin’s role needs a team vote — start one below.');
   }
 
+  // 🧑‍🤝‍🧑 The free Helper is free ONLY as a Helper. Moving them to a role that
+  // counts asks the plan for a seat, exactly as inviting one would. Only this
+  // move can grow the count, so only it pays the two extra reads.
+  if (target.role === FREE_HELPER_ROLE && role !== FREE_HELPER_ROLE) {
+    const seatCap = await seatCapFor(supabase, ctx);
+    if (seatCap !== Infinity) {
+      const members = await readSeatMembers(supabase, ctx.vendorProfileId);
+      if (members === null) return err('We couldn’t check your team’s seats just now. Please try again.');
+      if (
+        !canSeat({
+          members,
+          founderUserId: ctx.founderUserId,
+          cap: seatCap,
+          change: { kind: 'role', memberId: idRaw, role },
+        })
+      ) {
+        return err(
+          `Your plan has no seat for another ${role === 'agent' ? 'Team member' : 'Admin'} — this person is your free Helper. Add a seat or pick a plan with more.`,
+        );
+      }
+    }
+  }
+
   const { error } = await supabase
     .from('vendor_team_members')
     .update({ role, team_label, updated_at: new Date().toISOString() })
@@ -208,7 +265,7 @@ export async function updateVendorTeamMember(formData: FormData) {
   if (error) return err(error.message);
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 /**
@@ -248,7 +305,7 @@ export async function removeVendorTeamMember(formData: FormData) {
   after(() => revokeAllSessions(removedUserId).catch(() => {}));
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 // ── Peer-admin demotion/removal votes (multi-admin org model) ──────────────
@@ -298,7 +355,7 @@ export async function proposeAdminMotion(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?${row?.status === 'executed' ? 'saved=1' : 'motion=started'}`);
+  return back(row?.status === 'executed' ? 'saved=1' : 'motion=started');
 }
 
 /** Cast / change a vote on an open admin motion. */
@@ -322,7 +379,7 @@ export async function voteAdminMotion(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?${row?.status === 'open' ? 'voted=1' : 'saved=1'}`);
+  return back(row?.status === 'open' ? 'voted=1' : 'saved=1');
 }
 
 /** Cancel an open admin motion (any admin of the store). */
@@ -338,7 +395,7 @@ export async function cancelAdminMotion(formData: FormData) {
   if (error) return err(friendlyRpcError(error.message));
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 // ── Extra team seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ──
@@ -368,7 +425,7 @@ export async function buyExtraSeat(formData: FormData) {
   const { supabase, ctx, currentUserId } = await ensureAdmin();
 
   if (!canBuyExtraSeats(ctx.tierState)) {
-    return err('Extra team seats are an Enterprise add-on. Upgrade to Enterprise first.');
+    return err('Extra team seats are an Ultra add-on. Upgrade to Ultra first.');
   }
 
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is
@@ -459,7 +516,7 @@ export async function stepDownSelf() {
     );
   }
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 /**
@@ -510,5 +567,5 @@ export async function setVendorAgentServices(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }

@@ -5,32 +5,205 @@
  * are drawn for ONE guest (their table, their photos) or only once something
  * happens (a message sent, a stream on). The couple still picks each one's
  * style (owner 2026-09-29, "every scene … three styles"), so the Maker's
- * canvas draws a stand-in in the part's place — its name and, in one line,
- * what fills it and the style it is drawn in — and the navigator lists it
- * (`MAKER_DAY_PARTS`, `lib/maker-scene-list.ts`). Never sample content (owner
- * 2026-09-27): no invented table, no stock photo.
+ * canvas draws a stand-in in the part's place and the navigator lists it
+ * (`MAKER_DAY_PARTS`, `lib/maker-scene-list.ts`).
+ *
+ * 🔲 THE STAND-IN DRAWS ITS LOOK'S ARRANGEMENT WITH SAMPLE SHAPES (owner 08 Oct: *"still cannot see the gallery
+ * style? maybe show what it could look like with boxes?"*): grey boxes where photos go, short grey lines where words
+ * go — the banner, the player and its wall, the seat map — so each look card and the canvas show the real shape
+ * guests will get. Still never sample CONTENT (owner 2026-09-27): no invented table, name or stock photo — shapes
+ * only. Mounted only in the Maker's canvas (`site-body.tsx` `isMakerCanvas`), so a guest never receives it.
  */
+import type { ReactNode } from 'react';
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
+import { Box, Line } from './maker-scene-samples';
 
 type DayPart = Exclude<FixedStyleScene, 'entourage'>;
 
-const STAND_IN: Record<DayPart, { eyebrow: string; line: string }> = {
-  announcements: { eyebrow: 'Announcements', line: 'Your messages to guests appear at the top of the page' },
-  find_your_seat: { eyebrow: '✦ Your seat', line: 'Each guest sees their own table here' },
-  live_hub: { eyebrow: 'Watch live · Live photo wall', line: 'Your stream and your live photo wall appear here' },
-  photos_of_you: { eyebrow: '✦ Photos of you', line: 'Each guest sees the photos they are in here' },
+const EYEBROW: Record<DayPart, string> = {
+  announcements: 'Announcements',
+  find_your_seat: '✦ Your seat',
+  live_hub: 'Watch live · Memory lane',
+  photos_of_you: '✦ Memories of you',
 };
 
-export function MakerDayPartStandIn({ part, styleName }: { part: DayPart; styleName: string | null }) {
-  const s = STAND_IN[part];
+/** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */
+export const DAY_SAMPLE: Record<string, () => ReactNode> = {
+  /* ── Announcements ── */
+  /* 🧱 The Banner's and the Notice's shape is the CARD each guest's own holds (`announcement-styles.tsx`: one `<div>` in
+     the `<aside>`) — `data-sample-card` is where a Background lands here, as it lands on that card for a guest
+     (`lib/block-looks.ts` `ANNOUNCE_CARDS`). The Line has none: the block itself takes it. */
+  'announcements:banner': () => (
+    <span data-sample-card="" className="flex items-center gap-3 rounded-lg bg-ink/10 px-4 py-3">
+      <Box className="h-6 w-6 shrink-0 rounded-full" />
+      <span className="flex-1 space-y-1.5">
+        <Line w="w-1/2" />
+        <Line w="w-5/6" />
+      </span>
+    </span>
+  ),
+  'announcements:notice': () => (
+    <span data-sample-card="" className="block space-y-2 bg-ink/5 px-4 py-4">
+      <Line w="w-1/3" className="mx-auto" />
+      <Line w="w-11/12" className="mx-auto" />
+      <Line w="w-3/4" className="mx-auto" />
+    </span>
+  ),
+  'announcements:line': () => (
+    <span className="block border-y border-ink/15 py-2.5">
+      <Line w="w-3/4" className="mx-auto" />
+    </span>
+  ),
+  /* ── Live hub ── */
+  'live_hub:player-and-wall': () => (
+    <span className="block space-y-2">
+      <Box className="aspect-video w-full" />
+      <span className="grid grid-cols-4 gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+    </span>
+  ),
+  'live_hub:theatre': () => (
+    <span className="block space-y-2">
+      <Box className="aspect-[16/10] w-full rounded-lg" />
+      <Line w="w-1/2" className="mx-auto" />
+    </span>
+  ),
+  'live_hub:wall-first': () => (
+    <span className="block space-y-2">
+      <span className="grid grid-cols-3 gap-1.5">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+      <Box className="ml-auto aspect-video w-1/3" />
+    </span>
+  ),
+  /* ── Find your seat ── */
+  /* 🧱 The Map's sample stands on the hub's PLATE, as each guest's own Map does (`SAMPLE_ROOT_GROUND`, below) — and on
+     a plate the `ink` utilities draw nothing: the plate's `--color-ink` names itself (globals.css), so `bg-ink/10`
+     has no colour there (seen in the Maker lab, 2026-10-10: the six tables vanished and the plate stood empty). So
+     these shapes are tinted from the words' own colour (`currentColor`), which the plate does hand down. */
+  'find_your_seat:map': () => (
+    <span className="relative block aspect-[4/3] w-full bg-[color:color-mix(in_srgb,currentColor_5%,transparent)]">
+      {['left-[12%] top-[18%]', 'left-[42%] top-[18%]', 'left-[72%] top-[18%]', 'left-[12%] top-[58%]', 'left-[42%] top-[58%]', 'left-[72%] top-[58%]'].map((at, i) => (
+        <span key={at} aria-hidden data-sample-box="" className={`absolute h-[22%] w-[16%] rounded-full ${at} ${i === 4 ? 'bg-[color:color-mix(in_srgb,currentColor_30%,transparent)]' : 'bg-[color:color-mix(in_srgb,currentColor_10%,transparent)]'}`} />
+      ))}
+    </span>
+  ),
+  'find_your_seat:table-number': () => (
+    <span className="block space-y-2 py-2">
+      <span aria-hidden data-sample-box="" className="mx-auto block h-16 w-16 rounded-full bg-ink/10" />
+      <Line w="w-1/3" className="mx-auto" />
+    </span>
+  ),
+  /* 🧱 The place card is PAPER, as each guest's own is (`your-seat-styles.tsx` `SeatPlaceCard`: `bg-paper-deep`) — the
+     card a Background lands on (`lib/block-looks.ts` `SEAT_CARDS`), here and on a guest's page alike. */
+  'find_your_seat:place-card': () => (
+    <span className="mx-auto block w-3/4 -rotate-2 space-y-2 rounded-md border border-ink/20 bg-paper-deep px-4 py-4 shadow-sm">
+      <Line w="w-2/3" className="mx-auto" />
+      <Line w="w-1/3" className="mx-auto" />
+    </span>
+  ),
+  /* ── Photos of you — the three gallery styles, as `photos-of-you-gallery.tsx` / `photos-of-you-styles.tsx` lay
+        them (owner 08 Oct: *"this needs to present different gallery styles"*): three across with the count ·
+        the latest large, its line, then a strip that slides · instant prints two across, each with its time. ── */
+  'photos_of_you:grid': () => (
+    <span className="block space-y-3 text-left">
+      <span className="grid grid-cols-3 gap-2">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Box key={i} className="aspect-square" />
+        ))}
+      </span>
+      <Line w="w-1/3" />
+    </span>
+  ),
+  'photos_of_you:lead': () => (
+    <span className="block space-y-2 text-left">
+      <Box className="aspect-square w-full" />
+      <Line w="w-2/5" />
+      <span className="flex gap-2 overflow-hidden pb-1">
+        {[0, 1, 2, 3].map((i) => (
+          <Box key={i} className="aspect-square w-32 shrink-0" />
+        ))}
+      </span>
+    </span>
+  ),
+  'photos_of_you:polaroids': () => (
+    <span className="grid grid-cols-2 gap-4">
+      {['-rotate-1', 'rotate-1', '-rotate-1', 'rotate-1'].map((r, i) => (
+        <span key={i} className={`block border border-ink/15 p-2 pb-3 shadow-md ${r}`}>
+          <Box className="aspect-square rounded-none" />
+          <Line w="w-1/3" className="mx-auto mt-2" />
+        </span>
+      ))}
+    </span>
+  ),
+};
+
+/** The arrangement a part's look draws (its first look when the style is unknown). */
+export function daySampleKey(part: DayPart, styleId: string | null): string {
+  const want = `${part}:${styleId ?? ''}`;
+  return DAY_SAMPLE[want] ? want : Object.keys(DAY_SAMPLE).find((k) => k.startsWith(`${part}:`))!;
+}
+
+/**
+ * 🧱 THE GROUND A SAMPLE'S ROOT WEARS, where each guest's own block wears one (`lib/block-looks.ts`): Your seat's Map
+ * is the hub's plate (`your-seat-block.tsx`: `pahina-plate sm:p-6`), so its sample is drawn on that plate too — and
+ * the Background the couple picks for the block lands on the sample by the same rule that lands it for a guest.
+ */
+const SAMPLE_ROOT_GROUND: Readonly<Record<string, string>> = { 'find_your_seat:map': ' pahina-plate sm:p-6' };
+
+export function MakerDayPartStandIn({ part, styleName, styleId = null }: { part: DayPart; styleName: string | null; styleId?: string | null }) {
+  const key = daySampleKey(part, styleId);
   return (
-    <section className="pahina-plate space-y-2 text-center" data-maker-day-part={part}>
+    <section className={`space-y-3 text-center${SAMPLE_ROOT_GROUND[key] ?? ''}`} data-maker-day-part={part} data-maker-day-sample={key}>
       <p className="pahina-eyebrow justify-center">
-        <span>{s.eyebrow}</span>
+        <span>{EYEBROW[part]}</span>
       </p>
-      <p className="text-sm leading-relaxed text-ink/70">
-        {s.line}
-        {styleName ? <>, drawn as &ldquo;{styleName}&rdquo;.</> : '.'}
+      {/* 🔲 Shapes only, hidden from a screen reader, and fenced to the Maker's canvas like every look's sample
+          (`globals.css` `[data-maker-sample]`). The section itself is the part's box — the pick frame hugs it. */}
+      <div aria-hidden data-maker-sample={key}>
+        {DAY_SAMPLE[key]!()}
+      </div>
+      {styleName ? <p className="text-xs text-ink/70">Sample of “{styleName}” — each guest sees their own.</p> : null}
+    </section>
+  );
+}
+
+/**
+ * 🧭 A PAGE OF THE STAGES CANVAS THAT NOTHING WAS FILED ON — still a page (owner 08 Oct: *"i do not see the
+ * individual pages"*; every tab the Maker's bar shows has its own page, `lib/maker-stage-filing.ts`). The Camera
+ * is one by nature: guests open it as its own screen, and the live camera is never opened in the Maker
+ * (`the-maker-canvas-draws-no-camera.test.ts`), so its page is the camera's SHAPE — the viewfinder and the
+ * shutter, in grey — and its looks are picked from its tile below. Any other page with nothing on it yet says so.
+ * Shapes and one line; never sample content. Mounted only by the Stages canvas (`site-body.tsx` `rest`).
+ */
+export function MakerPageStandIn({ page, label }: { page: string; label: string }) {
+  return (
+    <section className="space-y-3 px-4 py-10 text-center" data-maker-page-stand-in={page} data-maker-sample="">
+      <p className="pahina-eyebrow justify-center">
+        <span>{label}</span>
+      </p>
+      {page === 'camera' ? (
+        <span aria-hidden className="relative mx-auto block aspect-[3/4] w-2/3 rounded-lg bg-ink/10">
+          <span data-sample-box="" className="absolute inset-x-[12%] top-[10%] bottom-[30%] rounded-md border-2 border-dashed border-ink/20" />
+          <span data-sample-box="" className="absolute bottom-[8%] left-1/2 block h-12 w-12 -translate-x-1/2 rounded-full bg-ink/20" />
+        </span>
+      ) : (
+        <span aria-hidden className="mx-auto block w-2/3 space-y-2">
+          <Line w="w-1/2" className="mx-auto" />
+          <Line w="w-5/6" className="mx-auto" />
+        </span>
+      )}
+      <p className="text-xs uppercase tracking-[0.2em] text-ink/70">
+        {page === 'camera'
+          ? 'Only you see this · guests open the camera as its own screen'
+          : page === 'me'
+            ? 'Only you see this · each guest sees their own'
+            : 'Only you see this · guests see it once it has content'}
       </p>
     </section>
   );

@@ -53,6 +53,11 @@ export const ROLE_SUBTYPES = [
   'parent_of_bride',
   'parent_of_groom',
   'maid_of_honor',
+  // 🤵‍♂️ Owner 2026-10-19: "maid/matron/man of honor … like bestman and best
+  // woman". The bride's honour attendant may be a man — beside maid_of_honor,
+  // the mirror of best_woman; same template (edit, no checkout). Widened in the
+  // CHECK by migration host_roles_add_man_of_honor.
+  'man_of_honor',
   'best_man',
   // ⚖ Owner 2026-09-30: "either best man or best woman". Placed beside best_man
   // so the wedding picker reads them as a pair; same template (edit, no
@@ -100,7 +105,7 @@ const COUPLE: readonly RoleSubtype[] = ['partner1', 'partner2'] as const;
 export const HOST_ROLES_BY_EVENT_TYPE: Readonly<
   Record<string, readonly RoleSubtype[]>
 > = {
-  wedding: ROLE_SUBTYPES.slice(0, 14) as readonly RoleSubtype[],
+  wedding: ROLE_SUBTYPES.slice(0, 15) as readonly RoleSubtype[],
 
   // The child is the celebrant; the parents host; the sponsors are real roles.
   christening: ['celebrant', 'parent', 'ninong', 'ninang', ...ORGANISERS, ...UNIVERSAL],

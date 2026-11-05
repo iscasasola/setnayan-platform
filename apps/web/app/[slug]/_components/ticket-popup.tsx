@@ -6,6 +6,9 @@ import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { LANDING_WORDS, ticketPopupDue, ticketSeenKey } from '@/lib/guest-landing';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import type { AppleWalletLink } from '@/lib/wallet-pass';
+import { AppleWalletButton } from './apple-wallet-button';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE (owner 2026-09-30, verbatim:
@@ -30,6 +33,7 @@ export function TicketPopup({
   src,
   name,
   safariHref,
+  appleWallet = null,
 }: {
   guestId: string;
   fingerprint: string;
@@ -39,6 +43,8 @@ export function TicketPopup({
   name: string;
   /** iPhone inside Messenger: Save reads "Open in Safari to save" and goes there. */
   safariHref?: string | null;
+  /** 🍎 "Add to Apple Wallet" under the pop-up's own "Save my ticket" (`appleWalletLink`); never beside the Safari hand-off. */
+  appleWallet?: AppleWalletLink | null;
 }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -72,9 +78,10 @@ export function TicketPopup({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[rgba(30,34,41,0.42)] px-4 pb-6 pt-16 backdrop-blur-[1.5px]" data-ticket-popup="">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain px-4 pb-6 pt-16" data-ticket-popup="">
+      <OverlayBackdrop onClose={close} />
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="ticket-popup-title" className="relative w-full max-w-sm rounded-3xl bg-cream px-[18px] pb-[18px] pt-[22px] text-center shadow-[0_30px_60px_-20px_rgba(0,0,0,0.45)]">
-        <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:text-ink">
+        <button type="button" onClick={close} aria-label="Close" className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:text-ink">
           <X aria-hidden className="h-5 w-5" />
         </button>
         <p id="ticket-popup-title" className="text-xs font-semibold uppercase tracking-[0.22em] text-ink/70">
@@ -94,7 +101,10 @@ export function TicketPopup({
               {LANDING_WORDS.saveInSafari}
             </a>
           ) : (
-            <SavePassCardButton hrefs={[src]} label={LANDING_WORDS.saveTicket} variant="primary" />
+            <>
+              <SavePassCardButton hrefs={[src]} label={LANDING_WORDS.saveTicket} variant="primary" />
+              <AppleWalletButton link={appleWallet} className="mt-2" />
+            </>
           )}
         </div>
       </div>

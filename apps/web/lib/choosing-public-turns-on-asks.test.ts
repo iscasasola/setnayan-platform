@@ -22,7 +22,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { rsvpAskConfigOnGoingPublic, readWhoCanRsvp } from './rsvp-ask';
+/* 🔁 2026-10-10: the live half moved beside the draft half (`lib/going-public.ts`) — out of the Maker's first load.
+   The function and everything asked of it below are unchanged. */
+import { readWhoCanRsvp } from './rsvp-ask';
+import { rsvpAskConfigOnGoingPublic } from './going-public';
 import { draftAskToJoinOnGoingPublic } from './going-public';
 import { emptyHubDraft, type HubDraft } from './hub-draft';
 import { stripComments } from './strip-comments';

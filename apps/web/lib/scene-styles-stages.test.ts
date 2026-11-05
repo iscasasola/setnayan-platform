@@ -67,9 +67,15 @@ test('2 · every style registered here is DRAWN — its id is dispatched by the 
   }
 });
 
+/**
+ * 🗣 A DEFAULT THE OWNER RULED, scene by scene — the one exception to "the default is the shipped look". Love Story:
+ * owner 2026-10-17, verbatim, *"Conversation as the default look"* (DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES").
+ */
+const OWNER_DEFAULT: Readonly<Record<string, string>> = { our_love_story: 'conversation' };
+
 test('3 · the DEFAULT is the shipped look (style A) on every stage — a live page does not change on deploy', () => {
   for (const set of STAGE_SCENE_STYLE_SETS) {
-    const shipped = set.styles[0]!.id;
+    const shipped = OWNER_DEFAULT[set.type] ?? set.styles[0]!.id;
     const stages = new Set(set.styles.flatMap((s) => s.stages ?? []));
     for (const stage of stages) {
       for (const eventType of [null, 'wedding', 'debut', 'birthday', 'funeral']) {
@@ -83,7 +89,7 @@ test('3b · the prototype’s Recommended is a HINT, and only ever names a style
   const cases: Array<[string, 'save_the_date' | 'rsvp' | 'event', string | null, string | null]> = [
     ['countdown', 'save_the_date', null, 'big-number'],
     ['countdown', 'rsvp', null, 'four-tiles'],
-    ['our_love_story', 'save_the_date', null, 'years'],
+    ['our_love_story', 'save_the_date', null, null],
     ['event_details', 'rsvp', 'wedding', 'card'],
     ['event_details', 'rsvp', 'birthday', 'plate'],
     ['schedule', 'event', null, 'one-per-screen'],
@@ -95,7 +101,7 @@ test('3b · the prototype’s Recommended is a HINT, and only ever names a style
   for (const [type, stage, eventType, id] of cases) {
     assert.equal(recommendedStageSceneStyle(type, stage, eventType), id, `${type} on ${stage}`);
     if (id) assert.ok(sceneStylesOn(type, stage, eventType).some((s) => s.id === id), `${type}.${id} is drawn on ${stage}`);
-    const shipped = STAGE_SCENE_STYLE_SETS.find((x) => x.type === type)!.styles[0]!.id;
+    const shipped = OWNER_DEFAULT[type] ?? STAGE_SCENE_STYLE_SETS.find((x) => x.type === type)!.styles[0]!.id;
     assert.equal(resolveSceneStyle(type, stage, undefined, eventType), shipped, `${type}: with no pick the shipped look draws, not the recommendation`);
   }
   const row = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'scene-style-row.tsx'), 'utf8');
@@ -114,6 +120,22 @@ test('4 · names shared with Post Event are ONE style, drawn on both', () => {
     const st = gal.styles.find((s) => s.id === id)!;
     assert.ok(st.stages?.includes('editorial') && st.stages.includes('save_the_date'), id);
   }
+  /* 🎞 Glimpse (owner 2026-10-15; Post Event "later, second step" → built) is ONE id drawn on the Save the Date AND on Post
+     Event, so the couple's one pick carries across stages — exactly like Grid, Mosaic and Film strip. */
+  const glimpse = gal.styles.find((s) => s.id === 'glimpse');
+  assert.ok(glimpse, 'the Photos scene offers Glimpse');
+  assert.equal(glimpse!.name, 'Glimpse');
+  assert.ok(glimpse!.stages?.includes('save_the_date'), 'Glimpse is drawn on the Save the Date');
+  assert.ok(glimpse!.stages?.includes('editorial'), 'Glimpse is drawn on Post Event');
+  assert.equal(gal.styles.filter((s) => s.id === 'glimpse').length, 1, 'ONE Glimpse in the registry, never a Post Event copy beside the Save the Date one');
+  assert.ok(sceneStylesOn('gallery', 'save_the_date').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on the Save the Date');
+  assert.ok(sceneStylesOn('gallery', 'editorial').some((s) => s.id === 'glimpse'), 'the Style pick lists Glimpse on Post Event');
+  assert.ok(!sceneStylesOn('gallery', 'rsvp').some((s) => s.id === 'glimpse'), 'Glimpse is not offered where it is not drawn (the Invitation)');
+  assert.equal(defaultSceneStyle('gallery', 'save_the_date', 'wedding'), 'mosaic', 'Glimpse is a pick, never the default');
+  assert.equal(defaultSceneStyle('gallery', 'editorial', 'wedding'), 'grid', 'Glimpse is a pick, never Post Event’s default');
+  /* The pick carries: one stored value resolves to Glimpse on both stages. */
+  assert.equal(resolveSceneStyle('gallery', 'save_the_date', 'glimpse', 'wedding'), 'glimpse');
+  assert.equal(resolveSceneStyle('gallery', 'editorial', 'glimpse', 'wedding'), 'glimpse');
 });
 
 test('5 · the five fixed parts are registered, three styles each where guests meet them', () => {
@@ -128,6 +150,17 @@ test('5 · the five fixed parts are registered, three styles each where guests m
     for (const stage of stages) assert.ok(sceneStylesOn(type, stage, 'wedding').length >= 3, `${type} on ${stage}`);
     assert.equal(sceneStylesOn(type, 'save_the_date').length, 0, `${type} is not on the Save the Date`);
   }
-  assert.ok(!sceneStylesOn('entourage', 'event', 'birthday').some((s) => s.id === 'two-sides'), 'two sides is a wedding style');
+  /* 👫 Owner 2026-10-15: On the axis · Lines · The march; Two sides withdrawn, on every stage and event type. */
+  for (const stage of ['rsvp', 'event'] as const) {
+    for (const t of ['wedding', 'birthday', null]) {
+      assert.deepEqual(
+        sceneStylesOn('entourage', stage, t).map((s) => [s.id, s.name]),
+        [['roll-call', 'On the axis'], ['lines', 'Lines'], ['march', 'The march']],
+        `entourage on ${stage} (${t})`,
+      );
+    }
+  }
+  assert.ok(!sceneStylesOn('entourage', 'editorial', 'wedding').some((s) => s.id === 'two-sides' || s.id === 'lines'));
+  assert.equal(sceneStylesOn('entourage', 'editorial', 'wedding').find((s) => s.id === 'roll-call')?.name, 'Roll call', 'Post Event keeps its own Roll call');
   assert.equal(recommendedStageSceneStyle('find_your_seat', 'event', null), 'table-number');
 });

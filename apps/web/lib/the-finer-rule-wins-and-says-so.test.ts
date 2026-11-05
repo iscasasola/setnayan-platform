@@ -3,8 +3,8 @@
  *
  * Two properties, and the second is the one that will be forgotten.
  *
- * 1. A role's own rule beats its group's. A couple who wrote something for
- *    ninang specifically meant it.
+ * 1. (2026-10-17) A role the Studio lists by itself answers from its own line; every other role from its row —
+ *    see the note above the first test. (Was: a role's own rule beats its group's.)
  * 2. 🛑 AND THE EDITOR IS TOLD WHICH ROLES WILL IGNORE IT. Precedence applied
  *    silently is its own failure: the couple writes "barong, ecru" on
  *    `principal_sponsors`, saves, and ninang does not change. Nothing is wrong
@@ -29,45 +29,46 @@ import type { RoleAttireMap } from './role-dress-code';
 
 const GROUP = { principal_sponsors: { style: 'filipiniana', note: 'barong, ecru' } } as const;
 
-test('⛔ a role rule BEATS its group rule, and the winner names itself', () => {
-  const roles = { principal_sponsor_ninang: { style: 'long_gown', note: 'her own gown' } } as RoleAttireMap;
+/*
+  ⚠ 2026-10-17 ("ONE FACT"): the per-role tier is read ONLY for the roles Studio › Mood Board & Dress Code lists by
+  themselves (the celebrant, the bride, the groom, the guests — `studioRowOf`). Every other role is dressed by its
+  group's row, the one the couple picks on. A per-role line for a ninang (or a "Long gown" for the groom's parents —
+  a mixed pair) was shown by no editor and told a father to wear a gown. The two properties below are the new rule.
+*/
+test('⛔ a role the Studio lists by itself answers from its own line; any other role from its row', () => {
+  const roles = { principal_sponsor_ninang: { style: 'long_gown', note: 'her own gown' }, bride: { style: 'ball_gown' } } as RoleAttireMap;
   const g = sanitizeGroupAttire(GROUP);
 
-  const ninang = resolveAttireFor('principal_sponsor_ninang', roles, g);
-  assert.equal(ninang?.source, 'role', 'the group overwrote a rule the couple wrote for her');
-  assert.equal(ninang?.rule.note, 'her own gown');
+  const bride = resolveAttireFor('bride', roles, g);
+  assert.equal(bride?.source, 'role');
+  assert.equal(bride?.rule.style, 'ball_gown');
 
-  // A sibling in the same group with no rule of her own falls to the group.
+  // Her old line is not read — she is dressed by the Principal Sponsors row, like every sponsor.
+  const ninang = resolveAttireFor('principal_sponsor_ninang', roles, g);
+  assert.equal(ninang?.source, 'group', 'a per-role line the Studio does not show still answered');
+  assert.equal(ninang?.rule.note, 'barong, ecru');
   const ninong = resolveAttireFor('principal_sponsor_ninong', roles, g);
   assert.equal(ninong?.source, 'group');
-  assert.equal(ninong?.rule.note, 'barong, ecru');
+  // The groom's parents' one "Long gown" never reaches the father.
+  const parents = resolveAttireFor('groom_parents', { groom_parents: { style: 'long_gown' } } as RoleAttireMap, sanitizeGroupAttire({ vip_family: { style: 'suit' } }));
+  assert.equal(parents?.rule.style, 'suit');
 });
 
 test('⛔ tiers do not MERGE — one author answers, never two', () => {
-  // A role rule with no call time must NOT borrow the group's, or a couple
-  // editing the group changes half of what she reads and not the other half.
-  const roles = { principal_sponsor_ninang: { style: 'long_gown' } } as RoleAttireMap;
+  const roles = { bride: { style: 'ball_gown' } } as RoleAttireMap;
   const g = sanitizeGroupAttire({ principal_sponsors: { style: 'filipiniana', callTime: '07:30' } });
-  const r = resolveAttireFor('principal_sponsor_ninang', roles, g);
+  const r = resolveAttireFor('bride', roles, g);
   assert.equal(r?.source, 'role');
   assert.equal(r?.rule.callTime, undefined, 'the call time leaked across tiers');
 });
 
-test('🛑 the editor is told exactly which roles will ignore the group', () => {
+test('🛑 no role is named as ignoring its group — a per-role line inside a group is no longer read', () => {
   const roles = {
     principal_sponsor_ninang: { style: 'long_gown' },
     principal_sponsor_ninong: { style: 'filipiniana' },
     flower_girl: { style: 'cocktail_dress' },
   } as RoleAttireMap;
-
-  var o = groupOverrides('principal_sponsors', roles);
-  assert.equal(o.length, 2, 'both overridden sponsors must be named before the couple types');
-  assert.ok(o.every((n) => typeof n === 'string' && n.length > 0));
-  // Labels a person recognises, not role keys.
-  assert.ok(!o.some((n) => n.includes('_')), 'raw role keys reached a couple: ' + o.join(', '));
-  // A role from another group must not be reported here.
-  assert.ok(!groupOverrides('principal_sponsors', roles).some((n) => /flower/i.test(n)));
-  // And a group nobody has overridden says so with an empty list, not a guess.
+  assert.deepEqual(groupOverrides('principal_sponsors', roles), [], 'the editor would warn about a line nobody reads');
   assert.deepEqual(groupOverrides('officiants', roles), []);
 });
 
@@ -144,7 +145,7 @@ test('🔴 a group line REACHES the guest who has no line of her own', () => {
   assert.equal(groupLabelOf('principal_sponsor_ninang'), ROLE_GROUP_LABELS.principal_sponsors);
 });
 
-test('⛔ her own line still wins on the page, not just in the resolver', () => {
+test('⛔ her old own line is not read on the page either — she reads her row', () => {
   const roles: RoleAttireMap = {
     principal_sponsor_ninang: { style: 'formal', note: 'navy terno' },
   };
@@ -154,11 +155,8 @@ test('⛔ her own line still wins on the page, not just in the resolver', () => 
     groups: sanitizeGroupAttire(GROUP),
     palette: null,
   });
-  assert.equal(out.source, 'role');
-  assert.equal(out.panel?.note, 'navy terno');
-  // No provenance line when the couple wrote it for her: saying "from your
-  // hosts' note for Principal Sponsors" there would be a lie.
-  assert.notEqual(out.source, 'group');
+  assert.equal(out.source, 'group');
+  assert.equal(out.panel?.note, 'barong, ecru');
 });
 
 test('⛔ neither tier set is still nothing — a group panel is not invented', () => {

@@ -47,7 +47,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     because the pre-V2 trail must stay readable during a dispute.
   */
   payouts: 'Closed trail from before Setnayan stopped handling supplier money — nothing new arrives here.',
-  subscriptions: 'Supplier Pro / Enterprise upgrades awaiting confirmation.',
+  subscriptions: 'Supplier Pro / Ultra upgrades awaiting confirmation.',
   'payment-options': 'Supplier payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and supplier disputes.',
   /*
@@ -73,7 +73,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
   'event-deletions': 'A couple has asked us to remove a celebration money is holding.',
-  'user-reports': 'Reported guest-gallery content awaiting moderation.',
+  'user-reports': 'Reported guest Memories content awaiting moderation.',
   'repost-watch':
     'Cross-supplier image matches flagged for review — detect only, never auto-takedown.',
   corrections: 'Verified-shop correction requests to apply or decline.',
@@ -111,6 +111,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     'Upload and manage the homepage hero + pillar loop videos — the live pipeline behind the public landing page.',
   'website-media':
     'Everything stored for the site’s own pictures and videos, and which files nothing points at any more. Download a copy, then free the space. Guest photos and documents are not shown here.',
+  'hub-music':
+    'Upload the instrumental tracks couples can pick as their Event Hub music. Add one file or many, set each track’s mood, listen, and publish.',
   'reveal-studio': 'The Save-the-Date cinematic reveal openings — design and manage.',
   'real-stories':
     'Feature and order which consented wedding editorials surface on the public /realstories page, and pick the hero.',
@@ -144,6 +146,8 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   // ── App Performance group (key 'funnels') ─────────────────────────────
   'app-performance':
     'Your platform at a glance — growth, health, and where to focus next.',
+  visits:
+    'Site traffic — visitors and page views per day, top pages, where visitors came from, phone or computer, countries. Counted in our own database, no cookies.',
   growth: 'The growth dashboard — sign-ups, activation, and retention.',
   intelligence: 'Market intelligence — demand signals and category trends.',
   demand:
@@ -292,6 +296,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   // here, and `the-menu-name-has-one-source.test.ts` fails if one goes missing.
   overview: 'overview hq pulse dashboard front page what needs me',
   'app-performance': 'app performance stats metrics speed health uptime',
+  visits: 'traffic visitors page views analytics referrers sources pageviews',
   // ── "SET UP" / "UGAT" → "ROOT MAP" (owner, DECISION_LOG 2026-10-02 "'UGAT MAP'
   // IS NOW CALLED THE 'ROOT MAP'"). The group label is part of every item's
   // haystack, so the rename silently dropped "set up" from every item; the old

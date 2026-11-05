@@ -250,7 +250,7 @@ function StatePill({ state }: { state: TileState }) {
       );
     case 'future':
       return (
-        <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+        <span data-coming-soon className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
           Coming soon
         </span>
       );

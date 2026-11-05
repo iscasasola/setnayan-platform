@@ -6,15 +6,13 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 18 named slots × 3 photos, stored in event_inspiration_assets, with
+ * uses — 29 named slots × 3 photos, stored in event_inspiration_assets, with
  * a 6-color palette auto-extracted from each upload. Widened through
  * 2026-09-02/03: backdrop · flowers · cocktail, then reception_venue (the
  * ceremony/reception asymmetry), then cake — and 2 photos per slot became 3,
  * per the owner's "it usually is 1-3 designs". Reuses the proven
  * `uploadMoodboardSlot` / `removeMoodboardSlot` server actions + the Canvas
- * extractor (lib/extract-palette). These references will feed the paid
- * "Make it real" render as additional conditioning so the photoreal output
- * matches the couple's actual taste.
+ * extractor (lib/extract-palette).
  */
 
 import { useState, useTransition, type DragEvent } from 'react';
@@ -26,9 +24,7 @@ import {
 } from '@/lib/moodboard-slots';
 import { reorderMoodboardSlot } from '../actions';
 import { GalleryPicker } from './gallery-picker';
-import { RenderPoolPicker } from './render-pool-picker';
 import type { GalleryPage } from '@/lib/moodboard-gallery';
-import type { RenderPoolPage } from '@/lib/moodboard-render-pool';
 
 export type InspirationItem = {
   slot_key: string;
@@ -45,6 +41,10 @@ export type InspirationItem = {
   credit?: string | null;
   /** The photo's own sampled colours (`sampled_hex_1…6`) — Studio reads each part's palette from them. */
   swatches?: string[];
+  /** 🤝🖼 The supplier suggestion this photo was KEPT from (`from_suggestion_id`, 2026-10-19), else null. */
+  fromSuggestionId?: string | null;
+  /** …and that supplier's shop name — the credit on the photo ("3 photos · 1 from Bloom & Co."). */
+  fromShop?: string | null;
 };
 
 type Props = {
@@ -63,29 +63,6 @@ type Props = {
     slotKey: string;
     slotPosition: number;
     assetId: string;
-  }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
-  /**
-   * MB9 — the THIRD source: renders other couples chose to share, browsable as
-   * reference photos. Unlike the supplier gallery there is no per-slot
-   * eligibility list, because every slot has at least the whole-look renders as
-   * a legitimate reference; the pool's own emptiness is the honest gate, and
-   * the picker says so in words.
-   *
-   * ⛔ SAVING ONE COSTS NOTHING AND CANNOT TRIGGER A RENDER. These props reach
-   * `fetchRenderPool` / `applyRenderPick` in actions.ts, which touch no credit
-   * table and no provider. Rendering is section 04's job, at full price, every
-   * time (owner 2026-09-03).
-   */
-  fetchRenderPoolAction?: (input: {
-    eventId: string;
-    slotKey: string;
-    offset?: number;
-  }) => Promise<RenderPoolPage>;
-  applyRenderPickAction?: (input: {
-    eventId: string;
-    slotKey: string;
-    slotPosition: number;
-    renderId: string;
   }) => Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }>;
 };
 
@@ -106,6 +83,12 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'cake', label: 'Cake' },
       { k: 'bridal_bouquet', label: 'Bridal bouquet' },
       { k: 'centrepieces', label: 'Centrepieces' },
+      /* 🎨🖼 The Palette's five parts with photos of their own (2026-10-19). */
+      { k: 'chairs', label: 'Chairs' },
+      { k: 'ribbons_candles', label: 'Ribbons & candles' },
+      { k: 'lights', label: 'Lights' },
+      { k: 'entourage_bouquets', label: 'Entourage bouquets' },
+      { k: 'flower_accents', label: 'Flower accents' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },
@@ -115,6 +98,11 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'bride', label: 'Bride' },
       { k: 'groom', label: 'Groom' },
       { k: 'entourage', label: 'Entourage' },
+      // 👗 The four attire boards of their own (owner 2026-10-08) — the same slots Studio › Attire draws.
+      { k: 'bridesmaids', label: 'Bridesmaids' },
+      { k: 'groomsmen', label: 'Groomsmen' },
+      { k: 'flower_girl', label: 'Flower girl' },
+      { k: 'ring_bearer', label: 'Ring bearer' },
       { k: 'principal_sponsor', label: 'Sponsors' },
       { k: 'parents', label: 'Parents' },
       { k: 'guests', label: 'Guests' },
@@ -131,8 +119,6 @@ export function InspirationBoard({
   gallerySlots,
   fetchGalleryAction,
   applyGalleryAction,
-  fetchRenderPoolAction,
-  applyRenderPickAction,
 }: Props) {
   const [tiles, setTiles] = useState<Record<string, Tile>>(() => {
     const m: Record<string, Tile> = {};
@@ -145,8 +131,9 @@ export function InspirationBoard({
     return m;
   });
   const [error, setError] = useState<string | null>(null);
+  /** A drag-move that did not land — shown inside the slot it was dropped on. */
+  const [moveError, setMoveError] = useState<{ slot: string; message: string } | null>(null);
   const [openGallerySlot, setOpenGallerySlot] = useState<string | null>(null);
-  const [openPoolSlot, setOpenPoolSlot] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   /**
@@ -160,11 +147,11 @@ export function InspirationBoard({
 
   const galleryWired = Boolean(fetchGalleryAction && applyGalleryAction);
   const gallerySlotSet = new Set(gallerySlots ?? []);
-  const poolWired = Boolean(fetchRenderPoolAction && applyRenderPickAction);
 
   async function onFile(slot: string, pos: number, file: File | undefined) {
     if (!file) return;
     setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [key(slot, pos)]: 'uploading' }));
     try {
       const palette = await extractPaletteFromFile(file);
@@ -190,13 +177,24 @@ export function InspirationBoard({
   }
 
   function onRemove(slot: string, pos: number) {
+    const was = tiles[key(slot, pos)];
+    setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [key(slot, pos)]: undefined }));
     startTransition(async () => {
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('slot_key', slot);
       fd.set('slot_position', String(pos));
-      await removeMoodboardSlot(fd);
+      /* 📵 A remove that never answered (no signal, a 5xx) is SAID, and the photo is put back — it was not removed.
+         Thrown into this transition it replaced the whole page (in the Maker, the whole Maker) with the app's
+         error screen. */
+      try {
+        await removeMoodboardSlot(fd);
+      } catch {
+        setTiles((t) => ({ ...t, [key(slot, pos)]: was }));
+        setError('Could not remove — please try again.');
+      }
     });
   }
 
@@ -212,16 +210,28 @@ export function InspirationBoard({
     if (fromSlot === toSlot && fromPos === toPos) return;
     const fromKey = key(fromSlot, fromPos);
     const toKey = key(toSlot, toPos);
+    const wasFrom = tiles[fromKey];
+    const wasTo = tiles[toKey];
+    setError(null);
+    setMoveError(null);
     setTiles((t) => ({ ...t, [fromKey]: t[toKey], [toKey]: t[fromKey] }));
+    /* ↩ A move that did not land puts BOTH photos back and says so in the slot it was dropped on. The board
+       paints the swap before the server answers, so leaving the optimistic swap up after a refusal drew a
+       move that never happened — until the next reload quietly undid it. */
+    const undo = (message: string) => {
+      setTiles((t) => ({ ...t, [fromKey]: wasFrom, [toKey]: wasTo }));
+      setMoveError({ slot: toSlot, message });
+    };
     startTransition(async () => {
       try {
-        await reorderMoodboardSlot(
+        const res = await reorderMoodboardSlot(
           eventId,
           { slotKey: fromSlot, slotPosition: fromPos },
           { slotKey: toSlot, slotPosition: toPos },
         );
+        if (!res.ok) undo(res.message);
       } catch {
-        setError('Could not reorder — please try again.');
+        undo('Could not move that photo — please try again.');
       }
     });
   }
@@ -258,6 +268,11 @@ export function InspirationBoard({
                     />
                   ))}
                 </div>
+                {moveError?.slot === slot.k ? (
+                  <p role="alert" className="px-0.5 text-[10px] text-terracotta-700">
+                    {moveError.message}
+                  </p>
+                ) : null}
                 {/* The door into the supplier gallery. Only for slots a trade
                     actually supplies, and only once the actions are wired —
                     a button that cannot fetch is worse than no button. */}
@@ -273,23 +288,6 @@ export function InspirationBoard({
                     {openGallerySlot === slot.k
                       ? 'Hide supplier photos'
                       : 'Browse supplier photos'}
-                  </button>
-                ) : null}
-                {/* MB9's door. Every slot gets it — a whole-look render is a
-                    legitimate reference for any part of the room — and the
-                    label says what it costs, which is nothing. */}
-                {poolWired ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenPoolSlot((prior) => (prior === slot.k ? null : slot.k))
-                    }
-                    aria-expanded={openPoolSlot === slot.k}
-                    className="sn-press px-0.5 text-left text-[10px] font-bold text-ink/55 underline underline-offset-2 hover:text-ink"
-                  >
-                    {openPoolSlot === slot.k
-                      ? 'Hide shared renders'
-                      : 'Browse shared renders'}
                   </button>
                 ) : null}
               </li>
@@ -319,32 +317,6 @@ export function InspirationBoard({
                 setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit } }));
               }}
               onClose={() => setOpenGallerySlot(null)}
-            />
-          ) : null}
-          {/* Rendered under the GROUP for the same reason the supplier picker
-              is: it is a six-photo grid of its own and a 2-column tile cannot
-              hold it. */}
-          {poolWired &&
-          openPoolSlot !== null &&
-          group.slots.some((s) => s.k === openPoolSlot) ? (
-            <RenderPoolPicker
-              eventId={eventId}
-              slotKey={openPoolSlot}
-              slotLabel={
-                group.slots.find((s) => s.k === openPoolSlot)?.label ?? openPoolSlot
-              }
-              emptyPositions={emptyPositionsFor(openPoolSlot)}
-              fetchAction={fetchRenderPoolAction!}
-              applyAction={applyRenderPickAction!}
-              onSaved={(pos, url) => {
-                // No credit line: a shared render names no shop, and the
-                // couple who made it is deliberately not identified — the pool
-                // returns nothing that would say whose wedding it was.
-                const saved = openPoolSlot;
-                if (!saved) return;
-                setTiles((t) => ({ ...t, [key(saved, pos)]: { url, credit: null } }));
-              }}
-              onClose={() => setOpenPoolSlot(null)}
             />
           ) : null}
         </div>

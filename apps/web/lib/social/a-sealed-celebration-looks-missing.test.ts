@@ -74,7 +74,9 @@ function selectedColumns(src: string): string[] {
   assert.ok(from > -1, "the route no longer reads 'events' — re-aim this guard");
   const sel = src.indexOf('.select(', from);
   assert.ok(sel > from, 'no .select() after the events read — re-aim this guard');
-  const literal = src.slice(sel).match(/'([^']*)'/)?.[1];
+  // A quoted list, or a template that extends a canonical constant (`${HERO_MONOGRAM_COLUMNS}, …` — the form the
+  // dup-rule guard asks for). The columns this guard needs are the literal ones either way.
+  const literal = src.slice(sel).match(/(['`])([^'`]*)\1/)?.[2];
   assert.ok(literal, 'the select is no longer a quoted column list');
   return literal.split(',').map((c) => c.trim());
 }

@@ -1,5 +1,12 @@
 import { ExternalLink, Info } from 'lucide-react';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
+import { SharePdfButton } from '@/app/_components/share-pdf-button';
+import {
+  DEEP_SEARCH_KEEP_DAYS,
+  deepSearchFindingTitle,
+  deepSearchPdfFileName,
+  deepSearchPdfHref,
+} from '@/lib/deep-search-findings';
 
 /**
  * "What We Learned" — presentational render of a VendorDossier for the vendor's
@@ -23,7 +30,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function DossierView({ dossier }: { dossier: VendorDossier }) {
+export function DossierView({
+  dossier,
+  pdf,
+}: {
+  dossier: VendorDossier;
+  /**
+   * 📄 The search's PDF (owner 2026-10-29: *"run search would also create a pdf file of the search created"*) — the
+   * shared Share button with Paper ▾, made from this same result by `/api/vendor/deep-search-pdf`. Null when the
+   * result is not kept any more (or not stored yet): no button, never a file that cannot be made.
+   */
+  pdf?: { dossierId: number; searchedAt: string | null } | null;
+}) {
   const hasServices = dossier.detected_services.length > 0;
   const hasPrices = dossier.price_signals.length > 0;
   const hasPresence = dossier.web_presence.length > 0;
@@ -45,12 +63,12 @@ export function DossierView({ dossier }: { dossier: VendorDossier }) {
         </span>
       </div>
 
-      <Section title="Business summary">
+      <Section title={deepSearchFindingTitle('summary')}>
         <p className="max-w-prose leading-relaxed">{dossier.business_summary}</p>
       </Section>
 
       {hasServices ? (
-        <Section title="Services we found">
+        <Section title={deepSearchFindingTitle('services')}>
           <ul className="flex flex-wrap gap-1.5">
             {dossier.detected_services.map((s, i) => (
               <li
@@ -66,7 +84,7 @@ export function DossierView({ dossier }: { dossier: VendorDossier }) {
       ) : null}
 
       {hasPrices ? (
-        <Section title="Prices we found on the web">
+        <Section title={deepSearchFindingTitle('prices')}>
           <ul className="space-y-1.5">
             {dossier.price_signals.map((p, i) => (
               <li key={`${p.label}-${i}`} className="flex flex-wrap items-baseline gap-x-2">
@@ -89,7 +107,7 @@ export function DossierView({ dossier }: { dossier: VendorDossier }) {
       ) : null}
 
       {hasPresence ? (
-        <Section title="Where your business shows up online">
+        <Section title={deepSearchFindingTitle('presence')}>
           <ul className="space-y-1.5">
             {dossier.web_presence.map((w, i) => (
               <li key={`${w.platform}-${i}`} className="text-sm">
@@ -121,7 +139,7 @@ export function DossierView({ dossier }: { dossier: VendorDossier }) {
       ) : null}
 
       {hasFlags ? (
-        <Section title="Things to double-check">
+        <Section title={deepSearchFindingTitle('flags')}>
           <ul className="space-y-1">
             {dossier.consistency_flags.map((f, i) => (
               <li key={`${f}-${i}`} className="flex items-start gap-1.5 text-sm text-ink/75">
@@ -136,7 +154,18 @@ export function DossierView({ dossier }: { dossier: VendorDossier }) {
       <p className="mt-4 text-[11px] leading-relaxed text-ink/50">
         This is a research snapshot from the open web — review it and copy anything
         accurate into your Shop profile. We never change your profile automatically.
+        Kept {DEEP_SEARCH_KEEP_DAYS} days, then deleted.
       </p>
+      {pdf ? (
+        <div className="mt-3" data-deep-search-pdf="">
+          <SharePdfButton
+            href={deepSearchPdfHref(pdf.dossierId)}
+            fileName={deepSearchPdfFileName(pdf.searchedAt)}
+            name="Share this search (PDF)"
+            papers="document"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -33,7 +33,13 @@
  *   charge first and can fail at five later points. Two different absences;
  *   the door says which one was being healed.
  */
-export type DepositEffectsDoor = 'clients_card' | 'payment_card' | 'catch_up' | 'unbilled_repair';
+export type DepositEffectsDoor =
+  | 'clients_card'
+  | 'payment_card'
+  /** An admin settled a refused first payment as "the payment stands" (2026-10-12). */
+  | 'dispute_settle'
+  | 'catch_up'
+  | 'unbilled_repair';
 
 /** The fee collector's answer, as this judge needs it (`CollectBookingFeeResult`
  *  is declared in a `server-only` module, so the shape is restated structurally

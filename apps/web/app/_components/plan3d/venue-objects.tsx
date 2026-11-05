@@ -191,7 +191,8 @@ function renderKind(kind: string, w: number, d: number, palette: Lab3DPalette) {
           </mesh>
           <mesh position={[0, 0.62, 0]} castShadow>
             <cylinderGeometry args={[0.34, 0.4, 0.3, 16]} />
-            <meshStandardMaterial color="#f7f2ea" roughness={0.5} />
+            {/* 🎨 The couple's Cake colour (Palette › Cake, 2026-10-19), else the cream it always was. */}
+            <meshStandardMaterial color={palette.cake ?? '#f7f2ea'} roughness={0.5} />
           </mesh>
           <mesh position={[0, 0.86, 0]} castShadow>
             <cylinderGeometry args={[0.22, 0.28, 0.24, 16]} />

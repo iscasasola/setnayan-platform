@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from '@/app/dashboard/[eventId]/launch/_components/pro-quiet-line';
 
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
@@ -9,10 +10,16 @@ import {
   HUB_MOTION_PRESET_LABEL,
   HUB_SEQUENCE_LABEL,
   HUB_TIMELINE_LABEL,
+  hubCanvasClass,
+  hubCanvasVars,
+  hubLiftMoves,
   hubSceneFxFields,
   resolveHubMotion,
+  sanitizeHubCanvas,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
+import { useEffect, useRef } from 'react';
+import { sceneMotionMessage, type SceneMotionMessage } from '@/app/[slug]/_components/scene-motion-lay';
 import { canvasHasMotion, HUB_CANVAS_MOTION_KEYS } from '@/lib/hub-look-pro';
 import {
   HUB_AUTO_SPEEDS,
@@ -29,10 +36,14 @@ import { IButton, IHint, IReset, IRow, ISection } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
-import { HUB_DURING_LABEL, HUB_SEQUENCES } from '@/lib/hub-canvas';
-import { makerSceneHasRows } from '@/lib/maker-parts';
+import { HUB_DURING_LABEL, HUB_SEQUENCES, type HubDuring, type HubSceneReveal } from '@/lib/hub-canvas';
+import { HUB_EL_REVEALS, HUB_EL_REVEAL_LABEL } from '@/lib/element-style';
+import { makerSceneHasPictures, makerSceneHasRows } from '@/lib/maker-parts';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
+import { useAnimatePhase } from '../../../launch/_components/stage-panel/store';
+import { offeredTransition, scrubOutOffered } from '@/lib/scrub-out-offered';
+import { FEEL_OFF, leavesOptions, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, sceneInFeel, sceneOutFeel } from '@/lib/animate-feel';
 
 /**
  * 🎬 A SCENE'S ANIMATE TAB — the scene inspector's (`scene-inspector.tsx`, whose
@@ -42,6 +53,13 @@ import { StageAnimate } from '../../../launch/_components/stage-panel/stage-anim
  * choice is ONE dropdown (owner: any set of choices is a dropdown — five pills
  * clipped "Cinematic" on a phone, handoff NEXT BUILDS 3). 💾 The draft, never live.
  */
+
+/** Said on Action where there is nothing for Slow lift to move. */
+export const LIFT_NEEDS_A_PHOTO = 'Slow lift moves a photo behind the scene — this scene has none.';
+/** ✨ Action's line for Light leak on a scene — the approved prototype's words, said of the scene's pictures. */
+export const SCENE_LEAK_NOTE = 'A warm flare drifts across its pictures now and then (every 16 s) — the background Light leak ◆.';
+/** The pages the Maker shows a scene on — the stage canvas on screen, and the old editor's page frame. */
+const MOTION_FRAMES = 'iframe[data-maker-canvas-frame="shown"], iframe[data-maker-page-frame]';
 
 function ErrorLine({ error }: { error: string | null }) {
   return error ? (
@@ -77,7 +95,39 @@ export function SceneAnimateTab({
   /** ▶ Preview — play this scene, then the move into the next. */
   onPreview: () => void;
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const { shown, save: saveCanvas, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  const [animatePhase] = useAnimatePhase();
+  /* 🎬 EVERY MOTION PICK IS ON THE CANVAS AT THE TAP, AND PLAYS ONCE (the 2026-10-15 walk, F5 · F10 —
+     `app/[slug]/_components/scene-motion-lay.ts`): the scene's motion, worked out with the page's own functions from
+     the canvas this pick writes, laid on the frame on screen; the phase picked plays as ▶ plays it. The save goes on
+     behind it as before (`useSceneCanvas`). A frame that loads behind (a redraw) is told the latest pick on `ready`. */
+  const mine = useRef(canvas);
+  const sent = useRef<SceneMotionMessage | null>(null);
+  const json = JSON.stringify(canvas);
+  useEffect(() => {
+    mine.current = canvas;
+    sent.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [json, widgetType]);
+  useEffect(() => {
+    const onReady = (e: MessageEvent) => {
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (e.origin !== window.location.origin || !d || d.source !== 'setnayan-site' || d.t !== 'ready' || !sent.current) return;
+      (e.source as Window | null)?.postMessage({ ...sent.current, play: null }, window.location.origin);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, []);
+  const save = (change: (c: Record<string, unknown>) => void, play: SceneMotionMessage['play'] = 'in') => {
+    const draft: Record<string, unknown> = { ...mine.current };
+    change(draft);
+    const next = sanitizeHubCanvas({ canvas: draft });
+    mine.current = next;
+    const msg = sceneMotionMessage(`w:${widgetType}`, hubCanvasClass(next), hubCanvasVars(next), play);
+    sent.current = msg;
+    for (const f of document.querySelectorAll<HTMLIFrameElement>(MOTION_FRAMES)) f.contentWindow?.postMessage(msg, window.location.origin);
+    saveCanvas(change);
+  };
   /* 🧭 The new Maker draws these same saves as the prototype's one column (`stage-panel/stage-animate.tsx`). */
   const ss = useMaker()?.stagesStudio === true;
 
@@ -98,10 +148,13 @@ export function SceneAnimateTab({
 
   const preset = shown.preset ?? null;
   const m = resolveHubMotion(shown);
-  const transition = resolveTransition(shown);
+  /* 🌕 "Scrub out" is offered since 2026-10-13 (owner: "Turn on scrub"). Read through the one module all the same: were
+     the switch turned off again, a scene that stores it would READ as "As it scrolls away" — Leaves, Movement and ▶
+     then behave as for scroll, and nothing stored is rewritten (`lib/scrub-out-offered.ts`). */
+  const transition = offeredTransition(resolveTransition(shown));
   const speed = shown.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
   const setTransition = (t: string | null, s: string | null) =>
-    save((c) => {
+    saveCanvas((c) => {
       const step = nextTransition(shown, t, s);
       delete c.transition;
       delete c.autoSpeed;
@@ -109,53 +162,88 @@ export function SceneAnimateTab({
       if (step.autoSpeed) c.autoSpeed = step.autoSpeed;
     });
 
+  /* 🌄 Slow lift is offered where it moves something — or where it is already on, so it can come off. */
+  const liftMoves = hubLiftMoves(shown);
+  const lift = liftMoves || (shown.during ?? m.during) === 'lift';
+  /* 🖼 Does this scene draw pictures (its photos, its venue picture, a photo behind its words)? Then Reveal ▾ and
+     Light leak ◆ are offered (owner 2026-10-17). */
+  const pictures = makerSceneHasPictures(widgetType) || liftMoves;
   if (ss) {
     return (
       <div data-scene-tab="animate" className="contents">
+        {/* 💎 The quiet line (owner 2026-10-22) — a scene's animation is the Motion part's. */}
+        {ownsPro ? null : <ProQuietLine part="motion" />}
         <StageAnimate
           pending={pending}
           error={error}
-          pro={mark ? 'How a scene moves is Event Hub Pro — try it here; it goes live when you Apply with it.' : null}
-          how={{
-            value: preset ?? 'auto',
-            options: [{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))],
-            onPick: (k) => save((c) => { if (k === 'auto') delete c.preset; else c.preset = k; }),
+          /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`) — it writes a tempo and nothing else. The old
+             one-for-all preset is not offered here; a stored `preset` keeps playing and is never rewritten. */
+          move={{
+            in: {
+              value: sceneInFeel(shown, m),
+              onPick: (f) => save((c) => laySceneInFeel(c, f), 'in'),
+              off: m.in === 'none' ? FEEL_OFF.noEffect : null,
+            },
+            out:
+              /* Auto scroll has a speed of its own; Scrub out follows the thumb; else the scene's own way out. */
+              transition === 'auto'
+                ? { value: autoFeel(shown.autoSpeed), onPick: (f) => setTransition('auto', autoSpeedOf(f)) }
+                : {
+                    value: sceneOutFeel(shown),
+                    onPick: (f) => save((c) => laySceneOutFeel(c, f), 'out'),
+                    off: transition === 'scrub' ? FEEL_OFF.scrub : m.timeline === 'time' ? FEEL_OFF.arrival : m.out === 'none' ? FEEL_OFF.noEffect : null,
+                  },
+          }}
+          /* The drive — one for both ends: on arrival a scene has no Build out. */
+          plays={{
+            value: m.timeline === 'scrub' ? 'scroll' : 'arrival',
+            onPick: (d) => save((c) => { c.timeline = d === 'scroll' ? 'scrub' : 'time'; }),
           }}
           inFx={m.inFx}
           outFx={m.outFx}
           onIn={(fx) => save((c) => sceneFx(c, 'in', fx))}
-          onOut={(fx) => save((c) => sceneFx(c, 'out', fx))}
+          onOut={(fx) => save((c) => sceneFx(c, 'out', fx), 'out')}
           rows={
             makerSceneHasRows(widgetType)
               ? {
                   value: shown.sequence ?? 'auto',
                   options: [
                     { key: 'auto', label: 'Auto' },
-                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One after another' : HUB_SEQUENCE_LABEL[q] })),
+                    /* "One by one" — the long words do not fit a third of a row. */
+                    ...HUB_SEQUENCES.map((q) => ({ key: q, label: q === 'one_after_another' ? 'One by one' : HUB_SEQUENCE_LABEL[q] })),
                   ],
                   onPick: (q) => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; }),
                 }
               : null
           }
           does={{
-            value: shown.during ?? 'auto',
-            options: [{ key: 'auto', label: 'Auto' }, ...(['still', 'lift'] as const).map((d) => ({ key: d, label: HUB_DURING_LABEL[d] }))],
-            onPick: (d) => save((c) => { if (d === 'auto') delete c.during; else c.during = d; }),
+            /* Still | Slow lift — the pressed one is what guests see now (its own pick, else the preset's).
+               🌄 Slow lift moves the scene's PHOTO only (`hubLiftMoves`): offered only on a scene with one behind its
+               words — or where it is already chosen, so it can be taken off (the 2026-10-15 walk, F11).
+               ✨ + Light leak ◆ on a scene that draws pictures (owner 2026-10-17, "extend the effects to every text and
+               picture part") — or where it is already chosen. */
+            value: shown.during ?? m.during,
+            options: ([
+              'still',
+              ...(lift ? (['lift'] as const) : []),
+              ...(pictures || shown.during === 'leak' ? (['leak'] as const) : []),
+            ] as const satisfies readonly HubDuring[]).map((d) => ({ key: d, label: d === 'leak' ? `${HUB_DURING_LABEL[d]} ◆` : HUB_DURING_LABEL[d] })),
+            onPick: (d) => save((c) => { c.during = d as HubDuring; }, 'act'),
           }}
-          timing={{
-            value: shown.timeline ?? 'auto',
-            options: (['auto', 'time', 'scrub'] as const).map((t) => ({ key: t, label: t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t] })),
-            onPick: (t) => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; }),
-          }}
-          next={
-            isLast
-              ? null
-              : {
-                  value: transition,
-                  options: HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t] })),
-                  onPick: (t) => setTransition(t, null),
+          /* ✨ Reveal ▾ — how the scene's pictures arrive (Plain · Develop ◆ · Curtain ◆), Build in's row 4. */
+          arrive={
+            pictures || shown.reveal
+              ? {
+                  small: 'Reveal',
+                  value: shown.reveal ?? 'plain',
+                  options: HUB_EL_REVEALS.map((r) => ({ key: r, label: r === 'plain' ? HUB_EL_REVEAL_LABEL[r] : `${HUB_EL_REVEAL_LABEL[r]} ◆` })),
+                  onPick: (r) => save((c) => { if (r === 'plain') delete c.reveal; else c.reveal = r as HubSceneReveal; }, 'in'),
                 }
+              : null
           }
+          actNote={animatePhase === 'act' && (shown.during ?? m.during) === 'leak' ? SCENE_LEAK_NOTE : null}
+          note={!liftMoves && animatePhase === 'act' ? LIFT_NEEDS_A_PHOTO : null}
+          leaves={isLast ? null : { value: transition, options: leavesOptions(), onPick: (t) => setTransition(t, null) }}
         />
       </div>
     );
@@ -163,6 +251,7 @@ export function SceneAnimateTab({
 
   return (
     <div data-scene-tab="animate" aria-busy={pending}>
+      {ownsPro ? null : <ProQuietLine part="motion" />}
       {/* 💎 How a scene moves is Event Hub Pro — the diamond for an owning couple,
           ◆ PRO for one trying it (their pick waits in the draft for Apply). */}
       <ISection>
@@ -213,9 +302,9 @@ export function SceneAnimateTab({
           </div>
           <div data-motion-step="scene-out">
             <ISection>Goes out</ISection>
-            <MotionFxRows end="out" fx={m.outFx} onChange={(fx) => save((c) => sceneFx(c, 'out', fx))} />
+            <MotionFxRows end="out" fx={m.outFx} onChange={(fx) => save((c) => sceneFx(c, 'out', fx), 'out')} />
             {shown.out || shown.outFx ? (
-              <IReset data="scene-out-auto" onClick={() => save((c) => { delete c.out; delete c.outTo; delete c.outFx; })}>
+              <IReset data="scene-out-auto" onClick={() => save((c) => { delete c.out; delete c.outTo; delete c.outFx; }, 'out')}>
                 Back to Auto
               </IReset>
             ) : null}
@@ -248,7 +337,7 @@ export function SceneAnimateTab({
               label="Into the next scene"
               dataAttr="data-scene-transition"
               value={transition}
-              options={HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
+              options={HUB_TRANSITIONS.filter((t) => t !== 'scrub' || scrubOutOffered()).map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
               onPick={(t) => setTransition(t, null)}
               className={ROW_PICK}
             />

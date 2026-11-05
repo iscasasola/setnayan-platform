@@ -126,7 +126,7 @@ export function ContextDock({
         className={
           variant === 'inline'
             ? `border-b pb-3 pt-1 ${TONE_RING[tone]}`
-            : `fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 px-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm ${TONE_RING[tone]}`
+            : `fixed inset-x-0 bottom-0 z-50 border-t bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm ${TONE_RING[tone]}`
         }
         style={variant === 'inline' ? undefined : { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >

@@ -8,25 +8,18 @@
  * day the product exists for, the loudest thing it can say was arriving only by
  * accident.
  *
- * ── WHY IT IS A CONTENTLESS PING, NOT A ROW SUBSCRIPTION ────────────────────
+ * ── AND NOW WITHOUT ANY SOCKET (EV1, 2026-10-28) ────────────────────────────
  *
- * Supabase Realtime ships two patterns here, and BOTH are already used:
+ * Owner, 2026-10-28 (DECISION_LOG "NO EVENT HUB MAY CRASH"): guests never hold
+ * a live connection. The contentless `broadcast` ping (2026-08-05) is gone — it
+ * needed a Realtime socket on every guest's phone, and Realtime was the
+ * costliest thing on the day. The card asks one small gated route on a timer,
+ * and the moment a pocketed phone is looked at; the route answers from one
+ * remembered read per event, cleared the instant the coordinator sends.
  *
- *   `postgres_changes` — honours RLS. The budget, the chat and the seating plan
- *      use it. It CANNOT work here: a wedding guest holds a signed cookie, not
- *      a Supabase auth session, so to Supabase they are anonymous. Making the
- *      rows readable by `anon` would publish every couple's announcements to
- *      anyone who could guess an event id.
- *
- *   `broadcast` — the photo wall's pattern. No RLS at all, which is precisely
- *      why the payload must stay EMPTY. What travels is "there is something new
- *      for this event", which the page being live already implies. The words
- *      come from a server action that checks the guest's own cookie.
- *
- * ── AND WHY THERE IS STILL A TIMER ──────────────────────────────────────────
- * Venue wifi drops channels constantly. The ping is a HINT; the poll is the
- * guarantee. A dropped channel must cost latency, never the message — the same
- * reasoning the photo wall states for its own tiles.
+ * What stays pinned is the PROPERTY: the words reach a phone nobody is
+ * touching, from an authorized read pinned to the guest's own event, and a
+ * failed read never blanks a standing announcement.
  */
 
 import { test } from 'node:test';
@@ -38,65 +31,32 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTE = join(HERE, '..');
 const CARD = readFileSync(join(ROUTE, '_components', 'day-of-announcement.tsx'), 'utf8');
-const ACTION = readFileSync(join(ROUTE, 'announcement-actions.ts'), 'utf8');
+const GATE = readFileSync(join(ROUTE, '_lib', 'latest-announcement.server.ts'), 'utf8');
+const ANSWER = readFileSync(join(ROUTE, 'announcement', 'route.ts'), 'utf8');
 const WRITER = readFileSync(
   join(ROUTE, '..', 'dashboard', '[eventId]', '_actions', 'day-of-broadcast.ts'),
   'utf8',
 );
 
-test('the announcement arrives without a reload', () => {
-  assert.match(CARD, /\.channel\(`announce:\$\{eventId\}`\)/, 'the card no longer subscribes');
-  assert.match(CARD, /'broadcast', \{ event: 'announcement' \}/, 'it is not listening for the ping');
-  assert.match(WRITER, /\.channel\(`announce:\$\{eventId\}`\)/, 'nothing sends the ping');
-  assert.match(WRITER, /type: 'broadcast'/, 'the writer stopped broadcasting');
-});
-
-test('the channel carries no words — only the fact that there are some', () => {
-  // A `broadcast` channel has NO RLS. Anything on it is readable by anyone who
-  // can guess an event id, and announcements are guest-only.
-  assert.match(
-    WRITER,
-    /payload: \{\},/,
-    'The ping now carries a payload. A broadcast channel is unauthenticated — ' +
-      'putting the announcement text on it publishes every couple\'s ' +
-      'announcements to anyone who can guess an event id. Send the fact; fetch ' +
-      'the words.',
-  );
-  assert.ok(
-    !/payload: \{[^}]*body/.test(WRITER),
-    'The announcement body is being broadcast.',
-  );
+test('the announcement arrives without a reload — and without a socket', () => {
+  assert.match(CARD, /fetch\(`\/\$\{encodeURIComponent\(slug\)\}\/announcement`\)/, 'the card no longer asks');
+  assert.match(CARD, /jittered\(wait\)/, 'the card asks once and never again — nobody reloads a page they are looking at');
+  assert.doesNotMatch(CARD, /\.channel\(|createClient\(/, 'a guest’s phone holds a socket again (owner 2026-10-28)');
+  assert.doesNotMatch(WRITER, /\.channel\(`announce:/, 'a ping nobody listens to is a Realtime message for nothing');
+  assert.match(WRITER, /revalidateTag\(liveDayTag\(eventId\)\)/, 'the send must clear the remembered words at once');
 });
 
 test('the words come from an authorized read, pinned to the guest\'s own event', () => {
-  assert.match(ACTION, /readGuestSession\(\)/, 'the action stopped checking the cookie');
-  assert.match(
-    ACTION,
-    /session\.event_id !== eventId/,
-    'The action must pin the request to the guest\'s OWN event, or a valid ' +
-      'cookie for one wedding could read another\'s announcements.',
-  );
-  // Both denials must look the same, so the answer does not reveal membership.
-  assert.match(ACTION, /if \(!session \|\| session\.event_id !== eventId\) return null;/);
+  assert.match(GATE, /verified\.payload\.event_id !== eventId/, 'a valid pass for one wedding could read another’s announcements');
+  assert.match(GATE, /readGuestSession\(\{ eventId \}\)/, 'a signed-in viewer must be asked the account rule');
+  // Both denials look the same, so the answer does not reveal membership.
+  assert.match(ANSWER, /if \(!\(await holdsThisEventsCurrentPass\(event\.event_id\)\)\) return NextResponse\.json\(\{ body: null \}/);
 });
 
-test('a dropped channel costs latency, never the message', () => {
-  assert.match(
-    CARD,
-    /setInterval\(\(\) => void pull\(\), 45_000\)/,
-    'The poll is gone. Venue wifi drops channels constantly; without a timer a ' +
-      'dropped channel means the coordinator\'s words never arrive at all.',
-  );
-  assert.match(
-    CARD,
-    /visibilitychange/,
-    'A phone that was in a pocket must catch up the moment it is looked at.',
-  );
-  assert.match(
-    WRITER,
-    /try \{[\s\S]*?\.channel\(`announce:\$\{eventId\}`\)[\s\S]*?\} catch \{/,
-    'The ping must never fail the write that already succeeded.',
-  );
+test('a pocketed phone asks nothing, and catches up the moment it is looked at', () => {
+  assert.match(CARD, /if \(document\.visibilityState !== 'visible'\) return;/);
+  assert.match(CARD, /visibilitychange/, 'A phone that was in a pocket must catch up the moment it is looked at.');
+  assert.match(CARD, /ANNOUNCEMENT_POLL_MS \* 2 \*\* failures/, 'a venue whose Wi-Fi is down is asked at full speed by every phone');
 });
 
 test('a failed read never blanks a standing announcement', () => {
@@ -105,18 +65,9 @@ test('a failed read never blanks a standing announcement', () => {
   // one is safety-adjacent.
   assert.match(
     CARD,
-    /if \(alive && latest\?\.body\) setText\(latest\.body\)/,
+    /if \(alive && typeof answer\.body === 'string' && answer\.body\.trim\(\)\) setText\(answer\.body\)/,
     'The card now writes whatever came back, including nothing. Only ever ' +
       'replace a standing announcement with a real one.',
   );
-});
-
-test('the card still works with no eventId, so a caller cannot break it', () => {
-  assert.match(CARD, /eventId\?: string;/, 'eventId must stay optional');
-  assert.match(
-    CARD,
-    /if \(!eventId\) return;/,
-    'Without the guard, a caller that forgets the prop subscribes to ' +
-      '`announce:undefined` — a channel every event would share.',
-  );
+  assert.match(ANSWER, /status: 503/, 'a refused read must be an outage the card retries, never "nothing was said"');
 });

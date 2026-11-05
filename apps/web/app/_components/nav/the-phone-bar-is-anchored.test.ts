@@ -168,10 +168,13 @@ test('⚓ the event layout mounts its one bar inside one <BottomDock>, told the 
   const src = stripComments(
     readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'layout.tsx'), 'utf8'),
   );
-  const open = src.indexOf('<BottomDock>');
+  /* 📱→🖥 The event tree's dock carries the shell's boundary (`boundary="tab"`,
+     owner 2026-10-19), so the open tag is matched with its attributes. */
+  const open = src.search(/<BottomDock[\s>]/);
   const close = src.indexOf('</BottomDock>');
   assert.ok(open >= 0 && close > open, 'the event layout no longer mounts a <BottomDock>');
-  assert.equal(src.split('<BottomDock>').length - 1, 1, 'more than one dock in the event layout');
+  assert.equal((src.match(/<BottomDock[\s>]/g) ?? []).length, 1, 'more than one dock in the event layout');
+  assert.match(src.slice(open, close), /^<BottomDock boundary="tab">/, 'the event dock is not told the 701 boundary the shell is given');
   const inside = src.slice(open, close);
   assert.ok(inside.includes('<CustomerBottomNav'), '<CustomerBottomNav is mounted outside the dock — it floats on its own again');
   const outside = src.slice(0, open) + src.slice(close);

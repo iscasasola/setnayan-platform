@@ -33,6 +33,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 // can prepare the same file (P5a §2e). Same reads, one builder, both callers.
 const ROUTE = path.resolve(HERE, 'personal-data-export.ts');
 const FACE = path.resolve(HERE, 'export-own-face-enrollments.ts');
+const GIFT = path.resolve(HERE, 'export-own-gift-records.ts');
 
 const UID = String.raw`user\.id`; // the route's server-verified session identity
 const eqUid = (col: string) => new RegExp(String.raw`\.eq\(\s*'${col}'\s*,\s*${UID}\s*\)`);
@@ -48,6 +49,8 @@ const ANCHORS: Record<string, RegExp> = {
   orders: eqUid('user_id'),
   payments: eqUid('user_id'),
   guest_face_enrollments: /\.in\(\s*'guest_id'\s*,\s*ownGuestIds\s*\)/, // pinned below
+  // a guest's "I sent it" — keyed to a guest, host-only under RLS; pinned below
+  event_gift_records: /\.in\(\s*'giver_guest_id'\s*,\s*ownGuestIds\s*\)/,
   // two reads: the dependents export (three own lanes) + the claimed-ids lookup
   dependents: new RegExp(
     String.raw`\.or\(\s*\x60owner_user_id\.eq\.\$\{${UID}\},claimed_user_id\.eq\.\$\{${UID}\},handed_over_by_user_id\.eq\.\$\{${UID}\}\x60` +
@@ -62,7 +65,14 @@ const ANCHORS: Record<string, RegExp> = {
   papic_free_grant_claims: eqUid('user_id'),
   user_unfollows: eqUid('follower_user_id'),
   invite_mutes: eqUid('user_id'),
+  event_type_requests: eqUid('user_id'),
   vendor_reuse_requests: eqUid('requested_by_user_id'),
+  /* 🤝🖼 Photos the subject suggested to a couple's board as a booked supplier — the author's act (2026-10-19). */
+  event_inspiration_suggestions: eqUid('suggested_by_user_id'),
+  // 📸 #7089 — the subject's own photo shares, author-scoped on the uploader.
+  couple_photo_shares: eqUid('shared_by_user_id'),
+  // the subject's OWN crew passes (2026-10-29) — the crew member is the row's person; the deciding shop is not
+  vendor_crew_passes: eqUid('crew_user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),
@@ -70,16 +80,44 @@ const ANCHORS: Record<string, RegExp> = {
   event_deletion_requests: eqUid('user_id'),
   event_clusters: eqUid('owner_user_id'),
   event_costs: eqUid('created_by_user_id'),
-  event_renders: eqUid('created_by_user_id'),
-  event_render_share_consent: eqUid('consented_by_user_id'),
   event_colour_grants_coordinator: eqUid('user_id'),
   event_colour_changes: eqUid('actor_user_id'),
+  /* 🖼⏱ The Mood Board changes the subject made under Mood Board Edit — the author's act (2026-10-30). */
+  event_mood_board_changes: eqUid('actor_user_id'),
   // couple-grain by decision (2026-09-11): the caller's OWN couple events — pinned
   // by T15 in export-coverage-guardrail.test.ts
   event_vendor_payments: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   event_vendors: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,
   // the subject's OWN vendor profile (vp ← vendor_profiles .eq('user_id', user.id))
   editorial_vendor_media: /\.eq\(\s*'vendor_profile_id'\s*,\s*vp\.vendor_profile_id\s*\)/,
+
+  // ── 2026-11-05: the 39 undecided tables, sorted (lib/export-completeness.ts) ──
+  // Addressed to the subject: what we told them, what we issued them, what they asked.
+  notifications: eqUid('user_id'),
+  receipts: eqUid('user_id'),
+  account_deletion_requests: eqUid('user_id'),
+  chat_thread_reads: eqUid('user_id'),
+  comp_grants: eqUid('user_id'), // the comp's recipient — never `granted_by`, the admin
+  couple_event_type_notify_signups: eqUid('user_id'),
+  couple_wedding_type_notify_signups: eqUid('user_id'),
+  creator_chapters: eqUid('user_id'),
+  discount_code_eligible_users: eqUid('user_id'),
+  event_moderators: eqUid('user_id'), // the role holder — never the inviter
+  founder_seats: eqUid('user_id'),
+  guest_saved_vendors: eqUid('user_id'),
+  help_messages: eqUid('user_id'),
+  referral_codes: eqUid('owner_user_id'),
+  user_face_profiles: eqUid('user_id'),
+  vendor_date_waitlist: eqUid('user_id'),
+  vendor_member_token_wallets: eqUid('user_id'),
+  vendor_team_members: eqUid('user_id'),
+  // AUTHOR-scoped: a shared list or a shared day must not hand one person another's entries.
+  event_preparation_items: eqUid('created_by'),
+  budget_builds: eqUid('created_by'),
+  service_slot_reservations: eqUid('created_by'),
+  event_stage_notes: eqUid('author_user_id'),
+  // the history of the subject's OWN orders (ownOrderIds ← orders .eq('user_id', user.id), pinned below)
+  order_ledger: /\.in\(\s*'order_id'\s*,\s*ownOrderIds\s*\)/,
 };
 
 /**
@@ -130,7 +168,7 @@ function readsIn(file: string): Read[] {
 }
 
 test('every table read in the export names its subject, read by read', () => {
-  const reads = [...readsIn(ROUTE), ...readsIn(FACE)];
+  const reads = [...readsIn(ROUTE), ...readsIn(FACE), ...readsIn(GIFT)];
   const unanchored = reads.filter((r) => !(r.table in ANCHORS) || !ANCHORS[r.table]!.test(r.chain));
   console.log(
     `export reads: ${reads.length} · subject-anchored: ${reads.length - unanchored.length} · unanchored: ${unanchored.length}`,
@@ -152,6 +190,21 @@ test('the route reads face records only through the subject-scoped helper', () =
   const route = stripComments(fs.readFileSync(ROUTE, 'utf8'));
   assert.match(route, /readOwnFaceEnrollments\(\s*supabase\s*,\s*user\.id\s*\)/);
   assert.doesNotMatch(route, /\.from\(\s*'guest_face_enrollments'\s*\)/);
+});
+
+test('the route reads gift records only through the subject-scoped helper', () => {
+  const route = stripComments(fs.readFileSync(ROUTE, 'utf8'));
+  assert.match(route, /readOwnGiftRecords\(\s*supabase\s*,\s*admin\s*,\s*user\.id\s*\)/);
+  assert.doesNotMatch(route, /\.from\(\s*'event_gift_records'\s*\)/);
+  // own guest ids ← the subject's OWN membership rows, and nothing else
+  const gift = stripComments(fs.readFileSync(GIFT, 'utf8'));
+  assert.match(
+    gift,
+    /const mine = await client\s*\.from\('event_members'\)\s*\.select\('guest_id'\)\s*\.eq\('user_id', userId\)[\s\S]{0,300}?const ownGuestIds = distinctGuestIds\(mine\.data/,
+    'ownGuestIds must come from event_members filtered to the subject (user_id = the caller)',
+  );
+  // the screenshot's storage key never leaves in the file
+  assert.match(gift, /const \{ screenshot_r2_key: shot, \.\.\.said \} = row;/);
 });
 
 test('the derived ids are the subject’s own (where each anchor’s list comes from)', () => {
@@ -177,4 +230,10 @@ test('the derived ids are the subject’s own (where each anchor’s list comes 
   );
   // vp ← the subject's own vendor profile
   assert.match(route, /const vp = vendorProfile\.row;/);
+  // own order ids → order_ledger
+  assert.match(
+    route,
+    /const own = await supabase\.from\('orders'\)\.select\('order_id'\)\.eq\('user_id', user\.id\);[\s\S]{0,400}?const ownOrderIds = own\.data/,
+    'order_ledger must read only the history of orders the subject owns',
+  );
 });

@@ -22,6 +22,7 @@
 import { getDayOfPhase, getMenuLifecyclePhase } from './day-of-mode';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { stagesOfScene } from './stage-scenes';
+import { INVITATION_OPENS_DAYS_BEFORE, invitationOpensOn, venueDayOf } from './invitation-opens-on';
 
 /**
  * The 12 canonical widget types in the V1 landing-page render. This list
@@ -258,7 +259,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   {
     type: 'our_photos',
     label: 'Photos you add',
-    description: 'A gallery of photos you upload yourself, shown to everyone.',
+    description: 'Photos you upload yourself, shown to everyone.',
     is_always_on: false,
     editor_subroute: 'our-photos',
   },
@@ -428,7 +429,7 @@ export type LifecyclePhase = 'save_the_date' | 'rsvp' | 'event' | 'editorial';
  * invitation). Provisional; tunable. Mirrors the ~90-day handoff in the
  * 4-path timeline design.
  */
-export const STD_THRESHOLD_DAYS = 90;
+export const STD_THRESHOLD_DAYS = INVITATION_OPENS_DAYS_BEFORE;
 
 /**
  * Per-widget phase visibility — the element×phase matrix (spec §2). A widget
@@ -535,6 +536,19 @@ export function getLifecyclePhase(
     takes an injectable now for exactly this reason.
   */
   nowMs?: number,
+  /*
+    📬 THE DAY THE INVITATION OPENS — `events.std_invitation_launch_date` (owner 2026-10-14,
+    DECISION_LOG 📬 item 6: "the film and the switch read ONE date"). Until then this switched at
+    `STD_THRESHOLD_DAYS` and never read the couple's date, while the Save the Date film promised
+    that date to guests. Now the switch from the Save the Date to the Invitation is
+    `invitationOpensOn(eventDate, invitationLaunchDate)` on the VENUE's calendar — the same date
+    the film says. Null / absent = no date of their own: 90 days out, as before (by venue day now,
+    not by 24-hour blocks on the server's clock).
+
+    EVERY CALLER PASSES IT — `lib/the-invitation-opens-on-one-date.test.ts` fails a call site that
+    does not (a caller that only asks "is it editorial?" says so in that guard's list).
+  */
+  invitationLaunchDate?: string | null,
 ): LifecyclePhase {
   if (!eventDate) return 'save_the_date';
 
@@ -574,10 +588,12 @@ export function getLifecyclePhase(
       const now = nowMs ?? Date.now();
       if (eventMs < now) return 'editorial';
       // Future, beyond the near-event run-up: split the long pre-event window
-      // into Save the Date (announcement, > STD_THRESHOLD_DAYS out) and RSVP
-      // (invitation, within the threshold).
-      const daysUntil = (eventMs - now) / (24 * 60 * 60 * 1000);
-      return daysUntil > STD_THRESHOLD_DAYS ? 'save_the_date' : 'rsvp';
+      // into Save the Date (announcement) and RSVP (invitation) at the ONE
+      // date the Invitation opens (`invitationOpensOn` — the couple's own
+      // date, else STD_THRESHOLD_DAYS out), on the venue's calendar.
+      const opensOn = invitationOpensOn(eventDate, invitationLaunchDate ?? null);
+      if (!opensOn) return 'rsvp';
+      return venueDayOf(tz, now) < opensOn ? 'save_the_date' : 'rsvp';
     }
   }
 }
@@ -727,6 +743,39 @@ export function resolveWidgetTerminalState(
     return 'archive';
   }
   return 'active';
+}
+
+/**
+ * IS A REPLY ASKED FOR IN THIS STAGE? — not while it is the Save the Date.
+ *
+ * A guest's walk, 2026-10-11 (faults N04 · N05), on an event still in its Save
+ * the Date stage: the landing said "You're invited… please reply", the film
+ * said "Save the date — formal invitation to follow", and the Event Hub's top
+ * button said "RSVP". Owner the same day ("ok all"): until the invitation has
+ * launched the guest is shown "Save the date" and asked for nothing. Once the
+ * invitation launches — by the clock, or by the couple's pin — the reply and
+ * its doors return.
+ *
+ * 🔑 NOT A SECOND RULE ABOUT STAGES. `WIDGET_PHASES.rsvp` above has always said
+ * the reply belongs to the Invitation; open browsing widened it to every stage
+ * before the day is over. This takes back the one stage that was a contradiction
+ * in front of a guest. It reads the phase the page already resolved
+ * (`getLifecyclePhase`, the pin and the solemn register included) and adds no
+ * threshold of its own. With the lifecycle engine off there is no Save the
+ * Date, and a reply is asked as before.
+ *
+ * The landing asks the same thing of its own reading of the same phase
+ * (`replyIsAsked(arrivalDestination…)`, lib/invite-destination.ts);
+ * `lib/the-reply-waits-for-the-invitation.test.ts` runs both on every input and
+ * fails if they ever disagree.
+ *
+ * ⚠ THIS CLOSES THE REPLY FOR EVERY EVENT IN ITS SAVE THE DATE STAGE — one
+ * whose date is still further off than the launch window as much as one with
+ * no date — including events on open browsing. A couple who wants replies
+ * sooner pins "Invitation".
+ */
+export function replyAskedInStage(input: { phasesEnabled: boolean; lifecyclePhase: LifecyclePhase }): boolean {
+  return !(input.phasesEnabled && input.lifecyclePhase === 'save_the_date');
 }
 
 /**

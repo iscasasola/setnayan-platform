@@ -19,73 +19,67 @@ import { REFUND_REPORT_WINDOW_DAYS } from '@/lib/rule-constants';
 export const metadata = {
   title: 'Refund & cancellation policy',
   description:
-    'When Setnayan refunds in-app purchases. Digital services are final once activated; a full refund is issued whenever Setnayan fails to deliver. How to request a refund under Philippine consumer law.',
+    'Setnayan does not refund purchases. If you paid for a service you then cannot use, its value becomes Papic credits for your event. Payments to suppliers are settled with the supplier.',
   alternates: { canonical: '/refunds' },
   openGraph: {
     title: 'Refund & cancellation policy · Setnayan',
     description:
-      'Digital services are final once activated; full refund if Setnayan fails to deliver.',
+      'No refunds. A paid service you cannot use becomes Papic credits for your event.',
     url: '/refunds',
   },
 };
 
+/*
+  🔒 NO REFUNDS — owner ruling 2026-10-08 (DECISION_LOG "NO REFUNDS — A SERVICE
+  THEY CANNOT USE BECOMES VIRTUAL CREDITS, CONVERTED TO PAPIC"), reaffirmed
+  2026-10-22. This page is the WORDING only. The admin refund tools stay in the
+  code for Apple and legal edge cases; nothing here changes what they do.
+*/
 export default function RefundsPage() {
   return (
     <LegalLayout
       title="Refunds & cancellations"
-      meta="Effective 2026-06-30 · governed by Philippine law (incl. RA 7394, the Consumer Act)"
+      meta="Effective 2026-10-23 · governed by Philippine law (incl. RA 7394, the Consumer Act)"
     >
       <LegalSection title="The short version">
         <p>
-          Setnayan sells <strong>digital services</strong> — monograms,
-          save-the-date films, websites, Papic seats, livestream days, and the
-          like. Because these are produced and delivered to you, a purchase is{' '}
-          <strong>final once the service is activated</strong>. If we ever fail
-          to deliver what you paid for, you get a <strong>full refund</strong>.
-          That&rsquo;s the whole policy; the rest is detail.
+          What you buy from Setnayan is <strong>not refunded</strong>. If you
+          paid for a service and then <strong>cannot use it</strong>, we turn
+          what you paid into <strong>Papic credits for your event</strong>, so
+          the value stays with your event.
         </p>
       </LegalSection>
 
-      <LegalSection title="When a purchase is still refundable">
-        <p>
-          Before a service is activated, you can cancel for a full refund.
-          &ldquo;Activated&rdquo; means the point where we begin producing or
-          providing the thing you bought — for example:
-        </p>
+      <LegalSection title="When a service can't be used">
+        <p>Tell us when a service you paid for can&rsquo;t be used — for example:</p>
         <ul className="ml-5 list-disc space-y-1">
-          <li>a monogram or save-the-date once its first render is generated;</li>
-          <li>an event website once it is published to your slug;</li>
-          <li>Papic / livestream / booth services once the event day begins or a seat QR is claimed;</li>
-          <li>an AI planning subscription once the billing cycle starts.</li>
+          <li>we could not deliver it;</li>
+          <li>it doesn&rsquo;t work and we can&rsquo;t fix it;</li>
+          <li>your event was called off before you could use it.</li>
         </ul>
-        <p>
-          If you&rsquo;re not sure whether your order has activated yet, ask us
-          via the{' '}
-          <Link href="/help" className="text-terracotta hover:underline">
-            help center
-          </Link>{' '}
-          before you pay or right after — we&rsquo;ll tell you honestly.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="When you always get a full refund">
-        <p>You are entitled to a full refund whenever:</p>
+        <p>We check the order, then:</p>
         <ul className="ml-5 list-disc space-y-1">
-          <li>we cannot deliver the service you paid for;</li>
-          <li>the delivered service is materially defective and we can&rsquo;t fix it;</li>
-          <li>you were charged in error or charged twice;</li>
           <li>
-            you paid but the order was never activated within a reasonable time
-            and you no longer want it.
+            if you haven&rsquo;t used it yet, it can wait for your next event
+            instead;
+          </li>
+          <li>
+            otherwise we add Papic credits to your event worth what you paid
+            for that service. Papic credits pay for the photos and clips your
+            guests take on the day.
           </li>
         </ul>
+      </LegalSection>
+
+      <LegalSection title="Charged twice or by mistake">
         <p>
-          This is your right under the Consumer Act of the Philippines (RA 7394)
-          and nothing in this policy removes it.
+          A charge made twice or in error is our mistake, not a purchase. Tell
+          us and we return the extra payment to the GCash or bank account it
+          came from.
         </p>
       </LegalSection>
 
-      <LegalSection title="How to request a refund">
+      <LegalSection title="How to tell us">
         <ul className="ml-5 list-disc space-y-1">
           <li>
             Open the{' '}
@@ -95,37 +89,46 @@ export default function RefundsPage() {
             and tell us the order reference and what went wrong, within{' '}
             <strong>{REFUND_REPORT_WINDOW_DAYS} days</strong> of payment where possible.
           </li>
-          <li>
-            We respond within our standard support window and, if approved,
-            return the money to the same channel you paid from (the bank or e-wallet you paid through).
-          </li>
-          <li>
-            Refunds are typically completed within <strong>5–10 business
-            days</strong> of approval, depending on the bank / wallet.
-          </li>
+          <li>We check the order and reply with what we will do.</li>
+          <li>Once we confirm, the Papic credits show on your event.</li>
         </ul>
+      </LegalSection>
+
+      <LegalSection title="Purchases in the iPhone app">
+        <p>
+          Anything bought through Apple in the iPhone app is paid to Apple. A
+          refund request for that purchase goes to Apple, under Apple&rsquo;s
+          own terms.
+        </p>
       </LegalSection>
 
       <LegalSection title="Supplier bookings are different">
         <p>
-          When you book an outside vendor through Setnayan, you pay the vendor
+          When you book a supplier through Setnayan, you pay the supplier
           directly — Setnayan does not hold that money and charges no
-          commission. Refunds, deposits, and cancellation terms for a vendor&rsquo;s
-          own services are set by that vendor and handled between you and them.
-          Setnayan can help mediate through the{' '}
+          commission. A supplier&rsquo;s deposits, refunds and cancellation
+          terms are their own, shown before you book, and settled between you
+          and them. If something goes wrong, use <strong>Report a problem</strong>{' '}
+          on the booking or the{' '}
           <Link href="/help" className="text-terracotta hover:underline">
             help center
-          </Link>
-          , but this refund policy covers Setnayan&rsquo;s own in-app services
-          only.
+          </Link>{' '}
+          and we will help.
         </p>
       </LegalSection>
 
-      <LegalSection title="Complimentary & granted orders">
+      <LegalSection title="Free & granted orders">
         <p>
-          Orders activated through a complimentary grant or team comp involved
-          no payment, so there is nothing to refund. If a grant was applied in
-          error, contact us and we&rsquo;ll correct it.
+          An order given free or as a grant involved no payment, so there is
+          nothing to convert. If a grant was applied in error, tell us and
+          we&rsquo;ll correct it.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="Your rights">
+        <p>
+          Nothing in this policy takes away a right Philippine law gives you,
+          including under the Consumer Act of the Philippines (RA 7394).
         </p>
       </LegalSection>
 

@@ -1,4 +1,7 @@
 import type { EveryoneDressRow } from '@/lib/dress-code-for-everyone';
+import { DOS_LOOK_DEFAULT, type DosLookId } from '@/lib/dress-code-looks';
+import { DressCodeDos } from './dress-code-dos';
+import { dosSample } from './maker-scene-samples';
 
 /**
  * THE DRESS CODE'S OTHER TWO STYLES — B · The palette and C · The line
@@ -21,14 +24,29 @@ export type DressCodeGeneral = {
   dos: readonly string[];
   donts: readonly string[];
   genderNote: string | null;
+  /** 🧾 The Do's & Don'ts look (`canvas.dos`) — absent = these layouts' own shipped lists. */
+  dosLook?: DosLookId;
+  /** 🔲 The Maker's canvas only: no list yet → the look's place in sample shapes. */
+  makerSample?: boolean;
 };
 
 const SWATCH_EDGE = 'outline outline-1 outline-ink/20 [outline-offset:-1px]';
 
-function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly string[] }) {
-  if (dos.length === 0 && donts.length === 0) return null;
+function DosAndDonts({
+  dos,
+  donts,
+  look = DOS_LOOK_DEFAULT,
+  makerSample = false,
+}: {
+  dos: readonly string[];
+  donts: readonly string[];
+  look?: DosLookId;
+  makerSample?: boolean;
+}) {
+  if (dos.length === 0 && donts.length === 0) return makerSample ? <>{dosSample(look)}</> : null;
+  if (look !== DOS_LOOK_DEFAULT) return <DressCodeDos dos={dos} donts={donts} look={look} />;
   return (
-    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2" data-dress-code="dos">
       {dos.length > 0 ? (
         <div className="space-y-1 border-l-2 border-gild pl-3 text-ink/80">
           <p className="font-sans text-xs uppercase tracking-[0.2em] text-gild">Do</p>
@@ -41,7 +59,7 @@ function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly s
       ) : null}
       {donts.length > 0 ? (
         <div className="space-y-1 border-l-2 border-ink/30 pl-3 text-ink/75">
-          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/60">Don&rsquo;t</p>
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Don&rsquo;t</p>
           <ul className="space-y-1">
             {donts.map((row, i) => (
               <li key={i}>· {row}</li>
@@ -54,12 +72,17 @@ function DosAndDonts({ dos, donts }: { dos: readonly string[]; donts: readonly s
 }
 
 /** B · The palette — the colours first, large, each with who wears it; the words after. */
-export function DressCodePalette({ title, description, palette, rows, dos, donts, genderNote }: DressCodeGeneral) {
+export function DressCodePalette({ title, description, palette, rows, dos, donts, genderNote, dosLook, makerSample }: DressCodeGeneral) {
   // One band per wearer — the couple's colours first, then each dressed role —
   // so every colour is named with who wears it, once.
   const bands = [
     ...(palette.length > 0 ? [{ key: 'ours', who: 'Our colours', swatches: palette.map((p) => ({ hex: p.hex, name: p.name })) }] : []),
-    ...rows.filter((r) => r.hexes.length > 0).map((r) => ({ key: r.key, who: r.label, swatches: r.hexes.map((hex) => ({ hex, name: '' })) })),
+    /* 🏷 A band per PERSON of a row (men · women), each colour named by what it colours (`pickDots`, 2026-10-17). */
+    ...rows.flatMap((r) =>
+      r.picks
+        .filter((p) => p.dots.length > 0)
+        .map((p) => ({ key: `${r.key}:${p.who}`, who: p.label ? `${r.label} — ${p.label.toLowerCase()}` : r.label, swatches: p.dots.map((d) => ({ hex: d.hex, name: d.word })) })),
+    ),
   ];
   return (
     <section className="space-y-5" data-scene-style="palette">
@@ -97,21 +120,22 @@ export function DressCodePalette({ title, description, palette, rows, dos, donts
           {rows.flatMap((r) =>
             r.lines.map((line, i) => (
               <li key={`${r.key}-${i}`}>
-                <span className="text-ink">{r.label}</span> · {line.styleLabel}
+                <span className="text-ink">{r.label}</span>
+                {line.label !== r.label ? <> · {line.label}</> : null} · {line.styleLabel}
                 {line.note ? <> — {line.note}</> : null}
               </li>
             )),
           )}
         </ul>
       ) : null}
-      <DosAndDonts dos={dos} donts={donts} />
+      <DosAndDonts dos={dos} donts={donts} look={dosLook} makerSample={makerSample} />
       {genderNote ? <p className="max-w-prose text-sm font-medium text-ink/75">{genderNote}</p> : null}
     </section>
   );
 }
 
 /** C · The line — words first in the display face, the palette as one ribbon, roles as a quiet table. */
-export function DressCodeLine({ title, description, palette, rows, dos, donts, genderNote }: DressCodeGeneral) {
+export function DressCodeLine({ title, description, palette, rows, dos, donts, genderNote, dosLook, makerSample }: DressCodeGeneral) {
   const seen = new Set<string>();
   const ribbon = [...palette.map((p) => p.hex), ...rows.flatMap((r) => r.hexes)].filter((hex) => {
     const k = hex.toUpperCase();
@@ -129,7 +153,7 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
         <p className="mx-auto max-w-prose text-base leading-relaxed text-ink/70">{description}</p>
       ) : null}
       {ribbon.length > 0 ? (
-        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="Our colours" role="img">
+        <div className={`mx-auto flex h-6 w-full max-w-sm overflow-hidden ${SWATCH_EDGE}`} aria-label="The colours each role wears" role="img">
           {ribbon.map((hex, i) => (
             <span key={`${hex}-${i}`} className="h-full flex-1" style={{ backgroundColor: hex }} />
           ))}
@@ -144,14 +168,22 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
                   {r.label}
                 </th>
                 <td className="py-2 align-top text-ink/65">
-                  {r.hexes.length > 0 ? (
-                    <span className="mr-2 inline-flex gap-1 align-middle" aria-hidden>
-                      {r.hexes.map((hex, i) => (
-                        <span key={`${hex}-${i}`} className={`inline-block h-3.5 w-3.5 ${SWATCH_EDGE}`} style={{ backgroundColor: hex }} />
-                      ))}
+                  {/* 🏷 Per person: their Wear, then each colour with what it colours (`pickDots`, 2026-10-17). */}
+                  {r.picks.map((p) => (
+                    <span key={p.who} className="block" data-dress-code-person={p.who}>
+                      {[p.label, p.styleLabel].filter(Boolean).join(' · ')}
+                      {p.dots.length > 0 ? (
+                        <span className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[12px]">
+                          {p.dots.map((d, i) => (
+                            <span key={`${d.hex}-${i}`} className="inline-flex items-center gap-1">
+                              <span aria-hidden className={`inline-block h-3.5 w-3.5 ${SWATCH_EDGE}`} style={{ backgroundColor: d.hex }} />
+                              {d.word}
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
-                  {r.lines.map((l) => l.styleLabel).join(' · ')}
+                  ))}
                 </td>
               </tr>
             ))}
@@ -159,7 +191,7 @@ export function DressCodeLine({ title, description, palette, rows, dos, donts, g
         </table>
       ) : null}
       <div className="text-left">
-        <DosAndDonts dos={dos} donts={donts} />
+        <DosAndDonts dos={dos} donts={donts} look={dosLook} makerSample={makerSample} />
       </div>
       {genderNote ? <p className="mx-auto max-w-prose text-sm font-medium text-ink/75">{genderNote}</p> : null}
     </section>

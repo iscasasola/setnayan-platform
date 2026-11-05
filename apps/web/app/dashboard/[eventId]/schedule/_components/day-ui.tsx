@@ -84,7 +84,7 @@ export function Tip({ children, align = 'center' }: { children: ReactNode; align
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setOpen(false)}
-        className="sn-press sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>
@@ -131,10 +131,12 @@ export function Switch({
       </span>
       <span
         aria-hidden
-        className={`relative h-6 w-10 flex-none rounded-full transition-colors ${on ? 'bg-success-600' : 'bg-ink/15'}`}
+        /* The app's ONE switch look (`.sn-switch`, globals.css — owner 2026-10-08: "switch is teracota or greyed out"). */
+        data-on={on}
+        className="sn-switch sn-press-ring relative h-6 w-10 flex-none rounded-full"
       >
         <span
-          className={`absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
+          className={`sn-switch-knob absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
         />
       </span>
     </button>
@@ -185,7 +187,7 @@ export function Stepper({
 /** The small uppercase label the prototype calls `.eye`. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
+    <span data-eyebrow="" className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
   );
 }
 

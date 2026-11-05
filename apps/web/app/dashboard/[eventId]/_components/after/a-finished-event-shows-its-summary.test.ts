@@ -61,16 +61,17 @@ test('after the event, the rail carries the editorial maker and the galleries', 
     'the Maker row must claim /story so the workroom is never unlit',
   );
   /* 🔄 Stage D (2026-09-29): Galleries is the Gallery card on Our Services, no
-     longer a row of its own — so the After rail must carry Our Services, and
-     that row must claim /galleries (a person on the galleries sees where they
-     are). The card's href is held by `lib/our-services.test.ts`. */
-  const services = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
+     longer a row of its own. Since More left the menu (owner 22 Oct 2026, "Yes remove more")
+     the HOME row claims /galleries (a person on the galleries sees where they are), and the
+     summary's own Galleries card is its door. Since 23 Oct 2026 the event's MEMORIES row holds it — the
+     galleries are this event's photos (prototypes/event_bar_memories_tab_2026-10-23.html). */
+  const memories = buildCustomerNavGroups('EVT123', { websiteEnabled: true, phase: 'after' })
     .flatMap((g) => g.items)
-    .find((i) => i.key === 'studio');
-  assert.ok(services, 'the After rail must carry Our Services — the galleries have no other door');
+    .find((i) => i.key === 'memories');
+  assert.ok(memories, 'the After rail must carry Memories');
   assert.ok(
-    services!.alsoMatch?.includes('/dashboard/EVT123/galleries'),
-    'Our Services must claim /galleries so the galleries are never unlit',
+    memories!.alsoMatch?.includes('/dashboard/EVT123/galleries'),
+    'Memories must claim /galleries so the galleries are never unlit',
   );
 });
 
@@ -123,8 +124,9 @@ test('the rail and the phone agree on the After destinations', () => {
      unchanged and still holds that door open, which is the whole 2026-08-21
      lesson. The Hub itself is compared here too, so the two rosters cannot
      start disagreeing about where the after-phase leads. */
-  // Stage D: the galleries are reached through Our Services (key 'studio').
-  for (const key of ['launch', 'studio']) {
+  // Stage D: the galleries were reached through Our Services (key 'studio'); since More left the menu
+  // (owner 22 Oct 2026, "Yes remove more") Home holds them — the summary's own Galleries card is their door.
+  for (const key of ['launch', 'home']) {
     const row = phone.find((m) => m.key === key);
     assert.ok(row, `the phone's After roster lost its ${key} tab`);
     assert.ok(

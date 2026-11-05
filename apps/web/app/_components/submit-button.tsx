@@ -31,6 +31,21 @@ type Props = Omit<
   overlaySteps?: readonly string[];
   /** Override the veil's uppercase sublabel (default: 'Saving'). */
   overlayHint?: string;
+  /**
+   * The pending state, when the FORM'S OWNER holds it instead of React's form
+   * status (2026-10-11). Omitted — every form but one — the button reads
+   * `useFormStatus()` exactly as before.
+   *
+   * WHY IT EXISTS: a form whose send must END ON A TIME LIMIT cannot use the
+   * form status. That status is tied to the whole async action — including
+   * Next's own request — so while a request simply never answers, the button
+   * stays disabled and the veil stays up, whatever the form decides. Measured
+   * in a browser on the reply card: the "not sent" line appeared at 20 s and
+   * the veil was still over it. The reply card's form (`ReplyForm`,
+   * app/[slug]/_components/reply-form.tsx) holds its own state and passes it
+   * here.
+   */
+  pending?: boolean;
 };
 
 /**
@@ -54,9 +69,11 @@ export function SubmitButton({
   overlay = true,
   overlaySteps,
   overlayHint,
+  pending: ownedPending,
   ...rest
 }: Props) {
-  const { pending } = useFormStatus();
+  const { pending: formPending } = useFormStatus();
+  const pending = ownedPending ?? formPending;
   const isDisabled = pending || disabled;
 
   // Bridge form-pending → the app-wide no-touch veil. Non-throwing accessor so

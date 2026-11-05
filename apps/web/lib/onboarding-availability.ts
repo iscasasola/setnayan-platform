@@ -4,8 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   fetchVendorCountsByService,
-  canonicalServicesForTile,
-  canonicalServicesForFolder,
+  getCanonicalBuckets,
+  servicesForPlanGroup,
+  type CanonicalBuckets,
 } from '@/lib/vendor-counts';
 
 /**
@@ -60,14 +61,11 @@ export const PICK_TO_GROUP: Record<string, string> = {
 function groupHasSupply(
   groupId: string,
   counts: Map<string, { total: number }>,
+  buckets: CanonicalBuckets,
 ): boolean {
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return false;
-  const canonicals = g.subcategoryHint
-    ? [g.subcategoryHint]
-    : g.catalogTile
-      ? canonicalServicesForTile(g.catalogTile)
-      : canonicalServicesForFolder(g.catalogFolder);
+  const canonicals = servicesForPlanGroup(buckets, g);
   return canonicals.some((c) => (counts.get(c)?.total ?? 0) > 0);
 }
 
@@ -91,13 +89,13 @@ function groupHasSupply(
 export async function hiddenOnboardingExtraCats(): Promise<string[]> {
   try {
     const admin = createAdminClient();
-    const counts = await fetchVendorCountsByService(admin);
+    const [counts, buckets] = await Promise.all([fetchVendorCountsByService(admin), getCanonicalBuckets()]);
     const mapped = Object.entries(PICK_TO_GROUP);
 
     const available: string[] = [];
     const unavailable: string[] = [];
     for (const [cat, groupId] of mapped) {
-      (groupHasSupply(groupId, counts) ? available : unavailable).push(cat);
+      (groupHasSupply(groupId, counts, buckets) ? available : unavailable).push(cat);
     }
 
     // Never-gut: only narrow once the marketplace covers at least half the mapped

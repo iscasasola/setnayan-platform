@@ -56,17 +56,7 @@ const CARD_FILE = path.join(
   '_components',
   'plan-budget-accordion.tsx',
 );
-const WORKSPACE_PAGE = path.join(
-  __dirname,
-  '..',
-  'app',
-  'dashboard',
-  '[eventId]',
-  'vendors',
-  '[vendorId]',
-  'workspace',
-  'page.tsx',
-);
+const WEB = path.join(__dirname, '..');
 
 function code(file: string): string {
   return stripComments(fs.readFileSync(file, 'utf8'));
@@ -173,12 +163,13 @@ test('⭐ THE GUARD · the card nudge is gated on locked AND needs_setnayan_invi
   );
 });
 
-test('⭐ THE GUARD · the nudge links straight to the existing invite CTA, not just the vendor page', () => {
+test('⭐ THE GUARD · the nudge links straight to the claim door on the supplier’s own Team row', () => {
+  // Re-pointed 2026-11-02: the claim link's one door moved from the workspace page to Suppliers › Booked › Team.
   const src = code(CARD_FILE);
   assert.match(
     src,
-    /workspace#invite-vendor/,
-    'without the anchor the couple lands at the top of the workspace page and has to find the CTA themselves',
+    /vendors\?tab=budget&team=\$\{pick\.vendor_id\}/,
+    'without the row the couple lands on the Team list and has to find the supplier themselves',
   );
   assert.equal(
     count(src, 'className="invite-cta"'),
@@ -187,11 +178,9 @@ test('⭐ THE GUARD · the nudge links straight to the existing invite CTA, not 
   );
 });
 
-test('⭐ THE GUARD · the workspace page actually carries that anchor', () => {
-  const src = code(WORKSPACE_PAGE);
-  assert.match(
-    src,
-    /<div id="invite-vendor">/,
-    'the anchor the card links to must actually exist on the landing page',
-  );
+test('⭐ THE GUARD · the Team row actually opens on that supplier', () => {
+  const page = code(path.join(WEB, 'app/dashboard/[eventId]/vendors/page.tsx'));
+  assert.match(page, /firstOpen=\{typeof sp\.team === 'string' && sp\.team \? sp\.team : null\}/, 'the Suppliers page no longer opens the row the nudge names');
+  const slot = code(path.join(WEB, 'app/dashboard/[eventId]/vendors/_components/booked-slot.tsx'));
+  assert.match(slot, /firstOpen=\{firstOpen\}/, 'the Booked slot no longer hands the row to open to the Team list');
 });

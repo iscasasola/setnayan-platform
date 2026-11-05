@@ -1,193 +1,400 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
-import { createPortal } from 'react-dom';
-import { buildTileDocument, type TileHead, type TileSnapshot } from '@/lib/maker-tile-preview';
-import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
-import { readTileHead, snapshotSection } from '../../../website/editor/_components/scene-snapshot';
+import { useEffect, useRef, useState } from 'react';
+import { TILE_FREEZE_CSS } from '@/lib/maker-tile-preview';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import { CountdownWidget } from '@/app/[slug]/_components/countdown';
-import { SpecialMessageLetter, SpecialMessageQuote } from '@/app/[slug]/_components/special-message-styles';
-import { WhatToBringGiftLine, WhatToBringList } from '@/app/[slug]/_components/what-to-bring-styles';
+import { finishStreamedHtml } from './streamed-swap';
+import { styleCardFit } from '@/lib/maker-stage-room';
 
 /**
- * 🖼 A STYLE'S REAL MINIATURE (owner 2026-10-07: *"should be a preview of the style
- * and not text"*; prototype `fillLayouts()` — the part cloned once per layout, at its
- * width, scaled into the 104 px card).
+ * 🖼 A STYLE'S TRUE MINIATURE (owner 2026-10-07: *"should be a preview of the style
+ * and not text"* → *"1. all three together"*, DECISION_LOG "STAGES PANEL REDRAW
+ * APPROVED (#6398); THREE FOLLOW-UPS AS ONE STEP"; prototype `fillLayouts()` — the
+ * part drawn once per layout, at its width, scaled into the 104 px card).
  *
- *   · The style the part wears NOW is the part itself: a static copy of its section out
- *     of the canvas (`scene-snapshot.ts`, the navigator tiles' own copier), in a
- *     script-less document carrying the canvas's stylesheets, theme scope and ground.
- *   · Every OTHER style is the SHIPPED style component (`app/[slug]/_components/*-styles`,
- *     imported, never copied) rendered with the part's real content read off the canvas
- *     (the countdown's own reading, the message's words), portalled into that same
- *     document in place of the part's card — so it wears the same theme, fonts and
- *     scene background as the page.
+ * EVERY card, for EVERY part and style, is the GUEST PAGE ITSELF: the canvas's own
+ * address (the same stage, the same draft, the same See as — the event's real
+ * content), asked for that one part alone in that one style —
  *
- * A style with no client renderer here (`STYLE_RENDERERS`) is drawn from the canvas
- * when it is the current one, and otherwise as the part as it is now (dimmed) — see the
- * PR's deviations: a per-style canvas frame (`?only=<key>&style=<id>`) is the guest
- * route's (Builder S6), and `frameSrc` takes it the day it exists.
+ *     /<slug>?…&editor=1&only=<key>[.<part>]&style=<type>:<id>
+ *
+ * (`canvasOnlyScene` + `canvasStylePreview`, `app/[slug]/_lib/editor-canvas.ts`; both
+ * host-canvas only, so a guest's `?style=` changes nothing, and a frame asking for a
+ * style never mounts the editor bridge). The page draws the style with the shipped
+ * renderer — never a copy of it here — at the phone's own width, and the card shows that part WHOLE: centred and
+ * scaled to fit, never cut (`styleCardFit`, owner 2026-10-09 — `TOOLBAR-SPEC-2026-10-09.md` § STYLE; it was the
+ * page at the card's width, cut at the card's foot, 2026-10-08). Script-less (`sandbox="allow-same-origin"`): a
+ * miniature cannot play, ask for a camera, or speak to the Maker.
  */
-
-type Facts = { targetIso: string | null; bare: boolean; text: string; signedBy: string | null };
-
-/** What a renderer needs, read off the live section. */
-function readFacts(section: HTMLElement): Facts {
-  const bare = section.querySelector('[data-scene-card="bare"]') !== null;
-  /* ⏱ The countdown's own reading (days · hours · mins · secs) → the venue's day, so every style counts to the SAME instant. */
-  let targetIso: string | null = null;
-  const nums = [...section.querySelectorAll('p')]
-    .map((p) => p.textContent?.trim() ?? '')
-    .filter((t) => /^\d{1,4}$/.test(t))
-    .map(Number);
-  if (nums.length >= 4) {
-    const [d, h, m, s] = nums as [number, number, number, number];
-    const at = Date.now() + (((d * 24 + h) * 60 + m) * 60 + s) * 1000 + 60_000;
-    try {
-      targetIso = new Intl.DateTimeFormat('en-CA', { timeZone: DEFAULT_EVENT_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at));
-    } catch {
-      targetIso = null;
-    }
-  }
-  const text = (section.querySelector('[data-el="body"], blockquote, p')?.textContent ?? '').trim();
-  return { targetIso, bare, text, signedBy: null };
-}
-
-/** Scene type → its shipped styles, drawn from the facts. Null: no client renderer for that style. */
-const STYLE_RENDERERS: Partial<Record<string, (style: string, f: Facts) => ReactElement | null>> = {
-  countdown: (style, f) => (f.targetIso ? <CountdownWidget targetIso={f.targetIso} bare={f.bare} sceneStyle={style === 'four-tiles' ? null : style} /> : null),
-  special_message: (style, f) =>
-    !f.text ? null : style === 'letter' ? <SpecialMessageLetter text={f.text} signedBy={f.signedBy} /> : style === 'quote' ? <SpecialMessageQuote text={f.text} /> : null,
-  what_to_bring: (style, f) => (!f.text ? null : style === 'list' ? <WhatToBringList text={f.text} /> : style === 'gift-line' ? <WhatToBringGiftLine text={f.text} /> : null),
-};
-
-/** The part's live section, its card swapped for a mount point the style is portalled into. */
-function withMount(snap: TileSnapshot): TileSnapshot {
-  try {
-    const doc = new DOMParser().parseFromString(`<div>${snap.section}</div>`, 'text/html');
-    const root = doc.body.firstElementChild!;
-    const card = root.querySelector('[data-scene-card], [data-scene-style]');
-    const mount = doc.createElement('div');
-    mount.setAttribute('data-sn-style-mount', '');
-    if (card) card.replaceWith(mount);
-    else {
-      const sec = root.firstElementChild;
-      if (sec) {
-        sec.innerHTML = '';
-        sec.appendChild(mount);
-      }
-    }
-    return { ...snap, section: root.innerHTML };
-  } catch {
-    return snap;
-  }
-}
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
-/** The canvas's head and the part's section, read once per card (and again when the part changes). */
-function useLiveSection(canvasKey: string | null): { head: TileHead; snap: TileSnapshot; facts: Facts } | null {
-  const [got, setGot] = useState<{ head: TileHead; snap: TileSnapshot; facts: Facts } | null>(null);
+/**
+ * 🧯 A CARD THAT CAN BE SEEN — the only kind that asks for its miniature. A miniature is a whole server render of the
+ * guest page, and a hidden iframe still loads: the look body waits under Edit with `visibility:hidden`
+ * (`stage-tools.tsx`), so every card of a picked part was rendered although the couple never opened Style —
+ * measured 2026-10-11, 11 of the 22 guest-page renders of one Maker session (`MAKER-WHO-ASKS.md`). In sight = laid
+ * out (`display:none` has no box) and not hidden; how near the screen it is, is the caller's IntersectionObserver.
+ */
+export function styleCardInSight(el: Element, view: Pick<Window, 'getComputedStyle'> = window): boolean {
+  return el.getClientRects().length > 0 && view.getComputedStyle(el).visibility !== 'hidden';
+}
+/** What `visibility`-hides the look body (`stage-tools.tsx`'s rules read these on `[data-stage-tools]`) — a change is
+ *  when a waiting card looks again. A `display:none` that lifts gives the card a box, which its observer is told of. */
+const SIGHT_ATTRIBUTES = ['data-stage-tool-now', 'data-stage-edit-own', 'data-stage-edit-card', 'data-stage-own-rows', 'data-stage-cover-rows', 'aria-hidden'];
+
+/** The canvas's own address → the same page, one part, one style. Null: no canvas to read yet. */
+export function stylePreviewSrc(canvasSrc: string, canvasKey: string, sceneType: string, styleId: string, origin: string): string | null {
+  try {
+    const u = new URL(canvasSrc, origin);
+    if (u.origin !== origin) return null;
+    u.hash = '';
+    u.searchParams.delete('bars');
+    u.searchParams.set('editor', '1');
+    u.searchParams.set('only', canvasKey);
+    u.searchParams.set('style', `${sceneType}:${styleId}`);
+    return `${u.pathname}${u.search}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The canvas frame on screen — its address and width (the miniature lays out at the same width). Read two frames
+ * AFTER mount, never at it: on a stage switch the cards mount in the same commit that switches, while the frame on
+ * show is still the stage left — measured in the lab 2026-10-12, every card was asked for the OLD stage's page and
+ * then again for the new one (3 wasted renders of the guest page). Read again at 600 ms (a frame not there yet).
+ */
+function useCanvasSrc(): { src: string; width: number } | null {
+  const [got, setGot] = useState<{ src: string; width: number } | null>(null);
   useEffect(() => {
-    if (!canvasKey) return;
     const read = () => {
-      try {
-        const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
-        if (!doc?.body) return;
-        const snap = snapshotSection(doc, canvasKey);
-        if (!snap) return;
-        const live = findMakerSection(doc, canvasKey);
-        setGot({ head: readTileHead(doc), snap, facts: live ? readFacts(live) : { targetIso: null, bare: false, text: '', signedBy: null } });
-      } catch {
-        /* a canvas we cannot read draws no miniature — the card keeps its name */
-      }
+      const f = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME);
+      const src = f?.getAttribute('src');
+      if (f && src) setGot((was) => (was && was.src === src ? was : { src, width: Math.max(320, Math.round(f.getBoundingClientRect().width) || 375) }));
     };
-    read();
-    const t = window.setTimeout(read, 900);
-    return () => window.clearTimeout(t);
-  }, [canvasKey]);
+    let raf = window.requestAnimationFrame(() => {
+      raf = window.requestAnimationFrame(read);
+    });
+    const t = window.setTimeout(read, 600);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, []);
   return got;
 }
 
-export function StylePreview({ canvasKey, sceneType, styleId, current }: { canvasKey: string | null; sceneType: string; styleId: string; current: boolean }) {
-  const live = useLiveSection(canvasKey);
-  const render = STYLE_RENDERERS[sceneType];
-  const element = !current && live && render ? render(styleId, live.facts) : null;
-  const mode: 'live' | 'render' | 'dim' | null = !live ? null : current ? 'live' : element ? 'render' : 'dim';
-  const box = useRef<HTMLSpanElement>(null);
-  const frame = useRef<HTMLIFrameElement>(null);
-  const [mount, setMount] = useState<HTMLElement | null>(null);
-  const [fit, setFit] = useState<{ k: number; x: number; y: number; h: number } | null>(null);
-  /* The part alone, on the page's colour — the page's ground (a photo behind every scene) would fill the small card. */
-  const head = live ? { ...live.head, grounds: [] } : null;
-  const srcDoc = live && head && mode ? buildTileDocument(head, mode === 'render' ? withMount(live.snap) : live.snap) : null;
-  const width = live?.snap.frameWidth ?? 375;
+/**
+ * 🔎 A CARD FITTED ON ONE BLOCK OF ITS SCENE (`focus`, a selector inside the scene — the Dress code's "Our
+ * colours" for a palette look, its Do's & Don'ts for theirs): the rest of the scene keeps its place but is not
+ * drawn, so a look of another shape never shows a neighbour's words in its margin. Asked of the miniature only.
+ */
+const FOCUS_CSS =
+  '[data-sn-mini-scene] *:not([data-sn-mini-focus]):not([data-sn-mini-focus] *):not(:has([data-sn-mini-focus])){visibility:hidden!important}';
 
-  /* Fit the copy's root into the card (contain, centred — `fillLayouts`). */
-  const measure = () => {
-    try {
-      const d = frame.current?.contentDocument;
-      const root = d?.querySelector<HTMLElement>('[data-snm-root]');
-      const b = box.current;
-      if (!root || !b || !d) return;
-      const r = root.getBoundingClientRect();
-      const top = r.top + (d.defaultView?.scrollY ?? 0);
-      const h = Math.max(1, r.height);
-      const k = Math.min(b.clientWidth / width, b.clientHeight / h);
-      setFit({ k, x: (b.clientWidth - width * k) / 2, y: (b.clientHeight - h * k) / 2 - top * k, h: top + h });
-    } catch {
-      /* unmeasured: the card shows the copy's top */
+/** The block a card is fitted on: the scene, one `data-el` part of it, or one `focus` block (the scene when absent). */
+export function miniaturePart(section: HTMLElement | null, el: string | undefined, focus: string | null | undefined): HTMLElement | null {
+  if (!section) return null;
+  if (el) return section.querySelector<HTMLElement>(`[data-el="${el}"]`);
+  return focus ? (section.querySelector<HTMLElement>(focus) ?? section) : section;
+}
+
+/**
+ * The box of what a part DRAWS inside its block: its words as laid out (each text run's own box) and its pictures —
+ * or null when there is nothing to measure. A block child's own box is as wide as its line, so it is never counted.
+ */
+export function drawnContent(doc: Document, part: Element): { w: number; h: number } | null {
+  try {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    const take = (r: { left: number; right: number; top: number; bottom: number; width: number; height: number }) => {
+      if (r.width < 1 || r.height < 1) return;
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    };
+    const walker = doc.createTreeWalker(part, 4 /* NodeFilter.SHOW_TEXT */);
+    const range = doc.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!(n.textContent ?? '').trim()) continue;
+      range.selectNodeContents(n);
+      for (const r of Array.from(range.getClientRects())) take(r);
     }
-  };
-  useLayoutEffect(() => {
-    setMount(null);
-    setFit(null);
-  }, [srcDoc]);
-  /* The copy's document is ready → mount the style (or measure the copy). A srcdoc frame can finish before
-     React hears its load, so it is watched, not waited for. */
+    part.querySelectorAll('img, svg, video, canvas').forEach((e) => take(e.getBoundingClientRect()));
+    return right > left && bottom > top ? { w: right - left, h: bottom - top } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 📐 THE MINIATURE IS MEASURED AT THE HEIGHT IT IS SHOWN AT (owner 2026-10-16, live: *"previews are not showing
+ * properly. small caps shows a weird photo that is same on the other styles"*). The Cover Scene fills the first screen
+ * (`COVER_SCENE_SCREEN`, `min-h-[100svh]`, its words CENTRED) — and inside this frame `100svh` IS the frame's own
+ * height. The card measured the part while its frame was 1600 px tall, then drew it 900 px tall: the words moved up by
+ * half the difference (~350 px) and every card showed the same empty slice of the cover — the photo on his event, white
+ * on the theme's own (measured in the Maker lab, 2026-10-16). So the frame has ONE height for the measure and the
+ * picture: `MINI_FRAME_MIN`, grown only when the part ends below it — and a grown frame is measured again, never drawn
+ * on the old answer. Held by `lib/a-text-style-card-shows-its-words.test.ts`.
+ */
+export const MINI_FRAME_MIN = 900;
+/** Room kept under the part inside its frame. */
+const MINI_FRAME_FOOT = 40;
+/** The frame height a part ending at `bottom` needs — `null` when the frame it was measured in already holds it. */
+export function miniatureFrameGrow(bottom: number, frameH: number): number | null {
+  const need = Math.ceil(bottom + MINI_FRAME_FOOT);
+  return need > frameH ? need : null;
+}
+/** Has the part moved since the card was fitted (a font arrived, a picture loaded)? Then it is fitted again. */
+export function miniatureMoved(a: { top: number; left: number; width: number; height: number }, b: { top: number; left: number; width: number; height: number }): boolean {
+  return Math.abs(a.top - b.top) > 1 || Math.abs(a.left - b.left) > 1 || Math.abs(a.width - b.width) > 1 || Math.abs(a.height - b.height) > 1;
+}
+
+export function StylePreview({
+  canvasKey,
+  sceneType,
+  styleId,
+  current,
+  focus = null,
+  onDrawn,
+  screen = false,
+  hide = null,
+}: {
+  /**
+   * 📱 The part IS the first screen (the Cover Scene's `100svh` cover — the Opening's cards, 2026-10-17): it is as tall as
+   * any frame it is drawn in, so growing the frame for it would grow it again, for ever (the card said "Drawing…" and
+   * never drew). It is fitted in the frame it stands in, which is a phone's screen.
+   */
+  screen?: boolean;
+  /** 🙈 What the miniature does NOT draw (a selector) — the words behind the Sheer veil's card ("behind the veil, none
+   *  of the cover's words show", owner 2026-10-16). */
+  hide?: string | null;
+  canvasKey: string | null;
+  sceneType: string;
+  styleId: string;
+  current: boolean;
+  focus?: string | null;
+  /** Told the part's drawn shape once it is measured — a card of one long line is made wider (`styleCardIsWide`). */
+  onDrawn?: (shape: { w: number; h: number }) => void;
+}) {
+  const canvas = useCanvasSrc();
+  const box = useRef<HTMLSpanElement>(null);
+  /* 🧯 Asked for once — the first moment the card is near the screen (`rootMargin`: the strip's next card) AND in
+     sight (`styleCardInSight`). Never un-asked: a card drawn stays drawn when Edit hides it again. */
+  const [asked, setAsked] = useState(false);
   useEffect(() => {
-    if (!srcDoc) return;
+    const b = box.current;
+    if (asked || !b) return;
+    const look = () => {
+      if (styleCardInSight(b)) setAsked(true);
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      look();
+      return;
+    }
+    let near = false;
+    const io = new IntersectionObserver(
+      (es) => {
+        near = es.some((e) => e.isIntersecting);
+        if (near) look();
+      },
+      { rootMargin: '0px 96px' },
+    );
+    io.observe(b);
+    /* Showing the look body moves no box, so the observer above is not told: the toolbar's state is watched instead. */
+    const mo = new MutationObserver(() => {
+      if (near) look();
+    });
+    mo.observe(document.body, { attributes: true, subtree: true, attributeFilter: SIGHT_ATTRIBUTES });
+    return () => {
+      io.disconnect();
+      mo.disconnect();
+    };
+  }, [asked]);
+  const src = asked && canvas && canvasKey ? stylePreviewSrc(canvas.src, canvasKey, sceneType, styleId, window.location.origin) : null;
+  const width = canvas?.width ?? 375;
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [fit, setFit] = useState<{ k: number; x: number; y: number } | null>(null);
+  /* 📐 The frame's ONE height — what the part is measured at is what it is drawn at (`miniatureFrameGrow`). */
+  const [frameH, setFrameH] = useState(MINI_FRAME_MIN);
+  const frameHRef = useRef(MINI_FRAME_MIN);
+  const partRef = useRef<HTMLElement | null>(null);
+  /** The part's box on its page, and the page's own ground — kept so the fit is worked out again when the card changes size. */
+  const drawnRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [ground, setGround] = useState<string | null>(null);
+  const onDrawnRef = useRef(onDrawn);
+  onDrawnRef.current = onDrawn;
+  const [empty, setEmpty] = useState(false);
+
+  /* Measured once the frame has LOADED (a slow page may take many seconds) — never given up on while it loads. */
+  const [loads, setLoads] = useState(0);
+  useEffect(() => {
+    setFit(null);
+    setEmpty(false);
+    drawnRef.current = null;
+    partRef.current = null;
+    frameHRef.current = MINI_FRAME_MIN;
+    setFrameH(MINI_FRAME_MIN);
+  }, [src]);
+  /** The picture, centred and scaled to fit the card as it is NOW. */
+  const lay = () => {
+    const b = box.current;
+    const part = drawnRef.current;
+    if (!b || !part || b.clientWidth < 1 || b.clientHeight < 1) return;
+    const f = styleCardFit(part, { w: b.clientWidth, h: b.clientHeight });
+    setFit((was) => (was && was.k === f.k && was.x === f.x && was.y === f.y ? was : f));
+  };
+  const layRef = useRef(lay);
+  layRef.current = lay;
+  /* The card changed size (a one-line look's card widened; the phone turned): fitted again, never stretched. */
+  useEffect(() => {
+    const b = box.current;
+    if (!b || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => layRef.current());
+    ro.observe(b);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!src || !canvasKey || loads === 0) return;
     let n = 0;
     const id = window.setInterval(() => {
       n += 1;
-      const d = frame.current?.contentDocument;
-      const ready = d?.readyState === 'complete' && d.querySelector('[data-snm-root]');
-      if (!ready && n < 80) return;
-      window.clearInterval(id);
-      const m = d?.querySelector<HTMLElement>('[data-sn-style-mount]') ?? null;
-      if (m) setMount(m);
-      else measure();
-    }, 50);
+      try {
+        const d = frame.current?.contentDocument;
+        const b = box.current;
+        if (!d || !b || !d.body || d.location.href === 'about:blank') {
+          if (n > 300) {
+            window.clearInterval(id);
+            setEmpty(true);
+          }
+          return;
+        }
+        /* Script-less, the streamed page never moves its sections in — finish it from here. */
+        finishStreamedHtml(d);
+        if (!d.querySelector('style[data-sn-mini]')) {
+          const css = d.createElement('style');
+          css.setAttribute('data-sn-mini', '');
+          css.textContent = TILE_FREEZE_CSS;
+          d.head.appendChild(css);
+        }
+        if (hide && !d.querySelector('style[data-sn-mini-hide]')) {
+          const off = d.createElement('style');
+          off.setAttribute('data-sn-mini-hide', '');
+          off.textContent = `${hide}{visibility:hidden!important}`;
+          d.head.appendChild(off);
+        }
+        const [key, el] = canvasKey.split('.');
+        const section = findMakerSection(d, key!);
+        const part = miniaturePart(section, el, focus);
+        if (focus && section && part && part !== section && !d.querySelector('style[data-sn-mini-focus-css]')) {
+          section.setAttribute('data-sn-mini-scene', '');
+          part.setAttribute('data-sn-mini-focus', '');
+          const only = d.createElement('style');
+          only.setAttribute('data-sn-mini-focus-css', '');
+          only.textContent = FOCUS_CSS;
+          d.head.appendChild(only);
+        }
+        const drawn = part ? part.getBoundingClientRect() : null;
+        if (!part || !drawn || drawn.width < 1 || drawn.height < 1) {
+          if (n > 200) {
+            window.clearInterval(id);
+            setEmpty(true);
+          }
+          return;
+        }
+        const at = { top: drawn.top + (d.defaultView?.scrollY ?? 0), left: drawn.left + (d.defaultView?.scrollX ?? 0), width: drawn.width, height: drawn.height };
+        /* 📐 A part ending below the frame: the frame grows, and the part is measured AGAIN at that height (a Cover
+           Scene's words move when its screen does) — never fitted on where it stood in a frame of another size. */
+        const grow = miniatureFrameGrow(at.top + at.height, frameHRef.current);
+        if (grow !== null && !screen) {
+          frameHRef.current = grow;
+          setFrameH(grow);
+          return;
+        }
+        window.clearInterval(id);
+        partRef.current = part;
+        drawnRef.current = at;
+        /* The card stands on the page's own ground, so the room round a small part is the page's, never a grey band. */
+        const bg = getComputedStyle(d.body).backgroundColor;
+        setGround(bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : '#FFFFFF');
+        /* Its shape is what it DRAWS (the words' own box, a picture's) — a block is as wide as the page whatever
+           stands in it. A part with nothing to measure falls back to its block. */
+        onDrawnRef.current?.(drawnContent(d, part) ?? { w: drawn.width, h: drawn.height });
+        layRef.current();
+      } catch {
+        window.clearInterval(id);
+        setEmpty(true);
+      }
+    }, 60);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [srcDoc]);
+  }, [src, canvasKey, loads, focus, screen, hide]);
+  /* 📐 …and once fitted, watched for a few seconds: a face or a picture that arrives late moves the part, and the card
+     is fitted again on where it now stands (a card never shows the slice its part has left). */
   useEffect(() => {
-    if (!mount) return;
-    const t = window.setTimeout(measure, 120);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mount]);
+    if (!fit) return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      try {
+        const part = partRef.current;
+        const was = drawnRef.current;
+        const view = part?.ownerDocument.defaultView;
+        if (!part || !was || !view || !part.isConnected) return window.clearInterval(id);
+        const r = part.getBoundingClientRect();
+        const now = { top: r.top + view.scrollY, left: r.left + view.scrollX, width: r.width, height: r.height };
+        if (r.width >= 1 && r.height >= 1 && miniatureMoved(was, now)) {
+          drawnRef.current = now;
+          const grow = miniatureFrameGrow(now.top + now.height, frameHRef.current);
+          if (grow !== null && !screen) {
+            frameHRef.current = grow;
+            setFrameH(grow);
+          }
+          layRef.current();
+        }
+      } catch {
+        window.clearInterval(id);
+      }
+      if (n >= 16) window.clearInterval(id);
+    }, 300);
+    return () => window.clearInterval(id);
+  }, [fit]);
 
   return (
-    <span ref={box} aria-hidden data-style-preview={mode ?? 'loading'} className="pointer-events-none absolute inset-0 overflow-hidden">
-      {srcDoc ? (
+    <span
+      ref={box}
+      aria-hidden
+      data-style-preview={!src ? 'loading' : empty ? 'empty' : fit ? (current ? 'live' : 'render') : 'loading'}
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={ground ? { background: ground } : undefined}
+    >
+      {src ? (
         <iframe
           ref={frame}
           title=""
           tabIndex={-1}
           aria-hidden
           sandbox="allow-same-origin"
-          srcDoc={srcDoc}
-          className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent ${mode === 'dim' ? 'opacity-40 grayscale' : ''} ${fit ? 'opacity-100' : 'opacity-0'}`}
+          src={src}
+          onLoad={() => setLoads((x) => x + 1)}
+          data-style-preview-frame={styleId}
+          className={`pointer-events-none absolute left-0 top-0 origin-top-left border-0 bg-transparent transition-opacity duration-200 ${fit ? 'opacity-100' : 'opacity-0'}`}
           style={{
             width,
-            height: Math.max(200, Math.ceil(fit?.h ?? 900)),
+            height: frameH,
             transform: fit ? `translate(${fit.x}px, ${fit.y}px) scale(${fit.k})` : undefined,
           }}
         />
       ) : null}
-      {mount && element ? createPortal(element, mount) : null}
+      {/* Never a blank card: a quiet line while the page draws, and a plain one if it cannot. */}
+      {!fit ? (
+        <span data-style-preview-note="" className="absolute inset-0 grid place-items-center px-2 text-center text-[11px] leading-tight text-[var(--sp-ink2)]">
+          {empty ? 'Couldn’t draw this look' : 'Drawing…'}
+        </span>
+      ) : null}
     </span>
   );
 }

@@ -11,11 +11,16 @@ import localFont from 'next/font/local';
 import { HUB_CHOICE_FACES_CLASS } from './_fonts/choice-faces';
 import Script from 'next/script';
 import './globals.css';
+/* 📌 The app-wide pin motion + the open fold's slim head + a top row folded on scroll (owner 2026-10-29) — global, so the
+   components that write the attributes stay free of style imports (their unit tests load them under plain Node). */
+import './_components/pinned-row/pin-glide.css';
+import './_components/pinned-row/pin-fold.css';
+import './_components/fold.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
+import { NativePushRouter } from './_components/native-push-router';
 import { NfcTestSwitch } from './_components/use-nfc-enabled';
-import { CookieConsentBanner } from './_components/cookie-consent-banner';
 import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
@@ -26,9 +31,14 @@ import { SiteChrome } from './_components/marketing/site-chrome';
 import { SiteFooterChrome } from './_components/marketing/site-footer-chrome';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { ZoomGuard } from './_components/zoom-guard';
+import { PressFeel } from './_components/press-feel';
+import { RevealDetailsOnOpen } from './_components/reveal-on-open';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-bootstrap-script';
+import { THEME_COLOR } from '@/lib/appearance';
 import { stylesheetRecoveryScript } from '@/lib/stylesheet-recovery';
+import { storeShellMarkScript } from '@/lib/store-shell';
+import { appTextSizeScript } from '@/lib/app-text-size';
 import {
   DEFAULT_APPLE_TOUCH,
   DEFAULT_ICON_SVG_192,
@@ -38,6 +48,7 @@ import {
   withBrandVersion,
 } from '@/lib/brand-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -324,14 +335,16 @@ const vidaloka = localFont({
 
 // 🔑 THE SITE'S DEFAULT TITLE + DESCRIPTION (2026-09-30). The owner picked
 // "Plan, share and relive every celebration" as the line under every branded
-// email (`EMAIL_TAGLINE` in lib/email-template.ts, PR #6199); the site's default title now
+// email (`EMAIL_TAGLINE` in lib/email-template.ts, PR #6199) and changed it to
+// "…every event" on 2026-10-22 (the house word; DECISION_LOG "TAGLINE SAYS
+// EVENT"). The site's default title now
 // says the same thing instead of "Filipino wedding planning + verified
 // suppliers" — which sold one event type as the whole product. One constant,
 // used by `title.default`, `openGraph` and `twitter`, so the three cannot drift.
 // ⚠ The description names the services, is event-type neutral, and says
 // "supplier", never "vendor". Guarded by lib/public-copy-is-not-wedding-only.test.ts.
 // ⚠ Pages with their own title (the homepage's HOME_TITLE) are unaffected.
-const SITE_TITLE = 'Setnayan · Plan, share and relive every celebration';
+const SITE_TITLE = 'Setnayan · Plan, share and relive every event';
 const SITE_DESCRIPTION =
   'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.';
 
@@ -498,7 +511,7 @@ const organizationJsonLd = {
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged galleries and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and an Animated Monogram — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Hub Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -555,7 +568,11 @@ const organizationJsonLd = {
 // ⚠ Trades away WCAG 1.4.4 browser pinch-zoom by owner decision; OS-level zoom
 // (iOS/Android Accessibility → Zoom) remains as the user fallback.
 export const viewport: Viewport = {
-  themeColor: '#FBFBFA',
+  // The LIGHT browser-bar colour, unchanged. In Dark the <head> theme script swaps the tag's
+  // content for the dark page (`THEME_COLOR.dark`) and restores this value on the way back — a
+  // static `viewport` cannot follow a choice made in the app, and a `media` pair would follow the
+  // PHONE, which the owner ruled out (2026-10-13, call 1).
+  themeColor: THEME_COLOR.light,
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -576,11 +593,14 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // 💸 The booking-fee minting stamp: once per instance, AFTER this response is sent — never at
+  // server start, never on anybody's wait (lib/booking-fee-minting-stamp.ts, stability sweep 2).
+  scheduleBookingFeeMintingStamp();
+
   // Preconnect to backend origins the marketing + dashboard surfaces will
   // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
-  // the first auth check, first analytics event, and first signed-URL fetch.
+  // the first auth check and first signed-URL fetch.
   const supabaseOrigin = getOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
   // Two independent cached reads that gate EVERY page's render — resolve them
@@ -603,16 +623,20 @@ export default async function RootLayout({
   return (
     <html
       lang="en-PH"
+      // The <head> theme script may add `.dark` before React hydrates (Appearance = Dark on a
+      // ready screen) — an attribute React did not render, on purpose.
+      suppressHydrationWarning
       data-loader-variant={loaderConfig.variant}
       style={{ '--sd-veil': `${loaderConfig.veilOpacity}%` } as React.CSSProperties}
       className={`${cormorant.variable} ${fraunces.variable} ${manrope.variable} ${dmMono.variable} ${hanken.variable} ${spaceMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable} ${libreCaslon.variable} ${tangerine.variable} ${luxuriousScript.variable} ${vidaloka.variable} ${HUB_CHOICE_FACES_CLASS}`}
     >
       <head>
         {/*
-          FOUC-safe theme bootstrap — light-locked 2026-06-04. Runs
-          synchronously before first paint and strips any stale `.dark` class
-          from <html> (e.g. a cached shell from before the light lock) so the
-          app always paints light. See _components/theme-provider.tsx.
+          FOUC-safe theme bootstrap — Appearance = Light · Dark (2026-10-13).
+          Runs synchronously before first paint: `.dark` only for a signed-in
+          person who chose it, on an app screen on the ready-list (empty today,
+          so everyone paints light); otherwise it strips any stale `.dark`.
+          See _components/theme-bootstrap-script.ts and lib/appearance.ts.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {/*
@@ -628,6 +652,20 @@ export default async function RootLayout({
         */}
         <script dangerouslySetInnerHTML={{ __html: bootSplashScript }} />
         {/*
+          Store-shell mark — sets data-store-shell on <html> before first paint
+          inside the App Store / Play Store shell ONLY (never the desktop .dmg),
+          so globals.css can hide every [data-coming-soon] there. See
+          `storeShellMarkScript` in lib/store-shell.ts.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: storeShellMarkScript }} />
+        {/*
+          iPhone text size (Dynamic Type) — in the App Store shell only, right
+          after the mark above that it reads: scales the app's text to the
+          person's Settings size before the first paint. See
+          `appTextSizeScript` in lib/app-text-size.ts (owner ruling 2026-10-20).
+        */}
+        <script dangerouslySetInnerHTML={{ __html: appTextSizeScript }} />
+        {/*
           Organization JSON-LD — Google Knowledge Graph + AI answer engine
           entity grounding. Renders on every public page. Page-specific JSON-LD
           (SoftwareApplication on homepage, LocalBusiness on /v/[slug], etc.)
@@ -642,17 +680,6 @@ export default async function RootLayout({
           <>
             <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
             <link rel="dns-prefetch" href={supabaseOrigin} />
-          </>
-        ) : null}
-        {posthogOrigin ? (
-          <>
-            {/* PostHog is consent-gated and never loads until the visitor
-                accepts analytics cookies, so a speculative preconnect (DNS+TCP+
-                TLS) just burns one of the browser's limited early connections
-                for a request most first-time visitors never make. Keep only the
-                cheap dns-prefetch; the provider opens the real connection after
-                consent. (Perf sweep 2026-07-02, finding #32.) */}
-            <link rel="dns-prefetch" href={posthogOrigin} />
           </>
         ) : null}
         {r2Origin ? (
@@ -701,6 +728,12 @@ export default async function RootLayout({
         {/* Native-app zoom suppression (pinch-zoom off app-wide; seat-plan
             canvas opts back in via [data-allow-zoom]). See _components/zoom-guard.tsx. */}
         <ZoomGuard />
+        {/* ONE press feel for every control the app owns (owner 2026-10-08) — one delegated listener; the guest's
+            Event Hub (`.sn-editorial`) is left alone. See _components/press-feel.tsx. */}
+        <PressFeel />
+        {/* 🔭 A <details> a user opens glides its summary to the pin line when it runs past the bottom (owner
+            2026-11-04, app-wide) — one capture listener. See _components/reveal-on-open.ts. */}
+        <RevealDetailsOnOpen />
         {/* Global top loading bar — the future-proof catch-all that shows a
             loading indicator on EVERY route navigation (incl. routes without
             their own loading.tsx, and any added later). Pure client → no
@@ -753,19 +786,14 @@ export default async function RootLayout({
         {/* App Store / Play Store shell only: hides links to web-only routes (lib/store-shell.ts). */}
         <StoreShellLinkGuard />
         <NativeBridge />
+        {/* 📱 iPhone app only: a tapped notification opens its screen; an allowed phone keeps its APNs token fresh. */}
+        <NativePushRouter />
         {/* Remembers a phone's own `?nfc-test=1` NFC opt-in from any page. */}
         <NfcTestSwitch />
-        {/* Site-wide cookie-consent banner (RA 10173). Mounted unconditionally;
-            it SELF-GATES on pathname (same idiom as SiteChrome), suppressing
-            itself only on the Live Watch surfaces where it would be
-            broadcast, cover the on-air controls, or sit on a venue screen a
-            room is watching (/live/screen) — see
-            _components/capture-safe-routes.ts. Every other route, including
-            '/', still gets the ask. (The old note here claimed a '/' self-hide
-            for a bespoke HomeReskin pill; no such pill exists — the only consent
-            UI in the tree is this banner plus the "Cookie settings" re-open
-            links, which all share state via lib/cookie-consent.) */}
-        <CookieConsentBanner />
+        {/* 🍪 NO COOKIE BANNER (owner 2026-10-22). Setnayan sets essential cookies
+            only — sign-in, security, a guest's pass, the person's own Appearance
+            choice — so there is nothing optional to ask about. The guard is
+            app/_components/essential-cookies-only.test.ts. */}
         {/* 🔑 A TAB OLDER THAN THE SITE SHOULD SAY SO. We deploy every 15–25
             minutes and a page left open can break in a way that throws NOTHING
             — no exception, so no error boundary and no stale-bundle reload,

@@ -54,6 +54,7 @@ import {
   X,
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   cancelBookingAsHost,
   type CancelBookingAsHostResult,
@@ -72,6 +73,13 @@ type Props = {
    *  the vendors-list per-row affordances. 'cta' renders as a destructive-
    *  toned full-width button matching the workspace page's action row. */
   variant?: 'pill' | 'cta';
+  /** Wear another control's own classes (the Booked row's `ActionButton`
+   *  pill) instead of a variant's. The word then sits in a `.lbl`, so a verb
+   *  row's fit pass can fold it to the icon. Absent → byte-identical to before. */
+  triggerClass?: string;
+  /** The word on a `triggerClass` trigger — the Booked row's tile says "Cancel" (owner 2026-10-30, one row of equal
+   *  tiles). The accessible name still says the whole thing. Absent → "Cancel booking". */
+  triggerWord?: string;
 };
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
@@ -92,6 +100,8 @@ export function CancelBookingButton({
   vendorName,
   redirectToHomeOnSuccess = false,
   variant = 'pill',
+  triggerClass,
+  triggerWord,
 }: Props) {
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' });
@@ -149,12 +159,8 @@ export function CancelBookingButton({
           // way so re-cancels (multi-host race) don't look broken.
           setToast({ kind: 'cancelled', vendorName });
           setDialog({ kind: 'closed' });
-          if (redirectToHomeOnSuccess) {
-            router.push(`/dashboard/${eventId}`);
-          } else {
-            // Stay on the current page — server action already revalidated.
-            router.refresh();
-          }
+          // Otherwise stay on the current page — the server action revalidated, and its answer carries the redraw.
+          if (redirectToHomeOnSuccess) router.push(`/dashboard/${eventId}`);
           return;
         case 'downpaid_use_dispute_flow':
           // Race: vendor flipped to deposit_paid between our render and
@@ -192,11 +198,21 @@ export function CancelBookingButton({
       <button
         type="button"
         onClick={() => setDialog({ kind: 'open' })}
-        className={triggerClassName}
+        className={triggerClass ?? triggerClassName}
         aria-label={`Cancel booking with ${vendorName}`}
+        title={triggerClass ? triggerLabel : undefined}
       >
-        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {triggerLabel}
+        {triggerClass ? (
+          <>
+            <X aria-hidden strokeWidth={1.9} />
+            <span className="lbl">{triggerWord ?? triggerLabel}</span>
+          </>
+        ) : (
+          <>
+            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {triggerLabel}
+          </>
+        )}
       </button>
 
       {dialog.kind !== 'closed' ? (
@@ -206,11 +222,9 @@ export function CancelBookingButton({
           aria-modal="true"
           aria-labelledby="cancel-booking-headline"
           aria-describedby="cancel-booking-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === dialogRef.current) closeDialog();
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={closeDialog} />
           <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
             <button
               type="button"
@@ -365,6 +379,9 @@ function SuccessToast({
 // two-admin approval" + the per-vendor dispute schema at
 // supabase/migrations/20260516210000_vendor_payout_model.sql.
 //
+// The words are "Report a problem" (owner 2026-10-14, DECISION_LOG 🧾 — was "Request refund / dispute";
+// Setnayan pays no money back, so the door never promises one). Same flow.
+//
 // Server-rendered as a Link (no client logic needed) — kept in the same
 // file so callers import one symbol and the status-routing logic stays
 // adjacent.
@@ -384,7 +401,7 @@ export function DisputeLinkButton({
   return (
     <Link href={`/dashboard/${eventId}/disputes`} className={className}>
       <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      Request refund / dispute
+      Report a problem
     </Link>
   );
 }

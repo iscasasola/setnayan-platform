@@ -22,6 +22,111 @@
 import { redirect } from 'next/navigation';
 import { AUTH_READ_FAILED_MESSAGE, authReadFailed } from '@/lib/auth-read';
 import { createClient } from '@/lib/supabase/server';
+import {
+  isEventIdShape,
+  limitedHelperRefusalWith,
+  ownSeatLevelReader,
+  refuseLimitedHelperWith,
+  type LimitedHelperRpcClient,
+  type OwnSeatClient,
+} from '@/lib/limited-helper-gate';
+import type { DelegateArea } from '@/lib/delegate-areas';
+import {
+  moodBoardHostsOnlyRefusalWith,
+  moodBoardPhotoChangeRefusalWith,
+  moodBoardPhotosRefusalWith,
+  type MoodBoardChangeKind,
+  type MoodBoardChangeRpcClient,
+  type MoodBoardRpcClient,
+} from '@/lib/mood-board-gate';
+
+/**
+ * 👁 A LIMITED HELPER VIEWS — AND CHANGES ONLY WHAT THE HOST SET TO EDIT
+ * (owner 2026-09-28 · 2026-10-26; see `lib/limited-helper-gate.ts`). The FIRST
+ * line of every server action under `app/dashboard/[eventId]`, naming the area
+ * the action changes (null = no area: hosts only). Throws "You can view … but
+ * not change it." when the caller's seat on `eventId` is a live limited helper
+ * whose level for `area` is not 'edit'. A co-host, the creator and everybody
+ * else pass through to the action's own gate unchanged. Takes `unknown` so a raw
+ * `formData.get(...)` can be handed straight in — a value that is not an event
+ * id passes, and the action's own validation answers it.
+ */
+export async function refuseLimitedHelper(eventId: unknown, area: DelegateArea | null): Promise<void> {
+  if (!isEventIdShape(eventId)) return;
+  await refuseLimitedHelperWith(await gateClient(), eventId, area);
+}
+
+/**
+ * The same gate for an action that answers `{ ok: false, error }` instead of
+ * throwing: returns the sentence to show ("You can view the seat plan but not
+ * change it."), or null when the caller may go on. In production a THROWN
+ * server-action message is replaced by a generic one, so an action whose
+ * screen already prints its `error` (through `plainRefusal`) says it this way
+ * and the helper reads the real reason in place.
+ */
+export async function limitedHelperRefusal(eventId: unknown, area: DelegateArea | null): Promise<string | null> {
+  if (!isEventIdShape(eventId)) return null;
+  return limitedHelperRefusalWith(await gateClient(), eventId, area);
+}
+
+/** The session client as the gate reads it: the two SQL questions, and the caller's own seat's recorded level. */
+async function gateClient(): Promise<LimitedHelperRpcClient> {
+  const supabase = await createClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as LimitedHelperRpcClient['rpc'];
+  return { rpc, ownSeatLevel: ownSeatLevelReader(supabase as unknown as OwnSeatClient) };
+}
+
+/**
+ * 🖼 THE MOOD BOARD'S PHOTOS — the hosts, and whoever they set to Mood Board Edit (owner 2026-10-30; see
+ * `lib/mood-board-gate.ts`). The sentence to show, or null when the caller may add, replace, move or remove a photo.
+ * Asked AFTER `refuseLimitedHelper(…, 'mood_board')`, never instead of it.
+ */
+export async function moodBoardPhotosRefusal(eventId: unknown): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardPhotosRefusalWith(supabase as unknown as MoodBoardRpcClient, eventId);
+}
+
+/** The same question, throwing — for an action that answers nothing. */
+export async function refuseUnlessMoodBoardPhotos(eventId: unknown): Promise<void> {
+  const refusal = await moodBoardPhotosRefusal(eventId);
+  if (refusal) throw new Error(refusal);
+}
+
+/**
+ * 🖼⏱ The photo gate for an action that CHANGES the board (upload · replace · move · remove): the same question, and —
+ * for a person who is not an owner — the change it opens, which the owners are told about and may Undo for 24 hours
+ * (`lib/mood-board-gate.ts`, migration 20271299051148). One request either way.
+ */
+export async function moodBoardPhotoChangeRefusal(
+  eventId: unknown,
+  kind: MoodBoardChangeKind,
+  slotKey: unknown,
+): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardPhotoChangeRefusalWith(supabase as unknown as MoodBoardChangeRpcClient, eventId, kind, slotKey);
+}
+
+/** The same, throwing — for an action that answers nothing. */
+export async function refuseUnlessMoodBoardPhotoChange(eventId: unknown, kind: MoodBoardChangeKind, slotKey: unknown): Promise<void> {
+  const refusal = await moodBoardPhotoChangeRefusal(eventId, kind, slotKey);
+  if (refusal) throw new Error(refusal);
+}
+
+/**
+ * 🎨 THE PALETTE, THE THEME, THE DRESS CODE, A TEMPLATE, A SIGN-OFF — the hosts alone (`couple_can_update_event` does
+ * not move). Throws the refusal for anyone else, so a person given Mood Board Edit for the PHOTOS is told so here
+ * instead of being silently refused by RLS.
+ */
+export async function refuseUnlessMoodBoardHost(eventId: unknown): Promise<void> {
+  const refusal = await moodBoardHostRefusal(eventId);
+  if (refusal) throw new Error(refusal);
+}
+
+/** The same question as a value, for an action that answers `{ status, … }`. */
+export async function moodBoardHostRefusal(eventId: unknown): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardHostsOnlyRefusalWith(supabase as unknown as MoodBoardRpcClient, eventId);
+}
 
 /**
  * The shared auth core. Returns the authenticated user's id when they are an

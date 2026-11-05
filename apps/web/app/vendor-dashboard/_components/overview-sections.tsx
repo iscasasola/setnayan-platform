@@ -1,15 +1,26 @@
-import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { WhyRow } from './why-row';
 import {
-  AlertTriangle,
   ArrowRight,
+  CalendarClock,
+  CalendarDays,
+  Check,
   FileText,
-  Star,
+  LogOut,
   MessageSquare,
+  Reply,
+  Send,
+  Trash2,
+  Wallet,
+  X,
 } from 'lucide-react';
-import { SubmitButton } from '@/app/_components/submit-button';
+import { customerLandingHref } from '../customers/anchors';
+import { ActionButton } from '@/components/action-button';
+import { Badge } from '@/app/_components/badge';
+import { Fold } from '@/app/_components/fold';
+import { SupplierSubmit } from './supplier-submit';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
-import { dateChangeWhen } from '@/lib/date-change';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './payout-method-nudge';
@@ -20,12 +31,25 @@ import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
 import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
-import type {
-  OngoingTask,
-  UpcomingEventRow,
-  WhatsNewCard,
-} from '@/lib/vendor-overview';
+import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
+import { dateChangeShort, type TodayRowWords } from '@/lib/supplier-today';
+import { RowIcon, TodayRow, nextHref } from './supplier-today-first-screen';
+import { SupplierOpenRow } from './supplier-open-row';
+import { EventLinesBody, InquiryAnswers } from './event-lines';
+import type { EventLines } from '@/lib/supplier-event-lines';
+
+/*
+  🔘 THE ANSWERS WEAR THE BUTTON RULE (2026-10-12, owner "APPROVE ALL" look calls 1–3): every press here is an
+  `ActionButton` (a door) or a `SupplierSubmit` (a form's submit — the shipped `SubmitButton`, its pending word and
+  its no-touch veil, in ActionButton's class list). The row's MAIN verb is terracotta (`brand`), whatever it does —
+  the meaning colours (green Agree, blue Reply) ended for main buttons; the word says what it does. Taking something
+  back (remove a celebration · "it never arrived") is `danger`; the rest is `neutral`. 44 px tall, every one: a door
+  is an `<a>`, which the house button floor does not reach, so it carries `TAP`.
+  A server component hands each an ELEMENT for its icon, never a component.
+*/
+const TAP = 'min-h-11';
+const ico = { 'aria-hidden': true, strokeWidth: 1.9 } as const;
 
 /**
  * overview-sections.tsx — the presentational sections of the vendor Overview.
@@ -36,6 +60,13 @@ import { formatCount } from '@/lib/format-number';
  * eyebrows), the What's-new feed is `.sn-card`s with warm-semantic tone chips,
  * and Ongoing / Upcoming are `.sn-tile` panels of opaque `.sn-row` items with
  * mono date blocks.
+ *
+ * 📋 ROWS, NOT CARDS (2026-10-08, supplier dashboard redesign S-PR1 — corpus
+ * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "Today"). The desk is
+ * the "Also waiting" list now: one hairline row per ask, opening its answer in
+ * place. The answers themselves — every form, every action, every sentence
+ * said before a press — are the ones below, unchanged. "Ongoing" and "Upcoming
+ * schedules" are gone from this file: both repeated the queue and Coming up.
  *
  * ⏹ THE FOCAL TILE AND THE KPI BENTO ARE RETIRED (2026-10-01, DECISION_LOG "THE
  * SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS"). Today's
@@ -135,7 +166,7 @@ const CARD_KIND: Record<
   delete_request: {
     accent: 'var(--sn-danger)',
     eye: 'var(--sn-danger)',
-    eyebrow: 'A couple wants to remove a celebration',
+    eyebrow: 'A couple wants to remove an event',
   },
   dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
   /*
@@ -175,23 +206,14 @@ function cardTone(card: WhatsNewCard): CardTone {
   };
 }
 
-/** A small gold diamond that leads a section head (matches the event surface). */
-const spark = (
-  <span
-    aria-hidden
-    className="mr-2 inline-block h-1.5 w-1.5 rotate-45 align-middle"
-    style={{ background: 'var(--sn-gold-500)' }}
-  />
-);
-
 /** Meta line joined with " · ", dropping empties. */
 function metaLine(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
 }
 
 // ---------------------------------------------------------------------------
-// 1 · WHAT'S NEW — the decision feed (`.sn-card`s, warm-semantic tone chips).
-//     Every Ongoing row anchors here (id="whats-new").
+// 1 · ALSO WAITING — the answers desk, as rows that open in place.
+//     Every open-task link anchors here (id="whats-new").
 // ---------------------------------------------------------------------------
 
 export function WhatsNewFeed({
@@ -212,8 +234,23 @@ export function WhatsNewFeed({
   feeForecasts = {},
   incomplete = false,
   statusLine = '',
+  asks,
+  eventLines = {},
 }: {
   cards: WhatsNewCard[];
+  /**
+   * 📋 The event's fixed lines, keyed by event id — an inquiry row opens to them (supplier dashboard v13, owner
+   * 2026-10-29). Read once by the page (`readSupplierEventLines`); absent → the row opens to the shipped answer alone.
+   */
+  eventLines?: Readonly<Record<string, EventLines>>;
+  /**
+   * 📋 ALSO WAITING (supplier redesign S-PR1, 2026-10-08). Which of `cards` are
+   * rows here, with the words and the "2 of 3" each one wears —
+   * `supplierWaiting().asks` (`lib/supplier-today.ts`). The Next card's own ask
+   * is left out by that rule, not by this component. Absent → every card is a
+   * row, numbered in the order given (a caller with no Next card).
+   */
+  asks?: ReadonlyArray<{ card: WhatsNewCard; label: string; line: string; position: number; open: boolean; words?: TodayRowWords }>;
   /**
    * A booking-ask or deposit read did not reach the end. Said above the list,
    * and the "all caught up" empty state is never drawn on top of it — an empty
@@ -257,48 +294,73 @@ export function WhatsNewFeed({
    */
   statusLine?: string;
 }) {
+  const rows =
+    asks ??
+    cards.map((card, i) => ({ card, label: cardTone(card).eyebrow, line: '', position: i + 1, open: false, words: undefined as TodayRowWords | undefined }));
+  // Nothing waits and everything was read: the Next card says "all caught up".
+  // An empty list here would be furniture — and an empty list that could NOT be
+  // read is not empty, so that case still speaks, below.
+  if (rows.length === 0 && !incomplete) return null;
   return (
     /*
-      🔒 THE ID STAYS `whats-new` THOUGH THE HEADING NO LONGER DOES. Two shipped
-      doors point at this fragment — the focal tile's "Answer them" and every
-      Ongoing row's `/vendor-dashboard#whats-new` — and a fragment link to an id
-      that does not exist scrolls nowhere and throws nothing. Renaming the
-      anchor to match the new words would break both, silently, on the one page
-      every supplier opens.
+      🔒 THE ID STAYS `whats-new`. Shipped doors point at this fragment — every
+      open-task link (`/vendor-dashboard#whats-new`), older notifications, and
+      the Next card's own button when its answer is given on this page — and a
+      fragment link to an id that does not exist scrolls nowhere and throws
+      nothing.
+
+      📋 ROWS, NOT CARDS (redesign S-PR1). One hairline row per ask — its words,
+      one line, "2 of 3" — and the row OPENS THE ANSWER IN PLACE: the same forms
+      and the same actions that were the desk's cards, unchanged. The plan drew
+      each row as a door to the customer card "where the shipped inline forms
+      already live"; two of them do not live there (a date change and a delete
+      request are answered on this page and nowhere else), so the row is a fold
+      and the answer stays where it works. One open at a time (`name`).
     */
-    <section id="whats-new" className="mb-8 scroll-mt-24">
-      <SectionHeader
-        /*
-          RENAMED 2026-09-22 to the words the owner approved on 2026-08-26
-          ("yes i agree"). His note on the shipped page: the block "is called
-          **What's new**, a news name on a to-do list". Everything under this
-          heading now renders at least one control — the closed lines moved to
-          `NothingToAnswerFeed` below.
-        */
-        title="Needs your answer"
-        count={cards.length}
-        subtitle={statusLine || undefined}
-        // ⛔ "Mark all seen" REMOVED — it was a bare <span> with no onClick, no
-        // href and no form: a control that looked pressable and did nothing.
-        // No bulk-acknowledge action exists for these cards, so the honest fix is
-        // to remove the affordance rather than to fake one. ("No fake doors.")
-        action={null}
-      />
+    <section id="whats-new" data-also-waiting="" className="scroll-mt-24" aria-label="Also waiting">
+      <p className="home-k2">
+        Also waiting
+        {statusLine ? <span className="sr-only"> — {statusLine}</span> : null}
+      </p>
       {incomplete ? (
-        <p role="status" className="sn-tile mb-3 p-4 text-sm text-ink/80">
+        <p role="status" className="pb-2 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }}>
           Some booking asks and payments couldn&rsquo;t load, so this list may be
           missing some. Refresh the page to try again.
         </p>
       ) : null}
-      {cards.length === 0 && incomplete ? null : cards.length === 0 ? (
-        <EmptyCard
-          icon={<Star className="h-5 w-5" strokeWidth={1.5} style={{ color: 'var(--sn-ink-400)' }} />}
-          text="You're all caught up. Every answer you owe anybody — new inquiries, booking asks, replies, reviews, meeting times, quotes and contracts you haven't sent — lands here, the longest wait first."
-        />
-      ) : (
-        <ul className="space-y-3">
-          {cards.map((card) => (
-            <li key={card.id}>
+      <div className="[&>div:first-child]:border-t-0">
+        {rows.map(({ card, label, line, open, words }) =>
+          /* 🚪 A ROW THAT IS ONLY A DOOR (simpler Today 2026-10-14: "Finish quote draft", "Contract draft", "Dispute
+             open") — nothing is answered on Today, so the row opens the place it is answered. */
+          words?.door ? (
+            <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 [&>a]:border-t-0 border-t border-ink/10">
+              <TodayRow
+                href={nextHref(words.door)}
+                label={words.label}
+                line={words.line}
+                lineTone={words.lineTone ?? null}
+                rowIcon={words.icon}
+                pill={words.pill ? <Badge tone={words.pill.tone} data="today-ask">{words.pill.word}</Badge> : undefined}
+              />
+            </div>
+          ) : (
+          /* 🗂 THE SHARED FOLD (kind 19), as a supplier row that OPENS (`SupplierOpenRow`, supplier dashboard v13 — owner
+             2026-10-29 "where is the expand look of these rows?"): in place on a phone, in the right column from 701. Its
+             ONE action ("Reply" · "Confirm") sits beside the head and acts directly; the rest of the row opens the
+             answer — the same forms and the same actions. `#ask-<id>` is the address older links name. The row wears
+             its icon and its state ("2 d" · "Lapsed"), never a queue number. */
+          <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 border-t border-ink/10">
+            <SupplierOpenRow
+              id={`ask-${card.id}`}
+              data="today-ask"
+              title={words?.label ?? label}
+              line={words?.line ?? line}
+              defaultOpen={open}
+              lead={words ? <RowIcon name={words.icon} /> : undefined}
+              aside={words?.pill ? <Badge tone={words.pill.tone} data="today-ask">{words.pill.word}</Badge> : null}
+              endPress={rowAct(card, confirmLock)}
+            >
+            <div className="pb-3 pl-3">
               <FeedCard
                 card={card}
                 acceptInquiry={acceptInquiry}
@@ -315,13 +377,39 @@ export function WhatsNewFeed({
                 markServiceComplete={markServiceComplete}
                 payoutReadiness={payoutReadiness}
                 feeForecasts={feeForecasts}
+                lines={card.kind === 'inquiry' && card.eventId ? (eventLines[card.eventId] ?? null) : null}
               />
-            </li>
-          ))}
-        </ul>
-      )}
+            </div>
+            </SupplierOpenRow>
+          </div>
+          ),
+        )}
+      </div>
     </section>
   );
+}
+
+/**
+ * THE ROW'S ONE ACTION, BESIDE ITS HEAD (prototype v13 `.sbtn`): it acts directly — the rest of the row opens. Only where
+ * one tap is the whole answer: a reply opens the chat, a logged payment is confirmed (the shipped
+ * `vendorAcknowledgeDeposit`, the same form as "Yes, it arrived" inside). A booking ask, a date change, a removal and a
+ * review are answered inside the opened row, where the fee, the dates and the reply box are read first.
+ */
+function rowAct(card: WhatsNewCard, confirmLock: (formData: FormData) => void | Promise<void>): ReactNode {
+  if (card.kind === 'inquiry' || card.kind === 'message') {
+    const href = `/vendor-dashboard/messages/${card.threadId}`;
+    return <ActionButton tone="neutral" icon={<MessageSquare {...ico} />} label="Reply" name={`Reply — ${card.kind === 'message' ? card.coupleName : card.descriptor}`} href={href} className={TAP} />;
+  }
+  if (card.kind === 'lock') {
+    return (
+      <form action={confirmLock} className="contents">
+        <input type="hidden" name="event_id" value={card.eventId} />
+        <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+        <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Confirm" pendingLabel="Confirming…" />
+      </form>
+    );
+  }
+  return null;
 }
 
 /**
@@ -368,20 +456,26 @@ export function NothingToAnswerFeed({
 }) {
   if (cards.length === 0) return null;
   return (
-    <section id="nothing-to-answer" className="mb-8 scroll-mt-24">
-      <SectionHeader title="Nothing to answer" count={cards.length} />
-      <ul className="space-y-3">
+    /* The same hairline rows as "Also waiting" above, with no number: nothing
+       here is waiting on the shop. Each opens the note it carries. */
+    <section id="nothing-to-answer" data-nothing-to-answer="" className="scroll-mt-24" aria-label="Nothing to answer">
+      <p className="home-k2">Nothing to answer</p>
+      <div className="[&>div:first-child]:border-t-0">
         {cards.map((card) => (
-          <li key={card.id}>
-            <FeedCard
-              card={card}
-              {...actions}
-              payoutReadiness="unreadable"
-              feeForecasts={{}}
-            />
-          </li>
+          <div key={card.id} data-today-news={card.kind} className="border-t border-ink/10">
+            <Fold data="today-news" title={cardTone(card).eyebrow} line="">
+              <div className="pb-3 pl-3">
+                <FeedCard
+                  card={card}
+                  {...actions}
+                  payoutReadiness="unreadable"
+                  feeForecasts={{}}
+                />
+              </div>
+            </Fold>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
@@ -402,8 +496,11 @@ function FeedCard({
   markServiceComplete,
   payoutReadiness,
   feeForecasts,
+  lines = null,
 }: {
   card: WhatsNewCard;
+  /** 📋 An inquiry's event lines (supplier dashboard v13) — null → the shipped answer alone. */
+  lines?: EventLines | null;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
@@ -424,18 +521,25 @@ function FeedCard({
 }) {
   const tone = cardTone(card);
   return (
-    <div className="sn-card relative overflow-hidden py-4 pl-5 pr-4">
-      {/* Left color accent + eyebrow — one palette entry per card. */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-1"
-        style={{ background: tone.accent }}
-      />
+    /* No box (redesign S-PR1): the answer sits inside its row's fold, on the
+       page's own ground. The eyebrow keeps the kind's one colour. */
+    <div data-feed-card={card.kind}>
       <p className="sn-eye mb-1" style={{ color: tone.eye }}>
         {tone.eyebrow}
       </p>
 
-      {card.kind === 'inquiry' ? (
+      {card.kind === 'inquiry' && lines ? (
+        /* 📋 The opened inquiry = the event's fixed lines (Event type · Celebrant · Hosted by "Asked you" · Location ·
+           Date · Est. pax · Service requested · You also offer · For your service), their words, then Decline · Ask a
+           question · Accept (supplier dashboard v13, owner 2026-10-29). */
+        <>
+          {card.messageExcerpt ? (
+            <p className="mb-2 border-l-2 border-ink/15 pl-3 text-sm italic text-ink/75">“{card.messageExcerpt}”</p>
+          ) : null}
+          <EventLinesBody lines={lines} />
+          <InquiryAnswers threadId={card.threadId} returnTo="/vendor-dashboard" acceptInquiry={acceptInquiry} declineInquiry={declineInquiry} />
+        </>
+      ) : card.kind === 'inquiry' ? (
         <InquiryBody
           card={card}
           acceptInquiry={acceptInquiry}
@@ -530,9 +634,7 @@ function MarkCompleteBody({
           — passing one would look like it scoped the write when it did not. */}
       <form action={markServiceComplete}>
         <input type="hidden" name="event_id" value={card.eventId} />
-        <button type="submit" className="sn-btn sn-btn-primary text-sm">
-          I delivered this service
-        </button>
+        <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="I delivered this service" pendingLabel="Saving…" />
       </form>
     </div>
   );
@@ -582,27 +684,15 @@ function InquiryBody({
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={acceptInquiry}>
+        <form action={acceptInquiry} className="contents">
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Accepting…"
-            className="inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Accept
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Accept" pendingLabel="Accepting…" />
         </form>
-        <form action={declineInquiry}>
+        <form action={declineInquiry} className="contents">
           <input type="hidden" name="thread_id" value={card.threadId} />
           <input type="hidden" name="return_to" value="/vendor-dashboard" />
-          <SubmitButton
-            pendingLabel="Declining…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Decline
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Decline" pendingLabel="Declining…" />
         </form>
       </div>
     </>
@@ -616,15 +706,16 @@ function InquiryBody({
  * form carries ONLY `vendor_id`: every side effect keys on the event id the
  * DEFINER RPC read off the row it authorized, never on anything posted here.
  *
- * The decline sits inside a <details> rather than beside Agree — a no is a real
+ * The decline sits inside a fold (the shared `Fold`) rather than beside Agree — a no is a real
  * answer the couple needs, but it should not be one mis-tap away from a yes.
  */
-function LockRequestBody({
+export function LockRequestBody({
   card,
   agreeLock,
   declineLock,
   payoutReadiness,
   feeForecast,
+  onCard = false,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request' }>;
   agreeLock: (formData: FormData) => void | Promise<void>;
@@ -632,6 +723,12 @@ function LockRequestBody({
   payoutReadiness: PayoutReadiness;
   /** What this booking will cost them, named BEFORE the Agree button. */
   feeForecast: FeeDisclosure | null;
+  /**
+   * ✅ ON THE NEXT CARD (simpler Today, 2026-10-14 — prototype moment "The couple asks to book"): the card's own
+   * title and line already say who and when, so the answer starts at the fee. The SAME forms, the SAME fee notice
+   * above Agree — one answer, drawn in two places, never two answers.
+   */
+  onCard?: boolean;
 }) {
   // Rendered on the server, so "now" is the render instant.
   // ONE phrasing, shared with the customer card and the Customers roster — three
@@ -648,46 +745,30 @@ function LockRequestBody({
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
-      <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+      {onCard ? (
+        fuse ? <p className="mb-1 text-[13px] text-ink/60">{fuse}</p> : null
+      ) : (
+        <>
+          <p className="text-sm font-semibold text-ink">{card.coupleName} wants to book you</p>
+          <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
+        </>
+      )}
       <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
       {/* ⚠ ABOVE THE BUTTON. A fee named after the press is a receipt. */}
       <BookingFeeNotice disclosure={feeForecast} />
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeLock}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Agree to this booking
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
         </form>
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Can&rsquo;t take this booking?
-        </summary>
-        <form action={declineLock} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title={onCard ? 'Turn it down' : 'Can’t take this booking?'} className="mt-1">
+        <form action={declineLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Turn it down
-          </SubmitButton>
+          <WhyRow />
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -714,8 +795,9 @@ function DateChangeBody({
   card: Extract<WhatsNewCard, { kind: 'date_change' }>;
   answerDateChange: (formData: FormData) => void | Promise<void>;
 }) {
-  const to = dateChangeWhen(card.proposedDate, card.proposedPrecision);
-  const from = card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their current date';
+  // The short words the Next card says ("Move to Sun 25 Oct") — one way to say the date on one screen.
+  const to = dateChangeShort(card.proposedDate, card.proposedPrecision);
+  const from = card.fromDate ? dateChangeShort(card.fromDate, card.fromPrecision) : 'their current date';
   const overdue = new Date(card.dueAt).getTime() <= Date.now();
   return (
     <>
@@ -733,24 +815,12 @@ function DateChangeBody({
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="moved" />
-          <SubmitButton
-            pendingLabel="Saving…"
-            className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-ink-900)' }}
-          >
-            Move to {to}
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<CalendarClock {...ico} />} label={`Move to ${to}`} pendingLabel="Saving…" />
         </form>
         <form action={answerDateChange}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           <input type="hidden" name="answer" value="unlocked" />
-          <SubmitButton
-            pendingLabel="Releasing…"
-            className="inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Unlock my service
-          </SubmitButton>
+          <SupplierSubmit tone="neutral" icon={<LogOut {...ico} />} label="Unlock my service" pendingLabel="Releasing…" />
         </form>
       </div>
       <p className="mt-2 max-w-prose text-xs text-ink/60">
@@ -798,12 +868,12 @@ function DeleteRequestBody({
   return (
     <>
       <p className="text-sm font-semibold text-ink">
-        A celebration you were paid for is being removed
+        An event you were paid for is being removed
       </p>
       <p className="mt-0.5 text-sm text-ink/60">{detail}</p>
       <p className="mt-2 max-w-prose text-sm text-ink/70">
         Their records show a payment to you. If you agree, the couple&rsquo;s
-        celebration is removed —{' '}
+        event is removed —{' '}
         <strong className="font-semibold text-ink">
           your booking record, your reviews and your figures stay with your shop
         </strong>
@@ -812,38 +882,17 @@ function DeleteRequestBody({
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <form action={agreeDeletion}>
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Agreeing…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-danger)' }}
-          >
-            Agree to remove it
-          </SubmitButton>
+          {/* Taking something away for good is the delete look — never the accent. */}
+          <SupplierSubmit tone="danger" main icon={<Trash2 {...ico} />} label="Agree to remove it" pendingLabel="Agreeing…" />
         </form>
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          Not yet &mdash; say why
-        </summary>
-        <form action={declineDeletion} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title="Not yet — say why" className="mt-1">
+        <form action={declineDeletion} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          >
-            Keep it for now
-          </SubmitButton>
+          <WhyRow />
+          <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Keep it for now" pendingLabel="Sending…" />
         </form>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -900,47 +949,62 @@ function LockBody({
         {' · '}
         <AgeLine since={card.recordedAt} />
       </p>
+      {/* 💸 AMOUNT · METHOD (supplier dashboard v13, "Payment logged = amount · method · receipt"): their own words,
+          drawn only when they said them — never a ₱0 standing in for an amount nobody wrote. */}
+      {card.amountPhp || card.method ? (
+        <dl className="mt-2 grid grid-cols-2 gap-x-4" data-lock-logged="">
+          {card.amountPhp ? (
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">Amount</dt>
+              <dd className="text-[15px] tabular-nums text-ink">{formatPhp(card.amountPhp)}</dd>
+            </div>
+          ) : null}
+          {card.method ? (
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">How</dt>
+              <dd className="text-[15px] text-ink">{card.method}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
       {receiptUrl ? (
         <a
           href={receiptUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold underline-offset-2 hover:underline"
-          style={{ color: 'var(--sn-gold-700)' }}
+          className="mt-2 inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
+          data-lock-receipt=""
         >
-          <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {/* The receipt itself, small — tap for full size (a PDF shows its mark instead). */}
+          {/\.pdf(\?|$)/i.test(receiptUrl) ? (
+            <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={receiptUrl} alt="" className="h-14 w-14 flex-none rounded-lg object-cover" />
+          )}
           See what they sent
         </a>
       ) : (
         <p className="mt-2 text-sm text-ink/55">They attached no receipt.</p>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <form action={confirmLock}>
+        <form action={confirmLock} className="contents">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <SubmitButton
-            pendingLabel="Confirming…"
-            className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-            style={{ background: 'var(--sn-success)' }}
-          >
-            Yes, it arrived
-          </SubmitButton>
+          <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Yes, it arrived" pendingLabel="Confirming…" />
         </form>
         {/* Money → the Quote & Payments section, the one money tab BOTH
             shells render. A bare client route lands on the chat (#5614). */}
-        <Link
+        <ActionButton
+          tone="neutral"
+          icon={<Wallet {...ico} />}
+          label="View the payment"
           href={`/vendor-dashboard/clients/${card.eventId}?tab=quote`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          View the payment
-        </Link>
+          className={TAP}
+        />
       </div>
-      <details className="mt-3">
-        <summary className="cursor-pointer text-sm text-ink/60">
-          It hasn&rsquo;t reached you?
-        </summary>
-        <form action={rejectLock} className="mt-2 flex flex-wrap items-center gap-2">
+      <Fold data="answer-no" title="It hasn’t reached you?" className="mt-1">
+        <form action={rejectLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
           {/* Comes back HERE with the outcome, instead of moving the supplier to
@@ -952,23 +1016,17 @@ function LockBody({
             name="reason"
             maxLength={200}
             placeholder="Why? (optional — they see this)"
-            className="h-9 min-w-0 flex-1 rounded-full border px-3 text-sm"
+            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
             style={{ borderColor: 'var(--sn-line)' }}
           />
-          <SubmitButton
-            pendingLabel="Sending…"
-            className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold"
-            style={{ borderColor: 'var(--sn-danger)', color: 'var(--sn-danger)' }}
-          >
-            It never arrived
-          </SubmitButton>
+          <SupplierSubmit tone="danger" icon={<X {...ico} />} label="It never arrived" pendingLabel="Sending…" />
         </form>
-        <p className="mt-2 max-w-prose text-[12px] text-ink/55">
+        <p className="mb-2 mt-2 max-w-prose text-[12px] text-ink/55">
           Their record of paying is cleared so they can send it again with the
           right receipt. It does not cancel the booking, and nothing about your
           date changes.
         </p>
-      </details>
+      </Fold>
     </>
   );
 }
@@ -1033,20 +1091,14 @@ function ReviewBody({
             One public reply, and it&rsquo;s final once posted.
           </p>
           <div className="flex items-center gap-2">
-            <Link
+            <ActionButton
+              tone="neutral"
+              icon={<ArrowRight {...ico} />}
+              label="Open the review"
               href={`/vendor-dashboard/reviews#reply_${card.reviewId}`}
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Open the review
-            </Link>
-            <SubmitButton
-              pendingLabel="Posting…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-ink-900)' }}
-            >
-              Post reply
-            </SubmitButton>
+              className={TAP}
+            />
+            <SupplierSubmit tone="brand" main icon={<Reply {...ico} />} label="Post reply" pendingLabel="Posting…" />
           </div>
         </div>
       </form>
@@ -1090,13 +1142,14 @@ function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }
           (the #5614 redirect) and landed on Overview whenever there was no
           thread or the shell flag was off. Named, not inferred.
         */}
-        <Link
+        <ActionButton
+          tone="brand"
+          main
+          icon={card.threadHref ? <MessageSquare {...ico} /> : <ArrowRight {...ico} />}
+          label={card.threadHref ? 'Answer them' : 'Open the handover'}
           href={card.threadHref ?? `/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-danger)' }}
-        >
-          {card.threadHref ? 'Answer them' : 'Open the handover'}
-        </Link>
+          className={TAP}
+        />
       </div>
     </>
   );
@@ -1173,13 +1226,14 @@ function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }
         </p>
       ) : null}
       <div className="mt-3">
-        <Link
+        <ActionButton
+          tone="brand"
+          main
+          icon={<MessageSquare {...ico} />}
+          label="Open the conversation"
           href={`/vendor-dashboard/messages/${card.threadId}`}
-          className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-          style={{ background: 'var(--sn-ink-900)' }}
-        >
-          Open the conversation
-        </Link>
+          className={TAP}
+        />
       </div>
     </>
   );
@@ -1254,46 +1308,31 @@ function MeetingBody({
       ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {!card.passed && card.scheduledAt ? (
-          <form action={respondMeeting}>
+          <form action={respondMeeting} className="contents">
             {hidden}
             <input type="hidden" name="decision" value="confirm" />
-            <SubmitButton
-              pendingLabel="Confirming…"
-              className="inline-flex h-9 items-center rounded-full px-4 text-sm font-semibold text-white"
-              style={{ background: 'var(--sn-success)' }}
-            >
-              Confirm this time
-            </SubmitButton>
+            <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Confirm this time" pendingLabel="Confirming…" />
           </form>
         ) : null}
         {/* "Offering a different time needs a calendar" — that calendar is
             AppointmentsSection, and it is mounted on `?tab=schedule`. A bare
             client route lands on the chat, which has no calendar in it. */}
-        <Link
+        <ActionButton
+          tone="neutral"
+          icon={<CalendarDays {...ico} />}
+          label={card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
           href={`/vendor-dashboard/clients/${card.eventId}?tab=schedule`}
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          {card.passed || !card.scheduledAt ? 'Open the customer' : 'Offer another time'}
-        </Link>
+          className={TAP}
+        />
       </div>
       {!card.passed ? (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-ink/60">
-            Can&rsquo;t make it at all?
-          </summary>
-          <form action={respondMeeting} className="mt-2">
+        <Fold data="answer-no" title="Can’t make it at all?" className="mt-1">
+          <form action={respondMeeting} className="mb-1">
             {hidden}
             <input type="hidden" name="decision" value="decline" />
-            <SubmitButton
-              pendingLabel="Sending…"
-              className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-              style={{ borderColor: 'var(--sn-line)' }}
-            >
-              Turn down this meeting
-            </SubmitButton>
+            <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Turn down this meeting" pendingLabel="Sending…" />
           </form>
-        </details>
+        </Fold>
       ) : null}
     </>
   );
@@ -1335,13 +1374,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/proposals"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the quote
-        </Link>
+        <ActionButton tone="brand" main icon={<Send {...ico} />} label="Open the quote" href={customerLandingHref('proposals')} className={TAP} />
       </div>
     </>
   );
@@ -1362,244 +1395,8 @@ function ContractDraftBody({
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <Link
-          href="/vendor-dashboard/contracts"
-          className="inline-flex h-9 items-center rounded-full border px-4 text-sm font-semibold text-ink"
-          style={{ borderColor: 'var(--sn-line)' }}
-        >
-          Open the contract
-        </Link>
+        <ActionButton tone="brand" main icon={<FileText {...ico} />} label="Open the contract" href={customerLandingHref('contracts')} className={TAP} />
       </div>
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 3 · ONGOING — open tasks (a `.sn-tile` panel of opaque `.sn-row` items).
-// ---------------------------------------------------------------------------
-
-export function OngoingTasks({ tasks }: { tasks: OngoingTask[] }) {
-  return (
-    <section className="mb-8">
-      <SectionHeader
-        title="Ongoing"
-        count={tasks.length}
-        action={
-          tasks.length > 0 ? (
-            <Link
-              href="/vendor-dashboard/clients"
-              className="text-xs font-semibold hover:underline"
-              style={{ color: 'var(--sn-gold-700)' }}
-            >
-              View all
-            </Link>
-          ) : null
-        }
-      />
-      {tasks.length === 0 ? (
-        <EmptyCard text="No open tasks right now. Contracts to send, payments to confirm, and unanswered inquiries will show up here." />
-      ) : (
-        <div className="sn-tile p-2 sm:p-2.5">
-          <ul className="space-y-1">
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <Link
-                  href={task.href}
-                  className="sn-row group flex items-center gap-3 px-3.5 py-3 transition-transform hover:translate-x-0.5"
-                >
-                  {/* Decorative status marker — the task completes on its own surface. */}
-                  <span
-                    aria-hidden
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border"
-                    style={{ borderColor: 'var(--sn-ink-400)' }}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {task.label}
-                  </span>
-                  <span
-                    className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold"
-                    style={{ background: 'var(--sn-gold-100)', color: 'var(--sn-gold-800)' }}
-                  >
-                    {task.dueChip}
-                  </span>
-                  <ArrowRight
-                    className="h-3.5 w-3.5 shrink-0 text-ink/35 transition-colors group-hover:text-[var(--sn-gold-600)]"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 4 · UPCOMING SCHEDULES — next 5 booked events (`.sn-tile` panel + `.sn-row`
-//     rows with obsidian mono date blocks).
-// ---------------------------------------------------------------------------
-
-/** Split a YYYY-MM-DD into the date-block parts (JUL / 05 / Sun). */
-function dateBlock(iso: string): { month: string; day: string; weekday: string } {
-  const d = new Date(`${iso}T00:00:00`);
-  return {
-    month: d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
-    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
-    weekday: d.toLocaleDateString('en-US', { weekday: 'short' }),
-  };
-}
-
-function inDaysLabel(n: number): string {
-  if (n <= 0) return 'today';
-  if (n === 1) return 'in 1 day';
-  return `in ${n} days`;
-}
-
-export function UpcomingSchedules({ rows }: { rows: UpcomingEventRow[] }) {
-  return (
-    <section>
-      <SectionHeader
-        title="Upcoming schedules"
-        subtitle="Next 5"
-        action={
-          <Link
-            href="/vendor-dashboard/calendar"
-            className="text-xs font-semibold hover:underline"
-            style={{ color: 'var(--sn-gold-700)' }}
-          >
-            Open calendar
-          </Link>
-        }
-      />
-      {rows.length === 0 ? (
-        <EmptyCard text="No booked events yet. Once a couple books you, your next dates show here." />
-      ) : (
-        <div className="sn-tile p-2 sm:p-2.5">
-          <ul className="space-y-1.5">
-            {rows.map((row) => {
-              const block = dateBlock(row.date);
-              return (
-                <li key={row.id} className="sn-row group flex items-center gap-2 p-2.5">
-                  <Link
-                    href={row.href}
-                    className="flex min-w-0 flex-1 items-center gap-4 transition-transform group-hover:translate-x-0.5"
-                  >
-                    <span
-                      className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl"
-                      style={{ background: 'var(--sn-ink-900)', color: 'var(--sn-gold-100)' }}
-                    >
-                      <span
-                        className="font-mono text-[10px] font-bold tracking-wider"
-                        style={{ color: 'var(--sn-gold-300)' }}
-                      >
-                        {block.month}
-                      </span>
-                      <span className="font-mono text-lg font-bold leading-none">
-                        {block.day}
-                      </span>
-                      <span className="font-mono text-[9px]" style={{ color: 'rgba(243,236,223,.5)' }}>
-                        {block.weekday}
-                      </span>
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-ink">
-                        {row.eventName}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-ink/55">
-                        {metaLine([row.place, row.category]) || 'Booked event'}
-                      </span>
-                    </span>
-                    <span className="shrink-0 font-mono text-xs font-semibold text-ink/45">
-                      {inDaysLabel(row.inDays)}
-                    </span>
-                  </Link>
-                  {/*
-                    THE CONVERSATION IS STILL ONE TAP AWAY. The row itself now
-                    opens the customer card — the booking's money, brief and
-                    next steps — which is what the owner asked for; some
-                    suppliers still want the chat, and taking it away to give
-                    them the card would just move the complaint. Rendered only
-                    when the row is NOT already the thread (the no-card
-                    fallback), so the same destination is never offered twice.
-                    ⚠ A sibling, not a child: an <a> inside an <a> is invalid
-                    HTML and the inner one is what stops working.
-                  */}
-                  {row.threadHref && row.threadHref !== row.href ? (
-                    <Link
-                      href={row.threadHref}
-                      aria-label={`Message ${row.eventName}`}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:text-ink"
-                      style={{ borderColor: 'var(--sn-line)' }}
-                    >
-                      <MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      Message
-                    </Link>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Shared bits
-// ---------------------------------------------------------------------------
-
-function SectionHeader({
-  title,
-  count,
-  subtitle,
-  action,
-}: {
-  title: string;
-  count?: number;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-baseline justify-between gap-3">
-      <h2 className="flex items-baseline gap-2">
-        <span className="sn-sec">
-          {spark}
-          {title}
-        </span>
-        {typeof count === 'number' && count > 0 ? (
-          <span
-            className="rounded-full px-2 py-0.5 font-mono text-[11px] font-bold"
-            style={{ background: 'var(--sn-ink-900)', color: 'var(--sn-gold-100)' }}
-          >
-            {formatCount(count)}
-          </span>
-        ) : null}
-        {subtitle ? <span className="sn-sec-sub">{subtitle}</span> : null}
-      </h2>
-      {action}
-    </div>
-  );
-}
-
-function EmptyCard({ icon, text }: { icon?: React.ReactNode; text: string }) {
-  return (
-    <div
-      className="flex items-start gap-3 rounded-2xl border border-dashed p-5 text-sm text-ink/60"
-      style={{ borderColor: 'var(--sn-line)' }}
-    >
-      {icon ?? (
-        <AlertTriangle
-          className="mt-0.5 h-4 w-4 shrink-0"
-          strokeWidth={1.5}
-          style={{ color: 'var(--sn-ink-400)' }}
-          aria-hidden
-        />
-      )}
-      <p>{text}</p>
-    </div>
   );
 }

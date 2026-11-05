@@ -112,11 +112,11 @@ test('every old door to a moved page lands on its Details item', () => {
 });
 
 test('the old routes redirect ONLY where Details draws the item, and never inside the Maker', () => {
+  // 📅 The Schedule left this list on 2026-11-02 ("BOOKED IS JUST THE TEAM"): it is Home's own page and never redirects
+  // — not into Suppliers, not into the Maker's Details (`the-schedule-is-its-own-page.test.ts`). The Maker still draws
+  // it inside Details at `?maker=1`.
   const schedule = read('app/dashboard/[eventId]/schedule/page.tsx');
-  assert.match(
-    schedule,
-    /if \(!inMaker && \(await detailsIsTheDoor\(supabase, eventId, user\.id\)\)\) \{\s*redirect\(detailsDoorHref\(eventId, 'schedule',/,
-  );
+  assert.doesNotMatch(schedule, /detailsIsTheDoor|detailsDoorHref\(eventId, 'schedule'/, 'the Schedule page sends a couple into the Maker again');
   const story = read('app/dashboard/[eventId]/website/our-story/page.tsx');
   assert.match(
     story,
@@ -164,7 +164,8 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   const rail = read('app/dashboard/[eventId]/schedule/_components/day-rail.tsx');
   assert.match(rail, /\{inspectorSlot \? <InSlot id=\{inspectorSlot\}>\{side\}<\/InSlot> : null\}/);
   assert.match(rail, /isDesktop && !inspectorSlot/, 'the page’s own side column is drawn beside the Maker’s');
-  assert.match(rail, /!isDesktop && selected && !inspectorSlot/, 'the phone panel rises over the Maker too');
+  // 🗂 The phone's panel is the Schedule's ONE pop-up now (2026-10-31) — still on a phone, still never in the Maker.
+  assert.match(rail, /selected && !inspectorSlot && \(!isDesktop \|\| booked\)/, 'the phone panel rises over the Maker too');
   // 📵 The reminder tour rode the RSVP picture until 2026-09-29, when guest
   // reminder emails were switched off (owner: no email to guests) — gone with them.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));
@@ -185,14 +186,25 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
     }),
   );
   assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
-  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="requests"'));
+  /* The field is the shared `ReplyBy` part, which the Maker loads lazily (its first-load budget) —
+     so the Maker mounts it in its reply-by section, and the part is drawn here on its own. */
+  const maker = read(`${L}/maker-rsvp-ask.tsx`);
+  const section = maker.slice(maker.lastIndexOf('data-rsvp-setting="reply-by"'), maker.indexOf('</DetailsPieceOnly>', maker.lastIndexOf('data-rsvp-setting="reply-by"')));
+  assert.match(section, /<ReplyBy\s+layout="stack"/, 'reply-by is not a field here');
+  const { ReplyBy } = await import('../app/dashboard/[eventId]/_components/guest-setup/reply-by');
+  const replyBy = renderToStaticMarkup(
+    React.createElement(ReplyBy, { layout: 'stack', draft: true, eventId: 'e-1', own: '2026-11-18', pricingMode: 'final_only', fallback: null, action: async () => ({ ok: true }) as never }),
+  );
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
-  assert.match(replyBy, /data-hub-saves-immediately/, 'a live write must say it saves immediately');
+  /* ⏳ Reply by is DRAFTED in the Maker since 2026-10-08 (owner "draft 1-3") — no "saves immediately". */
+  assert.doesNotMatch(replyBy, /data-hub-saves-immediately/, 'a drafted Reply by still says it saves immediately');
   assert.match(html, /data-rsvp-requests-list=""[\s\S]*data-stub="the-shipped-requests-rows"/, 'the Requests rows are not in place');
   // The one writer of that column, with the pricing view posted back unchanged.
   const src = read(`${L}/maker-rsvp-ask.tsx`);
   assert.match(src, /import \{ updatePaxSettings \} from '\.\.\/\.\.\/actions';/);
-  assert.match(src, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
+  /* The field is the shared `ReplyBy` part (2026-10-07, one setting two doors). */
+  const part = read('app/dashboard/[eventId]/_components/guest-setup/reply-by.tsx');
+  assert.match(part, /fd\.set\('adaptive_pricing_mode', pricingMode\);/, 'a reply-by save would reset the pricing view');
   // The rows are the Requests page itself, drawn with `maker=1` (no way back, saves stay put).
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /<RequestsPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\} \/>/);
@@ -205,7 +217,8 @@ test('a schedule MOMENT tapped on a stage opens Details › Schedule with that m
   assert.match(widget, /data-schedule-moment=\{b\.block_id\}/, 'the guest schedule does not name its moments');
   const bridge = read('app/[slug]/_components/editor-bridge.tsx');
   assert.match(bridge, /closest\?\.\('\[data-schedule-moment\]'\)/);
-  assert.match(bridge, /t: 'edit', key, \.\.\.empty, \.\.\.moment \}/, 'the tap does not carry the moment');
+  // 🖼 RE-AIMED 2026-10-18: the same message also names a template scene's tapped picture slot (`...slot`).
+  assert.match(bridge, /t: 'edit', key, \.\.\.empty, \.\.\.moment(?:, \.\.\.slot)? \}/, 'the tap does not carry the moment');
   const shell = read(SHELL);
   const at = shell.indexOf("if (data.key === 'w:schedule' && typeof moment === 'string'");
   assert.ok(at > 0, 'the Maker does not act on a tapped moment');
@@ -218,7 +231,7 @@ test('a schedule MOMENT tapped on a stage opens Details › Schedule with that m
   assert.match(rail, /setSelectedId\(id\);/);
   assert.match(rail, /data-rail-moment=\{m\.block_id\}/);
   // …and in the Maker the Schedule opens on the day itself, where the rail is.
-  assert.match(read('app/dashboard/[eventId]/schedule/page.tsx'), /inMaker\s*\? 'event-day'/);
+  assert.match(read('app/dashboard/[eventId]/schedule/page.tsx'), /inMaker \|\| oneLine\s*\? 'event-day'/);
 });
 
 /* ── 2 · a tapped fact opens the SAME component ───────────────────────── */
@@ -242,7 +255,9 @@ test('🔑 a tapped fact opens the SAME component its Details item shows — one
   assert.equal((launch.match(/detailsFactEditors\(/g) ?? []).length, 1, 'the fact editors are built more than once');
   assert.match(launch, /factEditors = detailsFactEditors\(\{/);
   assert.match(launch, /facts=\{factEditors\}/, 'Details is not handed the fact editors');
-  assert.match(launch, /factEditors=\{factEditors\}/, 'the stage is not handed the fact editors');
+  /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`). */
+  assert.match(launch, /return \{[^}]*\bfactEditors,[^}]*opensOnGuide:/s, 'the stage is not handed the fact editors');
+  assert.match(launch, /late=\{late\}/, 'the stage is not handed the fact editors');
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /'special-message': \(\s*<SpecialMessageField\b/, 'the special message editor is not the shared component');
   assert.match(details, /'special-message': facts\['special-message'\],/, 'the Words item draws its own copy');
@@ -336,7 +351,9 @@ test('a fact drawn in two items is ONE value — every door carries its fact, an
   assert.match(details, /name="rsvp_choice"\s+data-same-field="rsvp_choice"/);
   assert.match(details, /name="rsvp_manual"\s+data-same-field="rsvp_manual"/);
   // Each door of a two-door fact is the SAME node, drawn in its Words item and under its print's switch.
-  assert.equal((details.match(/\{openingLine\}/g) ?? []).length, 2, 'the opening line is not in both doors');
+  /* …and a third time in the new Maker's Studio: the words form's own field, kept in the page (hidden) behind Info's
+     Form row, so a Prints save still carries the line (2026-10-08, the Info redesign). The SAME node each time. */
+  assert.equal((details.match(/\{openingLine\}/g) ?? []).length, 3, 'the opening line is not in both doors (and behind Info’s row)');
   assert.equal((details.match(/\{kindlyReply\}/g) ?? []).length, 2, '"Kindly reply" is not in both doors');
   assert.match(read(`${L}/opening-line-field.tsx`), /name="opening_line"\s+data-same-field="opening_line"/);
   assert.match(read('app/dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx'), /data-same-field="pabuya_message"/);

@@ -87,7 +87,11 @@ test('a refusal reaches the RENDER, not just a live region', () => {
   const bar = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'website', '_components', 'hub-draft-bar.tsx'), 'utf8'));
   assert.match(bar, /march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now'/);
   assert.match(MAKER, /\{toast\.said\}/, 'the reason is stored and never drawn');
-  assert.match(MAKER, /role="status"/, 'the reason is drawn with nothing to announce it');
+  /* RE-AIMED 2026-10-09 (the march's toast is the template's `PeekToast`): the reason is still DRAWN and still ANNOUNCED — a refusal is `tone="bad"`, which the template
+     draws as `role="alert"` (a good result is `role="status"`), so a refused drop is never silent. The announcer moved from the march's own strip into the toast. */
+  assert.match(MAKER, /<PeekToast[\s\S]{0,160}tone=\{toast\.refused \? 'bad' : 'ok'\}[\s\S]{0,400}\{toast\.said\}/, 'the reason is drawn with nothing to announce it');
+  const peek = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'toast', 'peek-toast.tsx'), 'utf8'));
+  assert.match(peek, /role=\{tone === 'bad' \? 'alert' : 'status'\}/, 'the toast no longer announces a refusal');
 });
 
 test('the order write is ONE round trip, not one per person', () => {

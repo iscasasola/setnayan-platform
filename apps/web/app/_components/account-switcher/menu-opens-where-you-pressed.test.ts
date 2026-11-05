@@ -76,7 +76,7 @@ test('the top-bar menu opens on the right, where the pill is', () => {
   const desktop = pillPanelClasses();
 
   assert.ok(
-    /\blg:right-\d/.test(desktop),
+    /\blg:right-(?:\d|\[max\(\d)/.test(desktop),
     `the pill's desktop panel has no right anchor. Its desktop classes: ${desktop}`,
   );
   assert.ok(

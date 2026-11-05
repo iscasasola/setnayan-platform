@@ -1,6 +1,8 @@
 'use server';
 
+import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
@@ -11,12 +13,17 @@ import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import {
+  tierCaps,
+  asVendorTier,
+} from '@/lib/vendor-tier-caps';
+import { portfolioShortText } from '@/lib/shop-portfolio-credits';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import {
-  VERIFIED_LOCK_ERROR,
-  fetchVerifiedLock,
+  fetchIdentityLock,
+  identityLockRefusal,
   isLockedIdentityFieldKey,
 } from '@/lib/vendor-corrections';
 import { geocodeNominatim } from '@/lib/geo';
@@ -38,6 +45,7 @@ import { parseCoordPair } from '@/lib/parse-coord';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { OPEN_SHOP_ERRORS } from '@/lib/open-shop-validation';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -113,13 +121,11 @@ async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
  * <FileUpload name="portfolio_r2_keys" multiple/> renders one hidden input
  * per uploaded ref, so `formData.getAll('portfolio_r2_keys')` returns all
  * of them. We accept only well-formed `r2://` refs (cheap defense against a
- * client posting arbitrary strings) and cap the array at 10 entries —
- * matches the component-level `maxFiles=10` so a hostile client can't
- * balloon the column.
+ * client posting arbitrary strings). The COUNT is not a limit any more: past the
+ * free room, each photo is paid from the shop wallet by `shop_portfolio_commit`.
  */
 function parsePortfolioRefs(
   raw: FormDataEntryValue[],
-  max: number,
   vendorProfileId: string,
 ): string[] {
   // ── 🔴 SEC-1: EVERY ref is pinned to THIS vendor's own folder ──────────────
@@ -151,7 +157,8 @@ function parsePortfolioRefs(
     if (out.includes(trimmed)) continue;
     if (!parseClientRef(trimmed, policy)) continue; // not this vendor's own media
     out.push(trimmed);
-    if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
+    // The photo COUNT is not decided here — the free room, then the shop wallet
+    // (`shop_portfolio_commit`, 2026-10-23); stored photos are always kept.
   }
   return out;
 }
@@ -319,7 +326,13 @@ function parseServices(
  * arrive as form inputs; value input names match the /profile form so the exact
  * same parse helpers apply.
  */
-export type FieldSaveResult = { ok: true } | { ok: false; error: string };
+/** What a portfolio save took (owner 2026-10-23): new photos, credits charged, the wallet after (null = unread/none). */
+export type PortfolioSaved = { added: number; charged: number; balance: number | null };
+export type FieldSaveResult =
+  | { ok: true; portfolio?: PortfolioSaved }
+  | { ok: false; error: string; walletShort?: { charge: number; balance: number } };
+
+const PORTFOLIO_SAVE_FAILED = 'Couldn’t save your portfolio right now. Nothing was charged — try again.';
 
 const INLINE_PROFILE_FIELDS = new Set([
   'logo',
@@ -363,6 +376,11 @@ export async function updateVendorProfileField(
   } = await supabase.auth.getUser();
   // Do NOT redirect — the panel must stay mounted so the client can toast.
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const field = String(formData.get('field') ?? '');
   if (!INLINE_PROFILE_FIELDS.has(field)) {
@@ -375,11 +393,13 @@ export async function updateVendorProfileField(
   // (portfolio / featured videos) are NOT locked identity, so they stay
   // editable post-verification (matches the retired /profile full-form, whose
   // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
-  if (
-    !GALLERY_MEDIA_FIELDS.has(field) &&
-    (await fetchVerifiedLock(supabase, user.id))
-  ) {
-    return { ok: false, error: VERIFIED_LOCK_ERROR };
+  //
+  // 🏷 …and a shop SETNAYAN SET UP (owner 2026-10-29) may fill a blank name or
+  // address but not overwrite one — that goes through the same request door.
+  // ONE read, ONE rule (`identityLockOf`): the verified refusal is unchanged.
+  if (!GALLERY_MEDIA_FIELDS.has(field)) {
+    const refusal = identityLockRefusal(await fetchIdentityLock(supabase, shopId), field);
+    if (refusal) return { ok: false, error: refusal };
   }
 
   // Build a SINGLE-column patch. `geocodeAddress` / `yearChanged` capture the
@@ -388,6 +408,8 @@ export async function updateVendorProfileField(
   let geocodeAddress: string | null = null;
   let newYear: number | null = null;
   let runYearExperienceReset = false;
+  // The portfolio save's own answer (the free room, then the wallet) — handed back so the uploader can say it.
+  let portfolioSaved: PortfolioSaved | null = null;
 
   switch (field) {
     case 'logo': {
@@ -565,29 +587,26 @@ export async function updateVendorProfileField(
       break;
     }
     case 'portfolio': {
-      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Mirrors
-      // saveVendorProfile's parse + tier cap + QR-guard + repost-hash EXACTLY so
-      // behavior is identical to the retired /profile full-form.
+      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Same parse (SEC-1 pin) + QR guard +
+      // repost-hash as the retired /profile full-form.
       const { data: tierRow } = await supabase
         .from('vendor_profiles')
-        .select('tier_state, portfolio_r2_keys, vendor_profile_id')
-        .eq('user_id', user.id)
+        .select('portfolio_r2_keys, vendor_profile_id')
+        .eq('vendor_profile_id', shopId)
         .maybeSingle();
       const tr = tierRow as
         | {
-            tier_state?: string | null;
             portfolio_r2_keys?: string[] | null;
             vendor_profile_id?: string;
           }
         | null;
-      const portfolioMax = tierCaps(asVendorTier(tr?.tier_state)).portfolioPhotos;
       // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
-      // `vendor_profile_id` is the PK of this user's own row, and the patch below
-      // is an UPDATE keyed on `user_id`, so a missing id writes nothing at all.
-      const refs = parsePortfolioRefs(
-        formData.getAll('portfolio_r2_keys'),
-        portfolioMax,
-        tr?.vendor_profile_id ?? '',
+      // `vendor_profile_id` is the PK of this user's own row, so a missing id pins nothing.
+      // ⏳ An event-album photo reaches the page ONLY through the guests' 7-day notice (owner 2026-10-03) — a save
+      // keeps one already there, never adds one (`keepOnlyNoticedAlbumRefs`).
+      const refs = keepOnlyNoticedAlbumRefs(
+        parsePortfolioRefs(formData.getAll('portfolio_r2_keys'), tr?.vendor_profile_id ?? ''),
+        tr?.portfolio_r2_keys ?? [],
       );
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
       // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.
@@ -596,7 +615,42 @@ export async function updateVendorProfileField(
       if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
         return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
       }
-      patch = { portfolio_r2_keys: refs };
+      // 💳 THE FREE ROOM, THEN THE SHOP WALLET (owner 2026-10-23, option A). The list and its charge are ONE step:
+      // `shop_portfolio_commit` writes `portfolio_r2_keys` and the wallet row in one transaction under the wallet's
+      // per-shop lock — charge = max(0, after − max(free, kept)), free = 50 or the shop's personal-invite
+      // allowance (read inside, never passed). Stored photos are always kept (grandfathered); a save the wallet
+      // cannot cover writes NOTHING and says so. Replaces the "coming soon" refusal (`capPortfolioRefs`).
+      const commit = await supabase.rpc('shop_portfolio_commit', {
+        p_vendor_profile_id: shopId,
+        p_refs: refs,
+        p_spend_ref: `portfolio:${randomUUID()}`,
+      });
+      const answer = (commit.data ?? null) as
+        | { status?: string; charged?: number; balance?: number | null; charge?: number }
+        | null;
+      if (commit.error || !answer?.status) {
+        console.error('[supabase-error] app/vendor-dashboard/actions.ts · rpc:shop_portfolio_commit', commit.error);
+        return { ok: false, error: PORTFOLIO_SAVE_FAILED };
+      }
+      if (answer.status === 'insufficient') {
+        const charge = Number(answer.charge ?? 0);
+        const balance = Number(answer.balance ?? 0);
+        return { ok: false, error: portfolioShortText(charge, balance), walletShort: { charge, balance } };
+      }
+      if (answer.status === 'not_owner') {
+        return { ok: false, error: 'Only the shop owner can change the portfolio.' };
+      }
+      if (answer.status !== 'ok' && answer.status !== 'duplicate') {
+        return { ok: false, error: PORTFOLIO_SAVE_FAILED };
+      }
+      const charged = Number(answer.charged ?? 0);
+      portfolioSaved = {
+        added: toScan.length,
+        charged: Number.isFinite(charged) ? charged : 0,
+        balance: typeof answer.balance === 'number' ? answer.balance : null,
+      };
+      // The commit already wrote the column; the shared update below only stamps `updated_at`.
+      patch = {};
       // Repost-watch: hash the gallery post-write (cron-free, self-swallowing).
       if (refs.length > 0 && tr?.vendor_profile_id) {
         const vendorProfileId = tr.vendor_profile_id;
@@ -632,7 +686,7 @@ export async function updateVendorProfileField(
     const { data: prior } = await supabase
       .from('vendor_profiles')
       .select('in_business_since_year')
-      .eq('user_id', user.id)
+      .eq('vendor_profile_id', shopId)
       .maybeSingle();
     const priorYear =
       (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
@@ -644,8 +698,31 @@ export async function updateVendorProfileField(
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+    .eq('vendor_profile_id', shopId);
   if (error) return { ok: false, error: error.message };
+
+  // ── A RENAMED SHOP RENAMES ITS BUSINESS ALAGA — OR IS NAMED INTO ONE ────────
+  // Opening a shop wrote the business a `dependents` row named after the shop
+  // as it was THEN; without this the event picker's "For ▾" and People keep the
+  // old name forever. And a vendor sign-up's trigger opens an EMPTY shop that is
+  // first named HERE — `ensureBusinessAlaga` writes that shop its record the
+  // moment it has a name (2026-10-22), and renames an existing one. Best-effort
+  // (never throws) — the rename above already succeeded and nothing here can
+  // undo it. Owner = the authenticated caller, the same `user_id` the update was
+  // keyed on.
+  if (field === 'business_name') {
+    const admin = createAdminClient();
+    const { data: shopRow } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('vendor_profile_id', shopId)
+      .maybeSingle();
+    await ensureBusinessAlaga(admin, {
+      ownerUserId: user.id,
+      vendorProfileId: (shopRow as { vendor_profile_id?: string | null } | null)?.vendor_profile_id,
+      shopName: patch.business_name as string,
+    });
+  }
 
   // Best-effort geocode for a changed address (async, non-fatal — same contract
   // as saveVendorProfile). Admin-supplied coords aren't clobbered on a miss.
@@ -656,11 +733,15 @@ export async function updateVendorProfileField(
       await admin
         .from('vendor_profiles')
         .update({ hq_latitude: geo.latitude, hq_longitude: geo.longitude })
-        .eq('user_id', user.id);
+        .eq('vendor_profile_id', shopId);
     }
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/profile');
   // Gallery & media edits (portfolio / featured videos) also change the PUBLIC
   // microsite, so revalidate /v/[slug] + its bare-root alias — mirrors what the
@@ -669,7 +750,7 @@ export async function updateVendorProfileField(
     const { data: slugRow } = await supabase
       .from('vendor_profiles')
       .select('business_slug')
-      .eq('user_id', user.id)
+      .eq('vendor_profile_id', shopId)
       .maybeSingle();
     const slug = (slugRow as { business_slug?: string | null } | null)?.business_slug;
     if (slug) {
@@ -677,7 +758,7 @@ export async function updateVendorProfileField(
       revalidatePath(`/${slug}`);
     }
   }
-  return { ok: true };
+  return portfolioSaved ? { ok: true, portfolio: portfolioSaved } : { ok: true };
 }
 
 /**
@@ -702,6 +783,11 @@ export async function requestProfileCorrection(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const fieldKey = formData.get('field_key');
   if (!isLockedIdentityFieldKey(fieldKey)) {
@@ -730,7 +816,7 @@ export async function requestProfileCorrection(
     .select(
       'vendor_profile_id,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url,location_city,business_slug',
     )
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', shopId)
     .maybeSingle();
   if (profErr || !profRow) {
     return { ok: false, error: 'Supplier profile not found.' };
@@ -760,6 +846,10 @@ export async function requestProfileCorrection(
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/profile');
   return { ok: true };
 }
@@ -769,13 +859,13 @@ export async function requestProfileCorrection(
 /**
  * The FREE microsite controls a vendor can edit inline in My Shop → Website.
  * (Pro controls — slug / hero photo / accent / featured editorials / pinned
- * review — are gated on tierCaps.customWebsiteName and land in a follow-up PR.)
+ * review — are gated on tierCaps.premiumPage and land in a follow-up PR.)
  */
 const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_about',
   'microsite_sections',
   'microsite_featured_services',
-  // PRO controls (gated on tierCaps.customWebsiteName).
+  // PRO controls (gated on tierCaps.premiumPage — split from customWebsiteName 2026-11-04).
   // ⛔ 'business_slug' lived here until 2026-08-10. The shop address is chosen
   //    once at /open-shop and is PERMANENT on every tier (owner, twice).
   //    🔑 IT IS REFUSED HERE, AT THE ALLOWLIST — NOT AT THE TIER GATE BELOW.
@@ -820,51 +910,22 @@ const ENTERPRISE_WEBSITE_FIELDS = new Set(['microsite_videos']);
  * can toast), and additionally revalidates the public microsite so the change
  * shows immediately on /v/[slug] (and its bare-root alias).
  */
-export async function updateVendorWebsiteField(
-  _prevState: FieldSaveResult | null,
+/**
+ * ONE PAGE PART → its column patch, behind its plan gate. Shared by the one-field save
+ * (`updateVendorWebsiteField`) and the one Apply (`applyVendorPageDraft`, step 5) so the two can never disagree about
+ * what a part may hold or who may save it. Moved out of `updateVendorWebsiteField` unchanged (2026-10-14).
+ */
+function websiteFieldPatch(
+  field: string,
   formData: FormData,
-): Promise<FieldSaveResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Please sign in again.' };
-
-  const field = String(formData.get('field') ?? '');
-  if (!INLINE_WEBSITE_FIELDS.has(field)) {
-    return { ok: false, error: 'That field can’t be edited here.' };
-  }
-
-  // One read, reused below: current services (constrain featured picks to owned
-  // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
-  // (Pro gate).
-  const { data: row, error: rowError } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
-  // resolves `{ error }` rather than throwing, so an unchecked failure leaves
-  // `vendor_profile_id` null and the availability probe then sees the vendor's
-  // OWN row as somebody else's: a Pro vendor re-saving the address they already
-  // hold is told it belongs to another business.
-  if (rowError) {
-    return { ok: false, error: 'We couldn’t load your shop just now. Please try again.' };
-  }
-  const rowTyped = row as
-    | {
-        vendor_profile_id?: string | null;
-        business_slug?: string | null;
-        services?: string[] | null;
-        portfolio_r2_keys?: string[] | null;
-        tier_state?: string | null;
-      }
-    | null;
-  const currentServices = (rowTyped?.services ?? []) as string[];
-  const currentSlug = rowTyped?.business_slug ?? null;
-  const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
-  const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
-
+  ctx: {
+    rowTyped: { tier_state?: string | null } | null;
+    caps: ReturnType<typeof tierCaps>;
+    currentServices: string[];
+    portfolioKeys: string[];
+  },
+): { ok: true; patch: Record<string, unknown> } | { ok: false; error: string } {
+  const { rowTyped, caps, currentServices, portfolioKeys } = ctx;
   // SOLO gate — personalizing the page (About / sections / featured services)
   // is a Solo+ benefit. Free/Verified are auto-composed. Server-side backstop.
   // 💳 Every plan gate below is asked through the ONE flag-aware question
@@ -884,7 +945,7 @@ export async function updateVendorWebsiteField(
   // PRO gate — the premium customization controls reuse the same cap as the
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
-  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.customWebsiteName)) {
+  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.premiumPage)) {
     return { ok: false, error: 'This is part of Pro. Pick Pro on the Plans page to save it.' };
   }
 
@@ -896,7 +957,7 @@ export async function updateVendorWebsiteField(
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Enterprise. Pick Enterprise on the Plans page to add films.',
+      error: 'Video portfolio is part of Ultra. Pick Ultra on the Plans page to add films.',
     };
   }
 
@@ -1008,21 +1069,159 @@ export async function updateVendorWebsiteField(
     if (viol) return { ok: false, error: viol };
   }
 
+  return { ok: true, patch };
+}
+
+export async function updateVendorWebsiteField(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
+
+  const field = String(formData.get('field') ?? '');
+  if (!INLINE_WEBSITE_FIELDS.has(field)) {
+    return { ok: false, error: 'That field can’t be edited here.' };
+  }
+
+  // One read, reused below: current services (constrain featured picks to owned
+  // leaves), portfolio keys (constrain hero photo), slug (revalidation), tier
+  // (Pro gate).
+  const { data: row, error: rowError } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
+  // resolves `{ error }` rather than throwing, so an unchecked failure leaves
+  // `vendor_profile_id` null and the availability probe then sees the vendor's
+  // OWN row as somebody else's: a Pro vendor re-saving the address they already
+  // hold is told it belongs to another business.
+  if (rowError) {
+    return { ok: false, error: 'We couldn’t load your shop just now. Please try again.' };
+  }
+  const rowTyped = row as
+    | {
+        vendor_profile_id?: string | null;
+        business_slug?: string | null;
+        services?: string[] | null;
+        portfolio_r2_keys?: string[] | null;
+        tier_state?: string | null;
+      }
+    | null;
+  const currentServices = (rowTyped?.services ?? []) as string[];
+  const currentSlug = rowTyped?.business_slug ?? null;
+  const portfolioKeys = (rowTyped?.portfolio_r2_keys ?? []) as string[];
+  const caps = tierCaps(asVendorTier(rowTyped?.tier_state));
+
+  const part = websiteFieldPatch(field, formData, { rowTyped, caps, currentServices, portfolioKeys });
+  if (!part.ok) return part;
+  const patch = part.patch;
+
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+    .eq('vendor_profile_id', shopId);
   if (error) {
     // Surface the common slug-collision case with friendly copy.
     return { ok: false, error: error.message };
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   // One public path now, not two: the address cannot move, so there is no old
   // one to also revalidate.
   if (currentSlug) {
     revalidatePath(`/v/${currentSlug}`);
     revalidatePath(`/${currentSlug}`);
+  }
+  return { ok: true };
+}
+
+/**
+ * YOUR PAGE › Apply — publish the supplier's whole page draft in ONE write (simpler supplier dashboard step 5,
+ * 2026-10-14; `lib/supplier-page-draft.ts` builds the form).
+ *
+ * 🔑 THE SAME RULES AS THE ONE-FIELD SAVE, BY CONSTRUCTION. Each part goes through `websiteFieldPatch` — the
+ * allowlist, the Solo / Pro / Enterprise asks, the owned-photo and owned-service checks, the About text gate — and
+ * only then are the patches merged into ONE update. One read, one write, whatever the number of parts.
+ *
+ * 🔑 ALL OR NOTHING. If any part is refused (a plan the shop does not have, a photo that is not theirs), NOTHING is
+ * applied and the refusal names that part — a page published half-way is a page nobody chose.
+ */
+export async function applyVendorPageDraft(
+  _prevState: FieldSaveResult | null,
+  formData: FormData,
+): Promise<FieldSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
+
+  const fields = [...new Set(formData.getAll('field').map(String))];
+  if (fields.length === 0) return { ok: false, error: 'Nothing to apply — your page already shows this.' };
+  if (fields.length > INLINE_WEBSITE_FIELDS.size || fields.some((f) => !INLINE_WEBSITE_FIELDS.has(f))) {
+    return { ok: false, error: 'That part can’t be changed here.' };
+  }
+
+  const { data: row, error: rowError } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  if (rowError || !row) {
+    return { ok: false, error: 'We couldn’t load your shop just now. Nothing was changed — please try again.' };
+  }
+  const rowTyped = row as {
+    vendor_profile_id?: string | null;
+    business_slug?: string | null;
+    services?: string[] | null;
+    portfolio_r2_keys?: string[] | null;
+    tier_state?: string | null;
+  };
+  const ctx = {
+    rowTyped,
+    caps: tierCaps(asVendorTier(rowTyped.tier_state)),
+    currentServices: (rowTyped.services ?? []) as string[],
+    portfolioKeys: (rowTyped.portfolio_r2_keys ?? []) as string[],
+  };
+
+  let patch: Record<string, unknown> = {};
+  for (const field of fields) {
+    const part = websiteFieldPatch(field, formData, ctx);
+    if (!part.ok) return { ok: false, error: `Nothing was applied. ${part.error}` };
+    patch = { ...patch, ...part.patch };
+  }
+
+  const { error } = await supabase
+    .from('vendor_profiles')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('vendor_profile_id', shopId);
+  if (error) return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
+
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
+  revalidatePath('/vendor-dashboard/shop');
+  if (rowTyped.business_slug) {
+    revalidatePath(`/v/${rowTyped.business_slug}`);
+    revalidatePath(`/${rowTyped.business_slug}`);
   }
   return { ok: true };
 }
@@ -1078,5 +1277,9 @@ export async function updateBusinessStartDate(formData: FormData): Promise<void>
     });
   }
   revalidatePath('/vendor-dashboard/shop');
+  // Your details · Your page · Your collections draw the same columns (step 5).
+  revalidatePath('/vendor-dashboard/profile');
+  revalidatePath('/vendor-dashboard/website');
+  revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard');
 }

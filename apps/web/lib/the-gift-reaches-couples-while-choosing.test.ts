@@ -104,7 +104,7 @@ test('4 · the chat card mounts the same line, and the words exist once', () => 
   assert.match(face, /snap\.givesSetnayanGift \? \(\s*<SetnayanGiftLine\b/);
 
   // Nobody re-types the sentence: a second copy is a second promise that drifts.
-  const phrase = 'free Papic photos for your celebration';
+  const phrase = 'free Papic photos for your event';
   const hits: string[] = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {

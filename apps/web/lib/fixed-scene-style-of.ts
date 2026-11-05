@@ -1,6 +1,6 @@
 import type { HubStage } from '@/lib/hub-canvas';
 import { resolveSceneStyle } from '@/lib/scene-styles';
-import { fixedSceneStylesFromPreferences, type FixedStyleScene } from '@/lib/fixed-scene-styles';
+import { fixedSceneStylesFromPreferences, type StyledScene } from '@/lib/fixed-scene-styles';
 
 /*
  * 🎨 Split from `lib/fixed-scene-styles.ts` (2026-09-29, the Maker JS budget):
@@ -16,7 +16,7 @@ import { fixedSceneStylesFromPreferences, type FixedStyleScene } from '@/lib/fix
  */
 export function fixedSceneStyleOf(
   stylePreferences: unknown,
-  scene: FixedStyleScene,
+  scene: StyledScene,
   stage: HubStage | null | undefined,
   eventType?: string | null,
 ): string | null {

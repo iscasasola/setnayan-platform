@@ -26,7 +26,9 @@ test('logQueryError captures synchronously on the server and through the lazy SD
   assert.equal(calls.length, 1, `expected ONE static Sentry.captureException, found ${calls.length}`);
   assert.match(
     src,
-    /if \(typeof window === 'undefined'\) \{\s*Sentry\.captureException\(err, hint\);\s*\} else \{\s*void import\('@sentry\/nextjs'\)\.then\(/,
+    // 2026-10-23: the import names its export (`webpackExports`, a comment `stripComments` removes) so the Session
+    // Replay recorder rides no chunk a public page loads — `lib/telemetry/replay-only-on-signed-in-screens.test.ts`.
+    /if \(typeof window === 'undefined'\) \{\s*Sentry\.captureException\(err, hint\);\s*\} else \{\s*void import\(\s*'@sentry\/nextjs'\)\.then\(/,
     'the static capture must sit behind `typeof window === \'undefined\'` with the browser asking ' +
       'import(\'@sentry/nextjs\') — a bare static call puts @sentry/core back in every event page’s first load',
   );

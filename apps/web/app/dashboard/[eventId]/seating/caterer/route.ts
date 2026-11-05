@@ -1,13 +1,19 @@
+import { bytesStream } from '@/lib/stream-file';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { fetchGuestsByEvent, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
+import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
+import { fetchGuestsByEventMeasured, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { formatCount } from '@/lib/format-number';
+import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 // ---------------------------------------------------------------------------
 // Caterer meal-count report — the handover artifact for the caterer:
@@ -51,11 +57,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
-  const [tables, assignments, guests] = await Promise.all([
+  const [tables, assignments, guestsRead] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
-    fetchGuestsByEvent(supabase, eventId),
+    fetchGuestsByEventMeasured(supabase, eventId),
   ]);
+  // 🔌 A refused guest read is never a caterer's sheet of 0 guests (audit #14).
+  if (!guestsRead.measured) return guestListUnreadResponse();
+  const guests = guestsRead.rows;
 
   // The caterer counts ATTENDING guests only; unseated attendees still eat, so
   // they land in an explicit "Not seated yet" bucket rather than vanishing.
@@ -173,13 +182,20 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       ],
     });
     if (format === 'preview') {
-      return new NextResponse(renderPrintSvg(docs[0]!, {}), {
+      /* 📄 `?page=N` — the preview sheet's page N (Studio › Prints, owner 2026-10-14); its paper in `x-print-paper`. */
+      const page = previewPage(new URL(req.url).searchParams, docs.length);
+      return new NextResponse(renderPrintSvg(docs[page - 1]!, {}), {
         status: 200,
-        headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+        headers: {
+          'Content-Type': 'image/svg+xml; charset=utf-8',
+          'Cache-Control': 'private, max-age=60',
+          ...printPaperHeader({ pages: docs.length, page, how: PAPER_HOW.caterer(attending.length, docs.length), empty: attending.length === 0 ? 'yes' : null }),
+        },
       });
     }
     const bytes = await renderPrintPdf(docs, {}, { mode: 'plain', title: `${event.display_name || 'Wedding'} — caterer meal counts` });
-    return new NextResponse(Buffer.from(bytes), {
+    /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+    return new NextResponse(bytesStream(bytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

@@ -8,6 +8,21 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { parsePhPhone } from '@/lib/ph-phone';
 import { VENDOR_TIER_SETTABLE, TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import {
+  NO_OFFER,
+  hasOffer,
+  offerPill,
+  offerResultLine,
+  offerUntilInstant,
+  parsePersonalInviteOffer,
+  personalInviteMessage,
+  type PersonalInviteOffer,
+} from '@/lib/personal-invite-offer';
+import { personalInviteCardSvg } from '@/lib/personal-invite-card';
+import { displayServiceLabel } from '@/lib/vendors';
+import { readPersonalInvitePlanPrices as readPlanPrices } from '@/lib/personal-invite-prices.server';
+import { getLaunchOffer } from '@/lib/launch-offer.server';
+import { formatLaunchCap, launchOfferIsOpen } from '@/lib/launch-offer';
+import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
   nextPhotoChallengeExpiry,
   fetchVendorPhotoChallengePricePhp,
@@ -45,7 +60,20 @@ function generateClaimToken(): string {
 }
 
 export type AdminInviteResult =
-  | { status: 'ok'; inviteId: string; claimUrl: string }
+  | {
+      status: 'ok';
+      inviteId: string;
+      claimUrl: string;
+      /** The personal invite (owner 2026-10-23): the shop's name, what was offered, the card and the message. */
+      businessName: string;
+      offer: PersonalInviteOffer;
+      /** "Pro, free until 31 Jan 2027 — written when they claim.", or null with no offer. */
+      offerLine: string | null;
+      /** The invite card as one SVG — drawn on screen and saved by "Download the card". */
+      cardSvg: string;
+      /** The message to send, as text the admin copies (no automated send — owner 2026-05-21). */
+      message: string;
+    }
   | { status: 'invalid_email' }
   | { status: 'duplicate_pending' }
   | { status: 'error'; message: string };
@@ -74,6 +102,20 @@ export async function createAdminVendorInvite(
   if (rawBusinessName.length === 0 || rawBusinessName.length > 128) {
     return { status: 'error', message: 'Business name must be 1–128 characters.' };
   }
+
+  // 🎁 THE OFFER (owner 2026-10-23, prototype supplier_personal_invite_2026-10-23 frame A2): a plan free until a
+  // day, and optionally 100 portfolio photos to keep. Written on the invite, applied when the supplier claims
+  // (`claim_ready_the_invited_shop`) — an unclaimed invite grants nothing.
+  const parsedOffer = parsePersonalInviteOffer(
+    {
+      tier: formData.get('offer_tier') as string | null,
+      until: formData.get('offer_until') as string | null,
+      photos: formData.get('offer_photos') as string | null,
+    },
+    new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10),
+  );
+  if (!parsedOffer.ok) return { status: 'error', message: parsedOffer.message };
+  const offer = parsedOffer.offer;
 
   const admin = createAdminClient();
 
@@ -153,6 +195,13 @@ export async function createAdminVendorInvite(
       // Pre-link the invite to the staged profile so the finalize page
       // knows which profile to transfer ownership of on claim.
       claimed_vendor_profile_id: stagedProfile.vendor_profile_id,
+      ...(hasOffer(offer)
+        ? {
+            offer_tier: offer.tier,
+            offer_until: offer.untilDay ? offerUntilInstant(offer.untilDay) : null,
+            offer_photo_allowance: offer.photos,
+          }
+        : {}),
     })
     .select('invite_id')
     .single();
@@ -167,12 +216,32 @@ export async function createAdminVendorInvite(
   }
 
   revalidatePath('/admin/vendors');
+  const claimUrl = `${SITE_URL}/vendor/claim/${claimToken}`;
+  const [prices, launch] = await Promise.all([readPlanPrices(), getLaunchOffer()]);
   return {
     status: 'ok',
     inviteId: inserted.invite_id,
-    claimUrl: `${SITE_URL}/vendor/claim/${claimToken}`,
+    claimUrl,
+    businessName: rawBusinessName,
+    offer: hasOffer(offer) ? offer : NO_OFFER,
+    offerLine: offerResultLine(offer),
+    cardSvg: personalInviteCardSvg({
+      businessName: rawBusinessName,
+      categoryLabel: rawServiceCategory ? displayServiceLabel(rawServiceCategory) : null,
+      claimUrl,
+      pill: offerPill(offer),
+    }),
+    message: personalInviteMessage({
+      businessName: rawBusinessName,
+      offer,
+      prices,
+      // Said only while the launch offer runs — never from a default (a null read says nothing).
+      launchCapWords: launch && launchOfferIsOpen(launch, Date.now()) && launch.cap ? formatLaunchCap(launch.cap) : null,
+      claimUrl,
+    }),
   };
 }
+
 
 /**
  * Revoke a pending admin-source vendor invite. The linked vendor_profiles

@@ -111,6 +111,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: 'Feeds resolveVendorDisplayName/isVendorNameRevealed only — the returned row carries no verified field.' },
   ],
   [
+    'lib/supplier-sheet-read.ts',
+    { count: 1, why: 'Feeds isVendorNameRevealed only (name-reveal): it decides whether the supplier sheet may show their photos and their Share link. The returned data carries no verified field — the sheet\'s badge comes from the pressed card.' },
+  ],
+  [
     'app/dashboard/[eventId]/vendors/_actions/category-search.ts',
     { count: 3, why: 'Two feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal); one feeds computeCompatScore (a ranking input, not the badge). The badge field itself (verified:) now calls hasVerifiedBadge.' },
   ],
@@ -119,17 +123,8 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 2, why: 'Both feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal). The badge field (enrichmentByVendorId.is_verified) now calls hasVerifiedBadge.' },
   ],
   [
-    'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
-    { count: 2, why: 'Both feed resolveVendorDisplayName (name-reveal) — no "Verified" badge renders on this page.' },
-  ],
-  [
     'lib/messages-team-picker.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal) — the Messages team picker lists names, no "Verified" badge renders.' },
-  ],
-  [
-    'app/dashboard/[eventId]/messages/page.tsx',
-    // 2 → 1 on 2026-10-01 (P3): the name and the logo now share ONE `isVerified`.
-    { count: 1, why: 'Feeds resolveVendorDisplayName + isVendorNameRevealed (name/logo reveal) — no "Verified" badge renders on this page.' },
   ],
   [
     'app/tour/vendors/page.tsx',
@@ -146,6 +141,10 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   [
     'lib/creator-public.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only (a creator surface\'s vendor credit) — no badge field on the result.' },
+  ],
+  [
+    'lib/check-a-date.server.ts',
+    { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal on /v/[slug]/dates). The page\'s Verified badge (shop.verified) calls hasVerifiedBadge.' },
   ],
   [
     'lib/creator-offers.ts',
@@ -184,8 +183,16 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 1, why: "A vendor's OWN onboarding-checklist gate (is this vendor verified, to show their own next step) — not a couple-facing badge." },
   ],
   [
+    'lib/supplier-today.server.ts',
+    { count: 1, why: "The supplier's OWN Today (simpler Today 2026-10-14): is this shop approved — to pick its own Shop pill (Checking · Live · Not yet), skip its own first-steps rail and count its own page views. The same read first steps made, folded into one row read; never a couple-facing badge." },
+  ],
+  [
+    'lib/own-shop-preview.ts',
+    { count: 1, why: "shopPageGate — whether the shop's OWN team sees its not-yet-public page, and which preview banner line (documents · in review · listing) they read. Whether the page opens to couples is isShopLive (listing, Q5 territory); no \"Verified\" text renders from it." },
+  ],
+  [
     'lib/vendor-corrections.ts',
-    { count: 1, why: "fetchVerifiedLock — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
+    { count: 2, why: "fetchVerifiedLock + identityLockOf (2026-10-29, a shop Setnayan set up asks to rename) — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
   ],
 ]);
 

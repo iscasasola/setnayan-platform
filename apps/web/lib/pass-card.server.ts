@@ -1,20 +1,24 @@
 import 'server-only';
 
+import { effectiveRoleOf } from '@/lib/guest-proxy';
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
+import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { CLASSIC_PRINT_THEME, isProPrint } from '@/lib/print-pieces';
 import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
 import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set.server';
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveSource, guestsArriveTime } from '@/lib/guests-arrive';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
+import { displayPersonName } from '@/lib/person-name-case';
 import {
   filterPassCardRows,
   passCardDesignFrom,
@@ -44,10 +48,13 @@ import {
  * list — it is what a pass needs. (The phantom-column check still reads it.)
  */
 const PASS_CARD_GUEST_COLUMNS =
-  'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, ' +
-  'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
+  'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, role, ' +
+  'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at, ' +
+  'represented_by_guest_id';
 
 export type PassCardGuest = PassCardRow & {
+  /** ⏰ Their role — a role with its own call time prints THAT as Arrive (`guestArriveBy`), never the doors' time. */
+  role: string | null;
   name_prefix: string | null;
   first_name: string | null;
   /** Read for the Name style's Middle initial / Surname first (`ticketName`). */
@@ -77,7 +84,32 @@ export function passCardGuestName(
   g: Pick<PassCardGuest, 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix' | 'display_name'>,
   style?: NameStyle,
 ): string {
-  return ticketName(g, style);
+  // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3): the saved PNG reads as Me's row does —
+  // "Pamela Labriaga", "Jose de los Santos". Display only; the filename follows the shown name.
+  return displayPersonName(ticketName(g, style));
+}
+
+/**
+ * 🧍 A PROXY'S TICKET SAYS THE ROLE'S CALL TIME (owner 2026-10-27: "the dress code, call time, will be same as their proxy
+ * role"). Each row that stands in for a role holder takes that holder's role (`roleOfRecord`) — the one thing `passCardPass`
+ * reads a role for (`guestArriveBy`). A refused read leaves the rows as they are (their own role, never a guessed one).
+ */
+export async function wearTheirStandInRoles<T extends { guest_id: string; role: string | null }>(admin: SupabaseClient, rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const { data, error } = await admin
+    .from('guests')
+    .select('represented_by_guest_id, role, extra_roles')
+    .in('represented_by_guest_id', rows.map((r) => r.guest_id))
+    .is('deleted_at', null);
+  if (error) {
+    logQueryError('pass-card.standIn', error, { rows: rows.length }, 'graceful_degrade');
+    return rows;
+  }
+  const roleOf = new Map<string, GuestRole>();
+  for (const h of (data ?? []) as { represented_by_guest_id: string; role: GuestRole; extra_roles: GuestRole[] | null }[]) {
+    roleOf.set(h.represented_by_guest_id, effectiveRoleOf({ role: 'guest' }, { role: h.role, extra_roles: h.extra_roles ?? [] }));
+  }
+  return roleOf.size === 0 ? rows : rows.map((r) => (roleOf.has(r.guest_id) ? { ...r, role: roleOf.get(r.guest_id)! } : r));
 }
 
 /** One guest row (and, for a plus-one, the row of whoever brought them). */
@@ -90,7 +122,8 @@ export async function readPassCardGuest(
     logQueryError('pass-card.readGuest', error, { guest_id: guestId }, 'graceful_degrade');
     return { target: null, bringer: null, failed: true };
   }
-  const target = (data as PassCardGuest | null) ?? null;
+  const read = (data as PassCardGuest | null) ?? null;
+  const target = read ? ((await wearTheirStandInRoles(admin, [read]))[0] ?? read) : null;
   if (!target?.plus_one_of_guest_id) return { target, bringer: null, failed: false };
   const { data: b, error: bErr } = await admin
     .from('guests')
@@ -147,10 +180,18 @@ export async function plusOnePassCardIds(
 
 export type PassCardKit = {
   set: LoadedPrintSet;
-  /** When the doors open — the FIRST public block, formatted like the programme. */
+  /** When the doors open — the FIRST public block, formatted like the programme. A guest whose role has its own call
+   *  time prints that instead (`passCardPass` → `guestArriveBy`). */
   arrive: string | null;
+  /**
+   * The same block's raw start — the venue's wall-clock PARKED IN UTC. Only the
+   * Apple Wallet pass reads it (its lock-screen time, `walletRelevantDate`);
+   * optional so every hand-built kit stays valid.
+   */
+  arriveAt?: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
-  party: Map<string, number>;
+  /** NULL = the seat rows could not be read — the card then prints no party at all, never the one-name mirror's guess. */
+  party: Map<string, number> | null;
   /** 🎟 guest_id → their table and seat — filled ON THE DAY only (`readTicketSeats`). */
   seats: Map<string, TicketSeat>;
 };
@@ -176,9 +217,10 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
+  const arriveMoment: { at: string | null } = { at: null };
   const [words, arrive, party, seats] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
-    readArriveLabel(admin, eventId),
+    readArriveLabel(admin, eventId, arriveMoment),
     readPartyCounts(admin, eventId, opts.seatsFor),
     readTicketSeats(admin, eventId),
   ]);
@@ -195,7 +237,7 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive, party, seats };
+  return { set, arrive, arriveAt: arrive ? arriveMoment.at : null, party, seats };
 }
 
 /**
@@ -228,16 +270,20 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
   return out;
 }
 
-async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
+/** 🍎 `out.at` — the SAME moment's raw start, for the Wallet pass's lock-screen time (lib/wallet-pass.ts); never a second pick. */
+async function readArriveLabel(admin: SupabaseClient, eventId: string, out: { at: string | null } = { at: null }): Promise<string | null> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
-    const first = blocks[0];
-    // The programme's own formatter — the schedule stores the event's
-    // wall-clock parked in UTC (see site-body's pass for the 8-hour bug).
-    return first?.start_at ? formatBlockTimeRange(first.start_at, null) || null : null;
+    // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
+    // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
+    // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → the invitation's first moment (the
+    // Ceremony's time on a programme that opens on it, 2026-10-20) — the time the invitation itself prints.
+    out.at = guestsArriveSource(blocks)?.moment.start_at ?? null;
+    return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');
+    out.at = null;
     return null;
   }
 }
@@ -245,9 +291,11 @@ async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<
 /**
  * "and 1 guest" — counted from the plus-one ROWS a bringer has: named (never a
  * "+ TBA" seat), not removed, and not "can't come" on their own reply. A guest
- * whose companion lives only as `plus_one_name` (no row yet) counts one.
+ * with no live row counts none — never the `plus_one_name` mirror (owner
+ * 2026-10-26: a removed +1's name stayed on the mirror, so "no live row" printed
+ * "and 1 guest" for the person just deleted).
  */
-async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerIds?: string[]): Promise<Map<string, number>> {
+async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerIds?: string[]): Promise<Map<string, number> | null> {
   const out = new Map<string, number>();
   let q = admin
     .from('guests')
@@ -260,11 +308,12 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
   if (error) {
     // Omitted, never guessed — a card without "and 1 guest" is true of nobody wrongly.
     logQueryError('pass-card.party', error, { event_id: eventId }, 'graceful_degrade');
-    return out;
+    // 🪑 NOT `out`: an empty map sent every guest to the mirror's 0-or-1 guess (2026-10-22) — a guest bringing two
+    // printed "and 1 guest". Unread is said as unread.
+    return null;
   }
   for (const r of (data ?? []) as Array<{ guest_id: string; first_name: string | null; plus_one_of_guest_id: string; plus_one_name_confirmed_at: string | null; rsvp_status: string | null }>) {
-    // A bringer with seat ROWS is counted from the rows alone (zero included) —
-    // the `plus_one_name` mirror only speaks for a bringer with no rows at all.
+    // Counted from the rows alone (zero included); a bringer with no live row is absent → 0 on the card.
     if (!out.has(r.plus_one_of_guest_id)) out.set(r.plus_one_of_guest_id, 0);
     if (isPlaceholderSeat({ guest_id: r.guest_id, first_name: r.first_name, confirmed_at: r.plus_one_name_confirmed_at })) continue;
     if (r.rsvp_status === 'declined') continue;
@@ -285,10 +334,15 @@ export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string |
     seatNumber: kit.seats.get(g.guest_id)?.seatNumber ?? null,
     qrRef,
     serial: null,
-    arrive: kit.arrive,
-    // BOTH halves: the couple's permission AND an actual person.
-    bringing: g.plus_one_allowed ? g.plus_one_name : null,
-    party: kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0),
+    /* ⏰ THEIR OWN ARRIVE-BY (owner 2026-10-19, cale-ice: Me said 8:00 AM, the ticket under it 2:30 PM) — their role's
+       call time, the one Me › Arrive by reads, else the doors' time (`guestArriveBy`). */
+    arrive: guestArriveBy({ role: g.role as GuestRole | null, config: kit.set.event.dress_code_config, general: kit.arrive }),
+    // BOTH halves: the couple's permission AND an actual person — a person on a LIVE +1 row (the party count, read
+    // off the rows). 🧹 The one-name mirror alone never speaks (owner 2026-10-26, cale-ice: "I deleted that guest and
+    // added a new plus 1. It is still there?"): it held the name of a +1 the host had removed. The database keeps it in
+    // step now (migration 20271288562348); a card with no live named row still prints nobody. 🔒 lib/a-removed-plus-one-leaves-no-name.test.ts
+    bringing: g.plus_one_allowed && (kit.party?.get(g.guest_id) ?? 0) > 0 ? g.plus_one_name : null,
+    party: kit.party === null ? 0 : (kit.party.get(g.guest_id) ?? 0),
   };
 }
 
@@ -330,7 +384,47 @@ export function passCardVersion(kit: PassCardKit, g: PassCardGuest, design: Pass
     }),
   );
   if (mark) h.update(Buffer.from(mark));
+  // 🖼 EVERY PICTURE THE CARD IS DRAWN WITH (2026-10-16): the couple's photo, the theme's still, the poster
+  // photo — not only the mark. The card's address is now cached for a YEAR under this version
+  // (`?v=`, the route answers `immutable`), so a new photo that did not change the version would never be
+  // seen again on a phone that had the old one.
+  for (const key of Object.keys(kit.set.images).sort()) {
+    if (key === 'mark') continue;
+    const img = (kit.set.images as Record<string, { bytes?: Uint8Array } | undefined>)[key];
+    if (img?.bytes) h.update(`|${key}|`).update(Buffer.from(img.bytes));
+  }
+  h.update(JSON.stringify({ det: kit.set.data.details ?? null }));
   return h.digest('base64url').slice(0, 22);
+}
+
+/** A version is 22 url-safe characters — anything else in `?v=` is ignored. */
+export const PASS_CARD_VERSION_SHAPE = /^[A-Za-z0-9_-]{22}$/;
+
+/**
+ * 🎟 THE VERSION OF ONE GUEST'S TICKET, for the host's guest card (owner 2026-10-16: *"Why is there a 2-6
+ * second gap to see the digital pass of a person"* · *"And it always reloads i thought we have cache."*).
+ *
+ * The card puts it in the ticket's address (`?guest=…&v=…`); the route answers that address `immutable` for a
+ * year when `v` is the ticket's CURRENT version — so the phone asks for each picture ONCE, and every later
+ * open (the same card again, Guests tomorrow) draws it from the phone's own cache with no request at all.
+ * Any input changing — a new QR, a name, the theme, the photo, the table on the day, the build — is a new
+ * version and so a new address: the change shows at once, never a stale picture.
+ *
+ * Null when there is no ticket to draw (no code, a request, can't come, no event address) — the card then
+ * asks the old way and the route keeps its revalidating answer.
+ */
+export async function passCardTicketVersion(admin: SupabaseClient, guestId: string): Promise<string | null> {
+  try {
+    const { target, bringer, failed } = await readPassCardGuest(admin, guestId);
+    if (failed || !target?.qr_token) return null;
+    if (passCardEligibility(asPassCardRow(target), bringer ? asPassCardRow(bringer) : null) !== 'pass') return null;
+    const kit = await loadPassCardKit(admin, target.event_id, { seatsFor: [target.guest_id] });
+    if (!kit?.set.event.slug) return null;
+    return passCardVersion(kit, target, passCardDesignFor(kit));
+  } catch (err) {
+    logQueryError('pass-card.ticketVersion', err, { guest_id: guestId }, 'graceful_degrade');
+    return null;
+  }
 }
 
 export async function renderPassCardFor(
@@ -376,14 +470,15 @@ export async function eligiblePassCardGuests(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // Cheap pre-filter; `passCardEligibility` below is the rule.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
   if (error) {
     logQueryError('pass-card.eligible', error, { event_id: eventId }, 'graceful_degrade');
     return { guests: [], measured: false };
   }
-  return { guests: filterEligible((data ?? []) as unknown as PassCardGuest[]), measured: true };
+  // 🧍 Each proxy wears the role they stand in for before the rule picks who has a card (Arrive = the role's call time).
+  return { guests: filterEligible(await wearTheirStandInRoles(admin, (data ?? []) as unknown as PassCardGuest[])), measured: true };
 }
 
 /** The rule over a whole list — `filterPassCardRows` (pure, executed by its test). */

@@ -53,15 +53,16 @@ test('⛔ it never grows the admin register’s audit line', () => {
   }
 });
 
-test('🚪 the samahan page renders through it rather than inline', () => {
+test('🚪 the old Groups index keeps no inline copy of the card', () => {
+  // 2026-10-28: the page that invented this pattern now FORWARDS to People › Groups (owner: "it did not return to
+  // people"), so it draws nothing. What still holds: no inline copy of the card lives there (one home — QuietStart).
   const samahan = strip(
     readFileSync(join(WEB, 'app/dashboard/(account)/samahan/page.tsx'), 'utf8'),
   );
-  assert.match(samahan, /<QuietStart/, 'the pattern’s own page stopped using it');
+  assert.match(samahan, /redirect\(/, 'the old Groups index draws a page again — it forwards to People › Groups');
   assert.ok(
     !/sn-tile p-8 text-center/.test(samahan),
-    'the samahan page kept its inline copy of the card as well — one home, or ' +
-      'the two drift apart, which is the whole reason this was extracted',
+    'the samahan page kept an inline copy of the card — one home, or the two drift apart',
   );
 });
 

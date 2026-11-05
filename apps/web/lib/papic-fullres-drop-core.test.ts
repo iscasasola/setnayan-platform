@@ -39,6 +39,23 @@ test('eligible: old photo, has web copy, not dropped, real key', () => {
   assert.equal(isEligibleForDrop(row(), OPTS), true);
 });
 
+test('🛡 Guard A: a save-first shot whose "original" IS its display copy is never dropped', () => {
+  // 2026-10-23 (lib/papic-upload/): an event that does not keep full-res never
+  // receives an original, so the row's r2_object_key is its display copy — or,
+  // for a moment after record, its thumbnail. Dropping it deletes the photo.
+  const display = 'r2://setnayan-media/papic/guest/g/cap-1-display.webp';
+  assert.equal(isEligibleForDrop(row({ r2_object_key: display, display_r2_key: display }), OPTS), false);
+  const thumb = 'r2://setnayan-media/papic/guest/g/cap-1-thumb.webp';
+  assert.equal(isEligibleForDrop(row({ r2_object_key: thumb, thumb_r2_key: thumb }), OPTS), false);
+  const tile = 'r2://setnayan-media/papic/guest/g/cap-1-tile.webp';
+  assert.equal(isEligibleForDrop(row({ r2_object_key: tile, tile_r2_key: tile }), OPTS), false);
+  // A real, separate original still compresses as before.
+  assert.equal(
+    isEligibleForDrop(row({ r2_object_key: 'r2://setnayan-media/papic/guest/g/cap-1-original.jpg', display_r2_key: display, thumb_r2_key: thumb }), OPTS),
+    true,
+  );
+});
+
 test('🔑 a photo\u2019s OWN age no longer decides — the EVENT clock does', () => {
   // ⚠ REWRITTEN 2026-08-02. This used to assert a per-photo 90-day fuse. That
   // fuse was the bug: a photo taken five months before a wedding had its

@@ -310,8 +310,8 @@ test('a confirmed rival in the same hard-single category closes the request, sta
   const { eventId } = await newEvent('group');
   const winner = await newVendor('winner@prh.test');
   const loser = await newVendor('loser@prh.test');
-  await newBooking(eventId, winner.vpid, { status: 'contracted', category: 'venue' });
-  const b = await newBooking(eventId, loser.vpid, { pending: true, category: 'venue' });
+  await newBooking(eventId, winner.vpid, { status: 'contracted', category: 'planner_coordinator' });
+  const b = await newBooking(eventId, loser.vpid, { pending: true, category: 'planner_coordinator' });
 
   await setAuthUid(db, loser.uid);
   const env = await agree(b);
@@ -331,11 +331,11 @@ test('a couple cannot have two live requests in one hard-single category', async
   const { eventId } = await newEvent('twovenues');
   const v1 = await newVendor('venue1@prh.test');
   const v2 = await newVendor('venue2@prh.test');
-  await newBooking(eventId, v1.vpid, { pending: true, category: 'venue' });
+  await newBooking(eventId, v1.vpid, { pending: true, category: 'planner_coordinator' });
 
   let err: string | null = null;
   try {
-    await newBooking(eventId, v2.vpid, { pending: true, category: 'venue' });
+    await newBooking(eventId, v2.vpid, { pending: true, category: 'planner_coordinator' });
   } catch (e) {
     err = e instanceof Error ? e.message : String(e);
   }
@@ -420,6 +420,63 @@ test('the sweep expires a lapsed request and leaves a live one alone', async () 
   assert.equal((await read(b1)).lock_request_state, 'expired');
   assert.equal((await read(b2)).lock_request_state, 'pending', 'a live request is untouched');
 });
+
+/**
+ * 8b · A LATE PRESS CLOSES THE REQUEST ONCE — and that is what lets the app
+ * tell the couple exactly once (lib/lock-request-notices.server.ts).
+ *
+ * `vendorAgreeToLock` / `vendorDeclineLock` send the couple's "did not answer"
+ * notice when the function answers `expired`; the sweep sends the same notice
+ * for every row it RETURNS. For that to be one notice and never two, exactly
+ * one door may ever report a given request as newly expired. This runs all
+ * three doors against the real functions.
+ */
+for (const door of ['agree', 'decline'] as const) {
+  test(`a late ${door} answers 'expired' once — the sweep then finds nothing and a second press is 'not_pending'`, async () => {
+    const { eventId } = await newEvent(`late-${door}`);
+    const { vpid, uid } = await newVendor(`late-${door}@prh.test`);
+    const b = await newBooking(eventId, vpid, { pending: true });
+    await db.query(
+      `UPDATE public.event_vendors SET lock_request_expires_at = NOW() - INTERVAL '1 hour'
+        WHERE vendor_id = $1`,
+      [b],
+    );
+    const press = async (): Promise<Row> => {
+      if (door === 'agree') return agree(b);
+      const r = await db.query<{ r: Row }>(
+        `SELECT public.vendor_decline_lock($1, 'too late') AS r`,
+        [b],
+      );
+      return r.rows[0]!.r;
+    };
+
+    await setAuthUid(db, uid);
+    const first = await press();
+    await setAuthUid(db, null);
+    // The door that announces: the envelope names the event the couple is on.
+    assert.equal(first.status, 'expired', 'a press after the deadline must close the request, not book it');
+    assert.equal(first.event_id, eventId, 'the envelope must carry the event — the notice is addressed from it');
+    const row = await read(b);
+    assert.equal(row.lock_request_state, 'expired');
+    assert.equal(row.status, 'considering', 'a late yes must not book');
+
+    // The sweep, afterwards: this row is no longer `pending`, so it is not
+    // returned — and a row the sweep does not return is a couple it does not tell.
+    const swept = await db.query<{ event_vendor_id: string }>(
+      `SELECT * FROM public.expire_stale_lock_requests(200)`,
+    );
+    assert.ok(
+      !swept.rows.some((r) => r.event_vendor_id === b),
+      'MUTATION: let the sweep pick up already-expired rows ⇒ the couple is told twice',
+    );
+
+    // And the supplier pressing again: not `expired` a second time.
+    await setAuthUid(db, uid);
+    const second = await press();
+    await setAuthUid(db, null);
+    assert.equal(second.status, 'not_pending', 'a second press must not announce the expiry again');
+  });
+}
 
 test('neither sweep ever touches a booking that is already confirmed', async () => {
   // The Locked-QR shape: vendor_claim_locked_qr promotes a row to deposit_paid

@@ -17,12 +17,13 @@ import {
   qrHit,
   slotUploadVerdict,
   uploadableSlotsForShop,
-  GALLERY_SLOT_LABEL,
+  libraryPartLabel,
   RIGHTS_WARRANTY_TEXT,
   RIGHTS_WARRANTY_VERSION,
 } from './moodboard-gallery-upload';
 import { TIER_CAPS, tierCaps } from './vendor-tier-caps';
 import { GALLERY_SLOT_KEYS, canonicalServicesForSlot } from './moodboard-gallery';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE TRADE GATE — the lock that kept this page unused since May 2026
@@ -39,45 +40,49 @@ test('the supplying trades can upload — not just reception_decor', () => {
     ['cocktail', 'mobile_bar'],
   ];
   for (const [slot, tile] of cases) {
-    const services = canonicalServicesForSlot(slot);
+    const services = canonicalServicesForSlot(slot, fallbackInspirationParts());
     assert.ok(
       services.length > 0,
       `${slot} should have canonical services (via ${tile})`,
     );
-    const verdict = slotUploadVerdict(slot, services);
+    const verdict = slotUploadVerdict(slot, services, fallbackInspirationParts());
     assert.equal(verdict.allowed, true, `${slot} should admit its own trades`);
   }
 });
 
 test('a florist cannot upload into the cake shelf', () => {
-  const floristServices = canonicalServicesForSlot('flowers');
-  const verdict = slotUploadVerdict('cake', floristServices);
+  const floristServices = canonicalServicesForSlot('flowers', fallbackInspirationParts());
+  const verdict = slotUploadVerdict('cake', floristServices, fallbackInspirationParts());
   assert.equal(verdict.allowed, false);
   if (!verdict.allowed) assert.equal(verdict.reason, 'wrong_trade');
 });
 
 test('palette admits nobody — a colour reference is no shop’s portfolio', () => {
-  const everyService = GALLERY_SLOT_KEYS.flatMap((k) => canonicalServicesForSlot(k));
-  const verdict = slotUploadVerdict('palette', everyService);
+  const everyService = GALLERY_SLOT_KEYS.flatMap((k) => canonicalServicesForSlot(k, fallbackInspirationParts()));
+  const verdict = slotUploadVerdict('palette', everyService, fallbackInspirationParts());
   assert.equal(verdict.allowed, false);
-  assert.equal(GALLERY_SLOT_LABEL.palette, null);
+  if (!verdict.allowed) assert.equal(verdict.reason, 'no_supplier_trade');
 });
 
 test('every gallery slot has a supplier-facing label', () => {
-  // The Record is over the FULL slot union, so a new slot is a compile error.
-  // This asserts the runtime half: a slot that HAS a supplying trade must have
-  // a name to show the supplier, or the picker renders a blank option.
+  // 🧩 Step ②: a part's one name is its inspiration_parts row (`libraryPartLabel` reads the snapshot; the
+  // per-slot shelf-name map is gone). A slot that HAS a supplying trade must have a name to show the
+  // supplier, or the picker renders a blank option.
   for (const k of GALLERY_SLOT_KEYS) {
-    assert.ok(GALLERY_SLOT_LABEL[k], `slot ${k} needs a supplier-facing label`);
+    assert.ok(libraryPartLabel(k, fallbackInspirationParts()), `slot ${k} needs a supplier-facing label`);
   }
 });
 
 test('the picker offers only the shop’s own shelves', () => {
-  const florist = uploadableSlotsForShop(canonicalServicesForSlot('flowers'));
+  const florist = uploadableSlotsForShop(canonicalServicesForSlot('flowers', fallbackInspirationParts()), fallbackInspirationParts());
   assert.ok(florist.length > 0);
   assert.ok(florist.every((s) => s.label.length > 0));
-  assert.equal(uploadableSlotsForShop([]).length, 0);
-  assert.equal(uploadableSlotsForShop(null).length, 0);
+  // ⚖ 2026-11-02 (owner, the supplier gate; `libraryUploadVerdict`): a shop that supplies NO shelf — none of its
+  // services, or no services at all — is offered every supplier shelf, never an empty picker.
+  const everyShelf = uploadableSlotsForShop([], fallbackInspirationParts()).map((s) => s.key);
+  assert.ok(everyShelf.length > florist.length, 'a shop with no shelf of its own must be offered every supplier shelf');
+  assert.ok(florist.every((s) => everyShelf.includes(s.key)));
+  assert.deepEqual(uploadableSlotsForShop(null, fallbackInspirationParts()).map((s) => s.key), everyShelf);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -141,9 +146,9 @@ test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
   // MB11: "add the per-category pair ALONGSIDE the existing quota precedent —
   // never overwriting it". These are the shipped portfolioPhotos figures; if a
   // future edit collapses the two axes into one, this goes red.
-  assert.equal(TIER_CAPS.free.portfolioPhotos, 30);
-  assert.equal(TIER_CAPS.pro.portfolioPhotos, 100);
-  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 300);
+  assert.equal(TIER_CAPS.free.portfolioPhotos, 50);
+  assert.equal(TIER_CAPS.pro.portfolioPhotos, 50);
+  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 50);
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise', 'custom'] as const) {
     assert.notEqual(
       TIER_CAPS[tier].portfolioPhotos,

@@ -206,7 +206,13 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   const BODY = read('app/[slug]/_components/site-body.tsx');
   // Two trees × (the Invitation's Welcome + the Day's Welcome, 📱 owner
   // 2026-09-30 "THE DAY'S MENU HAS FIVE") — one component, four mounts.
-  assert.equal(BODY.match(/<GuestWelcome\b/g)?.length, 4, 'the guest tree AND the stranger’s tree (the Maker’s canvas), the Invitation and the Day');
+  // 📱 …and a fifth since 2026-10-08 (owner, "EIGHT OWNER ANSWERS" answer 5 — the guest's pages follow the Maker's
+  // filing): the guest's own look is Me's (prototype: Me · What to wear), drawn there by the same component.
+  assert.equal(BODY.match(/<GuestWelcome\b/g)?.length, 5, 'the guest tree AND the stranger’s tree (the Maker’s canvas), the Invitation and the Day — and the look on Me');
+  /* 🔁 RE-AIMED 2026-10-12 (What to wear's own look, `lib/block-looks.ts`): the mount also hands the block's mark
+     (`lookMark`), which the reader's panel draws only when it draws. The claim — Me mounts the one Welcome section
+     with the guest's own look — is the same. */
+  assert.match(BODY, /<GuestWelcome partLooks=\{welcomeLooks\} parts=\{welcomeOnMe\} words=\{clientWords\} look=\{guestLook\} reminders=\{null\} giftHref=\{null\} lookMark=\{blockMark\('look'\)\} \/>/);
   assert.equal(BODY.match(/const welcome = welcomeParts\(\{/g)?.length, 2);
   // Details draws what Welcome left it, in both trees
   assert.equal(BODY.match(/const detailsScenes = scenesLeftForDetails\(/g)?.length, 2);
@@ -215,20 +221,24 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   // Welcome's leftovers: `detailsSceneList` is `detailsScenes` less that scene.)
   assert.match(BODY, /const renderScene = \(widget: \(typeof detailsScenes\)\[number\]\) => \(\s*<HideableWidgetRender/);
   // 🎒 …split around the entourage (owner 2026-10-07: What to bring sits after it).
-  assert.match(BODY, /const guestAround = splitAroundEntourage\(pageStage, detailsSceneList\);/);
+  // (📱 2026-10-08: of the scenes whose page this is — `hereScenes`; every scene, on a page that is one scroll.)
+  assert.match(BODY, /const guestAround = splitAroundEntourage\(pageStage, hereScenes\);/);
   assert.match(BODY, /\{guestAround\.before\.map\(renderScene\)\}/);
   assert.match(BODY, /\{guestAround\.after\.map\(renderScene\)\}/);
   assert.match(BODY, /const detailsSceneList = storyScene \? detailsScenes\.filter\(\(w\) => w !== storyScene\) : detailsScenes;/);
   assert.match(BODY, /\{list\.map\(\(widget\) => \(\s*\/\*[\s\S]*?<PublicHideableWidget|\{list\.map\(\(widget\) => \(\s*<Fragment/);
-  // this guest's own look is on Welcome, so Details shows everyone's
-  assert.match(BODY, /dressCodeGeneral=\{welcome\.includes\('look'\)\}/);
+  // 👗 Details' dress code is the reader's own (owner 2026-10-19, "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE"):
+  // every role only for a host on their own Event Hub, as themselves (held by `dress-with-us-is-the-readers-own.test.ts`)
+  assert.match(BODY, /dressCodeEveryRole=\{viewerIsHost && sampleViewer === null && guest\.guest_id === hostOwnGuestId\}/);
   // the gift door is drawn once: the foot strip stands down when Welcome carries it
   assert.match(BODY, /welcomeCarriesGifts\(\{[^}]*giftHref: doorways\.pabuya[^}]*\}\)\s*\?\s*null\s*:\s*doorways\.pabuya/);
   // the guest tree's Welcome sits after the reply and before Details
   const guest = BODY.slice(BODY.indexOf('const guestTree'));
   const reply = guest.indexOf('rsvpSheetTrigger(');
   const mount = guest.indexOf('<GuestWelcome');
-  const details = guest.indexOf('SITE_MENU_ANCHORS.details');
+  /* The Details SECTION's own mount (📱 2026-10-08: the name of its landing mark is also mentioned earlier now — the
+     Welcome's scenes carry `#site-details` when Details has nothing of its own, and they ARE on Welcome). */
+  const details = guest.indexOf("id: pageStage === 'event' || detailsMarkOnLead ? undefined : SITE_MENU_ANCHORS.details");
   assert.ok(reply > 0 && reply < mount && mount < details, 'Welcome: after the reply, before Details');
 });
 
@@ -236,5 +246,5 @@ test('3 · the navigator lists what the canvas draws, through the same rule', ()
   const LIST = read('lib/maker-scene-list.ts');
   assert.match(LIST, /const welcome = welcomeParts\(\{/);
   const DISPATCH = read('app/[slug]/_components/hideable-widget-render.tsx');
-  assert.match(DISPATCH, /guestRole=\{guestView && !dressCodeGeneral \?/);
+  assert.match(DISPATCH, /guestRole=\{guestView && !dressCodeEveryRole \?/);
 });

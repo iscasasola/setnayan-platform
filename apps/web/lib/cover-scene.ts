@@ -1,0 +1,279 @@
+/**
+ * lib/cover-scene.ts — 🖼 THE COVER SCENE: the cover's words as ONE group, filling the whole first screen.
+ *
+ * Owner-approved 2026-10-15 on `Setnayan/prototypes/maker_cover_group_background_2026-10-14_fable.html`
+ * (DECISION_LOG 2026-10-15 "COVER SCENE APPROVED"): *"Cover scene will take up the whole screen initially whatever
+ * screen type it is"* · *"Call it Cover Scene"* · (Framed | Full width was approved here, then REMOVED 2026-10-16 —
+ * always full width, `coverGroundShape`) · the Hero folds into the Cover Scene's Background — "Yes, one
+ * background" · Scene ◆ moving backgrounds stay Pro — "Pro".
+ *
+ * The part (its key, its door, its three grey lines) is `lib/maker-parts.ts` `MAKER_COVER_SCENE`. This module is
+ * what the GUEST's page needs of it — so it imports nothing of the Maker and stays out of the Maker's bytes.
+ *
+ * Pure. No I/O, no React.
+ */
+import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-source';
+import { hubGlassOpacity, hubMainFadeAt, type HubCoverGround } from './hub-canvas';
+import { compositeOver, requiredScrim } from './hub-legibility';
+import { INVITE_THEMES } from './invite-themes';
+import { GUEST_COVER_CLIP_PLAYBACK } from './guest-hero-video';
+
+/**
+ * 📐 THE WHOLE FIRST SCREEN, ON ANY DEVICE: `100svh` — the SMALL viewport, so a phone's browser bars never cut the
+ * words — and `100dvh` where the browser has it (the prototype's own rule). The words are centred in it (The Letter
+ * keeps its own foot-of-the-screen column); the page's first scroll begins under it.
+ */
+export const COVER_SCENE_SCREEN =
+  'min-h-[calc(100svh_-_var(--cover-scene-above,0px))] supports-[height:100dvh]:min-h-[calc(100dvh_-_var(--cover-scene-above,0px))]';
+/* 📐 …less what sits above it: `./cover-scene-screen.ts` (dependency-free — the guest shell, a client import, reads it). */
+export { COVER_SCENE_ABOVE_CANVAS, COVER_SCENE_ABOVE_PAGE } from './cover-scene-screen';
+/** …the centred column every design but The Letter lays its words in. */
+export const COVER_SCENE_CENTRED = `${COVER_SCENE_SCREEN} flex flex-col justify-center`;
+/**
+ * 📐 THE WORDS IN THE UPPER PART, THE RSVP BUTTON AND THE HINT AT THE FOOT (owner 2026-10-16, DECISION_LOG "THE COVER:
+ * WORDS IN THE UPPER PART, AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT", verbatim: *"the cover sheet can focus the
+ * header on upper part of the screen and the RSVP button and swipe up to view [the event] under it"*). Every design's
+ * column now starts at the TOP under ≈ 7 % of padding (the approved prototype's `clamp(36px, 7%, 58px)`) — never
+ * centred — and the foot (`COVER_SCENE_FOOT`) is pushed to the bottom of the full screen. `COVER_SCENE_CENTRED` above is
+ * kept for the readers that still name it; no design draws it. Held by `lib/the-cover-scene-has-its-own-tools.test.ts`.
+ */
+export const COVER_SCENE_UPPER = `${COVER_SCENE_SCREEN} flex flex-col justify-start pt-[clamp(36px,7svh,58px)]`;
+/** The foot: the RSVP button and under it the "Swipe up for the event" hint, at the bottom of the full screen. */
+export const COVER_SCENE_FOOT = 'mt-auto flex w-full flex-col items-center gap-3 self-stretch pt-8 pb-[max(14px,env(safe-area-inset-bottom))]';
+/** The attribute on the foot — the guard and the Maker find it by it. */
+export const COVER_FOOT_ATTR = 'data-cover-foot';
+/** The hint's words — "the event", never "website" (owner 2026-10-04 · 2026-10-16). */
+export const COVER_SWIPE_HINT = 'Swipe up for the event';
+
+/** The attribute the cover's first screen carries — the guard and the Maker find the Cover Scene by it. */
+export const COVER_SCENE_ATTR = 'data-cover-scene';
+
+/* ── its background (`HubSectionCanvas.ground`, the hero row's; sanitised by `sanitizeHubCoverGround`) ─────────── */
+
+/**
+ * The Background tool's four sources on the Cover Scene, in the toolbar's order (the prototype's `SOURCES`): The
+ * theme's own (nothing stored — today's written card) · Colour · Scene ◆ · Upload ◆.
+ */
+export const COVER_SCENE_SOURCES = ['theme', 'colour', 'scene', 'own'] as const;
+export type CoverSceneSource = (typeof COVER_SCENE_SOURCES)[number];
+export const COVER_SCENE_SOURCE_LABEL: Readonly<Record<CoverSceneSource, string>> = {
+  theme: 'The theme’s own',
+  colour: BACKGROUND_SOURCE_LABEL.colour,
+  scene: BACKGROUND_SOURCE_LABEL.scene,
+  own: BACKGROUND_SOURCE_LABEL.own,
+};
+/** ◆ — the shipped rule, never a second one: Colour free; Scene and Upload Event Hub Pro (asked at Apply). */
+export const COVER_SCENE_SOURCE_IS_PRO: Readonly<Record<CoverSceneSource, boolean>> = {
+  theme: false,
+  colour: BACKGROUND_SOURCE_IS_PRO.colour,
+  scene: BACKGROUND_SOURCE_IS_PRO.scene,
+  own: BACKGROUND_SOURCE_IS_PRO.own,
+};
+/** The quiet line under The theme's own (the prototype's words). */
+export const COVER_SCENE_THEME_LINE = 'The written card on the theme’s own ground — every stage, the poster.';
+
+/** The source a stored Cover Scene background IS — absent: The theme's own. */
+export function coverGroundSource(g: HubCoverGround | null | undefined): CoverSceneSource {
+  if (!g) return 'theme';
+  if (g.kind === 'loop') return 'scene';
+  if (g.kind === 'photo' || g.kind === 'snippet') return 'own';
+  return 'colour';
+}
+
+/** Does the Cover Scene's background ask Apply for Event Hub Pro? (`hub-pro-effect-view.ts` names it there.) */
+export function coverGroundIsPro(g: HubCoverGround | null | undefined): boolean {
+  return COVER_SCENE_SOURCE_IS_PRO[coverGroundSource(g)];
+}
+
+/**
+ * 🖼 THE COVER SCENE IS ALWAYS FULL SCREEN, EDGE TO EDGE (owner 2026-10-16, DECISION_LOG "THE COVER SCENE IS ALWAYS
+ * FULL SCREEN", verbatim: *"Yes — remove the Framed / Full width choice. The Cover Scene is always full screen, edge
+ * to edge."* — and *"just for the cover scene"*). This supersedes the 2026-10-15 Framed | Full width approval.
+ *
+ * So the cover has no shape choice: it always draws `COVER_SCENE_FULL` — no inset, no rounded margin, no page colour
+ * round it. A `shape` already stored (cale-ice has Framed today) is IGNORED, never migrated: this answers 'full'
+ * whatever the row holds. ⚠ ONLY the Cover Scene — a scene's or a stage's own Framed | Full width (`HubSectionCanvas`
+ * `shape`, the stage toolbar's Width row) is a different key and is untouched.
+ */
+export const COVER_SCENE_FULL = 'm-0 rounded-none overflow-hidden';
+export function coverGroundShape(_g?: HubCoverGround | null): 'full' {
+  return 'full';
+}
+
+/* ── legibility: the words follow the Cover Scene's OWN ground (`lib/hub-legibility.ts`, free by ruling 2026-09-25) ─ */
+
+/** The two inks the cover's words take — the page's espresso and its paper. */
+export const COVER_INK = '#2C2A29';
+export const COVER_PAPER = '#FBFAF7';
+/** A photo is not measured on the server: its worst case is assumed — a mid, a deep and a bright patch under the words. */
+export const COVER_PHOTO_SAMPLES: readonly string[] = ['#7A7A7A', '#2A2A2A', '#D8D8D8'];
+const THEME_GLASS_UNDER = '#EDE3D2';
+
+/** The Darker ↔ Lighter bar laid over a ground, as the veil the page draws (black down to −100, white up to +100). */
+export function coverShadeVeil(shade: HubCoverGround['shade']): { color: string; opacity: number } | null {
+  const at = hubMainFadeAt(shade ?? null);
+  if (!at) return null;
+  return at < 0 ? { color: '#000000', opacity: Number(((-at / 100) * 0.75).toFixed(2)) } : { color: '#FFFFFF', opacity: Number(((at / 100) * 0.8).toFixed(2)) };
+}
+
+/** What lies under the words, as colours to measure: the colour, the glass over the theme's paper, the loop's
+ *  measured clusters, or a photo's worst case — each under the shade veil when one is laid. */
+export function coverGroundSamples(g: HubCoverGround): string[] {
+  let base: string[];
+  if (g.kind === 'loop') {
+    const m = INVITE_THEMES[g.loop].media;
+    base = m ? [m.samples.light, m.samples.dark] : [...COVER_PHOTO_SAMPLES];
+  } else if (g.kind === 'photo' || g.kind === 'snippet') base = [...COVER_PHOTO_SAMPLES];
+  else if (g.kind === 'glass' || g.kind === 'frost') {
+    const tint = g.color ?? '#FFFFFF';
+    const a = (hubGlassOpacity(g.opacity) ?? 70) / 100;
+    base = [compositeOver(tint, g.kind === 'frost' ? a * 0.65 : a, THEME_GLASS_UNDER)];
+  } else if (g.kind === 'color') base = [g.color];
+  else if (g.kind === 'diagonal' || g.kind === 'glow') base = [g.color, compositeOver('#000000', 0.3, g.color), compositeOver('#FFFFFF', 0.3, g.color)];
+  else base = [...COVER_PHOTO_SAMPLES];
+  const veil = coverShadeVeil(g.shade);
+  return veil ? base.map((c) => compositeOver(veil.color, veil.opacity, c)) : base;
+}
+
+/**
+ * The words' tone over the Cover Scene's ground, and the scrim that holds them at AA over every sample — whichever
+ * ink needs the lighter scrim wins (the prototype: slide the bar past the middle and the words flip from cream to ink
+ * on their own).
+ *
+ * 🌗 THE SCRIM NEVER UNDOES THE BAR (owner 2026-10-17 on cale-ice, Darker ━●━ Lighter moved well toward Lighter over
+ * his sunset clip: *"darker lighter not showing"*). MEASURED: the scrim used to be the WEAKEST that holds AA over the
+ * veiled ground — so as Lighter's white veil grew, the paper scrim the ink words need shrank by exactly as much
+ * (0.50 at the centre → 0.01 at +60) and the cover came out the SAME colour, byte for byte, from 0 to +60 (#bbbab9 ·
+ * #939291 · #eae9e8 → #bbbbbb · #919191 · #ebebeb); Darker's ink scrim did the same from −30 to −60. The bar moved
+ * and nothing on the page did. Now the scrim is never weaker than the ground ITSELF needs for that tone (its own
+ * samples, no veil) — still AA over the veiled ground — so a veil in the words' favour adds to the scrim instead of
+ * replacing it, and every step of the bar shows. Held by `lib/the-cover-shade-reaches-every-ground.test.ts`.
+ */
+export function coverSceneLegibility(g: HubCoverGround): { tone: 'ink' | 'cream'; scrim: { color: string; opacity: number } } {
+  const samples = coverGroundSamples(g);
+  const ink = requiredScrim(COVER_INK, COVER_PAPER, samples);
+  const paper = requiredScrim(COVER_PAPER, COVER_INK, samples);
+  const { shade: _shade, ...bare } = g;
+  const own = coverGroundSamples(bare as HubCoverGround);
+  return ink <= paper
+    ? { tone: 'ink', scrim: { color: COVER_PAPER, opacity: Math.max(ink, requiredScrim(COVER_INK, COVER_PAPER, own)) } }
+    : { tone: 'cream', scrim: { color: COVER_INK, opacity: Math.max(paper, requiredScrim(COVER_PAPER, COVER_INK, own)) } };
+}
+
+/**
+ * 🌗 THE COVER AT ONE POSITION OF THE BAR — the veil, the scrim and the words' tone `coverSceneLayer` draws for this
+ * ground at `at` (−100 … 100; the centre stores nothing). The Maker lays it on the canvas WHILE the thumb moves
+ * (`cover-shade-preview.ts`, the prototype's `paintGround` on input), from the very functions the page renders with,
+ * so the preview is what the save's redraw confirms. A glass takes no shade (`sanitizeHubCoverGround`).
+ */
+export function coverShadeLook(g: HubCoverGround, at: number): { veil: { color: string; opacity: number } | null; scrim: { color: string; opacity: number }; tone: 'ink' | 'cream' } {
+  const n = Math.max(-100, Math.min(100, Math.round(at)));
+  const { shade: _was, ...rest } = g;
+  const next = (g.kind === 'glass' || g.kind === 'frost' || n === 0 ? rest : { ...rest, shade: n }) as HubCoverGround;
+  const legible = coverSceneLegibility(next);
+  return { veil: coverShadeVeil(next.shade), scrim: legible.scrim, tone: legible.tone };
+}
+
+/** The CSS a colour or a glass paints with (the prototype's tiles: Plain · Diagonal · Glow · Opaque · Frosted). */
+export function coverGroundCss(g: HubCoverGround): string | null {
+  if (g.kind === 'color') return g.color;
+  if (g.kind === 'diagonal') return `linear-gradient(150deg, ${g.color} 0%, color-mix(in srgb, ${g.color} 70%, #000) 100%)`;
+  if (g.kind === 'glow') return `radial-gradient(80% 70% at 50% 40%, color-mix(in srgb, ${g.color} 70%, #fff) 0%, ${g.color} 100%)`;
+  if (g.kind === 'glass' || g.kind === 'frost') {
+    const a = Math.round((hubGlassOpacity(g.opacity) ?? 70) * (g.kind === 'frost' ? 0.65 : 1));
+    return `color-mix(in srgb, ${g.color ?? '#FFFFFF'} ${a}%, ${THEME_GLASS_UNDER})`;
+  }
+  return null;
+}
+
+/* ── its Upload: a photo, or the couple's own ≤ 15 s muted clip (owner 2026-10-16) ─────────────────────────────── */
+
+/**
+ * 🎞 WHAT THE COVER'S UPLOAD TAKES. Owner 2026-10-16 on cale-ice: the clip was accepted, compressed, uploaded and said
+ * "Uploaded" — and then nothing was saved, because the Upload threw a clip away (`if (kind === 'clip') return …`) while
+ * one grey line under it, always there, said videos would not play. *"it did say uploaded but nothing showed."*
+ *
+ * Ruling the same day: *"Yes — let a cover video (15 s or less, muted) play for guests on the event's own page."* So a
+ * clip is TAKEN while the cover clip switch is open (`GUEST_COVER_CLIP_PLAYBACK`); with it closed the Upload offers
+ * photos only and refuses a picked video IN PLACE, before a byte is sent — never "Uploaded" for nothing again.
+ * Held by `lib/the-cover-takes-a-video.test.ts`.
+ */
+export function coverSceneTakesClips(open: boolean = GUEST_COVER_CLIP_PLAYBACK): boolean {
+  return open;
+}
+
+/** The plain line a picked video meets while the cover clip switch is closed — where a video CAN go, said in place. */
+export const COVER_SCENE_CLIP_CLOSED_LINE =
+  'A video can’t go on the Cover Scene yet — pick a photo here, or choose Scene ◆ for a moving cover.';
+
+/** A picked file the cover's Upload refuses before it uploads (a video while the switch is closed), else null. */
+export function coverSceneUploadRefusal(type: string, open: boolean = GUEST_COVER_CLIP_PLAYBACK): string | null {
+  return type.startsWith('video/') && !coverSceneTakesClips(open) ? COVER_SCENE_CLIP_CLOSED_LINE : null;
+}
+
+/** The FileUpload label: what the cover's Upload really takes (the stage Upload's shipped words). */
+export function coverSceneUploadLabel(open: boolean = GUEST_COVER_CLIP_PLAYBACK): string {
+  return coverSceneTakesClips(open) ? 'Upload a photo or clip' : 'Upload a photo';
+}
+
+/**
+ * A clip card's name: "Your video" — or, when the row holds more than one clip, its file name (an upload's key is
+ * `<uuid>-<name>`, `/api/upload`), so two clips are never two identical cards — and, once its length is known, " · N s"
+ * (the approved prototype's card: "▶ Your video · 12 s"; the ▶ is the tile's own mark for a moving card).
+ */
+export function coverClipCardName(ref: string, clipsInRow: number, seconds?: number | null): string {
+  const file = ref.split('/').pop() ?? '';
+  const name = clipsInRow <= 1 ? 'Your video' : file.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i, '') || 'Your video';
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0 ? `${name} · ${Math.round(seconds)} s` : name;
+}
+
+/** One of the couple's uploads, as the editor page hands it (`sceneUploadRefs`, signed). */
+export type CoverUpload = { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null };
+export type CoverPhotoCard = { ref: string; url: string | null };
+export type CoverClipCard = { ref: string; poster: string | null; posterUrl: string | null; url: string | null };
+
+/**
+ * 🖼 THE COVER'S UPLOAD ROW — EVERY ONE OF THE COUPLE'S UPLOADED COVER MEDIA, PHOTOS AND VIDEOS, ONE LIST (owner
+ * 2026-10-17 on cale-ice, verbatim: *"why is the video not showing on the list of uploaded media files?"* — the cover
+ * was PLAYING his sunset clip while its Upload row showed "+ Upload" and one "Your photo"). The clips (the hero clip,
+ * then each uploaded clip) stand before the photos, as the approved prototype draws them.
+ *
+ * 🔑 Whatever the cover is WEARING is always a card in this row — even when no list handed to the row holds it — so the
+ * one in use is always there to be seen, ringed, and switched away from and back to. A clip is only offered while the
+ * cover takes clips (`coverSceneTakesClips`).
+ */
+export function coverUploadCards(input: {
+  uploads: readonly CoverUpload[];
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  ground: HubCoverGround | null;
+  takesClips: boolean;
+}): { photos: CoverPhotoCard[]; clips: CoverClipCard[] } {
+  const { uploads, photoChoices, videoChoice, ground, takesClips } = input;
+  /** A picture ref's shown URL: a photo choice, a photo upload, or a clip's still the page signed. */
+  const stillOf = (ref: string | null | undefined): string | null => {
+    if (!ref) return null;
+    const choice = photoChoices.find((p) => p.ref === ref);
+    if (choice) return choice.url;
+    const photo = uploads.find((u) => u.kind === 'photo' && u.ref === ref);
+    if (photo) return photo.url;
+    return uploads.find((u) => u.poster === ref)?.posterUrl ?? null;
+  };
+  const photos: CoverPhotoCard[] = [
+    ...uploads.filter((u) => u.kind === 'photo' && !photoChoices.some((p) => p.ref === u.ref)).map((u) => ({ ref: u.ref, url: u.url })),
+    ...photoChoices.map((p) => ({ ref: p.ref, url: p.url })),
+  ];
+  const clips: CoverClipCard[] = takesClips
+    ? [
+        ...(videoChoice ? [{ ref: videoChoice.ref, poster: videoChoice.poster ?? null, posterUrl: stillOf(videoChoice.poster), url: videoChoice.url }] : []),
+        ...uploads
+          .filter((u) => u.kind === 'snippet' && u.ref !== videoChoice?.ref)
+          .map((u) => ({ ref: u.ref, poster: u.poster ?? null, posterUrl: u.posterUrl ?? stillOf(u.poster), url: u.url })),
+      ]
+    : [];
+  if (ground?.kind === 'snippet' && takesClips && !clips.some((c) => c.ref === ground.media)) {
+    clips.push({ ref: ground.media, poster: ground.poster ?? null, posterUrl: stillOf(ground.poster), url: null });
+  }
+  if (ground?.kind === 'photo' && !photos.some((p) => p.ref === ground.media)) photos.unshift({ ref: ground.media, url: stillOf(ground.media) });
+  return { photos, clips };
+}

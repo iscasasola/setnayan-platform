@@ -5,7 +5,9 @@
  * MAKES A QR — FOR EVERY PLUS-ONE"; build brief items 4 and 6).
  *
  *   4 · ME — name + "Not you? Switch", their plus-ones ("Send their invite",
- *       "Show <name>'s pass", "Add their name"), "Save to my account" any time.
+ *       their ticket that opens big — 🎫 moved on purpose 2026-10-21 from
+ *       "Show <name>'s pass", guest_page_fixes_2_4 fix 4 — "Add their name"),
+ *       "Save to my account" any time.
  *   6 · THE CHECKLIST — the last 30 days; items only where there is something
  *       true to say; ticks saved to the GUEST through their own reply action
  *       (+0 routes), private to them; "3 of 5 ready" → "You're all set ✓".
@@ -109,7 +111,7 @@ test('6 · 🔒 the ticks live in a table NO browser role can read — private t
 
 test('6 · the save is the guest\'s OWN reply action (+0 routes), after the key check, touching nothing of the reply', () => {
   const start = ACTIONS.indexOf('export async function submitRsvp(');
-  const keyCheck = ACTIONS.indexOf('const session = await readGuestSessionForEvent(eventId);', start);
+  const keyCheck = ACTIONS.indexOf('const replyAs = await readReplyIdentityForEvent(eventId);', start); // the reply's ONE identity (2026-10-24)
   const branch = ACTIONS.indexOf("const checklistItem = clean(formData.get('checklist_item'));", start);
   const replyRead = ACTIONS.indexOf("const status = clean(formData.get('rsvp_status'))", start);
   assert.ok(start > -1 && keyCheck > start, 'submitRsvp no longer checks the key first');
@@ -173,7 +175,7 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
         { guestId: 'p1', name: 'Lola Nena', inviteUrl: 'https://x/ana?invite=t1' },
         { guestId: 'p2', name: null, inviteUrl: null },
       ],
-      passes: { p1: '<svg data-pass="lola"></svg>' },
+      passCards: { own: '/api/guest/pass-card', plusOnes: { p1: '/api/guest/pass-card?guest=p1' } },
       account: { kind: 'linked', accountEmail: 'ana@example.com' },
       personalLink: 'https://x/ana?invite=t0',
       userAgent: null,
@@ -185,8 +187,11 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
   // it posted to the SAME sign-out the foot of Me carries (site-body `signOut`).
   assert.doesNotMatch(html, /action="\/ana\/sign-out"/, 'Me has a second sign-out again');
   assert.match(html, /Send their invite/);
-  assert.match(html, /Show Lola’s ticket/);
-  assert.match(html, /data-pass="lola"/);
+  // 🎫 Lola's ticket IS the show (owner 2026-10-21, fix 4): the route's own PNG, pressable, opening big — no
+  // second drawing of her QR ("Show Lola’s ticket" + an inline SVG) beside it.
+  assert.match(html, /aria-label="Lola’s ticket — Show this at the door"[^>]*data-ticket-show=""[^>]*><img src="\/api\/guest\/pass-card\?guest=p1"/, 'Lola’s ticket does not open big');
+  assert.match(html, />Tap the ticket to show it</);
+  assert.doesNotMatch(html, /Show Lola’s ticket|data-plus-one-pass/, 'the second drawing of Lola’s QR is back');
   // A TBA seat is named IN PLACE on Me (owner 2026-09-29, frame E) — no link back to the reply.
   assert.match(html, /data-add-name-in-place/);
   assert.ok(!html.includes('/invite/reply'), 'Me links a TBA seat back to the reply');
@@ -194,7 +199,9 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
   // One #site-me: Me is a SLOT in GuestHubBar's section, never a second one.
   // (📱 `asTab` — the same section is the Me TAB on a tabbed page, owner 2026-09-30.)
   assert.match(HUBBAR, /<section id="site-me" className=\{asTab \? 'scroll-mt-6' : 'mt-12 scroll-mt-6'\}>\s*\{meSlot \?/);
-  assert.match(PAGE, /meSlot=\{meSlotFor\(replyHref\)\}/); // Me as a function of the reply rule (an-unreplied-guest-is-asked-to-reply-first.test.ts)
+  // Me as a function of the reply rule (an-unreplied-guest-is-asked-to-reply-first.test.ts) — and, since 2026-10-24, of
+  // the redrawn Me (`inMe`: Me draws its own name, bar and one Reply).
+  assert.match(PAGE, /meSlot=\{meSlotFor\(replyHref, \{ inMe, replyOwed \}\)\}/);
   assert.match(PAGE, /yourGuestsFor\(admin, \{ event_id: event\.event_id, slug: event\.slug \}, guest\.guest_id,/);
 });
 

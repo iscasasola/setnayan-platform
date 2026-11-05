@@ -34,3 +34,14 @@ export function formatCount(
     maximumFractionDigits: maxFractionDigits,
   });
 }
+
+/**
+ * A COUNT WITH ITS NOUN, singular or plural by the count — "1 category", "3 categories", "1,240 categories".
+ * Quality sweep 2026-10-19 (row C8) read **"1 CATEGORIES"** on the Suppliers bench: the count was right and the noun
+ * was not. The plural is passed, never guessed by adding an "s" ("category" → "categories"). The figure goes through
+ * `formatCount`, so a thousand still carries its comma. Only exactly 1 is singular: 0 and 2 read "0 categories",
+ * "2 categories".
+ */
+export function countNoun(n: number, one: string, many: string): string {
+  return `${formatCount(n)} ${n === 1 ? one : many}`;
+}

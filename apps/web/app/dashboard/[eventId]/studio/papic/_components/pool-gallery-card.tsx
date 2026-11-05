@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
+import { WhoSeesWhatPick } from './who-sees-what-pick';
 
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
@@ -18,11 +19,15 @@ import { PoolGalleryToggle } from './pool-gallery-toggle';
  * session guest, who may also tag themselves into photos. Closing is
  * retroactive on the next read.
  */
-export async function PoolGalleryCard({ eventId }: { eventId: string }) {
-  if (!(await papicPoolGalleryActive())) return null;
-
-  const papicActive = await eventPapicActive(await eventEntitlementClient(eventId), eventId);
+export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: string; variant?: 'card' | 'row' }) {
+  const [poolActive, papicActive] = await Promise.all([
+    papicPoolGalleryActive(),
+    eventEntitlementClient(eventId).then((ent) => eventPapicActive(ent, eventId)),
+  ]);
   if (!papicActive) return null;
+  // 👁 Memories ⚙ › Who sees what (owner 2026-10-30): while the shared gallery cannot open for any event (its env flag
+  // or privacy control is off), the TRUE answer is the default — Only tagged — said, never hidden, with no choice.
+  if (!poolActive) return variant === 'row' ? <WhoSeesWhatPick eventId={eventId} initialOpen={false} locked /> : null;
 
   // Toggle state via the admin client: pre-migration (column absent) this read
   // errors → treat as "not available yet" and render nothing (no dead door on
@@ -42,10 +47,10 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Shared gallery
+          Shared Memories
         </h2>
         <p className="mt-1 text-sm text-terracotta-700">
-          We couldn&rsquo;t check whether your shared gallery is open just now. Refresh the
+          We couldn&rsquo;t check whether your shared Memories are open just now. Refresh the
           page to see it and change it.
         </p>
       </section>
@@ -55,18 +60,24 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
 
   const open = ev.pool_gallery_open === true;
 
+  // 'row' — Memories › ⚙ (owner 2026-10-23 "Guests see all photos" → 2026-10-30 **Who sees what**: Only tagged ·
+  // Share all memories, ONE dropdown, default Only tagged = this column's FALSE — `lib/memories-rules.ts`).
+  if (variant === 'row') {
+    return <WhoSeesWhatPick eventId={eventId} initialOpen={open} />;
+  }
+
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        Shared gallery
+        Shared Memories
       </h2>
       <p className="mt-1 text-sm text-ink/60">
         Let your guests browse <span className="font-medium text-ink/75">every</span>{' '}
         clean-screened photo and clip in your Papic library (web copies only) and tag
         themselves into photos they&rsquo;re in — tagged photos join their personal
-        gallery and download. Off by default; turning it off later closes the
-        gallery for everyone immediately.
+        Memories and download. Off by default; turning it off later closes the
+        shared Memories for everyone immediately.
       </p>
       <div className="mt-4">
         <PoolGalleryToggle eventId={eventId} initialOpen={open} />

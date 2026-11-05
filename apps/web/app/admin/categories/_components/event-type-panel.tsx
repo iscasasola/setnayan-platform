@@ -24,7 +24,8 @@ import { resolveOnboardingSpec, type OnboardingOverrideRow } from '@/lib/onboard
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
 import { INAPP_TO_SERVICE_CODE } from '@/app/onboarding/wedding/_components/onboarding-pricing';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { reorderEventTypeVocab, setEventTypeStatus, updateEventTypePresentation } from '../actions';
+import { reorderEventTypeVocab, setEventTypeStatus, updateEventTypeForWhom, updateEventTypePresentation } from '../actions';
+import { FOR_WHOM_LABELS, FOR_WHOM_MODES } from '@/lib/create-subjects';
 import { setFolderEventTypeOffered, setTileEventTypeOffered, upsertEventTypeProfile } from '../event-type-actions';
 import type { BackState } from './back';
 import {
@@ -51,7 +52,7 @@ const SURFACES: { key: string; label: string }[] = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'monogram', label: 'Monogram' },
   { key: 'day_of', label: 'Day-of' },
-  { key: 'gallery', label: 'Gallery' },
+  { key: 'gallery', label: 'Memories' },
 ];
 
 // Prefill for a type with no saved profile row yet. 'website' is REQUIRED here,
@@ -340,7 +341,7 @@ export async function EventTypePanel({
             </label>
           ))}
         </div>
-        <ReadOnly>Day-of and Gallery need Website on — the save refuses otherwise.</ReadOnly>
+        <ReadOnly>Day-of and Memories need Website on — the save refuses otherwise.</ReadOnly>
         <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
@@ -360,6 +361,31 @@ export async function EventTypePanel({
           <KeyRow label="Onboarding link">
             <input name="onboarding_href" defaultValue={vocab.onboardingHref ?? ''} placeholder="/onboarding/…" className={`${INPUT} flex-1`} />
           </KeyRow>
+          <SubmitButton className={SAVE} pendingLabel="Saving…">
+            Save
+          </SubmitButton>
+        </form>
+      </Section>
+
+      <Section title="Who it’s for">
+        {/* The create grid's "For ▾" reads these ticks (owner 2026-10-26) — `event_type_vocab.for_whom`. */}
+        <form action={updateEventTypeForWhom} className="space-y-2" data-for-whom-form>
+          <BackFields state={state} />
+          <input type="hidden" name="event_type" value={eventType} />
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {FOR_WHOM_MODES.map((m) => (
+              <label key={m} className="inline-flex min-h-11 items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  name="for_whom"
+                  value={m}
+                  defaultChecked={vocab.forWhom == null || vocab.forWhom.includes(m)}
+                />
+                {FOR_WHOM_LABELS[m]}
+              </label>
+            ))}
+          </div>
+          <ReadOnly>Shown on the create grid only for the ticked answers. “Show all event types” still opens every type.</ReadOnly>
           <SubmitButton className={SAVE} pendingLabel="Saving…">
             Save
           </SubmitButton>

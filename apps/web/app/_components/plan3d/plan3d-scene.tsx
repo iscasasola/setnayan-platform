@@ -182,6 +182,8 @@ import {
   ceilingDecorOccupied,
 } from '@/app/_components/plan3d/venue-decor';
 import { sel, type ReceptionDesign } from '@/lib/reception-scene';
+import { canvasDpr } from '@/lib/phone-gpu-budget';
+import { usePhoneGpu, useWebglContextLost, ContextLostNotice } from '@/app/_components/plan3d/phone-gpu-budget';
 import {
   coldSparkFrame,
   coldSparkObstacles,
@@ -323,6 +325,8 @@ const SUIT_CLASS_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
  *  bits (skin tone = h % 6 — sharing parity would give every gown-wearer the
  *  same skin-tone subset). */
 function outfitForGuest(g: Plan3DGuest): FigureSpec['outfit'] {
+  /* 👗 A Wear the sample's dress code names for their role is worn as named (owner 2026-10-20) — no variety. */
+  if (g.outfit) return g.outfit;
   const h = hashGuestId(g.id) >>> 16;
   if (g.attire === 'gown') return GOWN_CLASS_OUTFITS[h % GOWN_CLASS_OUTFITS.length]!;
   if (g.attire === 'suit') return SUIT_CLASS_OUTFITS[h % SUIT_CLASS_OUTFITS.length]!;
@@ -844,6 +848,10 @@ export function Plan3DScene({
    *  vignette stay lab-Play concerns, this surface adds neither. */
   cinematic?: boolean;
 }) {
+  // 📱 The phone's 3D budget (`phone-gpu-budget.tsx`, owner 2026-10-29): a capped pixel ratio on a phone, and an honest
+  // line instead of a dead canvas when the browser takes WebGL away.
+  const phoneGpu = usePhoneGpu();
+  const webgl = useWebglContextLost();
   const reducedMotion = usePrefersReducedMotion();
   const room = useMemo(() => roomSize(floor), [floor]);
   const tablesById = useMemo(() => new Map(tables.map((t) => [t.id, t])), [tables]);
@@ -1444,9 +1452,13 @@ export function Plan3DScene({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    {webgl.lost ? <ContextLostNotice onRetry={webgl.retry} /> : null}
+    {!webgl.lost ? (
     <Canvas
+      key={webgl.attempt}
       shadows
-      dpr={[1, 2]}
+      dpr={canvasDpr(phoneGpu, 2)}
+      onCreated={webgl.onCreated}
       camera={{ position: initialCamPos, fov: 48, near: 0.1, far: 200 }}
       style={{ width: '100%', height: '100%', touchAction: 'none' }}
       gl={{ ...RECOMMENDED_TONEMAP }}
@@ -1493,7 +1505,8 @@ export function Plan3DScene({
         <boxGeometry
           args={[Math.max(1.5, (floor.stage.wPct / 100) * room.w), 0.28, Math.max(1, (floor.stage.hPct / 100) * room.d)]}
         />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+        {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+        <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Dance floor — the mood-board mural (Fable §3.7). This room previously
@@ -1704,6 +1717,7 @@ export function Plan3DScene({
         />
       ) : null}
     </Canvas>
+    ) : null}
 
     {/* Booth vendor card (bottom sheet / side drawer). Outside the Canvas — it's
         2D chrome. Backdrop-tap / X / ESC close it via the shared Sheet. */}

@@ -52,10 +52,10 @@ import {
   type PostEventSectionSwitch,
 } from './post-event-scenes';
 import { postEventRunKey } from './post-event-draft';
-import { sanitizeHubCanvas } from './hub-canvas';
 import type { SceneTemplateId } from './scene-templates';
-import { splitAroundEntourage, stageShowsEntourage } from './stage-scenes';
+import { splitAroundEntourage, stageShowsEntourage, type FixedPart } from './stage-scenes';
 import { welcomeParts } from './invitation-welcome';
+import { DAY_WELCOME_SCENES, hiddenOnStage, partOnStage, partsHiddenOn, sceneMeetsGuestsOn, stageChoice, whyNotInStageList } from './what-guests-see';
 
 /** The sections that are always in their place on a stage — never dragged. */
 export type MakerFixedKey =
@@ -76,7 +76,16 @@ export type MakerFixedKey =
   | 'find_your_seat'
   | 'photos_of_you'
   | 'announcements'
-  | 'live_hub';
+  | 'live_hub'
+  /* 👆 Two blocks a tap must pick (owner 2026-10-07: "every visible piece of the page must be a pickable part"):
+     the Details page's "THE DETAILS · WHEN · WHERE" block and the day's "Happening now" card. Selectable rows —
+     never navigator tiles of their own (the navigator lists what `makerStageList` builds). */
+  | 'details'
+  | 'spotlight'
+  /* 🕯 THE CLOSING (owner 2026-10-17, DECISION_LOG "THE CLOSING ('SEE YOU SOON') IS ITS OWN SCENE IN THE MAKER"):
+     "See you soon.", the couple's photo in the oval, the names-and-date band — the page's last block. A selectable
+     row like the two above, never a navigator tile; its Style is its Accent ◆ ▾ (`accent-row.tsx`, scene `sign-off`). */
+  | 'closing';
 
 export type MakerTile =
   | {
@@ -145,7 +154,19 @@ export type MakerFolded = {
   reason: string;
   /** The couple hid it — the eye can bring it back from here. */
   hiddenByCouple: boolean;
+  /**
+   * 👁 The couple hid it ON THIS STAGE (`config_json.stage_show`, owner 2026-10-10
+   * "WHAT GUESTS SEE") — also `hiddenByCouple`: since the eye writes the stage's
+   * own value, it brings this one back on this stage.
+   */
+  hiddenHere?: true;
 };
+
+/** The fold's line for the two scenes the Day's Welcome draws itself (the guest's look, the reminders). */
+export const ON_THE_DAYS_WELCOME = 'On the day, each guest meets it on their Welcome.';
+
+/** The fold's line for a scene the couple hid on this stage alone — the table's own phrase ("Hidden on The Day."). */
+export const hiddenOnStageLine = (stage: LifecyclePhase): string => `Hidden on ${PUBLIC_STAGE_LABELS[stage]}.`;
 
 export type MakerStageList = {
   stage: LifecyclePhase;
@@ -193,7 +214,10 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   find_your_seat: { label: 'Find your seat', why: 'Each guest sees their own table here, once your seating plan is published.' },
   photos_of_you: { label: "Each guest's own photos", why: 'Each guest sees the photos they are in, as they are taken.' },
   announcements: { label: 'Announcements', why: 'Your messages to guests appear at the top of the page once you send one.' },
-  live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
+  live_hub: { label: 'Live hub', why: 'Your live stream and Memory lane, when you have them on the day.' },
+  details: { label: 'The details', why: 'Your date and venue, from the venue you booked.' },
+  spotlight: { label: 'Happening now', why: 'On the day, guests are pointed to the live stream here.' },
+  closing: { label: 'Closing', why: 'Always last on the page — "See you soon." and your names.' },
 };
 
 /**
@@ -235,6 +259,25 @@ const DAY_PART_PLACES: readonly MakerDayPartPlace[] = ['before', 'after', 'last'
 export function makerDayPartsOn(stage: LifecyclePhase, place?: MakerDayPartPlace): MakerFixedKey[] {
   const places = place ? [place] : DAY_PART_PLACES;
   return places.flatMap((pl) => MAKER_DAY_PARTS.filter((p) => p.place === pl && p.stages.includes(stage)).map((p) => p.key));
+}
+
+/**
+ * 👁 THE FIXED TILES THAT ARE A ROW OF "WHAT GUESTS SEE" (pass 2). On a stage where the couple hid the part
+ * (`config_json.part_show`, read by `partsHiddenOn`), its tile leaves this list and its stand-in leaves the canvas —
+ * the Maker shows what the guest page shows, from the one reading. A tile with no entry here is not the table's to hide.
+ */
+export const MAKER_FIXED_PART: Partial<Record<MakerFixedKey, FixedPart>> = {
+  gifts: 'gifts',
+  entourage: 'entourage',
+  find_your_seat: 'seat',
+  photos_of_you: 'photosofyou',
+  live_hub: 'live',
+};
+
+/** True when this fixed tile's part is one the couple hid on the stage (`off` = `partsHiddenOn(…)`). */
+export function fixedTileHidden(key: MakerFixedKey, off: ReadonlySet<FixedPart>): boolean {
+  const part = MAKER_FIXED_PART[key];
+  return part !== undefined && off.has(part);
 }
 
 /**
@@ -293,9 +336,14 @@ export const MAKER_FIXED_SOURCE: Partial<
   /* 🎨 The day's own parts: their Style is picked in the panel; what fills them
      comes from here. */
   find_your_seat: { text: 'Each table comes from your seating plan.', page: 'seating', link: 'Open your seating plan', from: 'your seating plan' },
-  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
+  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your Memories', from: 'the photos taken on the day' },
   announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
-  live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
+  live_hub: { text: 'Filled from your live stream and your Memory lane.', page: 'live', link: 'Open your Memory lane', from: 'your live settings' },
+  details: { text: 'Your date and venue come from the venue you booked.', page: 'schedule', link: 'Open your schedule', from: 'the venue you booked' },
+  spotlight: { text: 'Shown on the day while your live stream is on.', page: 'live', link: 'Open your Memory lane', from: 'your live settings' },
+  /* 🕯 The closing's words are the cover's (the names, the date) and its oval holds the cover photo; its one choice — the
+     Accent — is picked right here (`accent-row.tsx`). */
+  closing: { text: 'Your names, your date and your cover photo — from your cover.', page: 'schedule', link: 'Open your schedule', from: 'your cover' },
   greeting: {
     text: 'Each guest sees their own greeting — written from your guest list.',
     page: 'guests',
@@ -524,16 +572,16 @@ export function widgetsGuestsMeet<T extends { widget_type: string; config_json?:
   // 🎞 A scene seeded from one of Post Event's presets can only be written
   // AFTER something happened (strategy §5) — it is on Post Event and nowhere
   // else, though it is one of the six the couple's own scenes share.
-  return widgets.filter(
-    (w) =>
-      w.widget_type !== 'tier_comparison' &&
-      (stage === 'editorial' || !isCustomSectionType(w.widget_type) || !sanitizeHubCanvas(w.config_json).postEventPreset),
-  );
+  // The rule itself is `sceneMeetsGuestsOn` (`lib/what-guests-see.ts`) — the same
+  // one that refuses to ADD such a scene to another stage.
+  return widgets.filter((w) => sceneMeetsGuestsOn(w, stage));
 }
 
 export function makerStageList(input: MakerStageInput): MakerStageList {
   const { stage, openBrowse } = input;
   const widgets = widgetsGuestsMeet(input.widgets, stage);
+  /* 👁 The parts the couple hid on this stage ("What guests see") — read from the rows as given: the hero row carries them. */
+  const partsOff = partsHiddenOn(input.widgets, stage, true);
   const plan = resolveSiteBodyPlan({
     identity: 'anonymous',
     phasesEnabled: true,
@@ -608,7 +656,10 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   };
   for (const part of welcome) {
     if (part === 'look') shown.push(fixed('look'));
-    else if (part === 'gifts') shown.push(fixed('gifts'));
+    else if (part === 'gifts') {
+      // 👁 …and no gift tile on a stage the couple hid E-Gifts on — as the page (`site-body.tsx` `partsOff`).
+      if (!fixedTileHidden('gifts', partsOff)) shown.push(fixed('gifts'));
+    }
     else {
       const row = drawable.find((w) => w.widget_type === 'what_to_bring');
       if (row) shown.push(sceneTile(row));
@@ -619,7 +670,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   // place among the sections, exactly where the Maker's canvas draws its
   // stand-in (`MAKER_DAY_PARTS`).
   const dayParts = (place: MakerDayPartPlace) => {
-    if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) shown.push(fixed(k));
+    if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) if (!fixedTileHidden(k, partsOff)) shown.push(fixed(k));
   };
   dayParts('before');
   // 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`,
@@ -628,15 +679,18 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   for (const w of around.before) shown.push(sceneTile(w));
   dayParts('after');
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
-  if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
+  // 👁 The couple's choice for this stage when there is one — hidden here, or added where it is not our pick.
+  if (input.hasEntourage && partOnStage(input.widgets, 'entourage', stage, true, stageShowsEntourage(stage))) shown.push(fixed('entourage'));
   for (const w of around.after) shown.push(sceneTile(w));
   dayParts('last');
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
   // "Our love story" scene on the page, the prose section is not drawn.
+  // 👁 …and not at all on a stage the couple hid the love story on (`storyOffHere`, site-body).
   if (
     input.storyRenders &&
     input.weddingOnlyParts?.love_story !== false &&
-    !drawable.some((w) => w.widget_type === 'our_love_story')
+    !drawable.some((w) => w.widget_type === 'our_love_story') &&
+    !hiddenOnStage(widgets, 'our_love_story', stage, true)
   )
     shown.push(fixed('story'));
 
@@ -648,18 +702,39 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   for (const w of hideable) {
     if (drawn.has(w.widget_id)) continue;
     const t = w.widget_type;
-    const visible = openBrowse ? openBrowseSectionVisible(w) : w.is_visible;
+    /* 👁 The couple's choice for THIS stage decides first, as it does on the page
+       (`sceneInStageList`): hidden here says so; shown here is past the eye and
+       past "not part of this stage", and is folded only if it cannot be here. */
+    const choice = stageChoice(w, stage, true);
+    const eyeOn = openBrowse ? openBrowseSectionVisible(w) : w.is_visible;
+    const visible = choice === true || eyeOn;
+    const refused = choice === true ? whyNotInStageList(w, { stage, reader: 'anonymous', film: plan.body === 'save_the_date' }) : null;
     let reason: string;
-    if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
+    if (choice === false) reason = hiddenOnStageLine(stage);
+    else if (!visible) reason = 'Hidden from guests — tap the eye to show it.';
     else if (GUEST_ONLY.has(t)) reason = "Only on each guest's own link.";
-    else if (!openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
+    /* 🧭 ON THE DAY THE WELCOME DRAWS IT (`welcomePartsOnTheDay`): the dress code (the guest's look) and the reminders
+       are not in the day's list of scenes, and a guest still meets them — so the fold says where, never "Not part of
+       this stage" (which sent a couple looking for a scene their guests were already reading). */
+    else if (stage === 'event' && DAY_WELCOME_SCENES.includes(t)) reason = ON_THE_DAYS_WELCOME;
+    else if (refused === 'resolveWidgetTerminalState') reason = 'Retired after the day.';
+    else if (refused === 'SCENES_RETIRED_ON_THE_DAY') reason = 'Retired — the day has arrived.';
+    else if (choice !== true && !openBrowse && !widgetInPhase(t, stage)) reason = `Not part of this stage. ${showsOn(t)}`;
     else if (!PUBLIC_WIDGET_ALLOWLIST.includes(t)) reason = "Only on each guest's own link.";
     else if (openBrowse && !isTerminalRenderable(resolveWidgetTerminalState(t, stage))) reason = 'Retired after the day.';
     else if (openBrowse && w.audience === 'guests_only') reason = 'Only for invited guests (set to guests only).';
     else reason = whyNotDrawn(w, input) ?? 'Not drawn on this stage.';
     // A scene this event type never has is not "folded" — it is not there.
     if (reason === NOT_THIS_TYPE) continue;
-    folded.push({ key: `w:${t}`, widgetId: w.widget_id, type: t, label: makerSceneLabel(t), reason, hiddenByCouple: !visible });
+    folded.push({
+      key: `w:${t}`,
+      widgetId: w.widget_id,
+      type: t,
+      label: makerSceneLabel(t),
+      reason,
+      hiddenByCouple: choice === false || !visible,
+      ...(choice === false ? { hiddenHere: true as const } : {}),
+    });
   }
   const listedGuestScene: Partial<Record<WidgetType, boolean>> = {
     greeting: plan.greetingShouldRender,

@@ -21,14 +21,14 @@
  * celebration silently lost its seal. A badge is the same shape of risk.
  */
 
-export const EVENT_LINKED_BADGE_LABEL = 'A Setnayan celebration';
+export const EVENT_LINKED_BADGE_LABEL = 'A Setnayan event';
 
 export function EventLinkedBadge({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <span
       className="badge event-linked"
-      title="This photo was delivered on a celebration booked through Setnayan"
+      title="This photo was delivered on an event booked through Setnayan"
     >
       {EVENT_LINKED_BADGE_LABEL}
     </span>

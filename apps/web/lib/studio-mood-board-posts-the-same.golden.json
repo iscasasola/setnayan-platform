@@ -1,0 +1,581 @@
+{
+  "_about": "RECORDED 2026-10-09 from Studio › Mood Board & Dress Code AS IT STOOD BEFORE any control moved onto the templates: the page was bundled with esbuild (its server actions replaced by recorders), loaded in Chromium at 375 px and driven (a main colour picked · two quick picks · a part set and set back · ✨ Auto · a role colour added, changed, removed · what to wear · a photo uploaded and removed · a supplier change kept and undone · the photos palette taken · an Undo · the do and dont lists edited · a part palette taken · and each of those refused or dropped). calls = every server action the page called, with the FormData it built (as ordered [name, value] pairs; a File is FILE(name,type)). says = what the page said — it changes on purpose: the old page printed the database words and let a refused photo removal look removed. Re-record only with a reason written in the commit. after = what the converted page said and showed on the same drive, recorded when it was converted (the failure words are the page's own plain sentences).",
+  "m1_main": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#3E3350\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m2_two_quick": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#3E3350\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#3E3350\",\"#2A3A5E\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m3_part_set": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"],\"room_dressing\":{\"linens\":\"#2C2A29\"}}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m3_part_follow": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m4_auto": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#C99A9A\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m5_role_add": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#1A1A1A\",\"#A9834B\",\"#B5543A\"],\"bridesmaids\":[\"#D9C4CF\"],\"touched_roles\":[\"groom\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m5_role_change": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#A9834B\",\"#A9834B\"],\"groom\":[\"#1A1A1A\",\"#A9834B\",\"#B5543A\"],\"bridesmaids\":[\"#D9C4CF\"],\"touched_roles\":[\"groom\",\"bride\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m5_role_remove": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#A9834B\"],\"groom\":[\"#1A1A1A\",\"#A9834B\",\"#B5543A\"],\"bridesmaids\":[\"#D9C4CF\"],\"touched_roles\":[\"groom\",\"bride\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m6_wear": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"dress_code_config\":{\"roles\":{\"bride\":{\"style\":\"long_gown\"},\"groom\":{\"style\":\"cocktail_dress\"}},\"dos\":[\"Lean into the palette\"],\"donts\":[\"No white\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "options": [
+      "Not said yet✓",
+      "Long gown",
+      "Cocktail dress",
+      "Filipiniana"
+    ]
+  },
+  "m7_upload": {
+    "calls": [
+      {
+        "action": "uploadMoodboardSlot",
+        "args": [
+          {
+            "formData": [
+              [
+                "event_id",
+                "E1"
+              ],
+              [
+                "slot_key",
+                "flowers"
+              ],
+              [
+                "slot_position",
+                "2"
+              ],
+              [
+                "file",
+                "FILE(rose.png,image/png)"
+              ],
+              [
+                "palette_json",
+                "[\"#F8F1E7\",\"#E2D5C0\",\"#C9A87C\",\"#9B7A4F\",\"#5C3A1E\",\"#2B1810\"]"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m8_remove": {
+    "calls": [
+      {
+        "action": "removeMoodboardSlot",
+        "args": [
+          {
+            "formData": [
+              [
+                "event_id",
+                "E1"
+              ],
+              [
+                "slot_key",
+                "flowers"
+              ],
+              [
+                "slot_position",
+                "1"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m9_keep": {
+    "calls": []
+  },
+  "m9_undo_it": {
+    "calls": [
+      {
+        "action": "rejectColourChange",
+        "args": [
+          "E1",
+          "c1"
+        ]
+      }
+    ]
+  },
+  "m10_use_five": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#C99A9A\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "m11_undo": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "d1_edit": {
+    "calls": [
+      {
+        "action": "updateDressCodeLists",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "draft",
+                "1"
+              ],
+              [
+                "dos",
+                "Lean into the palette and a little sparkle"
+              ],
+              [
+                "donts",
+                "No white"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "d2_add": {
+    "calls": [
+      {
+        "action": "updateDressCodeLists",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "draft",
+                "1"
+              ],
+              [
+                "dos",
+                "Lean into the palette and a little sparkle"
+              ],
+              [
+                "dos",
+                "Wear a hat"
+              ],
+              [
+                "donts",
+                "No white"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "d3_unchanged": {
+    "calls": []
+  },
+  "m14_use_slot": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#5B4A6B\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"],\"room_dressing\":{\"florals\":\"#C99A9A\"}}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "f1_refused": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#3E3350\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "says_before": [
+      "Not saved — try again",
+      "new row violates row-level security policy for table \"events\""
+    ],
+    "after": {
+      "says": [
+        "Your colours did not save to your draft. Nothing changed — please try again."
+      ]
+    }
+  },
+  "f2_thrown": {
+    "calls": [
+      {
+        "action": "hubDraftAction",
+        "args": [
+          "E1",
+          {
+            "formData": [
+              [
+                "intent",
+                "save"
+              ],
+              [
+                "patch",
+                "{\"events\":{\"role_palette\":{\"reception\":[\"#3E3350\",\"#D9C4CF\",\"#A9834B\",\"#F7F2EC\",\"#7A8B6F\"],\"bride\":[\"#F7F2EC\",\"#D9C4CF\",\"#A9834B\"],\"groom\":[\"#2C2A29\"],\"bridesmaids\":[\"#D9C4CF\"]}}}"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "says_before": [
+      "Not saved — try again",
+      "Dominant changed — headings and big blocks · flowers · lights.Undo"
+    ],
+    "after": {
+      "says": [
+        "Your colours did not save to your draft. Nothing changed — please try again."
+      ]
+    }
+  },
+  "f3_upload_refused": {
+    "calls": [
+      {
+        "action": "uploadMoodboardSlot",
+        "args": [
+          {
+            "formData": [
+              [
+                "event_id",
+                "E1"
+              ],
+              [
+                "slot_key",
+                "flowers"
+              ],
+              [
+                "slot_position",
+                "2"
+              ],
+              [
+                "file",
+                "FILE(rose.png,image/png)"
+              ],
+              [
+                "palette_json",
+                "[\"#F8F1E7\",\"#E2D5C0\",\"#C9A87C\",\"#9B7A4F\",\"#5C3A1E\",\"#2B1810\"]"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "says_before": [
+      "Not saved — try again",
+      "invalid input syntax for type uuid"
+    ],
+    "after": {
+      "says": [
+        "That photo did not upload — please try again."
+      ]
+    }
+  },
+  "f4_undo_it_refused": {
+    "calls": [
+      {
+        "action": "rejectColourChange",
+        "args": [
+          "E1",
+          "c1"
+        ]
+      }
+    ],
+    "says_before": [
+      "Not saved — try again",
+      "That did not undo. Nothing changed — please try again."
+    ],
+    "still_there_after": 1,
+    "after": {
+      "says": [
+        "That did not undo. Nothing changed — please try again."
+      ],
+      "stillThere": 1
+    }
+  },
+  "f5_remove_refused": {
+    "calls": [
+      {
+        "action": "removeMoodboardSlot",
+        "args": [
+          {
+            "formData": [
+              [
+                "event_id",
+                "E1"
+              ],
+              [
+                "slot_key",
+                "flowers"
+              ],
+              [
+                "slot_position",
+                "1"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "says_before": [],
+    "photos_after": 1,
+    "after": {
+      "says": [
+        "That photo did not come off the board — please try again."
+      ],
+      "photos": 2
+    }
+  }
+}

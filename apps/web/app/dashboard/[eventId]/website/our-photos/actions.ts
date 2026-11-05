@@ -49,7 +49,7 @@
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
@@ -63,6 +63,7 @@ export async function updateOurPhotos(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // The multi-file <FileUpload> emits one hidden input named `photos` per
@@ -102,7 +103,8 @@ export async function updateOurPhotos(
      canvas and named on the Apply sheet. The screen below still runs first —
      and Apply screens every new photo again before one goes live. */
   const drafting = isHubDraftWrite(formData);
-  if (!drafting) await requireLookPro(eventId, galleryChange(currentRefs, deduped));
+  // 💎 The gallery is the Photos part's (owner 2026-10-22, gate 6).
+  if (!drafting) await requireLookPro(eventId, galleryChange(currentRefs, deduped), 'photos');
 
   // ── NSFW screen, on the NEW refs only, BEFORE anything is persisted ─────────
   // See the module note: this surface has no `moderation_state` to hide behind, so

@@ -9,8 +9,11 @@
  * "Assign" button opens a bottom sheet (Side / Role / Group + create-new).
  *
  * ⤷ 2026-09-30: the phone-only head that held the count / select-all /
- * Assign is gone — a long press on a row starts selecting and the ONE bulk bar
- * (in `GuestListMultiselect`) holds the count and the actions at every width.
+ * Assign is gone — the ONE bulk bar (in `GuestsScreen`) holds the count and the
+ * actions at every width.
+ * ⤷ 2026-11-04 (owner: "keep long-press as drag"): a long press on a row LIFTS it
+ * to drag to a new role (`guest-role-drag.tsx`) — it does NOT start selecting.
+ * Select starts from the List's top-row ☑ Select (or ⚙ › Pick who).
  * The store stays a tiny module-level external store (`useSyncExternalStore`)
  * so the rows, the header checkbox and the bulk bar share one source of truth.
  *
@@ -66,7 +69,7 @@ function commit(next: { selectMode?: boolean; ids?: string[]; viaAll?: boolean }
     // empty selection inside select mode was a mode with no way out. Now any
     // change that empties the selection (untick, Clear, a finished action)
     // also leaves the mode — unless the caller is ENTERING it on purpose
-    // (`enter()`, which a long press follows with the first tick).
+    // (`enter()`, which the first tick follows).
     selectMode: next.selectMode ?? (ids.length === 0 ? false : state.selectMode),
     ids,
     set: new Set(ids),

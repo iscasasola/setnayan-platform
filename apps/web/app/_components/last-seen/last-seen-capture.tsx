@@ -29,10 +29,24 @@ import { LastSeenMark, lastSeenPath, takeLastSeenShown } from './last-seen-mark'
 export function LastSeenCapture({
   page,
   fresh = true,
+  keepHtml = true,
+  showMark = true,
   children,
 }: {
   page: LastSeenPage;
   fresh?: boolean;
+  /**
+   * 📋 false when the page keeps its DATA itself (the Guest list, 2026-10-16: `GuestsScreen` keeps the rows
+   * it draws, and its loading screen draws them LIVE). This wrapper then only says "Updated just now" —
+   * one copy per page, never a picture of the list beside the list.
+   */
+  keepHtml?: boolean;
+  /**
+   * false when the page says "Updated just now" itself, in its own flow (the Guest list's copy line,
+   * `guests/_components/guest-copy-mark.tsx`) — this wrapper then neither draws its floating pill nor takes
+   * the loading screen's note (the page takes it).
+   */
+  showMark?: boolean;
   children: ReactNode;
 }) {
   const scope = useLastSeenScope();
@@ -41,15 +55,15 @@ export function LastSeenCapture({
 
   // The loading screen showed old data for this page → say it is now current.
   useEffect(() => {
-    if (!takeLastSeenShown(page)) return;
+    if (!showMark || !takeLastSeenShown(page)) return;
     setJustUpdated(true);
     const t = window.setTimeout(() => setJustUpdated(false), 2500);
     return () => window.clearTimeout(t);
-  }, [page]);
+  }, [page, showMark]);
 
   useEffect(() => {
     const root = ref.current;
-    if (!scope || !fresh || !root) return;
+    if (!scope || !fresh || !keepHtml || !root) return;
     let timer = 0;
     let alive = true;
     const take = () => {
@@ -98,7 +112,7 @@ export function LastSeenCapture({
       watcher.disconnect();
       window.clearTimeout(timer);
     };
-  }, [scope, fresh, page]);
+  }, [scope, fresh, keepHtml, page]);
 
   return (
     <div ref={ref} data-last-seen-root={page} style={{ display: 'contents' }}>

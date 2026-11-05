@@ -237,9 +237,9 @@ export default async function ChapterDetailPage({ params }: Props) {
 
             {linkedEventId ? (
               <div className="uchap-block">
-                <p className="uchap-block-label">Gallery</p>
+                <p className="uchap-block-label">Memories</p>
                 <p className="uchap-note">
-                  A Papic gallery of candid photos + clips sits behind this
+                  Papic Memories of candid photos + clips sit behind this
                   chapter.
                 </p>
               </div>

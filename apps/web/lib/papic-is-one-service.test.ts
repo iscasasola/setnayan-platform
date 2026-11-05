@@ -125,18 +125,20 @@ test('🚨 no customer-facing string names a retired Papic product', () => {
   );
 });
 
-test('🚨 the pricing estimator offers no choice BETWEEN two Papics', () => {
-  const est = stripComments(
-    readFileSync(join(WEB_ROOT, 'app/(shell)/pricing/_papic-estimator.tsx'), 'utf8'),
-  );
-  for (const shape of ["'one' | 'pool'", "Mode>", 'setMode', 'effectiveMode']) {
+// The /pricing estimator this used to read was deleted 2026-10-25 (prototype pricing_ours_only revision 5: /pricing is
+// five parts, no estimator). The promise moves to the surfaces that now price Papic: the page and the questionnaire.
+test('🚨 /pricing and its questionnaire offer no choice BETWEEN two Papics', () => {
+  for (const rel of ['app/(shell)/pricing/page.tsx', 'app/(shell)/pricing/plan/_plan-steps.ts']) {
+    const est = stripComments(readFileSync(join(WEB_ROOT, rel), 'utf8'));
+    for (const shape of ["'one' | 'pool'", "Mode>", 'setMode', 'effectiveMode']) {
+      assert.ok(
+        !est.includes(shape),
+        `${rel}: the two-product switch is back (${shape}) — one Papic, and setting shots aside for a camera happens inside the event`,
+      );
+    }
     assert.ok(
-      !est.includes(shape),
-      `the two-product switch is back (${shape}) — one Papic, and setting shots aside for a camera happens inside the event`,
+      !/dedicated cameras or a shared/i.test(est),
+      `${rel}: the headline offers a fork again — "or" is the bug; it is one product`,
     );
   }
-  assert.ok(
-    !/dedicated cameras or a shared/i.test(est),
-    'the headline offers a fork again — "or" is the bug; it is one product',
-  );
 });

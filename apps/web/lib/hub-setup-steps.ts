@@ -66,7 +66,9 @@ export type HubSetupStepDef = {
  * THE STEPS, in THE MAP's order. DATA: a new step is a row.
  * B5 and B6 are ONE step — THE MAP draws them as one row ("What to ask guests ▾ ·
  * Reply-by"), they unlock one thing together ("RSVP can go live") and they are
- * edited in one Maker place (Details › RSVP, `maker-rsvp-ask.tsx`).
+ * edited in one place: Guests ⚙ (R1, owner 2026-10-28 — it was the Maker's Details › RSVP, the Studio RSVP tile).
+ * `item: 'rsvp'` is the PRESENCE of a reply on this event; the walk opens the sheet's rows
+ * (`lib/details-guided-flow.ts` — the 'rsvp' and 'reply-by' links, `guests: 'asks' | 'reply-by'`).
  */
 export const HUB_SETUP_STEPS: readonly HubSetupStepDef[] = [
   {

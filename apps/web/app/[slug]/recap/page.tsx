@@ -7,8 +7,10 @@ import { notFound, redirect } from 'next/navigation';
 import { Camera, Film, Quote, Radio, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
+import { hasntAfter } from '../_lib/names-verb';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { isRecapPublished, assembleRecapModel, type RecapModel } from '@/lib/auto-recap';
@@ -45,14 +47,17 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from('events')
-    .select(
-      `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
-  return data;
+  // 🔌 A failed read throws (the guest boundary) — never "This link can't be
+  // found." for an event that is there (lib/guest-read.ts).
+  return guestRead('recap (event)', () =>
+    admin
+      .from('events')
+      .select(
+        `event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, scheduled_launch_at, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
 });
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -214,12 +219,12 @@ export default async function RecapPage({ params }: { params: Promise<{ slug: st
           <Sparkles aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.5} />
           <h1 className="mt-4 font-display text-3xl italic">The recap isn&rsquo;t ready yet</h1>
           <p className="mt-3 max-w-prose text-ink/65">
-            {event.display_name} hasn&rsquo;t published their {words.eventWord} recap. Check back
+            {event.display_name} {hasntAfter(event.display_name, words.twoPeople)} published their {words.eventWord} recap. Check back
             soon — or visit their page in the meantime.
           </p>
           <Link
             href={`/${event.slug}`}
-            className="mt-6 inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
+            className="mt-6 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
           >
             Open their page
           </Link>
@@ -301,9 +306,9 @@ function RecapHeader() {
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
         <span className="flex items-center gap-2 text-ink">
           <Logo height={28} />
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
+          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Setnayan</span>
         </span>
-        <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/50">The Recap</span>
+        <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">The Recap</span>
       </div>
     </header>
   );
@@ -312,10 +317,10 @@ function RecapHeader() {
 function RecapFooter({ hideWatermark = false }: { hideWatermark?: boolean }) {
   return (
     <footer className="border-t border-ink/10 px-4 py-8 text-center">
-      <p className="font-serif text-lg italic text-terracotta">A living memory.</p>
+      <p className="font-serif text-lg italic text-terracotta-700">A living memory.</p>
       {/* Paid COUPLE_WEBSITE_PRO perk — drop the freemium watermark when active. */}
       {hideWatermark ? null : (
-        <p className="mt-3 text-xs text-ink/50">Powered by Setnayan · setnayan.com</p>
+        <p className="mt-3 text-xs text-ink/70">Powered by Setnayan · setnayan.com</p>
       )}
     </footer>
   );
@@ -380,11 +385,11 @@ function RecapHero({ model, mono }: { model: RecapModel; mono: HeroMonogramData 
           {model.monogramText}
         </span>
       )}
-      <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta">The Recap</p>
+      <p className="font-mono text-xs uppercase tracking-[0.25em] text-terracotta-700">The Recap</p>
       <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
         {model.coupleNames}
       </h1>
-      {meta ? <p className="text-base text-ink/60">{meta}</p> : null}
+      {meta ? <p className="text-base text-ink/70">{meta}</p> : null}
     </div>
   );
 }
@@ -401,7 +406,7 @@ function RecapStats({ model }: { model: RecapModel }) {
       {items.map((it) => (
         <div key={it.label} className="text-center">
           <p className="font-display text-3xl text-mulberry">{it.n}</p>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">{it.label}</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">{it.label}</p>
         </div>
       ))}
     </div>
@@ -427,7 +432,7 @@ function RecapPrologue({ model }: { model: RecapModel }) {
       {model.milestones.length > 0 ? (
         <ul className="mt-6 space-y-1.5">
           {model.milestones.slice(0, 9).map((m, i) => (
-            <li key={i} className="text-sm text-ink/60">
+            <li key={i} className="text-sm text-ink/70">
               <span className="font-medium text-ink/80">{m.label}</span>
               {m.detail ? ` — ${m.detail}` : ''}
             </li>
@@ -456,7 +461,7 @@ function ChapterBlock({ chapter }: { chapter: RecapModel['dayChapters'][number] 
     <section className="mb-12">
       <div className="mb-4">
         <h2 className="font-display text-2xl text-mulberry">{chapter.title}</h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
           {[chapter.subtitle, chapter.whenLabel].filter(Boolean).join(' · ')}
         </p>
       </div>
@@ -473,7 +478,7 @@ function CuratedGallery({ urls }: { urls: string[] }) {
           <Camera aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Their photos
         </h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
           The moments they chose to share
         </p>
       </div>
@@ -490,7 +495,7 @@ function Reels({ urls }: { urls: string[] }) {
           <Film aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Reels from the day
         </h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
           Short clips, made on the day
         </p>
       </div>
@@ -525,7 +530,7 @@ function PanoodReplay({ embedUrl }: { embedUrl: string }) {
           <Radio aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Watch the livestream
         </h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
           The broadcast, replayed
         </p>
       </div>
@@ -552,7 +557,7 @@ function Voices({ voices }: { voices: RecapModel['voices'] }) {
           <Quote aria-hidden className="h-5 w-5 text-gold" strokeWidth={1.75} />
           Mga Boses
         </h2>
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/50">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
           The voices of their guests
         </p>
       </div>

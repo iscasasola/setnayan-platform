@@ -19,6 +19,9 @@ export async function servicesReturnBase(): Promise<string> {
     const ref = (await headers()).get('referer');
     if (ref) {
       const { pathname } = new URL(ref);
+      // 🧰 A new shop's "What you offer" step opens the maker as a SHEET over Today (owner 2026-10-28) — the card
+      // made, the supplier is back on Today with the step's count moved, never sent to My Shop.
+      if (pathname === '/vendor-dashboard') return '/vendor-dashboard';
       if (
         pathname === '/vendor-dashboard/shop' ||
         pathname.startsWith('/vendor-dashboard/shop/')

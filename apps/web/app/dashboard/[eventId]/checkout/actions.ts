@@ -67,7 +67,12 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
+import { readWelcomeDecision, welcomeChargeFor } from '@/lib/welcome-discount.server';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
+import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/checkout-submit-refusal';
+import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-parts';
+import { hubPartPrices } from '@/lib/couple-website-pro';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -109,6 +114,12 @@ export type ApplyVoucherResult = {
   discount_php: string;
   final_php: string;
   reason?: string;
+  /**
+   * 💲 Only on an `intent=welcome_quote` call: the website-only welcome price for
+   * the line, or null when the buyer is not on it (switch off, the app, not a
+   * first purchase, any read failed).
+   */
+  welcome?: { welcomeCentavos: string; pct: number } | null;
 };
 
 export async function applyVoucherAction(
@@ -116,6 +127,25 @@ export async function applyVoucherAction(
   formData: FormData,
 ): Promise<ApplyVoucherResult> {
   void prevState;
+
+  // 💲 The drawer's welcome-price check rides this read (see quoteWelcomeForLine).
+  if (formData.get('intent') === 'welcome_quote') {
+    const hubPartsRaw = formData.get('hub_parts');
+    const q = await quoteWelcomeForLine({
+      eventId: String(formData.get('event_id') ?? ''),
+      serviceKey: String(formData.get('service_key') ?? ''),
+      hubParts: typeof hubPartsRaw === 'string' ? hubPartsRaw : undefined,
+    });
+    return {
+      applied: false,
+      code: null,
+      discount_centavos: '0',
+      final_centavos: '0',
+      discount_php: '',
+      final_php: '',
+      welcome: q,
+    };
+  }
 
   const code = formData.get('code');
   const serviceKey = formData.get('service_key');
@@ -250,6 +280,7 @@ export type SubmitOrderResult =
 export async function submitOrderAction(
   formData: FormData,
 ): Promise<SubmitOrderResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const serviceKey = formData.get('service_key');
   const displayName = formData.get('display_name');
@@ -498,7 +529,7 @@ export async function submitOrderAction(
         return {
           ok: false,
           reason:
-            'This one only runs during your celebration, and yours has finished. Everything that turns the day into a keepsake is still open.',
+            'This one only runs during your event, and yours has finished. Everything that turns the day into a keepsake is still open.',
         };
       }
     }
@@ -557,9 +588,13 @@ export async function submitOrderAction(
   // and arithmetic on that brand yields a plain bigint that will not type-check
   // back into a total. The 36× overcharge is now unrepresentable rather than
   // guarded. See the module header.
+  /* 💎 Several Event Hub Pro parts in one press (owner 2026-10-22) — the parts are read strictly from the form and
+     priced by the authority from the catalogue; anything else on this key is refused there. */
+  const hubParts = serviceKey === HUB_PARTS_ORDER_KEY ? parseHubPartsField(formData.get('hub_parts')) : [];
   const authority = await resolveOrderChargeCentavos({
     serviceKey,
     eventId: eventIdClean,
+    hubParts,
   });
   if (!authority.ok) {
     await insertFaultLog({
@@ -576,9 +611,9 @@ export async function submitOrderAction(
     return { ok: false, reason: refusalMessage(authority.refusal) };
   }
 
-  // The ONE authoritative amount for this order. `const` + the brand means it
-  // cannot be reassigned or re-multiplied downstream.
-  const chargeTotal: OrderTotalCentavos = authority.total;
+  // The REGULAR catalogue charge — what the tripwire below checks against the
+  // figure the buyer was shown. The welcome price (below) may only LOWER it.
+  const regularTotal: OrderTotalCentavos = authority.total;
   // SEC-3: the pax this order is PRICED at, frozen onto the order row below.
   // events.estimated_pax is legitimately host-writable and stays that way, so
   // the billed pax must never be re-derivable from it after the fact. Same
@@ -598,7 +633,7 @@ export async function submitOrderAction(
   // the host-writable estimate.
   if (
     chargeOverchargesDisplayedPrice({
-      total: chargeTotal,
+      total: regularTotal,
       displayedCentavos,
       volatile: authority.volatile,
     })
@@ -607,7 +642,7 @@ export async function submitOrderAction(
       event_type: 'OTHER',
       element_name: 'Checkout would overcharge the displayed price',
       file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
-      error_message: `resolved ${chargeTotal.toString()} > displayed ${displayedCentavos?.toString()}`,
+      error_message: `resolved ${regularTotal.toString()} > displayed ${displayedCentavos?.toString()}`,
       payload_snapshot: { eventId: eventIdClean, serviceKey, source: authority.source },
     });
     return {
@@ -615,6 +650,38 @@ export async function submitOrderAction(
       reason: 'The price for this changed. Please refresh the page and try again.',
     };
   }
+
+  // ── 💲 The website-only welcome price (owner 2026-10-28, "ONE PRICE EVERYWHERE") ──
+  // An account's FIRST purchase, on the website only, at the shipped set-up rule
+  // (`lib/welcome-discount.ts`). Decided HERE from the session, the request's own
+  // shell signals and the orders table — never from a form field. It does not
+  // stack: a buyer who applied a voucher pays the voucher price instead.
+  //
+  // 🔑 THE SCREEN AND THE CHARGE MUST AGREE. The drawer says whether it SHOWED the
+  // welcome price (`welcome_quoted`); if the server now decides otherwise (another
+  // purchase landed in a second tab, the owner switched it off) the sale is
+  // refused with "the price changed" rather than billing a figure the QR did not
+  // carry. The flag never sets the price — it only refuses a disagreement.
+  const voucherRequested = typeof voucherCodeRaw === 'string' && voucherCodeRaw.trim().length > 0;
+  const welcome = voucherRequested
+    ? null
+    : await welcomeChargeFor({
+        decision: await readWelcomeDecision(user.id),
+        serviceKey,
+        eventId: eventIdClean,
+        regular: authority,
+      });
+  const welcomeApplied = welcome !== null && welcome.ok;
+  if (welcomeApplied !== (formData.get('welcome_quoted') === '1')) {
+    return {
+      ok: false,
+      reason: 'The price for this changed. Please refresh the page and try again.',
+    };
+  }
+
+  // The ONE authoritative amount for this order. `const` + the brand means it
+  // cannot be reassigned or re-multiplied downstream.
+  const chargeTotal: OrderTotalCentavos = welcome && welcome.ok ? welcome.total : regularTotal;
 
   const originalCentavos: bigint = chargeTotal;
 
@@ -785,7 +852,8 @@ export async function submitOrderAction(
     },
     {
       service_key: serviceKey,
-      description: displayName,
+      // The admin reconciling this bill sees WHY it is below the catalogue price.
+      description: welcomeApplied ? `${displayName} · Welcome price (first purchase)` : displayName,
       requested_total_php: originalPriceForOrderTotal,
       reference_code: referenceCode,
       platform: orderPlatform,
@@ -828,13 +896,39 @@ export async function submitOrderAction(
       error_message: String(orderErr?.message ?? 'orders insert returned no row'),
       payload_snapshot: { eventId: eventIdClean, serviceKey, referenceCode, voucherApplied: Boolean(voucherCodeNormalized) },
     });
+    // 💸 A retry of a LANDED submit is refused by the UNIQUE reference (the
+    // double-order guard, unchanged); say so in plain words, never the raw text.
+    const landedForThisBuyer = isUniqueRefusal(orderErr) && (await orderLandedForBuyer(moneyWriter, referenceCode, user.id));
     return {
       ok: false,
-      reason: orderErr?.message ?? 'Could not create your order. Please try again.',
+      reason: orderInsertRefusal(orderErr, landedForThisBuyer, referenceCode),
     };
   }
 
   const orderId = orderRow.order_id as string;
+
+  /* 💎 WHAT A PARTS ORDER COVERS — one line per part (`onboarding_order_items`, the shape every multi-product bill
+     uses; ownership reads it through the basket lines). Without these rows the order provisions NOTHING, which is
+     worse than no order: fail closed, and take the order back. */
+  if (serviceKey === HUB_PARTS_ORDER_KEY) {
+    const linesAdmin = createAdminClient();
+    const { parts: partPrices } = await hubPartPrices(linesAdmin);
+    const { error: linesErr } = await linesAdmin
+      .from('onboarding_order_items')
+      .insert(hubParts.map((p) => ({ order_id: orderId, service_code: hubPart(p).sku, quantity: 1, unit_price_php: partPrices.get(hubPart(p).sku) ?? 0 })));
+    if (linesErr) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Event Hub Pro parts order lines (onboarding_order_items INSERT)',
+        file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+        error_message: String(linesErr.message),
+        payload_snapshot: { orderId, eventId: eventIdClean, hubParts },
+      });
+      const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+      if (undoErr) console.error('[checkout] could not remove the parts order whose lines failed:', orderId, undoErr.message);
+      return { ok: false, reason: 'We could not record which parts this covers. Nothing was charged — please try again.' };
+    }
+  }
 
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
@@ -879,7 +973,7 @@ export async function submitOrderAction(
     await moneyWriter.from('orders').delete().eq('order_id', orderId);
     return {
       ok: false,
-      reason: paymentErr?.message ?? 'Could not log payment. Please try again.',
+      reason: PAYMENT_NOT_LOGGED,
     };
   }
   const paymentId = paymentRow.payment_id as string;
@@ -1072,4 +1166,82 @@ export async function submitOrderAction(
   }
 
   return { ok: true, order_id: orderId, reference_code: referenceCode };
+}
+
+/**
+ * 💸 Does the order holding `referenceCode` belong to `userId`? Asked ONLY after
+ * the orders INSERT was refused by the UNIQUE reference — i.e. a retry of a
+ * submit that landed but lost its answer (`lib/checkout-submit-refusal.ts`).
+ * "Already reached us" is said only when this is true, so a stranger's order
+ * with a colliding code is never described to this buyer as theirs. A failed
+ * read claims nothing (`false`): the plain try-again line stands.
+ */
+async function orderLandedForBuyer(
+  moneyWriter: ReturnType<typeof createMoneyWriterClient>,
+  referenceCode: string,
+  userId: string,
+): Promise<boolean> {
+  const { data: landed, error: landedErr } = await moneyWriter
+    .from('orders')
+    .select('order_id')
+    .eq('reference_code', referenceCode)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return !landedErr && Boolean(landed);
+}
+
+/**
+ * 💲 The website-only welcome price for ONE line, as the drawer should show it
+ * (owner 2026-10-28, "ONE PRICE EVERYWHERE"). A READ: it records nothing.
+ *
+ * Null whenever the buyer is not on the welcome price — the switch is off, this
+ * is the App Store / Play Store shell (`readWelcomeDecision` refuses the app
+ * before anything else), the account has bought before, or any read failed.
+ * The drawer then shows exactly what it showed before this existed.
+ *
+ * Priced by the SAME two calls `submitOrderAction` makes (`resolveOrderChargeCentavos`
+ * then `welcomeChargeFor`), so the figure on the screen is the figure charged.
+ *
+ * ⚠ NOT EXPORTED, ON PURPOSE: every exported server action is a Vercel route and
+ * the budget is full (`scripts/lint-server-action-budget.mjs`). The drawer reaches
+ * it through the price-check action it already calls — `applyVoucherAction` with
+ * `intent=welcome_quote` — which is the same kind of read.
+ */
+async function quoteWelcomeForLine(input: {
+  eventId: string;
+  serviceKey: string;
+  hubParts?: string;
+}): Promise<{ welcomeCentavos: string; pct: number } | null> {
+  try {
+    const eventIdClean = typeof input.eventId === 'string' ? input.eventId.trim() : '';
+    const serviceKey = typeof input.serviceKey === 'string' ? input.serviceKey : '';
+    if (!eventIdClean || !serviceKey) return null;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.is_anonymous) return null;
+    const decision = await readWelcomeDecision(user.id);
+    if (decision.kind !== 'welcome') return null;
+    // Only for the buyer's own event — the same membership the checkout requires.
+    const { data: membership } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventIdClean)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) return null;
+    const fd = new FormData();
+    if (input.hubParts) fd.set('hub_parts', input.hubParts);
+    const regular = await resolveOrderChargeCentavos({
+      serviceKey,
+      eventId: eventIdClean,
+      hubParts: serviceKey === HUB_PARTS_ORDER_KEY ? parseHubPartsField(fd.get('hub_parts')) : [],
+    });
+    const welcome = await welcomeChargeFor({ decision, serviceKey, eventId: eventIdClean, regular });
+    if (!welcome || !welcome.ok) return null;
+    return { welcomeCentavos: welcome.total.toString(), pct: decision.pct };
+  } catch {
+    return null;
+  }
 }

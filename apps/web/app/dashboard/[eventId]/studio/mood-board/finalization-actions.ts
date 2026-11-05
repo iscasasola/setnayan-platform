@@ -38,6 +38,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { emitNotification } from '@/lib/notification-emit';
 import { sanitizeRolePalette, sanitizePaletteStyle } from '@/lib/mood-board';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
@@ -48,6 +49,7 @@ import {
   isFinalizablePartId,
   renderPartLabel,
 } from '@/lib/moodboard-finalization';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type FinalizationActionResult =
   | { status: 'ok' }
@@ -70,6 +72,7 @@ export async function requestPartFinalization(
   partId: string,
   vendorId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   if (!isFinalizablePartId(partId)) return { status: 'not_finalizable_part' };
 
   const supabase = await createClient();
@@ -99,7 +102,7 @@ export async function requestPartFinalization(
   if (bookingErr) return { status: 'error', message: bookingErr.message };
   if (!booking) return { status: 'not_booked' };
 
-  const needed = canonicalServicesForPart(partId);
+  const needed = canonicalServicesForPart(partId, await getInspirationParts());
   if (needed.length === 0) return { status: 'not_in_category' };
 
   let services: string[] = [];
@@ -158,6 +161,7 @@ export async function cancelPartFinalization(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   return simpleCoupleRpc(eventId, 'cancel_part_finalization_request', finalizationId);
 }
 
@@ -172,6 +176,7 @@ export async function requestPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const result = await simpleCoupleRpc(eventId, 'request_part_reopen', finalizationId);
   if (result.status !== 'ok') return result;
 
@@ -223,6 +228,7 @@ export async function cancelPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   return simpleCoupleRpc(eventId, 'cancel_part_reopen_request', finalizationId);
 }
 
@@ -289,6 +295,8 @@ async function notifyShopOwner(
       title: args.title,
       body: args.body,
       relatedUrl: args.relatedUrl,
+      // Which event: the link is a supplier-side path, so the email is told here.
+      eventId: args.eventId,
     });
   } catch (e) {
     console.error(

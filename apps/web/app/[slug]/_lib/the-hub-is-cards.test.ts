@@ -49,7 +49,16 @@ test('both pages wrap the hub sections in the card wrapper', () => {
     /const sceneNodes = \(list: typeof detailsScenes\) => \(\s*<HubScenes widgets=\{list\}/,
     "the stranger's hub goes through the same scenes",
   );
-  assert.match(body, /const detailsAround = splitAroundEntourage\(pageStage, detailsSceneList\);/);
+  /* 📱 2026-10-08 (owner: the guest's pages follow the Maker's filing): the Details section draws the scenes whose
+     page it is (`hereScenes` — every scene on a page that is one scroll); a scene filed on another tab is drawn
+     there, in the SAME wrapper. */
+  assert.match(body, /const detailsAround = splitAroundEntourage\(pageStage, hereScenes\);/);
+  assert.match(body, /group\(p, <div id=\{p === first \? mark : undefined\} className=\{`sn-hub-cards \$\{gap\} space-y-4 scroll-mt-6`\}>\{sceneNodes\(mine\)\}<\/div>\)/, "the stranger's scenes on another tab");
+  assert.match(
+    body,
+    /<div className="sn-hub-cards space-y-4">\s*<HubScenes widgets=\{mine\}[^>]*>\s*\{mine\.map\(renderScene\)\}/,
+    "the guest's scenes on another tab",
+  );
   assert.match(body, /const publicWidgetNodes = sceneNodes\(detailsAround\.before\);/);
 });
 
@@ -57,7 +66,11 @@ test('the card look is one CSS block', () => {
   const css = read(join(__dirname, '..', '..', 'globals.css'));
   // A scene inside an Auto run (Phase 5, `hub-auto-run.tsx`) sits one level
   // deeper than `.hub-scenes > .hub-scene`, so it is its own arm of the SAME rule.
-  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section,\s*\.hub-arun > \.hub-scene > section \{[^}]*border-radius: var\(--m-r-md\);/);
+  // 🖼 2026-10-09 (the card rule): a scene the couple arranged is drawn inside a frame, and a frame that paints
+  // nothing left its scene with no card — bare words on the page. The last arm: such a frame's section is a card
+  // too — never "No background", never a template scene (a painted frame is not `hub-no-media` at all). Played in
+  // a browser through the real frame (`scripts/scrub-browser-check.mjs` 13).
+  assert.match(css, /\.sn-hub-cards > section,\s*\.sn-hub-cards > div > section,\s*\.hub-scenes > \.hub-scene > section,\s*(?:\.hub-(?:stage|after|below) > \.hub-scene > section,\s*){3}\.hub-arun > \.hub-scene > section,\s*:is\(\.sn-hub-cards, \.hub-scene\) > \.hub-canvas\.hub-no-media:not\(\.hub-bg-none\):not\(\.hub-has-tpl\) > \.hub-canvas-body > section \{[^}]*border-radius: var\(--m-r-md\);/);
   assert.match(css, /\.sn-hub-cards \.pahina-eyebrow > span\[aria-hidden\]:first-child \{\s*display: none;/);
 });
 

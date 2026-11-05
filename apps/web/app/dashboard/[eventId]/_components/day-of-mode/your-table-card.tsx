@@ -7,9 +7,28 @@ type Props = {
   eventId: string;
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
+  /** The table read was refused (`measuredOr` on the page) — NOT the same as "no tables". */
+  tablesFailed?: boolean;
 };
 
-export function YourTableCard({ eventId, headTable, nearbyTables }: Props) {
+/**
+ * 🪑 Does this event have a seat plan at all? True when it has ANY table — a head table or any
+ * other. A debut, a hangout or a wedding nobody seated has none, and on the day their Home must
+ * not lead with "Head table · No head table set up yet" (audit 2026-10-23, owner "yes").
+ *
+ * The signal is the tables themselves (`fetchTables` on the page) — no new flag: a seat plan IS
+ * its tables.
+ *
+ * ⚠ A FAILED READ IS NOT "NO SEAT PLAN". The page reads the tables through `measuredOr` and
+ * passes `tablesFailed`; then the card stays and says "Couldn't load your tables" — hiding it
+ * would render a refused read byte-identical to a debut that never had tables.
+ */
+export function eventHasSeatPlan(headTable: EventTableRow | null, nearbyTables: readonly EventTableRow[]): boolean {
+  return headTable !== null || nearbyTables.length > 0;
+}
+
+export function YourTableCard({ eventId, headTable, nearbyTables, tablesFailed = false }: Props) {
+  if (!tablesFailed && !eventHasSeatPlan(headTable, nearbyTables)) return null;
   return (
     <article className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
       <header className="flex items-center justify-between">
@@ -25,7 +44,20 @@ export function YourTableCard({ eventId, headTable, nearbyTables }: Props) {
         </Link>
       </header>
 
-      {headTable ? (
+      {tablesFailed ? (
+        <>
+          <p role="status" className="text-sm text-danger-700">
+            Couldn’t load your tables.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/seating`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:underline"
+          >
+            Open seating
+            <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          </Link>
+        </>
+      ) : headTable ? (
         <>
           <h3 className="text-2xl font-semibold tracking-tight text-ink">
             {headTable.table_label}

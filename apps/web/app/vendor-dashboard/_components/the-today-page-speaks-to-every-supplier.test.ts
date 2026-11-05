@@ -63,11 +63,14 @@ const booking: UpcomingEventRow = {
 /** Confirmed ₱2,000 of ₱10,170 booked — the owner's Saysay case. */
 const EARNINGS = { confirmedPhp: 2000, expectedPhp: 10170, paydayMeasured: true };
 
-async function render(upcoming: UpcomingEventRow[] = [booking]): Promise<string> {
+async function render(
+  upcoming: UpcomingEventRow[] = [booking],
+  earnings: typeof EARNINGS | null = EARNINGS,
+): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SupplierTodayFirstScreen } = await import('./supplier-today-first-screen');
-  const { pickSupplierNext, eventsThisWeek, owedToYouPhp } = await import('@/lib/supplier-today');
-  const owed = owedToYouPhp(EARNINGS);
+  const { pickSupplierNext, eventsThisWeek, owedToYouPhp, nextLook, todayNextSecond } = await import('@/lib/supplier-today');
+  const owed = owedToYouPhp(earnings);
   const next = pickSupplierNext({
     answer: null,
     answerSince: null,
@@ -81,10 +84,15 @@ async function render(upcoming: UpcomingEventRow[] = [booking]): Promise<string>
   });
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      cover: { eyebrow: 'Host & band · Live', name: 'Saysay Host and Band' },
       next,
-      numbers: { inquiries: '0', thisWeek: eventsThisWeek(upcoming), owed: owed === null ? '—' : String(owed) },
-      comingUp: upcoming.slice(0, 3),
+      look: nextLook(next.kind, null),
+      second: todayNextSecond(next, null, upcoming, null),
+      counter: null,
+      meta: null,
+      // The page words the number; `null` is "payday was not read".
+      numbers: { waiting: '0', waitingNow: false, thisWeek: eventsThisWeek(upcoming), toComeIn: owed === null ? null : String(owed) },
+      comingUp: (next.kind === 'run_day' ? upcoming.slice(1) : upcoming).slice(0, 3).map((r) => ({ id: r.id, href: r.href, label: `${r.date} · ${r.eventName}`, line: r.place })),
+      shop: { name: 'Saysay Host and Band', line: 'Host & band · couples can find you', pill: 'Live' as const },
     }),
   );
 }
@@ -100,36 +108,75 @@ test('a supplier with a booking is told about it — in words that fit every cra
   assert.equal(hit, null, `photographer-only word "${hit?.[0]}" on the every-supplier Today page: …${t.slice(Math.max(0, (hit?.index ?? 0) - 60), (hit?.index ?? 0) + 60)}…`);
 });
 
-test('"owed to you" is the booked total less what is confirmed — and the Next card says payday', async () => {
+test('"to come in" is the booked total less what is confirmed — and the Next card says payday', async () => {
   const html = await render();
   const t = text(html);
-  assert.match(t, /8170 owed to you/, `the owed number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
+  assert.match(t, /8,?170 to come in/, `the money number is not ₱10,170 − ₱2,000: ${t.slice(0, 500)}`);
+  assert.doesNotMatch(t, /owed to you/, 'the redesign words it "to come in"');
   assert.match(html, /data-today-next="payday"/, 'with nothing to answer and money to come in, Next is not payday');
 });
 
-test('"owed to you" is "—" when payday was not read — never ₱0', async () => {
+/*
+  🔴 THE HONEST MONEY NUMBER (redesign S-PR1). Until 2026-10-08 an unread payday
+  printed "—" over the words "owed to you" — a dash a supplier could read as
+  "nothing". It says so in WORDS now, in the number's own place.
+  SABOTAGE: `toComeIn === null ? <Unread />` replaced by printing `₱0` → RED.
+*/
+test('when payday was not read the number says "couldn\'t load" — never ₱0, never a bare dash over "to come in"', async () => {
   const { owedToYouPhp } = await import('@/lib/supplier-today');
   assert.equal(owedToYouPhp({ ...EARNINGS, paydayMeasured: false }), null);
   assert.equal(owedToYouPhp(null), null);
+  const html = await render([booking], { ...EARNINGS, paydayMeasured: false });
+  const money = html.slice(html.indexOf('data-today-number="money"'));
+  // The number is the pinned row's filter <button> (2026-10-28); the tile ends where it does.
+  const tile = text(money.slice(money.indexOf('>') + 1, money.indexOf('</button>')));
+  assert.match(tile, /couldn(?:&rsquo;|’|&#x27;|')t load/, `the unread money number does not say so: ${tile}`);
+  assert.doesNotMatch(tile, /₱\s*0|\b0\b/, `an unread payday printed a zero: ${tile}`);
+  assert.doesNotMatch(tile, /to come in/, 'an unread number still wears the words of a read one');
+  assert.doesNotMatch(html, /data-today-next="payday"/, 'an unread payday must not be offered as money to collect');
 });
 
-test('on an event day the one Next card is "Run the day" (owner answer 2)', async () => {
+test('on an event day the one Next card is "Run the day" (owner answer 2) — and the card goes dark', async () => {
   const html = await render([{ ...booking, inDays: 0 }]);
   assert.match(html, /data-today-next="run_day"/);
   assert.match(text(html), /Run the day/);
+  // 🌑 Redesign S-PR1, prototype frame 02: the event-day card is ink.
+  const at = html.indexOf('data-today-next="run_day"');
+  const card = html.slice(at, html.indexOf('>', at) + 1);
+  assert.match(card, /data-next-day=""/, 'the event-day card is not marked as the day card');
+  assert.match(card, /!bg-ink/, 'the event-day card is not dark');
+  // Run the day is the forward step (brand), filled; Chat is the grey second.
+  assert.match(html, /class="ab ab-brand ab-main[^"]*"[^>]*>(?:(?!<\/a>).)*Run the day/s, 'Run the day is not the brand main button');
+  assert.match(html, /class="ab ab-neutral [^"]*\bhome-cover-ab\b[^"]*"[^>]*>(?:(?!<\/a>).)*Chat/s, 'the grey Chat button is missing or unreadable on the dark card');
+  // …and any other day the card is not dark.
+  assert.doesNotMatch(await render(), /data-next-day/);
 });
 
 // ── 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP ────────────────────────
 
 test('the first link or button on the first screen is the Next card’s button', async () => {
+  /*
+    RE-AIMED 2026-10-28 — THE OWNER-APPROVED PROTOTYPE SUPERSEDES THE OLD ORDER. `supplier_in_place_2026-10-28` (DECISION_LOG
+    "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE"; controller review of #7026: "the pinned counts row
+    FIRST, then today's live event as the dark card, then the task rows") puts the pinned counts row above the card. So
+    the promise is now: NOTHING but the pinned row (its three counts and its ⚙) comes before the Next card, and the first
+    tap AFTER the row is the Next card's own button.
+  */
   const html = await render();
   const next = html.indexOf('data-today-next');
-  const firstTap = html.search(/<(a|button)\b/);
   assert.ok(next >= 0, 'the Next card did not render');
-  assert.ok(firstTap > next, 'something you can tap comes before the Next card');
-  // …and the button is INSIDE the card: the first tap target sits before the
-  // card's closing </div>.
-  assert.ok(firstTap < html.indexOf('</div>', next), 'the first tap target is not the Next card’s own button');
+  const rowAt = html.indexOf('data-today-numbers');
+  assert.ok(rowAt >= 0 && rowAt < next, 'the pinned counts row is not above the Next card');
+  const before = html.slice(0, next);
+  const taps = [...before.matchAll(/<(a|button)\b[^>]*>/g)].map((m) => m[0]);
+  const ok = (t: string) => /data-today-number="(waiting|week|money)"/.test(t) || /aria-label="Today settings"/.test(t);
+  assert.deepEqual(taps.filter((t) => !ok(t)), [], 'something besides the pinned row can be tapped before the Next card');
+  // Its three counts (this test draws the first screen alone, so the page's ⚙ may or may not be handed in).
+  assert.equal(taps.filter((t) => /data-today-number=/.test(t)).length, 3, 'the pinned row is not its three counts');
+  assert.ok(taps.filter((t) => /aria-label="Today settings"/.test(t)).length <= 1, 'more than one ⚙ before the Next card');
+  // …and the first tap after the row is INSIDE the card, before its closing </div>.
+  const firstTap = next + html.slice(next).search(/<(a|button)\b/);
+  assert.ok(firstTap < html.indexOf('</div>', next), 'the first tap after the pinned row is not the Next card’s own button');
 });
 
 test('Today renders the first screen before anything tappable on the page', () => {
@@ -139,9 +186,22 @@ test('Today renders the first screen before anything tappable on the page', () =
   const ret = src.lastIndexOf('\n  return (');
   assert.ok(ret > 0, 'Today’s render could not be found');
   const jsx = src.slice(ret);
-  const first = jsx.indexOf('<SupplierTodayFirstScreen');
-  assert.ok(first > 0, 'Today no longer renders SupplierTodayFirstScreen');
+  // The simpler Today (2026-10-14) draws the first screen through `SupplierTodayScreen` (the one drawing the dev
+  // lab shares), which renders `SupplierTodayFirstScreen` first thing.
+  const first = jsx.indexOf('<SupplierTodayScreen');
+  assert.ok(first > 0, 'Today no longer renders SupplierTodayScreen');
+  const screen = stripComments(readFileSync(join(__dirname, 'supplier-today-screen.tsx'), 'utf8'));
+  const screenRet = screen.slice(screen.lastIndexOf('\n  return ('));
+  assert.ok(
+    screenRet.indexOf('<SupplierTodayFirstScreen') > 0 && screenRet.search(/<(Link|a|button|form|details|summary)\b/) === -1,
+    'SupplierTodayScreen draws something tappable outside the first screen',
+  );
   const tappable = jsx.search(/<(Link|a|button|form|details|summary)\b/);
   assert.ok(tappable === -1 || tappable > first, 'a link, button or form is back above the Next card on Today');
-  assert.ok(first < jsx.indexOf('id="today-all"'), 'the first screen moved below "Everything else"');
+  // Redesign S-PR1: there is no "Everything else" under the first screen any
+  // more — the queue is part of the same column. The old block must not return.
+  assert.equal(jsx.indexOf('id="today-all"'), -1, '"Everything else" (#today-all) is back under the first screen');
+  assert.doesNotMatch(jsx, /sn-tile|sn-card/, 'a boxed tile is back on Today — rows are hairlines, not boxes');
+  // The outcome toast holds nothing to press, so it may sit above the card.
+  assert.ok(jsx.indexOf('<SupplierToast') > 0 && jsx.indexOf('<SupplierToast') < first, 'the outcome toast is not rendered on Today');
 });

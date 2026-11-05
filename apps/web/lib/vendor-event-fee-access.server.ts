@@ -8,6 +8,7 @@ import { readInChunks } from '@/lib/read-all-pages';
 import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import {
   eventAccessUnlocked,
+  FEE_VOID_STATUSES,
   feeEnforcementFromSources,
   isFeeUnlocksEventEnabled,
   resolveEventAccessStage,
@@ -112,12 +113,13 @@ async function readFeeEnforcementSwitch(): Promise<boolean | null> {
 }
 
 /** The charge columns the rule needs. Nothing about the event, by design. */
-const CHARGE_SELECT = 'charge_id, event_id, status, amount_charged_centavos, expires_at';
+const CHARGE_SELECT = 'charge_id, event_id, status, kind, amount_charged_centavos, expires_at';
 
 type ChargeRow = {
   charge_id: string;
   event_id: string;
   status: string | null;
+  kind?: string | null;
   amount_charged_centavos: number | string | null;
   expires_at: string | null;
 };
@@ -185,6 +187,15 @@ export async function readEventFeeCharges(
   // Pick the deciding row per event: an unsettled charge beats a settled one.
   const best = new Map<string, ChargeRow>();
   for (const r of rows) {
+    // A former booking's voided charge (`cancelled_unbilled`) decides nothing —
+    // read as absent, exactly as the SQL gate skips it. Left in, it would read
+    // as "no charge" and LOCK over the live charge of a re-booking.
+    if (FEE_VOID_STATUSES.has(r.status ?? '')) continue;
+    // ⚖ Owner 2026-10-13: a STALE amendment top-up decides nothing either. The
+    // re-derive marks a pending delta `expired` when it VOIDS it (the total
+    // moved again) — read as owed, it locked a booking over a bill that no
+    // longer exists. The SQL gate skips the same rows.
+    if (r.kind === 'amendment_delta' && r.status === 'expired') continue;
     const current = best.get(r.event_id);
     if (!current) {
       best.set(r.event_id, r);
@@ -298,8 +309,9 @@ export async function resolveEventFeeGates(
  * be a lie a supplier could not act on.
  *
  * Returns the message to refuse with, or `null` when the action may proceed —
- * which is what it returns for a settled fee, for no fee at all, for an
- * UNREADABLE fee, and always while the flag is off.
+ * which is what it returns for a settled fee, for an UNREADABLE fee, and always
+ * while the flag is off. Since 2026-10-12 a booked shop with NO charge is
+ * refused too (no handshake, no access — the fee is made at the yes).
  */
 export const FEE_LOCKED_ACTION_MESSAGE =
   'Settle your Setnayan booking fee to unlock this event. You can pay it under Booking fees — your conversation with the couple stays open.';

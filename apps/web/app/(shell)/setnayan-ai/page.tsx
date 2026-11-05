@@ -114,8 +114,7 @@ const APP_LD = {
     'Finds and ranks verified suppliers that fit your style, budget, date and guest count',
     'Guards your deadlines — payments, contracts, and PH paperwork (marriage license, Pre-Cana, PSA)',
     'Flags a price hike, a double-booking, or an unverified supplier before it costs you',
-    'Chases quiet suppliers and lines up their quotes for you',
-    'One calm weekly digest — it earns the interruption, never spams',
+    'Stays quiet until something needs you — it earns the interruption, never spams',
     'The planning tools stay free — Setnayan AI is the paid brain on top',
   ],
   areaServed: 'Philippines',
@@ -133,11 +132,11 @@ const FAQ = [
   },
   {
     q: 'What exactly does it watch?',
-    a: 'The suppliers you’re eyeing and the ones you’ve booked — for price changes, availability and reliability — plus your budget and your deadlines (including your marriage license, Pre-Cana and PSA windows). It also finds and ranks your best-fit verified suppliers, chases the quiet ones, and lines up their quotes.',
+    a: 'The suppliers you’re eyeing and the ones you’ve booked — for price changes, availability and reliability — plus your budget and your deadlines (including your marriage license, Pre-Cana and PSA windows). It also finds and ranks your best-fit verified suppliers.',
   },
   {
     q: 'Will it spam me?',
-    a: 'No. It’s built to earn the interruption. Most weeks it’s quiet and gathers what matters into one calm weekly digest; it speaks up only when something genuinely can’t wait. No fake countdowns, no manufactured panic.',
+    a: 'No. It’s built to earn the interruption. Most of the time it’s quiet; it speaks up only when something genuinely needs you. No fake countdowns, no manufactured panic.',
   },
   {
     q: 'Does it learn my taste or compare me to other couples?',

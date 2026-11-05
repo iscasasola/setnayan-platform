@@ -33,7 +33,6 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Check,
   ChevronDown,
@@ -87,7 +86,6 @@ export function QuoteFillRow({
   /** The couple's budget target, whole PHP. Null = none set. */
   budgetPhp: number | null;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{
     filled: number;
@@ -105,7 +103,6 @@ export function QuoteFillRow({
         return;
       }
       setResult({ filled: res.filled, unfilled: res.unfilled });
-      router.refresh();
     });
   }
 
@@ -228,7 +225,6 @@ function FallbackPanel({
   eventId: string;
   group: { groupId: string; label: string };
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [opened, setOpened] = useState(false);
   const [suggestions, setSuggestions] = useState<BuildFallbackSuggestion[]>([]);
@@ -274,7 +270,6 @@ function FallbackPanel({
       setAddingId(null);
       if (res.status === 'ok' || res.status === 'already_attached') {
         setAdded((prev) => new Set(prev).add(vendorProfileId));
-        router.refresh();
       } else {
         setErr('Could not add that supplier — try another.');
       }

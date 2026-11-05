@@ -2,8 +2,8 @@
 
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, Play } from 'lucide-react';
+import { createContext, useContext, useEffect, useState, useTransition, type ReactNode } from 'react';
+import { Check, Play, RotateCcw } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
@@ -15,16 +15,45 @@ import {
   type RevealTuneKnob,
 } from '@/lib/std-reveal-effects';
 import { InfoTip } from '@/app/_components/info-tip';
-import { useMaker } from './maker-context';
+import { Slider } from '@/app/_components/slider';
+import { SwitchTrack } from '@/app/_components/switch-track';
+import { ActionButton } from '@/components/action-button';
+import { MAKER_STAGE_SAY_EVENT, useMaker } from './maker-context';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
-import { Dd } from './stage-panel/kit';
+import { About, Dd, Swatch } from './stage-panel/kit';
+import {
+  VEIL_FOLDS,
+  VEIL_FOLD_ORDER,
+  VEIL_WEAVES,
+  VEIL_WEAVE_ORDER,
+  VEIL_WINDS,
+  VEIL_WIND_ORDER,
+  veilFoldOf,
+  veilWeaveOf,
+  veilWindOf,
+  withVeilFold,
+  withVeilWeave,
+  withVeilWind,
+  type VeilFold,
+  type VeilWeave,
+  type VeilWind,
+} from '@/lib/veil-style';
 import { RevealPicture } from './stage-panel/reveal-picture';
+import { REVEAL_NONE_ID, revealCoverPickPatch, revealCoverPicked, type RevealPatch } from '@/lib/reveal-none';
 import { setStageRevealKind, useStageRevealLook } from './stage-panel/store';
-import { SP_LAYOUT_CARD } from '@/lib/maker-stage-room';
+import { SP_ROWS_ROW } from '@/lib/maker-stage-room';
+import { StyleCards } from './stage-panel/style-carousel';
+import { StylePreview } from './stage-panel/style-preview';
+import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
+
+/** 🌫 The prototype's openings after the Sheer veil (`cover_scene_edit_animate_2026-10-16.html` `OPENINGS`, owner 2026-10-15). */
+const REVEAL_COVER_SOON: readonly string[] = ['four-flap', 'church-doors'];
+const REVEAL_COVER_SOON_SAYS = 'After the envelope proof — not yet';
 
 /**
  * 🎭 THE REVEAL AS A PART (the new Maker's Stages side, plan PR 3 — owner
@@ -95,8 +124,14 @@ export function MakerRevealPicker({
   ownsPro,
   storeShell,
   stdWindowDays,
+  mainColours = NO_COLOURS,
+  veilShown = VEIL_IVORY,
   part = 'all',
 }: {
+  /** 🧵 The veil's colour while the couple has chosen none — what guests see today (the Mood Board's, else ivory). */
+  veilShown?: string;
+  /** 🎨 The five main colours in slot order (`mainColoursOf`) — the veil's colour rows open the one picker on them. */
+  mainColours?: readonly string[];
   /**
    * 🧩 Which of the picker's three parts to draw (DECISION_LOG "A TOOL MOVED
    * INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): in Details the openings
@@ -168,6 +203,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_template: value } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('current');
@@ -175,6 +211,38 @@ export function MakerRevealPicker({
         }
       } catch {
         forget('current');
+        setError('Your reveal could not be saved. Please try again.');
+      }
+    });
+  };
+
+  /* 🚫 One tap that may move BOTH the opening and where it plays (the None card, `lib/reveal-none.ts`) — one
+     draft patch, so the card and the switches land together or not at all. */
+  const savePick = (patch: RevealPatch | null) => {
+    if (!patch) return;
+    setMine((m) => ({
+      ...m,
+      ...(patch.std_reveal_template !== undefined ? { current: patch.std_reveal_template } : {}),
+      ...(patch.reveal_stages !== undefined ? { stages: patch.reveal_stages } : {}),
+    }));
+    start(async () => {
+      setError(null);
+      const back = () => {
+        if (patch.std_reveal_template !== undefined) forget('current');
+        if (patch.reveal_stages !== undefined) forget('stages');
+      };
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set('patch', JSON.stringify({ events: patch }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+        const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+        if (!r.ok) {
+          back();
+          setError(r.error);
+        }
+      } catch {
+        back();
         setError('Your reveal could not be saved. Please try again.');
       }
     });
@@ -188,6 +256,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { reveal_stages: next } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('stages');
@@ -210,6 +279,7 @@ export function MakerRevealPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { std_reveal_effects: next } }));
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (!r.ok) {
           forget('effects');
@@ -236,6 +306,7 @@ export function MakerRevealPicker({
     try {
       frame?.contentWindow?.location.reload();
     } catch {
+      // one-render: keep (other-frame) — the reveal frame could not be reloaded in place; nothing was written here — this redraws the page that holds it.
       router.refresh();
     }
   };
@@ -310,13 +381,10 @@ export function MakerRevealPicker({
       {error}
     </p>
   ) : null;
-  /* 🎭 The Stages panel's Reveal part — the prototype's Style (DECISION_LOG 2026-10-07): Look = its five
-     openings as REAL miniatures (`RevealPicture`, the picture the page draws) and Extras ▾; Arrange = On this
-     stage ▾ (Hidden = no reveal here). No Background: the reveal plays over the cover. */
+  /* 🎭 The Stages panel's Opening — Cover Scene › Style (owner-approved 2026-10-16): the openings as cards over the
+     couple's own cover, then Extras ◆ ▾ (`RevealStagePart`). No Background: the opening plays over the cover. */
   if (onStage) {
-    /* Shown / Hidden write THIS stage only, through the one helper. */
-    const showHere = (on: boolean) => (on ? setStages(revealStagesWith(stages, onStage, true)) : setStages(revealStagesWith(stages, onStage, false)));
-    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} choose={choose} shownHere={stages.includes(onStage)} showHere={showHere} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} />;
+    return <RevealStagePart onStage={onStage} openings={openings} effective={effective} savePick={savePick} stages={stages} effects={effects} setEffects={setEffects} ownsPro={ownsPro} storeShell={storeShell} failed={failed} mainColours={mainColours} veilShown={veilShown} />;
   }
   /* 🧩 The navigator's part: the openings alone. */
   if (part === 'options') {
@@ -338,14 +406,7 @@ export function MakerRevealPicker({
         </p>
       ) : null}
       {effective !== 'none' ? (
-        <button
-          type="button"
-          onClick={replay}
-          className="sn-press inline-flex min-h-10 items-center gap-1.5 self-start rounded-full bg-ink/5 px-4 text-[13px] font-semibold text-ink hover:bg-ink/10"
-        >
-          <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Play the opening
-        </button>
+        <ActionButton tone="neutral" icon={Play} label="Play the opening" onClick={replay} className="self-start" />
       ) : null}
       {effective !== 'none' ? (
         <FineTune
@@ -355,6 +416,7 @@ export function MakerRevealPicker({
           drafted={effectsDrafted}
           /* Never locked: each change is shown at once and saved behind it. */
           pending={false}
+          colours={mainColours}
           onChange={setEffects}
         />
       ) : null}
@@ -377,12 +439,11 @@ export function MakerRevealPicker({
                 aria-checked={on}
                 data-maker-reveal-stage={s}
                 onClick={() => toggleStage(s)}
-                className={`sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn disabled:opacity-60 ${
-                  on ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
-                }`}
+                className="sn-press inline-flex min-h-11 items-center gap-2 rounded-full bg-white/70 pl-3.5 pr-2 text-[13px] font-semibold text-ink hover:bg-white disabled:opacity-60"
               >
-                {on ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} /> : null}
                 {PUBLIC_STAGE_LABELS[s]}
+                {/* The app's ONE switch (`SwitchTrack`): grey off, the accent on — where an ink pill with a tick stood. */}
+                <SwitchTrack on={on} />
               </button>
             );
           })}
@@ -398,6 +459,9 @@ export function MakerRevealPicker({
   );
 }
 
+const NO_COLOURS: readonly string[] = [];
+/** Today's veil with no Mood Board colour to lighten (`veilColorFromPalette`'s own fallback). */
+const VEIL_IVORY = '#f3ece1';
 const ENVELOPES = new Set(['four-flap', 'two-flap-vertical', 'two-flap-horizontal']);
 
 /**
@@ -411,8 +475,11 @@ function FineTune({
   tuneHouse,
   drafted,
   pending,
+  colours,
   onChange,
 }: {
+  /** The five main colours — the colour rows' picker offers them first. */
+  colours: readonly string[];
   opening: string;
   effects: RevealEffects;
   tuneHouse: RevealTuneHouse;
@@ -432,14 +499,8 @@ function FineTune({
       className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
     >
       <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
-      <span
-        aria-hidden
-        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-terracotta-700' : 'bg-ink/20'}`}
-      >
-        <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-5' : 'translate-x-0.5'}`}
-        />
-      </span>
+      {/* The app's ONE switch (`SwitchTrack`) — its "on" was the gold `terracotta-700`, a colour of this file's own. */}
+      <SwitchTrack on={on} />
     </button>
   );
   return (
@@ -464,12 +525,14 @@ function FineTune({
             label="Veil colour"
             value={effects.veilColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, veilColor: hex })}
           />
           <ColourRow
             label="Petal colour"
             value={effects.petalColor}
             disabled={pending}
+            palette={colours}
             onCommit={(hex) => onChange({ ...effects, petalColor: hex })}
           />
         </>
@@ -569,97 +632,93 @@ function TuneSlider({
       <span className="text-[12.5px] font-semibold text-ink">{knob.label}</span>
       <span className="mt-1 flex items-center gap-3 text-[12px] text-ink/60">
         <span className="w-12 shrink-0">{knob.lo}</span>
-        <input
-          type="range"
-          min={knob.min}
-          max={knob.max}
-          step={knob.step}
-          value={local}
-          disabled={disabled}
-          aria-label={knob.label}
-          onChange={(e) => setLocal(Number(e.target.value))}
-          onPointerUp={(e) => onCommit(Number(e.currentTarget.value))}
-          onKeyUp={(e) => onCommit(Number(e.currentTarget.value))}
-          className="min-h-11 min-w-0 flex-1 accent-terracotta-700"
-        />
+        {/* The app's ONE slider (`Slider`): it moves freely (`onChange`) and SAVES WHEN LET GO (`onCommit`). */}
+        <Slider label={knob.label} data={knob.key} className="flex-1" min={knob.min} max={knob.max} step={knob.step} value={local} disabled={disabled} onChange={setLocal} onCommit={onCommit} />
         <span className="w-12 shrink-0 text-right">{knob.hi}</span>
       </span>
     </label>
   );
 }
 
-/** A colour, or "from your Mood Board" (null). Saved when the picker settles. */
+/**
+ * A colour, or "from your Mood Board" (null). The row opens the ONE colour picker — the Mood
+ * Board's sheet (owner 2026-10-08: *"apply that same concept on … any other color rules parts"*);
+ * a pick is saved at once, as the native wheel's settled value was.
+ */
 function ColourRow({
   label,
   value,
   disabled,
+  palette,
   onCommit,
 }: {
   label: string;
   value: string | null;
   disabled: boolean;
+  /** The five main colours, in slot order — the picker's "Your Mood Board" shelf. */
+  palette: readonly string[];
   onCommit: (hex: string | null) => void;
 }) {
-  const [local, setLocal] = useState(value ?? '#f3ece1');
-  const timer = useRef<number | null>(null);
-  useEffect(() => setLocal(value ?? '#f3ece1'), [value]);
-  useEffect(() => () => {
-    if (timer.current) window.clearTimeout(timer.current);
-  }, []);
+  const [open, setOpen] = useState(false);
+  const shown = value ?? '#f3ece1';
   return (
     <div className="flex min-h-12 items-center gap-3 rounded-md bg-white/70 px-3 py-2">
-      <label className="flex min-w-0 flex-1 items-center gap-3">
-        <input
-          type="color"
-          value={local}
-          disabled={disabled}
-          aria-label={label}
-          onChange={(e) => {
-            const hex = e.target.value;
-            setLocal(hex);
-            if (timer.current) window.clearTimeout(timer.current);
-            timer.current = window.setTimeout(() => onCommit(hex), 700);
-          }}
-          className="h-10 w-10 shrink-0 cursor-pointer rounded-full border border-ink/15 bg-transparent p-0.5"
-        />
+      <button
+        type="button"
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-reveal-colour=""
+        onClick={() => setOpen(true)}
+        className="sn-press flex min-w-0 flex-1 items-center gap-3 text-left"
+      >
+        <span aria-hidden className="h-10 w-10 shrink-0 rounded-full border border-ink/15" style={{ background: shown }} />
         <span className="min-w-0">
           <span className="block text-[13.5px] font-semibold text-ink">{label}</span>
           <span className="block text-[12px] text-ink/60">{value ? value.toUpperCase() : 'From your Mood Board'}</span>
         </span>
-      </label>
+      </button>
       {value ? (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onCommit(null)}
-          className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink hover:bg-ink/10"
-        >
-          Reset
-        </button>
+        <ActionButton tone="neutral" quiet icon={RotateCcw} label="Reset" disabled={disabled} onClick={() => onCommit(null)} />
+      ) : null}
+      {open ? (
+        <ColourSheet title={label} what="" value={value} shown={shown} palette={palette} slots={palette.length > 0} onPick={onCommit} onClose={() => setOpen(false)} />
       ) : null}
     </div>
   );
 }
 
+/** The opening's one sentence — on the row, or behind ⓘ when the veil's own choices take the row. */
+const OPENING_SAYS = 'Opens once, over this cover. Behind it, nothing shows or plays.';
+const FOLD_OPTIONS = VEIL_FOLD_ORDER.map((k) => ({ key: k, label: VEIL_FOLDS[k].label, hint: VEIL_FOLDS[k].hint }));
+const WEAVE_OPTIONS = VEIL_WEAVE_ORDER.map((k) => ({ key: k, label: VEIL_WEAVES[k].label, hint: VEIL_WEAVES[k].hint }));
+const WIND_OPTIONS = VEIL_WIND_ORDER.map((k) => ({ key: k, label: VEIL_WINDS[k].label, hint: VEIL_WINDS[k].hint }));
+
 function RevealStagePart({
   onStage,
   openings,
   effective,
-  choose,
-  shownHere,
-  showHere,
+  savePick,
+  stages,
   effects,
   setEffects,
   ownsPro,
   storeShell,
   failed,
+  mainColours,
+  veilShown,
 }: {
+  /** 🎨 The five main colours — the veil's Colour opens the one picker on them. */
+  mainColours: readonly string[];
+  /** 🧵 What the veil is painted while no colour is chosen (today's). */
+  veilShown: string;
+  /** 🚫 One patch for the opening and where it plays (`lib/reveal-none.ts` `revealCoverPickPatch`). */
+  savePick: (patch: RevealPatch | null) => void;
+  /** Where the reveal plays — the ONE source (`events.reveal_stages`, drafted). */
+  stages: readonly RevealStage[];
   onStage: RevealStage;
   openings: MakerRevealOpening[];
   effective: string;
-  choose: (value: string | null) => void;
-  shownHere: boolean;
-  showHere: (on: boolean) => void;
   effects: RevealEffects;
   setEffects: (next: RevealEffects) => void;
   ownsPro: boolean;
@@ -667,73 +726,129 @@ function RevealStagePart({
   failed: ReactNode;
 }) {
   const look = useStageRevealLook();
-  /* The page's Reveal part draws the opening chosen here (`stage-tools.tsx`). */
+  const now = { effective, stages };
+  /* 🎭 THE CARD PICKED IS WHAT PLAYS ON THIS STAGE'S COVER (`revealCoverPicked`) — and the cover's corner names the same
+     (`stage-tools.tsx`; None too: "No opening"), and ▶ plays a veil only when one does. None keeps the event's opening
+     and only takes this stage out (`revealCoverPickPatch`), so `effective` alone kept saying "Sheer veil ◆ opens over
+     it" after None was picked (walk 2026-10-17). */
+  const picked = revealCoverPicked(now, onStage);
   useEffect(() => {
-    if (effective !== 'none') setStageRevealKind(effective);
-  }, [effective]);
-  const extras = effective !== 'none' ? revealExtrasFor(effective) : [];
+    setStageRevealKind(picked);
+  }, [picked]);
+  const extras = picked !== REVEAL_NONE_ID ? revealExtrasFor(picked) : [];
+  const veil = picked === 'veil-sheer';
+  const [pickingColour, setPickingColour] = useState(false);
   const mark = makerProMark({ owns: ownsPro, storeShell });
+  /* 🌫 The prototype's cards after the Sheer veil — the envelope and the doors exist (`REVEAL_LIBRARY`), but an opening
+     the house has not switched on is drawn faint and says why (prototype `.lc.soon`: "After the envelope proof — not
+     yet"); switched on, it is an ordinary card. */
+  const soon = REVEAL_COVER_SOON.filter((id) => !openings.some((o) => o.id === id));
+  const options = [
+    { id: REVEAL_NONE_ID, name: 'None' },
+    ...openings.map((o) => ({ id: o.id, name: o.label })),
+    ...soon.map((id) => ({ id, name: REVEAL_LIBRARY.find((r) => r.id === id)?.label ?? id })),
+  ];
   return (
     <section className="contents" data-maker-reveal-part={onStage}>
+      {/* 🎭 THE COVER SCENE'S STYLE IS THE OPENING (owner-approved 2026-10-16, prototype `drawOpening`): the cards ARE the
+          couple's own cover — the shipped miniature every Style card draws (`StyleCards` › `StylePreview`, the cover
+          `f:hero` as it is) — with the opening over it (`RevealPicture` `over`): None = the cover alone, Sheer veil = its
+          sheer cloth and stripes. Under them ONE row: Extras ◆ ▾ and what the opening does, or, with None, what that
+          means. Per stage: None takes THIS stage's cover out, never the others (the three switches are gone). */}
       <StageStyle
+        rows
         look={
           <>
-            {openings.length > 0 ? (
-              <div role="radiogroup" aria-label="Kind" data-style-carousel="" data-maker-reveal-kinds="" className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {openings.map((o) => {
-                  const on = effective === o.id;
-                  return (
-                    <button key={o.id} type="button" role="radio" aria-checked={on} data-maker-reveal-kind={o.id} data-style-card={o.id} onClick={() => choose(o.id)} className={SP_LAYOUT_CARD}>
-                      <span
-                        data-style-card-preview=""
-                        className={`relative flex h-[104px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--sp-page)] ${
-                          on ? 'border-2 border-[var(--sp-cta)] shadow-[0_0_0_3px_var(--sp-cta-wash)]' : 'border border-[var(--sp-line)]'
-                        }`}
-                      >
-                        <span data-style-preview="render" className="pointer-events-none">
-                          <RevealPicture kind={o.id} colours={look.colours} scale={0.82} />
-                        </span>
-                      </span>
-                      <span className={`inline-flex h-[18px] items-center justify-center gap-1 truncate text-center text-[13px] font-semibold ${on ? 'text-[var(--sp-ink)]' : 'text-[var(--sp-ink2)]'}`}>
-                        {o.label}
-                        {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-            {extras.length > 1 ? (
-              <div className="flex h-11 shrink-0">
-                <Dd
-                  small="Extras"
-                  label="Extras"
-                  data="reveal-extras"
-                  value={revealExtraOf(effects, effective)}
-                  options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
-                  onPick={(k) => setEffects(revealEffectsWithExtra(effects, effective, k as (typeof extras)[number]))}
+            <StyleCards
+              data="reveal"
+              label="Opening"
+              options={options}
+              value={picked}
+              dim={soon}
+              pending={false}
+              canvasKey="f:hero"
+              sceneType="opening"
+              onPick={(id) => {
+                if (soon.includes(id)) {
+                  window.dispatchEvent(new CustomEvent(MAKER_STAGE_SAY_EVENT, { detail: REVEAL_COVER_SOON_SAYS }));
+                  return;
+                }
+                savePick(revealCoverPickPatch(id, now, onStage));
+              }}
+              picture={(id, on) => (
+                <>
+                  <StylePreview canvasKey="f:hero" sceneType="opening" styleId={id} current={on} focus="header[data-pahina-first-screen]" screen hide={id === REVEAL_NONE_ID ? null : '[data-cover-line]'} />
+                  {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
+                  {id !== REVEAL_NONE_ID && mark ? (
+                    <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">
+                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" />
+                    </span>
+                  ) : null}
+                </>
+              )}
+            />
+            <div data-look-row="opening" className={`${SP_ROWS_ROW} h-[var(--sp-rh)] shrink-0`}>
+              {picked === REVEAL_NONE_ID ? (
+                <span className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">No opening: the cover shows at once, its entrance plays on arrival.</span>
+              ) : (
+                <>
+                  {extras.length > 1 ? (
+                    <Dd
+                      small="Extras ◆"
+                      label="Extras"
+                      data="reveal-extras"
+                      value={revealExtraOf(effects, picked)}
+                      options={extras.map((x) => ({ key: x, label: REVEAL_EXTRA_LABEL[x] }))}
+                      onPick={(k) => setEffects(revealEffectsWithExtra(effects, picked, k as (typeof extras)[number]))}
+                      stacked
+                    />
+                  ) : null}
+                  {veil ? (
+                    <>
+                      {/* 🌬 Wind ▾ (owner 2026-10-17: *"wind speed/randomness"*) — beside Extras, two stacked pills to a row. */}
+                      <Dd small="Wind ◆" label="Veil wind" data="veil-wind" value={veilWindOf(effects)} options={WIND_OPTIONS} onPick={(k) => setEffects(withVeilWind(effects, k as VeilWind))} stacked />
+                      {/* The opening's sentence, behind ⓘ — the row now holds the veil's own choices (helper words never take a row). */}
+                      <About label="Opening">{OPENING_SAYS}</About>
+                    </>
+                  ) : (
+                    <span className="min-w-0 flex-[1.4] px-1 text-[12.5px] leading-snug text-[var(--sp-ink2)]">{OPENING_SAYS}</span>
+                  )}
+                </>
+              )}
+            </div>
+            {veil ? (
+              /* 🧵 THE VEIL IS THE COUPLE'S TO TUNE (owner 2026-10-17: *"fold coverage, veil thread count, veil color"*):
+                 Fold ▾ · Weave ▾ and the veil's colour circle — the one colour sheet. Each middle choice is today's veil,
+                 stored as nothing (`lib/veil-style.ts`); all Pro ◆, tried here, named at Apply. */
+              <div data-look-row="veil" className={`${SP_ROWS_ROW} h-[var(--sp-rh)] shrink-0`}>
+                <Dd small="Fold ◆" label="Veil fold" data="veil-fold" value={veilFoldOf(effects)} options={FOLD_OPTIONS} onPick={(k) => setEffects(withVeilFold(effects, k as VeilFold))} stacked />
+                <Dd small="Weave ◆" label="Veil weave" data="veil-weave" value={veilWeaveOf(effects)} options={WEAVE_OPTIONS} onPick={(k) => setEffects(withVeilWeave(effects, k as VeilWeave))} stacked />
+                <Swatch
+                  on
+                  label={effects.veilColor ? `Veil colour ◆ ${effects.veilColor.toUpperCase()} — change it` : 'Veil colour ◆ — change it'}
+                  face={<span className="absolute inset-0" style={{ background: effects.veilColor ?? veilShown }} />}
+                  onPick={() => setPickingColour(true)}
+                  data={{ 'data-veil-colour': effects.veilColor ?? 'house' }}
                 />
+                {pickingColour ? (
+                  <ColourSheet
+                    title="Veil colour"
+                    what="the veil"
+                    value={effects.veilColor}
+                    shown={veilShown}
+                    palette={mainColours}
+                    slots={mainColours.length > 0}
+                    onPick={(hex) => setEffects({ ...effects, veilColor: hex })}
+                    onUnset={() => setEffects({ ...effects, veilColor: null })}
+                    onClose={() => setPickingColour(false)}
+                  />
+                ) : null}
               </div>
             ) : null}
             {failed}
           </>
         }
         background={null}
-        arrange={
-          <div className="flex h-11 shrink-0">
-            <Dd
-              small="On this stage"
-              label="Show or hide the reveal on this stage"
-              data="reveal-show"
-              value={shownHere ? 'shown' : 'hidden'}
-              options={[
-                { key: 'shown', label: 'Shown' },
-                { key: 'hidden', label: 'Hidden — no reveal' },
-              ]}
-              onPick={(k) => showHere(k === 'shown')}
-            />
-          </div>
-        }
       />
     </section>
   );

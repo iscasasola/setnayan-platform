@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { eventDateToEpoch } from '@/lib/day-of-mode';
 import { MapPin } from 'lucide-react';
@@ -18,6 +18,8 @@ import { pickTriggerNowNext, type RunOfShowBlock } from '@/lib/run-of-show';
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { formatCount } from '@/lib/format-number';
 import { ScheduleClockFace, ScheduleOneChapter, type ScheduleMomentView } from './schedule-styles';
+import { withoutBackstage } from '@/lib/chapter-section';
+import { TIME_TBA, guestScheduleByChapter, type GuestScheduleRow, type InvitationChapter } from '@/lib/invitation-chapters';
 
 type Props = {
   blocks: ScheduleBlockRow[];
@@ -50,6 +52,12 @@ type Props = {
    * the now/next computed below; only the list changes.
    */
   sceneStyle?: string | null;
+  /**
+   * ✉ THE INVITATION'S CHAPTERS (plan §11c, Step 5). Given, the part lists the chapters this guest is invited to, each with its time and venue or "Venue TBA", and inside each
+   * ONLY its moments marked Visible to guests (`guestScheduleByChapter`, the one fence). None on the invitation (or
+   * none given) → the public moments exactly as before.
+   */
+  chapters?: readonly InvitationChapter[] | null;
 };
 
 /**
@@ -64,14 +72,18 @@ type Props = {
 const COMPACT_MOMENTS = 3;
 
 export function ScheduleWidget({
-  blocks,
+  blocks: givenBlocks,
   eventTz,
   nowTrigger = false,
   estimated = false,
   eventType = null,
   compact = false,
   sceneStyle = null,
+  chapters,
 }: Props) {
+  // 🎭 Backstage (a chapter's Ingress · Egress) never reaches a guest, on either path — by chapter or the plain list.
+  const blocks = useMemo(() => withoutBackstage(givenBlocks), [givenBlocks]);
+  const byChapter = guestScheduleByChapter(chapters ?? [], blocks);
   const [now, setNow] = useState<Date | null>(null);
   // 🗂 THE DAY AS A CARD (owner 2026-09-21, canvas "3 · Scrolled, replied"):
   // before the day the hub shows the first three moments and an "All N
@@ -85,7 +97,7 @@ export function ScheduleWidget({
     return () => clearInterval(id);
   }, []);
 
-  if (blocks.length === 0) return null;
+  if ((byChapter ?? blocks).length === 0) return null;
 
   // The stored value is the naive event-local wall-clock; its TRUE instant is
   // that wall-clock interpreted in the event timezone. "Happening now" / "up
@@ -107,7 +119,10 @@ export function ScheduleWidget({
   // Build a virtual end time for each block — explicit end_at when set,
   // otherwise the start_at of the next block (so "happening now" doesn't
   // require couples to fill in end times).
-  const ordered = [...blocks].sort((a, b) => toInstant(a.start_at) - toInstant(b.start_at));
+  // ✉ By chapter, the order is the chapters' own (a Time-TBA chapter after the timed ones — its 00:00 is a placeholder).
+  const ordered: GuestScheduleRow[] = byChapter ?? [...blocks].sort((a, b) => toInstant(a.start_at) - toInstant(b.start_at));
+  /** A Time-TBA chapter has no clock: it is never "now", never "next", never an end for the row before it. */
+  const timed = (b: GuestScheduleRow | undefined) => Boolean(b) && b!.time_tba !== true;
   // 🔴 THE LAST BLOCK USED TO NEVER END. A block's virtual end is its own
   // `end_at`, else the next block's start — and for the FINAL block there is no
   // next, so this returned `null`, which the loop below reads as "still
@@ -135,7 +150,8 @@ export function ScheduleWidget({
 
   const ends: (number | null)[] = ordered.map((b, i) => {
     if (b.end_at) return toInstant(b.end_at);
-    const next = ordered[i + 1];
+    // A chapter heading runs until the next CHAPTER (its own moments sit inside it); a moment until the next row.
+    const next = ordered.slice(i + 1).find((n) => timed(n) && (!b.chapter_heading || n.chapter_heading));
     if (next) return toInstant(next.start_at);
     return endOfEventDay(toInstant(b.start_at));
   });
@@ -159,7 +175,7 @@ export function ScheduleWidget({
   } else if (now) {
     for (let i = 0; i < ordered.length; i++) {
       const block = ordered[i];
-      if (!block) continue;
+      if (!block || !timed(block)) continue;
       const start = toInstant(block.start_at);
       const end = ends[i] ?? null;
       if (start <= nowMs && (end === null || nowMs < end)) {
@@ -221,6 +237,7 @@ export function ScheduleWidget({
    *  title (`scheduleKickerFor`) — ONE call, used by every style. */
   const kindOf = (b: ScheduleBlockRow): string | null => scheduleKickerFor(b.block_type, b.label, eventType);
   const timeLabelOf = (b: ScheduleBlockRow): string => {
+    if (b.time_tba === true) return TIME_TBA;
     // The viewer's own clock only when it differs from the venue's (`inViewerClock`,
     // below) — the same rule the rail follows.
     const viewer = inViewerClock ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
@@ -233,12 +250,12 @@ export function ScheduleWidget({
         return {
           id: b.block_id,
           timeLabel: timeLabelOf(b),
-          kindLabel: kindOf(b),
+          kindLabel: b.chapter_heading ? null : kindOf(b),
           label: b.label,
-          location: b.location ?? null,
+          location: b.chapter_heading ? (b.where_line ?? null) : (b.location ?? null),
           notes: b.notes ?? null,
           // The stored value is the naive event-local wall clock (see toInstant).
-          minuteOfDay: Number.isNaN(d.getTime()) ? null : d.getUTCHours() * 60 + d.getUTCMinutes(),
+          minuteOfDay: b.time_tba === true || Number.isNaN(d.getTime()) ? null : d.getUTCHours() * 60 + d.getUTCMinutes(),
         };
       })
     : [];
@@ -272,14 +289,14 @@ export function ScheduleWidget({
                Suppressed the moment the host actually starts the run of show
                (early start edge) — a live pointer and an "Estimated" label
                would contradict each other. */
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/50">
+            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
               Estimated program · times may shift on the day
             </p>
           ) : null}
           {inViewerClock ? (
             /* Plain small text, not the protected 0.66rem eyebrow — it is a
                note about the times, not a section name. */
-            <p className="text-xs text-ink/55" data-your-time="">
+            <p className="text-xs text-ink/70" data-your-time="">
               Times shown in your time
             </p>
           ) : null}
@@ -294,13 +311,13 @@ export function ScheduleWidget({
           >
             <span className="font-pahina text-sm leading-none text-ink">
               {completed}
-              <span className="text-ink/40">/{formatCount(total)}</span>
+              <span className="text-ink/70">/{formatCount(total)}</span>
             </span>
           </ProgressRing>
         ) : null}
       </div>
       {showRunOfShow && eventId ? (
-        <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact />
+        <RunOfShowHeader eventId={eventId} initial={runOfShowBlocks} compact forGuests />
       ) : null}
       {sceneStyle === 'one-per-screen' ? (
         <ScheduleOneChapter moments={moments} currentIndex={currentIndex} upNextIndex={showUpNext ? upNextIndex : -1} />
@@ -327,13 +344,15 @@ export function ScheduleWidget({
         {(compact && !showAll ? ordered.slice(0, COMPACT_MOMENTS) : ordered).map((b, i) => {
           const isNow = i === currentIndex;
           const isNext = showUpNext && i === upNextIndex;
-          const kicker = kindOf(b);
+          const kicker = b.chapter_heading ? null : kindOf(b);
+          const place = b.chapter_heading ? (b.where_line ?? null) : b.location;
           return (
             <li
               key={b.block_id}
               /* The Maker's canvas names the moment a tap lands on (the bridge's
                  `edit` · `moment`), so it opens in Details › Schedule. */
               data-schedule-moment={b.block_id}
+              data-schedule-chapter={b.chapter_heading ? b.block_id : undefined}
               className={`grid grid-cols-[4.75rem_1fr] gap-x-4 border-b border-ink/12 py-5 transition-colors sm:grid-cols-[7rem_1fr] ${
                 isNow ? 'border-l-2 border-l-terracotta bg-veil/60 pl-3 sm:pl-4' : ''
               }`}
@@ -342,12 +361,9 @@ export function ScheduleWidget({
                 {/* `data-schedule-*`: the Maker's canvas lays a moment's new name, time
                     and place here as they are typed (`applySchedulePreview`). */}
                 <p data-schedule-time="" className="font-mono text-[0.7rem] uppercase leading-relaxed tracking-[0.14em] text-gild">
-                  {(() => {
-                    // Viewer-local only after mount (now != null) so SSR (server tz)
-                    // and the first client render agree — no hydration flip.
-                    const viewer = inViewerClock ? formatViewerTimeRange(b.start_at, b.end_at, eventTz) : null;
-                    return viewer ?? formatBlockTimeRange(b.start_at, b.end_at);
-                  })()}
+                  {/* Viewer-local only after mount (now != null) so SSR (server tz) and the first client render agree —
+                      no hydration flip. A Time-TBA chapter says so, never a guessed midnight. */}
+                  {timeLabelOf(b)}
                 </p>
                 {isNow ? (
                   <span className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[0.6rem] uppercase tracking-[0.18em] text-terracotta">
@@ -355,24 +371,27 @@ export function ScheduleWidget({
                     Happening now
                   </span>
                 ) : isNext ? (
-                  <span className="mt-1.5 inline-block font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/45">
+                  <span className="mt-1.5 inline-block font-mono text-[0.6rem] uppercase tracking-[0.18em] text-ink/70">
                     Up next
                   </span>
                 ) : null}
               </div>
               <div className="min-w-0">
                 {kicker ? (
-                  <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/45">
+                  <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/70">
                     {kicker}
                   </p>
                 ) : null}
-                <p data-schedule-label="" className={`${kicker ? 'mt-1 ' : ''}font-pahina text-xl font-light leading-snug text-ink`}>
+                <p
+                  data-schedule-label=""
+                  className={`${kicker ? 'mt-1 ' : ''}font-pahina ${b.chapter_heading ? 'text-2xl' : 'text-xl'} font-light leading-snug text-ink`}
+                >
                   {b.label}
                 </p>
-                {b.location ? (
+                {place ? (
                   <p className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-ink/65">
                     <MapPin aria-hidden className="h-3.5 w-3.5 text-gild" strokeWidth={1.5} />
-                    <span data-schedule-location="">{b.location}</span>
+                    <span data-schedule-location="">{place}</span>
                   </p>
                 ) : null}
                 {b.notes ? (

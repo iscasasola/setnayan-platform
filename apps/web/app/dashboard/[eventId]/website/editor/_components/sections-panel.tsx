@@ -54,11 +54,13 @@ import {
   HUB_TRANSITION_LABEL,
   resolveTransition,
 } from '@/lib/hub-scenes';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 import { SceneSlotsPanel } from './scene-slots-panel';
 import { detailsFactOfScene } from '@/lib/details-bound';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * SectionsPanel — show / hide / reorder every section of the website, inline
@@ -282,7 +284,7 @@ export function SectionsPanel({
                     with any effect). See `openBrowse` above and
                     `visibility-control-is-singular.test.ts`. */}
                 {!openBrowse ? (
-                  <form action={toggleAction} data-visibility-control="eye">
+                  <SafeForm action={toggleAction} data-visibility-control="eye">
                     <HubDraftField />
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -305,11 +307,11 @@ export function SectionsPanel({
                       )}
                       {row.is_visible ? 'Visible' : 'Hidden'}
                     </button>
-                  </form>
+                  </SafeForm>
                 ) : null}
 
                 {/* reorder */}
-                <form action={moveUpAction}>
+                <SafeForm action={moveUpAction}>
                   <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -322,8 +324,8 @@ export function SectionsPanel({
                   >
                     <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
-                </form>
-                <form action={moveDownAction}>
+                </SafeForm>
+                <SafeForm action={moveDownAction}>
                   <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -336,7 +338,7 @@ export function SectionsPanel({
                   >
                     <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
-                </form>
+                </SafeForm>
               </div>
 
               )}
@@ -355,7 +357,7 @@ export function SectionsPanel({
                   const active = mode === m;
                   const blocked = m === 'shown' && !hasContent;
                   return (
-                    <form key={m} action={setModeAction} className="flex">
+                    <SafeForm key={m} action={setModeAction} className="flex">
                       <HubDraftField />
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -386,7 +388,7 @@ export function SectionsPanel({
                         ) : null}
                         {m}
                       </button>
-                    </form>
+                    </SafeForm>
                   );
                 })}
               </div>
@@ -414,7 +416,7 @@ export function SectionsPanel({
                    before (or while Pro) stays until they reset it; `reset=1`
                    is the one motion write `setWidgetMotion` never gates. */
                 canvasHasMotion(sanitizeHubCanvas(row.config_json)) ? (
-                  <form action={setMotionAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
+                  <SafeForm action={setMotionAction} className="mt-2 border-t border-dashed border-ink/10 pt-2">
                     <HubDraftField />
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -426,7 +428,7 @@ export function SectionsPanel({
                     >
                       Reset how it moves
                     </button>
-                  </form>
+                  </SafeForm>
                 ) : null
               ) : setMotionAction ? (
                 (() => {
@@ -440,7 +442,7 @@ export function SectionsPanel({
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
-                          <form key={p} action={setMotionAction}>
+                          <SafeForm key={p} action={setMotionAction}>
                             <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -457,7 +459,7 @@ export function SectionsPanel({
                             >
                               {HUB_MOTION_PRESET_LABEL[p]}
                             </button>
-                          </form>
+                          </SafeForm>
                         ))}
                       </div>
                       {/* ══ INTO THE NEXT SECTION — Scroll · Scrub · Auto-scroll ═
@@ -476,7 +478,8 @@ export function SectionsPanel({
                           ✅ Auto-scroll plays on the guest page since Event Hub
                           Maker Phase 5 (`hub-auto-run.tsx`). */}
                       {(() => {
-                        const transition = resolveTransition(canvas);
+                        /* 🌕 "Scrub" is offered since 2026-10-13 (`lib/scrub-out-offered.ts`); switched off, it is not offered below and a stored one reads as Scroll. */
+                        const transition = offeredTransition(resolveTransition(canvas), SCRUB_OUT_OFFERED);
                         const speed = canvas.autoSpeed ?? HUB_DEFAULT_AUTO_SPEED;
                         if (i === rows.length - 1) {
                           return (
@@ -491,12 +494,12 @@ export function SectionsPanel({
                               <span className="font-mono text-[0.56rem] uppercase tracking-[0.14em] text-ink/40">
                                 Into the next section
                               </span>
-                              {HUB_TRANSITIONS.map((t) => {
+                              {HUB_TRANSITIONS.filter((t) => t !== 'scrub' || SCRUB_OUT_OFFERED).map((t) => {
                                 const on = transition === t;
                                 const locked = transitionLocked && !proUsable && t !== 'scroll' && !on;
                                 if (locked && hideLocked) return null;
                                 return (
-                                  <form key={t} action={setMotionAction}>
+                                  <SafeForm key={t} action={setMotionAction}>
                                     <HubDraftField />
                                     <input type="hidden" name="event_id" value={eventId} />
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -520,7 +523,7 @@ export function SectionsPanel({
                                       ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>
-                                  </form>
+                                  </SafeForm>
                                 );
                               })}
                               {transitionLocked && !proUsable && !hideLocked ? (
@@ -540,7 +543,7 @@ export function SectionsPanel({
                                 {HUB_AUTO_SPEEDS.map((v) => {
                                   const on = speed === v;
                                   return (
-                                    <form key={v} action={setMotionAction}>
+                                    <SafeForm key={v} action={setMotionAction}>
                                       <HubDraftField />
                                       <input type="hidden" name="event_id" value={eventId} />
                                       <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -559,7 +562,7 @@ export function SectionsPanel({
                                       >
                                         {HUB_AUTO_SPEED_LABEL[v]}
                                       </button>
-                                    </form>
+                                    </SafeForm>
                                   );
                                 })}
                                 <span className="text-[0.56rem] text-ink/45">
@@ -582,7 +585,7 @@ export function SectionsPanel({
                           {(['auto', 'time', 'scrub'] as const).map((t) => {
                             const on = t === 'auto' ? !canvas.timeline : canvas.timeline === t;
                             return (
-                              <form key={t} action={setMotionAction}>
+                              <SafeForm key={t} action={setMotionAction}>
                                 <HubDraftField />
                                 <input type="hidden" name="event_id" value={eventId} />
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -600,7 +603,7 @@ export function SectionsPanel({
                                 >
                                   {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
                                 </button>
-                              </form>
+                              </SafeForm>
                             );
                           })}
                         </div>
@@ -644,7 +647,7 @@ export function SectionsPanel({
                               {(['auto', ...values] as const).map((v) => {
                                 const on = v === 'auto' ? isAuto : !isAuto && current === v;
                                 return (
-                                  <form key={v} action={setMotionAction}>
+                                  <SafeForm key={v} action={setMotionAction}>
                                     <HubDraftField />
                                     <input type="hidden" name="event_id" value={eventId} />
                                     <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -662,7 +665,7 @@ export function SectionsPanel({
                                     >
                                       {v === 'auto' ? 'Auto' : (labels[v] ?? v)}
                                     </button>
-                                  </form>
+                                  </SafeForm>
                                 );
                               })}
                             </div>
@@ -700,7 +703,7 @@ export function SectionsPanel({
                           {(['auto', 'together', 'one_after_another'] as const).map((q) => {
                             const on = q === 'auto' ? !canvas.sequence : canvas.sequence === q;
                             return (
-                              <form key={q} action={setMotionAction}>
+                              <SafeForm key={q} action={setMotionAction}>
                                 <HubDraftField />
                                 <input type="hidden" name="event_id" value={eventId} />
                                 <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -718,7 +721,7 @@ export function SectionsPanel({
                                 >
                                   {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
                                 </button>
-                              </form>
+                              </SafeForm>
                             );
                           })}
                         </div>
@@ -767,7 +770,7 @@ export function SectionsPanel({
                       <summary className="cursor-pointer select-none hover:text-ink/80">
                         Remove this section
                       </summary>
-                      <form action={saveCustomAction} className="mt-1 flex items-center gap-2">
+                      <SafeForm action={saveCustomAction} className="mt-1 flex items-center gap-2">
                         {/* 🗑 In the Maker the delete waits for Apply (owner 2026-10-07). */}
                         {makerPart ? <HubDraftField /> : <HubSavesImmediately />}
                         <input type="hidden" name="event_id" value={eventId} />
@@ -781,7 +784,7 @@ export function SectionsPanel({
                         >
                           Remove for good
                         </button>
-                      </form>
+                      </SafeForm>
                     </details>
                   );
                   if (makerPart === 'remove') return removeForm;
@@ -813,7 +816,7 @@ export function SectionsPanel({
                         This scene&rsquo;s heading and words are typed right on the page — tap them there and type.
                       </p>
                     ) : (
-                    <form
+                    <SafeForm
                       action={saveCustomAction}
                       className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
                     >
@@ -871,7 +874,7 @@ export function SectionsPanel({
                       >
                         Save this section
                       </button>
-                    </form>
+                    </SafeForm>
                     )}
 
                     {/* ══ LAYOUT ══════════════════════════════════════════
@@ -888,7 +891,7 @@ export function SectionsPanel({
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_ARRANGEMENTS.map((a) => (
-                          <form key={a} action={saveCustomAction}>
+                          <SafeForm key={a} action={saveCustomAction}>
                             <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -906,7 +909,7 @@ export function SectionsPanel({
                             >
                               {HUB_ARRANGEMENT_LABEL[a]}
                             </button>
-                          </form>
+                          </SafeForm>
                         ))}
                       </div>
                     </div>
@@ -957,7 +960,7 @@ export function SectionsPanel({
                   return (
                     <div className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       {canvas.media ? (
-                        <form action={setBackgroundAction}>
+                        <SafeForm action={setBackgroundAction}>
                           <HubDraftField />
                           <input type="hidden" name="event_id" value={eventId} />
                           <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -971,7 +974,7 @@ export function SectionsPanel({
                               ? 'Remove this section\u2019s video'
                               : 'Remove this section\u2019s photo'}
                           </button>
-                        </form>
+                        </SafeForm>
                       ) : null}
                       <SectionColourChoices returnTo={back}
                         eventId={eventId}
@@ -1005,7 +1008,7 @@ export function SectionsPanel({
                             It posts the SAME `media` field a photo does — one
                             field, one allow-list, one ownership set. */}
                         {videoChoice ? (
-                          <form action={setBackgroundAction}>
+                          <SafeForm action={setBackgroundAction}>
                             <HubDraftField />
                             <input type="hidden" name="event_id" value={eventId} />
                             <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -1023,12 +1026,12 @@ export function SectionsPanel({
                             >
                               Your video
                             </button>
-                          </form>
+                          </SafeForm>
                         ) : null}
                         {photoChoices.map((photo) => {
                           const on = canvas.media === photo.ref;
                           return (
-                            <form key={photo.ref} action={setBackgroundAction}>
+                            <SafeForm key={photo.ref} action={setBackgroundAction}>
                               <HubDraftField />
                               <input type="hidden" name="event_id" value={eventId} />
                               <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -1050,7 +1053,7 @@ export function SectionsPanel({
                                   loading="lazy"
                                 />
                               </button>
-                            </form>
+                            </SafeForm>
                           );
                         })}
                       </div>
@@ -1106,7 +1109,7 @@ export function SectionsPanel({
                                 >
                                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3">
                                     {HUB_FOCAL_POINTS.map((f) => (
-                                      <form key={f} action={setCropAction} className="contents">
+                                      <SafeForm key={f} action={setCropAction} className="contents">
                                         <HubDraftField />
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -1120,7 +1123,7 @@ export function SectionsPanel({
                                             focal === f ? 'bg-white/70' : 'hover:bg-white/25'
                                           }`}
                                         />
-                                      </form>
+                                      </SafeForm>
                                     ))}
                                   </div>
                                 </div>
@@ -1130,7 +1133,7 @@ export function SectionsPanel({
                                   </p>
                                   <div className="flex flex-wrap gap-1">
                                     {HUB_ZOOMS.map((z) => (
-                                      <form key={z} action={setCropAction}>
+                                      <SafeForm key={z} action={setCropAction}>
                                         <HubDraftField />
                                         <input type="hidden" name="event_id" value={eventId} />
                                         <input type="hidden" name="widget_id" value={row.widget_id} />
@@ -1147,7 +1150,7 @@ export function SectionsPanel({
                                         >
                                           {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
                                         </button>
-                                      </form>
+                                      </SafeForm>
                                     ))}
                                   </div>
                                 </div>
@@ -1249,7 +1252,7 @@ function SectionColourChoices({
         Colour
       </span>
       {withNone && colourOn ? (
-        <form action={action}>
+        <SafeForm action={action}>
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="widget_id" value={widgetId} />
@@ -1262,12 +1265,12 @@ function SectionColourChoices({
           >
             None
           </button>
-        </form>
+        </SafeForm>
       ) : null}
       {swatches.map((hex) => {
         const on = colourOn && currentTint === hex;
         return (
-          <form key={hex} action={action}>
+          <SafeForm key={hex} action={action}>
             <HubDraftField />
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="widget_id" value={widgetId} />
@@ -1283,7 +1286,7 @@ function SectionColourChoices({
                 on ? 'border-ink' : 'border-ink/15 hover:border-ink/40'
               }`}
             />
-          </form>
+          </SafeForm>
         );
       })}
     </div>
@@ -1372,26 +1375,26 @@ function SceneBackgroundChoices({
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Scene background">
         {choices.map((c) =>
           c ? (
-            <form key={c.key} action={action}>
+            <SafeForm key={c.key} action={action}>
               <HubDraftField />
               {hidden(c.fields)}
               <button type="submit" aria-pressed={current === c.key} data-scene-bg-choice={c.key} className={chip(current === c.key)}>
                 {c.label}
               </button>
-            </form>
+            </SafeForm>
           ) : null,
         )}
       </div>
       {painted ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5" role="group" aria-label="Framed or full width">
           {HUB_SCENE_SHAPES.map((k) => (
-            <form key={k} action={action}>
+            <SafeForm key={k} action={action}>
               <HubDraftField />
               {hidden({ shape: k })}
               <button type="submit" aria-pressed={shape === k} data-scene-shape-choice={k} className={chip(shape === k)}>
                 {HUB_SCENE_SHAPE_LABEL[k]}
               </button>
-            </form>
+            </SafeForm>
           ))}
         </div>
       ) : null}

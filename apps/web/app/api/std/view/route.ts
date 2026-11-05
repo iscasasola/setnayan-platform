@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     // `timezone` + `event_end_date`: the phase gate below decides whether a
     // page view counts as a Save-the-Date view, and it was answering from the
     // server's UTC clock rather than the venue's.
-    .select('event_id, event_date, event_end_date, event_type, timezone')
+    .select('event_id, event_date, event_end_date, event_type, timezone, std_invitation_launch_date')
     .ilike('slug', slug)
     .maybeSingle();
 
@@ -76,6 +76,8 @@ export async function POST(req: Request) {
       event.event_date,
       (event as { timezone?: string | null }).timezone ?? undefined,
       (event as { event_end_date?: string | null }).event_end_date ?? null,
+      undefined,
+      (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
     ) !== 'save_the_date'
   )
     return ok;

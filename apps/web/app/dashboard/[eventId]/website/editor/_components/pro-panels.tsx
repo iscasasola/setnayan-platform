@@ -1,12 +1,16 @@
 'use client';
 
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { tellLookSample } from '@/lib/look-sample-store';
 import { FontPick } from './font-pick';
-import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
+/* 🔤 The Studio's four font rows — a lazy door (they hold the draft door, a server action), warmed with the Maker's other pieces. */
+import { FontsLookRows } from './scene-styles-lazy';
+
 import Link from 'next/link';
 import { useState } from 'react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
-import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId } from '@/lib/invite-themes';
+import { formatCount } from '@/lib/format-number';
+import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId, isInviteThemeId } from '@/lib/invite-themes';
 import {
   BACKGROUND_EFFECTS,
   BACKGROUND_EFFECT_LABEL,
@@ -24,14 +28,16 @@ import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import { ColourWell } from './colour-well';
 import { PickMenu } from './pick-menu';
 import { DraftsAsYouGo } from './drafts-as-you-go';
+import { useMaker } from '../../../launch/_components/maker-context';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the nine Pro items are ONE unlock (owner 2026-07-24),
- * so nine separate purchase affordances would misrepresent it. Its price is NOT
+ * per-feature buy button — the Pro items are ONE unlock (owner 2026-07-24),
+ * so one purchase affordance per item would misrepresent it. Its price is NOT
  * written here: the server page reads it live from `platform_retail_catalog_v2`
  * and passes the formatted string down as `priceLabel` (see `unlock-label.ts`).
  *
@@ -46,11 +52,11 @@ import { DraftsAsYouGo } from './drafts-as-you-go';
  */
 
 /**
- * The nine Pro items, named the way the couple sees them.
+ * The Pro items, named the way the couple sees them.
  *
  * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
  * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
- * whichever channel the couple is standing on, and it needs these nine names on
+ * whichever channel the couple is standing on, and it needs these names on
  * the server. Copying them would have made two lists of one fact, each passing
  * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
  */
@@ -74,7 +80,7 @@ export function ProLockPanel({
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
-        One unlock covers all nine: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
+        One unlock covers all {formatCount(WEBSITE_PRO_ITEMS.length)}: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
       <Link
@@ -95,7 +101,7 @@ export function ColorsPanel({
   buttonColor,
   artDirection,
   fontKey = null,
-  magicTraveller = null,
+  siteRoles = null,
   proLocked = false,
   proLock = null,
   proMark = null,
@@ -111,8 +117,16 @@ export function ColorsPanel({
    * Move). Each part is its own form posting only its own fields, and the
    * action reads an absent field as "unchanged", so neither part can clear the
    * other's. Null (the panel whole) is kept for the harnesses that draw it.
+   *
+   * 🌈 2026-10-08 (owner, the Look restudy — *"colors here is not color of the
+   * background but the colors of the different fonts, and buttons and
+   * highlights"*): Look draws the `'colours'` part as TWO, in two sections —
+   * **`'page'`** (the page fill alone: one colour · Plain · Dawn · Diagonal ·
+   * Glow) under Look › Background, and **`'art'`** (Candlelight · Magic Move,
+   * the Pro half alone) under Look › Elements › Colours. Same fields, same door.
+   * `'colours'` (both, one form) stays for the Event Details record row.
    */
-  part?: 'font' | 'colours' | null;
+  part?: 'font' | 'colours' | 'page' | 'art' | null;
   /**
    * 🎨 THE COLOURS THE MOOD BOARD GIVES THE PAGE (`moodBoardSiteColours`, the
    * guest page's own resolver) — what the wells show while a colour is left
@@ -132,8 +146,6 @@ export function ColorsPanel({
   artDirection: 'daylight' | 'candlelight' | null;
   /** The couple's saved typeface, or null for the theme's own. */
   fontKey?: string | null;
-  /** Which element travels as a guest scrolls, or null for nothing. */
-  magicTraveller?: string | null;
   /** The Pro half (face, art direction, magic move) is locked — both colours
    *  stay editable, because they are free (owner 2026-09-24 background,
    *  2026-09-28 button). Its fields are then NOT rendered, and the action reads
@@ -148,8 +160,15 @@ export function ColorsPanel({
    * once owned, none in the store shell.
    */
   proMark?: PaidMarkState | null;
+  /** 🔤 `events.site_roles`, the draft over live — the Headings · Text · Labels & buttons fonts (the Studio's Font part). */
+  siteRoles?: unknown;
 }) {
   const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  /* 🌗 In the new Maker's Studio, Candlelight is Background › Shade ▾'s darkest step (owner 2026-10-08, the Look
+     restudy § 3.1) whenever the main background's panel is there to hold it — one field, one place. This
+     form then posts no `site_art_direction`, which the action reads as unchanged. */
+  const maker = useMaker();
+  const shadeHoldsArt = part === 'art' && maker?.stagesStudio === true && Boolean(maker.lookPages?.look?.background);
   /* ══ THE TYPEFACE ═════════════════════════════════════════════════
      Owner's Pro list names "Custom Fonts". A FIXED list, because
      `next/font` resolves at build time: every face here is already served
@@ -177,13 +196,32 @@ export function ColorsPanel({
         name="site_font_key"
         dataAttr="data-site-font"
         value={sanitizeHubFontKey(fontKey)}
+        /* 🪟 Studio › Look's sample screen sets the names in the face from the tap (`look-sample.tsx`). */
+        onPick={(key) => tellLookSample(eventId, { fontKey: key })}
         lead="Default"
         className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
       />
     </fieldset>
   );
+  /* 🧭 IN THE NEW MAKER'S STUDIO a Look part sits FLUSH with the rows around it (owner's preview walk 2026-10-08:
+     a tall empty gap, with a hairline, between Magic Move and Palette — it was this form's own padding and rule
+     stacked on the next row's). The shipped Maker keeps the panel's padded block. */
+  const flush = maker?.stagesStudio === true && (part === 'art' || part === 'page' || part === 'font');
+  /* A Pro half that is locked with no lock to show (the app-store shell) has nothing to draw. */
+  if (part === 'art' && proLocked && !proLock) return null;
+  /* ✈ MAGIC MOVE LEFT LOOK (owner 2026-10-08, on the local copy: *"remove magic move"*). Look's Colours part
+     (`part="art"`) no longer draws it — and posts no `site_magic_traveller`, which the action reads as UNCHANGED:
+     a mark already set to travel keeps travelling on the guest page (`the-mark-travels-or-sits-still.test.ts`).
+     In the Studio, where Candlelight is Background › Shade ▾'s, that leaves this part with nothing to draw. */
+  if (shadeHoldsArt) return null;
+  /* 🔤 IN THE STUDIO THE FONT PART IS FOUR ROWS (owner 2026-10-08, round 5: "more than just 2 types of fonts") —
+     Fonts ▾ · Names · Headings · Text · Labels & buttons, each drafted by its own pick (`fonts-look-rows.tsx`), so
+     there is no form to post. The shipped Maker keeps its one Typeface row below (it is the Names font). */
+  if (part === 'font' && maker?.stagesStudio === true) {
+    return <FontsLookRows eventId={eventId} themeId={isInviteThemeId(themeId) ? themeId : 'house'} fontKey={sanitizeHubFontKey(fontKey)} roles={siteRoles} />;
+  }
   return (
-    <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
+    <SafeForm action={action} data-look-form={part ?? undefined} className={flush ? 'flex flex-col' : 'border-t border-dashed border-ink/10 bg-cream/40 p-3'}>
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
           Pro half here and pays at Apply. */}
       <HubDraftField />
@@ -202,19 +240,21 @@ export function ColorsPanel({
           field, one hidden `bg_color`. Full width: the four effect chips need
           the room, and the button colour sits under it. */}
       {/* In Look the "Background" is the section above (behind every scene); here it is the page's colour. */}
-      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' ? 'Page' : 'Background'} />
+      {part === 'art' ? null : (
+        <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' || part === 'page' ? 'Page' : 'Background'} />
+      )}
       {/* 🎨 Free for everyone since 2026-09-28 (owner: "change … color …
           only when you start adding themes will it be pro") — never locked.
           🔘 In Look it lives in Look › Buttons (2026-10-04) — the same
           `site_button_color`, beside the shape and fill it goes with — so the
           Colours section no longer draws it (one field, one place). This form
           then posts no `button_color`, which the action reads as unchanged. */}
-      {part === 'colours' ? null : (
+      {part === 'colours' || part === 'page' || part === 'art' ? null : (
         <div className="mt-3">
           <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
         </div>
       )}
-      {proLocked ? (
+      {part === 'page' ? null : proLocked ? (
         <div className="mt-3">{proLock}</div>
       ) : (
       <>
@@ -223,31 +263,18 @@ export function ColorsPanel({
           is one dropdown). A hidden field ALWAYS posts one of the two values:
           the action treats an absent field as "leave unchanged", so the dark
           direction can always be turned back off from here. */}
-      <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} />
+      {shadeHoldsArt ? null : <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} leads={part === 'art'} />}
 
-      {part === 'colours' ? null : typeface}
+      {part === 'colours' || part === 'art' ? null : typeface}
 
-      {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════
-          Owner, 2026-09-23: element animation is *"something I really want"*,
-          and *"the idea is like how keynote's magic move operate"*.
-
-          🔑 IT IS A DIFFERENT KIND OF MOTION FROM THE CANVAS: everything in
-          "How it moves" is a HANDOVER — one section fades out, the next fades
-          in; this is one element staying on screen and travelling between two
-          real places. Its option says so in its own name ("Your monogram
-          travels down the page") — no caption under it (owner 2026-10-05).
-
-          ⛔ "Nothing travels" is first, always available, and posts `''` — the
-          action reads that as "clear", distinct from an absent field meaning
-          "unchanged", exactly as the typeface above does. A couple must be able
-          to take this back, and this is the first motion on the guest page that
-          moves an element ACROSS the viewport. */}
-      <MagicMovePick value={magicTraveller} mark={mark} />
+      {/* ✈ MAGIC MOVE IS THE LOGO'S ACTION NOW (Look restudy row 9, owner-approved 2026-10-08): "Travels to the bar"
+          in Stages › the cover's Logo › Animate › Action (`element-sheet.tsx`, `lib/magic-move.ts`). This form posts no
+          `site_magic_traveller`, which the action reads as UNCHANGED — a mark already travelling keeps travelling. */}
       </>
       )}
       </>
       )}
-    </form>
+    </SafeForm>
   );
 }
 
@@ -267,12 +294,12 @@ function themeOwnColours(themeId: string) {
 function ButtonColourField({
   name,
   defaultValue,
-  eventId,
   moodBoard,
   themeId,
 }: {
   name: string;
   defaultValue: string | null;
+  /** No longer read (the device's "Saved colours" went with the well's own panel, 2026-10-08) — still handed by the mount above. */
   eventId: string;
   moodBoard: { background: string; buttons: string; swatches: string[] } | null;
   themeId: string;
@@ -288,10 +315,8 @@ function ButtonColourField({
         value={hex || null}
         shown={fallback}
         what="your buttons"
-        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [fallback]}
-        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        palette={moodBoard?.swatches ?? []}
         unsetLabel={unsetLabel}
-        savedKey={`sn-maker-colours:${eventId}`}
         onPick={(c) => setHex(c.slice(0, 7))}
         onUnset={() => setHex('')}
         data="buttons"
@@ -320,7 +345,6 @@ function BackgroundField({
   id,
   value,
   themeId,
-  eventId,
   moodBoard,
   label = 'Background',
 }: {
@@ -328,6 +352,7 @@ function BackgroundField({
   id: string;
   value: string | null;
   themeId: string;
+  /** No longer read (the device's "Saved colours" went with the well's own panel, 2026-10-08) — still handed by the mount above. */
   eventId: string;
   moodBoard: { background: string; buttons: string; swatches: string[] } | null;
 }) {
@@ -337,7 +362,9 @@ function BackgroundField({
   const [hex, setHex] = useState<string>(stored ? (stored.kind === 'plain' ? stored.hex : stored.ombre.base) : '');
   const [effect, setEffect] = useState<BackgroundEffect>(stored?.kind === 'ombre' ? stored.ombre.shape : 'plain');
 
-  const posted = encodeBackgroundChoice(hex, effect);
+  /* 🎨🎨 A second colour set in the Studio (`ombre:<effect>:<hex>:<hex>`, owner 2026-10-08) is KEPT by this one-colour
+     field: it shows and edits the first colour and the effect, and posts the second back with any blend. */
+  const posted = encodeBackgroundChoice(hex, effect, stored?.kind === 'ombre' ? stored.ombre.to : null);
   /* 🎨 The colour every preview derives from: the couple's pick, else THE
      COLOUR THE PAGE ACTUALLY WEARS — the Mood Board's (`moodBoardSiteColours`,
      the guest page's own resolver), else the theme's. Never a fixed cream. */
@@ -362,10 +389,8 @@ function BackgroundField({
         value={hex || null}
         shown={resolved}
         what="the page"
-        themeColours={moodBoard?.swatches.length ? moodBoard.swatches : [resolved]}
-        swatchesLabel={moodBoard ? 'Your Mood Board' : 'Your theme'}
+        palette={moodBoard?.swatches ?? []}
         unsetLabel={unsetLabel}
-        savedKey={`sn-maker-colours:${eventId}`}
         onPick={(c) => setHex(c.slice(0, 7).toLowerCase())}
         onUnset={() => {
           setHex('');
@@ -432,10 +457,10 @@ function BackgroundField({
  * 🌗 ART DIRECTION — Daylight · Candlelight as ONE dropdown, ◆ beside its name
  * (owner, live iPhone test 2026-10-05: any set of choices is one dropdown).
  */
-function ArtDirectionPick({ value, mark }: { value: 'daylight' | 'candlelight'; mark: React.ReactNode }) {
+function ArtDirectionPick({ value, mark, leads = false }: { value: 'daylight' | 'candlelight'; mark: React.ReactNode; /** First in its form — no rule over it. */ leads?: boolean }) {
   const [art, setArt] = useState<'daylight' | 'candlelight'>(value);
   return (
-    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-art-direction="">
+    <div className={`flex min-h-11 items-center justify-between gap-3${leads ? '' : ' mt-3 border-t border-dashed border-ink/10 pt-3'}`} data-look-art-direction="">
       <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
       <input type="hidden" name="site_art_direction" value={art} />
       <PickMenu
@@ -452,27 +477,3 @@ function ArtDirectionPick({ value, mark }: { value: 'daylight' | 'candlelight'; 
   );
 }
 
-/**
- * ✈ MAGIC MOVE — "Nothing travels" or the one thing that travels, as ONE
- * dropdown. "Nothing travels" is first and always there; it posts `''`, which
- * the action reads as "clear" (an absent field means "unchanged").
- */
-function MagicMovePick({ value, mark }: { value: string | null; mark: React.ReactNode }) {
-  const [magic, setMagic] = useState<string>(value && (MAGIC_TRAVELLERS as readonly string[]).includes(value) ? value : '');
-  return (
-    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-magic-move="">
-      <p className="inline-flex shrink-0 items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
-      <input type="hidden" name="site_magic_traveller" value={magic} />
-      <PickMenu
-        label="Magic Move"
-        value={magic === '' ? 'none' : magic}
-        dataAttr="data-magic-move-pick"
-        options={[
-          { key: 'none', label: 'Nothing travels' },
-          ...MAGIC_TRAVELLERS.map((t) => ({ key: t, label: MAGIC_TRAVELLER_LABEL[t] })),
-        ]}
-        onPick={(k) => setMagic(k === 'none' ? '' : k)}
-      />
-    </div>
-  );
-}

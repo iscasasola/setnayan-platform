@@ -19,10 +19,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { eventSkuActive } from '@/lib/entitlements';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 type Result = { ok: true } | { ok: false; error: string };
 
 export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Result> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     const id = (eventId ?? '').trim();
     if (!id) return { ok: false, error: 'Missing event.' };
@@ -66,6 +69,8 @@ export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Resu
     if (updErr) return { ok: false, error: updErr.message };
 
     revalidatePath(`/dashboard/${id}/studio/pakanta`);
+    // Home's Music card offers the same button (owner 2026-10-23, the service widgets) — it re-reads too.
+    revalidatePath(`/dashboard/${id}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Could not set the song.' };

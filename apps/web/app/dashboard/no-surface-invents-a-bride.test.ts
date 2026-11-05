@@ -49,15 +49,12 @@ const GATED_SURFACES = [
 
 /**
  * ⚖ KNOWN BACKLOG — MAY ONLY SHRINK, NEVER GROW.
- * `chip-editors.tsx` renders a side picker from a client island that is handed
- * no role set today, so gating it means threading the answer down from the
- * page — a wider change than the one the owner's screenshot asked for. It is
- * recorded here rather than left silent, and the count below is what stops it
- * becoming two.
+ * It held one entry, `chip-editors.tsx` (a side picker in a client island handed
+ * no role set). That file went with the retired GuestListMultiselect on
+ * 2026-10-09, so the backlog is now EMPTY — the shrink the rule asked for.
+ * The test below still holds the line: nothing may be added.
  */
-const UNGATED_BACKLOG = [
-  'app/dashboard/[eventId]/guests/_components/chip-editors.tsx',
-];
+const UNGATED_BACKLOG: string[] = [];
 
 test('the decision itself: a wedding has sides, a sideless type does not', () => {
   assert.equal(eventHasSides(WEDDING_ROLE_SET), true);
@@ -143,7 +140,7 @@ test('the write resolves both ways — a wedding still refuses, a sideless type 
 
 test('⚖ the ungated backlog only shrinks', () => {
   assert.ok(
-    UNGATED_BACKLOG.length <= 1,
+    UNGATED_BACKLOG.length === 0,
     'a NEW surface was added to the ungated backlog. Gate it instead — the ' +
       'helper is pure and client-safe, and every entry here is a screen that ' +
       'can still ask a wake which side a mourner is on.',

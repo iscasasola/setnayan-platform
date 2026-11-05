@@ -4,8 +4,8 @@
  * Gates the compiled-history section that a service card grows over time:
  * a "Booked N× on Setnayan" bar, the event-type mix, an ANONYMIZED ledger of
  * recent events served (type + month-year + pax band — never a name, a venue,
- * an exact date or an exact head-count), and the milestone medals at
- * 10 / 25 / 50 / 100 bookings. Owner-locked 2026-07-28 ("build it now, let's
+ * an exact date or an exact head-count), and the milestone medals at the
+ * `MILESTONE_THRESHOLDS` steps (10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000 since 2026-10-28). Owner-locked 2026-07-28 ("build it now, let's
  * keep everything simple") — see DECISION_LOG.md row 2819.
  *
  * OFF (the default) ⇒ the couple's `/v/[slug]` card and the vendor's services

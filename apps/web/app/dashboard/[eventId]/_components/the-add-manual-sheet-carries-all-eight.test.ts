@@ -28,15 +28,19 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MODAL = path.join(HERE, 'new-manual-vendor-modal.tsx');
 
-/** field → the string that proves it is RENDERED, not merely imported. */
+/**
+ * field → the string that proves it is RENDERED, not merely imported.
+ * Since 2026-10-12 a typed field is a Form row (`TypedRow`) that posts under
+ * `fieldName` (its hidden carrier IS `name=` in the DOM) — either spelling counts.
+ */
 const EIGHT: ReadonlyArray<readonly [string, RegExp]> = [
-  ['Vendor name', /name="business_name"/],
-  ['Contact person', /name="contact_person"/],
-  ['Contact number', /name="contact_number"/],
+  ['Vendor name', /\b(?:name|fieldName)="business_name"/],
+  ['Contact person', /\b(?:name|fieldName)="contact_person"/],
+  ['Contact number', /\b(?:name|fieldName)="contact_number"/],
   ['Address pin', /<AddressPinField\b/],
   ['Services covered', /<ServicesCoveredPicker\b/],
-  ['Inclusions', /name="inclusions"/],
-  ['Price', /name="total_cost_php"/],
+  ['Inclusions', /\b(?:name|fieldName)="inclusions"/],
+  ['Price', /\b(?:name|fieldName)="total_cost_php"/],
   ['Payment plan', /<PaymentPlanRows\b/],
 ];
 
@@ -84,7 +88,7 @@ describe('one save, and one writer per fact', () => {
         'total_cost_php, so this is a second writer of one column.',
     );
     assert.equal(
-      (src.match(/name="total_cost_php"/g) ?? []).length,
+      (src.match(/\b(?:name|fieldName)="total_cost_php"/g) ?? []).length,
       1,
       'total_cost_php is rendered more than once in this file.',
     );

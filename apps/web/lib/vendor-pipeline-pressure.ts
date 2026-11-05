@@ -96,7 +96,7 @@ export function pipelinePressureLine(p: PipelinePressure): string | null {
   const day = pipelineDayLabel(p.dateIso);
   if (!day) return null;
   if (p.state === 'full') {
-    return `You're chasing ${formatCount(p.used)} of ${formatCount(p.cap)} for ${day} — your plan's limit.`;
+    return `You're chasing ${formatCount(p.used)} of ${formatCount(p.cap)} for ${day} — the most for one date.`;
   }
   if (p.state === 'last') {
     return `Your last slot for ${day} — you're chasing ${formatCount(p.used)} of ${p.cap}.`;

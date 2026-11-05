@@ -38,7 +38,8 @@ import {
 } from '@/lib/live-studio-recordings';
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPartPrices } from '@/lib/couple-website-pro';
+import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
   savePanoodWatchUrl,
@@ -247,8 +248,18 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // the Broadcast Style Pack / AI Edited Highlight have NO V2 SKU yet, so those
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
-  const monogramSku = await formatV2Sku('ANIMATED_MONOGRAM').catch(() => null);
-  const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
+  // 💎 2026-10-22: the animation is sold as Event Hub Pro's Logo & QR part (the standalone row is retired) — its price.
+  // ⛔ 2026-10-26 (owner: "just have the upgrade event hub pro"): while that part is off sale, the animation is IN
+  // Event Hub Pro — the card says so with Pro's price. The catalogue is the one switch (`hubPartPrices().onSale`).
+  const monogramPrices = await hubPartPrices(createAdminClient()).catch(() => null);
+  const monogramPartSku = hubPart('logo_qr').sku;
+  const monogramPartPhp = monogramPrices?.onSale.has(monogramPartSku) ? monogramPrices.parts.get(monogramPartSku) : undefined;
+  const monogramPriceLabel =
+    monogramPartPhp != null
+      ? formatPhp(monogramPartPhp)
+      : monogramPrices?.full != null
+        ? `In Event Hub Pro · ${formatPhp(monogramPrices.full)}`
+        : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples
   // download from their Setnayan dashboard via a link that resolves the YouTube
@@ -539,8 +550,8 @@ function ComingSoonPlaceholder() {
           <p className="max-w-prose text-xs text-ink/60">
             Setnayan&rsquo;s YouTube OAuth verified-app review is still in progress with
             Google (the review window is 1–4 weeks). Once it clears, the Connect button
-            lights up here and your broadcast goes live to your own channel. We&rsquo;ll
-            email you the moment it&rsquo;s ready.
+            lights up here and your broadcast goes live to your own channel. You&rsquo;ll
+            get a notice in Setnayan the moment it&rsquo;s ready.
           </p>
         </div>
       </div>
@@ -841,7 +852,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
               link, plus a private setup link for each camera operator — no install, just
               open on any modern phone. The control room is built and you can open it now;
               the live per-camera ingest finishes wiring with the streaming rollout, and
-              we&rsquo;ll email you the moment it&rsquo;s ready.
+              you&rsquo;ll get a notice in Setnayan the moment it&rsquo;s ready.
             </p>
           </div>
         </div>
@@ -907,8 +918,8 @@ function StyleAndAddOns({
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Optional packs that elevate the broadcast and the post-event recap. Prices are
-          set in the Setnayan catalog; buy through the normal orders flow and refunds
-          follow the standard 24-hour SLA.
+          set in the Setnayan catalog; buy through the normal orders flow. No refunds:
+          a pack you cannot use becomes Papic credits for this event.
         </p>
       </div>
 
@@ -1022,7 +1033,7 @@ function PackCard({
           </span>
         ) : (
           <span className="text-xs text-ink/55">
-            Open the orders page to purchase. Refundable per the standard 24-hour SLA.
+            Open the orders page to purchase. No refunds: if you cannot use it, it becomes Papic credits for this event.
           </span>
         )}
       </div>
@@ -1175,7 +1186,7 @@ function YouTubeDelivery({
         {!youtubeWatchUrl ? (
           <p className="mt-2 text-xs text-ink/50">
             Already created your broadcast on YouTube yourself? Paste its link here and
-            your wedding page shows Watch Live during the celebration — no need to wait
+            your wedding page shows Watch Live during the event — no need to wait
             for the broadcaster hand-off.
           </p>
         ) : null}

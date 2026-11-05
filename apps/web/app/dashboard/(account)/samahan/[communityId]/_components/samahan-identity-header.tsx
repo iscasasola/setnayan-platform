@@ -26,7 +26,6 @@ const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 export function SamahanIdentityHeader({
   communityId,
   name,
-  publicId,
   photoUrl,
   photoDisplayUrl,
   initial,
@@ -34,7 +33,6 @@ export function SamahanIdentityHeader({
 }: {
   communityId: string;
   name: string;
-  publicId: string;
   photoUrl: string | null;
   photoDisplayUrl: string | null;
   initial: string;
@@ -107,7 +105,9 @@ export function SamahanIdentityHeader({
   const shownPhoto = preview ?? photoDisplayUrl;
 
   return (
-    <div className="mb-6 rounded-2xl border border-ink/15 bg-white/60 p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+    // Unframed (owner rule: frames only on what you press — the photo and the name are the buttons here, the band
+    // around them is not). The one line under the name is the group's description (prototypes/group_samahan_2026-10-25).
+    <div className="mb-2">
       <div className="flex items-center gap-4">
         {/* The photo IS the button. */}
         <button
@@ -131,7 +131,7 @@ export function SamahanIdentityHeader({
           )}
           <span
             aria-hidden
-            className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-mulberry text-white shadow"
+            className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-mulberry text-white dark:text-cream shadow"
           >
             {uploading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -171,12 +171,12 @@ export function SamahanIdentityHeader({
                 minLength={2}
                 maxLength={80}
                 aria-label="What this group is called"
-                className="min-w-0 flex-1 rounded-xl border border-ink/20 bg-white px-2 py-1 font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
+                className="min-w-0 flex-1 rounded-xl border border-ink/20 bg-white dark:bg-raised px-2 py-1 font-sans text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
               />
               <button
                 type="submit"
                 aria-label="Save the name"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-white"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-mulberry text-white dark:text-cream"
               >
                 <Check className="h-4 w-4" aria-hidden />
               </button>
@@ -206,13 +206,10 @@ export function SamahanIdentityHeader({
               />
             </button>
           )}
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em]">
-            <span className="text-ink/45">{publicId}</span>
-          </p>
+          {metaLine}
         </div>
       </div>
       {error ? <p className="mt-2 text-xs text-mulberry-700">{error}</p> : null}
-      {metaLine}
     </div>
   );
 }

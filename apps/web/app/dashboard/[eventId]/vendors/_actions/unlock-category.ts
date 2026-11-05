@@ -36,10 +36,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import {
-  canonicalServicesForFolder,
-  canonicalServicesForTile,
-} from '@/lib/vendor-counts';
+import { getCanonicalBuckets, servicesForPlanGroup } from '@/lib/vendor-counts';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   eventVendorCategoryForCardKind,
@@ -54,6 +51,7 @@ import {
   resolveIsReturning,
   stampThreadProvenance,
 } from '@/lib/inquiry-attribution';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -71,13 +69,11 @@ export type UnlockCategoryResult =
    supplier by saying they were planning a wedding and would love to hear about
    packages. Two files carried it byte-identically; both now ask the profile. */
 
-/** Group → canonical services (tightest-first), mirroring category-search.ts. */
-function canonicalsForGroup(groupId: string): string[] {
+/** Group → canonical services (tightest-first), the same ladder as category-search.ts — read off the live taxonomy. */
+async function canonicalsForGroup(groupId: string): Promise<string[]> {
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
-  if (g.subcategoryHint) return [g.subcategoryHint];
-  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
-  return canonicalServicesForFolder(g.catalogFolder);
+  return servicesForPlanGroup(await getCanonicalBuckets(), g);
 }
 
 export async function unlockCategoryWithInquiry(input: {
@@ -97,6 +93,7 @@ export async function unlockCategoryWithInquiry(input: {
    */
   inquirySource?: 'first_pick' | 'auto_build';
 }): Promise<UnlockCategoryResult> {
+  await refuseLimitedHelper(input.eventId, null);
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const want = Math.max(1, Math.min(5, Math.round(input.count ?? 1)));
@@ -104,7 +101,7 @@ export async function unlockCategoryWithInquiry(input: {
     input.inquirySource === 'auto_build' ? 'auto_build' : 'first_pick';
   if (!eventId || !groupId) return { status: 'invalid_group' };
 
-  const canonicals = canonicalsForGroup(groupId);
+  const canonicals = await canonicalsForGroup(groupId);
   if (canonicals.length === 0) return { status: 'invalid_group' };
 
   const supabase = await createClient();
@@ -197,8 +194,8 @@ export async function unlockCategoryWithInquiry(input: {
     const tileForKind = tax.map[category]?.tile ?? null;
     const { error: insertErr } = await supabase.from('event_vendors').insert({
       event_id: eventId,
-      category: eventVendorCategoryForCardKind(category, tileForKind),
-      category_key: eventVendorCategoryKeyForCardKind(category, tileForKind),
+      category: eventVendorCategoryForCardKind(category, tileForKind, tax),
+      category_key: eventVendorCategoryKeyForCardKind(category, tileForKind, tax),
       vendor_name: vendorName,
       status: 'considering',
       marketplace_vendor_id: vendorProfileId,

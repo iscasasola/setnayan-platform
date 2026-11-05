@@ -106,7 +106,9 @@ test('the keepers point at the guest download route, and it takes no id', () => 
     !/\/api\/guest\/qr[^'"`\s]/.test(src),
     'no id, token or query may be appended — the cookie is the whole credential',
   );
-  assert.ok(src.includes('download'), 'the link must carry the download attribute');
+  // 2026-10-27: a bare `<a download>` was rendered in place by the iPhone app's web view — the save is SaveFileLink
+  // (which keeps `download` on its anchor as the no-JS fallback and SAVES the tap: share sheet / download).
+  assert.match(src, /<SaveFileLink\s+href="\/api\/guest\/qr"/, 'the save is not SaveFileLink at the guest route — the app would show the PNG in place');
   // The paid branded PNG is a different file behind an ownership gate; pointing
   // a free guest button at it would 401 or 403 every guest who pressed it.
   assert.ok(

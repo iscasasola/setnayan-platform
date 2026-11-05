@@ -196,12 +196,11 @@ test('(4) no caption under a Look control — every line of text in Look is a la
   assert.doesNotMatch(read(`${E}/main-background-panel.tsx`), /data-main-ground-note=/, 'a caption came back under Background › None');
 });
 
-test('(5) Art direction and Magic Move are ONE dropdown each, with the ◆ beside the name — never radios', async () => {
+test('(5) Art direction is ONE dropdown, with the ◆ beside the name — never radios (Magic Move is the Logo\'s Action now)', async () => {
   const { colours } = await paintLookControls();
   assert.doesNotMatch(colours, /type="radio"/, 'a radio list came back in Colours');
   for (const [what, attr, field, value] of [
     ['Art direction', 'data-art-direction-pick', 'site_art_direction', 'candlelight'],
-    ['Magic Move', 'data-magic-move-pick', 'site_magic_traveller', 'mark'],
   ] as const) {
     const btn = tagWith(colours, attr);
     assert.match(btn, /aria-haspopup="listbox"/, `${what} is not a dropdown`);

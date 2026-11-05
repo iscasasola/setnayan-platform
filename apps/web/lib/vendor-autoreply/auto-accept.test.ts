@@ -13,7 +13,7 @@
  *   • NO token → the RPC is never even called (no hold, never borrow), and the
  *     waiting lead is flagged via compat_reasons.auto_accept_skipped.
  *   • trust-flagged (open inquiry_concentration integrity flag) → never.
- *   • daily auto-accept cap reached → never.
+ *   • no per-day limit: 500 auto-accepts already today → still accepts.
  *   • token probe ERROR → fail-closed (no accept AND no misleading flag).
  *   • first evaluation snapshots compat_score_at_inquiry + compat_reasons.
  */
@@ -155,7 +155,7 @@ function ctx(overrides: Partial<AutoAcceptContext> = {}): AutoAcceptContext {
     inquiryStatus: 'pending',
     existingCompatScore: 90,
     businessName: 'Blooms & Co.',
-    config: { autoAcceptEnabled: true, autoAcceptThreshold: 78, dailyAutoAcceptCap: 10 },
+    config: { autoAcceptEnabled: true, autoAcceptThreshold: 78 },
     avgRating: 4.9,
     reviewCount: 60,
     eventRow: { region: 'ncr' },
@@ -196,7 +196,7 @@ test('vendor not opted in (config null / disabled) → zero touches', () =>
   withFlag('true', async () => {
     await maybeAutoAccept(ctx({ config: null }), untouchableAdmin());
     await maybeAutoAccept(
-      ctx({ config: { autoAcceptEnabled: false, autoAcceptThreshold: 78, dailyAutoAcceptCap: 10 } }),
+      ctx({ config: { autoAcceptEnabled: false, autoAcceptThreshold: 78 } }),
       untouchableAdmin(),
     );
   }));
@@ -239,7 +239,7 @@ test('happy path → hold RPC once + thread flip + is_bot welcome + auto_accept 
     assert.equal(welcome.row.sender_user_id, null);
     assert.match(String(welcome.row.body), /Blooms & Co\. accepted your inquiry/);
 
-    // The auto_accept log row (the daily-cap counter) with the score.
+    // The auto_accept log row (the supplier's record) with the score.
     const logRow = log.find((e) => e.table === 'vendor_bot_replies' && e.kind === 'insert');
     assert.ok(logRow, 'expected a vendor_bot_replies insert');
     assert.equal(logRow.row.action, 'auto_accept');
@@ -306,16 +306,15 @@ test('trust-flagged (open inquiry_concentration flag) → never auto-accepts', (
     assert.equal(log.length, 0, 'no writes at all (score already snapshotted)');
   }));
 
-test('daily auto-accept cap reached → never', () =>
+test('no per-day limit → a busy day of auto-accepts still accepts (owner 2026-10-23)', () =>
   withFlag('true', async () => {
     const log: WriteEntry[] = [];
     const rpcLog: RpcEntry[] = [];
     await maybeAutoAccept(
       ctx(),
-      fakeAdmin(happyCanned({ vendor_bot_replies: { count: 10 } }), log, rpcLog),
+      fakeAdmin(happyCanned({ vendor_bot_replies: { count: 500 } }), log, rpcLog),
     );
-    assert.equal(rpcLog.length, 0);
-    assert.equal(log.length, 0);
+    assert.equal(rpcLog.length, 1, 'the hold RPC is still called');
   }));
 
 test('token probe ERROR → fail-closed: no accept AND no misleading no-token flag', () =>
@@ -362,7 +361,7 @@ test('first evaluation snapshots compat_score_at_inquiry + reasons on the thread
     await maybeAutoAccept(
       ctx({
         existingCompatScore: null,
-        config: { autoAcceptEnabled: true, autoAcceptThreshold: 100, dailyAutoAcceptCap: 10 },
+        config: { autoAcceptEnabled: true, autoAcceptThreshold: 100 },
       }),
       fakeAdmin(happyCanned(), log, rpcLog),
     );

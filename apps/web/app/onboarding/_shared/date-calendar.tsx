@@ -41,6 +41,7 @@
  */
 'use client';
 
+import { eventDateMinFor } from '@/lib/event-date-floor';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import './date-calendar.css';
 
@@ -107,6 +108,7 @@ export function DateCalendar({
   chrome = 'wedding',
   eyebrow = 'Your wedding',
   title = 'When\u2019s the big day?',
+  dateExempt = false,
 }: {
   mode: 'specific' | 'window';
   candidates: string[];
@@ -123,6 +125,8 @@ export function DateCalendar({
   /** Wedding-only chrome words. A birthday must not be told "Your wedding". */
   eyebrow?: string;
   title?: string;
+  /** 💍 The founders' (is_internal) account: days start today, not on December 19, 2026. */
+  dateExempt?: boolean;
 }) {
   const today = useMemo(() => {
     const t = new Date();
@@ -134,7 +138,12 @@ export function DateCalendar({
     d.setFullYear(d.getFullYear() + 3);
     return d;
   }, [today]);
-  const minD = today;
+  /* 💍 NO EVENT BEFORE DECEMBER 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): for a
+     normal account the first pickable day is the later of today and the first event day. */
+  const minD = useMemo(() => {
+    const floor = fromISO(eventDateMinFor(toISO(today), dateExempt));
+    return floor > today ? floor : today;
+  }, [today, dateExempt]);
 
   /* seed: a date ~6 months out (clamped), used when nothing is picked yet */
   const seed = useMemo(() => {

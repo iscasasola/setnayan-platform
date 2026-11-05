@@ -60,21 +60,23 @@ test('2 · the Me tab’s anchor does not open the reply sheet; the reply’s ow
   for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
     const a = resolveArrivalAction({ slug: 'w', rsvpStatus, today: '2020-01-01' });
     assert.ok(a);
-    assert.equal(hashOpensSheet(a.href), true, `${rsvpStatus}: the RSVP / Change control no longer reaches the sheet`);
+    // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
+    assert.equal(a.href, '/w/invite/reply', `${rsvpStatus}: the RSVP / Change control no longer reaches the reply page`);
+    assert.equal(hashOpensSheet(a.href), false, `${rsvpStatus}: the control raises a sheet again`);
     // (No separate "Change" since 2026-10-03 — the status label IS the door.)
   }
 });
 
-test('2 · "Change your reply" is a button ON Me, gated like the sheet it opens', () => {
-  const at = BODY.indexOf('data-me-change-reply');
-  assert.ok(at > -1, 'Me has no "Change your reply" button');
-  const gate = BODY.lastIndexOf('plan.rsvpShouldRender', at);
-  assert.ok(gate > BODY.indexOf("group('me'"), 'the button is not gated on the sheet’s own gate — it could point at nothing');
-  const tag = BODY.slice(BODY.lastIndexOf('<a', at), BODY.indexOf('</a>', at));
-  assert.match(tag, /href="#your-details"/);
-  assert.match(tag, /Change your reply/);
-  // Only a guest who HAS replied; a pending guest is asked from the Home door.
-  assert.match(BODY.slice(gate, at), /'attending'[\s\S]{0,60}'declined'/);
+test('2 · "Change my reply" is ON Me — Me’s one Reply, gated like the reply it opens', () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): the separate "Change your reply" bar folded into Me's
+     one Reply (`MeReply`): after a reply it reads "You're coming ✓ · Change my reply" (`replyCardOf`). Still ON Me,
+     still gated on the reply's own gate (`plan.rsvpShouldRender`), never a door that points at nothing. */
+  assert.ok(!BODY.includes('data-me-change-reply'), 'the separate "Change your reply" bar is back — a second door');
+  const at = BODY.indexOf('<MeReply ask={greetingAskOf(meReplyCard)!}');
+  assert.ok(at > BODY.indexOf("group('me'"), 'Me has no Reply of its own');
+  const card = BODY.slice(BODY.indexOf('const replyCard ='), BODY.indexOf('const meReplyCard ='));
+  assert.match(card, /plan\.rsvpShouldRender/, 'Me’s Reply is not gated on the reply’s own gate — it could point at nothing');
+  assert.match(card, /replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action (the reply page)');
 });
 
 // ── 3 · MOBILE IS ASKED IN THE REPLY, MARKED, AND NEVER ON A SECOND SCREEN ──
@@ -147,7 +149,8 @@ test('3 · a couple who switched Mobile off, a closed list and the Maker’s can
 
 test('3 · the save refuses a yes without the number, with a sentence — and a decline is never asked', () => {
   const actions = code('app/[slug]/actions.ts');
-  const at = actions.indexOf("status === 'attending' && ask.mobile && !contactMobile");
+  // 🔁 RE-AIMED 2026-10-11 (N18): "no number" is now "fewer than seven digits" (`mobileIsEnough`) — the same refusal.
+  const at = actions.indexOf("status === 'attending' && ask.mobile && !mobileIsEnough(contactMobile)");
   assert.ok(at > -1, 'submitRsvp accepts a yes with no mobile when the couple asks for one');
   assert.match(actions.slice(Math.max(0, at - 40), at), /!replyLocked/, 'a closed list is refused a number');
   assert.match(actions.slice(at, at + 400), /rsvp=mobile/);
@@ -162,13 +165,16 @@ test('3 · the save refuses a yes without the number, with a sentence — and a 
 // ── 4 · NO "MAYBE" IN THE GUEST'S INTRO ─────────────────────────────────────
 
 test('4 · the intro tour and the guest help offer yes or no — there is no Maybe', () => {
-  for (const rel of ['lib/tours.ts', 'lib/help.ts']) {
-    const src = readFileSync(join(WEB, rel), 'utf8');
-    const line = src.split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
-    assert.ok(line, `${rel}: the RSVP line moved — re-point this guard`);
-    assert.doesNotMatch(line, /Maybe/i, `${rel} still offers a Maybe the guest is never shown`);
-    assert.match(line, /Yes or No/);
-  }
+  const tours = readFileSync(join(WEB, 'lib/tours.ts'), 'utf8').split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
+  assert.ok(tours, 'lib/tours.ts: the RSVP line moved — re-point this guard');
+  assert.doesNotMatch(tours, /Maybe/i, 'lib/tours.ts still offers a Maybe the guest is never shown');
+  assert.match(tours, /Yes or No/);
+  // Re-pointed ON PURPOSE (help-sync, 2026-10-23): the help answer now names the card the guest actually sees —
+  // "Reply" on "Will you join us?" — whose two answers the host words (Joyfully accepts / Regretfully declines by
+  // default), so it no longer says "Yes or No". The property is the same: no Maybe.
+  const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8').split('\n').find((l) => /Will you join us\?/.test(l) && /Reply/.test(l));
+  assert.ok(help, 'lib/help.ts: the RSVP answer moved — re-point this guard');
+  assert.doesNotMatch(help, /Maybe/i, 'lib/help.ts still offers a Maybe the guest is never shown');
 });
 
 // ── 5 · THE CAMERA CONSENT CARD IS FOR THE DAY ──────────────────────────────
@@ -219,10 +225,19 @@ test('6 · the film reserves the room the scaled lockup paints, so the label is 
   assert.ok(film.indexOf('<HeroMonogram', at) > at && film.indexOf('<HeroMonogram', at) < film.indexOf('</div>\n    );', at), 'the lockup is not inside its slot');
 });
 
-test('6 · the Save-to-account button grows with its two-line sub-label and pads it', () => {
+/* ⚠ CHANGED 2026-10-25 ("Show both"): the two-line terracotta Save button this pinned (h-auto + py-2.5, so its
+   sub-label did not touch the edge) is gone — the providers are the login's own one-line buttons, and the two lines
+   moved into a heading above them. What stays true: neither line is squeezed into a fixed-height box. */
+test('6 · the Save-to-account words sit in a heading over the official provider buttons, never in a fixed-height box', () => {
+  /* 🎟 RE-AIMED 2026-10-25 (option A): the heading is the benefit — `SAVE_OFFER_TITLE` · `SAVE_OFFER_LINE` in
+     `SaveOfferHead` — over each brand's official button (`oauthOfficialClass`). Still: no fixed-height box. */
   const src = code('app/[slug]/_components/save-to-account.tsx');
-  const at = src.indexOf('Save to my account');
-  const open = src.slice(src.lastIndexOf('<SubmitButton', at), at);
-  assert.match(open, /\bh-auto\b/, '.button-primary’s fixed h-11 still pins the box');
-  assert.match(open, /\bpy-2\.5\b/, 'the sub-label touches the bottom edge');
+  const at = src.indexOf('data-save-heading');
+  assert.ok(at > -1, 'the save offer’s heading is gone');
+  const block = src.slice(at, src.indexOf('</div>\n    </div>', at));
+  assert.match(block, /\{title\}|label=\{title\}/);
+  assert.match(block, /\{line\}/);
+  assert.doesNotMatch(block, /\bh-(1[0-9]|[2-9])\b/, 'the heading sits in a fixed-height box');
+  assert.match(src, /export const SAVE_OFFER_TITLE = 'Keep your ticket on every phone';/);
+  assert.match(src, /className=\{oauthOfficialClass\(m, m === method\)\}/, 'the provider buttons are not the official pair');
 });

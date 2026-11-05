@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { resolveLivePax } from '@/lib/pax';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -34,6 +35,7 @@ import {
   type VendorPackageItemRow,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Vendor package server actions (owner directive 2026-05-22) — cascade-
@@ -97,6 +99,8 @@ export type LockPackageResult =
   // inserts contracted event_vendors rows for pkg.vendor_profile_id, so it's
   // gated the same as finalizeVendor. The DB trigger is the hard guard.
   | { status: 'vendor_not_verified'; vendorName: string }
+  /** 🚪 Bookings are closed on Setnayan (owner 2026-11-02, `lib/bookings-open.ts`, door 1). */
+  | { status: 'bookings_closed' }
   // A REQUIRED choice line was left unpicked. Owner rule: the couple must
   // choose, and the engine refuses to apply the default on their behalf. The
   // modal blocks the button, so this is the stale-client backstop.
@@ -116,6 +120,7 @@ export async function lockPackage(
   packageId: string,
   customizations: PackageCustomizationsInput,
 ): Promise<LockPackageResult> {
+  await refuseLimitedHelper(eventId, 'vendors');
   const supabase = await createClient();
   const {
     data: { user },
@@ -435,6 +440,8 @@ export async function lockPackage(
   //     inserts contracted event_vendors rows for this vendor — gate it the same
   //     as finalizeVendor. Admin read: verification_state isn't public-readable
   //     for a non-verified profile. The DB trigger is the hard backstop.
+  // 🚪 DOOR 1 · BOOKINGS CLOSED (owner 2026-11-02). The trigger is the backstop.
+  if (!(await areBookingsOpen())) return { status: 'bookings_closed' };
   if (!(await isMarketplaceVendorBookable(createAdminClient(), pkg.vendor_profile_id))) {
     return {
       status: 'vendor_not_verified',
@@ -637,6 +644,7 @@ export async function lockPackage(
           title: `${who} wants to book your ${pkg.package_name}`,
           body: `${who} has asked you to take their booking. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
           relatedUrl: '/vendor-dashboard',
+          eventId,
         });
       }
     } catch (e) {
@@ -678,6 +686,7 @@ export type ReleasePackageResult =
  * available via the existing deleteVendor action.
  */
 export async function releasePackage(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const bookingId = formData.get('booking_id');
   if (typeof eventId !== 'string' || typeof bookingId !== 'string') {
@@ -742,6 +751,7 @@ export async function releasePackage(formData: FormData) {
  * booked one separately."
  */
 export async function removeItemFromPackage(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const bookingId = formData.get('booking_id');
   const itemId = formData.get('item_id');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { partHref, yourTeamBudgetHref, yourTeamParts } from './pillar-parts';
+import { budgetPageHref, partHref, schedulePageHref } from './pillar-parts';
 import * as pillarParts from './pillar-parts';
 
 /**
@@ -38,20 +38,15 @@ test('the Guest list has no parts row — and its old part addresses land', () =
   assert.match(desk, /<h1\b/);
 });
 
-test('Your Team holds the team and the Budget, both on the Your Team page', () => {
-  assert.deepEqual(
-    yourTeamParts({ eventId: 'E', budgetEnabled: true }).map((p) => [p.key, p.label, p.href]),
-    [
-      ['team', 'Suppliers', '/dashboard/E/vendors'],
-      ['budget', 'Budget', '/dashboard/E/vendors?part=budget'],
-    ],
-  );
-  assert.equal(yourTeamBudgetHref('E'), '/dashboard/E/vendors?part=budget');
-});
-
-test('an event type without the budget surface is never offered a Budget that sends it home', () => {
-  assert.deepEqual(keys(yourTeamParts({ eventId: 'E', budgetEnabled: false })), ['team']);
-  assert.match(read('vendors', 'page.tsx'), /yourTeamParts\(\{ eventId, budgetEnabled: surfaceEnabled\(profile, 'budget'\) \}\)/, 'Your Team no longer asks the budget surface');
+test('no pillar holds parts any more — Budget and Schedule are each ONE address, Home\'s own pages', () => {
+  // 🧹 Owner 2026-11-02 ("BOOKED IS JUST THE TEAM"): Your Team's Budget part and Booked's Team · Budget · Schedule are gone.
+  for (const gone of ['yourTeamParts', 'bookedParts', 'bookedScheduleHref', 'bookedTeamHref', 'yourTeamBudgetHref']) {
+    assert.ok(!(gone in pillarParts), `${gone} is back — a pillar offers parts again`);
+  }
+  assert.equal(budgetPageHref('E'), '/dashboard/E/budget');
+  assert.equal(budgetPageHref('E', { pay: 'li 1' }), '/dashboard/E/budget?pay=li%201');
+  assert.equal(schedulePageHref('E'), '/dashboard/E/schedule');
+  assert.equal(schedulePageHref('E', { view: 'preparation', sheet: '', note: null }), '/dashboard/E/schedule?view=preparation');
 });
 
 test('an old route lands in its part with every param it carried', () => {
@@ -80,25 +75,25 @@ test('/hosts lands on the Guest list for anybody who can see it, and keeps a hel
   assert.doesNotMatch(page, /<form|action=\{/, '/hosts grew a control again — its controls moved (the Hosts fold)');
 });
 
-test('Your Team MOUNTS the shipped Budget page as its part, and offers it from the team', () => {
+test('Suppliers draws neither the Budget nor the Schedule — it forwards their old addresses, and keeps the team', () => {
   const page = read('vendors', 'page.tsx');
-  assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
-  assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART/, 'the Budget part is not rendered, or does not tell the page it is embedded');
-  // ⚖ Owner 2026-10-03: Budget is a visible row of "Your planning" (it was
-  // behind ⋯ from 2026-10-01). Still the part from `yourTeamParts`, still a
-  // link to its own URL — only its place moved.
-  assert.match(page, /teamParts=\{teamParts\}/, 'the takeover lost the Your Team parts');
-  const takeover = read('vendors', '_components', 'services-takeover.tsx');
-  assert.match(takeover, /<PlanningList budgetHref=\{teamParts\?\.find\(\(p\) => p\.key === 'budget'\)\?\.href\}/, 'the takeover no longer offers the Budget part');
-  const list = read('vendors', '_components', 'planning-list.tsx');
-  assert.match(list, /<Link href=\{budgetHref\}/, 'the Your planning list no longer links Budget');
-});
-
-test('/budget lands in Your Team only where Your Team exists', () => {
-  const page = read('budget', 'page.tsx');
+  assert.doesNotMatch(page, /import BudgetPage from|import CoupleSchedulePage from|<BookedPartPage\b/, 'Suppliers draws a Home page again — two places');
   assert.match(
     page,
-    /if \(YOUR_TEAM_BUDGET_PART !== \(await searchParams\)\?\.part && profile\.marketplaceEnabled === true\)/,
-    'the budget redirect is not gated on the embedded marker and on Your Team existing',
+    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) redirect\(budgetPageHref\(eventId, \{ pay: sp\.pay \}\)\);/,
+    'the old Budget part address no longer forwards to the Budget page with its ?pay=',
   );
+  assert.match(page, /bookedSlot=\{teamSlot\}/, 'the Suppliers screen lost its Booked body');
+  const takeover = read('vendors', '_components', 'services-takeover.tsx');
+  assert.match(takeover, /data-suppliers-body="booked"[\s\S]*?\{bookedSlot\}/, 'the Booked body is no longer mounted');
+  // The Budget block under the team (a lab's) still links the one Budget page.
+  const section = read('vendors', '_components', 'booked-budget.tsx');
+  assert.match(section, /const budgetHref = budgetPageHref\(eventId\);/, 'the Budget block builds the Budget page\'s address by hand');
+  assert.ok((section.match(/href=\{budgetHref\}/g) ?? []).length >= 1, 'the Budget section no longer links the Budget page');
+});
+
+test('/budget is its own page — it no longer lands in Suppliers (owner 2026-11-01, "Okay place it in home")', () => {
+  // The property itself is held by `the-budget-page-is-one-place.test.ts`; this keeps the old pin's slot honest.
+  const page = read('budget', 'page.tsx');
+  assert.doesNotMatch(page, /YOUR_TEAM_BUDGET_PART|yourTeamBudgetHref/, 'the Budget page asks for the Suppliers part again');
 });

@@ -1,3 +1,5 @@
+import type { InvitationChapter } from '@/lib/invitation-chapters';
+import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
 // behavior extraction) so the `_components/` split can share them without
@@ -12,7 +14,6 @@ import type { WallTile } from '@/lib/live-wall-logic';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
-import type { StdBackground } from '@/lib/std-backgrounds';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -21,6 +22,7 @@ import type { VendorCard } from '@/lib/vendor-cards';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { GuestHubData } from '../_components/guest-hub-card';
+import type { PapicMark } from '@/lib/papic-photo-mark';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host).
@@ -75,6 +77,14 @@ export type EventRow = {
    * the next reader cannot cast their way past it.
    */
   event_end_date?: string | null;
+  /**
+   * How much of `event_date` the hosts have decided: 'year' · 'month' · 'day'
+   * (`events.event_date_precision`, NOT NULL, default 'year'). For a year or a
+   * month the date column holds a PLACEHOLDER day — never print it as a day
+   * (`greetingWhen`, `lib/join-door-meta.ts`). Optional: a caller that never
+   * read the column (a fixture) keeps the day, as before.
+   */
+  event_date_precision?: string | null;
   /** The organiser closed this celebration out (`events.cleared_at`). Day-of
    *  surfaces are over once it is set, whatever the calendar says. Selected for
    *  the same reason as the field above. */
@@ -255,6 +265,8 @@ export type EventRow = {
   // 🗂 The host's "Accept gifts?" (events.gifts_on, owner 2026-10-02 — changed
   // in the Maker's Your info). false = no E-Gifts part anywhere; null = on.
   gifts_on?: boolean | null;
+  /** 🔘 The Logo switch (`logoSwitchedOff`, owner 2026-10-15): false ⇒ the cover draws no logo. */
+  logo_wanted?: boolean | null;
   // Couple-curated photo gallery (Increment A.4). JSONB array of r2:// refs
   // shipped 20260919000000; edited at /dashboard/[eventId]/website/our-photos.
   // Refs resolved to presigned display URLs (ourPhotoUrls) before render;
@@ -294,13 +306,13 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  /** 💎 The Event Hub Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
+  hubParts: readonly HubPartId[];
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;
   heroVideoUrl: string | null;
   bgMusicUrl: string | null;
-  stdBackground: StdBackground;
-  stdBackgroundUrl: string | null;
   stdVideoUrl: string | null;
   stdVideoPosterUrl: string | null;
   stdVenues: StdVenues;
@@ -321,6 +333,8 @@ export type LiveLayerData = {
    */
   liveWallUnreadable?: boolean;
   scheduleBlocks: ScheduleBlockRow[];
+  /** ✉ The invitation's chapters (Step 5, `readInvitationChapters`); null = the read failed (the page draws as before). */
+  invitationChapters: InvitationChapter[] | null;
   backdropConfig: RsvpBackdropConfig | null;
   liveWall: LiveWallData | null;
   watchLive: WatchLiveData | null;
@@ -348,6 +362,15 @@ export type LiveLayerData = {
  * drifts, and the copy that drifts is the one nobody re-read.
  */
 export type GuestPapicCamera = {
+  /** 🏷 The small mark on this event's photo copies — the Setnayan mark, or the
+   *  couple's monogram on a Pro event (lib/papic-photo-mark-of-event.ts). */
+  photoMark: PapicMark;
+  /** 📷 Pro dress for the inline camera — the SAME entitlement as /papic/guest (Logo & QR part or Full Pro). */
+  dressPro: boolean;
+  /** The server-stamped owner tag of THIS guest at THIS event — every queued
+   *  shot carries it, so a shot can never record as another pass
+   *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */
+  uploadOwner: string | null;
   initialRemaining: number;
   total: number;
   termsAccepted: boolean;
@@ -364,6 +387,8 @@ export type GuestPapicCamera = {
    *  the guest needs so they can wind down — and carries no figure.
    */
   poolLow: boolean;
+  /** The pot is already empty at open — the camera says so before a shot is lost (owner 2026-10-13). */
+  poolEmpty: boolean;
   /** Her number is a sponsor's bigger share — see `GuestQuota.sponsorShare`. */
   sponsorShare: boolean;
   eventStyle: PapicStyle;
@@ -399,6 +424,8 @@ export type GuestContext =
       guestLiveGallery: GuestLiveGallery | null;
       /** The shots THIS guest took — live/post window only; null = the read failed. */
       guestOwnShots: GuestOwnShots | null;
+      /** 🖼 Before the day with "Let guests shoot now" on: the Gallery holds this guest's own shots only (owner 2026-10-14). */
+      earlyOwnShots: boolean;
       /** The couple's "Shared gallery" switch is on (`events.pool_gallery_open`, gated). */
       poolGalleryOpen: boolean;
       needsFaceEnroll: boolean;
@@ -419,12 +446,23 @@ export type GuestRow = {
   guest_id: string;
   first_name: string;
   last_name: string;
+  /** Their extra roles — "may they send a proxy" reads them with `role` (`holdsARole`). Absent on an older read. */
+  extra_roles?: GuestRole[] | null;
+  /** 🧍 A role holder's proxy link and the name they typed — the reader's own row (`loadGuestOwnRow`). */
+  represented_by_guest_id?: string | null;
+  proxy_named_by_guest?: string | null;
+  /** 🧍 Who this guest stands in for, or who stands in for them (`readGuestStandIn`). Absent on a stand-in's drawing. */
+  stand_in?: import('@/lib/guest-proxy').GuestStandIn;
   /** The other formal name parts (`lib/formal-name.ts`) — the place card prints them. */
   name_prefix?: string | null;
   middle_name?: string | null;
   name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
+  /** 👗 What the couple marked them as wearing on the guest list (gown · suit · neutral) — `guestAttireOf`. Absent on an older read. */
+  attire?: string | null;
+  /** 👤 The "Atty. (Woman)" pick (`guests.gender`: woman · man · null) — never printed; `guestNamePartsOf`. Absent on an older read. */
+  gender?: string | null;
   side: 'bride' | 'groom' | 'both';
   group_category: string;
   plus_one_of_guest_id: string | null;
@@ -454,6 +492,9 @@ export type GuestRow = {
     /** 🔒 This seat's person linked their own account — their name is theirs
      *  (owner 2026-09-29, OWNER ANSWERS (10)); the reply shows it read-only. */
     linked?: boolean;
+    /** The seat's own reply — `attending` once its bringer ticked "They're coming" (owner 2026-10-25); the reply's
+     *  tick reopens ticked only then. */
+    rsvp_status?: string | null;
   }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */
@@ -471,6 +512,10 @@ export type GuestRow = {
    *  couple's PRIVATE note about this guest and must never reach this type —
    *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */
   guest_note: string | null;
+  /** 💌 The HOSTS' note TO this guest (owner 2026-10-20) — drawn on their own Me, under Your role, and nowhere else.
+   *  Read only by `loadGuestOwnRow` (this reader's own row). Optional: absent before its migration, and on every
+   *  hand-built row. Not `notes` (the couple's private note, which never reaches this type). */
+  host_note_for_guest?: string | null;
   custom_tags: string[];
   qr_token: string;
   photo_url: string | null;

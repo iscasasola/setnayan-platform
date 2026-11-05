@@ -149,7 +149,12 @@ test('⛔ refused for anyone who is not the couple here, and fail-closed on any 
 test('🤝 the page offers and the pick accepts from the SAME read', () => {
   const page = readFileSync(join(HERE, 'page.tsx'), 'utf8');
   const actions = readFileSync(join(HERE, 'actions.ts'), 'utf8');
-  assert.match(page, /await readOurEvents\(\{ userId, eventId \}\)/, 'the page reads the shared scope');
+  // The offer is ONE function (`our-events-offer.ts`, lifted out of the page 2026-10-08) — and it reads the shared scope.
+  const offer = readFileSync(join(HERE, '_components/our-events-offer.ts'), 'utf8');
+  assert.match(offer, /await readOurEvents\(\{ userId, eventId \}\)/, 'the offer reads the shared scope');
+  assert.match(page, /readOurEventsOffer\(user\.id, eventId\)/, 'the page draws another offer than the shared one');
+  // …and what the Studio's photo slots are answered with on demand (`intent=offer`) is that same function.
+  assert.match(actions, /if \(intent === 'offer'\) return \{ offer: await readOurEventsOffer\(user\.id, eventId\) \}/, 'the on-demand offer is a second read');
   const pick = actions.slice(actions.indexOf("'pick'"), actions.indexOf('── THE CAP, ON THE SERVER'));
   assert.match(pick, /await ourEventPhotoRefs\(user\.id, eventId\)/, 'the pick checks against the same read');
   assert.doesNotMatch(actions, /member_type', 'couple'\)/, 'no second, narrower list of "our" events in the action');

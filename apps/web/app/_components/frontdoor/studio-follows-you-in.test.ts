@@ -49,7 +49,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { railToolsSignedIn, railToolsSignedOut } from '@/lib/studio-rail';
+import { railToolsSignedIn } from '@/lib/studio-rail';
 import { STUDIO_HUB_ALL_LABEL, studioHubHref } from '@/lib/studio-hub';
 import { STUDIO_APPS } from '@/lib/studio-apps';
 import { STUDIO_ABSORBED } from '@/lib/customer-menu';
@@ -103,13 +103,15 @@ test('inside an event every Studio product is still reached, and its page lights
     so opening it lights the menu. `pawebsite` IS the Maker row's page and
     `__all__` IS the Our Services row.
   */
-  const studio = rows.find((r) => r.key === 'studio');
-  assert.ok(studio, 'the Our Services row is not in the menu — every product lost its door');
+  // 🏠 Since More left the menu (owner 22 Oct 2026, "Yes remove more") the services live on Home ›
+  // Your services, and Home is the row that claims their pages.
+  const studio = rows.find((r) => r.key === 'home');
+  assert.ok(studio, 'the Home row is not in the menu — every product lost its door');
   for (const t of tools) {
     if (t.key === 'pawebsite' || t.key === '__all__') continue;
     const page = t.href.split('?')[0]!;
     const absorbed = STUDIO_ABSORBED[t.key];
-    const host = rows.find((r) => r.key === (absorbed?.into ?? 'studio')) ?? studio!;
+    const host = rows.find((r) => r.key === (absorbed?.into ?? 'home')) ?? studio!;
     assert.ok(
       host.alsoMatch?.includes(page),
       `${t.key}'s page (${t.href}) lights nothing — "${host.key}" does not claim it`,
@@ -120,18 +122,16 @@ test('inside an event every Studio product is still reached, and its page lights
 
 test('the shell does not ALSO draw the Studio group inside an event', () => {
   /*
-    Listed once. The event layout names its event (`studioEventId`), and the
-    rail's caller hands the group an EMPTY list for it — said by the list, per
-    `the-rail-renders-what-it-is-handed.test.ts`, never by a second gate at the
-    group's render boundary.
+    Listed once — at its moment in the event's own menu. Since 2026-10-23 the
+    rail draws no Studio group ANYWHERE (owner 2026-10-01: one Features row), so
+    the caller hands the shell no tool list at all.
   */
   const shellHost = code(read('app', '_components', 'frontdoor', 'app-rail-shell.tsx'));
-  assert.match(
+  assert.doesNotMatch(
     shellHost,
-    /tools=\{\s*studioEventId\s*\?\s*\[\]\s*:/,
-    'inside an event the shell draws the Studio group again — every product ' +
-      'would be listed twice, once at its moment and once under a heading the ' +
-      'owner dissolved (2026-09-24)',
+    /\btools=\{/,
+    'the rail is handed a Studio list again — inside an event every product ' +
+      'would be listed twice, and outside one the owner ruled it off (2026-10-01)',
   );
 });
 
@@ -147,14 +147,9 @@ test('"Browse by category" is not drawn inside an event', () => {
 
 /* ── 2 · THE ROWS OPEN *THAT* EVENT ───────────────────────────────────────── */
 
-test('the event layout tells the rail which wedding is open', () => {
-  assert.match(
-    LAYOUT,
-    /studioEventId=\{eventId\}/,
-    'the event layout stopped naming its own event, so the Studio rows fall ' +
-      'back to guessing — and somebody with two weddings gets sent to the ' +
-      'board to pick while already standing inside one.',
-  );
+test('the event layout builds the product rows for the wedding that is open', () => {
+  // (It no longer names its event to the rail: the rail has no Studio group
+  // since 2026-10-23. The ✦ rows below are the event menu's own.)
   assert.match(
     LAYOUT,
     /railToolsSignedIn\(\{\s*eventId,\s*count:\s*1,\s*profile\s*\}\)/,
@@ -232,10 +227,6 @@ test('with no event there is no shelf row, because there is no shelf', () => {
       'an "All services" row with no event to open would be a fake door',
     );
   }
-  assert.ok(
-    railToolsSignedOut().every((r) => r.name !== STUDIO_HUB_ALL_LABEL),
-    'a stranger is offered a door into somebody else’s services shelf',
-  );
 });
 
 test('the event menu has exactly one door to the shelf, and it is called Suite or Studio once', () => {
@@ -251,11 +242,14 @@ test('the event menu has exactly one door to the shelf, and it is called Suite o
     websiteEnabled: true,
     studioRows: tools.map((t) => ({ key: t.key, href: t.href, name: t.name })),
   }).flatMap((g) => g.items);
+  // 🔁 22 Oct 2026 (owner, "Yes remove more"): the shelf is Home › Your services, so its one door is the
+  // Home row — and no row opens the old More door (`?more=services`) any more.
   const doors = rows.filter((r) => r.href === studioHubHref(EVENT_ID));
+  assert.deepEqual(doors.map((r) => r.key), [], 'a menu row opens the retired More door again');
   assert.deepEqual(
-    doors.map((r) => r.key),
-    ['studio'],
-    'the shelf must have exactly one door in the event menu — the `studio` row',
+    rows.filter((r) => r.href === `/dashboard/${EVENT_ID}`).map((r) => r.key),
+    ['home'],
+    'the shelf must have exactly one door in the event menu — the Home row',
   );
   assert.ok(
     !rows.some((r) => r.label === STUDIO_HUB_ALL_LABEL),
@@ -286,10 +280,10 @@ test('nobody hand-types the /suite ↔ /studio branch a second time', () => {
     ['studio-rail.ts', rail],
     ['customer-menu.ts', nav],
   ] as const) {
-    assert.ok(
-      /studioHubHref\(/.test(src),
-      `${name} no longer reads the shared hub resolver`,
-    );
+    // The event menu builds no shelf row since More left it (owner 22 Oct 2026) — only the rail must resolve.
+    if (name === 'studio-rail.ts') {
+      assert.ok(/studioHubHref\(/.test(src), `${name} no longer reads the shared hub resolver`);
+    }
     assert.ok(
       !/\?\s*`\$\{base\}\/suite`|'\/suite'\s*:\s*'\/studio'/.test(src),
       `${name} hand-types the suite/studio branch again`,

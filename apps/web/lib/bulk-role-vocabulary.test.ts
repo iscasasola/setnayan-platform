@@ -26,6 +26,8 @@ test('THE REGRESSION: the four VIP-family roles are bulk-assignable', () => {
   for (const role of [
     'bride_parents',
     'groom_parents',
+    'bride_grandparents',
+    'groom_grandparents',
     'bride_immediate_family',
     'groom_immediate_family',
   ] as GuestRole[]) {

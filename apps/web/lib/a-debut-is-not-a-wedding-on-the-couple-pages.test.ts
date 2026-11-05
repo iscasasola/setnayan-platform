@@ -35,10 +35,12 @@ test('eventNoun: a debut reads "event", a wedding stays "wedding"', () => {
 
 const CASES: Array<{ name: string; file: string; banned: RegExp; mount?: { file: string; re: RegExp } }> = [
   {
-    name: 'guest mind map root',
-    file: `${D}/guests/_components/guest-mind-map.tsx`,
+    // ⤷ Maker PR 4f: the map is guest-map-canvas.tsx; its centre is the
+    // celebrants' names, else the event's own word (`mapRootLabel`).
+    name: 'guest map root',
+    file: `${D}/guests/_components/guest-map-canvas.tsx`,
     banned: /'Your wedding'/,
-    mount: { file: `${D}/guests/page.tsx`, re: /<GuestMindMap[\s\S]*?eventWord=\{eventWord\}[\s\S]*?\/>/ },
+    mount: { file: `${D}/guests/page.tsx`, re: /mapRootLabel\(rosterAll, eventWord\)/ },
   },
   {
     name: 'preparation empty state',
@@ -85,11 +87,19 @@ for (const c of CASES) {
 
 test('the guests page derives eventWord from the event type, not a constant', () => {
   const src = read(`${D}/guests/page.tsx`);
-  assert.match(src, /const eventWord = eventNoun\(\(await resolveProfileByEvent\(eventId\)\)\.eventType\)/);
+  // 2026-10-20: the profile is read beside every other read (one wait) — the word is still its event type.
+  assert.match(src, /const profileRead = resolveProfileByEvent\(eventId\);/);
+  assert.match(src, /const eventWord = eventNoun\(eventProfile\.eventType\);/);
+  const wait = [...src.matchAll(/const \[([\s\S]*?)\] = await Promise\.all\(\[([\s\S]*?)\]\);/g)].find((m) => /\beventProfile\b/.test(m[1] ?? ''));
+  assert.ok(wait, 'eventProfile is no longer taken from a single wait');
+  const items = (list: string) => list.replace(/\[[^\]]*\]/g, '[…]').split(',').map((x) => x.trim()).filter(Boolean);
+  assert.equal(items(wait[2] ?? '')[items(wait[1] ?? '').indexOf('eventProfile')], 'profileRead', 'eventProfile is not the event-type profile’s answer');
 });
 
 test('the invite share text is built from the event type', () => {
-  const src = read(`${D}/vendors/[vendorId]/workspace/page.tsx`);
-  assert.match(src, /eventNoun\(\(await resolveProfileByEvent\(eventId\)\)\.eventType\)/);
-  assert.match(src, /for our \$\{inviteEventWord\}/);
+  // Re-pointed 2026-11-02: the claim link's one door is the Booked Team row's Share, whose message is built from the
+  // event's own profile (`supplierSharePayload`), not the workspace page's old copy box.
+  const src = read('lib/supplier-share.server.ts');
+  assert.match(src, /resolveProfile\(e\.event_type \?\? 'wedding'\)/);
+  assert.match(src, /eventWord: profile\.terminology\.eventWord/);
 });

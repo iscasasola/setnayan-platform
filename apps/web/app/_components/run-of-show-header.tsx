@@ -9,6 +9,9 @@ import {
   type RunOfShowBlock,
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
+import { applyGuestBlockChange, type BlockChange } from '@/lib/run-of-show-live';
+import { herdDelay, jittered } from '@/lib/live-day-timing';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { useSaveLoader } from '@/components/sd-loader';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 
@@ -39,17 +42,32 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * `initial` is computed in the server render so the header shows correct state
  * on first paint before the channel connects.
  */
+/** A guest's re-read (a reconnect, or a change its payload could not settle) lands somewhere in this window. */
+const GUEST_REREAD_SPREAD_MS = 10_000;
+/** A guest's header asks for the run of show this often while looked at (± 20 %) — EV1, no socket for guests. */
+export const GUEST_POLL_MS = 30_000;
+/** …and only while a line of the programme starts within this of now (the day itself). */
+const GUEST_POLL_DAY_WINDOW_MS = 18 * 60 * 60_000;
+
 export function RunOfShowHeader({
   eventId,
   initial,
   canAdvance = false,
   compact = false,
   variant = 'card',
+  forGuests = false,
 }: {
   eventId: string;
   initial: RunOfShowBlock[];
   canAdvance?: boolean;
   compact?: boolean;
+  /**
+   * 🔒 The guests' schedule sets this. `initial` there is already only what a
+   * guest may see; the realtime refetch must ask by the same rule, or the first
+   * change on the day brings the role-only moments back into Now / Up next
+   * (`fetchRunOfShowBlocks`, `onlyWhatGuestsMaySee`).
+   */
+  forGuests?: boolean;
   /**
    * `strip` — the Schedule rebuild's ONE live strip (2026-09-27, prototype
    * `schedule_redesign_2026-09-25.html` § "the live strip"): Now and Up next
@@ -79,40 +97,135 @@ export function RunOfShowHeader({
   }, []);
 
   const refetch = useCallback(async () => {
-    const fresh = await fetchRunOfShowBlocks(eventId);
+    const fresh = await fetchRunOfShowBlocks(eventId, forGuests);
     if (fresh) setBlocks(fresh);
-  }, [eventId]);
+  }, [eventId, forGuests]);
+
+  /*
+    🧯 A GUEST'S HEADER READS NOTHING ON A CHANGE (2026-10-18, live-day polling · lib/run-of-show-live.ts).
+    Every guest's phone hears every change; answering each with a re-read made one advance by the coordinator into a
+    database read from EVERY phone in the same half second. A guest's header applies the row it was sent, behind the
+    guests' fence. Only a payload that cannot settle it re-reads — and that re-read, like the one after a reconnect
+    (a dropped venue Wi-Fi reconnects every phone at once), waits a random moment first (`herdDelay`). Hosts,
+    suppliers and the coordinator — a handful of screens — re-read at once, as before.
+  */
+  const blocksRef = useRef(blocks);
+  blocksRef.current = blocks;
+  const rereadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reread = useCallback(() => {
+    if (!forGuests) {
+      void refetch();
+      return;
+    }
+    if (rereadTimer.current) return;
+    rereadTimer.current = setTimeout(() => {
+      rereadTimer.current = null;
+      void refetch();
+    }, herdDelay(GUEST_REREAD_SPREAD_MS));
+  }, [forGuests, refetch]);
+  useEffect(
+    () => () => {
+      if (rereadTimer.current) clearTimeout(rereadTimer.current);
+    },
+    [],
+  );
+  const onChange = useCallback(
+    (change: BlockChange) => {
+      if (!forGuests) {
+        void refetch();
+        return;
+      }
+      const next = applyGuestBlockChange(blocksRef.current, change);
+      if (next) setBlocks(next);
+      else reread();
+    },
+    [forGuests, refetch, reread],
+  );
+
+  /*
+    📵 A GUEST'S PHONE HOLDS NO SOCKET (EV1 · owner 2026-10-28, DECISION_LOG "NO EVENT HUB MAY CRASH": guests never hold
+    a live connection; live/Realtime only for the few event workers). Realtime evaluates the row's RLS for EVERY
+    subscriber on EVERY advance, so a venue of guests each holding `postgres_changes` was the costliest thing on the
+    day. A guest's header now asks `/api/live/run-of-show/<event>` — one remembered answer per event, CDN-held for an
+    open event — every ~30 s (± 20 %) while it is looked at and the programme is today, and the moment it is looked at
+    again. The coordinator, hosts and suppliers keep the socket below.
+  */
+  useEffect(() => {
+    if (!forGuests) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // The badge says what it always said to a guest — "Live" while the header is keeping up, "Syncing" after a
+    // missed ask — now from the last ask rather than a socket's state.
+    setLive(true);
+    const today = () =>
+      blocksRef.current.some((b) => Math.abs(new Date(b.start_at).getTime() - Date.now()) < GUEST_POLL_DAY_WINDOW_MS);
+    const ask = async () => {
+      if (document.visibilityState !== 'visible' || !today()) return;
+      try {
+        const res = await fetch(`/api/live/run-of-show/${encodeURIComponent(eventId)}`);
+        if (!res.ok) throw new Error(String(res.status)); // a refusal or a blip: keep what is shown, ask again later
+        const answer = (await res.json()) as { blocks?: RunOfShowBlock[] };
+        if (alive && Array.isArray(answer.blocks)) setBlocks(answer.blocks);
+        if (alive) setLive(true);
+      } catch {
+        // Venue Wi-Fi — the next ask covers it.
+        if (alive) setLive(false);
+      }
+    };
+    const schedule = () => {
+      timer = setTimeout(() => {
+        timer = null;
+        void ask().finally(() => {
+          if (alive) schedule();
+        });
+      }, jittered(GUEST_POLL_MS));
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void ask();
+    };
+    schedule();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [forGuests, eventId]);
 
   const subscribedOnce = useRef(false);
   useEffect(() => {
+    // Guests never subscribe — see above. Only the event's workers hold this socket.
+    if (forGuests) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`run-of-show-${eventId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_schedule_blocks',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          void refetch();
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setLive(true);
-          if (subscribedOnce.current) void refetch();
-          subscribedOnce.current = true;
-        } else {
-          setLive(false);
-        }
-      });
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [eventId, refetch]);
+    // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`) — on the day that is most of the
+    // guests' phones. Looking again opens it, and the re-SUBSCRIBED below re-reads (spaced out for guests).
+    return pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`run-of-show-${eventId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'event_schedule_blocks',
+            filter: `event_id=eq.${eventId}`,
+          },
+          (change) => {
+            onChange(change as BlockChange);
+          },
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setLive(true);
+            if (subscribedOnce.current) reread();
+            subscribedOnce.current = true;
+          } else {
+            setLive(false);
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
+  }, [eventId, onChange, reread, forGuests]);
 
   const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(
     blocks,
@@ -145,17 +258,26 @@ export function RunOfShowHeader({
   const onAdvance = (blockId: string) => {
     setNotice(null);
     startTransition(async () => {
-      const result = await save.run(() => advanceScheduleBlock(eventId, blockId), {
-        steps: ['Advancing the timeline'],
-        hint: 'Saving',
-      });
-      // `ok` is the only status that moved the timeline. Anything else has to
-      // say something — and a refusal carries its own sentence, so prefer it
-      // over a generic one.
-      if (result && result.status !== 'ok') {
-        setNotice(result.message ?? 'That didn’t go through. Please try again.');
+      /* 📵 A press that never answered (no signal, a 5xx) is SAID here like any refusal — `save.run` rethrows, and
+         thrown into this transition it replaced the whole page with the app's error screen, on the day. */
+      try {
+        const result = await save.run(() => advanceScheduleBlock(eventId, blockId), {
+          steps: ['Advancing the timeline'],
+          hint: 'Saving',
+        });
+        // `ok` is the only status that moved the timeline. Anything else has to
+        // say something — and a refusal carries its own sentence, so prefer it
+        // over a generic one.
+        if (result && result.status !== 'ok') {
+          setNotice(result.message ?? 'That didn’t go through. Please try again.');
+        }
+      } catch {
+        setNotice('That didn’t go through. Please try again.');
       }
-      await refetch();
+      /* The list is re-read either way — an answer lost on the way back may still have moved the timeline, and the
+         press names its block, so the rows must show what is true before anyone presses again. A re-read that fails
+         says nothing new: the live subscription above re-reads on the next change. */
+      await refetch().catch(() => undefined);
     });
   };
 

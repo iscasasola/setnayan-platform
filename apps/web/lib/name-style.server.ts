@@ -16,13 +16,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_NAME_STYLE, nameStyleOfPrintDetails, type NameStyle } from '@/lib/name-style';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export async function loadNameStyle(
   client: SupabaseClient,
   eventId: string,
   callSite = 'loadNameStyle',
 ): Promise<NameStyle> {
-  const { data, error } = await client.from('events').select('print_details').eq('event_id', eventId).maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const { data, error } = await eventRowOnce(client, eventId, 'print_details', () =>
+    client.from('events').select('print_details').eq('event_id', eventId).maybeSingle(),
+  );
   if (error) {
     logQueryError(callSite, error, { event_id: eventId }, 'graceful_degrade');
     return DEFAULT_NAME_STYLE;

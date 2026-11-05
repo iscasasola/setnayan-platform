@@ -50,7 +50,9 @@ test('the control is in the catalog, so the board can render it', () => {
   // things that make this defensible and the one thing that doesn't.
   assert.match(def.riskNote, /re-identif/i, 'must explain WHY the min-3 floor exists');
   assert.match(def.riskNote, /manufactured scarcity/i, 'must name the 2026-06-02 ruling');
-  assert.match(def.riskNote, /no per-couple opt-out/i, 'must disclose the missing opt-out');
+  // 🔄 2026-10-23: the opt-out the DPO asked about now exists, so the note must
+  // name it (it used to have to disclose its absence).
+  assert.match(def.riskNote, /same_date_count_opt_out/, 'must name the per-couple opt-out');
 });
 
 test('the page gates the WHOLE block, not `honestDemand` — the dark-pattern trap', () => {

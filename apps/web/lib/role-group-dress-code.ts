@@ -36,6 +36,11 @@
  * only reason the precedence question below exists at all. The plan never asks
  * it.
  *
+ * ⚠ SUPERSEDED IN PART, 2026-10-17 ("ONE FACT"): the per-role tier below is now read ONLY for the roles the Studio
+ * lists by themselves (the celebrant, the bride, the groom, the guests — `studioRowOf`); every other role reads its
+ * group's row, the one Studio › Mood Board & Dress Code edits. Owner: *"the website does not reflect what is picked
+ * on attires on mood board & dress code."* The history below is kept for why the tiers exist.
+ *
  * ── PRECEDENCE: THE FINER WINS ─────────────────────────────────────────────
  * 🔑 A role rule beats its group's rule. A couple who took the trouble to write
  * something for `principal_sponsor_ninang` specifically meant it, and a group
@@ -67,14 +72,17 @@
  * one fact ends up with two homes. Pure: no I/O, no environment.
  */
 import {
+  formatCallTime,
   isAttireStyle,
   resolveGuestDressCode,
   sanitizeCallTime,
+  sanitizeRoleAttire,
   type AttireStyle,
   type RoleAttireMap,
   type RoleAttireRule,
 } from './role-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
+import { isDressableRole, studioRowOf } from './attire-rows';
 import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import type { GuestRole } from './guests';
@@ -166,13 +174,24 @@ export function resolveAttireFor(
   role: GuestRole | null | undefined,
   roles: RoleAttireMap,
   groups: GroupAttireMap,
+  /** 👯 The stored dress code, so an honour attendant is answered by their own row once its Wear is picked
+   *  (`studioRowOf`, 2026-10-19). Absent: their group's row, as before. */
+  config?: Record<string, unknown> | null,
 ): ResolvedAttire {
   if (!role || role === 'guest') return null;
-  const own = roles[role];
-  if (own) return { rule: own, source: 'role' };
-  const group = roleGroupOf(role);
-  if (group === 'guest') return null;
-  const shared = groups[group];
+  /* 🪞 ONE FACT (2026-10-17): the answer is the Studio row's (`studioRowOf`) — a role the Studio lists by itself (the
+     celebrant, the bride, the groom) answers from its own line; every other role from its group's row, the row the
+     couple picks on in Studio › Mood Board & Dress Code. A per-role line for anyone else (`roles.best_man`,
+     `roles.groom_parents` — written by the older dress-code form, shown by no editor today) is no longer read: it
+     told a father "Long gown" while the row he is dressed by said "Suit and tie". The stored value is kept. */
+  const row = studioRowOf(role, config);
+  if (!row) return null;
+  if (row.tier === 'roles') {
+    /* The row's own line — keyed by the row (`roles.best_man` answers the best woman too, one call time and one note). */
+    const own = roles[row.key as GuestRole];
+    return own ? { rule: own, source: 'role' } : null;
+  }
+  const shared = groups[row.key as RoleGroup];
   return shared ? { rule: shared, source: 'group' } : null;
 }
 
@@ -193,6 +212,8 @@ export function groupOverrides(group: RoleGroup, roles: RoleAttireMap, names?: R
   for (const key of Object.keys(roles) as GuestRole[]) {
     if (!roles[key]) continue;
     if (roleGroupOf(key) !== group) continue;
+    /* Only a line that is still READ overrides the group (`resolveAttireFor`, 2026-10-17). */
+    if (studioRowOf(key)?.tier !== 'roles') continue;
     out.push(roleLabel(key, names) ?? key);
   }
   return out.sort((a, b) => a.localeCompare(b));
@@ -232,8 +253,13 @@ export function resolveGuestAttireWithGroups(input: {
   sideColor?: string | null;
   /** The couple's words for roles (owner 2026-09-30). */
   names?: RoleNames | null;
+  /** 👪 The reader's own title · attire — a parent is named per person (`resolveGuestDressCode` `person`). */
+  person?: Parameters<typeof resolveGuestDressCode>[0]['person'];
+  /** 👯 The stored dress code (`events.dress_code_config`) — an honour attendant's own row (`resolveAttireFor`). */
+  config?: unknown;
 }): { panel: ReturnType<typeof resolveGuestDressCode>; source: 'role' | 'group' | null } {
-  const won = resolveAttireFor(input.role, input.roles, input.groups);
+  const config = input.config && typeof input.config === 'object' && !Array.isArray(input.config) ? (input.config as Record<string, unknown>) : null;
+  const won = resolveAttireFor(input.role, input.roles, input.groups, config);
   const effective: RoleAttireMap = won && input.role ? { [input.role]: won.rule } : {};
   return {
     panel: resolveGuestDressCode({
@@ -242,9 +268,25 @@ export function resolveGuestAttireWithGroups(input: {
       palette: input.palette,
       sideColor: input.sideColor ?? null,
       names: input.names ?? null,
+      person: input.person ?? null,
     }),
     source: won?.source ?? null,
   };
+}
+
+/**
+ * ⏰ ONE GUEST'S OWN ARRIVE-BY — THE ONE READING (owner 2026-10-19, cale-ice: Me said "Arrive by 8:00 AM", the groom's
+ * mother's call time, while her ticket just below said "ARRIVE 2:30 PM", the doors' time for everybody).
+ *
+ * Their role's call time, from the SAME tier Me › Arrive by reads (`resolveAttireFor`, formatted by `formatCallTime`
+ * exactly as `resolveGuestDressCode` does), else `general` — the run of show's first block, which the caller formats
+ * with the programme's own formatter. The ticket (`passCardPass`), the checklist (`guestChecklistItems`) and the
+ * reminder email all go through here, so no surface tells one person two times.
+ */
+export function guestArriveBy(input: { role: GuestRole | null | undefined; config: unknown; general: string | null }): string | null {
+  const config = input.config && typeof input.config === 'object' && !Array.isArray(input.config) ? (input.config as Record<string, unknown>) : null;
+  const won = resolveAttireFor(input.role, sanitizeRoleAttire(config?.roles, isDressableRole), sanitizeGroupAttire(config?.groups), config);
+  return formatCallTime(won?.rule.callTime) ?? input.general;
 }
 
 /** The group a reader's answer came from, in words — for the provenance line. */

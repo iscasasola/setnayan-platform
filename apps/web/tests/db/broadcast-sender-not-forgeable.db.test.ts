@@ -219,7 +219,7 @@ test('META: both INSERT policies still pin sender_user_id — the milder half of
     [TABLE],
   );
   assert.equal(pols.rows.length, 2, `expected 2 INSERT policies, found ${pols.rows.length}`);
-  const unpinned = pols.rows.filter((p) => !/sender_user_id\s*=\s*auth\.uid\(\)/.test(p.wc));
+  const unpinned = pols.rows.filter((p) => !/sender_user_id\s*=\s*(\(\s*SELECT\s+)?auth\.uid\(\)/.test(p.wc));
   assert.deepEqual(
     unpinned.map((p) => p.polname),
     [],

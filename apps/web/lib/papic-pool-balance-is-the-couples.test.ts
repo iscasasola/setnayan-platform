@@ -289,7 +289,7 @@ test('the guest camera warns without naming the balance', () => {
   // this, blanking the whole header would turn every assertion above green.
   assert.match(
     s,
-    /\{low \? `Running low — \$\{remaining\} left` : `\$\{remaining\} left`\}/,
+    /\{low \? `Running low — \$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left` : `\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left`\}/,
     `${S}: the guest's PERSONAL counter is gone. That number is the reader's own ` +
       'allowance, not the couple\'s balance — PRIV-1 does not touch it',
   );
@@ -347,8 +347,10 @@ test('no pool figure exists in either state, so absence is not an answer', () =>
   const poolInputs = guestProps.match(/\bpool[A-Za-z]*\??\s*:\s*[^;\n]+/g) ?? [];
   assert.deepEqual(
     poolInputs.map((p) => p.trim()),
-    ['poolLow?: boolean'],
-    'the guest camera takes a pool input that is not the single boolean warning — ' +
+    // 📸 Two booleans since 2026-10-13 — the owner ruled a guest is told AT OPEN
+    // that the pot has run out (no lost photo). A state, never a figure.
+    ['poolLow?: boolean', 'poolEmpty?: boolean'],
+    'the guest camera takes a pool input that is not one of the two boolean states — ' +
       `got ${poolInputs.length}: ${poolInputs.join(' · ')}`,
   );
 

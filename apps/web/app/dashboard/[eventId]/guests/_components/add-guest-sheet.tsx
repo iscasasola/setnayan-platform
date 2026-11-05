@@ -1,25 +1,75 @@
 'use client';
 
 /**
- * add-guest-sheet.tsx — ONE way to add a guest, at every width: the round +.
+ * add-guest-sheet.tsx — the add sheet: a name box, then the other ways in.
+ *
+ * ⚖ 2026-10-25 — THE ROUND + IS GONE (owner, verbatim: *"Yes, remove the + on the guest list. Typing in the search
+ * adds; put From People, Import and Scan in the search results and the menu."*). The search field is the add (Enter,
+ * or the "Add “…” as a guest" row); the other ways are rows in the typed results and items in ≡ (`ADD_WAYS`). This
+ * sheet stays as the place a one-name line lands (it needs a last name) and as the empty list's "Add a guest".
+ * What follows is the sheet's history.
  *
  * ⚖ Owner 2026-10-01 (via the controller): the phone's Add is a round + (frame
  * 2 of the approved simple phone app) → *"this also should be visible on desktop
  * mode?"* → *"okay keep it similar"*: the computer uses the SAME round + and the
  * SAME sheet. Tapping + opens it: first "Type a name…" (Enter adds — the shipped
- * `CaptureBar`, its parser and its `addSingleGuest`, reused whole), then the other
+ * `CaptureBar`, its parser and its `addSingleGuest`, reused whole — and each name
+ * typed is listed under the box at once, `JustAdded`), then the other
  * ways in, as rows: from your People · the full add form · import · a quick add
  * list (`AddDoors`, the same four the ⋯ lists). No new server action.
  *
  * The header's capture bar is gone; this is where it lives now.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, Plus, X } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { ActionButton } from '@/components/action-button';
+import type { GuestRole, GuestSide } from '@/lib/guests';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { GuestPopup } from './guest-popup';
+import { CaptureBar } from './capture-bar';
+import { JustAdded } from './just-added';
+import { openAddFromPeople } from './add-from-people-sheet';
 
 const OPEN_EVENT = 'setnayan:add-guest-open';
+
+/**
+ * Open the sheet from code, optionally with a name already in the box — the
+ * Guests search box's `＋ Add` (Maker PR 4f, G3: no match → it is probably a
+ * name). The SAME event the round + and the empty list's button dispatch.
+ */
+export function openAddGuest(name = ''): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: { name } }));
+}
+
+/**
+ * The four other ways in — ONE list (G2, owner 2026-10-07: any set of choices is one dropdown), read by THREE places
+ * that must never disagree: this sheet's "Add another way" dropdown, the thumb row's ≡ menu and the rows a typed
+ * search draws at the top of its results (owner 2026-10-25, verbatim: *"Yes, remove the + on the guest list. Typing
+ * in the search adds; put From People, Import and Scan in the search results and the menu."*). The words are
+ * `AddDoors`' words (capture-bar.tsx), the same openers and links.
+ *
+ * ⚠ "Scan" is in the owner's sentence but NO scan-a-list way ships (re-measured 2026-10-25: nothing under
+ * guests/ opens a camera to read a paper list; the check-in desk's scan is arrivals, not adding). It is not invented
+ * here — an open owner question, recorded in DECISION_LOG 2026-10-25.
+ */
+// 🔍 "Add with details" and "Paste many names" left (owner 2026-10-27: "We do not need this on guests since our search
+// bar provides the same feature") — typing in the search adds, and the new guest's card takes the details.
+export const ADD_WAYS = [
+  { key: 'people', label: 'From your people' },
+  { key: 'import', label: 'Import a file' },
+] as const;
+export type AddWayKey = (typeof ADD_WAYS)[number]['key'];
+
+/**
+ * Open one of the ways — the IMPORTED openers, never an event name re-dispatched by hand (capture-bar.tsx says why:
+ * a button that typed the string itself keeps compiling and quietly stops opening anything).
+ */
+export function openAddWay(key: AddWayKey, eventId: string, push: (href: string) => void): void {
+  if (key === 'people') openAddFromPeople();
+  else push(`/dashboard/${eventId}/guests/import`);
+}
 
 /**
  * The round + — in the Guests page HEADER, beside ⋯, at every width (owner
@@ -28,16 +78,16 @@ const OPEN_EVENT = 'setnayan:add-guest-open';
  */
 export function OpenAddGuestButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-add-plus=""
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-cream hover:bg-ink/90"
-    >
-      <Plus className="h-5 w-5" strokeWidth={2} aria-hidden />
-    </button>
+    <span className="contents" data-guests-add-plus="">
+      <ActionButton
+        tone="brand"
+        main
+        iconOnly
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 
@@ -48,79 +98,81 @@ export function OpenAddGuestButton({ label }: { label: string }) {
  */
 export function OpenAddGuestTextButton({ label }: { label: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
-      data-guests-empty-add=""
-      className="button-primary inline-flex min-h-[44px] items-center gap-2"
-    >
-      <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-      {label}
-    </button>
+    <span className="contents" data-guests-empty-add="">
+      <ActionButton
+        tone="brand"
+        main
+        icon={Plus}
+        label={label}
+        onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      />
+    </span>
   );
 }
 
 export function AddGuestSheet({
-  nameBox,
-  doors,
+  eventId,
+  defaultSide,
   tips,
+  offeredRoles,
 }: {
-  nameBox: React.ReactNode;
-  doors: React.ReactNode;
-  /** One example line + the Tips ▾ fold (`lib/quick-add-tips.ts`). */
-  tips?: { example: string; tips: string[] };
+  eventId: string;
+  /** A new guest's side (the shipped CaptureBar's `defaultSide`). */
+  defaultSide: GuestSide;
+  /** One example line + the Tips ▾ fold, and the name box's rotating examples (`lib/quick-add-tips.ts`). */
+  tips?: { example: string; examples?: readonly string[]; tips: string[] };
+  /** The roles this event offers — the name box reads "+Groomsmen" as the role only when it is one. */
+  offeredRoles?: readonly GuestRole[];
 }) {
   const [open, setOpen] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
+  const [name, setName] = useState('');
+  const [openedAt, setOpenedAt] = useState(0);
+  const router = useRouter();
 
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ name?: string } | null>).detail;
+      setName(detail?.name ?? '');
+      setOpenedAt(Date.now());
+      setOpen(true);
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
 
-  // The name box first, ready to type. `preventScroll`: the page behind must
-  // not move (the owner's "the table nudges down" on the old row, 2026-09-21).
-  useEffect(() => {
-    if (!open) return;
-    requestAnimationFrame(() =>
-      sheetRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }),
-    );
-  }, [open]);
-
-  // ⚖ Drawn on <body> (guests-phone-menu.tsx says why: inside the page's
-  // `view-transition-name` <main> no z-index rises above the bottom bar), and
-  // only once the page has mounted — a portal on the server has no body.
-  if (!open || typeof document === 'undefined') return null;
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[1px] sm:items-center"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
-      }}
+  // ⚖ Drawn on <body> by `GuestPopup` (guests-phone-menu.tsx says why: inside the page's
+  // `view-transition-name` <main> no z-index rises above the bottom bar), dark and blurred behind
+  // (`.sn-popup-dark`), a tap on the dark closes it, and nothing behind it works or scrolls.
+  // Mounted only while open — mount = open.
+  if (!open) return null;
+  return (
+    <GuestPopup
+      onClose={() => setOpen(false)}
+      rootClassName="fixed inset-0 z-50 flex items-end justify-center tab:items-stretch tab:justify-end"
+      panelClassName="relative max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-3xl"
+      panelData={{ 'data-add-guest-sheet': '' }}
+      label="Add a guest"
+      focusFirstInput
     >
-      <div
-        ref={sheetRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add a guest"
-        data-add-guest-sheet=""
-        className="max-h-[85vh] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-cream px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 sm:max-w-lg sm:rounded-3xl"
-      >
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-ink">Add a guest</span>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            aria-label="Close"
-            className="flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-          >
-            <X className="h-5 w-5" strokeWidth={1.8} aria-hidden />
-          </button>
+          <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
         </div>
-        <div data-add-guest-name="">{nameBox}</div>
+        <div data-add-guest-name="">
+          <CaptureBar
+            key={name}
+            eventId={eventId}
+            defaultSide={defaultSide}
+            withDoors={false}
+            placeholder="Type a name…"
+            initialValue={name}
+            hints={tips?.examples?.map((l) => `e.g. ${l}`)}
+            offeredRoles={offeredRoles}
+          />
+        </div>
+        {/* ⚡ Every name typed here, drawn the moment Enter is pressed — "Adding…", then "Added", or why not with Retry
+            (guest-add-queue.ts). The sheet covers the List, so the names are shown where the host is looking. */}
+        <JustAdded eventId={eventId} variant="sheet" since={openedAt} />
         {/* ⚖ What the name box understands (owner 2026-10-01): ONE example line
             that fits this event, and one fold — never a wall of text. The words
             come from `lib/quick-add-tips.ts`, each read by the shipped parser. */}
@@ -140,18 +192,23 @@ export function AddGuestSheet({
             </details>
           </div>
         ) : null}
-        {/* Every other way in opens its own sheet or page — this one steps aside. */}
-        <div
-          className="space-y-0.5 border-t border-ink/10 pt-3"
-          data-add-guest-doors=""
-          onClickCapture={(e) => {
-            if ((e.target as HTMLElement).closest('a, button')) setOpen(false);
-          }}
-        >
-          {doors}
+        {/* ⚖ THE FOUR OTHER WAYS IN ARE ONE DROPDOWN (Maker PR 4f, G2): they
+            lived as rows here and again behind the retired ⋯; now one list,
+            "Add another way". Picking one closes this sheet and opens theirs. */}
+        <div className="space-y-1.5 border-t border-ink/10 pt-3" data-add-guest-doors="">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55">Add another way</p>
+          <PickMenu
+            label="Add another way"
+            value={null}
+            buttonText="From your people"
+            options={ADD_WAYS.map((o) => ({ key: o.key, label: o.label }))}
+            dataAttr="data-add-another-way"
+            onPick={(key) => {
+              setOpen(false);
+              openAddWay(key as AddWayKey, eventId, (href) => router.push(href));
+            }}
+          />
         </div>
-      </div>
-    </div>,
-    document.body,
+    </GuestPopup>
   );
 }

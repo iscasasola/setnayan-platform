@@ -19,7 +19,7 @@ import {
 } from './papic-crew-roster';
 
 test('a camera that has stopped says so — 0 is a real answer, not a missing one', () => {
-  assert.equal(crewShotsLeftLabel(0), 'Out of shots');
+  assert.equal(crewShotsLeftLabel(0), 'Out of credits');
 });
 
 test('an unknown count says NOTHING — it must never be rendered as zero', () => {
@@ -38,13 +38,13 @@ test('the uncapped sentinel is never printed as a number', () => {
 });
 
 test('a real count reads as a count, and singular is singular', () => {
-  assert.equal(crewShotsLeftLabel(1), '1 shot left');
-  assert.equal(crewShotsLeftLabel(42), '42 shots left');
-  assert.equal(crewShotsLeftLabel(1500), '1,500 shots left');
+  assert.equal(crewShotsLeftLabel(1), '1 credit left');
+  assert.equal(crewShotsLeftLabel(42), '42 credits left');
+  assert.equal(crewShotsLeftLabel(1500), '1,500 credits left');
 });
 
 test('a negative count cannot appear on screen', () => {
-  assert.equal(crewShotsLeftLabel(-5), 'Out of shots');
+  assert.equal(crewShotsLeftLabel(-5), 'Out of credits');
 });
 
 test('a holder with no display name still gets a word, never a blank', () => {

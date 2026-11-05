@@ -45,6 +45,12 @@ test('from People with access (Event Details), back to that section', () => {
     '/dashboard/E/details?host_removed=1#people-with-access',
   );
   assert.equal(seatReturnScreen(form({ return_to: 'details' }), 'E'), '/dashboard/E/details');
+  // ⚙ From Home's Event Settings sheet (owner 2026-10-30, "inside home settings"): back to Home, the sheet open on access.
+  assert.equal(
+    seatReturnPath(form({ return_to: 'home' }), 'E', { host_removed: '1' }),
+    '/dashboard/E?settings=1&row=access&host_removed=1',
+  );
+  assert.equal(seatReturnScreen(form({ return_to: 'home' }), 'E'), '/dashboard/E');
   // Only the one word — anything else falls through to the old rules.
   assert.equal(seatReturnPath(form({ return_to: '/admin' }), 'E', {}), '/dashboard/E/guests');
 });

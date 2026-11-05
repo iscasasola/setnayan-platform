@@ -17,7 +17,7 @@
  * This said messaging the guests was "an owner decision". It is not: the
  * announcement SHIPS and is live end to end — `coordinator-broadcast-card.tsx`
  * composes it on the couple's day-of screen, guests read it on the Event Hub
- * (`loadDayOfBroadcast` → `<DayOfAnnouncement>`), and only the couple or a
+ * (`GET /{slug}/announcement` → `<DayOfAnnouncement>`), and only the couple or a
  * delegate holding `schedule: 'edit'` may write one, enforced by the
  * `coordinator_broadcasts` INSERT policy. So "may a coordinator nobody
  * promoted message all the guests?" was already answered — no, because

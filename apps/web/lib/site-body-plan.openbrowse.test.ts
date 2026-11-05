@@ -105,9 +105,12 @@ test('open-browse: qr_card + greeting reachable in ALL phases (both identities)'
 });
 
 test('open-browse: RSVP open through the live window, closed-card excluded post-event', () => {
-  for (const phase of ['save_the_date', 'rsvp', 'event'] as const) {
+  for (const phase of ['rsvp', 'event'] as const) {
     assert.equal(ob('guest', phase).rsvpShouldRender, true, `rsvp open ${phase}`);
   }
+  // 🔁 RE-AIMED 2026-10-11 (owner, N05): the Save the Date asks for nothing — no reply on the page until the
+  // invitation launches, open browsing or not (`replyAskedInStage`, lib/invitation-widgets.ts).
+  assert.equal(ob('guest', 'save_the_date').rsvpShouldRender, false, 'the reply is on the Save the Date');
   // editorial → terminal 'closed' → excluded until PR8's copy.
   assert.equal(ob('guest', 'editorial').rsvpShouldRender, false);
   assert.equal(ob('guest', 'editorial').widgetTerminalStates.rsvp, 'closed');

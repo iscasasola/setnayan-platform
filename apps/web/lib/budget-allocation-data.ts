@@ -537,7 +537,9 @@ export async function fetchAllocationAggregates(
  * The couple's most recent saved plan, as `plan_group_id → final_amount_php`.
  *
  * `budget_allocation_decisions` has been WRITE-ONLY from the couple's side since
- * it shipped: `saveAllocationSnapshot` inserts a snapshot and nothing ever read
+ * it shipped: `saveAllocationSnapshot` inserted a snapshot (its last caller, the
+ * planner, left the Budget page in B2; the action itself was deleted 2026-10-18,
+ * Budget B5 — nothing writes a new snapshot today) and nothing ever read
  * one back for the couple who made it (the admin aggregate above reads every
  * couple's, de-identified, through the service role). BA3's Planned column is
  * the first reader — so the number a couple saved can finally be the number

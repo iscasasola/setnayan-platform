@@ -2,16 +2,17 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Share, MoreHorizontal, RotateCcw, RotateCw, Trash2, Unlink, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
-import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
-import { releaseGuestClaim } from '../[guestId]/actions';
-import { ticketFileName, ticketUrl } from './send-invite';
-import { DeleteGuestFlow } from './guest-delete';
+import { useGuestActions } from './guest-actions-context';
+import { ticketFileName, ticketUrl, useTicketVersion, type TicketVersion } from './send-invite';
+import { DeleteGuestFlow, useGuestRemoval } from './guest-delete';
+import { GuestResetFlow } from './guest-reset';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
 import { useOneOpen } from '@/lib/one-open';
@@ -42,21 +43,29 @@ export function GuestTicketThumb({
   guestId,
   name,
   available,
+  version,
 }: {
   guestId: string;
   /** The guest's full name — the saved file is named after them. */
   name: string;
   /** False when they have no ticket (replied they can't come, a request, passed away). */
   available: boolean;
+  /**
+   * 🎟 The ticket's version, streamed with the card (`passCardTicketVersion`; owner 2026-10-16: "it always
+   * reloads i thought we have cache"). The picture is asked for at its versioned address, which the route
+   * caches for a year — so every later open draws it from the phone with no request. Absent → the old
+   * address (asked again on every open).
+   */
+  version?: TicketVersion;
 }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const titleId = useId();
-  const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const src = ticketUrl(guestId);
+  const tv = useTicketVersion(version);
+  const src = ticketUrl(guestId, tv.v);
   useEffect(() => setMounted(true), []);
   // A card that switches guests starts over — only when the ADDRESS changes, so
   // an error that already fired for this ticket is never wiped.
@@ -73,7 +82,6 @@ export function GuestTicketThumb({
     const img = imgRef.current;
     if (mounted && img?.complete && img.naturalWidth > 0) setLoaded(true);
   }, [mounted, src]);
-  useModalA11y({ open, onClose: () => setOpen(false), containerRef: boxRef });
 
   if (!available || broken) {
     return (
@@ -109,7 +117,7 @@ export function GuestTicketThumb({
             box). A broken picture still falls back to "No ticket" above. */}
         <span className="relative block aspect-[3/4] w-full">
           <TicketPlaceholder name={name} waiting={!loaded} />
-          {mounted ? (
+          {mounted && tv.ready ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
             <img
               ref={imgRef}
@@ -134,55 +142,43 @@ export function GuestTicketThumb({
           <span className="hidden lg:inline">Click to view</span>
         </span>
       </button>
-      {open && mounted
-        ? createPortal(
-            <div
-              ref={boxRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className="fixed inset-0 z-[96] flex items-center justify-center p-4"
-              data-guest-ticket-view=""
-            >
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="absolute inset-0 bg-ink/50 backdrop-blur-sm"
-              />
-              <div className="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]">
-                <div className="flex w-full items-center justify-between">
-                  <p id={titleId} className="sn-eye">
-                    Their ticket
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-                  >
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </button>
-                </div>
-                {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
-                <img
-                  src={src}
-                  alt={`${name}'s ticket`}
-                  className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
-                />
-                <SaveFileLink
-                  href={src}
-                  filename={ticketFileName(name)}
-                  className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-medium text-cream"
-                >
-                  {(state) => (state === 'saving' ? 'Saving…' : 'Save ticket')}
-                </SaveFileLink>
-                <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {open && mounted ? (
+        <GuestPopup
+          onClose={() => setOpen(false)}
+          rootClassName="fixed inset-0 z-[96] flex items-center justify-center p-4"
+          rootData={{ 'data-guest-ticket-view': '' }}
+          panelClassName="relative flex max-h-[92dvh] w-full max-w-[380px] flex-col items-center gap-3 rounded-3xl bg-cream p-4 shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]"
+          labelledById={titleId}
+        >
+          <div className="flex w-full items-center justify-between">
+            <p id={titleId} className="sn-eye">
+              Their ticket
+            </p>
+            <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setOpen(false)} />
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket, exactly as they see it on Me */}
+          <img
+            src={src}
+            alt={`${name}'s ticket`}
+            width={300}
+            height={400}
+            className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
+          />
+          <SaveFileLink
+            href={src}
+            filename={ticketFileName(name)}
+            className={actionButtonClass('brand', { main: true, extra: 'w-full min-h-11' })}
+          >
+            {(state) => (
+              <>
+                <Share aria-hidden strokeWidth={1.9} />
+                <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
+              </>
+            )}
+          </SaveFileLink>
+          <p className="text-center text-xs text-ink/55">Saves it as one image — the QR is on it.</p>
+        </GuestPopup>
+      ) : null}
     </>
   );
 }
@@ -191,9 +187,13 @@ export function GuestTicketThumb({
 const MORE_MENU_WIDTH = 224;
 
 /**
- * ⋯ — Write to NFC · New QR · Unlink account · Delete guest, one list. Every
- * line carries its icon (owner 2026-10-04: "every item gets an icon, or none
- * do" — Write to NFC had one, New QR had none).
+ * The card's ticket row after Share: NFC · New QR as icon buttons (owner 2026-10-27), then ⋯ — Unlink account, the
+ * one line left in the list, drawn only while an account holds the invitation. (Write to NFC and New QR were ⋯ lines
+ * until 2026-10-28.)
+ *
+ * 🗑 Delete guest LEFT this list (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`): it is the card's own last
+ * group now — `GuestDeleteControl` below, the same warning and the same delete.
  */
 export function GuestMoreMenu({
   eventId,
@@ -202,7 +202,6 @@ export function GuestMoreMenu({
   nfcUrl,
   linked,
   returnTo,
-  deletable = false,
 }: {
   eventId: string;
   guestId: string;
@@ -213,20 +212,10 @@ export function GuestMoreMenu({
   linked: boolean;
   /** Where New QR lands — the surface the ⋯ was opened on. */
   returnTo: string;
-  /**
-   * ⚖ Delete guest, on the CARD's ⋯ (owner 2026-10-03, DECISION_LOG "A HOST CAN
-   * DELETE A GUEST WHO ALREADY ACCEPTED"). Any reply state; never the couple.
-   * The same warning and the same delete as the swipe and the selection bar
-   * (`guest-delete.tsx`), and the card closes itself once it is done.
-   */
-  deletable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
-  const inspector = useInspectorContext();
-  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -236,6 +225,8 @@ export function GuestMoreMenu({
   const nudgedAt = useRef(0);
   const confirmId = useId();
   const menuId = useId();
+  /* The shipped action — the dev lab hands in a stand-in (`guest-actions-context.tsx`). */
+  const { releaseGuestClaim } = useGuestActions();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
   useEffect(() => setPortal(document.body), []);
   const portalled = (node: ReactNode) => (portal ? createPortal(node, portal) : node);
@@ -337,22 +328,39 @@ export function GuestMoreMenu({
     'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[14px] text-ink transition-colors hover:bg-ink/5';
 
   return (
-    <div ref={wrapRef} className="relative" data-guest-more-menu="">
-      <button
+    <>
+      {/* 🎟 THE TICKET ROW'S NFC · NEW QR (owner 2026-10-27, DECISION_LOG "GUEST CARD TICKET ROW = THREE ICON BUTTONS:
+          SHARE · NFC · NEW QR"; prototype `send_run_simple_2026-10-27` frames card · newqr). Beside Share (the invite
+          cell's own), two neutral 44-px icon buttons: NFC — the shipped writer and its sheet (`NfcWriteButton`); New QR
+          — asks first, then the shipped `releaseGuestClaim` › `new_qr` door. The ⋯ keeps the rest (Unlink account) and
+          draws only when it has something in it. 🔒 guests/_components/the-ticket-row-is-three-icons.test.ts */}
+      {nfcUrl ? <NfcWriteButton url={nfcUrl} iconOnly name={`Write ${guestName}’s link to NFC`} /> : null}
+      <ActionButton
+        tone="neutral"
+        iconOnly
+        icon={RotateCw}
+        label="New QR"
+        name={`Make a new QR for ${guestName}`}
+        onClick={() => setConfirm('new_qr')}
+        aria-haspopup="dialog"
+        data-testid="guest-new-qr"
+      />
+      {linked ? (
+    <div ref={wrapRef} className="relative ml-auto" data-guest-more-menu="">
+      <ActionButton
         ref={buttonRef}
-        type="button"
+        tone="neutral"
+        iconOnly
+        icon={MoreHorizontal}
+        label={`More for ${guestName}`}
         onClick={() => {
           if (!open) place();
           setOpen((o) => !o);
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-label={`More for ${guestName}`}
-        className="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-ink/30 hover:text-ink"
-      >
-        <MoreHorizontal aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
+        className="relative z-20"
+      />
       {/* Kept mounted while closed (hidden), so the NFC sheet its button opens
           outlives the menu closing behind it. */}
       {/* Drawn in place until the page has mounted (so the server and the first
@@ -377,27 +385,11 @@ export function GuestMoreMenu({
         data-guest-more-list=""
         className="fixed z-[96] rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
       >
-        {nfcUrl ? (
-          <NfcWriteButton url={nfcUrl} className={item} />
-        ) : null}
-        <button
-          type="button"
-          role="menuitem"
-          className={item}
-          data-guest-new-qr=""
-          onClick={() => {
-            setOpen(false);
-            setConfirm('new_qr');
-          }}
-        >
-          <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          New QR
-        </button>
         {linked ? (
           <button
             type="button"
             role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-terracotta-700`}
+            className={`${item} text-danger-700`}
             data-guest-unlink=""
             onClick={() => {
               setOpen(false);
@@ -408,41 +400,14 @@ export function GuestMoreMenu({
             Unlink account
           </button>
         ) : null}
-        {deletable ? (
-          <button
-            type="button"
-            role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-danger-700`}
-            data-guest-delete=""
-            onClick={() => {
-              setOpen(false);
-              setConfirmDelete(true);
-            }}
-          >
-            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Delete guest
-          </button>
-        ) : null}
       </div>,
       )}
-
-      {confirmDelete ? (
-        <DeleteGuestFlow
-          eventId={eventId}
-          guestId={guestId}
-          guestName={guestName}
-          onClose={() => setConfirmDelete(false)}
-          onDeleted={() => {
-            // The card is of a guest who is gone — close it (the panel over the
-            // list, or the standalone page back to the list).
-            if (inspector) inspector.close();
-            else router.push(`/dashboard/${eventId}/guests`);
-          }}
-        />
+    </div>
       ) : null}
 
-      <Sheet open={confirm !== null} onClose={() => setConfirm(null)} labelledById={confirmId} rise>
-        <form action={release} className="space-y-4 p-5" data-guest-confirm={confirm ?? ''}>
+      {confirm !== null ? (
+      <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
+        <form action={release} className="space-y-3" data-guest-confirm={confirm ?? ''}>
           {confirm === 'new_qr' ? (
             <>
               <input type="hidden" name="new_qr" value="1" />
@@ -450,9 +415,9 @@ export function GuestMoreMenu({
               <h2 id={confirmId} className="font-display text-xl text-ink">
                 Make a new QR for {guestName}?
               </h2>
-              <p className="text-sm leading-relaxed text-ink/70">
-                The old QR and link will stop working. Send them the new one — they&rsquo;ll see their updated
-                ticket first when they open it.
+              <p className="text-sm leading-relaxed text-ink/70" data-guest-new-qr-warning="">
+                Their old QR and link will stop working. Anyone holding the old one — a printed pass, a forwarded
+                message — won&rsquo;t get in.
               </p>
             </>
           ) : (
@@ -467,21 +432,87 @@ export function GuestMoreMenu({
               </p>
             </>
           )}
-          <SubmitButton
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-mulberry px-5 text-sm font-medium text-cream disabled:opacity-60"
-            pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
-          >
-            {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
-          </SubmitButton>
-          <button
-            type="button"
-            onClick={() => setConfirm(null)}
-            className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-ink/15 bg-cream px-5 text-sm font-medium text-ink"
-          >
-            Cancel
-          </button>
+          <GuestConfirmActions
+            keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirm(null)} />}
+            go={
+              <SubmitButton
+                className={actionButtonClass('brand', { main: true, extra: 'min-h-11' })}
+                pendingLabel={confirm === 'new_qr' ? 'Making a new QR…' : 'Unlinking…'}
+              >
+                {confirm === 'new_qr' ? 'Make a new QR' : 'Unlink account'}
+              </SubmitButton>
+            }
+          />
         </form>
-      </Sheet>
+      </GuestPopup>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * 🗑 THE CARD'S OWN DELETE — the last group of the guest card (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`: "Delete (out of ⋯)"). Moved, not re-made: the same warning
+ * (`DeleteGuestFlow` — never a browser `confirm()`; its button is the second tap) and the same delete as the swipe and
+ * the selection bar (`guest-delete.tsx`, owner 2026-10-03 DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+ * ACCEPTED"), and the card closes itself once it is done. Any reply state; never the couple (the body says why instead).
+ *
+ * 🪑 A +1 with no name yet (`seatWithNoName`, `plusOneHasNoName`) reads "Release seat": gone at once, with Undo, their
+ * guest's "+N" one lower (owner 2026-10-21). A named +1 keeps Delete and its warning.
+ */
+export function GuestDeleteControl({
+  eventId,
+  guestId,
+  guestName,
+  seatWithNoName = false,
+  resettable = false,
+}: {
+  eventId: string;
+  guestId: string;
+  guestName: string;
+  seatWithNoName?: boolean;
+  /** 🔄 Reset beside Delete (owner 2026-10-26: "(RESET) (DELETE)") — a guest's own card; never a +1 seat or the couple. */
+  resettable?: boolean;
+}) {
+  const { release: releaseSeat } = useGuestRemoval(eventId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const inspector = useInspectorContext();
+  const router = useRouter();
+  // The card is of a guest (or a seat) who is gone — close it: the panel over the list, or the standalone page back to the list.
+  const closeCard = () => {
+    if (inspector) inspector.close();
+    else router.push(`/dashboard/${eventId}/guests`);
+  };
+  return (
+    <div data-guest-delete-control="" className={resettable && !seatWithNoName ? 'grid grid-cols-2 gap-2 [&>span>*]:w-full [&>span]:flex' : undefined}>
+      {/* (RESET) (DELETE) — two equal buttons, Reset first; each asks first and offers Undo right after. */}
+      {resettable && !seatWithNoName ? (
+        <span data-guest-reset="">
+          <ActionButton tone="warn" icon={RotateCcw} label="Reset" onClick={() => setConfirmReset(true)} />
+        </span>
+      ) : null}
+      {seatWithNoName ? (
+        <span data-guest-release-seat="">
+          <ActionButton tone="danger" icon={Armchair} label="Release seat" onClick={() => void releaseSeat([guestId], { onReleased: closeCard })} />
+        </span>
+      ) : (
+        <span data-guest-delete="">
+          <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} />
+        </span>
+      )}
+      {confirmReset ? (
+        <GuestResetFlow eventId={eventId} guestId={guestId} guestName={guestName} onClose={() => setConfirmReset(false)} />
+      ) : null}
+      {confirmDelete ? (
+        <DeleteGuestFlow
+          eventId={eventId}
+          guestId={guestId}
+          guestName={guestName}
+          onClose={() => setConfirmDelete(false)}
+          onDeleted={closeCard}
+        />
+      ) : null}
     </div>
   );
 }

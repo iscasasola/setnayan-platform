@@ -36,6 +36,18 @@
  * Held on the RENDER (`renderToStaticMarkup` of the real `MakerShell`), in
  * order, so a control that creeps back onto the bar — or one that drops off —
  * goes red here, not in a screenshot.
+ *
+ * 🧭 2026-10-25 — THERE IS ONE MAKER (owner: *"delete that old event hub maker"*). The bar above was the OLD
+ * Maker's; it is deleted. Every viewer's bar is now the Stages | Studio one (`MAKER_TOOLBAR_STAGES_STUDIO`):
+ *
+ *     ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n)
+ *
+ * 🧭 2026-10-30 — THE HUB KEEPS THE APP'S NAV (DECISION_LOG "EVENT HUB PRO (look redesign)"): the bar is the Hub's
+ * pinned row under the app's top bar, the ✕ is dropped and ⚙ ends it:
+ *
+ *     [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n) · ⚙
+ *
+ * The tests below hold that bar; the ones that held Page ▾ · Event Details · Both · Scenes say they are gone.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,7 +63,7 @@ import { makerGuestPages } from '@/lib/maker-guest-pages';
 import {
   DETAILS_FACTS_FIRST,
   MAKER_DETAILS_LABEL,
-  MAKER_TOOLBAR,
+  MAKER_TOOLBAR_STAGES_STUDIO,
   makerDoorOf,
   makerOpenTool,
   MAKER_PAGE_ACTIONS,
@@ -127,18 +139,18 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
-test('the rendered toolbar is EXACTLY ‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — nothing else', async () => {
-  assert.deepEqual([...MAKER_TOOLBAR], ['exit', 'page', 'details', 'undo', 'preview', 'apply']);
+test('the rendered toolbar is EXACTLY Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
+  /* 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
+     out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. */
+  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'undo', 'apply', 'settings']);
   const html = await paint();
-  assert.deepEqual(toolsOf(html), [...MAKER_TOOLBAR], 'a control joined or left the top level of the Maker');
-  // ONE dropdown in the bar, and it is Page ▾.
+  /* 👁 Preview is in the DOM between Undo and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
+  assert.deepEqual(toolsOf(html), ['side', 'undo', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
   const header = headerOf(html);
-  assert.equal((header.match(/aria-haspopup="listbox"/g) ?? []).length, 1, 'the bar holds one dropdown');
-  assert.match(header, /data-maker-page-menu=""/);
-  // The words a first-timer reads — one button, no Look chip.
-  assert.doesNotMatch(header, />Look</, 'the Look chip came back');
-  assert.match(header, new RegExp(`>${MAKER_DETAILS_LABEL}<`));
-  assert.match(header, /aria-label="Page: Invitation › Welcome"/, 'Page ▾ says the stage › the page');
+  assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'Preview shows on a phone');
+  // The old bar is gone: no Page ▾, no Event Details door, no Look chip.
+  assert.doesNotMatch(header, /data-maker-page-menu|data-maker-tool="(page|details|look)"/, 'the old Maker’s bar is back');
+  assert.doesNotMatch(header, new RegExp(`>${MAKER_DETAILS_LABEL}<`), 'the Event Details door is back on the bar');
 });
 
 test('the four stage names are not a top-level row — they live inside Page ▾', async () => {
@@ -150,12 +162,11 @@ test('the four stage names are not a top-level row — they live inside Page ▾
   assert.doesNotMatch(header, /data-maker-bar-item|data-maker-place-pick|data-maker-divider/, 'the stage row is back');
 });
 
-test('a viewer with no work (a coordinator): the same bar without the draft, Event Details saying why it is shut', async () => {
+test('a viewer with no work (a coordinator): the same one Maker’s bar, without the draft', async () => {
   const html = await paint({ hasWork: false });
-  assert.deepEqual(toolsOf(html), ['exit', 'page', 'details', 'preview']);
-  const header = headerOf(html);
-  assert.equal((header.match(/Only the host can open this part of the Event Hub Maker\./g) ?? []).length, 1);
-  assert.doesNotMatch(header, /data-maker-tool="(look|details)"[^>]*aria-pressed/, 'a shut door is drawn as a working one');
+  /* No ⚙ for a coordinator: the Hub's settings are the couple's (its sheet's rows are the editor's, which they lack). */
+  assert.deepEqual(toolsOf(html), ['side', 'preview'], 'a coordinator is drawn another bar');
+  assert.doesNotMatch(headerOf(html), /Only the host can open this part of the Event Hub Maker\.|data-maker-page-menu/, 'the old Maker’s shut door or Page ▾ is back');
 });
 
 test('by SOURCE: the real draft bar draws Undo · Preview · Apply in that order, and no Restore button', () => {
@@ -175,23 +186,25 @@ test('by SOURCE: the real draft bar draws Undo · Preview · Apply in that order
 
 /* ── 2 · nothing ⋯ held is lost: 👁 Preview and Page ▾ hold it ────────────── */
 
-test('👁 Preview holds how the page is SEEN: See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the stage', () => {
+test('👁 Preview holds how the page is SEEN: See as · Phone / Desktop · Play this scene · Preview the stage', () => {
   const shell = src('maker-shell.tsx');
   const menu = shell.slice(shell.indexOf('const previewRows = '), shell.indexOf('  return (\n    <MakerContext.Provider'));
   assert.ok(menu.length > 400, 'Preview’s rows were not found — the scan is blind');
   assert.equal((shell.match(/<ToolMenu label="Preview" tool="preview"/g) ?? []).length, 1, 'there is not exactly one Preview menu');
-  const order = ['<MenuHeading>See as</MenuHeading>', 'makerViewToggle(shownDevice)', 'Phone and desktop', '>Scenes<', 'Play this scene', '<PreviewStageLink'];
+  /* "Both" and "Scenes" were the old desktop Maker's rows — deleted with it (2026-10-25). */
+  assert.doesNotMatch(menu, /Phone and desktop|>Scenes</, 'an old desktop row is back in Preview');
+  const order = ['<MenuHeading>See as</MenuHeading>', 'makerViewToggle(shownDevice)', 'Play this scene', '<PreviewStageLink'];
   let at = -1;
   for (const row of order) {
     const i = menu.indexOf(row);
     assert.ok(i >= 0, `Preview lost "${row}"`);
-    assert.ok(i > at, `Preview's "${row}" is out of order (See as · Phone / Desktop · Both · Scenes · Play)`);
+    assert.ok(i > at, `Preview's "${row}" is out of order (See as · Phone / Desktop · Play)`);
     at = i;
   }
   assert.ok(menu.includes('<ViewAsFreeRow'), 'the internal "view as a free couple" row is lost');
 });
 
-test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Prints · Restore · address · who can view · About after Post Event', () => {
+test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Restore · address · who can view · About after Post Event', () => {
   const base = makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: null, hasWork: true }).options;
   const all = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'ready', tried: true }, hasWork: true, canRestore: false });
   const keys = all.map((o) => o.key);
@@ -202,13 +215,15 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   assert.equal(all[lastPage + 1]!.trail?.text, '◆ PRO', 'a tried Add a scene lost its ◆ PRO mark');
   // After Post Event, the "Your Event Hub" line.
   const hub = all.filter((o) => o.group === MAKER_PAGE_HUB_GROUP).map((o) => o.label);
-  assert.deepEqual(hub, ['Prints', 'Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
-  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.prints) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Prints is not after Post Event');
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home. */
+  assert.deepEqual(hub, ['Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
+  assert.ok(!all.some((o) => o.label === 'Prints'), 'Prints is a row of Page ▾ again — it has its own page');
+  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.restore) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Restore is not after Post Event');
   assert.equal(all.find((o) => o.key === MAKER_PAGE_ACTIONS.restore)?.disabledNote, 'Guests already see this.');
   // A refused Add a scene says why; a viewer with no draft has no Reset, Prints or Restore.
   const refused = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'refused', note: 'Up to 6' }, hasWork: false, canRestore: null });
   assert.equal(refused.find((o) => o.key === MAKER_PAGE_ACTIONS.addScene)?.disabledNote, 'Up to 6');
-  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.prints, MAKER_PAGE_ACTIONS.restore]) {
+  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.restore]) {
     assert.ok(!refused.some((o) => o.key === k), `${k} offered to a viewer with no draft`);
   }
   // Every action key is read back as its act, and is never a place.
@@ -219,10 +234,15 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   // The shell runs each act — the same acts ⋯ ran.
   const shell = src('maker-shell.tsx');
   const pick = shell.slice(shell.indexOf('const pickPage = '), shell.indexOf('const pick = makerPagePick(key);'));
-  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', "pressDoor('prints')", 'draft.restore()', 'setTour(true)', 'setMoreOpen(true)']) {
+  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
     assert.ok(pick.includes(act), `Page ▾ no longer runs ${act}`);
   }
-  assert.match(shell, /const pageOptions = makerPageActions\(/, 'Page ▾ does not carry the moved rows');
+  assert.ok(!pick.includes("pressDoor('prints')"), 'Page ▾ opens Prints in the Maker again — Prints is its own page (R8)');
+  // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
+  assert.match(shell, /const aboutTheMaker = [\s\S]{0,400}else setTour\(true\)/, 'About the Maker lost its short-slides fallback');
+  /* The old bar's Page ▾ (which listed these acts as rows) went with the old Maker (2026-10-25); the shell still runs
+     each act when a key reaches `pickPage`, and the lower third's Settings rows run the same ones. */
+  assert.doesNotMatch(shell, /const pageOptions = makerPageActions\(/, 'the old bar’s Page ▾ is back');
 });
 
 /* ── 3 · Page ▾ — the stages, each with its guest pages ──────────────────── */
@@ -243,7 +263,7 @@ test('Page ▾ lists the five stages as groups, each with the guest bar’s own 
   // One live dot, on the live stage's first page.
   assert.deepEqual(m.options.filter((o) => o.dot).map((o) => o.key), [m.options.find((o) => o.key.startsWith('rsvp:'))!.key]);
   // The button names where the couple is.
-  assert.equal(m.buttonText, 'Invitation › Welcome');
+  assert.equal(m.buttonText, 'Invitation › Home'); // the bar's word since 2026-10-14
   const onDay = makerPageMenu({ stage: 'event', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'gallery', hasWork: true });
   assert.equal(onDay.value, 'event:gallery');
   assert.match(onDay.buttonText, /^The Day › /);
@@ -309,14 +329,13 @@ test('Event Details and Page ▾ › Prints each open the ONE Details page on th
   assert.equal(makerPressDoor({ detailsItem: 'hero' }, 'look').detailsItem, 'hero');
 });
 
-test('on the render: Event Details lit on any of its items — and no Look chip', async () => {
-  const pressed = (html: string) =>
-    [...headerOf(html).matchAll(/data-maker-tool="(look|details)" aria-pressed="(true|false)"/g)].map((m) => `${m[1]}=${m[2]}`);
-  assert.deepEqual(pressed(await paint()), ['details=false'], 'a door is lit with nothing open');
-  assert.deepEqual(pressed(await paint({ selection: { kind: 'tool', key: 'logo' } })), ['details=true']);
+test('on the render: no door on the bar — the old Event Details door went with the old Maker; Details still opens its page', async () => {
+  const pressed = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="(look|details)"/g)].map((m) => m[1]);
+  assert.deepEqual(pressed(await paint()), [], 'an old door is on the bar');
+  assert.deepEqual(pressed(await paint({ selection: { kind: 'tool', key: 'logo' } })), [], 'an old door is on the bar');
   const det = await paint({ selection: { kind: 'tool', key: 'details' } });
   assert.match(det, /data-maker-page="details"/, 'Details did not open its page');
-  // The shell presses a door through the same reducer, and the open door closes on a second press.
+  // A door press (the tour's Look, Settings' Prints) still goes through the same reducer, and closes on a second press.
   const shell = src('maker-shell.tsx');
   assert.match(shell, /setDetailsItem\(makerPressDoor\(\{ detailsItem \}, key\)\.detailsItem\);/);
   assert.match(shell, /if \(openDoor === key\) \{\s*select\(null\);/);
@@ -335,7 +354,8 @@ test('"Your info" is retired as a name: the Maker says Event Details', () => {
 test('first open: no tour and no Pro — ONE quiet line on the canvas, and only on the first open', async () => {
   const first = await paint({ firstVisit: true });
   assert.match(first, /data-maker-first-hint=""[^>]*>Tap anything to change it</);
-  assert.equal((first.match(/role="dialog"/g) ?? []).length, 1, 'a dialog besides the shut ⋯ sheet opened on the first visit');
+  /* (The shut "Your Event Hub" sheet was the one dialog in the DOM; since 2026-10-30 it is the ⚙'s and draws nothing shut.) */
+  assert.equal((first.match(/role="dialog"/g) ?? []).length, 0, 'a dialog opened on the first visit');
   assert.doesNotMatch(first, /Event Hub Pro|maker-tour-title/, 'a tour or a Pro pitch opens before the first tap');
   assert.doesNotMatch(await paint({ firstVisit: false }), /data-maker-first-hint/, 'the line shows after the first visit');
   // The first touch records it; the tour itself only plays from ⋯ › About the Maker, never recording.

@@ -1,14 +1,18 @@
 import 'server-only';
+import { wearTheirStandInRoles } from '@/lib/pass-card.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
-import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, type GuestRole } from '@/lib/guests';
 import { guestReplyBy, readGuestReminders } from '@/lib/rsvp-ask';
+import { replyFaceOf, replyWindow } from '@/lib/reply-window';
+import { resolveProfile } from '@/lib/event-type-profile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { hasReplied } from '@/lib/venue-disclosure';
 import { buildInvitationUrl } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadVenueBookings, resolveEventVenues, firstVenue } from '@/lib/event-venues';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { sanitizeTicks, daysUntil } from '@/lib/guest-checklist';
@@ -25,6 +29,7 @@ import {
   untickedItems,
   type ReminderMilestone,
 } from '@/lib/guest-reminder-emails-core';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 
 /**
  * GUEST REMINDER EMAILS — 30 · 7 · 1 DAYS BEFORE THE EVENT. The sender.
@@ -118,12 +123,21 @@ type ReminderEventRow = {
   guest_list_edit_deadline: string | null;
   guest_count_locked_at: string | null;
   rsvp_ask_config: unknown;
+  event_type: string | null;
+  event_end_date: string | null;
+  launch_mode: string | null;
+  manual_phase: string | null;
+  std_invitation_launch_date: string | null;
 };
 
 type ReminderGuestRow = StdGuestRow & {
   role: GuestRole | null;
   rsvp_status: string | null;
   qr_token: string | null;
+  /** 👤 Read for their own Wear (`guestNamePartsOf` · `guestAttireOf`). */
+  name_prefix?: string | null;
+  attire?: string | null;
+  gender?: string | null;
 };
 
 const num = (v: number | string | null | undefined): number | null => {
@@ -147,7 +161,7 @@ export async function runGuestReminderEmails(now: Date = new Date()): Promise<Gu
   const { data: events, error: eventsErr } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config',
+      'event_id, slug, display_name, bride_name, groom_name, event_date, timezone, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, dress_code_config, role_palette, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, event_type, event_end_date, launch_mode, manual_phase, std_invitation_launch_date',
     )
     .in('event_date', dates)
     .not('slug', 'is', null)
@@ -194,11 +208,11 @@ async function remindOneEvent(
 
   const { data: guestsRaw, error: guestsErr } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, role, rsvp_status, qr_token')
+    .select('guest_id, first_name, last_name, name_prefix, display_name, email, role, attire, gender, rsvp_status, qr_token')
     .eq('event_id', ev.event_id)
     .is('deleted_at', null)
     // 🕯 Never to a guest the couple marked "Passed away".
-    .eq(PASSED_AWAY, false)
+    .eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .neq('rsvp_status', 'declined')
     .not('email', 'is', null)
     .not('qr_token', 'is', null)
@@ -207,7 +221,8 @@ async function remindOneEvent(
     logQueryError('guest-reminder-emails: guests.select', guestsErr, { event_id: ev.event_id });
     return { scanned: 0, sent: 0 };
   }
-  const guests = ((guestsRaw ?? []) as ReminderGuestRow[]).filter((g) => isSendableEmail(g.email) && g.qr_token);
+  // 🧍 A proxy's checklist says the ROLE's dress code and call time (owner 2026-10-27) — the ticket's own reading.
+  const guests = await wearTheirStandInRoles(admin, ((guestsRaw ?? []) as ReminderGuestRow[]).filter((g) => isSendableEmail(g.email) && g.qr_token));
   if (guests.length === 0) return { scanned: 0, sent: 0 };
 
   // ── The facts every guest's checklist shares, gathered ONCE per event ──
@@ -224,10 +239,8 @@ async function remindOneEvent(
   if (ticksRes.error) logQueryError('guest-reminder-emails: guest_checklist_ticks.select', ticksRes.error, { event_id: ev.event_id });
   if (seatsRes.error) logQueryError('guest-reminder-emails: event_seat_assignments.select', seatsRes.error, { event_id: ev.event_id });
 
-  // The FIRST block of the day, read with the programme's own formatter (the
-  // schedule stores the venue's wall clock parked in UTC — never re-zone it).
-  const firstBlock = blocks[0] ?? null;
-  const arriveBy = firstBlock?.start_at ? formatBlockTimeRange(firstBlock.start_at, null) || null : null;
+  // ⏰ THE guests' arrival (`guestsArriveTime`, 2026-10-19) — the one the ticket, Me and the invitation read.
+  const arriveBy = guestsArriveTime(blocks);
   const place = firstVenue({ venues: resolveEventVenues(bookings, ev) });
   const venueName = place ? place.name : ev.venue_name;
   const venueAddress = place ? place.address : ev.venue_address;
@@ -263,6 +276,8 @@ async function remindOneEvent(
   });
   // Only a date the host set, still ahead (controller 2026-09-30) — never the default.
   const replyBy = guestReplyBy({ deadline: ev.guest_list_edit_deadline, today });
+  // 📬 The couple's reply window, on this event's own clock (lib/reply-window.ts).
+  const repliesOpen = replyWindow(ev, now, tz, replyFaceOf(await resolveProfile((ev.event_type ?? '').trim() || 'wedding'))).state === 'open';
 
   let sent = 0;
   for (const g of guests) {
@@ -270,6 +285,8 @@ async function remindOneEvent(
       const replied = hasReplied(g.rsvp_status as 'pending' | 'attending' | 'declined' | 'maybe' | null);
       const items = guestChecklistItems({
         role: g.role,
+        // 👤 Their own Wear (gender → title → attire, `readerAttire`) and their own arrive-by (`guestArriveBy`).
+        person: { ...guestNamePartsOf(g), attire: guestAttireOf(g) },
         dressCodeConfig: ev.dress_code_config ?? null,
         rolePalette: ev.role_palette,
         arriveBy,
@@ -281,7 +298,7 @@ async function remindOneEvent(
         tableLabel: seatsOpen ? (tableLabelById.get(tableIdByGuest.get(g.guest_id) ?? '') ?? null) : null,
       });
       const pending = untickedItems(items, ticksByGuest.get(g.guest_id) ?? []);
-      const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed });
+      const replyLine = replyByLine({ rsvpStatus: g.rsvp_status, replyBy, today, listClosed, repliesOpen });
       // Nothing left to say → no email, and no lock (an untick later still earns the next one).
       if (pending.length === 0 && !replyLine) continue;
 

@@ -26,7 +26,7 @@
 import { INVITE_THEMES, isInviteThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { makerWayBackHref } from '@/lib/maker-preview-way-back';
 
-export type HostCanvasSearch = { editor?: string; preview?: string; only?: string; theme?: string };
+export type HostCanvasSearch = { editor?: string; preview?: string; only?: string; theme?: string; style?: string };
 
 /** Does this request ASK for the host canvas? Never an answer on its own — the
  *  caller must still verify host membership before honouring it. */
@@ -64,7 +64,16 @@ export const EDITOR_CANVAS_HIDES_APP_CHROME = '[data-app-chrome]{display:none!im
  * Keyed by scene so the Logo page (logo alone) is one more row, not new code.
  */
 export const CANVAS_ONLY_SCENES = { hero: 'f:hero' } as const;
-export type CanvasOnlyScene = keyof typeof CANVAS_ONLY_SCENES;
+/**
+ * 'hero' (the Hero page), or — 🖼 A STYLE'S TRUE MINIATURE (owner 2026-10-07, the
+ * Stages panel's Style › Look carousel) — any part the canvas marks, by its marker
+ * key (`w:countdown`, `f:gifts`, `f:look`), optionally narrowed to ONE part inside
+ * it with `.<data-el>` (`f:hero.names`). Same posture: host canvas only, hides only.
+ */
+export type CanvasOnlyScene = keyof typeof CANVAS_ONLY_SCENES | `${'f' | 'w' | 'p'}:${string}`;
+
+/** A marker key, optionally `.el` — lowercase words only, so nothing typed reaches the CSS. */
+const ONLY_KEY_RE = /^[fwp]:[a-z][a-z0-9_-]{0,40}(\.[a-z]{1,16})?$/;
 
 export function canvasOnlyScene(
   search: { only?: string } | undefined,
@@ -72,11 +81,16 @@ export function canvasOnlyScene(
 ): CanvasOnlyScene | null {
   if (!isEditorCanvas) return null;
   const only = search?.only;
-  return only && Object.prototype.hasOwnProperty.call(CANVAS_ONLY_SCENES, only) ? (only as CanvasOnlyScene) : null;
+  if (only && Object.prototype.hasOwnProperty.call(CANVAS_ONLY_SCENES, only)) return only as CanvasOnlyScene;
+  return only && ONLY_KEY_RE.test(only) ? (only as CanvasOnlyScene) : null;
 }
 
+/** Parts the page draws under their own id and no `data-maker-section` marker (`maker-section-find.ts` SECTION_IDS). */
+const ONLY_BY_ID: Readonly<Record<string, string>> = { 'f:entourage': 'site-entourage' };
+
 export function canvasOnlyCss(scene: CanvasOnlyScene): string {
-  const m = `[data-maker-section="${CANVAS_ONLY_SCENES[scene]}"]`;
+  const [key, el] = scene in CANVAS_ONLY_SCENES ? [CANVAS_ONLY_SCENES[scene as keyof typeof CANVAS_ONLY_SCENES], null] : scene.split('.');
+  const m = `[data-maker-section="${key}"]`;
   const keep = [
     `:has(${m} + *)`, // an ancestor of the scene
     `${m} + *`, // the scene
@@ -88,7 +102,42 @@ export function canvasOnlyCss(scene: CanvasOnlyScene): string {
   ]
     .map((s) => `:not(${s})`)
     .join('');
-  return `body:has(${m}) *${keep}{display:none!important}`;
+  const whole = `body:has(${m}) *${keep}{display:none!important}`;
+  if (!el && key! in ONLY_BY_ID) {
+    /* 🚶 A part the page names by its own id, with no marker before it (the March, `#site-entourage`): the same
+       "hide everything else", keyed on the id, and only while no marker for it is on the page. Without it a
+       miniature of the March was the WHOLE page, fitted on a part that moved as the page above it loaded — every
+       entourage Style card drew blank (measured in the Maker lab, 2026-10-15). */
+    const id = `#${ONLY_BY_ID[key!]}`;
+    const keepId = [`:has(${id})`, id, `${id} *`, '[data-main-ground]', '[data-main-ground] *', '[data-guest-ground]', '[data-guest-ground] *']
+      .map((x) => `:not(${x})`)
+      .join('');
+    return `${whole}body:has(${id}):not(:has(${m})) *${keepId}{display:none!important}`;
+  }
+  if (!el) return whole;
+  /* One part of the scene: inside it, everything that is not the part, holds it, or is in it goes too — except the
+     ground it is drawn on. 🖼 THE COVER SCENE'S BACKGROUND STAYS (`cover-scene-ground.tsx`, `data-cover-scene-ground`):
+     its words take their tone FROM it (cream over a dark photo, `COVER_SCENE_CREAM_VARS`), so a card that hid it drew
+     cream words on the card's white — a Title card with nothing on it (owner 2026-10-16, "previews are not showing
+     properly"). Kept, the card is the part on its own ground, in its own tone, under the shipped scrim. */
+  const p = `[data-el="${el}"]`;
+  const g = '[data-cover-scene-ground]';
+  return `${whole}body:has(${m} + * ${p}) ${m} + * *:not(${p}):not(:has(${p})):not(${p} *):not(${g}):not(${g} *){display:none!important}`;
+}
+
+/**
+ * 🖼 THE STYLE A MINIATURE IS DRAWN IN (owner 2026-10-07): `?style=<type>:<id>` —
+ * the canvas draws that one scene (or part) in that style, nothing written. Host
+ * canvas only (null unless `isEditorCanvas`); a guest's `?style=` changes nothing.
+ * Both halves are the registry's id shape — the registry still decides whether
+ * the style is drawn (an unknown one falls back to the default).
+ */
+export type CanvasStylePreview = { type: string; id: string };
+const STYLE_PREVIEW_RE = /^([a-z][a-z0-9_-]{0,40}):([a-z][a-z0-9-]{0,31})$/;
+export function canvasStylePreview(search: { style?: string } | undefined, isEditorCanvas: boolean): CanvasStylePreview | null {
+  if (!isEditorCanvas) return null;
+  const m = STYLE_PREVIEW_RE.exec(search?.style ?? '');
+  return m ? { type: m[1]!, id: m[2]! } : null;
 }
 
 /**

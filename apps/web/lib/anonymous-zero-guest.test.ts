@@ -77,6 +77,7 @@ const GUEST_ONLY_FIELDS = [
   'saveFlash',
   'faceMode',
   'faceTaggingAskable',
+  'supplierPageNotices',
 ] as const satisfies readonly GuestOnlyKeys[];
 
 test('anonymousIdentity() output carries exactly the five anonymous keys (none guest-derived)', () => {
@@ -90,6 +91,10 @@ test('anonymousIdentity() output carries exactly the five anonymous keys (none g
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
   assert.equal(identity.kind, 'anonymous');
@@ -183,6 +188,10 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
 });
@@ -199,6 +208,8 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // didntReply (2026-09-27) — THIS guest's own "Didn't reply · you're in"
     // mark after the final count locked. About the guest's own reply only.
     'didntReply',
+    // earlyOwnShots (2026-10-14) — before the day with early shooting on, Gallery = their own shots.
+    'earlyOwnShots',
     'eventVendorCredits',
     'faceMode',
     // faceTaggingAskable (2026-09-29) — may THIS guest's reply card ask "Want
@@ -212,6 +223,10 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // "Your shots"); their own captures, read by their own guest_id.
     'guestOwnShots',
     'kind',
+    // moreAnswers (2026-10-20) — how many of the couple's switched-on questions THIS guest,
+    // already coming, still owes ("You're coming ✓ · N more answers"). About the guest's
+    // own reply only — the key gate's missing set, counted.
+    'moreAnswers',
     'needsFaceEnroll',
     'papicGuest',
     // passCard (2026-09-29) — whether THIS guest has a pass card (accepted and
@@ -233,6 +248,9 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     'seatMap',
     'seatPassActive',
     'showClaimAccountCta',
+    // supplierPageNotices (2026-10-28) — suppliers who will show photos from THIS event on their page, each with
+    // Remove (the 7-day guest notice). About the event this guest belongs to; never an owner capability.
+    'supplierPageNotices',
   ]);
   assert.equal(identity.kind, 'guest');
 });

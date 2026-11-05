@@ -34,8 +34,13 @@ const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 const ACTIONS = 'app/dashboard/[eventId]/studio/papic/actions.ts';
-const POOL_CARD = 'app/dashboard/[eventId]/studio/papic/_components/papic-pool-card.tsx';
-const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+// 🎨 The doorway is the Buy more sheet's form now (owner 2026-10-14).
+const POOL_CARD = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx';
+const BAND = 'app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx';
+const SHEET = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet.tsx';
+// The Papic page is gone (2026-10-26): Home draws the one card, Add more on its face.
+const PAPIC_PAGE = 'app/dashboard/[eventId]/page.tsx';
+const HOME_SCREEN = 'app/dashboard/[eventId]/_components/home-first-screen.tsx';
 const ACTIVATION = 'lib/sku-activation.ts';
 
 /**
@@ -77,14 +82,17 @@ test('the Pool buy doorway exists and reaches a server action', () => {
 });
 
 test('the Papic studio mounts the Pool card', () => {
-  assert.match(
-    read(PAPIC_PAGE),
-    /<PapicPoolCard\b/,
-    `${PAPIC_PAGE} must render <PapicPoolCard>. This is the assertion that would ` +
-      `have caught the original defect: the component, the action, the catalog ` +
-      `rows and the activation hook can all be perfect while nothing MOUNTS the ` +
-      `card, and the couple sees a studio with no pool in it.`,
-  );
+  // The page mounts the band, the band mounts the sheet, the sheet mounts the
+  // form — the assertion that would have caught the original defect, followed
+  // through the 2026-10-14 band: every piece can be perfect while nothing MOUNTS it.
+  // 📷 2026-10-24: the page draws the one Papic card; 2026-10-26: its Add more lives in the OPEN settings (the closed
+  // card is the head and the switch only), so the settings are handed the pool's Add more (`papicBuy` → PapicBuySheet).
+  assert.match(read(HOME_SCREEN), /<PapicHomeCard\b/, `${HOME_SCREEN} must render the Papic card`);
+  assert.match(read(HOME_SCREEN), /buy=\{card\.buy \?\? null\}/, `${HOME_SCREEN} must hand the card its Add more`);
+  assert.match(read(PAPIC_PAGE), /<PapicBuySheet\b/, `${PAPIC_PAGE} must render the pool's Add more (<PapicBuySheet>)`);
+  assert.match(read(PAPIC_PAGE), /buy: papicBuy,/, `${PAPIC_PAGE} must hand the card its Add more`);
+  assert.match(read(BAND), /<PapicBuySheet\b/, `${BAND} must render <PapicBuySheet>`);
+  assert.match(read(SHEET), /<PapicBuyForm\b/, `${SHEET} must render <PapicBuyForm>`);
 });
 
 test('the Pool action resolves points and price server-side (SEC-4)', () => {

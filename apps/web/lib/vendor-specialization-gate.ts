@@ -11,9 +11,10 @@
  * script-and-cues desk for a host / MC, the floor-command kit (live schedule
  * updater · event QR kit · find-my-seat scanner · requests inbox) for a
  * coordinator. An unsubscribed vendor in ANY category renders the generic kit
- * and nothing more.
+ * and nothing more — EXCEPT the floor-command kit, free for any booked
+ * coordinator since 2026-11-05 (owner: "keep it free"; {@link FREE_SPECIALIZATION_SETS}).
  *
- * WHY A PURE MODULE. Same reason as `lib/owner-ribbon.ts`: the interesting part
+ * WHY A PURE MODULE. Same reason as the old `lib/owner-ribbon.ts` (removed 2026-10-15): the interesting part
  * is a DECISION, not markup, and a decision is only trustworthy if a test can
  * hold it down. Every rule lives here as a pure function over
  * (subscription state × category); the DB read lives next door in
@@ -96,6 +97,24 @@ export function specializationFreeWindowActive(
 export const SPECIALIZATION_MIN_TIER: VendorTier = 'solo';
 
 /**
+ * 🆓 THE SETS THAT ARE FREE FOR ANY BOOKED SUPPLIER — no tier floor, no end date.
+ *
+ * Owner, 2026-11-04 and again 2026-11-05 (DECISION_LOG "DAY-OF DESKS STAY FREE" and "THE 15 'ACT FIRST' ITEMS",
+ * item 15): *"keep it free"* — the coordinator's day-of desk (cue the show via `advanceScheduleBlock`, the
+ * `RequestsInbox`, the seat scanner) is free. The 2026-11-04 row said "no code change needed" because the console's
+ * free-until date is unset; that was true of the console and FALSE of this gate, where an unset date means "no
+ * window", so the floor-command desk stayed behind Solo. This set is the fix.
+ *
+ * "Booked" is not decided here — this module never knew the event. Every surface that mounts the desk is the
+ * booked supplier's live console, and `floor-command/actions.ts` re-checks "booked coordinator on this event".
+ *
+ * ONLY `floor_command`. The song desk and script & cues keep {@link SPECIALIZATION_MIN_TIER}; nobody ruled on those.
+ */
+export const FREE_SPECIALIZATION_SETS: ReadonlySet<VendorSpecializationSet> = new Set<VendorSpecializationSet>([
+  'floor_command',
+]);
+
+/**
  * The specialization sets. Deliberately a SMALL closed union — these are the
  * three the owner named on 2026-07-26. A category that maps to none of them
  * gets the generic kit, which is a correct outcome and not a gap.
@@ -151,6 +170,8 @@ export const VENDOR_SPECIALIZATIONS: readonly VendorSpecializationDef[] = [
 export type VendorSpecializationReason =
   /** Subscribed at or above the floor, and their category has a set. */
   | 'unlocked'
+  /** Not subscribed, but their set is in {@link FREE_SPECIALIZATION_SETS} — held free. */
+  | 'free_set'
   /** Their category maps to no specialization set — generic kit is the whole kit. */
   | 'no_specialization_for_category'
   /** Free / verified / no subscription at all — below {@link SPECIALIZATION_MIN_TIER}. */
@@ -382,6 +403,20 @@ export function resolveVendorSpecializationAccess(input: {
       unlockedSets: eligibleSets,
       eligibleSets,
       reason: 'unlocked',
+    };
+  }
+
+  // 🆓 Below the floor, but a FREE set is still held — the coordinator's day-of desk (owner 2026-11-05, "keep it
+  // free"). Only the free sets: a band that also coordinates gets the floor, never the paid song desk.
+  const freeSets = eligibleSets.filter((s) => FREE_SPECIALIZATION_SETS.has(s));
+  if (freeSets.length > 0) {
+    return {
+      genericKit: true,
+      unlockedSet: freeSets[0] ?? null,
+      eligibleSet,
+      unlockedSets: freeSets,
+      eligibleSets,
+      reason: 'free_set',
     };
   }
 

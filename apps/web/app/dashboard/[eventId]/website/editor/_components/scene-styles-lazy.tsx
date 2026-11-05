@@ -43,6 +43,11 @@ export const SceneAlignRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.SceneAlignRow),
   { loading: SlotRows },
 );
+/* 🕯 A scene's Accent ◆ ▾ (owner 2026-10-16) — the same door, never the Maker's first load. */
+export const AccentRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './accent-row').then((m) => m.AccentRow),
+  { loading: SlotRows },
+);
 export const FixedSceneStyleRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './fixed-scene-style-row').then((m) => m.FixedSceneStyleRow),
   { loading: SlotRows },
@@ -58,5 +63,26 @@ export const PostEventWordsField = dynamic(
 /* Post Event's twelve preset tiles (drawn by `scene-template-picker.tsx`'s sheet). */
 export const PresetTiles = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
+  { loading: SlotRows },
+);
+
+/* 🎵 Look › Music › Source ▾ "Our music" — its Song row and list by mood (owner 2026-10-08). Drawn only while that
+   source is picked, so it rides here: the same chunk, warmed with the rest when the Maker is idle. */
+export const OurMusicSong = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './our-music').then((m) => m.OurMusicSong),
+  { loading: SlotRows },
+);
+
+/* 🎵 Look › Music › Music button — the guest's button in three designs (owner 2026-10-08, round 5). It holds the
+   draft door (a server action) and the three drawn controls, so the Music form reaches it here. */
+export const MusicButtonRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './music-button-row').then((m) => m.MusicButtonRow),
+  { loading: SlotRows },
+);
+
+/* 🔤 Look › Elements › Fonts — the Studio's four font rows and Fonts ▾ (owner 2026-10-08, round 5). They hold the
+   draft door (a server action), so the Colours panel reaches them here rather than importing them. */
+export const FontsLookRows = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './fonts-look-rows').then((m) => m.FontsLookRows),
   { loading: SlotRows },
 );

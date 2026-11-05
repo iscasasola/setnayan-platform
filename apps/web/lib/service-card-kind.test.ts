@@ -180,7 +180,8 @@ test('the save’s gate asks the leaves, and is still a CLOSED set', () => {
 });
 
 test('the chooser offers the shop’s own words, and keeps the legacy list below', () => {
-  const door = read('app/vendor-dashboard/services/new/page.tsx');
+  // Since 2026-10-14 the three doors into the maker build the chooser in ONE loader.
+  const door = read('lib/service-card-maker.server.ts');
   // 🪤 MATCHING THE BARE NAME `coverageKindOptions` WAS DECORATION — the
   // mutation that emptied its source (`vendorCoverages.map` → `[].map`) left the
   // identifier standing and the guard passed. Pin what it is BUILT FROM.
@@ -197,8 +198,10 @@ test('the chooser offers the shop’s own words, and keeps the legacy list below
   // ⚠ NARROWED, NEVER REMOVED — the 52 stay one tap below. A chooser that
   // dropped them would read as "Setnayan does not do that" to a shop growing
   // into something it does not yet cover.
-  assert.match(door, /SERVICE_GROUPS\.map/, 'the legacy kinds were removed from the chooser');
-  assert.match(door, /leadWithOwnWords/, 'the legacy pills stopped being re-banded');
+  // Since 2026-11-04 the kinds one tap below are the LIVE taxonomy, not the hard-coded 52 (owner: "why is it that i
+  // only see these categories when we have a whole spectrum"); lib/service-card-kind-groups.test.ts pins the build.
+  assert.match(door, /liveKindGroups\(\{/, 'the kinds below the shop’s own words were removed from the chooser');
+  assert.match(door, /leadWithOwnWords/, 'the kinds below stopped being re-banded');
 });
 
 test('a leaf-filed card can still be copied — the [category] route accepts it', () => {
@@ -231,10 +234,14 @@ test('a leaf-filed card can still be copied — the [category] route accepts it'
   // ids. A kind the product SAVES has to be a kind this door ACCEPTS.
   assert.match(
     route,
-    /WEDDING_TILE_SET\.has\(category\)/,
-    'the [category] route refuses wedding tile ids again — a card filed under ' +
+    /\(await liveTileIds\(\)\)\.has\(category\)/,
+    'the [category] route refuses tile ids again — a card filed under ' +
       'one (host_mc, live_band, dj, choir …) gets a copy button that 404s',
   );
+  // …and the tile ids it accepts are the LIVE categories (③0-d), not the code list:
+  // a category an admin creates must not 404 here.
+  assert.match(route, /\(await getTaxonomy\(\)\)\.tileOrder/, 'the tile arm reads the code list again, not the live taxonomy');
+  assert.ok(!/WEDDING_TILE_ORDER/.test(route), 'the [category] route reads the const tile list again');
   assert.match(route, /notFound\(\)/, 'the route stopped refusing an unknown kind entirely');
   // And its rendered name goes through the shared resolver, not the legacy-only
   // one, or a leaf card's own page would announce a humanised guess.
@@ -253,7 +260,7 @@ test('the labeller owns the fallback chain, and every card screen asks it', () =
     'app/vendor-dashboard/messages/[threadId]/page.tsx',
     'app/api/vendor/chat/[threadId]/compose-options/route.ts',
     'app/vendor-dashboard/invite/page.tsx',
-    'app/vendor-dashboard/_components/qr-section.tsx',
+    // (_components/qr-section.tsx — retired by S-PR3: Dates links to the one QR codes page, `invite/page.tsx`, above)
   ]) {
     const src = read(screen);
     assert.match(src, /cardKindLabeller\(\)/, `${screen} stopped asking the shared labeller`);

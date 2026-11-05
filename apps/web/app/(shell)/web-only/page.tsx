@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
+import { getCurrentUser } from '@/lib/auth';
 
 /*
   WHERE THE STORE SHELL LANDS when it reaches a web-only feature.
@@ -15,6 +16,14 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
   forbids outside the US storefront. Say only that it is not in the app.
 
   `dynamic` is declared once on app/(shell)/layout.tsx and covers this route.
+
+  🔑 THE WAY OUT DEPENDS ON WHO IS LOOKING (sweep 2026-10-19 row C10). A
+  signed-out visitor reaches this page too — a shared /features link, a
+  /papic deep link before signing in — and was offered "Back to your
+  dashboard", a dashboard they do not have (it bounced them to /login anyway).
+  Signed in → back to the dashboard; signed out → Sign in. The session is the
+  shell's own per-request read (`getCurrentUser` is `cache()`d), so this adds
+  no round trip.
 */
 
 export const metadata = {
@@ -22,9 +31,18 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function WebOnlyPage() {
+export default async function WebOnlyPage() {
+  const user = await getCurrentUser();
+  const way = user
+    ? { href: '/dashboard', label: 'Back to your dashboard' }
+    : { href: '/login', label: 'Sign in' };
   return (
-    <LegalLayout title="Not available in the app" meta="Setnayan for iPhone and Android">
+    // 🍎 The line under the title names no platform (Apple check 2026-10-19,
+    // row #14 — guideline 2.3.10: an iOS app may not name Android). It said
+    // "Setnayan for iPhone and Android" on the one page every refused route in
+    // the iPhone app lands on. Nor does it say "on the web" — see the 🔒 note
+    // above: naming where else the feature lives is the steering 3.1.1 forbids.
+    <LegalLayout title="Not available in the app" meta="The Setnayan app">
       <LegalSection title="This part of Setnayan is not included in the app">
         <p>
           The app covers planning your event — your guest list, seating, schedule,
@@ -32,8 +50,11 @@ export default function WebOnlyPage() {
           is not part of the app version.
         </p>
         <p>
-          <Link href="/dashboard" className="font-medium text-mulberry hover:text-mulberry-600">
-            Back to your dashboard
+          <Link
+            href={way.href}
+            className="inline-flex min-h-[44px] items-center font-medium text-mulberry hover:text-mulberry-600"
+          >
+            {way.label}
           </Link>
         </p>
       </LegalSection>

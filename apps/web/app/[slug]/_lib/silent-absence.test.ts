@@ -119,6 +119,15 @@ test('the 3D venue page checks the event exists before blaming its couple', () =
     'The copy hardcodes "the couple" / "the wedding" again — this route also ' +
       'serves birthdays, debuts and christenings.',
   );
+  // 2026-10-12: the check above passed while every wedding guest still READ
+  // "← Back to the wedding" — the source said `Back to the {noun}` and the noun
+  // resolved to "wedding" at render. So the claim is pinned on what renders:
+  // the same words as the sibling guest pages (`/everyone`, `/find-seat`).
+  assert.ok(
+    VENUE.includes('← Back to the invitation') && !/Back to the \{/.test(VENUE),
+    'The way back from the 3D room no longer reads "Back to the invitation" like ' +
+      'its sibling guest pages, or it is built from a noun that can render "wedding".',
+  );
 });
 
 // ── the deliberate soft failures, pinned so a sweep does not "fix" them ──────

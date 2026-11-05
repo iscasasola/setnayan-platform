@@ -1,0 +1,581 @@
+/*
+ * budget-page.module.css — the Budget page, translated from the approved
+ * prototype `prototypes/budget_page_2026-10-08_fable.html` (owner 2026-10-08:
+ * "budget looks good!"). Class names follow the prototype's so a reader can
+ * hold the two side by side: .sum · .grid · .cell · .k · .v · .target ·
+ * .saved · .meter · .legend · .nextdue.
+ *
+ * Tokens are the shipped ones (never a hex from the prototype's own palette):
+ *   ink = --color-ink · line = ink at 10% · gold = --sn-gold-500 ·
+ *   ok / danger = the button-rule tones · wine = --color-mulberry-700 (the
+ *   deepest terracotta — what this page already used for "Owed").
+ *
+ * Money is set in the APP font with tabular numerals — never monospace
+ * (`money-wears-the-ledger-face.test.ts`).
+ */
+
+.page {
+  /* the prototype's own type scale: 15px on a 1.4 line */
+  font-size: 15px;
+  line-height: 1.4;
+  --bp-ink: rgb(var(--color-ink));
+  --bp-mute: rgb(var(--color-ink) / 0.6);
+  --bp-line: rgb(var(--color-ink) / 0.1);
+  --bp-gild: var(--sn-gold-500, #a9834b);
+  --bp-ok: rgb(var(--color-ok, 43 116 74));
+  --bp-danger: rgb(var(--color-danger, 179 38 30));
+  --bp-wine: rgb(var(--color-mulberry-700, 157 63 30));
+  --bp-brand: rgb(var(--color-mulberry));
+  --bp-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  min-width: 0;
+}
+
+/* Count: the app font, tabular — never monospace. */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.mute {
+  color: var(--bp-mute);
+}
+
+/* ═══ summary — rows, not tiles ═══ */
+.sum {
+  margin-top: 10px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+}
+.cell {
+  padding: 10px 0 8px;
+  border-top: 1px solid var(--bp-line);
+  min-width: 0;
+}
+.cell:nth-child(-n + 2) {
+  border-top: 0;
+}
+.k {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bp-mute);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 18px;
+}
+/* The label InfoTip prints inherits the row's type; the popover does not. */
+.k :global(.sn-tip) {
+  text-transform: none;
+  letter-spacing: normal;
+}
+.v {
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 500;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bp-ink);
+}
+.vOk {
+  color: var(--bp-ok);
+}
+.vWine {
+  color: var(--bp-wine);
+}
+.vMuted {
+  color: var(--bp-mute);
+  font-weight: 400;
+}
+.target {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.target input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px dashed var(--bp-mute);
+  border-radius: 0;
+  background: none;
+  padding: 0 0 1px;
+  font: inherit;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: inherit;
+  outline: none;
+  box-shadow: none;
+}
+/* The app's touch floor (globals.css, `@media (pointer: coarse)`) forces every
+   input to 16px !important so iOS does not zoom on focus — which drew the
+   Target at 16px on every phone while its neighbours stand at 24px. 24px is
+   above that floor, so the zoom it guards against cannot happen here. The
+   selector repeats the floor's own `:not()` chain so it outranks it. */
+@media (pointer: coarse) {
+  .target input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']) {
+    font-size: 24px !important;
+  }
+}
+.target input:focus,
+.target input:focus-visible {
+  border-bottom-color: var(--bp-brand);
+  border-bottom-style: solid;
+  outline: none;
+  box-shadow: none;
+}
+.pencil {
+  color: var(--bp-mute);
+  font-size: 20px;
+  flex: none;
+  margin-right: 2px;
+}
+.saved {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 12px;
+  color: var(--bp-ok);
+  margin-left: 6px;
+  opacity: 0;
+  transition: opacity 200ms;
+}
+.saved[data-on='true'] {
+  opacity: 1;
+}
+.saved[data-tone='bad'] {
+  color: var(--bp-danger);
+}
+
+.meter {
+  position: relative;
+  height: 6px;
+  border-radius: var(--m-r-xs);
+  background: var(--bp-line);
+  margin: 12px 0 6px;
+  overflow: hidden;
+}
+.meterAgreed,
+.meterPaid,
+.meterOver {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.meterAgreed {
+  left: 0;
+  background: var(--bp-gild);
+}
+.meterPaid {
+  left: 0;
+  background: var(--bp-ok);
+}
+.meterOver {
+  right: 0;
+  background: var(--bp-danger);
+}
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--bp-mute);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  /* the prototype's 2px corner on an 8px swatch — a square, not a dot */
+  border-radius: 25%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+.swPaid {
+  background: var(--bp-ok);
+}
+.swAgreed {
+  background: var(--bp-gild);
+}
+.swTarget {
+  background: var(--bp-line);
+}
+.left {
+  margin-left: auto;
+}
+.wine {
+  color: var(--bp-wine);
+}
+.nextdue {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: 12px;
+  font-size: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bp-line);
+  min-width: 0;
+}
+/* "₱528,000 · Seda Vertis North · Oct 5" — it carries the amount, so it wraps, never cut (as `.svc` below). */
+.nextTxt {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.nextTxt b {
+  font-weight: 700;
+}
+.go {
+  margin-left: auto;
+  color: var(--bp-wine);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  /* A full 44px thumb target that does not make the 14px line taller: the
+     box grows, the negative margin hands the extra height back to the row. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -14px;
+  /* …and 44px WIDE: "Pay ›" is 30px of words. The box grows toward the row's
+     own text (it already sits at the far end), the words stay right-aligned. */
+  min-width: 44px;
+  justify-content: flex-end;
+}
+
+/* ═══ the one list — three groups, hairline rows ═══ */
+.list {
+  margin-top: 8px;
+}
+.grp {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 22px 0 4px;
+}
+.grp h2 {
+  font-size: 19px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--bp-ink);
+}
+.cnt {
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 0;
+  border: 0;
+  border-top: 1px solid var(--bp-line);
+  min-height: 56px;
+  width: 100%;
+  background: none;
+  color: var(--bp-ink);
+  font: inherit;
+  text-align: left;
+}
+button.row {
+  cursor: pointer;
+}
+.grp + .row {
+  border-top: 0;
+}
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--bp-line);
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  color: var(--bp-mute);
+  background: rgb(var(--color-cream));
+}
+.logoS {
+  background: color-mix(in srgb, var(--bp-gild) 16%, transparent);
+  color: var(--bp-gild);
+  border-color: transparent;
+  font-weight: 700;
+  font-size: 13px;
+}
+.mid {
+  min-width: 0;
+}
+.name {
+  font-weight: 500;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+/* The line under a name carries MONEY ("Reception venue · ₱105,600 paid"), so it wraps — it is never cut. On one
+   line with an ellipsis it lost the amount on every phone from 320 to 414 (fits-every-phone 2026-10-21). The name
+   above it may still truncate: a long name is a name, a cut amount is a wrong number. */
+.svc {
+  font-size: 13px;
+  color: var(--bp-mute);
+  overflow-wrap: break-word;
+  display: block;
+}
+.end {
+  display: flex;
+  align-items: center;
+}
+.amt {
+  text-align: right;
+  white-space: nowrap;
+}
+.amt b {
+  display: block;
+  font-weight: 500;
+  font-size: 15px;
+}
+.amt small {
+  display: block;
+  font-size: 12px;
+  color: var(--bp-mute);
+}
+.amt small.wine {
+  color: var(--bp-wine);
+}
+.amt small.ok {
+  color: var(--bp-ok);
+}
+.chev {
+  color: var(--bp-mute);
+  font-size: 16px;
+  margin-left: 6px;
+}
+.empty {
+  padding: 10px 0 4px;
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.fail {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bp-line);
+  color: var(--bp-mute);
+  font-size: 14px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bp-danger);
+  flex: none;
+}
+/* "Retry" — the prototype's quiet wine word at the row's end, with a full
+   44px thumb target that does not make the row taller (as .go does). */
+.retry {
+  margin-left: auto;
+  color: var(--bp-wine);
+  font: inherit;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0 0 0 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -12px;
+}
+.retry:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+/* The line under the summary while All ▾ is on Owing or Paid. */
+.filterline {
+  font-size: 13px;
+  color: var(--bp-mute);
+  margin-top: 10px;
+}
+
+/* ═══ the frosted thumb row — fixed over the list, above the bottom nav ═══
+   ＋ Add expense · All ▾ · search (B3). The row has no fill of its own: the
+   dropdown and the search wear `.sn-glass-row` (they blur what is behind them)
+   and Add keeps its full colour. */
+.lower {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))));
+  /* Side gutters clear a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  padding: 10px max(16px, var(--sn-safe-r)) 10px max(16px, var(--sn-safe-l));
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 25;
+  pointer-events: none;
+}
+.lower > * {
+  pointer-events: auto;
+}
+/* ⌨ RIDING THE KEYBOARD (owner 2026-10-24; `useRidingRow`, typing-band.tsx): while the search is typed into with the
+   keyboard up, the field is the whole row — ＋ and Show fold — and it wears the accent ring on the band's plate. */
+.lower[data-riding] > :not([data-glass-row='budget-search'], [data-ride-band]) { display: none; }
+.lower[data-riding] > [data-glass-row='budget-search'] {
+  background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.grow {
+  flex: 1;
+}
+/* A desktop has no bottom nav and a wide column: the row floats bottom-right
+   at the page's own width (the Find thumb row's placement). */
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+/* `- 128px` = the 72-px rail strip + the two 28-px edges: at 701 a 720-px row would reach under the rail. From 1024 the 720 cap is the smaller, so nothing there moves. */
+@media (min-width: 701px) {
+  .lower {
+    bottom: 28px;
+    left: auto;
+    right: 28px;
+    width: min(720px, calc(100vw - 128px));
+    padding: 0;
+  }
+}
+/* Room under the last row so the fixed row never sits on top of a figure. */
+.listRoom {
+  padding-bottom: 72px;
+}
+
+/* ═══ sheets ═══ */
+.sheet {
+  padding: 18px 16px 8px;
+  color: var(--bp-ink);
+}
+.sheet h3 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0 48px 2px 0;
+}
+.sheetSub {
+  font-size: 13px;
+  color: var(--bp-mute);
+}
+.sheetBody {
+  margin-top: 8px;
+}
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--bp-line);
+  min-height: 56px;
+}
+.field:first-child {
+  border-top: 0;
+}
+.field label,
+.fieldLabel {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.field input {
+  border: 0;
+  border-bottom: 1px dashed var(--bp-mute);
+  border-radius: 0;
+  background: none;
+  text-align: right;
+  width: 150px;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  outline: none;
+  box-shadow: none;
+  padding: 2px 0;
+}
+.field input.wide {
+  width: 190px;
+}
+.field input:focus,
+.field input:focus-visible {
+  border-bottom: 1px solid var(--bp-brand);
+  outline: none;
+  box-shadow: none;
+}
+.field input::placeholder {
+  color: var(--bp-mute);
+}
+/* The dropdown's own pill, outlined as drawn — on the sheet's paper the
+   shipped button's white wash alone does not read as a control. */
+.pick {
+  border: 1px solid var(--bp-line);
+}
+.optional {
+  font-size: 12px;
+  color: var(--bp-mute);
+  margin-left: 4px;
+}
+.acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.pay {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--bp-line);
+  font-size: 14px;
+}
+.pay:first-child {
+  border-top: 0;
+}
+.payD {
+  color: var(--bp-mute);
+  font-size: 13px;
+}
+.payA {
+  text-align: right;
+  font-weight: 500;
+}
+.payDue {
+  color: var(--bp-wine);
+  font-weight: 400;
+}
+.payOk {
+  color: var(--bp-ok);
+}
+.said {
+  font-size: 13px;
+  color: var(--bp-mute);
+  margin-top: 10px;
+}
+.saidBad {
+  color: var(--bp-danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saved {
+    transition: none;
+  }
+}

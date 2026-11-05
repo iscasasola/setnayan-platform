@@ -113,7 +113,6 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/invitation-widgets.ts', ['WEBSITE_PHASES_ENABLED']],
   ['lib/live-studio-pool-only.ts', ['NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY']],
   ['lib/live-studio-roam.ts', ['NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED']],
-  ['lib/maker-stages-studio-flag.ts', ['NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED']],
   ['lib/nav-registry-defaults.ts', ['NEXT_PUBLIC_SUITE']],
   ['lib/onboarding-v2-brief-flag.ts', ['NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED']],
   ['lib/package-authoring-flag.ts', ['NEXT_PUBLIC_PACKAGE_AUTHORING']],
@@ -226,6 +225,12 @@ const HELD_STRICT: ReadonlyArray<readonly [string, string]> = [
   //                          owner on an exact string and nothing looser.
   ['lib/category-proposal-flag.ts', 'CATEGORY_PROPOSAL_DRAFT_ENABLED'],
   ['lib/supplier-night-before-email-flag.ts', 'SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED'],
+  //   chat-file-expiry — permanently deletes people's chat files; the owner
+  //                      arms it on the exact string after reviewing the PR.
+  ['lib/chat-file-expiry-sweep.ts', 'CHAT_FILE_EXPIRY_ENABLED'],
+  //   welcome-discount — arms a money discount on real orders; the owner turns
+  //                      it on, on the exact string, after confirming prices + margin.
+  ['lib/welcome-discount-flag.ts', 'WELCOME_DISCOUNT_ENABLED'],
 ];
 
 test('the deliberate holdouts stay strict, and still say why', () => {

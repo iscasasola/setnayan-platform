@@ -40,14 +40,17 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
     label: PUBLIC_STAGE_LABELS.save_the_date,
     // Hold the date: Home · Story, and Me for a guest holding their key. No
     // Camera before the day, and no Details — there are none on this stage.
-    slots: ['home', 'story', 'me'],
+    // 🖼 + Gallery — drawn ONLY when the host's early shooting is on, and it holds
+    // the guest's own shots (`resolveSiteNav`'s `earlyOwnShots`, owner 2026-10-14).
+    slots: ['home', 'story', 'gallery', 'me'],
   },
   rsvp: {
     label: PUBLIC_STAGE_LABELS.rsvp,
     // Get the reply: Welcome · Details · Our Love Story · Me — four, always
     // (owner 2026-09-30: "RSVP does not have 4 tabs under" — no RSVP tab). A
     // stranger's bar is cut further by the resolver's own rules.
-    slots: ['home', 'details', 'story', 'me'],
+    // 🖼 + Gallery, ONLY with early shooting on (its own shots) — otherwise the four.
+    slots: ['home', 'details', 'story', 'gallery', 'me'],
   },
   event: {
     label: PUBLIC_STAGE_LABELS.event,

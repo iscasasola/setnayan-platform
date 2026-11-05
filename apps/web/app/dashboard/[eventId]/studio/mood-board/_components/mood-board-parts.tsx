@@ -1,6 +1,5 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { DetailsPieceButton, useDetailsPiece } from '@/app/dashboard/[eventId]/launch/_components/details-go';
 
 /**
@@ -21,7 +20,6 @@ export const MOOD_BOARD_PARTS = [
   { key: 'palette', label: 'Palette' },
   { key: 'reception', label: 'Reception' },
   { key: 'colours', label: 'In your colours' },
-  { key: 'make-it-real', label: 'Make it real' },
   { key: 'share', label: 'Share & export' },
 ] as const;
 export type MoodBoardPart = (typeof MOOD_BOARD_PARTS)[number]['key'];
@@ -33,39 +31,16 @@ function usePart(): [MoodBoardPart, (p: MoodBoardPart) => void] {
   return [on, (p) => setPiece(p)];
 }
 
-/** The navigator's rows (a desk) / chips (a phone). "Make it real" is left out where it is not sold. */
-export function MoodBoardPieces({ makeItReal }: { makeItReal: boolean }) {
+/** The navigator's rows (a desk) / chips (a phone). */
+export function MoodBoardPieces() {
   const [on, pick] = usePart();
   return (
     <>
-      {MOOD_BOARD_PARTS.filter((p) => makeItReal || p.key !== 'make-it-real').map((p) => (
+      {MOOD_BOARD_PARTS.map((p) => (
         <DetailsPieceButton key={p.key} on={on === p.key} data={`mood-board:${p.key}`} onPick={() => pick(p.key)}>
           {p.label}
         </DetailsPieceButton>
       ))}
     </>
   );
-}
-
-/** One part, shown while it is the picked one — hidden (never unmounted) otherwise. */
-export function MoodPart({ part, children }: { part: MoodBoardPart; children: ReactNode }) {
-  const [on] = usePart();
-  return (
-    <div data-mood-part={part} hidden={on !== part} className={on === part ? 'block' : 'hidden'}>
-      {children}
-    </div>
-  );
-}
-
-/** The right column for a part whose controls are the part itself (the theme, the inspirations…). */
-export function MoodPartNote() {
-  const [on] = usePart();
-  if (on === 'palette' || on === 'reception' || on === 'share') return null;
-  const note: Record<string, string> = {
-    theme: 'Describe your look or pick a starting theme — your main colours set the whole palette.',
-    inspiration: 'Your photos feed your palette and your renders. Drag one onto another slot to reorder.',
-    colours: 'A quick look at your palette on real things. Change a colour under Palette and this follows.',
-    'make-it-real': 'Photo-real renders of your look, from your palette, reception and inspirations.',
-  };
-  return <p className="text-[13px] text-ink/70" data-mood-part-note={on}>{note[on]}</p>;
 }

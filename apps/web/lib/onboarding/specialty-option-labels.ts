@@ -93,6 +93,7 @@ export const SPECIALTY_OPTION_LABELS: Readonly<Record<string, string>> = {
   best_woman: 'Best woman',
   maid_of_honor: 'Maid of honour',
   matron_of_honor: 'Matron of honour',
+  man_of_honor: 'Man of honour',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
   escort: 'Escort',

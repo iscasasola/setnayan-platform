@@ -241,6 +241,26 @@ export function validateVendorCategoryMapping(
 }
 
 /**
+ * THE REFUSAL (③0-c one source, corpus PLAN § 8.3: "`validateVendorCategoryMapping` becomes a
+ * refusal in the admin delete/re-key path, not a count").
+ *
+ * The couple-side categories that deleting `tileId` would leave pointing at nothing — i.e. the
+ * drift `validateVendorCategoryMapping` would report AFTER the delete that it does not report
+ * now. Non-empty ⇒ the admin action refuses: a couple's suppliers filed under those categories
+ * would silently lose their place on the Suppliers page (`buildShortlistFolders` skips a category
+ * with no tile). Until this, the only signal was a number on /admin/categories, read after the
+ * damage. Pure — the caller passes `await getTaxonomy()`.
+ */
+export function deletionWouldBreakCoupleLinks(
+  tax: TaxonomySnapshot,
+  tileId: string,
+): VendorCategoryDrift[] {
+  const before = new Set(validateVendorCategoryMapping(tax).map((d) => d.category));
+  const after = validateVendorCategoryMapping({ ...tax, tileOrder: tax.tileOrder.filter((t) => t !== tileId) });
+  return after.filter((d) => !before.has(d.category));
+}
+
+/**
  * Translate a list of couple-side `event_vendors.category` values into the
  * canonical TILE vocabulary that `vendor_profiles.services` speaks.
  *

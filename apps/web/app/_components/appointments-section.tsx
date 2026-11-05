@@ -39,6 +39,7 @@ import {
   X,
 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { AppointmentJoinButton } from '@/app/_components/appointment-join';
 import {
   APPOINTMENT_KIND_LABEL,
@@ -408,12 +409,14 @@ function AppointmentCard({
             </a>
           ) : null}
           {icsHref ? (
-            <a
+            // 📥 Saved, never shown in place — the app's web view renders an .ics with no way back (owner 2026-10-27).
+            <SaveFileLink
               href={icsHref}
+              filename="setnayan-appointment.ics"
               className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-medium text-ink/70 hover:border-terracotta/40"
             >
               <CalendarPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Add to calendar
-            </a>
+            </SaveFileLink>
           ) : null}
         </div>
       ) : null}

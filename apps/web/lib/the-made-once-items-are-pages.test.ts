@@ -54,11 +54,12 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   // ✂ THE MAKER IN 4 (2026-10-02): the bar's door into Details (Prints is Page ▾'s since 2026-10-04) —
   // a DOOR into the one Details page, never a page of its own; Logo/Hero/Reveal are not on the bar.
   // 🗂 ONE button since 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look chip is gone.
-  const { MAKER_TOOLBAR, makerPressDoor } = await import(`../${L}/maker-bar`);
+  /* 🧭 One Maker since 2026-10-25: its bar holds no made-once door at all — Studio opens them. */
+  const { MAKER_TOOLBAR_STAGES_STUDIO, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
-    (MAKER_TOOLBAR as readonly string[]).filter((k) => !['exit', 'page', 'undo', 'preview', 'apply'].includes(k)),
-    ['details'],
-    'the bar holds a made-once door besides Event Details again',
+    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['side', 'undo', 'preview', 'apply', 'settings'].includes(k)),
+    [],
+    'the bar holds a made-once door again',
   );
   for (const door of ['look', 'details', 'prints'] as const) {
     assert.equal(makerPressDoor({ detailsItem: null }, door).selectedTool, 'details', `${door} opens a page of its own`);
@@ -266,10 +267,11 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   assert.match(html, /data-maker-page="details"/);
   assert.match(html, /data-maker-page-body=""[\s\S]*data-stub="details-page"/, 'what the details feed is the body');
   assert.match(html, /data-maker-page-controls=""[\s\S]*data-stub="details-fields"/, 'the fields sit beside it');
-  // The ⋯ sheet is the only dialog in the shell, and it is shut.
+  // No dialog in the shell while nothing is open: the "Your Event Hub" sheet is the ⚙'s (2026-10-30) and draws nothing
+  // until the ⚙ is pressed — Details is no dialog of its own.
   const dialogs = html.match(/role="dialog"/g) ?? [];
-  assert.equal(dialogs.length, 1, 'only the ⋯ sheet is a dialog');
-  assert.match(html, /<div hidden="" class="lg:absolute lg:inset-0 lg:z-40">/, 'and the ⋯ sheet is shut');
+  assert.equal(dialogs.length, 0, 'a dialog is drawn in the shell while nothing is open');
+  assert.match(html, /data-maker-tool="settings"/, 'the ⚙ that opens "Your Event Hub" is not on the bar');
 });
 
 test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {
@@ -293,8 +295,9 @@ test('Love Story: Our Love Story is the body, and a moment is added and edited I
   let forms = 0;
   for (const f of ['_components/love-story-book.tsx', '_components/moment-sheet.tsx', '_components/pick-from-our-events.tsx']) {
     const src = read(`${S}/${f}`);
-    for (const body of src.split(/<form\b/).slice(1)) {
-      assert.match(body.slice(0, body.indexOf('</form>')), /<InMakerReturnTo \/>/, `${f}: a form does not return to the Maker`);
+    /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+    for (const body of src.split(/<(?:form|SafeForm)\b/).slice(1)) {
+      assert.match(body.slice(0, body.search(/<\/(?:form|SafeForm)>/)), /<InMakerReturnTo \/>/, `${f}: a form does not return to the Maker`);
       forms += 1;
     }
   }
@@ -347,7 +350,7 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   );
   assert.match(html, /data-maker-page="details"[\s\S]*data-stub="details-page"/, 'an RSVP ask opens Details');
   assert.doesNotMatch(html, /data-maker-page="rsvp-page"/, 'RSVP is still a page of its own');
-  assert.equal((html.match(/role="dialog"/g) ?? []).length, 1, 'only the ⋯ sheet is a dialog');
+  assert.equal((html.match(/role="dialog"/g) ?? []).length, 0, 'RSVP (or anything) opens as a dialog over the Maker');
 
   // The launch page hands Details the RSVP item — the guest's RSVP (framed) and
   // the shipped settings — and "What do you ask your guests?" is not typed twice.
@@ -360,7 +363,8 @@ test('RSVP is Details › RSVP — the guest’s RSVP as its picture, its settin
   assert.doesNotMatch(details, /MakerRsvp/, '"What do you ask your guests?" is typed a second time in Details');
   assert.match(details, /rsvp: <div key="rsvp" data-details-rsvp-page=""[^>]*>\{rsvp\.page\}<\/div>/);
   assert.match(details, /\.\.\.\(rsvp \? \{ rsvp: rsvp\.settings \} : \{\}\)/);
-  const settings = read(`${L}/maker-rsvp-ask.tsx`);
+  /* + the shared parts it mounts (2026-10-07, one setting two doors with Guests › Setup). */
+  const settings = read(`${L}/maker-rsvp-ask.tsx`) + read('app/dashboard/[eventId]/_components/guest-setup/guests-get-in.tsx') + read('app/dashboard/[eventId]/_components/guest-setup/rsvp-asks.tsx');
   for (const section of ['one-at-a-time', 'who-can-rsvp', 'reply-by', 'requests']) {
     assert.match(settings, new RegExp(`data-rsvp-setting="${section}"`), `the RSVP page lost "${section}"`);
   }

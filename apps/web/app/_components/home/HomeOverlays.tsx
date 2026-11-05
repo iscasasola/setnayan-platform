@@ -40,6 +40,8 @@ import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { useIsStoreShell } from '@/lib/use-store-shell';
+import { deviceOs } from '@/lib/apple-device';
 
 export type OverlayId =
   | 'prices'
@@ -108,10 +110,11 @@ export function OverlayShell({
  * Cross-tier vendor benefit count — computed at build time from the canonical
  * data so the Vendors-popup line-link ("See all N supplier benefits →") never goes
  * stale. Sums the full /vendors matrix the link points at:
- *   • named benefits across every tier (VENDOR_TIER_SECTIONS)   — 84 today
- *   • Custom-only dials (VENDOR_CUSTOM_TIER.benefits)           —  9 today
+ *   • named benefits across every tier (VENDOR_TIER_SECTIONS)
+ *   • Custom-only dials (VENDOR_CUSTOM_TIER.dials), only while Custom is offered publicly
  *   • plan-capability rows (buildLimitsGroup in vendor-tier-matrix) — 9 fixed
- * = 102 today. Rendered as "100+" once the total crosses 100 so the headline
+ * (No total is written here on purpose — it went stale: this said "84 … = 102" while the real sum was 99, and
+ * seven retired "soon" rows took it to 92 on 2026-11-05.) Rendered as "100+" once the total crosses 100 so the headline
  * never regresses on a copy tweak. The number tracks the arrays, not a literal.
  */
 const PLAN_CAPABILITY_ROW_COUNT = 9; // buildLimitsGroup() in vendor-tier-matrix.tsx
@@ -173,7 +176,7 @@ function PricesOverlay({
           <span>Schedule · Budget · Guest List · Seat Plan · Mood Board</span>
         </li>
         <li>
-          Free website
+          Free Event Hub
           <span>Save-the-Date · RSVP · Event · Editorial + unlimited RSVP</span>
         </li>
         <li>Find only verified suppliers</li>
@@ -202,6 +205,14 @@ function PricesOverlay({
               pricing.aiPrice
             )}
             , one-time · access until your wedding.
+          </span>
+        </div>
+      ) : pricing && pricing.plusPrice ? (
+        // ⚖ Owner 2026-11-04: Setnayan AI is no longer sold on its own — it comes with Event Plus and Event Pro.
+        <div className="hr-gintro">
+          <span className="hr-gintro-h">Setnayan AI</span>
+          <span className="hr-gintro-b">
+            the planning brain that filters your suppliers — comes with Event Plus ({pricing.plusPrice}) and Event Pro.
           </span>
         </div>
       ) : null}
@@ -256,7 +267,7 @@ function DownloadOverlay({
           <div className="hr-s">Install from your browser</div>
         </Link>
       </div>
-      <div className="hr-dl-stores">
+      <div className="hr-dl-stores" data-coming-soon>
         {/* App-store listings are not live yet — kept as a labelled "soon" tile
             rather than a dead link. Swap for the real store URLs once published. */}
         <span className="hr-dl-store hr-soon">
@@ -280,7 +291,16 @@ function DownloadOverlay({
  * (`hr-ov-card-glass`) matching the nav's blur(16px). No `pricing` dependency —
  * opens instantly.
  */
-function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () => void }) {
+function VendorsOverlay({
+  current,
+  onClose,
+  pricing,
+}: {
+  current: OverlayId;
+  onClose: () => void;
+  /** Lazily fetched; until it lands the fee line names no rate (never the code default). */
+  pricing: PricingData | null;
+}) {
   return (
     <OverlayShell
       id="vendors"
@@ -292,14 +312,14 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       <div className="hr-ov-eyebrow">Free for suppliers</div>
       <h2 className="hr-ov-title">A whole business — free.</h2>
       <p className="hr-ov-sub">
-        Get found, get booked, keep 100%. Free while we launch.
+        Get found, get booked, keep 100%. Free, for good.
       </p>
       <ul className="hr-glist">
         <li>
           {/* Supplier-facing: the second sentence is owed here. */}
-          <b>{supplierCommissionShort()}</b>
+          <b>{supplierCommissionShort(pricing?.bookingFee ?? null)}</b>
         </li>
-        <li>Free business public website</li>
+        <li>Free Setnayan page for your business</li>
         <li>Get verified — free</li>
         <li>
           Complete business tools
@@ -312,8 +332,8 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         <span className="hr-gintro-h">How the tiers stack</span>
         <span className="hr-gintro-b">
           Free is the whole ops spine · Solo adds your business analytics · Pro
-          adds a team, wider reach &amp; market intel · Enterprise lifts every
-          limit.
+          adds a team, wider reach &amp; market intel · Ultra reaches the
+          farthest.
         </span>
       </div>
       <div className="hr-gline">
@@ -399,7 +419,8 @@ function SetnayanAiOverlay({
   // would show two different numbers with no explanation — and every "you save X"
   // below would silently grow, which is a marketing claim, not a refactor.
   // The regular price UNDERSTATES the saving, which is the safe direction.
-  const mine = pricing.aiRegularPhp;
+  // ⚖ 2026-11-04: once Setnayan AI is off sale on its own, the figure a couple pays for it is Event Plus.
+  const mine = pricing.aiRegularPhp > 0 ? pricing.aiRegularPhp : pricing.plusPhp;
   // Every mode scales linearly toward its owner-set ceiling at 26 months.
   const frac = months / AI_COMPARE_MAX_MONTHS;
   const yearsNote = months === 13 ? ' · 1 year' : months === 26 ? ' · 2 years' : '';
@@ -562,11 +583,13 @@ function SetnayanAiOverlay({
       {/* The offer — price + act, LAST (owner 2026-07-03). The muted total ties
           the /28-day price to the ₱ figure in the Setnayan AI bar just above. */}
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(42,43,46,.1)', display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice}</span>
+        <span style={{ fontSize: 24, fontWeight: 600, color: '#2a2925' }}>{pricing.aiPrice || pricing.plusPrice}</span>
         <span style={{ background: 'rgba(166,124,61,.14)', color: '#8a6a2e', fontSize: 12, fontWeight: 500, padding: '4px 11px', borderRadius: 'var(--m-r-full)' }}>
-          one-time · access until your wedding
+          {pricing.aiPrice ? 'one-time · access until your wedding' : 'with Event Plus · one-time · access until your wedding'}
         </span>
-        <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>
+        {mine > 0 ? (
+          <span style={{ fontSize: 12, color: '#a8a4a0' }}>· {peso(mine)} total across your {months} {months === 1 ? 'month' : 'months'}</span>
+        ) : null}
       </div>
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
@@ -615,13 +638,38 @@ export function HomeOverlays({
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
   const [match, setMatch] = useState<'mac' | 'win' | null>(null);
+  /* 🍎 One reading of the device (`deviceOs`, lib/apple-device.ts — iPad + Duo
+     audit W8, 2026-10-19). `/mac/i` called iPad Safari (Macintosh UA) AND every
+     iPhone ("like Mac OS X") "macOS" and lit up the .dmg. A phone or tablet is
+     named, and no desktop download is highlighted for it. */
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    const mac = /mac/i.test(ua);
-    const win = /win/i.test(ua);
-    setDetected(mac ? 'macOS' : win ? 'Windows' : 'your computer');
-    setMatch(mac ? 'mac' : win ? 'win' : null);
+    const os = deviceOs(navigator.userAgent || '', navigator.maxTouchPoints);
+    setDetected(
+      os === 'mac' ? 'macOS'
+      : os === 'windows' ? 'Windows'
+      : os === 'iphone' ? 'iPhone'
+      : os === 'ipad' ? 'iPad'
+      : os === 'android' ? 'Android'
+      : 'your computer',
+    );
+    setMatch(os === 'mac' ? 'mac' : os === 'windows' ? 'win' : null);
   }, [current]);
+
+  /*
+    🍎 IN THE IPHONE APP, ONLY SIGN IN OPENS HERE (Apple check 2026-10-19,
+    rows #5 · #26 — guideline 3.1.1). Prices quotes the Setnayan AI rate,
+    Vendors is the supplier tier ladder ("Want to upgrade your business?"),
+    Setnayan AI is a price sheet, Download promotes the Mac, Windows and web
+    apps, and the four demos are paid features. The header hides its buttons
+    before the first paint (`data-web-only` in site-nav.tsx); this is the
+    second wall, so a press from anywhere else — a demo bus event, a stale
+    handler — still opens nothing that sells. Off the store shell nothing
+    changes. Held by lib/store-shell.test.ts.
+  */
+  const storeShell = useIsStoreShell();
+  if (storeShell) {
+    return current === 'signin' ? <SignInHerePanel options={{}} onClose={onClose} /> : null;
+  }
 
   return (
     <>
@@ -633,7 +681,7 @@ export function HomeOverlays({
           line-link out. They mount + open instantly; the Prices popup's AI price
           line fills in when the lazy `pricing` fetch lands (owner 2026-07-04). */}
       <PricesOverlay current={current} onClose={onClose} pricing={pricing} />
-      <VendorsOverlay current={current} onClose={onClose} />
+      <VendorsOverlay current={current} onClose={onClose} pricing={pricing} />
       {pricing && (
         <SetnayanAiOverlay current={current} onClose={onClose} pricing={pricing} onOpenStory={onOpenStory} />
       )}

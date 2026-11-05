@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateMinFor, isBeforeFirstEventDay } from '@/lib/event-date-floor';
+
 /**
  * Timing picker for the non-wedding inline create form — the platform's model,
  * NOT a single locked date (owner 2026-07-12: "we used to give them up to 4
@@ -12,40 +15,38 @@ import { useState } from 'react';
  * resolveCreateCapture) reads these; events.event_date stays NULL — the locked
  * single date is chosen later (date-as-output). All optional.
  */
-export function CreateDatePicker() {
+export function CreateDatePicker({ dateExempt = false }: { dateExempt?: boolean } = {}) {
   const [mode, setMode] = useState<'specific' | 'window'>('specific');
   const [count, setCount] = useState(1); // candidate rows, 1..4
   // Client-computed (this form only renders after a type is clicked, so there's
   // no SSR of this subtree → no hydration mismatch on `min`).
-  const today = new Date().toISOString().slice(0, 10);
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts): the
+  // picker starts there for a normal account, and a day typed before it is answered HERE,
+  // beside the date (iPhone Safari lets a typed day past `min`). The server refuses it too.
+  const today = eventDateMinFor(new Date().toISOString().slice(0, 10), dateExempt);
+  const [tooEarly, setTooEarly] = useState(false);
+  const onDate = (e: React.FormEvent<HTMLDivElement>) => {
+    const el = e.target as HTMLInputElement;
+    if (el.type !== 'date') return;
+    const inputs = Array.from(e.currentTarget.querySelectorAll<HTMLInputElement>('input[type="date"]'));
+    setTooEarly(!dateExempt && inputs.some((i) => isBeforeFirstEventDay(i.value)));
+  };
 
-  const tab =
-    'rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+  const tab = 'px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" onChange={onDate} data-create-date-picker="">
       <input type="hidden" name="date_mode" value={mode} />
 
-      <div role="radiogroup" aria-label="How do you want to set the date?" className="flex gap-2">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === 'specific'}
-          onClick={() => setMode('specific')}
-          className={`${tab} ${mode === 'specific' ? 'bg-ink text-white' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'}`}
-        >
+      {/* The app's ONE pill selector (owner 2026-10-08). Still a radio group. */}
+      <PillTrack role="radiogroup" aria-label="How do you want to set the date?">
+        <PillButton on={mode === 'specific'} role="radio" aria-checked={mode === 'specific'} onClick={() => setMode('specific')} className={tab}>
           Specific date(s)
-        </button>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={mode === 'window'}
-          onClick={() => setMode('window')}
-          className={`${tab} ${mode === 'window' ? 'bg-ink text-white' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'}`}
-        >
+        </PillButton>
+        <PillButton on={mode === 'window'} role="radio" aria-checked={mode === 'window'} onClick={() => setMode('window')} className={tab}>
           A range
-        </button>
-      </div>
+        </PillButton>
+      </PillTrack>
 
       {mode === 'specific' ? (
         <div className="space-y-2">
@@ -100,6 +101,11 @@ export function CreateDatePicker() {
           </div>
         </div>
       )}
+      {tooEarly ? (
+        <p role="alert" data-event-date-floor="" className="text-xs text-danger-700">
+          {EVENT_DATE_FLOOR_MESSAGE}
+        </p>
+      ) : null}
     </div>
   );
 }

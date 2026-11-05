@@ -110,14 +110,15 @@ test('the invitation page withholds by DEFAULT and opens in exactly one place', 
 test('the widget drops the directions row when withheld — it searches BY NAME otherwise', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'venue-widget.tsx'), 'utf8');
   // 🏛💒 Since 2026-09-27 each venue (ceremony · reception) is its own plate, and
-  // the withheld line is said ONCE under them. So: every <NavLinksRow> must sit
-  // on the OPEN arm of a `venue_withheld ? null : (` ternary, and the line must
+  // the withheld line is said ONCE under them. So: every directions control (the
+  // `DirectionsMenu` dropdown since 2026-10-21; `NavLinksRow`'s chips before) must sit
+  // on the OPEN arm of a `venue_withheld ? null :` ternary, and the line must
   // be on the withheld arm of its own.
-  const rows = [...src.matchAll(/<NavLinksRow/g)].map((m) => m.index ?? 0);
+  const rows = [...src.matchAll(/<(?:NavLinksRow|DirectionsMenu)(?![A-Za-z0-9_])/g)].map((m) => m.index ?? 0);
   assert.ok(rows.length >= 1, 'precondition: the widget draws directions');
   for (const at of rows) {
     const before = src.slice(Math.max(0, at - 80), at);
-    assert.match(before, /event\.venue_withheld \? null : \(\s*$/, 'a directions row outside the open arm');
+    assert.match(before, /event\.venue_withheld \? null : \(?\s*$/, 'a directions row outside the open arm');
   }
   const line = src.slice(src.indexOf('{event.venue_withheld ? ('));
   assert.match(line.slice(0, line.indexOf(') : null')), /VENUE_WITHHELD_LINE/, 'the gap explains itself');

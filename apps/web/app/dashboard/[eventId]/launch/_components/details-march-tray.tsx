@@ -3,7 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import type { MarchOut } from '@/lib/march-drag';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 🚶 THE "NOT WALKING" TRAY (owner, live iPhone 2026-10-06, DECISION_LOG "THE
@@ -25,7 +27,7 @@ import type { MarchOut } from '@/lib/march-drag';
 
 export const OUT_CHIP =
   // no-card-ok: a NAME you drag (a pressable chip), not a container.
-  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
+  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] dark:bg-raised leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
 
 /**
  * The fit itself, on the box as the browser laid it out: every chip shown; if
@@ -92,6 +94,7 @@ export function MarchTray({
   lifted,
   over,
   carried,
+  carded = false,
 }: {
   out: readonly MarchOut[];
   /** The tray could not be read — said, never drawn as an empty tray. */
@@ -102,6 +105,8 @@ export function MarchTray({
   over: boolean | null;
   /** The key the keyboard holds. */
   carried: string | null;
+  /** 🪪 A guest card is open over the march (a tapped name): the full list steps aside under it, and is back when it closes. */
+  carded?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   // Re-fit whenever the names change (a drop in or out of the tray).
@@ -178,9 +183,9 @@ export function MarchTray({
         ? createPortal(
             <div
               data-march-tray-sheet=""
-              className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted ? 'pointer-events-none invisible' : ''}`}
+              className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted || carded ? 'pointer-events-none invisible' : ''}`}
             >
-              <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
+              <OverlayBackdrop onClose={() => setAll(false)} label="Close the list" />
               <div
                 role="dialog"
                 aria-label="Not walking — everyone"
@@ -188,14 +193,7 @@ export function MarchTray({
               >
                 <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pt-3">
                   <p className="min-w-0 flex-1 font-serif text-lg text-ink">Not walking · {out.length}</p>
-                  <button
-                    type="button"
-                    aria-label="Close"
-                    onClick={() => setAll(false)}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70"
-                  >
-                    <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                  <ActionButton tone="neutral" quiet iconOnly icon={X} label="Close" onClick={() => setAll(false)} />
                 </div>
                 <div
                   data-march-tray-all=""

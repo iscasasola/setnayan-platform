@@ -51,3 +51,44 @@ test('the raw result is never mapped straight into a list or a count', () => {
   assert.doesNotMatch(alaga, /for \(const d of \(data \?\? \[\]\)/, 'the roster lists the raw RLS result again');
   assert.doesNotMatch(alaga, /alagaCount = error \? null : rows\.length/, 'the roster counts the raw RLS result again');
 });
+
+/*
+ * 2026-10-27 — A THIRD AND A FOURTH READER. Create Event's "Who is it for?" listed the owner's own SetnaProd AND three
+ * other users' businesses (owner: *"Why do i have flowerstoreph and indigocaterers"* · *"It only has setnaprod"* ·
+ * *"It should not"*); the Events board counted every platform dependent with a bare `count: 'exact'`. Both now go
+ * through the rule. And so a fifth reader cannot be written without it: every app/ page or component that reads
+ * `dependents` as a LIST (no single-row `.eq('dependent_id'|'owner_user_id', …)` scope) must call the rule.
+ */
+const read = (...p: string[]) => stripComments(readFileSync(join(__dirname, '..', ...p), 'utf8'));
+const CREATE = read('app', 'dashboard', '(account)', 'create-event', 'page.tsx');
+const BOARD = read('app', 'dashboard', '(launcher)', 'page.tsx');
+
+test('🔴 Create Event offers only MY loved ones — never an admin-visible stranger', () => {
+  assert.match(CREATE, /lovedOnesInMyCare\(\s*\(deps \?\? \[\]\)/, 'the picker lists the raw RLS result');
+  assert.match(CREATE, /rpc\('current_spouse_user_ids'\)/, 'the picker guesses the spouse');
+  assert.doesNotMatch(CREATE, /const rows = \(deps \?\? \[\]\) as DependentSubjectRow\[\];/, 'the raw rows came back');
+});
+
+test('🔴 the Events board counts MY loved ones — never a bare platform-wide count', () => {
+  const at = BOARD.indexOf("from('dependents')");
+  assert.ok(at > 0, 're-anchor: the board no longer reads dependents');
+  const block = BOARD.slice(at, at + 900);
+  assert.doesNotMatch(block, /count: 'exact'/, 'a bare count counts every dependent an admin can see');
+  assert.match(block, /myLovedOnes\(/, 'the count skips the rule');
+});
+
+test('every app/ LIST read of dependents goes through the one rule', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const root = join(__dirname, '..');
+  const files = execFileSync('git', ['grep', '-l', "from('dependents')", '--', 'app'], { cwd: root, encoding: 'utf8' })
+    .split('\n')
+    .filter((f) => f && !f.endsWith('.test.ts') && !/actions?\.ts$/.test(f));
+  assert.ok(files.length >= 4, `re-anchor: only ${files.length} readers found`);
+  const offenders = files.filter((f) => {
+    const code = stripComments(readFileSync(join(root, f), 'utf8'));
+    const scoped = /\.eq\('(dependent_id|owner_user_id|claim_token)'/.test(code);
+    const ruled = /\b(myLovedOnes|lovedOnesInMyCare|belongsOnMyPeoplePage)\(/.test(code);
+    return !scoped && !ruled;
+  });
+  assert.deepEqual(offenders, [], 'a dependents list read with neither a single-row scope nor the my-loved-ones rule');
+});

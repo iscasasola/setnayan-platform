@@ -14,8 +14,10 @@
 
 import { redirect } from 'next/navigation';
 import { cancelGig } from '@/app/vendor-dashboard/manpower/actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export async function cancelGigFromHost(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const gigId = formData.get('gig_id');
   const eventId = formData.get('event_id');
   const reason = formData.get('reason');

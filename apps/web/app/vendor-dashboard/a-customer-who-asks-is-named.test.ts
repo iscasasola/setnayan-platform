@@ -12,7 +12,9 @@
  *      couple's `display_name` for the card next to it.
  *   2. The Clients tab's "In conversation" list read `t.event?.display_name` —
  *      an RLS embed a vendor can never read — so every row said
- *      "A Setnayan event".
+ *      "A Setnayan event". (S-PR2, 2026-10-13: the Clients tab is retired;
+ *      those customers are rows on Customers › People, named by the same
+ *      admin-scoped read the roster always used — pinned below.)
  *
  * "A couple" / "A Setnayan event" survive ONLY as the null-name fallback.
  */
@@ -28,7 +30,7 @@ const code = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'
 
 const SECTIONS = code('_components/overview-sections.tsx');
 const OVERVIEW = code('../../lib/vendor-overview.ts');
-const CLIENTS = code('clients/surface.tsx');
+const PEOPLE = code('customers/page.tsx');
 
 test('both booking-ask cards on Today name the couple, not "A couple"', () => {
   const named = SECTIONS.match(/\{card\.coupleName\} (wants|asked) to book you/g) ?? [];
@@ -45,14 +47,15 @@ test('the booking-ask cards carry the admin-read name, with "A couple" only for 
   assert.equal(builds.length, 2, `expected both lock_request builders to set coupleName, found ${builds.length}`);
 });
 
-test('the Clients "In conversation" list does not read the RLS-nulled event embed', () => {
+test('People (where the Clients list moved) does not read the RLS-nulled event embed', () => {
+  assert.ok(PEOPLE.length > 5000, 'read the real page (an empty read is a green lie)');
   assert.ok(
-    !/t\.event\?\.display_name/.test(CLIENTS),
-    'the Clients list reads t.event?.display_name — a vendor holds no events RLS, so it is always null',
+    !/t\.event\?\.display_name/.test(PEOPLE),
+    'People reads t.event?.display_name — a vendor holds no events RLS, so it is always null',
   );
   assert.match(
-    CLIENTS,
-    /\{who\.displayName \?\? 'A Setnayan event'\}/,
-    'the Clients list no longer names the couple from the admin-scoped read',
+    PEOPLE,
+    /eventName:\s*\n?\s*eventNameByEvent\.get\(eventId\)/,
+    'People no longer names the couple from the admin-scoped events read',
   );
 });

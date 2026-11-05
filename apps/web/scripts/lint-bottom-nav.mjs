@@ -35,6 +35,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from './port-controls.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -56,12 +57,26 @@ const REQUIRED_MARKERS = [
   'nav-pill-stretch', // the travel-stretch animation hook
   'nav-press-flash', // the press-down light bloom hook
   'aria-label="Primary navigation"',
-  // NAV-9 (2026-06-21) — the frosted-paper bar fill (--m-paper-2 @ 92% alpha).
-  // The locked white press-light reads against THIS surface; silently changing
-  // or stripping it makes the press bloom invisible. The verifier flagged it as
-  // unprotected — pin the literal so an edit to the fill fails the guard.
-  'rgba(248, 246, 240, 0.92)',
+  // NAV-9 (2026-06-21) — the frosted-paper bar fill. The locked white
+  // press-light reads against THIS surface; silently changing or stripping it
+  // makes the press bloom invisible. 🌗 Since dark B1 (2026-10-23) the bar reads
+  // it as a TOKEN (so dark has a pair) and the LIGHT value is pinned where the
+  // token is declared — see LOCKED_TOKENS below.
+  "background: 'var(--sn-dock-bg)'",
+  "background: 'var(--sn-dock-pill)'",
+  "background: 'var(--sn-dock-press)'",
 ];
+
+// 🌗 The dock's three surfaces, as tokens (dark B1, 2026-10-23). LIGHT must stay
+// byte-for-byte the NAV-9 values (owner: light does not move by one pixel), and
+// each must have an html.dark pair — painted inline, the bar stayed light in dark
+// and its near-white labels read 1.15:1 (dark_mode_rollout_2026-10-22 §3).
+const GLOBALS_ABS = join(WEB_ROOT, 'app/globals.css');
+const LOCKED_TOKENS = {
+  '--sn-dock-bg': 'rgba(248, 246, 240, 0.92)',
+  '--sn-dock-pill': 'rgba(30, 34, 41, 0.15)',
+  '--sn-dock-press': 'rgba(255, 255, 255, 0.95)',
+};
 
 function walk(dir) {
   const out = [];
@@ -106,6 +121,50 @@ if (canonicalSrc) {
       errors.push(
         `Canonical ${CANONICAL_REL} lost the locked-interaction marker \`${marker}\`.\n` +
           `    → the bottom-nav template is owner-locked (project_setnayan_bottom_nav_canonical); restore it or get owner sign-off.`,
+      );
+    }
+  }
+}
+
+// (C) The dock's light values + their dark pairs, read where they are declared.
+if (canonicalSrc) {
+  // No surface of the bar may paint a literal colour again — that is how it
+  // stayed light under html.dark (a shadow is not a surface; it may stay).
+  for (const m of canonicalSrc.matchAll(/\bbackground:\s*['"`](?:#|rgba?\()[^'"`]*['"`]/g)) {
+    errors.push(
+      `Canonical ${CANONICAL_REL} paints a literal background (${m[0]}).\n` +
+        `    → read a token with a dark pair (--sn-dock-*), or the bar stays light in dark.`,
+    );
+  }
+}
+let globalsCss = '';
+try {
+  globalsCss = stripComments(readFileSync(GLOBALS_ABS, 'utf8'));
+} catch {
+  errors.push('app/globals.css is missing — the dock tokens cannot be checked.');
+}
+if (globalsCss) {
+  const ruleBodies = (selRe) => [...globalsCss.matchAll(new RegExp(`(?:^|\\})\\s*${selRe}\\s*\\{([^{}]*)\\}`, 'g'))].map((m) => m[1]);
+  const rootBodies = ruleBodies(':root');
+  const darkBodies = ruleBodies('html\\.dark');
+  const valueIn = (bodies, name) => {
+    let v = null;
+    for (const b of bodies) for (const m of b.matchAll(new RegExp(`${name}:\\s*([^;]+);`, 'g'))) v = m[1].trim();
+    return v;
+  };
+  for (const [name, light] of Object.entries(LOCKED_TOKENS)) {
+    const got = valueIn(rootBodies, name);
+    if (got !== light) {
+      errors.push(
+        `app/globals.css :root ${name} is ${got === null ? 'missing' : `\`${got}\``}; NAV-9 locks it at \`${light}\`.\n` +
+          `    → light must not move (the press-light reads against this surface).`,
+      );
+    }
+    const dark = valueIn(darkBodies, name);
+    if (dark === null || dark === light) {
+      errors.push(
+        `app/globals.css html.dark has ${dark === null ? 'no' : 'the light value for'} ${name}.\n` +
+          `    → give the dock a dark pair, or the bar paints light under html.dark.`,
       );
     }
   }

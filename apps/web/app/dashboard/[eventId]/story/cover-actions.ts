@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hostUserId } from './_lib/host-authority';
 import { resolveStoryCover, sanitizeStoryCover } from '@/lib/story-cover';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * THE COVER'S ONE WRITE (`02` §6 · 08 step 1.5).
@@ -97,7 +98,7 @@ async function leadTheStoryWith(
   return !error;
 }
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
+const NO_ACCESS = 'You don’t have access to this event.';
 const NOT_ELIGIBLE =
   'That picture can’t be your cover. It’s either still being screened, or ' +
   'someone in it asked not to be shown.';
@@ -107,6 +108,8 @@ export async function setStoryCover(
   kind: unknown,
   ref: unknown,
 ): Promise<CoverActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 
   const admin = createAdminClient();

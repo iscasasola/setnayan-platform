@@ -21,7 +21,7 @@
  * `MainGround`, `shadeWordVars`); Studio › Look › Background draws Shade ▾.
  */
 import { AA_BODY, compositeOver, contrastRatio, requiredScrim } from '@/lib/hub-legibility';
-import { HUB_MAIN_SHADES, type HubMainShade } from '@/lib/hub-canvas';
+import { HUB_MAIN_SHADES, HUB_MAIN_SHADE_AT, type HubMainShade } from '@/lib/hub-canvas';
 
 /* The ONE vocabulary lives beside the stored main background (`lib/hub-canvas.ts`). */
 export const MAIN_GROUND_SHADES = HUB_MAIN_SHADES;
@@ -35,14 +35,17 @@ export const MAIN_GROUND_SHADE_LABEL: Readonly<Record<MainGroundShade, string>> 
   lighter: 'Lighter',
 };
 
-/** Each step: which veil, and the least of it the step always lays (readability may need more). */
-const STEP: Readonly<Record<MainGroundShade, { veil: 'ink' | 'paper'; floor: number }>> = {
-  darker: { veil: 'ink', floor: 0.7 },
-  dark: { veil: 'ink', floor: 0.45 },
-  'as-is': { veil: 'paper', floor: 0 },
-  light: { veil: 'paper', floor: 0.45 },
-  lighter: { veil: 'paper', floor: 0.7 },
-};
+/**
+ * 🎚 ONE RULE FOR A WORD AND FOR A BAR POSITION (owner 2026-10-08, the fade bar). A position is a whole number,
+ * −100…100: LEFT of 0 the veil is the page's ink, RIGHT of 0 (and at 0) the page's paper, and its distance from 0
+ * is the least of the veil it always lays — readability may need more, never less. A stored word is the position
+ * `HUB_MAIN_SHADE_AT` gives it (darker −70 · dark −45 · light +45 · lighter +70), so the four words lay exactly
+ * the veils they always did.
+ */
+export function shadeStep(at: MainGroundShade | number): { veil: 'ink' | 'paper'; floor: number } {
+  const n = typeof at === 'number' ? Math.max(-100, Math.min(100, at)) : HUB_MAIN_SHADE_AT[at];
+  return { veil: n < 0 ? 'ink' : 'paper', floor: Math.abs(n) / 100 };
+}
 
 export type ShadeResult = {
   /** The veil's colour (the page's ink or paper) and its strength, 0…1. */
@@ -59,8 +62,8 @@ export type ShadeResult = {
  * (`samples` — a loop's `media.samples`, an upload's measured frame). An
  * unmeasured frame gets the full veil (as `mainGroundLegibility` does).
  */
-export function mainGroundShade(step: MainGroundShade, page: { paper: string; ink: string }, samples: readonly string[]): ShadeResult {
-  const s = STEP[step];
+export function mainGroundShade(step: MainGroundShade | number, page: { paper: string; ink: string }, samples: readonly string[]): ShadeResult {
+  const s = shadeStep(step);
   const veil = s.veil === 'ink' ? page.ink : page.paper;
   const text = s.veil === 'ink' ? page.paper : page.ink;
   const opacity = samples.length === 0 ? 1 : requiredScrim(text, veil, samples, s.floor, AA_BODY);

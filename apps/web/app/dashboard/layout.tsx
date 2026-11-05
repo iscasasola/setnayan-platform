@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Spotlight } from '@/app/_components/spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
@@ -12,7 +13,8 @@ import { AnonGateProvider } from '@/app/_components/anon-gate/anon-gate-context'
 import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { needsTermsAgreement } from '@/lib/terms-agreement';
-import { TermsReaccept } from './_components/terms-reaccept';
+import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -57,14 +59,14 @@ export default async function DashboardLayout({
     account_type?: string | null;
     deleted_at?: string | null;
     tour_seen_keys?: string[] | null;
-    terms_accepted_at?: string | null;
-    created_at?: string | null;
+    display_name?: string | null;
+    terms_version?: string | null;
   };
   let profile: ProfileShape | null = null;
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, terms_accepted_at, created_at')
+      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_version')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -168,11 +170,17 @@ export default async function DashboardLayout({
     so the person most likely to lose their wedding was a couple mid-planning who
     accepted an invitation the product showed them.
 
-    🔑 THE RULING IS ABOUT CREATING, SO THE BLOCK BELONGS ON CREATING. It now
-    lives at the four server entry points that actually make an event
+    🔑 THE RULING IS ABOUT CREATING, SO THE GATE BELONGS ON CREATING. It lives
+    at the server entry points that actually make an event
     (`lib/vendor-event-creation.ts`), which is the door rather than the button —
     a layout redirect could never have covered the onboarding wizards anyway,
     because they commit from `/onboarding/*`, outside this tree.
+
+    ⛔ SUPERSEDED 2026-10-22 — ONE ACCOUNT IS BOTH. Owner: *"In shop they do not
+    create events, but them as a user, they can create their events."* The
+    2026-08-15 "block only creating" above is reversed: a shop account now
+    creates its own events here like any host, and the gate refuses nobody. The
+    shop side (Today · Customers · Shop · Hub) still never offers "create event".
 
     ✅ NO REDIRECT LOOP RETURNS — the 2026-08-10 "more than 20 redirections" bug
     needed BOTH sides pointing at each other. `vendor-dashboard/layout.tsx` still
@@ -205,6 +213,8 @@ export default async function DashboardLayout({
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}
       {user.is_anonymous ? <SecureAccountBanner /> : null}
+      {/* 📶 Tell the worker who is signed in — any other account's saved event pages are erased (EV3). */}
+      <OfflineViewerScript viewer={user.id} />
       {/* Compose-first Inquire replay (owner 2026-07-02): if this couple composed
           an inquiry on a vendor profile before signing up, fire it now that
           they're a secured couple with an event. No-op when nothing is stashed
@@ -213,16 +223,17 @@ export default async function DashboardLayout({
       {/* Seed the anon-state once so deep gated actions (unlock a category,
           checkout) can show the pre-emptive "save your plan" prompt without
           re-fetching the user. Reads `false` for every secured user. */}
-      {/* 🔁 One-time Terms re-ask for an account with no agreement on record
-          (lib/terms-agreement.ts `needsTermsAgreement`) — in place, never a redirect. */}
-      {termsAsk ? (
-        <TermsReaccept />
-      ) : (
-        <AnonGateProvider isAnonymous={!!user.is_anonymous}>{children}</AnonGateProvider>
-      )}
+      <AnonGateProvider isAnonymous={!!user.is_anonymous}>{children}</AnonGateProvider>
+      {/* 🔁 One-time Terms re-ask for an account whose agreement is not to the Terms in force
+          (lib/terms-agreement.ts `needsTermsAgreement`) — a sheet over the page, never a redirect. */}
+      {termsAsk ? <TermsReacceptSheet /> : null}
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
         <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔦 The host's spotlight journey — create the event → Event Hub → guests → suppliers (owner
+          2026-10-02). Here in the layout so it survives a page change and the ring glides on to the
+          next page. The old welcome above stays off (`lib/tip-popups.ts`). */}
+      {!termsAsk ? <Spotlight tourKey="host_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} name={profile?.display_name ?? null} replay /> : null}
     </div>
   );
 }

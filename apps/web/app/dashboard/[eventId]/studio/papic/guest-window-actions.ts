@@ -1,10 +1,12 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The host opens guest cameras before the event day — or closes them again.
@@ -30,9 +32,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * runs both.
  */
 export async function setPapicGuestCaptureEarly(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const early = String(formData.get('early') ?? '') === '1';
-  const back = `/dashboard/${eventId}/studio/papic`;
+  // 🏠 Saved inside Home's Papic card (`return_to=home`) → back to Home; a fixed word, never a URL from the form.
+  const back = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : papicHomeHref(eventId);
   if (!eventId) redirect('/dashboard');
 
   const supabase = await createClient();
@@ -62,8 +66,10 @@ export async function setPapicGuestCaptureEarly(formData: FormData): Promise<voi
   // ⚠ Supabase RESOLVES with { error } — it does not throw. Without this check a
   // failed write would redirect to the success state and the host would believe
   // they had opened the cameras.
-  if (error) redirect(`${back}?guestCameras=error`);
+  // A failure lands on the Papic page, where its banner is read — never a silent return to Home.
+  if (error) redirect(papicHomeHref(eventId, `guestCameras=error`));
 
-  revalidatePath(back);
-  redirect(`${back}?guestCameras=${early ? 'early' : 'eventday'}`);
+  revalidatePath(hrefPath(back));
+  if (back === `/dashboard/${eventId}`) redirect(back);
+  redirect(withQuery(back, `guestCameras=${early ? 'early' : 'eventday'}`));
 }

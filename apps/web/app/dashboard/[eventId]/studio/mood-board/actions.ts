@@ -1,13 +1,14 @@
 'use server';
 
+import { extractPaletteFromBytes } from '@/lib/extract-palette.server';
+import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import {
-  isMoodboardSlotKey,
-  isMoodboardSlotPosition,
-  type MoodboardSlotPosition,
-} from '@/lib/moodboard-slots';
+import { isMoodboardSlotPosition, type MoodboardSlotPosition } from '@/lib/moodboard-slots';
+import { swapMoodboardCells, type MoodboardSwapResult } from '@/lib/moodboard-swap';
+import { isInspirationPartKey } from '@/lib/inspiration-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
   SUPPLIER_GALLERY_ASSET_TYPE,
   normalizeGalleryQuery,
@@ -43,17 +44,17 @@ import {
   type ThemeTextReading,
 } from '@/lib/theme-text-intent';
 import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
-import {
-  normalizeRenderPoolQuery,
-  shapeRenderPoolPage,
-  type RawPoolRow,
-  type RenderPoolPage,
-} from '@/lib/moodboard-render-pool';
-import { pickedRenderObjectKey } from '@/lib/moodboard-gallery-copy';
-import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
-import { readPooledGalleryBytes, signPooledGalleryImage } from '@/lib/moodboard-render-serve';
 
+import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
+import {
+  moodBoardPhotoChangeRefusal,
+  refuseLimitedHelper,
+  refuseUnlessMoodBoardHost,
+  refuseUnlessMoodBoardPhotoChange,
+} from '@/lib/host-gate';
 export async function saveRolePalette(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  await refuseUnlessMoodBoardHost(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const paletteJson = formData.get('palette_json');
   if (typeof eventId !== 'string' || typeof paletteJson !== 'string') {
@@ -96,25 +97,26 @@ export type MoodboardSlotRef = { slotKey: string; slotPosition: MoodboardSlotPos
 /**
  * Swap the images occupying two inspiration-board cells — the drag-reorder
  * affordance on the redesigned canvas (Mood Board redesign, 2026-09-02).
- * Works within one slot (swap its two positions) or across slots (move an
- * image from one named slot into another), since every slot has exactly two
- * fixed positions and no new schema is needed to express "swap what's here".
+ * Works within one slot or across slots; either cell may be empty.
  *
- * Implementation note: `event_inspiration_assets` enforces
- * UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL, so a
- * straight two-row UPDATE swap can collide mid-flight. This does it in three
- * steps via a temporary negative slot_position, which never collides with a
- * real (positive) position — same "two round trips is fine for this" trade-off
- * this file already makes elsewhere (see saveAttireGuidePaletteColor's old
- * read-modify-write, now removed, and uploadMoodboardSlot's soft-delete step).
- * Either or both cells may be empty; a no-op (same cell) returns immediately.
+ * The writes live in `swapMoodboardCells` (lib/moodboard-swap.ts) so the db
+ * test runs the SAME code against the replayed schema — see its docblock for
+ * why the moving photo parks on a free real cell and never touches `removed_at`.
+ *
+ * 🛑 RETURNS the outcome instead of resolving quietly: the board paints the
+ * swap before the server answers, so a move that did not land must come back
+ * as `ok: false` for the board to put the photos back and say so.
  */
 export async function reorderMoodboardSlot(
   eventId: string,
   from: MoodboardSlotRef,
   to: MoodboardSlotRef,
-): Promise<void> {
-  if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return;
+): Promise<MoodboardSwapResult> {
+  await refuseLimitedHelper(eventId, 'mood_board');
+  // A drop on its own cell changes nothing — answered before the change door, so it opens no 24-hour Undo row.
+  if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return { ok: true, changed: 'nothing' };
+  // 🖼⏱ The photo gate — and, for anyone but an owner, the change the owners may Undo for 24 hours (20271299051148).
+  await refuseUnlessMoodBoardPhotoChange(eventId, 'move', from.slotKey);
 
   const supabase = await createClient();
   const {
@@ -122,51 +124,11 @@ export async function reorderMoodboardSlot(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const findActive = (ref: MoodboardSlotRef) =>
-    supabase
-      .from('event_inspiration_assets')
-      .select('inspiration_id')
-      .eq('event_id', eventId)
-      .eq('slot_key', ref.slotKey)
-      .eq('slot_position', ref.slotPosition)
-      .is('removed_at', null)
-      .maybeSingle();
-
-  const [{ data: fromRow, error: fromErr }, { data: toRow, error: toErr }] = await Promise.all([
-    findActive(from),
-    findActive(to),
-  ]);
-  if (fromErr) throw new Error(fromErr.message);
-  if (toErr) throw new Error(toErr.message);
-  if (!fromRow) return; // nothing to move
-
-  // 1. Park `from` at a temp negative position so it can never collide with
-  //    the real (positive) position `to` is about to vacate.
-  const tempPosition = -1;
-  const { error: parkErr } = await supabase
-    .from('event_inspiration_assets')
-    .update({ slot_position: tempPosition })
-    .eq('inspiration_id', fromRow.inspiration_id);
-  if (parkErr) throw new Error(parkErr.message);
-
-  // 2. If the destination was occupied, move that image into the vacated
-  //    `from` cell.
-  if (toRow) {
-    const { error: swapErr } = await supabase
-      .from('event_inspiration_assets')
-      .update({ slot_key: from.slotKey, slot_position: from.slotPosition })
-      .eq('inspiration_id', toRow.inspiration_id);
-    if (swapErr) throw new Error(swapErr.message);
+  const result = await swapMoodboardCells(supabase, eventId, from, to);
+  if (result.ok && result.changed !== 'nothing') {
+    revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   }
-
-  // 3. Land `from`'s image in the destination cell.
-  const { error: landErr } = await supabase
-    .from('event_inspiration_assets')
-    .update({ slot_key: to.slotKey, slot_position: to.slotPosition })
-    .eq('inspiration_id', fromRow.inspiration_id);
-  if (landErr) throw new Error(landErr.message);
-
-  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+  return result;
 }
 
 const THEME_NAME_MAX = 80;
@@ -184,6 +146,8 @@ export async function saveMoodboardTheme(
   eventId: string,
   theme: { name: string; description: string },
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'mood_board');
+  await refuseUnlessMoodBoardHost(eventId);
   const name = theme.name.trim().slice(0, THEME_NAME_MAX);
   const description = theme.description.trim().slice(0, THEME_DESCRIPTION_MAX);
 
@@ -273,6 +237,8 @@ export async function applyThemeIntent(
   eventId: string,
   selection: unknown,
 ): Promise<ThemeIntentApplySummary> {
+  await refuseLimitedHelper(eventId, 'mood_board');
+  await refuseUnlessMoodBoardHost(eventId);
   const kept = validateThemeSelection(selection);
 
   const supabase = await createClient();
@@ -497,6 +463,9 @@ export async function applyMoodboardTemplate(
   templateId: string,
   mode: ApplyMode = 'fill_empty',
 ): Promise<ApplyTemplateSummary & { nothingToFill: boolean }> {
+  await refuseLimitedHelper(eventId, 'mood_board');
+  // A template rewrites the palette and the theme as well as the photos — the hosts'.
+  await refuseUnlessMoodBoardHost(eventId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -736,6 +705,7 @@ export async function applyMoodboardTemplate(
 export async function shareMoodBoardWithVendors(
   eventId: string,
 ): Promise<{ sharedCount: number }> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },
@@ -746,16 +716,26 @@ export async function shareMoodBoardWithVendors(
   // is a member of, so this both authorizes the action and gathers the targets.
   const { data: vendorRows, error: vendorErr } = await supabase
     .from('event_vendors')
-    .select('marketplace_vendor_id')
+    .select('vendor_id, marketplace_vendor_id')
     .eq('event_id', eventId)
     .not('marketplace_vendor_id', 'is', null);
   if (vendorErr) throw new Error(vendorErr.message);
+
+  // ⚖ NO HANDSHAKE, NO ACCESS (owner 2026-10-07; audit F3, build item 13). This
+  // pinged EVERY Setnayan supplier on the event — even one only shortlisted —
+  // with a link to the board. Only a supplier booked and settled as the couple
+  // sees it is told; the board RPC itself waits for the fee too.
+  const standings = await readCoupleBookingStandings(
+    createAdminClient(),
+    (vendorRows ?? []).map((r) => r.vendor_id as string),
+  );
 
   // Distinct profiles — one vendor can hold several event_vendors rows (one per
   // category), but we ping them once.
   const profileIds = Array.from(
     new Set(
       (vendorRows ?? [])
+        .filter((r) => standings.get(r.vendor_id as string)?.standing === 'booked')
         .map((r) => r.marketplace_vendor_id as string | null)
         .filter((id): id is string => Boolean(id)),
     ),
@@ -839,8 +819,9 @@ export async function fetchGalleryAssets(input: {
   from?: string;
   near?: string;
 }): Promise<GalleryPage> {
-  const query = normalizeGalleryQuery(input);
-  if (!query) throw new Error('No supplier gallery for that slot');
+  const parts = await getInspirationParts();
+  const query = normalizeGalleryQuery(input, parts);
+  if (!query) throw new Error('No supplier Inspiration for that slot');
 
   const supabase = await createClient();
   const {
@@ -890,7 +871,7 @@ export async function fetchGalleryAssets(input: {
   if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as unknown as RawGalleryRow[];
-  const { assets, withheld } = shapeGalleryPage(query.slotKey, rows);
+  const { assets, withheld } = shapeGalleryPage(query.slotKey, rows, parts);
   const total = count ?? 0;
 
   return {
@@ -924,8 +905,13 @@ export async function applyGalleryPick(input: {
   slotPosition: number;
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
-  if (!isMoodboardSlotKey(input.slotKey) || !slotHasSupplierTrade(input.slotKey)) {
-    return { status: 'error', message: 'That slot has no supplier gallery.' };
+  await refuseLimitedHelper(input.eventId, 'mood_board');
+  // 🖼⏱ The photo gate — and, for anyone but an owner, the change the owners may Undo for 24 hours (20271299051148).
+  const photosRefusal = await moodBoardPhotoChangeRefusal(input.eventId, 'upload', input.slotKey);
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
+  const parts = await getInspirationParts();
+  if (!isInspirationPartKey(parts, input.slotKey) || !slotHasSupplierTrade(input.slotKey, parts)) {
+    return { status: 'error', message: 'That slot has no supplier Inspiration.' };
   }
   if (!isMoodboardSlotPosition(input.slotPosition)) {
     return { status: 'error', message: 'That photo slot does not exist.' };
@@ -962,10 +948,23 @@ export async function applyGalleryPick(input: {
 
   const { assets } = shapeGalleryPage(input.slotKey, [
     assetRow as unknown as RawGalleryRow,
-  ]);
-  const asset = assets[0];
-  if (!asset) {
+  ], parts);
+  const shaped = assets[0];
+  if (!shaped) {
     return { status: 'error', message: 'That photo is not ready to save yet.' };
+  }
+  // 🌱🖼 A SUPPLIER PHOTO NOBODY TAGGED (2026-10-19) is shown in Search ideas, so saving it must work too: its colours
+  // are read off its OWN pixels here, on the server (`extractPaletteFromBytes` — the shipped extractor's bucketing,
+  // never its cream padding), cycled to the board's six like a tagged photo's. Pixels that yield no colour are
+  // refused in words, never filled with invented ones.
+  let asset = shaped;
+  if (shaped.swatches.length === 0) {
+    const bytes = await safeFetchImageBytes(shaped.imageUrl).catch(() => null);
+    const read = bytes ? await extractPaletteFromBytes(bytes) : [];
+    if (read.length === 0) {
+      return { status: 'error', message: 'We couldn’t read this photo’s colours just now — please try again in a moment.' };
+    }
+    asset = { ...shaped, swatches: Array.from({ length: 6 }, (_, i) => read[i % read.length]!) };
   }
 
   // Replace-in-place, mirroring uploadMoodboardSlot: soft-delete whatever holds
@@ -998,218 +997,4 @@ export async function applyGalleryPick(input: {
 
   revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
   return { status: 'ok', imageUrl: asset.imageUrl };
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   MB9 · THE INSPIRATION POOL — other couples' renders, as REFERENCE PHOTOS
-   ══════════════════════════════════════════════════════════════════════════
-
-   ⛔ THE CACHE IS CANCELLED. The original MB9 substituted a "close enough"
-   prior render for a new one and told the couple it was free. Owner,
-   2026-09-03: *"no need to give free renders. always charge for renders."*
-   Neither function below reads `config_digest`, scores similarity, or returns
-   a price, and neither can produce an image.
-
-   🔑 THESE TWO ACTIONS LIVE HERE, BESIDE `applyGalleryPick`, AND NOT IN
-   `render-actions.ts`. That file is the PAID path — it holds the credit read,
-   the debit RPC and the provider call. Picking a reference is the same act as
-   picking a florist's photo: one row in `event_inspiration_assets` and no
-   other table touched. Putting it in the paid file would put it one import
-   away from the machinery that spends money, which is exactly the distance
-   `the-render-pool-pick-is-free.test.ts` measures.
-*/
-
-/**
- * One page of the cross-event inspiration pool for one slot.
- *
- * The RPC is the sanctioned door: `event_renders`' RLS is Pattern B and grants
- * a member their OWN event's rows only — the table's own migration header says
- * cross-event reads must go through a SECURITY DEFINER function "never by
- * widening this policy". The function returns four columns and nothing that
- * would say whose wedding it was.
- *
- * 🛑 CAPPED TWICE, AND NEITHER CAP IS THE CALLER'S. `normalizeRenderPoolQuery`
- * clamps whatever arrives (including nothing, NaN, Infinity, a negative) and
- * the SQL clamps again inside the function. There is no code path here that
- * reads the pool unbounded.
- *
- * 🔒 THE URL IS MINTED FROM `gallery_image_key`, WHICH IS THE WATERMARKED COPY.
- * The RPC does not return `image_key` at all, so there is no unmarked key in
- * this function's reach to sign by mistake.
- */
-export async function fetchRenderPool(input: {
-  eventId: string;
-  slotKey: string;
-  limit?: number;
-  offset?: number;
-}): Promise<RenderPoolPage> {
-  const query = normalizeRenderPoolQuery(input);
-  if (!query) throw new Error('Not an inspiration slot');
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data, error } = await supabase.rpc('moodboard_inspiration_pool', {
-    p_event_id: input.eventId,
-    p_part_ids: query.partIds,
-    p_limit: query.limit,
-    p_offset: query.offset,
-    p_render_id: null,
-  });
-  // A failed read THROWS. The picker catches it and says so — an empty grid
-  // that means "the fetch died" must never render as "nobody has shared a
-  // render", which is a real and different answer.
-  if (error) throw new Error(error.message);
-
-  const rows = (data ?? []) as RawPoolRow[];
-  // The shaper hands `signUrl` only keys it has already held to their own row;
-  // the door re-asks, by render id, before signing anything.
-  const { renders, withheld, total } = await shapeRenderPoolPage(rows, (key, renderId) =>
-    signPooledGalleryImage({ renderId, key }),
-  );
-
-  return {
-    renders,
-    total,
-    withheld,
-    offset: query.offset,
-    limit: query.limit,
-    hasMore: query.offset + query.limit < total,
-  };
-}
-
-/**
- * Save one pooled render into one inspiration slot.
- *
- * 🔑 THIS COSTS NOTHING AND CANNOT COST ANYTHING. It reads no config, calls no
- * provider, and touches neither `event_render_credit_usage` nor
- * `moodboard_begin_render`. What it writes is one `event_inspiration_assets`
- * row — the same table, the same shape and the same replace-in-place as a
- * photo the couple uploaded themselves. Held by
- * `the-render-pool-pick-is-free.test.ts`, which reads this function's body.
- *
- * ADMISSION IS RE-CHECKED THROUGH THE SAME PREDICATE the browse used:
- * `moodboard_inspiration_pool` with `p_render_id` set. So a render whose event
- * withdrew consent, or that an admin quarantined, between the picker opening
- * and the couple tapping Save is refused here — and the two checks cannot
- * drift, because there is only one.
- *
- * ⚠ THE BYTES ARE COPIED, NOT LINKED. The pool's URL is a one-hour presigned
- * GET of a PRIVATE object; storing it in `image_url` (which is NOT NULL and
- * permanent) would give the couple a tile that goes dead in an hour and looks
- * like a deleted photo. So the WATERMARKED bytes are copied into this couple's
- * own `inspiration/<eventId>/` prefix in the public bucket, exactly where their
- * own uploads live — which is also what the tile now is.
- */
-export async function applyRenderPick(input: {
-  eventId: string;
-  slotKey: string;
-  slotPosition: number;
-  renderId: string;
-}): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
-  if (!isMoodboardSlotKey(input.slotKey)) {
-    return { status: 'error', message: 'That slot does not exist.' };
-  }
-  if (!isMoodboardSlotPosition(input.slotPosition)) {
-    return { status: 'error', message: 'That photo slot does not exist.' };
-  }
-  if (typeof input.renderId !== 'string' || input.renderId.length === 0) {
-    return { status: 'error', message: 'Pick a photo first.' };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data, error } = await supabase.rpc('moodboard_inspiration_pool', {
-    p_event_id: input.eventId,
-    p_part_ids: null,
-    p_limit: 1,
-    p_offset: 0,
-    p_render_id: input.renderId,
-  });
-  if (error) return { status: 'error', message: error.message };
-  const row = ((data ?? []) as RawPoolRow[])[0];
-  if (!row || row.render_id !== input.renderId) {
-    return { status: 'error', message: 'That photo is no longer available.' };
-  }
-
-  // The same shaping the picker used, so anything it would have withheld — a
-  // render with no palette to sample — is refused here too rather than written
-  // to the board with six invented colours.
-  const shaped = await shapeRenderPoolPage([row], async (key) => key);
-  const picked = shaped.renders[0];
-  if (!picked) return { status: 'error', message: 'That photo is not ready to save yet.' };
-
-  if (!isR2Configured()) {
-    return { status: 'error', message: 'Saving photos is unavailable right now.' };
-  }
-
-  let publicUrl: string;
-  const destinationKey = pickedRenderObjectKey(input.eventId, input.renderId);
-  try {
-    // Read the WATERMARKED object's bytes server-side and re-upload them under
-    // this couple's own prefix. Not `r2Copy`: that helper copies within ONE
-    // bucket, and this crosses from the private bucket to the public one — the
-    // only crossing in the whole path, and it happens only for a render whose
-    // event has consented to exactly this.
-    //
-    // 🔒 THROUGH THE PINNED DOOR: this is the one place a private object's bytes
-    // are re-published, so the key must be THIS render's own watermarked copy
-    // (`render-gallery/<uuid>/<this render id>.jpg`) or nothing is read at all.
-    const source = await readPooledGalleryBytes({
-      renderId: input.renderId,
-      key: row.gallery_image_key,
-    });
-    if (!source) return { status: 'error', message: 'That photo is no longer available.' };
-    publicUrl = await r2Upload({
-      bucket: R2_BUCKETS.media,
-      key: destinationKey,
-      body: source.bytes,
-      contentType: source.contentType ?? 'image/jpeg',
-    });
-  } catch {
-    return { status: 'error', message: 'Could not save that photo — try again.' };
-  }
-
-  // Replace-in-place, mirroring uploadMoodboardSlot and applyGalleryPick: the
-  // partial UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL
-  // needs the cell freed before the new row lands.
-  await supabase
-    .from('event_inspiration_assets')
-    .update({ removed_at: new Date().toISOString() })
-    .eq('event_id', input.eventId)
-    .eq('slot_key', input.slotKey)
-    .eq('slot_position', input.slotPosition)
-    .is('removed_at', null);
-
-  const { error: insertErr } = await supabase.from('event_inspiration_assets').insert({
-    event_id: input.eventId,
-    added_by_user_id: user.id,
-    slot_key: input.slotKey,
-    slot_position: input.slotPosition,
-    // The database refuses this row without `source_render_id`: the
-    // biconditional CHECK `(source_kind = 'render_pick') = (source_render_id IS
-    // NOT NULL)` makes a reference that forgot what it references
-    // unrepresentable, exactly as MB10's gallery_pick provenance does.
-    source_kind: 'render_pick',
-    source_render_id: input.renderId,
-    image_url: publicUrl,
-    r2_key: destinationKey,
-    sampled_hex_1: picked.swatches[0],
-    sampled_hex_2: picked.swatches[1],
-    sampled_hex_3: picked.swatches[2],
-    sampled_hex_4: picked.swatches[3],
-    sampled_hex_5: picked.swatches[4],
-    sampled_hex_6: picked.swatches[5],
-  });
-  if (insertErr) return { status: 'error', message: insertErr.message };
-
-  revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
-  return { status: 'ok', imageUrl: publicUrl };
 }

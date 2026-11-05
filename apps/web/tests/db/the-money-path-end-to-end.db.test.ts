@@ -72,6 +72,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { bookingFeePhp, BOOKING_FEE } from '../../lib/booking-fee';
 import {
+  FREE_BOOKING_LIMIT,
   bookingFeeLockServiceKey,
   chargeIdFromBookingFeeLockServiceKey,
 } from '../../lib/booking-fee-lock';
@@ -110,8 +111,8 @@ const BALANCE_C = 13_400_00;
 const BALANCE_OFFSET_DAYS = 14;
 /** 5% of ₱16,750 = ₱837.50 — the fee the owner was actually billed. */
 const FEE_C = 837_50;
-/** Saysay's 6th booked customer: past the free five. */
-const EXPECTED_ORDINAL = 6;
+/** Saysay's first BILLED customer: past the free first booking (one since 2026-10-23; it was five). */
+const EXPECTED_ORDINAL = FREE_BOOKING_LIMIT + 1;
 /** The marketplace surface the couple arrived through. */
 const INQUIRY_SOURCE = 'shortlist';
 
@@ -183,7 +184,7 @@ after(async () => {
  * they occupy ordinals 1–5 on the LEDGER, which is the state the frozen ordinal
  * is computed against.
  * ══════════════════════════════════════════════════════════════════════════ */
-test('0 · a verified supplier, five bookings already behind them, and a couple', async () => {
+test('0 · a verified supplier, the free booking already behind them, and a couple', async () => {
   const supplier = await db.query<{ id: string }>(
     `INSERT INTO auth.users (email, raw_user_meta_data)
      VALUES ('saysay@money-path.test', jsonb_build_object('account_type','customer'))
@@ -209,10 +210,10 @@ test('0 · a verified supplier, five bookings already behind them, and a couple'
   );
   run.coupleUserId = couple.rows[0]!.id;
 
-  // Burn ordinals 1–5. No event_date on these: vendor_agree_to_lock's
+  // Burn the free ordinal(s). No event_date on these: vendor_agree_to_lock's
   // "resolve the others first" rule keys on a shared event_date, and a stray
   // collision here would make the run's own agree return resolve_others_first.
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= FREE_BOOKING_LIMIT; i++) {
     const e = await db.query<{ event_id: string }>(
       `INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday')
        RETURNING event_id`,
@@ -238,7 +239,7 @@ test('0 · a verified supplier, five bookings already behind them, and a couple'
       `SELECT public.booking_fee_open_lock_charge($1) AS v`,
       [evId],
     );
-    assert.equal(res.status, 'waived_free5', `warm-up booking ${i} must be one of the free five`);
+    assert.equal(res.status, 'waived_free5', `warm-up booking ${i} must be the free booking`);
     assert.equal(res.booking_ordinal, i, `warm-up booking ${i} took ordinal ${res.booking_ordinal}`);
   }
 
@@ -247,15 +248,15 @@ test('0 · a verified supplier, five bookings already behind them, and a couple'
       WHERE vendor_profile_id = $1 AND source = 'lock'`,
     [run.vendorProfileId],
   );
-  assert.equal(ordinals, 5, 'the supplier must stand at exactly five booked customers');
+  assert.equal(ordinals, FREE_BOOKING_LIMIT, 'the supplier must stand exactly at the free booking');
 
-  // Nothing has been billed yet: five free bookings must leave ZERO money.
+  // Nothing has been billed yet: the free booking must leave ZERO money.
   const billed = await count(
     `SELECT COALESCE(sum(amount_charged_centavos), 0) AS v FROM public.booking_fee_charges
       WHERE vendor_profile_id = $1`,
     [run.vendorProfileId],
   );
-  assert.equal(billed, 0, `the first five bookings billed ${php(billed)} — they must bill ₱0`);
+  assert.equal(billed, 0, `the free booking billed ${php(billed)} — it must bill ₱0`);
 });
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -674,7 +675,7 @@ test('7 · the supplier confirms receipt → acknowledged once, however many doo
  * actually billed (so a reprice of the DEFAULTS is caught too). A single
  * measurement is a hypothesis.
  * ══════════════════════════════════════════════════════════════════════════ */
-test('8 · the fee opens at ₱837.50 — 5% of the accepted total, the 6th booking', async () => {
+test('8 · the fee opens at ₱837.50 — 5% of the accepted total, the first billed booking', async () => {
   // The schedule as an admin can currently set it.
   const settings = await db.query<{
     rate: string | null;
@@ -783,9 +784,9 @@ test('8 · the fee opens at ₱837.50 — 5% of the accepted total, the 6th book
   assert.equal(
     c.ordinal,
     EXPECTED_ORDINAL,
-    `this booking took ordinal ${c.ordinal}; it is the supplier's ${EXPECTED_ORDINAL}th customer`,
+    `this booking took ordinal ${c.ordinal}; it is the supplier's customer number ${EXPECTED_ORDINAL}`,
   );
-  assert.equal(c.free, false, 'the 6th booking was treated as one of the free five');
+  assert.equal(c.free, false, 'the first billed booking was treated as the free one');
   assert.equal(Number(c.days), 7, `the charge is due in ${c.days} days, not 7`);
   assert.equal(
     c.version,

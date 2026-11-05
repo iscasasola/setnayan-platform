@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useState } from 'react';
 import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -156,9 +157,21 @@ function useUploadSlot() {
  */
 export function LockedQrGenerator({
   eventTypes,
+  dateExempt = false,
   services,
   contracts,
+  initialDate = '',
+  blockId = null,
 }: {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026 (lib/event-date-floor.ts). */
+  dateExempt?: boolean;
+  /** The date filled in when the shop came from a day ("Show a QR", Dates › a day — 2026-10-14). */
+  initialDate?: string;
+  /**
+   * The outside booking this code is for — Customers › People › "Send their code" (owner 2026-10-28). Carried as
+   * `block_id`, so the customer's row can say Code sent / Linked from the code itself.
+   */
+  blockId?: string | null;
   eventTypes: Opt[];
   /** The vendor's own leaf offerings (vendor_services), DB-driven — value is a
    *  vendor_service_id, or a VendorCategory key for the no-published-services
@@ -173,7 +186,7 @@ export function LockedQrGenerator({
   const [eventType, setEventType] = useState('');
   const [serviceRefs, setServiceRefs] = useState<string[]>([]);
   const [serviceQuery, setServiceQuery] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [eventDate, setEventDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : '');
   const [serviceDescription, setServiceDescription] = useState('');
   const [contractId, setContractId] = useState('');
   // Clean numeric strings (no separators) — displayed with thousands commas.
@@ -326,6 +339,7 @@ export function LockedQrGenerator({
   return (
     <form action={issueLockedQr} className="mt-6 space-y-5">
       <input type="hidden" name="schedule_json" value={JSON.stringify(scheduleJson)} />
+      {blockId ? <input type="hidden" name="block_id" value={blockId} /> : null}
       <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />
       <input type="hidden" name="proof_r2_ref" value={proof.ref} />
       <input type="hidden" name="remembrance_r2_ref" value={remembrance.ref} />
@@ -361,12 +375,18 @@ export function LockedQrGenerator({
             name="event_date"
             type="date"
             required
-            min={today}
+            min={eventDateMinFor(today, dateExempt)}
             className="input-field w-full"
             value={eventDate}
             onChange={(e) => setEventDate(e.target.value)}
           />
           <p className="text-xs text-ink/50">A Locked QR means you&apos;ve agreed on a date.</p>
+          {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+          {eventDateFloorRefusal({ date: eventDate, exempt: dateExempt }) ? (
+            <p role="alert" data-event-date-floor="" className="text-xs text-danger-700">
+              {EVENT_DATE_FLOOR_MESSAGE}
+            </p>
+          ) : null}
           {dateStatusLoading && !dateStatus && (
             <p className="flex items-center gap-1.5 text-xs text-ink/40">
               <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
@@ -522,7 +542,7 @@ export function LockedQrGenerator({
           rows={3}
           maxLength={2000}
           className="input-field w-full"
-          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online gallery · 1 layflat album"
+          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online album · 1 layflat album"
           value={serviceDescription}
           onChange={(e) => setServiceDescription(e.target.value)}
         />

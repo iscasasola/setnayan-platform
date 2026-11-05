@@ -115,7 +115,8 @@ test('⓸ the QR image is fetched before the tap, never between the tap and navi
   assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
   assert.doesNotMatch(body(read(CELL), 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
   assert.doesNotMatch(body(read(CELL), 'share'), /\bfetch\(/, 'a fetch inside the Invite sheet’s Share can spend iOS’s user activation');
-  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
+  // At the ticket's versioned address when the card has it (the-ticket-is-fetched-once-per-version.test.ts).
+  assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId, tv\.v\)/);
 });
 
 test('⓺ what travels is the Digital ticket, never the bare QR (owner 2026-09-30)', () => {
@@ -138,9 +139,10 @@ test('⓹ the couple’s wording survives the Details and Menu saves that share 
   const route = read(PRINT_ROUTE);
   // The words save starts from EVERYTHING stored and overwrites only its own
   // keys (2026-09-30: a named key list had dropped the poster photo).
-  assert.match(route, /const details = \{\s*\.\.\.stored,/,
+  // 👥 Since 2026-10-18 each save is a change applied to the blob as it is NOW (`updatePrintDetails`).
+  assert.match(route, /updatePrintDetails\(admin, eventId, \(now\) => \(\{ \.\.\.now, openingLine:/,
     'the Details (words) save rebuilds print_details without the invite message — it would erase it');
-  assert.match(route, /serializePrintDetails\(\{\s*\.\.\.stored,\s*menu:/, 'the Menu save no longer carries the rest');
+  assert.match(route, /updatePrintDetails\(admin, eventId, \(now\) => \(\{ \.\.\.now, menu \}\)\)/, 'the Menu save no longer carries the rest');
 });
 
 test('the send surfaces never say "website" to the couple (owner 2026-09-24: it is an Event Hub)', () => {

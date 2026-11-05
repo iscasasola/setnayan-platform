@@ -27,15 +27,17 @@
  * otherwise a `<button type="button">` unless `type` says submit.
  */
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
+import { iconIsAComponent } from '@/lib/icon-is-a-component';
 import {
   forwardRef,
-  isValidElement,
   useCallback,
   useEffect,
   useLayoutEffect,
   type ComponentType,
   type MouseEventHandler,
   type ReactElement,
+  type ReactNode,
   type RefObject,
   type SVGProps,
 } from 'react';
@@ -60,16 +62,44 @@ type Common = {
   icon: IconComponent | ReactElement;
   /** The word. Also the `aria-label`, so icon-only still reads. */
   label: string;
+  /**
+   * The ACCESSIBLE NAME where it must say more than the word — a row's "Invite" that has to be named for its guest
+   * ("Invite Maria Santos — sent Sep 30"), so a list of forty is not forty identical "Invite"s. Optional and additive:
+   * absent, the `aria-label` is `label`, byte for byte. The visible word stays `label`; the name should contain it.
+   */
+  name?: string;
   /** The row's main verb: filled, and never loses its word. */
   main?: boolean;
   /** A secondary that should not compete (Skip · Not now): hairline, muted word, no wash. */
   quiet?: boolean;
+  /**
+   * FILLED, BUT NOT THE ROW'S MAIN VERB — the tone's solid fill (the main verb's look) on a button the fit pass may
+   * still shrink to its icon (Find's "＋ Add your own" in the thumb row: terracotta and filled at every width, the
+   * ＋ circle on a phone). One source for what pages forced with `!bg-…` overrides. Ignored on `main`.
+   */
+  filled?: boolean;
   /** Start icon-only (a toolbar of icons that are still buttons). */
   iconOnly?: boolean;
   disabled?: boolean;
+  /**
+   * WAITING — it cannot be used yet, and it is STILL A BUTTON (owner 2026-10-08, on a greyed "Restore" that read as
+   * faded text: *"we better fix the buttons here as well"*; the approved gallery § 9: "a button that cannot be used
+   * yet is grey"). Grey fill and word, its pill and a line kept; announced as unavailable (`aria-disabled`, never
+   * the native `disabled`, which drops it from a screen reader's path); a press does nothing. Use it where the
+   * button will wake by itself (nothing to restore yet); `disabled` keeps its own faded look.
+   */
+  waiting?: boolean;
   className?: string;
   title?: string;
   'data-testid'?: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
+  tour?: string;
+  /**
+   * ▾ IT OPENS A SHORT LIST OF CHOICES — a small down-arrow after the word (the guest card's "Invite ▾", owner-approved
+   * prototype `guest_card_groups_and_papic_2026-10-23.html`). Decoration only (`aria-hidden`); say the popup with
+   * `aria-haspopup`. Absent → the button is exactly as it was.
+   */
+  caret?: boolean;
 };
 
 type AsButton = Common & {
@@ -97,28 +127,40 @@ export type ActionButtonProps = AsButton | AsLink;
 /** The class list — exported so a guard can assert the shape without a DOM. */
 export function actionButtonClass(
   tone: ActionTone,
-  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; extra?: string } = {},
+  opts: { main?: boolean; quiet?: boolean; iconOnly?: boolean; filled?: boolean; extra?: string } = {},
 ): string {
-  const { main, quiet, iconOnly, extra } = opts;
-  return ['ab', `ab-${tone}`, main ? 'ab-main' : '', quiet && !main ? 'quiet' : '', iconOnly ? 'icon-only' : '', extra ?? '']
+  const { main, quiet, iconOnly, filled, extra } = opts;
+  return [
+    'ab',
+    `ab-${tone}`,
+    main ? 'ab-main' : '',
+    filled && !main ? 'ab-fill' : '',
+    quiet && !main && !filled ? 'quiet' : '',
+    iconOnly ? 'icon-only' : '',
+    extra ?? '',
+  ]
     .filter(Boolean)
     .join(' ');
 }
 
 function renderIcon(icon: Common['icon']) {
-  if (isValidElement(icon)) return icon;
+  /* 🧩 A node (an element, or the LAZY a production RSC payload makes of a server component's element) is drawn as a
+     node; only a component is drawn as a type. `isValidElement` alone let the lazy through as a type — the live
+     Maker crash of 2026-10-15 (`lib/icon-is-a-component.ts`). */
+  if (!iconIsAComponent(icon)) return icon as ReactNode;
   const Icon = icon as IconComponent;
   return <Icon aria-hidden="true" strokeWidth={1.9} />;
 }
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, main, quiet, iconOnly, className, title } = props;
-    const cls = actionButtonClass(tone, { main, quiet, iconOnly, extra: className });
+    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting, caret } = props;
+    const cls = actionButtonClass(tone, { main, quiet, iconOnly, filled, extra: className });
     const inner = (
       <>
         {renderIcon(icon)}
         <span className="lbl">{label}</span>
+        {caret ? <ChevronDown aria-hidden data-caret="" className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} /> : null}
       </>
     );
     if (props.href !== undefined) {
@@ -131,19 +173,21 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           target={target}
           rel={target === '_blank' ? 'noopener noreferrer' : undefined}
           onClick={
-            disabled
+            disabled || waiting
               ? (e) => {
                   e.preventDefault();
                 }
               : onClick
           }
-          aria-disabled={disabled || undefined}
-          aria-label={label}
-          title={title ?? label}
+          aria-disabled={disabled || waiting || undefined}
+          data-waiting={waiting ? '' : undefined}
+          aria-label={name ?? label}
+          title={title ?? name ?? label}
           className={cls}
           data-tone={tone}
           data-main={main ? '' : undefined}
           data-testid={props['data-testid']}
+          data-tour={props.tour}
         >
           {inner}
         </Link>
@@ -153,21 +197,25 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
     return (
       <button
         ref={ref as RefObject<HTMLButtonElement>}
-        type={p.type ?? 'button'}
+        /* Waiting: a press does nothing — not its handler, and not its form. */
+        type={waiting ? 'button' : (p.type ?? 'button')}
         form={p.form}
         name={p.name}
         value={p.value}
-        onClick={p.onClick}
+        onClick={waiting ? undefined : p.onClick}
         disabled={p.disabled}
+        aria-disabled={waiting || undefined}
+        data-waiting={waiting ? '' : undefined}
         aria-pressed={p['aria-pressed']}
         aria-expanded={p['aria-expanded']}
         aria-haspopup={p['aria-haspopup']}
-        aria-label={label}
-        title={title ?? label}
+        aria-label={name ?? label}
+        title={title ?? name ?? label}
         className={cls}
         data-tone={tone}
         data-main={main ? '' : undefined}
         data-testid={p['data-testid']}
+        data-tour={p.tour}
       >
         {inner}
       </button>

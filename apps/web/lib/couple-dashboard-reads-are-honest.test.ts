@@ -133,7 +133,7 @@ function all(hay: string, needle: string): number[] {
 test('shared gallery: the refusal branch renders its own card before the absent card returns null', () => {
   const s = src('app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx');
   const guards = all(s, 'if (error) {');
-  const says = all(s, 'couldn&rsquo;t check whether your shared gallery is open');
+  const says = all(s, 'couldn&rsquo;t check whether your shared Memories are open');
   const absent = all(s, 'if (!ev) return null;');
   console.log(`# pool-gallery-card: guard @${guards.join(',')} · says @${says.join(',')} · absent @${absent.join(',')}`);
   assert.equal(guards.length, 1);

@@ -1,5 +1,7 @@
 'use server';
 
+import { eventDatesFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { initialLandingVisibility } from '@/lib/onboarding/initial-visibility';
 import { createClient } from '@/lib/supabase/server';
@@ -16,15 +18,14 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { joinCoupleNames } from '@/lib/typed-names';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { setupColumns } from '@/lib/onboarding/event-insert';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
-import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -38,7 +39,12 @@ import {
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
+import {
+  getCanonicalBuckets,
+  servicesForPlanGroup,
+  servicesInTile,
+  type CanonicalBuckets,
+} from '@/lib/vendor-counts';
 import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
 import { resolveRegion } from '@/lib/region-source';
@@ -47,6 +53,7 @@ import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
 import { creatorCoupleRowId } from '@/lib/creator-couple-row';
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import {
   RECEPTION_PICK_TO_VENUE_SETTING,
   venueSettingForReceptionPicks,
@@ -65,7 +72,7 @@ import {
  * the accumulated client state object and writes events + event_members in one
  * shot — the prototype's "create the event row at the account gate, all data at
  * once" model. It mirrors createWeddingEvent's insert path exactly (same auth
- * gate → admin-client inserts → slug → event_members couple row → captureEvent)
+ * gate → admin-client inserts → slug → event_members couple row)
  * so the row lands in a state valid against the events_wedding_fields_consistency
  * CHECK constraint (migration 20260521080000: wedding events must populate
  * ceremony_type + venue_setting).
@@ -424,6 +431,16 @@ export async function commitOnboardingWedding(
     }
   }
 
+  // The one creation gate (lib/vendor-event-creation.ts). ⚠ THIS DOOR NEVER
+  // ASKED IT: the 2026-08-15 roster listed four doors and missed the wedding
+  // wizard, so "a shop account may not create" was never true here. Owner
+  // 2026-10-22: one account is both, so nobody is refused today — and now every
+  // door, this one included, asks the same function (vendor-event-creation.test.ts
+  // fails on an events insert that does not).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'not_allowed' };
+  }
+
   // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
   // 2026-07-12). The shipped guard lived only in create-event's server action;
   // this commit path could walk past it (council 2026-07-17 recon: an existing
@@ -469,8 +486,8 @@ export async function commitOnboardingWedding(
   const groomLast = payload.groomLastName?.trim() ?? '';
   const brideFullName = [brideFirst, brideLast].filter(Boolean).join(' ');
   const groomFullName = [groomFirst, groomLast].filter(Boolean).join(' ');
-  const displayName =
-    [brideFirst, groomFirst].filter(Boolean).join(' & ') || 'Our Wedding';
+  // The first event name, through the one composition (`joinCoupleNames`) — a new event reads the first person first.
+  const displayName = joinCoupleNames(brideFirst, groomFirst) || 'Our Wedding';
 
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -501,6 +518,11 @@ export async function commitOnboardingWedding(
       : [];
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — refused
+  // before anything is written; the client walks back to the date and says the owner's words.
+  if (eventDatesFloorRefusal([...candidates, windowStart, windowEnd], await eventDateFloorExempt(null))) {
+    return { ok: false, error: 'event_date_before_first_event' };
+  }
 
   // venue_setting from the couple's first reception "setting" pick (drives the
   // marketplace reception filter); fall back to banquet_hall if none picked.
@@ -644,13 +666,9 @@ export async function commitOnboardingWedding(
   // Turning it on later in Your info arms both at Apply.
   if (setupArmsPapic(setupAnswers)) {
     await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-    // shared pool because the two are different products — the pool grant does
-    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-    // idempotent (fixed seat index + a partial unique index on the grant), so the
-    // creation call and the studio self-heal collapse to one camera.
-    await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+    // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
+    // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
+    // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
   }
 
   const { error: memberError } = await admin.from('event_members').insert({
@@ -707,18 +725,6 @@ export async function commitOnboardingWedding(
     console.error('[onboarding] event_song_picks sync failed (non-fatal)', songPickErr);
   }
 
-  await captureEvent({
-    distinctId: user.id,
-    event: 'onboarding_wedding_committed',
-    properties: {
-      event_id: insertedEvent.event_id,
-      kind: payload.kind,
-      region: payload.region,
-      pax: payload.pax,
-      budget_band: payload.budgetBand,
-    },
-  });
-
   // Persist the find-vendor shortlist — the REAL reception venues the couple
   // tapped on screen 12 — as event_vendors 'considering' picks so they show on
   // the dashboard Services tab (owner 2026-06-02: "i shortlisted 3 ... only
@@ -746,7 +752,10 @@ export async function commitOnboardingWedding(
       category: v.category,
       vendor_name: v.name || (v.category === 'venue' ? 'Reception venue' : 'Ceremony venue'),
       status: 'considering' as const,
-      source: 'host_manual' as const,
+      // A venue picked from Setnayan's own list during onboarding — Setnayan
+      // showed it (booking-fee audit B7, owner 2026-10-12). Not 'host_manual':
+      // that word is for a supplier the couple typed in.
+      source: 'host_marketplace_search' as const,
     }));
   if (shortlistRows.length > 0) {
     // Best-effort: the event + membership are already committed, so a shortlist
@@ -1073,7 +1082,7 @@ export async function searchOnboardingReceptionVenues(input: {
   // A parish has no reception setting / type, and capacity is the reception's rule.
   const venueSetting = !isParish && firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
   const venueType = !isParish && firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
-  const canonicalServices = isParish ? canonicalServicesForTile('ceremony_venue') : ['venue'];
+  const canonicalServices = isParish ? servicesInTile(await getCanonicalBuckets(), 'ceremony_venue') : ['venue'];
   const paxScope = isParish ? null : (input.pax ?? null);
 
   const admin = createAdminClient();
@@ -1177,14 +1186,13 @@ export async function searchOnboardingReceptionVenues(input: {
 
 /* Resolve a planning-group id → its canonical services, the SAME way the
    Services-tab Category Search does (category-search.ts canonicalsForGroup):
-   subcategoryHint → catalogTile → catalogFolder. Kept in lock-step so the
-   onboarding count and the dashboard's "vendors in your categories" agree. */
-function canonicalsForOnboardingGroup(groupId: string): string[] {
+   subcategoryHint → catalogTile → catalogFolder. ONE ladder (`servicesForPlanGroup`)
+   over the live taxonomy, so the onboarding count and the dashboard's "vendors in
+   your categories" agree by construction rather than by being kept in lock-step. */
+function canonicalsForOnboardingGroup(groupId: string, buckets: CanonicalBuckets): string[] {
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
-  if (g.subcategoryHint) return [g.subcategoryHint];
-  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
-  return canonicalServicesForFolder(g.catalogFolder);
+  return servicesForPlanGroup(buckets, g);
 }
 
 export type OnboardingVendorCounts = { matched: number; total: number };
@@ -1259,12 +1267,13 @@ export async function getOnboardingVendorCounts(input: {
 
   // Picked categories → canonical service union (same resolver the Services-tab
   // Category Search uses). Empty union → count the whole published marketplace.
+  const buckets = await getCanonicalBuckets();
   const canonicalUnion = Array.from(
     new Set(
       (input.picks ?? [])
         .map((p) => PICK_TO_GROUP[p])
         .filter((g): g is string => Boolean(g))
-        .flatMap((groupId) => canonicalsForOnboardingGroup(groupId)),
+        .flatMap((groupId) => canonicalsForOnboardingGroup(groupId, buckets)),
     ),
   );
 

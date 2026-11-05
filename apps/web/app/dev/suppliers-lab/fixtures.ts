@@ -1,0 +1,241 @@
+/**
+ * /dev/suppliers-lab fixtures — a wedding mid-planning, shaped like the approved
+ * prototype's "mid" seed (`prototypes/suppliers_page_2026-10-07_fable.html`):
+ * a booked reception the couple added themselves (a payment due), a booked
+ * ceremony with no price, Cake holding three suppliers the couple added
+ * (nothing booked — the controller's walk case), Catering mid-conversation and
+ * a photo quote waiting on the couple. Nothing here is read from a database.
+ */
+import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
+import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
+import type { BenchServiceCard } from '@/lib/bench-service-card';
+import type { SupplierStanding } from '@/lib/supplier-standing';
+import { formatPhp } from '@/lib/orders';
+import type { SupplierSheetData } from '@/lib/supplier-sheet';
+import type { CategoryVendorResult } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
+import type { MarketplaceVendorSuggestion } from '@/app/dashboard/[eventId]/vendors/actions';
+import { supplierInviteStatus, type SupplierInviteStatus } from '@/lib/supplier-invite-status';
+
+export const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
+
+const row = (r: Partial<EventVendorRowInput> & Pick<EventVendorRowInput, 'vendor_id' | 'vendor_name' | 'category'>): EventVendorRowInput => ({
+  status: 'considering',
+  ...r,
+});
+
+export const LAB_ROWS: EventVendorRowInput[] = [
+  row({ vendor_id: 'v-seda', vendor_name: 'Seda Vertis North', category: 'venue', status: 'contracted', total_cost_php: 1_056_000, manual_vendor_id: 'm-seda' }),
+  row({ vendor_id: 'v-santuario', vendor_name: 'Santuario de San Vicente de Paul', category: 'religious_venue', status: 'contracted', marketplace_vendor_id: 'p-santuario' }),
+  row({ vendor_id: 'v-tinapay', vendor_name: 'Tinapay & Co.', category: 'cake_maker', total_cost_php: 12_000, manual_vendor_id: 'm-tinapay' }),
+  row({ vendor_id: 'v-asukal', vendor_name: 'Asukal Cakes', category: 'cake_maker', manual_vendor_id: 'm-asukal' }),
+  row({ vendor_id: 'v-bibingka', vendor_name: 'Bibingka Bakehouse', category: 'cake_maker', manual_vendor_id: 'm-bibingka' }),
+  row({ vendor_id: 'v-bituin', vendor_name: 'Bituin Catering', category: 'catering', marketplace_vendor_id: 'p-bituin' }),
+  row({ vendor_id: 'v-hiraya', vendor_name: 'Hiraya Table', category: 'catering', marketplace_vendor_id: 'p-hiraya' }),
+  row({ vendor_id: 'v-lola', vendor_name: 'Kusina ni Lola', category: 'catering', marketplace_vendor_id: 'p-lola' }),
+  row({ vendor_id: 'v-lumina', vendor_name: 'Lumina Studio', category: 'photographer', marketplace_vendor_id: 'p-lumina' }),
+];
+
+export const LAB_ENRICHMENT = new Map<string, VendorEnrichment>([
+  ['v-santuario', { rating: 4.9, review_count: 41, is_verified: true }],
+  ['v-bituin', { rating: 4.7, review_count: 18, is_verified: true, thread_id: 't-bituin', inquiry_status: 'pending' }],
+  ['v-hiraya', { rating: 4.8, review_count: 9, is_verified: true }],
+  ['v-lola', { rating: 4.8, review_count: 63, is_verified: true, thread_id: 't-lola', inquiry_status: 'accepted' }],
+  ['v-lumina', { rating: 4.9, review_count: 52, is_verified: true, thread_id: 't-lumina', inquiry_status: 'accepted' }],
+]);
+
+export const card = (c: Partial<BenchServiceCard> & Pick<BenchServiceCard, 'name'>): BenchServiceCard => ({
+  priceText: null,
+  discountBadge: null,
+  includesLine: null,
+  notIncluded: [],
+  givesSetnayanGift: false,
+  coverUrl: null,
+  ...c,
+});
+
+export const LAB_CARDS: Record<string, BenchServiceCard> = {
+  'v-bituin': card({ name: 'Wedding buffet · 150–250 pax', priceText: `from ${formatPhp(950)} / head`, includesLine: 'Tasting for 4 · crew meals · 2 live stations', notIncluded: ['corkage'] }),
+  'v-hiraya': card({ name: 'Plated dinner · 100–200 pax', priceText: `from ${formatPhp(1200)} / head`, includesLine: 'Tasting for 2 · table styling' }),
+  'v-lola': card({ name: 'Heirloom Filipino buffet · 100–250 pax', priceText: `from ${formatPhp(1100)} / head`, includesLine: 'Tasting for 2 · lechon carving station' }),
+  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day album' }),
+  'v-santuario': card({ name: 'Church ceremony · 3 pm slot', includesLine: 'Choir · coordinator for the rite' }),
+};
+
+export const LAB_STANDINGS: Record<string, SupplierStanding> = {
+  'v-lola': { segments: [{ kind: 'need', text: 'waiting on you' }], replied: true, needsYou: true },
+  'v-lumina': { segments: [{ kind: 'need', text: 'waiting on you' }], replied: true, needsYou: true },
+  'v-bituin': { segments: [{ kind: 'quiet', text: 'No reply · 3 days' }], replied: false, needsYou: false },
+};
+
+export const market = (r: Pick<CategoryVendorResult, 'vendorProfileId' | 'name'> & Partial<CategoryVendorResult>): CategoryVendorResult =>
+  ({
+    nameAnonymized: false,
+    city: 'Quezon City',
+    logoUrl: null,
+    photoUrl: null,
+    rating: null,
+    reviewCount: 0,
+    distanceKm: null,
+    verified: true,
+    boosted: false,
+    compatScore: null,
+    compatTier: null,
+    respondsFast: false,
+    lastMinuteAvailable: false,
+    lastMinuteSurchargePct: null,
+    alreadyAdded: false,
+    relationshipDepth: 0,
+    withinRadius: true,
+    serviceRadiusKm: null,
+    facetMatchCount: null,
+    ...r,
+  }) as CategoryVendorResult;
+
+/** "More to compare", per category — what the marketplace read would return. */
+export const LAB_MARKET: Record<string, { rows: CategoryVendorResult[]; cards: Record<string, BenchServiceCard> }> = {
+  catering: {
+    rows: [
+      market({ vendorProfileId: 'p-luntian', name: 'Luntian Buffet', city: 'Makati', rating: 4.9, reviewCount: 120 }),
+      market({ vendorProfileId: 'p-mesa', name: 'Mesa Kusina', city: 'Pasig', rating: 4.6, reviewCount: 12 }),
+      market({ vendorProfileId: 'p-sarap', name: 'Sarap Events', city: 'Taguig', rating: 4.7, reviewCount: 60 }),
+    ],
+    cards: {
+      'p-luntian': card({ name: 'Garden buffet · 120–300 pax', priceText: `from ${formatPhp(1500)} / head`, includesLine: 'Tasting for 4 · dessert bar · crew meals' }),
+      'p-mesa': card({ name: 'Filipino buffet · up to 200 pax', priceText: `from ${formatPhp(850)} / head`, includesLine: 'Tasting for 2', discountBadge: 'Early booking · 10%' }),
+      'p-sarap': card({ name: 'Plated 5-course · 80–180 pax', priceText: `from ${formatPhp(1800)} / head`, includesLine: 'Tasting for 2 · wine pairing' }),
+    },
+  },
+  cake: {
+    rows: [
+      market({ vendorProfileId: 'p-tamis', name: 'Tamis Patisserie', city: 'Makati', rating: 4.8, reviewCount: 34 }),
+      market({ vendorProfileId: 'p-hurno', name: 'Hurno Cakes', city: 'Marikina', rating: 4.6, reviewCount: 8 }),
+    ],
+    cards: {
+      'p-tamis': card({ name: 'Three-tier wedding cake', priceText: `from ${formatPhp(18000)}`, includesLine: 'Tasting for 2 · delivery and set-up' }),
+    },
+  },
+};
+
+/** A flat tint as a picture — the lab has no stored photos to show. */
+const tint = (h: number) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='hsl(${h} 28% 78%)'/></svg>`)}`;
+
+/** The supplier sheet's one request, per supplier profile. */
+export function labSheet(vendorProfileId: string): SupplierSheetData {
+  const few = vendorProfileId === 'p-hiraya' || vendorProfileId === 'p-hurno';
+  return {
+    reviews: few
+      ? []
+      : [
+          { id: 'r1', stars: 5, month: 'Dec 2025', words: 'The tasting sold us; the day matched it.' },
+          { id: 'r2', stars: 5, month: 'Aug 2025', words: 'On time, clean set-up, and they handled 200 heads without a hitch.' },
+        ],
+    work: few ? [] : [
+      { id: 'w1', kind: 'Wedding', month: 'Dec 2025' },
+      { id: 'w2', kind: 'Debut', month: 'Aug 2025' },
+      { id: 'w3', kind: 'Wedding', month: 'May 2025' },
+    ],
+    workTotal: few ? 0 : 3,
+    photos: few ? [] : Array.from({ length: 14 }, (_, i) => tint(200 + i * 11)),
+    others:
+      vendorProfileId === 'p-bituin'
+        ? [
+            { tile: 'cake', label: 'Cake' },
+            { tile: 'stations', label: 'Stations' },
+          ]
+        : [],
+    following: vendorProfileId === 'p-lola',
+    sharePath: `/v/${vendorProfileId.replace(/^p-/, '')}`,
+  };
+}
+
+// ── "Add your own" (2026-10-10) ────────────────────────────────────────────
+/** `&added=1` — the row the four-step walk leaves behind, under Catering. Sample names, nobody real. */
+/**
+ * `&dunkin=before|after` — the owner's own case (2026-10-20): a doughnut cart
+ * the couple added under Everything else, which "also covers" Guest booths
+ * (`before`, as stored on his event), and then Food Truck too (`after` — the
+ * key the card sheet now stores for a Suppliers-page row no plan group names).
+ */
+/** `moved` — after "Move Dunkin' Donuts to another category" → Food Truck (2026-10-20):
+ *  the enum stays `misc` (Food Truck has no label of its own) and `category_key` names the row. */
+export function labDunkinRow(stage: 'before' | 'after' | 'moved'): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-dunkin',
+    vendor_name: "Dunkin' Donuts",
+    category: 'misc',
+    manual_vendor_id: 'm-dunkin',
+    ...(stage === 'moved' ? { category_key: 'food_truck' } : {}),
+    covers_plan_groups: stage === 'after' ? ['guest_booth', 'tile:food_truck'] : ['guest_booth'],
+  });
+}
+
+/**
+ * `&own=<category>~<category_key>~<name>` — what the walk's Add just posted
+ * (the lab's stand-in writes it into the address, 2026-10-20), stored the way
+ * `addManualSupplier` stores it: the row is kept only through the shared check
+ * (`categoryKeyForAdd`), so the lab draws what the real insert would.
+ */
+export function labOwnRow(category: string, categoryKey: string | null, name: string): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-own',
+    vendor_name: name || 'Your supplier',
+    category: category as EventVendorRowInput['category'],
+    manual_vendor_id: 'm-own',
+    category_key: categoryKey,
+  });
+}
+
+export const LAB_ADDED_ROW: EventVendorRowInput = row({
+  vendor_id: 'v-tita',
+  vendor_name: "Tita Baby's Catering",
+  category: 'catering',
+  manual_vendor_id: 'm-tita',
+});
+
+/** Where each hand-added supplier's claim link stands — one of every state. */
+export function labInviteStatuses(nowMs: number): Record<string, SupplierInviteStatus> {
+  const at = (days: number) => new Date(nowMs + days * 86_400_000).toISOString();
+  const out: Record<string, SupplierInviteStatus> = {};
+  const put = (id: string, s: SupplierInviteStatus | null) => {
+    if (s) out[id] = s;
+  };
+  put('v-tita', supplierInviteStatus({ status: 'pending', sentAt: at(0), expiresAt: at(90), openedAt: null }, nowMs));
+  // Sent three days ago and never opened — the couple is told (owner 2026-10-10).
+  put('v-tinapay', supplierInviteStatus({ status: 'pending', sentAt: at(-3), expiresAt: at(87), openedAt: null }, nowMs));
+  put('v-asukal', supplierInviteStatus({ status: 'declined', sentAt: at(-5), expiresAt: at(85) }, nowMs));
+  put('v-bibingka', supplierInviteStatus({ status: 'pending', sentAt: at(-95), expiresAt: at(-5) }, nowMs));
+  // Opened, not joined yet.
+  put('v-seda', supplierInviteStatus({ status: 'pending', sentAt: at(-6), expiresAt: at(84), openedAt: at(-2) }, nowMs));
+  put('v-santuario', supplierInviteStatus({ status: 'claimed', sentAt: at(-20), expiresAt: at(70) }, nowMs));
+  return out;
+}
+
+/** The walk's name search: the lab's own marketplace, matched the way a name is. */
+export function labNameMatches(query: string, category: string): MarketplaceVendorSuggestion[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const tile = category === 'cake_maker' ? 'cake' : category;
+  return (LAB_MARKET[tile]?.rows ?? [])
+    .filter((r) => r.name.toLowerCase().includes(q))
+    .map((r) => ({
+      vendor_profile_id: r.vendorProfileId,
+      business_name: r.name,
+      logo_display_url: null,
+      city: r.city ?? null,
+      categories: [category as MarketplaceVendorSuggestion['categories'][number]],
+      serves_current_category: true,
+    }));
+}
+
+/** A sample claim link — the shape `buildClaimUrl` makes; the token is not a real one. */
+export const LAB_CLAIM_URL = 'https://www.setnayan.com/vendor/claim/x7k2qp-sample';
+
+/** Verified suppliers per category for the Find list — a soft signal (0 → "Joining soon"). */
+export const LAB_FIND_COUNTS = new Map<string, number>([
+  ['catering', 3],
+  ['photo_video', 2],
+  ['cake', 1],
+  ['live_band', 1],
+  ['host_mc', 1],
+]);

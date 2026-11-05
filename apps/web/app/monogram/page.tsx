@@ -149,7 +149,7 @@ export default function PublicMonogramPage() {
         <ClosingCta heading="Make it official">
           <p data-premium-item className="mx-auto mt-3 max-w-lg text-base text-[var(--m-slate-2)]">
             Couples on Setnayan don&rsquo;t just download their monogram — it becomes their wedding&rsquo;s signature
-            across their website, QR invitations, save-the-date, and signage, and can come alive as an animated reveal.
+            across their Event Hub, QR invitations, save-the-date, and signage, and can come alive as an animated reveal.
             Planning is free to start.
           </p>
           <Link

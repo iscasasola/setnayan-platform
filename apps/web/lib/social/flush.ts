@@ -396,7 +396,7 @@ async function sweepMilestones(admin: AdminClient): Promise<void> {
       metric: 'events_created',
       count: counts[0].count,
       caption: (n) =>
-        `🎉 ${n.toLocaleString('en-PH')}+ celebrations now planned on Setnayan — from "will you?" to "Set na 'yan." Thank you for trusting us with your big days. ✨\n\n#Setnayan #SetNaYan`,
+        `🎉 ${n.toLocaleString('en-PH')}+ events now planned on Setnayan — from "will you?" to "Set na 'yan." Thank you for trusting us with your big days. ✨\n\n#Setnayan #SetNaYan`,
     },
     {
       metric: 'vendors_verified',

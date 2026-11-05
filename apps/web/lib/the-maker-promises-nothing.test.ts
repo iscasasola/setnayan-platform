@@ -68,13 +68,11 @@ test('`MAKER_COMING_NEXT` is gone, and the View menu offers only views that are 
   // ✂ The Maker in 4 (2026-10-02): View ▾ became the bar's Phone button and ⋯'s Both row;
   // 2026-10-04 both are rows of 👁 Preview (`previewRows`).
   const rows = shell.slice(shell.indexOf('const previewRows = '), shell.indexOf('  return (\n    <MakerContext.Provider'));
-  const view = rows.slice(rows.lastIndexOf('<MenuItem', rows.indexOf('data-maker-tool-row="view"')), rows.indexOf('{bothView ? ('));
+  const view = rows.slice(rows.lastIndexOf('<MenuItem', rows.indexOf('data-maker-tool-row="view"')), rows.indexOf('</MenuItem>', rows.indexOf('data-maker-tool-row="view"')));
   assert.ok(view.includes('makerViewToggle(shownDevice)'), 'the Phone / Desktop row was not found — the scan is blind');
   assert.doesNotMatch(view, /disabled|note=/, 'the Phone / Desktop row is drawn switched off — a view that is not built is not drawn');
-  const both = rows.slice(rows.indexOf('{bothView ? ('), rows.indexOf('data-maker-tool-row="scenes"'));
-  assert.ok(both.length > 40, 'the Both row was not found — the scan is blind');
-  assert.doesNotMatch(both, /disabled|note=/, 'the Both row is drawn switched off');
-  assert.match(shell, /makerViewOptions\(wide\)\.find\(\(o\) => o\.key === 'both'\)/, 'Both is offered off its own rule (1024 px and wider)');
+  /* "Both" and "Scenes" were the old desktop Maker's rows — deleted with it (owner 2026-10-25). */
+  assert.doesNotMatch(rows, /bothView|data-maker-tool-row="scenes"/, 'an old desktop row is back in Preview');
   /* "Both" came back 2026-09-29 as a BUILT view: offering it is honest only
      while the canvas draws its second pane (`the-maker-both-view-is-live.test.ts`). */
   if (bar.includes("label: 'Both'")) {

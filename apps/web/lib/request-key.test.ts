@@ -81,7 +81,7 @@ test('the words are the approved prototype’s, verbatim', () => {
 test('🔒 redeem: a pending or declined key is remembered as a REQUEST and never becomes a guest session', () => {
   const r = read('app/[slug]/redeem/route.ts');
   const ask = r.indexOf('const keyState = requestKeyState(keyRow)');
-  const keyRead = r.indexOf('const { data: keyRow }');
+  const keyRead = r.indexOf('const { data: keyRow');
   // The TOKEN path: from reading the key to asking its state, nothing mints a pass.
   assert.ok(keyRead > -1 && ask > keyRead, 'the redeem lost its key read / state check');
   assert.doesNotMatch(r.slice(keyRead, ask), /setGuestSession\(/, 'the redeem hop mints a session before asking the key’s state');
@@ -137,7 +137,14 @@ test('🔒 the pending ticket is drawn only while pending, and the card says so'
 test('🔒 the door scanner asks the server LIVE on every scan, and check-in itself refuses a request', () => {
   const desk = read('app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx');
   const on = desk.slice(desk.indexOf('const onToken = useCallback('), desk.indexOf('// ---- NFC tag reader'));
-  assert.match(on, /const check = await checkTicketLive\(eventId, token\)/, 'a scan is judged from the list loaded earlier');
+  assert.match(on, /check = await checkTicketLive\(eventId, token\)/, 'a scan is judged from the list loaded earlier');
+  // 📶 NO SIGNAL (EV3, owner 2026-10-28 "scans … QUEUE offline and sync later"): only when the live question cannot be
+  // asked does the list saved on this phone decide — a list that never holds a request (the page drops
+  // `REQUEST_ENTRY_SOURCE` rows), so a pending/declined screenshot is still turned away — and the pick says it was the
+  // saved list. The live check then runs when the queued check-in is sent: `checkInGuest` refuses it (below) and the
+  // desk shows it under "Needs a look".
+  assert.match(on, /if \(!browserOffline\(\)\) \{\s*try \{\s*check = await checkTicketLive/, 'the live check is skipped with signal');
+  assert.match(on, /if \(!check\) \{[\s\S]*?guestByToken\.get\(token\)[\s\S]*?setSavedListPick\(true\)/, 'an offline pick does not say it came from the saved list');
   assert.ok(on.indexOf('checkTicketLive') < on.indexOf('setSelectedId(check.guestId)'), 'a guest is selected before the live answer');
   assert.match(on, /check\.verdict === 'pending' \|\| check\.verdict === 'declined'\) \{\s*setSelectedId\(null\)/);
   assert.match(desk, /DOOR_WORDS\.checkedLive\(/, 'the desk does not say it checked live');
@@ -151,14 +158,21 @@ test('🔒 the door scanner asks the server LIVE on every scan, and check-in its
 
 test('🔒 Link leaves the forward, and the Requests page words are Accept · Decline · Link with Undo', () => {
   const a = read('app/dashboard/[eventId]/guests/claims/actions.ts');
-  const link = a.slice(a.indexOf('export async function linkGuestAction'));
+  // R4 slice 11: the bodies live in `linkRequest` · `undoAccept` · `undoDecline`, run by the page's doors and by Guests'
+  // in-place door alike; the page's two Undos share one door (`undoRequestAction`, `undo` = accepted · declined).
+  const at = a.indexOf('async function linkRequest(');
+  assert.ok(at > 0, 'the Link body is gone');
+  const link = a.slice(at, a.indexOf('\n}\n', at));
   assert.match(link, /custom_tags: \[\.\.\.sourceTags, linkedIntoTag\(targetId\)\]/, 'a Linked request reads as Declined');
-  assert.match(a, /export async function undoAcceptAction/);
-  assert.match(a, /export async function undoDeclineAction/);
+  assert.match(a, /async function undoAccept\(/);
+  assert.match(a, /async function undoDecline\(/);
+  assert.match(a, /export async function undoRequestAction\(/);
   const page = read('app/dashboard/[eventId]/guests/claims/page.tsx');
   assert.match(page, />\s*Accept\s*<\/summary>/);
   assert.match(page, />\s*Decline\s*<\/SubmitButton>/);
   assert.match(page, /Accepted · just now · their QR and link now open their invitation/);
+  assert.match(page, /<form action=\{undoRequestAction\.bind\(null, eventId\)\}>\s*<input type="hidden" name="undo" value="accepted" \/>/, 'the accepted row lost its Undo');
+  assert.match(page, /<form action=\{undoRequestAction\.bind\(null, eventId\)\} className="mt-2">\s*<input type="hidden" name="undo" value="declined" \/>/, 'the declined row lost its Undo');
   assert.match(page, /<SendInviteActions\b/, 'the accepted row has no Send invite · Copy message');
   assert.doesNotMatch(page, />\s*(Keep|Remove)\s*</, 'the old verbs are back');
 });

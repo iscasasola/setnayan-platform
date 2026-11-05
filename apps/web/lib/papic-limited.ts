@@ -7,7 +7,8 @@ import {
 } from '@/lib/papic-cameras';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { resolveStoredWindow, type StoredWindow } from '@/lib/papic-window';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 /**
  * The event's Papic capture WINDOW (owner 2026-06-26), graceful pre-migration.
@@ -19,11 +20,14 @@ export async function fetchEventPapicWindow(
   admin: SupabaseClient,
   eventId: string,
 ): Promise<StoredWindow> {
-  const sel = await admin
-    .from('events')
-    .select('papic_window_start, papic_window_end, event_date')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the row the render already holds when there is one (`lib/event-row-once.ts`); else this read, as before.
+  const sel = await eventRowOnce(admin, eventId, 'papic_window_start, papic_window_end, event_date', () =>
+    admin
+      .from('events')
+      .select('papic_window_start, papic_window_end, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
   if (sel.error?.code === '42703') {
     // Pre-migration: window columns absent — read just the anchor date.
     const fb = await admin
@@ -141,7 +145,7 @@ export async function countLimitedGuests(
     .eq('event_id', eventId)
     .neq('rsvp_status', LIMITED_EXCLUDED_RSVP)
     // 🛂 A request is priced and handed nothing until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null);
   if (error) {
     if (error.code === '42P01' || error.code === '42703') return 0;
     throw new Error(`countLimitedGuests failed: ${error.message}`);
@@ -413,7 +417,7 @@ export async function syncGuestCameras(
     .select('guest_id, rsvp_status, created_at')
     .eq('event_id', eventId)
     .neq('rsvp_status', LIMITED_EXCLUDED_RSVP)
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('created_at', { ascending: true });
   if (guestErr) {
     if (guestErr.code === '42P01' || guestErr.code === '42703') return EMPTY;

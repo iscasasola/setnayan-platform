@@ -11,50 +11,30 @@ import {
 } from '@/lib/maker-details-items';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import type { MakerDevice } from './maker-context';
 
 /**
- * THE MAKER IN 4 — THE TOOLBAR, as the approved design draws it
- * (`prototypes/maker_in_four_2026-09-30_fable.html`; DECISION_LOG "THE MAKER IN
- * 4 IS A DIRECTION, NOT A COUNT" — the test is that a first-time host
- * understands what to do; FIRST_TIMER_TEST_2026-10-02 fix 4, task H2 "Hard"),
- * as rearranged on 2026-10-04 (PR-0 of the Maker rearrangement; owner, verbatim:
- * *"that can be a preview icon?"* and *"apply icon · undo icon · exit icon"*):
+ * 🧭 THE MAKER'S TOP NAV — the ONE Maker's, for every viewer on every width (owner 2026-10-25: *"delete that old
+ * event hub maker"*; it was the new Maker's phone bar — owner 2026-10-06: *"studio, will have the same top nav, but a
+ * different approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1,
+ * prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
  *
- *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
+ *     Stages | Studio · ↺ Undo · ✓ Apply (n) · ⚙              (a desktop adds 👁 Preview between Undo and Apply)
  *
- * Every bar button is a 44 × 44 icon with its name. ⋯ is gone: its rows moved —
- * See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
- * stage into 👁 Preview's menu; Add a scene · Reset this stage · Prints ·
- * Restore · the address · who can view · About the Maker into Page ▾
- * (`makerPageActions`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`.
+ * 🧭 THE HUB'S PINNED ROW (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+ * Maker sits under the app's own top bar and above its bottom nav, so this bar is the Hub's pinned row, as Guests' and
+ * Suppliers' are — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. The ✕ Exit is DROPPED (call 1: the app's nav is the way out);
+ * ↺ Undo · ✓ Apply STAY here (call 3); ⚙ Event Hub settings ends it (`MenuSettingsButton menu="hub"`).
  *
- *   · 'undo' and 'apply' are the draft bar's (`hub-draft-bar.tsx`), mounted in
- *     the shell's `applySlot`; 'preview' is the shell's, drawn between them
- *     through the Maker's context (`MakerState.previewMenu`).
- *   · Apply's first tap opens the Apply sheet; only its labelled Apply publishes.
+ * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES §8). The old bar
+ * (‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — "the Maker in 4", 2026-10-02 → 2026-10-06) is
+ * deleted; its places are the Stages ▾ list and its acts the lower third's and Studio's. 'undo' and 'apply' are the
+ * draft bar's (`hub-draft-bar.tsx`), mounted in the shell's `applySlot`; 'preview' is the shell's, drawn between them
+ * through the Maker's context (`MakerState.previewMenu`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`
+ * and against any switch that would bring the old bar back by `lib/there-is-one-maker.test.ts`.
  */
-/* 🗂 ONE "Event Details" button (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS
-   REBUILT: ONE BUTTON…"): the separate Look chip is gone — its items head the
-   Event Details list (the Look group). */
-export const MAKER_TOOLBAR = ['exit', 'page', 'details', 'undo', 'preview', 'apply'] as const;
-export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
-
-/**
- * 🧭 THE NEW MAKER'S TOP NAV — a PHONE's, behind `makerStagesStudioEnabled`
- * (owner 2026-10-06: *"studio, will have the same top nav, but a different
- * approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
- * PR 1, prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
- *
- *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)
- *
- * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES
- * §8). No Page ▾, no Event Details, no 👁 Preview on this list — the stage ▾
- * lives in the lower third, Studio's tools on its home, and ▶ Play joins the
- * lower third in a later PR. A desktop keeps `MAKER_TOOLBAR` this round; with
- * the flag off every width does. Held by `lib/maker-stages-studio-ships-dark.test.ts`.
- */
-export const MAKER_TOOLBAR_STAGES_STUDIO = ['exit', 'side', 'undo', 'apply'] as const;
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['side', 'undo', 'apply', 'settings'] as const;
 export type MakerSide = 'stages' | 'studio';
 export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
 
@@ -65,7 +45,8 @@ export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', s
  */
 export const MAKER_DETAILS_LABEL = 'Event Details';
 export const MAKER_LOOK_LABEL = 'Look';
-export const MAKER_PRINTS_LABEL = 'Prints';
+/** 🖨 Prints' one name — the Prints page's own (R8: Prints left the Maker for its page, `lib/prints-page.ts`). */
+export const MAKER_PRINTS_LABEL = PRINTS_PAGE_LABEL;
 /** Page ▾'s own name — what it reads while Look, Event Details or Prints covers the stage. */
 export const MAKER_PAGE_MENU_LABEL = 'Page';
 
@@ -252,6 +233,8 @@ export function makerPageMenu(input: {
    * `no-two-bar-buttons-share-a-label.test.ts` holds it.
    */
   openPage?: string | null;
+  /** 🚪 The stages this event does not need (`needsHidesStage`, lib/event-needs.ts) — absent from the list. */
+  hiddenStages?: readonly string[];
 }): {
   value: string;
   buttonText: string;
@@ -261,6 +244,8 @@ export function makerPageMenu(input: {
 } {
   const options: PickOption[] = [];
   for (const s of MAKER_PAGE_STAGES) {
+    // 🚪 A stage this event does not need is absent (owner 2026-10-08, `needsHidesStage`).
+    if (input.hiddenStages?.includes(s)) continue;
     const group = makerStageLabel(s);
     if (s === RSVP_STAGE_KEY) {
       options.push({
@@ -311,7 +296,7 @@ export function makerPageMenu(input: {
  *   · the stage on screen gains, at the end of its pages, "＋ Add a scene" (a
  *     STAGE tool — never on a page) and "Reset this stage…" (a confirm, never
  *     one tap — `hub-draft-bar.tsx` asks);
- *   · after Post Event, a "Your Event Hub" line: Prints · Restore · the
+ *   · after Post Event, a "Your Event Hub" line: Restore · the
  *     address · who can view · About the Maker (the address and who can view
  *     move to Event Details in a later PR).
  *
@@ -321,7 +306,6 @@ export function makerPageMenu(input: {
 export const MAKER_PAGE_ACTIONS = {
   addScene: 'do:add-scene',
   reset: 'do:reset',
-  prints: 'do:prints',
   restore: 'do:restore',
   address: 'do:address',
   who: 'do:who',
@@ -372,7 +356,7 @@ export function makerPageActions(
   if (at >= 0) out.splice(at + 1, 0, ...stageRows);
   else out.push(...stageRows);
   const hub = MAKER_PAGE_HUB_GROUP;
-  if (input.hasWork) out.push({ key: MAKER_PAGE_ACTIONS.prints, label: MAKER_PRINTS_LABEL, group: hub });
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home's Prints line. */
   if (input.canRestore !== null) {
     out.push({
       key: MAKER_PAGE_ACTIONS.restore,

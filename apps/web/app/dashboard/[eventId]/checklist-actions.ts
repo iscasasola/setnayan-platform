@@ -22,7 +22,8 @@ import {
   AUTO_COMPLETABLE_KEYS,
   type ChecklistSignals,
 } from '@/lib/checklist-autocomplete';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Idempotent TOP-UP seed for the couple planning checklist. Fires when the home
@@ -48,6 +49,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
  * reached this environment).
  */
 export async function ensureChecklistSeeded(eventId: string): Promise<number> {
+  await refuseLimitedHelper(eventId, null);
   if (!eventId) throw new Error('event_id required');
 
   const supabase = await createClient();
@@ -236,7 +238,7 @@ async function reconcileChecklistCompletion(
         .eq('event_id', eventId)
         .maybeSingle(),
       admin.from('event_vendors').select('category, status').eq('event_id', eventId),
-      admin.from('guests').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false),
+      admin.from('guests').select('event_id', { count: 'exact', head: true }).eq('event_id', eventId).neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null),
       admin
         .from('event_tables')
         .select('event_id', { count: 'exact', head: true })
@@ -306,21 +308,32 @@ async function reconcileChecklistCompletion(
   }
 }
 
+/** What a Planning Stage row's save answers: saved (with the date it landed on and a note, for a move), or why not. */
+export type PlanningRowResult =
+  | { ok: true; dateIso?: string | null; note?: string | null }
+  | { ok: false; error: string };
+
 /**
- * Flip one checklist item between pending and done. The DB trigger keeps
- * `completed_at` consistent; we only send the status. RLS couple-write policy
- * scopes this to the host's own event.
+ * ✅ ONE ACTION FOR A PLANNING STAGE ROW (owner 2026-11-01, DECISION_LOG "CHECKLIST MERGES INTO PLANNING STAGE").
+ * One export, three ops — each export is a Vercel route and the budget is full (`lint-server-action-budget.mjs`; the
+ * couple-photo share set the pattern), and this one REPLACES the Checklist's own `toggleChecklistItem`:
+ *
+ *   · `op=tick-task` — tick / untick a task (`event_checklist_items.status`; the trigger stamps `completed_at`).
+ *   · `op=tick-step` — tick / untick a hand-added row (`event_preparation_items.completed_at`) — *"manual rows gain done"*.
+ *   · `op=move-task` — move a task (`due_date_set`); an empty `date` puts it back on the plan's own date.
+ *
+ * Every write asks its row back: RLS answers a refused UPDATE with no error and no row, and a zero is said, never
+ * shown as a save that did not happen.
  */
-export async function toggleChecklistItem(formData: FormData) {
+export async function planningRowAction(formData: FormData): Promise<PlanningRowResult> {
+  // Hosts' writes (RLS: the couple) — a limited helper is refused whatever their areas (AREA_RULES: null).
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const op = formData.get('op');
   const eventId = formData.get('event_id');
   const itemId = formData.get('item_id');
-  const desiredRaw = formData.get('desired'); // 'done' | 'pending'
-  if (
-    typeof eventId !== 'string' ||
-    typeof itemId !== 'string' ||
-    (desiredRaw !== 'done' && desiredRaw !== 'pending')
-  ) {
-    throw new Error('Invalid input');
+  if (typeof eventId !== 'string' || eventId.length === 0 || typeof itemId !== 'string' || itemId.length === 0) {
+    return { ok: false, error: 'Something was missing — try again.' };
   }
 
   const supabase = await createClient();
@@ -329,12 +342,74 @@ export async function toggleChecklistItem(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { error } = await supabase
-    .from('event_checklist_items')
-    .update({ status: desiredRaw })
-    .eq('item_id', itemId)
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  let result: PlanningRowResult;
+  if (op === 'tick-task' || op === 'tick-step') {
+    const desired = formData.get('desired');
+    if (desired !== 'done' && desired !== 'pending') return { ok: false, error: 'Something was missing — try again.' };
+    const { data: moved, error } =
+      op === 'tick-task'
+        ? await supabase.from('event_checklist_items').update({ status: desired }).eq('item_id', itemId).eq('event_id', eventId).select('item_id')
+        : await supabase
+            .from('event_preparation_items')
+            .update({ completed_at: desired === 'done' ? new Date().toISOString() : null })
+            .eq('item_id', itemId)
+            .eq('event_id', eventId)
+            .select('item_id');
+    if (error) return { ok: false, error: 'This did not save. Try again.' };
+    if (!moved || moved.length === 0) return { ok: false, error: 'Only the hosts can tick this.' };
+    result = { ok: true };
+  } else if (op === 'move-task') {
+    result = await moveTask(supabase, eventId, itemId, formData.get('date'));
+  } else {
+    return { ok: false, error: 'Something was missing — try again.' };
+  }
 
-  revalidatePath(`/dashboard/${eventId}`);
+  // The one list is drawn under Schedule, Suppliers › Booked and Home — the whole event's tree.
+  if (result.ok) revalidatePath(`/dashboard/${eventId}`, 'layout');
+  return result;
+}
+
+/**
+ * 📅 MOVE A TASK (*"Each task gets a real date that starts at its offset and can be edited"*). `date` = yyyy-mm-dd
+ * sets `due_date_set`; empty puts the task back on the plan's own date (NULL).
+ *
+ * DATES STOP AT THE EVENT DAY (plan §3, *"date must be until event day only"*): a task for before the day given a
+ * later date is set back to the event day, and the answer says so. A task for after the day (a negative offset —
+ * thank-you notes, the marriage certificate) is not capped.
+ */
+async function moveTask(
+  supabase: SupabaseClient,
+  eventId: string,
+  itemId: string,
+  rawDate: FormDataEntryValue | null,
+): Promise<PlanningRowResult> {
+  if (typeof rawDate !== 'string') return { ok: false, error: 'Pick a real date.' };
+  const wanted = rawDate.trim();
+  if (wanted !== '' && (!/^\d{4}-\d{2}-\d{2}$/.test(wanted) || Number.isNaN(new Date(`${wanted}T12:00:00`).getTime()))) {
+    return { ok: false, error: 'Pick a real date.' };
+  }
+  let dateIso: string | null = wanted === '' ? null : wanted;
+  let note: string | null = null;
+  if (dateIso) {
+    const [taskRes, eventRes] = await Promise.all([
+      supabase.from('event_checklist_items').select('due_offset_days').eq('item_id', itemId).eq('event_id', eventId).maybeSingle(),
+      supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    ]);
+    if (taskRes.error || eventRes.error) return { ok: false, error: 'We could not check this task’s dates. Try again.' };
+    const offset = (taskRes.data as { due_offset_days: number | null } | null)?.due_offset_days ?? null;
+    const eventDay = (eventRes.data as { event_date: string | null } | null)?.event_date ?? null;
+    if (eventDay && (offset ?? 0) >= 0 && dateIso > eventDay) {
+      dateIso = eventDay;
+      note = 'Set back to the event day — a task for before the day can’t go past it.';
+    }
+  }
+  const { data: moved, error } = await supabase
+    .from('event_checklist_items')
+    .update({ due_date_set: dateIso })
+    .eq('item_id', itemId)
+    .eq('event_id', eventId)
+    .select('item_id');
+  if (error) return { ok: false, error: 'This date did not save. Try again.' };
+  if (!moved || moved.length === 0) return { ok: false, error: 'Only the hosts can move this task.' };
+  return { ok: true, dateIso, note };
 }

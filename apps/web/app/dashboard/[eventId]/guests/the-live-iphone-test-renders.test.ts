@@ -80,7 +80,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { GuestCardBody } = await import('./_components/guest-card-body');
-  const { GuestMoreMenu } = await import('./_components/guest-ticket-parts');
+  const { GuestDeleteControl, GuestMoreMenu } = await import('./_components/guest-ticket-parts');
   const { ToastProvider } = await import('@/app/_components/toast/toast-provider');
   const g = guest(over);
   const data = {
@@ -91,7 +91,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     groupOptions: ['other'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: null,
@@ -118,7 +118,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     returnTo: '/dashboard/e1/guests',
     errorMessage: null,
     inviteFlash: null,
-    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu } : {}),
+    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu, DeleteControl: GuestDeleteControl } : {}),
   });
   return renderToStaticMarkup(
     React.createElement(
@@ -167,41 +167,44 @@ test('⑥ the card renders its Reply as the guest’s current answer, inside the
 // ── ⑦ delete, any reply, one warning ────────────────────────────────────────
 test('⑦ the warning names what goes with them, in page — Delete and Cancel', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { DeleteGuestSheet, deleteWarningText } = await import('./_components/guest-delete');
+  const { DeleteGuestWarning, deleteWarningText } = await import('./_components/guest-delete');
   const html = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], onConfirm() {}, onClose() {} }),
   );
   assert.match(html, /Delete Ana Cruz\?/);
   assert.match(html, /Their reply and answers, seat, \+1, song request and the link to their account go with them\./);
-  assert.match(html, /data-guest-delete-confirm=""[^>]*>Delete</);
+  assert.match(html, /data-guest-delete-confirm=""[\s\S]*?<span class="lbl">Delete<\/span>/);
   assert.match(html, />Cancel</);
   assert.equal(deleteWarningText(['A', 'B', 'C']).title, 'Delete 3 guests?', 'the selection does not get ONE warning for all of them');
   const refused = renderToStaticMarkup(
-    React.createElement(DeleteGuestSheet, { open: true, names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
+    React.createElement(DeleteGuestWarning, { titleId: 't', names: ['Ana Cruz'], error: 'Nope.', onConfirm() {}, onClose() {} }),
   );
   assert.match(refused, /role="alert"[^>]*>Nope\.</, 'a refused delete is not said where the host pressed Delete');
 });
 
-test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s does not', async () => {
+/* RE-AIMED 2026-10-23: Delete left the ⋯ for the card's own last group (owner's groups) — the same flow, one place. */
+test('⑦ an ACCEPTED guest’s card offers Delete in its Delete group; the couple’s does not', async () => {
+  // RE-AIMED 2026-10-26: the group is "Reset · Delete" — Delete (and Reset) for a guest, neither for the couple.
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
-  // Each ⋯ line leads with its icon (owner 2026-10-04), so an <svg> may sit before the words.
-  assert.match(accepted, /data-guest-delete=""[^>]*>(?:<svg[\s\S]*?<\/svg>)?Delete guest</, 'an attending guest’s card has no Delete');
+  // The button leads with its icon, so an <svg> may sit before the words (and the words in the button's label).
+  assert.match(accepted, /data-guest-delete="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Delete guest</, 'an attending guest’s card has no Delete');
+  assert.ok(accepted.indexOf('data-guest-delete=""') > accepted.indexOf('>Access<'), 'Delete is not the card’s last group');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
+  /* 🔄 Reset (2026-10-26) sits beside Delete for a guest — and is never offered on the couple's own rows. */
+  assert.match(accepted, /data-guest-reset="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Reset</, 'an attending guest’s card has no Reset');
+  assert.ok(accepted.indexOf('data-guest-reset=""') < accepted.indexOf('data-guest-delete=""'), 'Reset is not first');
+  assert.doesNotMatch(couple, /data-guest-reset=""/, 'the couple’s card offers a Reset');
 });
 
-test('⑦ swipe, bar and card all go through the one warning and the one delete with Undo', () => {
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  const swipe = list.slice(list.indexOf('function SwipeToDelete('));
-  assert.match(swipe.slice(0, swipe.indexOf('function GroupChipList(')), /<DeleteGuestSheet\b/, 'the swipe deletes without the warning');
-  const bar = list.slice(list.indexOf('function RosterBulkBar('), list.indexOf('function NewGroupInlineForm('));
-  assert.match(bar, /<DeleteGuestSheet\b/, 'the selection bar deletes without the warning');
-  assert.match(bar, /label: `Delete \$\{formatCount\(count\)\}/, 'the bar does not say "Delete N guests"');
+test('⑦ the list and the card both go through the one warning and the one delete with Undo', () => {
+  const screen = read('_components', 'guests-screen.tsx');
+  assert.match(screen, /<DeleteGuestSheet\b/, 'the list deletes without the warning');
   const del = read('_components', 'guest-delete.tsx');
   const hook = del.slice(del.indexOf('export function useGuestRemoval('), del.indexOf('export function DeleteGuestSheet('));
   assert.match(hook, /pushUndo\(/, 'a delete with no Undo');
   assert.match(hook, /restoreDeletedGuests\(/, 'Undo does not restore the guest');
-  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}toast\.error\(result\.error\)[\s\S]{0,40}return result\.error/, 'a refusal is swallowed again');
+  assert.match(hook, /if \(!result\.ok\)[\s\S]{0,200}guestToast\.error\(said\)[\s\S]{0,40}return said/, 'a refusal is swallowed again');
   const action = read('groups-actions.ts');
   const fn = action.slice(action.indexOf('export async function bulkSoftDeleteGuestsForUndo('), action.indexOf('export async function restoreDeletedGuests('));
   assert.match(fn, /\.in\('plus_one_of_guest_id'/, 'their +1 stays behind although the warning says it goes with them');
@@ -236,6 +239,9 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
     live({ guest_id: 'req', rsvp_status: 'attending', entry_source: 'self_added_unlisted' }),
     live({ guest_id: 'rip', rsvp_status: 'pending', passed_away: true }),
     live({ guest_id: 'gone', rsvp_status: 'attending', deleted_at: '2026-10-02T00:00:00Z' }),
+    // 🧍 A role holder someone stands in for (owner 2026-10-27): the Guests list LISTS her (one row with her proxy, 'a'),
+    // Home never reads her — and neither counts her twice: "not having 2 guests but 1".
+    live({ guest_id: 'ninang', role: 'principal_sponsor_ninang', rsvp_status: 'pending', represented_by_guest_id: 'a' }),
   ];
   const counts = async (opts: Parameters<typeof fetchGuestsByEventMeasured>[2]) => {
     const r = await fetchGuestsByEventMeasured(fakeSupabase(rows) as never, 'e1', opts);
@@ -246,7 +252,7 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   };
   // Home reads the accepted living list; the Guests list reads everything it draws.
   const home = await counts(undefined);
-  const list = await counts({ includeRequests: true, includePassedAway: true });
+  const list = await counts({ includeRequests: true, includePassedAway: true, includeRepresented: true });
   assert.deepEqual(home, list, 'Home and the Guests list disagree about the same event');
   // The basis: the couple counts, a request does not until kept, a deleted row never.
   assert.deepEqual(home, { coming: 3, noReply: 1 });
@@ -254,7 +260,7 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   (rows[3] as Row).rsvp_status = 'attending';
   (rows[4] as Row).entry_source = 'host_seeded';
   assert.deepEqual(await counts(undefined), { coming: 5, noReply: 0 });
-  assert.deepEqual(await counts({ includeRequests: true, includePassedAway: true }), { coming: 5, noReply: 0 });
+  assert.deepEqual(await counts({ includeRequests: true, includePassedAway: true, includeRepresented: true }), { coming: 5, noReply: 0 });
   // …and both pages really run this chain.
   const homePage = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
   // Since root-map waves 2+3 both pages take the counts the read worked out ONCE
@@ -262,7 +268,8 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   assert.match(homePage, /fetchGuestsByEventMeasured\(supabase, eventId\)/);
   assert.match(homePage, /stats: guestStats \}/);
   const guestsPage = read('page.tsx');
-  assert.match(guestsPage, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true, includePassedAway: true \}\)/);
+  // (+ `includeRepresented` since 2026-10-27: the List draws a represented role holder as ONE row with her proxy.)
+  assert.match(guestsPage, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true, includePassedAway: true, includeRepresented: true \}\)/);
   assert.match(guestsPage, /const stats = guestsRead\.stats;/);
   assert.match(stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8')), /return \{ rows, measured: true, stats: computeGuestStats\(rows\) \};/);
 });
@@ -272,7 +279,12 @@ test('⑨ the guest’s mobile is in the card’s first (open) section, not a cl
   const html = await paintCard();
   const first = html.slice(html.indexOf('data-guest-card-name=""'), html.indexOf('</section>', html.indexOf('data-guest-card-name=""')));
   assert.match(first, /name="mobile"[^>]*value="0917 555 0101"|value="0917 555 0101"[^>]*name="mobile"/, 'the mobile is not in the first section');
-  assert.match(first, /type="tel"/, 'the mobile box does not bring up the phone keypad');
+  /* The card's typed row (one kit since 2026-10-24) is a closed row until it is tapped — its box (and the keypad) exists
+     only then, so the keypad is read where it is decided: the mobile is a `tel` field, and the row opens a `tel` keypad. */
+  const card = read('_components', 'guest-card-body.tsx');
+  assert.match(card, /<K\.Field id="mobile" label="Mobile" type="tel"/, 'the mobile is not a phone-number field');
+  const rows = read('_components', 'guest-card-rows.tsx');
+  assert.match(rows, /inputMode=\{type === 'tel' \? 'tel' :/, 'the mobile box does not bring up the phone keypad');
   assert.equal((html.match(/name="mobile"/g) ?? []).length, 1, 'the mobile is drawn twice');
 });
 
@@ -291,7 +303,8 @@ test('⑩ inside the sheet the panel is plain content — no rail width, border 
   for (const decl of [/width:\s*auto/, /max-width:\s*100%/, /padding:\s*0/, /border:\s*0/, /box-shadow:\s*none/]) {
     assert.match(rule, decl, `the panel inside the sheet keeps a frame: missing ${decl}`);
   }
-  assert.match(css, /@media \(min-width: 768px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(36rem/, 'from a tablet up the sheet is the whole window again');
+  // From the couple dashboard's tablet line (701) the card is the system's 440 panel (owner 2026-10-19).
+  assert.match(css, /@media \(min-width: 701px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(27\.5rem/, 'from a tablet up the sheet is the whole window again');
 });
 
 // ── ⑪ the header stays; the × is round ──────────────────────────────────────
@@ -332,35 +345,17 @@ test('⑫ every block under the title is one flex column with ONE gap — no per
   const tag = page.slice(page.lastIndexOf('<div', open), page.indexOf('>', open));
   assert.match(tag, /flex min-w-0 flex-col gap-4/, 'the blocks are not spaced by one gap');
   const blocks = page.slice(open, page.indexOf('<AddGuestSheet'));
-  for (const piece of ['data-requests-strip=""', '<FinalizeGuestListControl', 'data-roster-head=""']) {
+  // ⤷ Maker PR 4f: the requests row and the head moved into GuestsScreen.
+  // ⤷ 2026-10-07: the finalize row moved into Setup (PR 4d) — not a block here.
+  for (const piece of ['{guestsScreen}']) {
     assert.ok(blocks.includes(piece), `${piece} is not one of the evenly spaced blocks`);
   }
   assert.match(page, /className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width=""/, 'the title row has no step after it');
   assert.doesNotMatch(page.slice(page.indexOf('data-roster-full-width'), open), /space-y-/, 'per-element margins are back above the blocks');
-  assert.match(page, /<div className="gl-settle" data-roster-head="">/, 'the roster head brings its own spacing again');
 
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
-  const { FinalizeGuestListControl } = await import('./_components/finalize-guest-list-control');
-  const html = renderToStaticMarkup(
-    React.createElement(
-      AppRouterContext.Provider,
-      { value: ROUTER as never },
-      React.createElement(FinalizeGuestListControl, { eventId: 'e1', locked: false, finalPax: null }),
-    ),
-  );
-  const row = html.match(/<div[^>]*data-guest-list-finalize="open"[^>]*class="([^"]*)"|<div[^>]*class="([^"]*)"[^>]*data-guest-list-finalize="open"/);
-  const cls = row?.[1] ?? row?.[2] ?? '';
-  for (const c of ['flex', 'flex-col', 'gap-3', 'sm:flex-row', 'sm:items-center', 'sm:justify-between']) {
-    assert.ok(cls.split(/\s+/).includes(c), `the finalize row lacks ${c}`);
-  }
-  assert.doesNotMatch(cls, /\b(?:p[xy]?|m[tbxy]?)-\d/, 'the finalize row brings its own padding or margin');
-  const button = html.match(/<button[^>]*data-guest-list-finalize-button=""[^>]*>/)?.[0] ?? '';
-  for (const c of ['min-h-[44px]', 'rounded-full', 'w-full', 'sm:w-auto']) {
-    assert.ok(button.includes(c), `the Finalize button lacks ${c}`);
-  }
-  const filterRow = read('_components', 'find-add-row.tsx');
-  assert.doesNotMatch(filterRow, /border-ink\/\[0\.07\] py-/, 'the Filter row brings its own top padding again');
+  // ⤷ 2026-10-07: the finalize row left the page for Setup (PR 4d), and its
+  // old component was deleted — nothing of it may come back above the list.
+  assert.doesNotMatch(page, /FinalizeGuestListControl|data-guest-list-finalize/, 'the finalize row is back on the List');
 });
 
 // ── ⑬ the row's ⋯ opens where it can be seen ────────────────────────────────
@@ -371,6 +366,4 @@ test('⑬ a phone row’s ⋯ list is drawn on the page, not clipped inside the 
   assert.match(body, /portalled\(\s*<div\s+ref=\{menuRef\}/, 'the ⋯ list is not the portalled element');
   assert.match(body, /className="fixed z-\[96\]/, 'the ⋯ list is not pinned to the screen');
   assert.match(body, /menuRef\.current\?\.contains\(t\)/, 'a tap inside the list counts as "outside" and closes it first');
-  const list = read('_components', 'guest-list-multiselect.tsx');
-  assert.match(list, /transform: tx === 0 && !dragging \? undefined :/, 'a resting row holds a transform, trapping its sheets inside it');
 });

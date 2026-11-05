@@ -85,7 +85,7 @@ test('2 · the scene-clip kill switch is ON, and the Main background gate follow
 /* ── 3 · THE PAGE ASKS THAT GATE ─────────────────────────────────────────── */
 
 test('3 · mainGroundLayerFor resolves with the Main background gate and signs the guest\'s clip from it', () => {
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   // Resolved in the one shared module (2026-10-03), which the page asks.
   assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
   assert.match(

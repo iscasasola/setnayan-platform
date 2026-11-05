@@ -8,21 +8,24 @@
  * shop's Today), once the page is idle:
  *   · an event they HOST → the HOST SET: every page of that event's menu (the
  *     SAME tree the rail, the ☰ and the phone's bar draw — `lib/customer-menu`)
- *     — Home · Guests · Suppliers · Hub (the Maker) · More's pages. The Maker's
+ *     — Home · Guests · Suppliers · Hub (the Maker) · Memories. The Maker's
  *     tool panels follow the moment the Maker opens (`maker-tools.tsx`), its
  *     own code already on the phone;
  *   · a SHOP they own or staff → the SUPPLIER SET: Today · Customers · Shop ·
- *     More and More's rows (`lib/vendor-more-rows.ts`);
+ *     Hub (the bar since 2026-10-21 — owner "Yes to all"), then Settings, the
+ *     room under the profile picture that took More's last rows;
  *   · both → both; only guest invitations → NOTHING.
  * Never an admin page, never a public page (a guest's invitation, the
  * marketing site). The mechanism is `lib/app-preload.ts`; the trigger
  * `app/_components/app-preload.tsx`. Pure — `app-preload-sets.test.ts`.
  */
 import { buildEventMenuSections, eventMenuRows, type EventMenuCtx } from '@/lib/customer-menu';
-import { VENDOR_MORE_ROWS } from '@/lib/vendor-more-rows';
 
 /** The supplier bar, in its order (`vendor-nav-destinations.ts` — a client file; the test holds them equal). */
-export const SUPPLIER_BAR_ROUTES = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/more'] as const;
+export const SUPPLIER_BAR_ROUTES = ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shop', '/vendor-dashboard/on-the-day'] as const;
+
+/** Settings — opened from the profile picture (`supplier-avatar-rows.ts`); it holds More tools since 2026-10-21. */
+export const SUPPLIER_SETTINGS_ROUTE = '/vendor-dashboard/settings';
 
 /** Never preloaded, whoever asks: the admin console and anything outside the signed-in app. */
 export function isPreloadableAppRoute(href: string): boolean {
@@ -41,15 +44,15 @@ export function hostAppRoutes(eventId: string, ctx: EventMenuCtx = {}): string[]
   const base = `/dashboard/${eventId}`;
   const rows = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const own = rows.map((r) => r.href).filter((h) => h === base || h.startsWith(`${base}/`) || h.startsWith(`${base}?`));
-  const bar = ['home', 'guests', 'explore', 'launch'];
+  const bar = ['home', 'guests', 'explore', 'launch', 'memories'];
   const byKey = new Map(rows.map((r) => [r.key, r.href]));
   const first = bar.map((k) => byKey.get(k)).filter((h): h is string => !!h);
   return unique([base, ...first, ...own]);
 }
 
-/** The supplier set: the four places on the bar, then More's rows. */
+/** The supplier set: the four places on the bar, then Settings. */
 export function supplierAppRoutes(): string[] {
-  return unique([...SUPPLIER_BAR_ROUTES, ...VENDOR_MORE_ROWS.map((r) => r.href)]);
+  return unique([...SUPPLIER_BAR_ROUTES, SUPPLIER_SETTINGS_ROUTE]);
 }
 
 /** The Maker's own address for an event. */

@@ -3,6 +3,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import {
+  accountStandingOnEvent,
   fillAccountNameFromSeat,
   isCoupleMember,
   linkGuestSessionToUser,
@@ -230,7 +231,19 @@ export async function findSeatToConnect(
       const guestId = row.guest_id as string;
       const role = (row.role as string | null) ?? null;
       const extra = (row.extra_roles as string[] | null) ?? null;
-      const refusal = isCoupleSeat(role, extra)
+      // 🔒 A host / co-host / coordinator / helper is never bound to a guest's seat (owner 2026-10-21) — asked
+      // first, of the ACCOUNT, whatever the seat; then the couple-seat rule as before.
+      const standing = await accountStandingOnEvent(admin, eventId, userId);
+      const managerRefusal = seatBindRefusal({
+        seatRole: role,
+        seatExtraRoles: extra,
+        accountIsCouple: false,
+        accountManagesEvent: standing.manages,
+        seatIsAccountsOwn: standing.ownGuestIds.includes(guestId),
+      });
+      const refusal = managerRefusal === 'manager'
+        ? managerRefusal
+        : isCoupleSeat(role, extra)
         ? seatBindRefusal({
             seatRole: role,
             seatExtraRoles: extra,

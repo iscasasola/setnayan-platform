@@ -28,6 +28,7 @@ import {
   type WidgetType,
 } from './invitation-widgets';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
+import { OFF_THE_PAGE } from './what-guests-see';
 
 const ALWAYS_ON: readonly WidgetType[] = ['hero', 'greeting', 'qr_card', 'rsvp'];
 const PHASES: readonly LifecyclePhase[] = [
@@ -217,7 +218,8 @@ test('golden matrix — always-on widget gates per phase (guest tree)', () => {
  *  the film plays. */
 const GOLDEN_STAGE_LISTS: Record<LifecyclePhase, WidgetType[]> = {
   save_the_date: ['countdown', 'our_love_story'],
-  rsvp: ['countdown', 'special_message', 'our_love_story', 'event_details', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
+  /* 🪪 No 'event_details' (owner 2026-10-24, "isn't this a dupe?"): the card is on no page — `OFF_THE_PAGE`. */
+  rsvp: ['countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
   event: ['schedule', 'venue_map', 'photo_moments', 'your_photos'],
   editorial: ['our_love_story', 'our_photos', 'special_message', 'your_photos'],
 };
@@ -359,8 +361,8 @@ test('phasesEnabled=false collapses to the un-phased render in every phase', () 
       assert.equal(plan.backgroundMusic, true);
       assert.deepEqual(
         plan.hideableInOrder.map((w) => w.widget_type),
-        WIDGET_TYPES.filter((t) => !ALWAYS_ON.includes(t)),
-        'all visible hideable widgets, no phase fence',
+        WIDGET_TYPES.filter((t) => !ALWAYS_ON.includes(t) && !OFF_THE_PAGE.has(t)),
+        'all visible hideable widgets, no phase fence (and never the retired Event Details card)',
       );
       assert.deepEqual(
         plan.publicSafeWidgets.map((w) => w.widget_type),

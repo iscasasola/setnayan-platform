@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { NOT_THIS_EVENTS_CODE, UNREADABLE_QR, uploadedQrTarget } from '@/lib/uploaded-qr';
+import { DOOR_CHOICE, DOOR_CHOICE_CLASS } from './door-choice-words';
 
 /**
  * "UPLOAD YOUR QR" (owner 2026-09-27: *"sign in to enter or upload your qr to
@@ -13,6 +14,10 @@ import { NOT_THIS_EVENTS_CODE, UNREADABLE_QR, uploadedQrTarget } from '@/lib/upl
  * A code that is this event's invitation goes to that key (`uploadedQrTarget`),
  * so the ordinary key flow runs — the redeem route, then the RSVP-first gate.
  * Anything else gets one plain line.
+ *
+ * 🚪 ONE OF THE DOOR'S THREE CHOICES since 2026-11-03 (owner: *"both buttons does the same thing … just 1
+ * button please"*): "Open your invitation" is the one button; this is "Upload QR" under it — a quiet button
+ * (`DOOR_CHOICE_CLASS`), never a second primary. iOS opens its own picker (Photo Library · Take Photo · Files).
  */
 export function UploadYourQr({ slug }: { slug: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,8 +63,8 @@ export function UploadYourQr({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-2" data-upload-your-qr="">
-      <label className="button-primary flex min-h-[52px] w-full cursor-pointer items-center justify-center">
-        {busy ? 'Reading your QR…' : 'Upload your QR'}
+      <label className={`${DOOR_CHOICE_CLASS} cursor-pointer`}>
+        {busy ? 'Reading your QR…' : DOOR_CHOICE.upload}
         <input
           ref={inputRef}
           type="file"
@@ -68,7 +73,6 @@ export function UploadYourQr({ slug }: { slug: string }) {
           onChange={(e) => void onPick(e.target.files?.[0])}
         />
       </label>
-      <p className="text-center text-xs text-ink/60">A photo or screenshot of the QR sent to you.</p>
       {said ? (
         <p role="alert" className="text-center text-sm font-medium text-terracotta-700">
           {said}

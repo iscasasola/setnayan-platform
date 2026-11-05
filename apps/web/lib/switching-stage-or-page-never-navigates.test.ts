@@ -21,6 +21,16 @@
  *      (`buffered-canvas-frame.tsx`) is SHOWN, the same frame, and the stage
  *      left stays warm; a page opened over the work area no longer unmounts
  *      the canvas, so coming back is instant too.
+ *
+ * 🧯 2026-10-08 (production incident) — WHAT "WARM" MEANS NOW: a stage the couple
+ * has OPENED and left. Until then the Maker also fetched the stages nobody had
+ * opened, hidden, on idle and again after every save — full server renders of
+ * the guest page — and that multiplied one person's editing into the load that
+ * exhausted the database's connection pool. Section 2 holds the rule for the
+ * SWITCH: showing a stage, a render and a trim never bring a frame for another
+ * stage into being. The other stages are warmed by ONE thing, once per open
+ * and never after a save (`warmOnce`) — counted, per open and per save, in
+ * `the-other-stages-are-warmed-once.test.ts`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,7 +41,6 @@ import {
   MAX_WARM_FRAMES,
   canvasFrameId,
   dropWarmFrames,
-  nextWarmFrame,
   planCanvasFrames,
   trimWarmFrames,
   warmCanvasBudget,
@@ -58,6 +67,12 @@ test('the shell switches stage and page as state — nothing in it navigates', (
   assert.match(press, /select\(\{ kind: 'tool', key: 'details' \}\)/);
   // The stage is never written into the address — it would re-key the page.
   assert.doesNotMatch(SHELL, /searchParams\.set\(|[?&]stage=/);
+  /* 🖨 R8 (2026-10-27): the shell's one way to ANOTHER page of the app is the Prints forward (`prints-forward.ts`) — not a
+     switch: it fires only when an item crosses between the Maker and the Prints page, never on a stage, a page or a door. */
+  assert.equal((SHELL.match(/usePrintsForward\(/g) ?? []).length, 1, 'the Prints forward is called more than once, or not at all');
+  const fwd = read('app/dashboard/[eventId]/launch/_components/prints-forward.ts');
+  assert.match(fwd, /return hasWork && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/, 'the Prints forward fires on something other than an item crossing the Prints line');
+  assert.doesNotMatch(fwd, /\bstage\b|\bselection\b|router\./, 'the Prints forward reads a stage or a selection — it would navigate on a switch');
 });
 
 test('the work area follows the stage by props alone — no router, no document reload on a switch', () => {
@@ -89,50 +104,70 @@ test('a page opened over the work area HIDES the canvas — never unmounts it', 
 const SRC = (s: string) => `/ana-ben?phase=${s}&editor=1`;
 const fr = (stage: string, stamp = '1'): CanvasFrame => ({ key: `${stage}:${stamp}:`, group: `${stage}:`, src: SRC(stage) });
 
-test('a stage already warm is SHOWN — the same frame, nothing loads — and the stage left stays warm', () => {
+test('a stage the couple has opened is SHOWN again — the same frame, nothing loads — and the stage left stays warm', () => {
+  const wanted = (shown: string) => ['save_the_date', 'rsvp', 'event', 'editorial'].filter((x) => x !== shown).map((x) => fr(x));
+  // The Maker opens on the Invitation; the couple picks On the Day. It was never
+  // opened, so it loads — and the Invitation is kept behind it.
   let s: CanvasFrames = { shown: fr('rsvp'), loading: null };
-  const wanted = [fr('save_the_date'), fr('event'), fr('editorial')];
-  // Warming adds ONE frame per step (never three pages at once on a phone).
-  s = nextWarmFrame(s, wanted, MAX_WARM_FRAMES);
-  assert.deepEqual(s.warm, [fr('save_the_date')]);
-  s = nextWarmFrame(s, wanted, MAX_WARM_FRAMES);
-  s = nextWarmFrame(s, wanted, MAX_WARM_FRAMES);
-  assert.equal(s.warm?.length, 3);
-  const warmEvent = s.warm!.find((f) => f.group === 'event:')!;
-  // The couple picks On the Day.
-  const t = planCanvasFrames(s, fr('event'));
-  assert.equal(t.shown, warmEvent, 'the warm frame itself is shown — same identity, so React keeps its iframe');
-  assert.equal(t.loading, null, 'nothing loads');
-  assert.ok(t.warm!.some((f) => canvasFrameId(f) === canvasFrameId(fr('rsvp'))), 'the Invitation stays warm behind it');
-  // …and back again is just as instant.
-  const u = planCanvasFrames(t, fr('rsvp'));
-  assert.equal(canvasFrameId(u.shown), canvasFrameId(fr('rsvp')));
-  assert.equal(u.loading, null);
+  const rsvpFrame = s.shown;
+  s = trimWarmFrames(planCanvasFrames(s, fr('event')), wanted('event'), MAX_WARM_FRAMES);
+  assert.equal(canvasFrameId(s.shown), canvasFrameId(fr('event')));
+  assert.deepEqual(s.warm, [rsvpFrame], 'the Invitation stays warm behind it');
+  const eventFrame = s.shown;
+  // …and back again is instant: the kept frame itself, same identity, so React keeps its iframe.
+  const u = trimWarmFrames(planCanvasFrames(s, fr('rsvp')), wanted('rsvp'), MAX_WARM_FRAMES);
+  assert.equal(u.shown, rsvpFrame, 'the kept frame itself is shown');
+  assert.equal(u.loading, null, 'nothing loads');
+  assert.deepEqual(u.warm, [eventFrame], 'On the Day stays warm in turn');
 });
 
-test('a warm stage OLDER than the canvas is shown at once and the fresh one loads behind it', () => {
+test('🧯 a render, a save or a trim never loads a stage nobody opened — however many pass', () => {
+  // Incident 2026-10-08: the other three stages were fetched hidden as soon as the
+  // Maker idled, and again after every save — four full server renders of the
+  // guest page per open and per edit. `planCanvasFrames` makes a frame for the
+  // stage ON SCREEN only; `trimWarmFrames` makes none. (The one warm an open gets
+  // is `warmOnce`, and a save ends it — the-other-stages-are-warmed-once.test.ts.)
+  const wanted = [fr('save_the_date'), fr('event'), fr('editorial')];
+  let s: CanvasFrames = { shown: fr('rsvp'), loading: null };
+  // However many renders, saves and idle moments pass while the Invitation is shown…
+  for (const stamp of ['1', '2', '3']) {
+    s = trimWarmFrames(planCanvasFrames(s, fr('rsvp', stamp)), wanted.map((f) => fr(f.group.slice(0, -1), stamp)), MAX_WARM_FRAMES);
+    const every = [s.shown, s.loading, ...(s.warm ?? [])].filter((f): f is CanvasFrame => f !== null);
+    assert.ok(every.every((f) => f.group === 'rsvp:'), `a frame for a stage nobody opened exists after render ${stamp}: ${every.map((f) => f.key).join(' · ')}`);
+    assert.ok(every.length <= 2, 'at most the page shown and the newest render of it loading');
+  }
+  // …and the fetch-ahead that refreshed on every render has no way back in: the switch
+  // (`planCanvasFrames` + `trimWarmFrames`) is the only thing a render runs.
+  const buffer = read('app/dashboard/[eventId]/website/editor/_components/buffered-canvas-frame.tsx');
+  assert.doesNotMatch(buffer, /nextWarmFrame|requestIdleCallback|WARM_AFTER_MS/, 'the fetch-ahead of unopened stages is back');
+  assert.match(buffer, /setFrames\(\(s\) => trimWarmFrames\(planCanvasFrames\(s, \{ key: frameKey, group, src \}\), wantedRef\.current, warmMax\)\);/);
+  assert.equal(trimWarmFrames({ shown: fr('rsvp'), loading: null }, wanted, MAX_WARM_FRAMES).warm, undefined, 'the trim never adds');
+  // 🔎 Positive control — a frame IS created the moment its stage is shown, so the
+  // "none" above is the rule holding, not a planner that cannot make frames.
+  const opened = planCanvasFrames({ shown: fr('rsvp'), loading: null }, fr('event'));
+  assert.equal(canvasFrameId(opened.shown), canvasFrameId(fr('event')));
+});
+
+test('a kept stage OLDER than the canvas is shown at once and the fresh one loads behind it', () => {
   const s: CanvasFrames = { shown: fr('rsvp', '2'), loading: null, warm: [fr('event', '1')] };
   const t = planCanvasFrames(s, fr('event', '2'));
   assert.equal(canvasFrameId(t.shown), canvasFrameId(fr('event', '1')), 'never a blank wait');
   assert.equal(canvasFrameId(t.loading!), canvasFrameId(fr('event', '2')), 'never a stale page kept');
-  // Warming replaces a stale warm frame (hidden) with the current render.
-  const w = nextWarmFrame({ shown: fr('rsvp', '2'), loading: null, warm: [fr('event', '1')] }, [fr('event', '2')], 3);
-  assert.deepEqual(w.warm, [fr('event', '2')]);
+  // A stale kept frame is NOT refreshed behind the couple's back after a save: it stays as it is until shown.
+  const w = trimWarmFrames({ shown: fr('rsvp', '2'), loading: null, warm: [fr('event', '1')] }, [fr('event', '2')], 3);
+  assert.deepEqual(w.warm, [fr('event', '1')]);
 });
 
-test('warming is capped, trims what is no longer wanted, and drops a frame that missed a pick', () => {
+test('keeping is capped, lets go of what is no longer wanted, and drops a frame that missed a pick', () => {
   const s: CanvasFrames = { shown: fr('rsvp'), loading: null, warm: [fr('event'), fr('editorial'), fr('save_the_date')] };
   // A budget of 1: only the first wanted stays.
-  assert.deepEqual(nextWarmFrame(s, [fr('event'), fr('editorial'), fr('save_the_date')], 1).warm, [fr('event')]);
-  // A budget of 0 (a small-memory phone): none.
-  assert.equal(nextWarmFrame(s, [fr('event')], 0).warm, undefined);
-  // "View as" wants none: every warm frame goes.
-  assert.equal(nextWarmFrame(s, [], 3).warm, undefined);
-  // The trim alone (applied at once on a switch): nothing is added, the extras go.
+  assert.deepEqual(trimWarmFrames(s, [fr('event'), fr('editorial'), fr('save_the_date')], 1).warm, [fr('event')]);
+  // "View as" wants none: every kept frame goes.
+  assert.equal(trimWarmFrames(s, [], 3).warm, undefined);
+  // The extras go.
   assert.deepEqual(trimWarmFrames(s, [fr('event')], 3).warm, [fr('event')]);
   assert.equal(trimWarmFrames({ shown: fr('rsvp'), loading: null, warm: [fr('event')] }, [fr('event')], 0).warm, undefined, 'a device with no budget keeps no stage behind — at once');
-  assert.equal(trimWarmFrames({ shown: fr('rsvp'), loading: null }, [fr('event')], 3).warm, undefined, 'the trim never adds');
-  // A warm frame still loading when a pick was drawn cannot show it: dropped, to load again after the save.
+  // A kept frame still loading when a pick was drawn cannot show it: dropped; its stage loads again when opened.
   const d = dropWarmFrames(s, new Set([canvasFrameId(fr('editorial'))]));
   assert.deepEqual(d.warm, [fr('event'), fr('save_the_date')]);
 });
@@ -146,6 +181,11 @@ test('the warm budget: 3 frames; none on a phone with ≤ 4 GB, none on save-dat
   assert.equal(warmCanvasBudget({ phone: false, deviceMemory: 4 }), MAX_WARM_FRAMES, 'a laptop is not a phone');
   assert.equal(warmCanvasBudget({ phone: false, saveData: true }), 0);
   assert.equal(warmCanvasBudget({ phone: true, deviceMemory: 8, saveData: true }), 0);
+  /* 📱 1 Nov 2026: iPhone / iPad WebKit never says its memory — it keeps no hidden stage (the iOS web view reloads,
+     "resetting the whole page", when its content process runs out). */
+  assert.equal(warmCanvasBudget({ phone: true }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: true, deviceMemory: null }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: false, deviceMemory: null }), MAX_WARM_FRAMES, 'a laptop that does not say its memory still keeps stages warm');
 });
 
 test('the buffer never re-orders a mounted iframe (moving one reloads it), and hears every frame’s ready', () => {
@@ -154,9 +194,7 @@ test('the buffer never re-orders a mounted iframe (moving one reloads it), and h
   assert.match(buffer, /const list = order\.map\(\(id\) => byId\.get\(id\)!\)/);
   // Warm frames are invisible and untappable; the shown one is untouched.
   assert.match(buffer, /role === 'warm' \? 'pointer-events-none invisible' : ''/);
-  // Warming waits: never while a save is in flight, never while the canvas is loading.
-  assert.match(buffer, /makerSavesInFlight\(\) > 0/);
-  // The shell wires it: the other stages, keyed as the shown frame would be.
+  // The shell wires it: the other stages it may keep, keyed as the shown frame would be.
   assert.match(WORK, /key: `\$\{s\}:\$\{canvasStamp\}:`/);
   assert.match(WORK, /warm=\{warmStages\}/);
   assert.match(WORK, /warmMax=\{warmBudget\}/);

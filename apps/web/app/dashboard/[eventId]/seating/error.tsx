@@ -58,6 +58,7 @@ export default function SeatingError({ error, reset }: Props) {
           </button>
           <button
             type="button"
+            // one-render: keep (retry) — the person’s retry on a seat plan that failed to render; no write came before it.
             onClick={() => router.refresh()}
             className="inline-flex items-center justify-center rounded-sm border border-ink/20 px-6 py-3 font-sans text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
           >

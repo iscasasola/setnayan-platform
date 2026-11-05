@@ -1,6 +1,7 @@
 'use client';
 
-import { MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, announceUnheldWrite, keepCanvasForRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { HUB_DRAFT_EXPECT_FIELD, onFirstUndoStep, undoJournal } from '@/lib/maker-drawn-undo';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
 import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
@@ -13,11 +14,16 @@ import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
+import { hubOwnershipOfView, hubSummaryFor, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import {
   HUB_RESET_NEVER_TOUCHES,
+  hubDraftAnswer,
   hubDraftOutcome,
+  isHubDraftIntent,
+  HUB_DROP_ALL_PRO,
   type HubDraftActionResult,
   type HubDraftBarLive,
+  type HubDraftIntent,
   type HubDraftRefusal,
   type HubDraftSummary,
   type HubResetScope,
@@ -25,6 +31,7 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
+import { canvasSettleWatch } from '@/lib/maker-settle';
 import { formatCount } from '@/lib/format-number';
 import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
 import { MAKER_BAR_PHONE } from '@/lib/maker-phone-room';
@@ -72,7 +79,9 @@ import { IconPill } from '../../launch/_components/icon-pill';
  * 💳 NO PRICE IS TYPED. `priceLabel` is the live catalogue row, formatted
  * server-side, or null (and then the figure is simply absent). In the store
  * shell (`storeShell`) there is no price, no link and no pay path — a Pro key
- * reads "Apply on the web" (owner 2026-09-25: Pro in the iPhone app, NOT YET).
+ * is held and reads "◆ N waiting for Pro", with "Remove Pro changes" (owner 2026-10-08, "keep, marked"), and never
+ * names the web (anti-steering, 3.1.1 — controller 2026-10-23). Where Apple sells Pro (`appleIap`) the dock hands
+ * `storeShell: false` and the Apply sheet asks for Event Hub Pro whole, on Apple's sheet (owner 2026-10-26).
  */
 
 export type HubDraftBarProps = {
@@ -91,9 +100,24 @@ export type HubDraftBarProps = {
   proEffects?: readonly HubProEffectView[];
   /** The Apply sheet's first-visit tour (`customer_apply_pro_v1`) — an element, drawn inside the open sheet. */
   applyTour?: ReactNode;
-  /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
+  /** 👁 Shown the event's REAL ownership (not "as a free couple", outside the store shell) — picks the half of a save's bar that is theirs. */
   ownsPro?: boolean;
+  /** 💎 What the event holds, part by part, as shown (`HubDraftBarData.ownership`) — a part owner's half of a save's bar. */
+  ownership?: HubOwnershipView;
+  /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
+  partPricePhp?: Partial<Record<HubPartId, number>>;
+  fullPricePhp?: number | null;
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Hub Pro whole, with no web figure. */
+  appleIap?: boolean;
+  /**
+   * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
+   * (`app/dev/maker-lab`) hands its own — its event is made up, and the real action sent its ↺ to the sign-in page.
+   */
+  draftAction?: HubDraftDoor;
 };
+
+/** The draft's one action, as the bar calls it (`hubDraftAction`'s own shape). */
+export type HubDraftDoor = (eventId: string, formData: FormData) => Promise<HubDraftActionResult>;
 
 /* The hidden field lives in `hub-draft-field.tsx` — a module with no server
    imports, so panels that render tests load can carry it. Re-exported here for
@@ -106,32 +130,173 @@ export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
   needs_pro: 'needs Event Hub Pro — it stays in your draft',
-  apply_on_the_web: 'can be applied on the web — it stays in your draft',
+  waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
+  song_off_the_list: 'is no longer on our music list — pick another song',
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
   date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',
+  date_before_first_event: 'is before December 19, 2026 — it stays in your draft',
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
   needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
   march_stopped: 'stopped partway — the moves before it are live; open it to see where everyone walks now',
+  address_taken: 'is no longer free to take — pick another in Details › Address; it stays in your draft',
 };
 
-function useDraftIntent(eventId: string) {
+/**
+ * One held key, in words. 💍 A date before the first event day is said in the owner's own
+ * words — the server sends that sentence AS the label (hub-draft-actions.ts), so it is not
+ * imported into the Maker's first load.
+ */
+function heldLine(h: { label: string; reason: HubDraftRefusal }): string {
+  if (h.reason === 'date_before_first_event') return h.label;
+  return `${h.label} ${HELD_REASON[h.reason]}.`;
+}
+
+/** The intents the canvas RELOADS for (never drawn by the bridge): the page shows them seconds after the press. */
+const DRAFT_INTENT_RELOADS: readonly HubDraftIntent[] = ['undo', 'restore', 'reset'];
+
+/* ↺ THE PRESS THAT DRAWS ITS OWN UNDO (`lib/maker-undo-run.ts`) is LAZY — warmed once the journal holds a step it
+   could draw (`onFirstUndoStep`), so the first ↺ never waits for it. Never in the Maker's first load. */
+type UndoRunner = typeof import('@/lib/maker-undo-run');
+let undoRunner: UndoRunner | null = null;
+let undoRunnerLoad: Promise<UndoRunner> | null = null;
+function loadUndoRunner(): Promise<UndoRunner> {
+  undoRunnerLoad ??= import('@/lib/maker-undo-run').then((m) => (undoRunner = m));
+  return undoRunnerLoad;
+}
+if (typeof window !== 'undefined') {
+  onFirstUndoStep(() => {
+    const idle = (window as { requestIdleCallback?: (fn: () => void) => void }).requestIdleCallback;
+    if (idle) idle(() => void loadUndoRunner());
+    else window.setTimeout(() => void loadUndoRunner(), 200);
+  });
+}
+
+function useDraftIntent(eventId: string, action: HubDraftDoor) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<HubDraftActionResult | null>(null);
-  const run = (fields: Record<string, string>) =>
+  /* ⏳ ONE PRESS, ONE STEP (owner 2026-10-11: "pressed undo twice before it reversed that edit"). The action answers
+     in a moment; the page shows it seconds later, after the Maker's render and the canvas's reload. In that gap ↺ was
+     live again with nothing changed on screen, and the second press was a SECOND undo. The bar now stays busy from
+     the press until the page shows it (`lib/maker-settle.ts`) — watched OUTSIDE the transition below, which must end
+     for the Maker's own render to commit. */
+  const [settling, setSettling] = useState<HubDraftIntent | null>(null);
+  /* ↺ AN UNDO THE MAKER DRAWS ITSELF (`lib/maker-drawn-undo.ts` · `lib/maker-undo-run.ts`): the journal's newest step
+     is drawn backwards in this click, and its undo is a HELD save sent OUTSIDE the transition (whose `pending` would
+     grey ↺ for the whole round trip) — no whole-Maker render, no new canvas page, and the next ↺ is live at once.
+     The bar is busy only while the page itself still moves (a scene's redraw in place, ≈ 2 s). */
+  const drawnIo = () => ({
+    send: (expect: string | null) => {
+      const fd = new FormData();
+      fd.set('intent', 'undo');
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      if (expect) fd.set(HUB_DRAFT_EXPECT_FIELD, expect);
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+      return hubDraftAnswer('undo', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' }));
+    },
+    /* The server stepped back from a state the Maker did not draw: the first render after it is the truth (#6485). */
+    truth: () => {
+      announceUnheldWrite();
+      requestMakerRefresh();
+    },
+    answered: setResult,
+  });
+  const drawnUndo = (runner: UndoRunner): boolean => {
+    const drawn = runner.runDrawnUndo(drawnIo());
+    if (!drawn) return false;
+    /* A step drawn in full at once (a bridge message) keeps the bar as it is — no render in the press itself, so the
+       page's own frame paints first; a scene's redraw in place keeps ↺ busy until it is on screen. */
+    if (drawn.now) return true;
+    setSettling('undo');
+    void drawn.settle.then(() => setSettling(null));
+    return true;
+  };
+  const run = (fields: Record<string, string>) => {
+    const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
+    if (intent === 'undo') {
+      const top = undoJournal.top();
+      if (top !== null && top !== 'barrier') {
+        if (undoRunner) {
+          if (drawnUndo(undoRunner)) return;
+        } else {
+          /* Pressed before the runner came (it is warmed at the first step): "Undoing…" now, drawn when it lands. */
+          setSettling('undo');
+          void loadUndoRunner().then(
+            (runner) => {
+              setSettling(null);
+              if (!drawnUndo(runner)) slow(fields, intent);
+            },
+            () => {
+              setSettling(null);
+              slow(fields, intent);
+            },
+          );
+          return;
+        }
+      }
+    }
+    if (intent === 'apply') {
+      applyHeld(fields);
+      return;
+    }
+    slow(fields, intent);
+  };
+  /**
+   * ✓ APPLY, ANSWERED AT ITS OWN WRITE (2026-10-15, `controller-2026-10-12/maker-speed/MEASURE.md`: Apply was an unheld
+   * save — a whole-Maker render and a NEW canvas page, ~9.8 s at production latency before the Maker was itself again,
+   * and every save after it queued behind that render). Apply changes nothing the canvas draws (the canvas IS the
+   * draft, which is now live), so it is HELD: "N changes are now live" and the count come back with the write, the
+   * canvas keeps its page (`keepCanvasForRender`), and the Maker's own render runs behind, outside any transition.
+   */
+  const applyHeld = (fields: Record<string, string>) => {
+    setSettling('apply');
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+    fd.set(HUB_DRAFT_BAR_FIELD, '1');
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+    void hubDraftAnswer('apply', () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: true, undo: 'noted' })).then((r) => {
+      setSettling(null);
+      if (r.ok) {
+        undoJournal.clear();
+        keepCanvasForRender();
+        requestMakerRefresh();
+      }
+      setResult(r);
+    });
+  };
+  /** Undo · Restore · Reset · Apply the Maker did NOT draw: the page shows them after the render they bring. */
+  const slow = (fields: Record<string, string>, intent: HubDraftIntent | null) => {
+    const watch = intent && DRAFT_INTENT_RELOADS.includes(intent) ? canvasSettleWatch() : null;
+    if (watch) {
+      setSettling(intent);
+      void watch.done.then(() => setSettling(null));
+    }
     start(async () => {
       const fd = new FormData();
       for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+      /* ↺ The count comes back with the answer (`HUB_DRAFT_BAR_FIELD`), so ✓ shows this step before the render lands. */
+      if (watch) fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* Undo · Restore · Reset · Apply are never drawn by the bridge: the
          canvas reloads (double-buffered) for the render they bring — ONE render,
          after the write, since the action no longer re-renders the Maker in its
          own response for a draft-only intent. */
-      const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
+      /* 📵 …and a request that never left (no signal) is ANSWERED, never thrown into this transition — a throw here
+         replaced the whole Maker with the app's error screen (`hubDraftAnswer`, measured 2026-10-11). */
+      /* (its own write leaves a barrier in the ↺ journal, like any unheld write — the trim below takes it off again) */
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+      const r = await hubDraftAnswer(intent, () => makerSave(() => action(eventId, fd), () => router.refresh(), { held: false }));
+      /* Refused: no render is coming — the bar is given back now, with the reason said beside ✓. */
+      if (!r.ok) watch?.cancel();
+      /* ↺ The journal follows the server: after a slow ↺, off its top (its own barrier first) until its newest step IS the server's state;
+         Restore and Apply leave no step of it standing. */
+      if (r.ok && intent === 'undo') undoJournal.trimTo(r.stamp ?? null);
+      if (r.ok && (intent === 'restore' || intent === 'apply')) undoJournal.clear();
       setResult(r);
     });
-  return { pending, result, run };
+  };
+  return { pending: pending || settling !== null, working: settling, result, run };
 }
 
 function ResultLine({ result }: { result: HubDraftActionResult | null }) {
@@ -155,7 +320,7 @@ function ResultLine({ result }: { result: HubDraftActionResult | null }) {
         <ul className="mt-1 list-disc pl-5">
           {result.held.map((h, i) => (
             <li key={`${h.label}-${i}`}>
-              {h.label} {HELD_REASON[h.reason]}.
+              {heldLine(h)}
             </li>
           ))}
         </ul>
@@ -202,6 +367,11 @@ export function HubDraftToolbar({
   proEffects: renderedProEffects = [],
   applyTour = null,
   ownsPro = false,
+  ownership,
+  partPricePhp,
+  fullPricePhp = null,
+  appleIap = false,
+  draftAction = hubDraftAction,
 }: HubDraftBarProps) {
   /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
      the bridge drew is followed by no render of the Maker (`lib/maker-refresh.ts`),
@@ -219,8 +389,11 @@ export function HubDraftToolbar({
   useEffect(() => setFromSave(null), [renderedSummary]);
   /* The save answers for both; this viewer's half is the one the render drew
      with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
-  const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
-  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  /* 💎 Part by part (2026-10-22): an event that owns some parts gets its half DERIVED from the free one — the save asked
+     nobody who owns what (`hubSummaryFor`). */
+  const owned = hubOwnershipOfView(ownership ?? { full: ownsPro, parts: [], paidPhp: 0, fullPricePhp: null });
+  const summary = fromSave ? (ownsPro ? hubSummaryFor(fromSave.free, fromSave.owned, owned) : fromSave.free) : renderedSummary;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? fromSave.proEffects.filter((e) => !ownsHubPart(owned, e.part)) : fromSave.proEffects;
   const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
   const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();
@@ -230,7 +403,7 @@ export function HubDraftToolbar({
   const [sheetOpen, setSheetOpen] = useState(false);
   const asksForPro = !storeShell && proHref !== null && proEffects.length > 0;
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
-  const { pending, result, run } = useDraftIntent(eventId);
+  const { pending, working, result, run } = useDraftIntent(eventId, draftAction);
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);
@@ -243,6 +416,7 @@ export function HubDraftToolbar({
      once in every Maker with a work area, so it answers. */
   const router = useRouter();
   useEffect(() => {
+    // one-render: keep (no-revalidate) — a Maker control with no router of its own (the RSVP settings) saved to the draft — which revalidates nothing — and asks for its one render here.
     const refresh = () => router.refresh();
     window.addEventListener(MAKER_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(MAKER_REFRESH_EVENT, refresh);
@@ -271,19 +445,21 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
+  /** The ✓ count — also told to the shell (`MakerDraftDoor.count`). */
+  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   useEffect(() => {
     if (!setDraftDoor) return;
     setDraftDoor({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
+      count: applyCount,
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore]);
+  }, [setDraftDoor, canRestore, applyCount]);
   /* ✓ APPLY IS AN ICON NOW (owner 2026-10-04, *"apply icon · undo icon · exit
      icon"*): its name says the count — "Apply 3 changes" — and its FIRST tap
      opens the Apply sheet; only the sheet's labelled Apply publishes, so a
      mis-tap on a 44 px circle never puts anything live. */
-  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   const applyName = `Apply ${formatCount(applyCount)} ${applyCount === 1 ? 'change' : 'changes'}`;
   /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
      on the canvas, which is a frame of its own (a tap there never reaches this
@@ -422,14 +598,15 @@ export function HubDraftToolbar({
           bar="icon"
           phone={{ width: MAKER_BAR_PHONE.undoTop }}
           disabled={pending || !summary.canUndo}
-          disabledReason="Nothing to undo yet"
+          disabledReason={working === 'undo' ? 'Undoing — one moment' : 'Nothing of yours to undo'}
+          working={working === 'undo'}
           onClick={() => act({ intent: 'undo' })}
         />
         {/* 👁 The shell's Preview menu, beside Undo (owner 2026-10-04: ⋯ → Preview). */}
         {maker?.previewMenu ?? null}
       </IconPill>
       <IconPill tone="apply">
-      <span className="relative inline-flex" data-maker-apply="">
+      <span className="relative inline-flex" data-maker-apply="" data-tour="maker-apply">
         <DraftButton
           label="Apply"
           name={applyName}
@@ -460,7 +637,8 @@ export function HubDraftToolbar({
           effects={asksForPro ? proEffects : []}
           changeCount={summary.changeCount}
           changes={summary.changes}
-          heldOnWeb={storeShell ? summary.proCount : 0}
+          heldForPro={storeShell ? summary.proCount : 0}
+          onRemoveHeld={storeShell ? () => run({ intent: 'drop', effect: HUB_DROP_ALL_PRO }) : undefined}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}
@@ -472,6 +650,14 @@ export function HubDraftToolbar({
           }}
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
+          pricing={
+            /* 🍎 The app sells Event Hub Pro whole — never part by part (owner 2026-10-26: "just have the upgrade event
+               hub pro"); its sheet is the one-unlock sheet. On the web the parts follow the catalogue: none on sale →
+               no part price was read → the same one-unlock sheet. */
+            !storeShell && !appleIap && partPricePhp && Object.keys(partPricePhp).length > 0
+              ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
+              : null
+          }
         />,
         document.body,
       ) : null}
@@ -510,8 +696,9 @@ export function HubDraftToolbar({
           )}
           {summary.proCount > 0 &&
             (storeShell ? (
-              <p className="text-sm text-ink/70">
-                {summary.proCount === 1 ? 'One change' : `${formatCount(summary.proCount)} changes`} can be applied on the web.
+              <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
+                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">
@@ -594,11 +781,11 @@ function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDr
   if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
   if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
   if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;
-  const all = outcome.held.map((h) => `${h.label} ${HELD_REASON[h.reason]}.`).join(' ');
+  const all = outcome.held.map(heldLine).join(' ');
   const one = outcome.held.length === 1 ? outcome.held[0]! : null;
   return (
     <span role="alert" data-maker-save-status="held" title={all} className={loud}>
-      {one ? `${one.label} ${HELD_REASON[one.reason]}.` : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
+      {one ? heldLine(one) : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
     </span>
   );
 }

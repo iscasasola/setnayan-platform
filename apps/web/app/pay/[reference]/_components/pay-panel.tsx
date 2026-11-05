@@ -7,6 +7,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
@@ -302,7 +304,7 @@ export function PayPanel({
 
           <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
             Paying on the same phone? Save the code to your photos first &mdash; your wallet&rsquo;s
-            scanner can open it from your gallery. Sending to BDO from another bank usually costs you
+            scanner can open it from your photos. Sending to BDO from another bank usually costs you
             a ₱10&ndash;₱15 transfer fee; GCash to GCash is free.
           </p>
 
@@ -534,6 +536,8 @@ function ProofForm({
   const [preview, setPreview] = useState<string | null>(null);
   const [big, setBig] = useState(false);
   const urlRef = useRef<string | null>(null);
+  const bigRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: big && !!preview, onClose: () => setBig(false), containerRef: bigRef });
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(
@@ -644,20 +648,19 @@ function ProofForm({
 
       {big && preview && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/85 p-5"
-          role="button"
-          tabIndex={0}
-          aria-label="Close the enlarged screenshot"
-          onClick={() => setBig(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') setBig(false);
-          }}
+          ref={bigRef}
+          className="fixed inset-0 z-50 grid place-items-center p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Your payment screenshot, enlarged"
         >
+          <OverlayBackdrop onClose={() => setBig(false)} label="Close the enlarged screenshot" />
+          {/* A tap on the picture still closes it, as before: it lets the tap through to the backdrop. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
             alt="Your payment screenshot, enlarged"
-            className="max-h-[86vh] max-w-[min(420px,88vw)] rounded-xl bg-white"
+            className="pointer-events-none relative max-h-[86vh] max-w-[min(420px,88vw)] rounded-xl bg-white"
           />
         </div>
       )}
@@ -699,7 +702,7 @@ function StickyBar({
   const target = proofSent ? prevStage(stage) : nextStage(stage);
 
   return (
-    <div data-glass-row="pay-bar" className="sn-glass-row fixed inset-x-0 bottom-0 z-40 px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+    <div data-glass-row="pay-bar" className="sn-glass-row fixed inset-x-0 bottom-0 z-40 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-[560px] items-center gap-3">
         <span className="whitespace-nowrap font-mono text-[17px] font-bold text-ink">
           <span className="block font-sans text-[11px] font-normal text-ink/55">

@@ -57,7 +57,7 @@ before(async () => {
 /** Minimal thenable query builder — every chained filter returns itself; rpc too. */
 function stubClient(result: { data: unknown; error: unknown; count?: number | null }): SupabaseClient {
   const builder: Record<string, unknown> = {};
-  for (const m of ['from', 'select', 'eq', 'neq', 'in', 'is', 'not', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'order', 'limit', 'maybeSingle', 'single', 'rpc']) {
+  for (const m of ['from', 'select', 'eq', 'neq', 'in', 'is', 'not', 'or', 'gt', 'gte', 'lt', 'lte', 'like', 'ilike', 'order', 'limit', 'maybeSingle', 'single', 'rpc']) {
     builder[m] = () => builder;
   }
   builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(result).then(resolve);

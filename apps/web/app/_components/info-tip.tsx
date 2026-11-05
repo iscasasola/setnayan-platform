@@ -24,6 +24,16 @@
  * "glass layers drop their hairline". The trigger keeps its round hairline: it
  * is a control, and controls keep their radius (owner, 2026-09-24).
  *
+ * 🎯 THIS IS THE ONE ⓘ LOOK (owner 2026-10-25, *"the (i) is not consistent across the app"*): grey ink at rest — an
+ * ink/25 hairline, a 10-px semibold ink/55 "i" — and `terracotta` only while hovered or open (on a guest page that is
+ * the couple's own colour: every hub look moves it). `<Explain>` and every hand-drawn ⓘ copy these classes;
+ * `there-is-one-info-dot.test.ts` reads them from HERE, so change the look in this file and every ⓘ is held to it.
+ *
+ * 👆 THE CIRCLE IS DRAWN 16 PX AND PRESSES AT 46 × 46: `.sn-dot-btn`'s invisible
+ * `::after` halo (`globals.css`) reaches the 44-px floor around it, so the drawing
+ * never grows (sweep 2026-10-19 B11; `lib/the-shared-controls-press-at-44.test.ts`).
+ * Do not give the button `overflow-hidden` — it would clip its own press.
+ *
  * Only put here what a person does NOT need before acting. Costs, dates,
  * balances, errors and consequences stay on the page.
  */
@@ -119,7 +129,7 @@ export function InfoTip({
         onClick={() => dispatch({ type: 'click' })}
         onFocus={() => dispatch({ type: 'focus' })}
         onBlur={() => dispatch({ type: 'blur' })}
-        className="sn-press sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>

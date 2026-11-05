@@ -24,6 +24,7 @@ import {
   unmetPublishRequirements,
 } from '@/lib/service-publish-gate';
 import { formatCount } from '@/lib/format-number';
+import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
 
 /**
  * ServiceWizard — the guided "create a service" flow (vendor Services builder
@@ -155,8 +156,16 @@ export function ServiceWizard({
 
   const show = (id: string) => (activeId === id ? {} : { hidden: true });
 
+  // Every one-line field's Return key reads "next" on a phone — same as the canvas maker.
+  useEffect(() => {
+    markReturnAsNext(formRef.current);
+  });
+
   return (
-    <form ref={formRef} action={commitVendorService} className="space-y-5">
+    // ⏎ RETURN NEVER SAVES THE CARD (2026-11-05) — the same guard canvas-maker.tsx carries (owner 2026-11-04, "after
+    // i placed the price, it finished"). This older form is the one shown while the canvas-maker flag is off, and a
+    // price + Return here submitted it the same way. lib/return-moves-on.ts
+    <form ref={formRef} action={commitVendorService} onKeyDown={returnMovesOn} className="space-y-5">
       <input type="hidden" name="category" value={categoryValue} />
       {/* C3 2026-08-28 — always empty here on purpose. The wizard takes its
           category from the URL route and has no kind-SEARCH band (that only
@@ -338,7 +347,7 @@ export function ServiceWizard({
         </div>
         <p className="text-sm text-ink/55">
           Say yes and every couple who books this card gets{' '}
-          <span className="font-medium text-ink">free Papic photos</span> for their celebration,
+          <span className="font-medium text-ink">free Papic photos</span> for their event,
           given in your name. How many is worked out from your booking fee and shown on the quote —
           there is nothing here for you to set. It is added to your lock bill, capped at 40% of that
           fee. Optional: your card publishes either way.

@@ -143,7 +143,7 @@ test('the kind-neutral fallback replaced the wedding-shaped one everywhere', () 
         `graduation. Use UNNAMED_EDITORIAL_LABEL.`,
     );
   }
-  assert.equal(UNNAMED_EDITORIAL_LABEL, 'A Setnayan celebration');
+  assert.equal(UNNAMED_EDITORIAL_LABEL, 'A Setnayan event');
 });
 
 test('every live kind is eligible while no ruling is in force', () => {

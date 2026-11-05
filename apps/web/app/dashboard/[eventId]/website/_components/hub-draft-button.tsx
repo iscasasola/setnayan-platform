@@ -36,6 +36,7 @@ export function DraftButton({
   disabledReason,
   onClick,
   name,
+  working = false,
 }: {
   /**
    * 📱 The Maker's one-row phone bar (owner 2026-10-02): this button's phone
@@ -56,6 +57,8 @@ export function DraftButton({
   disabled: boolean;
   disabledReason: string;
   onClick: () => void;
+  /** ⏳ This button's own press is still on its way to the page (`lib/maker-settle.ts`): it says so, and takes no other. */
+  working?: boolean;
 }) {
   const said = name ?? label;
   return (
@@ -65,11 +68,13 @@ export function DraftButton({
         disabled={disabled}
         onClick={onClick}
         aria-label={said}
+        aria-busy={working || undefined}
+        data-working={working ? '' : undefined}
         title={disabled ? `${said} — ${disabledReason}` : said}
         data-bar-item={phone ? label : undefined}
         className={
           bar
-            ? `${bar === 'apply' ? MAKER_BAR_APPLY : MAKER_BAR_ICON} ${phone ? phone.width : ''}`
+            ? `${bar === 'apply' ? MAKER_BAR_APPLY : MAKER_BAR_ICON} ${phone ? phone.width : ''}${working ? ' animate-pulse' : ''}`
             : `${
                 primary
                   ? 'button-primary sn-press inline-flex h-10 min-h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px]'

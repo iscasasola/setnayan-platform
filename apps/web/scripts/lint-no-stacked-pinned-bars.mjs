@@ -183,8 +183,15 @@ function pinnedFiles(dir) {
  */
 function renderDirs(route) {
   const own = join(ROOT, 'app', route.replace(/^\//, ''));
+  // 🪤 AND THE ROUTE GROUP. /explore and /alaala serve from app/(shell)/<seg>/
+  // and NOTHING exists at app/<seg> — so until 2026-10-19 this returned no
+  // directories for two of the three shelled routes and the check below passed
+  // them having read nothing. The group segment is invisible in the URL and
+  // present on disk; both spellings are looked up.
+  const grouped = join(ROOT, 'app', '(shell)', route.replace(/^\//, ''));
   const dirs = new Set();
   if (existsSync(own)) dirs.add(own);
+  if (existsSync(grouped)) dirs.add(grouped);
   for (const d of [...dirs]) {
     for (const n of readdirSync(d)) {
       if (!/^page\.tsx$/.test(n)) continue;
@@ -253,7 +260,10 @@ if (violations.length > 0) {
   point and must stay pinned, so the PAGE's own strip parks beneath it — at the
   shell's own height token, never a hand-typed number and never bare `top-0`.
 */
-const SHELL_ROUTES = ['/explore', '/help', '/alaala'];
+// '/features' joined 2026-10-19 (sweep C5): the hub's page.tsx moved into
+// app/(shell)/, but its BODY (<FeaturesPageBody>, every section) still lives in
+// app/features/, which is the directory this scan reads for that route.
+const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features'];
 /** Parked under the shared bar: reads the shell's token, directly or in calc(). */
 const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
 

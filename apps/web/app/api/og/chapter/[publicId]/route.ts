@@ -29,6 +29,10 @@ import { renderChapterOgJpeg } from '@/lib/social/chapter-card';
  * to follow within the hour.
  */
 export const runtime = 'nodejs';
+// ⏱ A share picture takes seconds. Without this the function's limit is the
+// platform's 300 s, so a stalled read held a crawler for five minutes. The photo
+// fetch has its own limit (lib/social/card-photo-fetch.ts); this bounds the rest.
+export const maxDuration = 30;
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'

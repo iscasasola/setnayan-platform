@@ -9,6 +9,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { mediaCacheControl, presignR2GetSync, stableSigningWindow } from '@/lib/r2-stable-sign';
 
 /**
  * Cloudflare R2 client + bucket constants.
@@ -517,6 +518,34 @@ export async function r2SignedGet(args: {
   );
 }
 
+
+/**
+ * 📸 A media-bucket GET that keeps ONE address through a signing window, and tells the browser to keep the file
+ * (`lib/r2-stable-sign.ts` — owner 2026-10-20, *"we want all pages to load at its fastest."*).
+ *
+ * The same key signs to the same URL until the window rolls (12 h for the 24 h default), so a guest's second visit
+ * and every page in between reuse the browser's copy instead of downloading the photo again; `Cache-Control` rides
+ * in the signed `response-cache-control` parameter — immutable for an upload-named key, an hour otherwise. The URL
+ * lives at least `ttlSeconds` from now, exactly as before.
+ *
+ * 🔒 THE MEDIA BUCKET ONLY — hard-wired, not a parameter. Private buckets keep the SDK signer and their fresh,
+ * short links (`presignDisplayUrl`). Synchronous (a local HMAC), so the theme ground can sign on its sync path.
+ * Throws if R2 is not configured, like every signer here.
+ */
+export function r2StableMediaGet(key: string, ttlSeconds = 60 * 60 * 24, nowMs = Date.now()): string {
+  requireR2Client();
+  const { signingDate, expiresIn } = stableSigningWindow(ttlSeconds, nowMs);
+  return presignR2GetSync({
+    accountId: process.env.R2_ACCOUNT_ID as string,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
+    bucket: R2_BUCKETS.media,
+    key,
+    signingDate,
+    expiresIn,
+    responseCacheControl: mediaCacheControl(key),
+  });
+}
 
 /**
  * Read an object's BYTES on the server, without ever minting a URL for it.

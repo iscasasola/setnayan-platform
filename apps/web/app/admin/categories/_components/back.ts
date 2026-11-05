@@ -10,10 +10,15 @@
  * Address shape — `/admin/categories?list=…&open=…&q=…&show=…`:
  *   list  categories (default) · event-types · religions
  *   open  g:<group id> · c:<category id> · s:<service key>   (categories list)
+ *         p:<part key> · k:<service card id>                 (categories — the four-level map, ③b)
  *         <event_type>                                       (event types)
  *         <faith_key> · mixed                                (religions)
  *   show  requests · unfiled · religion · scoped · hidden · words (categories)
- *   add   1 = the inline "+ Add" row is open
+ *         needs · parts · nosvc-cat · nosvc-part             (the map's Show ▾, ③b)
+ *   in    g:<group> · c:<category> — where the map stands (③b)
+ *   at    the item the map has selected, drawer closed (③b)
+ *   add   1 = the inline "+ Add" row is open (event types · religions; the
+ *         categories list adds on the last row of each column since ③b)
  *
  * Pure: no React, no Supabase — imported by the server page, the client
  * islands and the 'use server' action files alike.
@@ -24,7 +29,7 @@ export const CATEGORIES_PATH = '/admin/categories';
 export const LISTS = ['categories', 'event-types', 'religions'] as const;
 export type CategoriesList = (typeof LISTS)[number];
 
-export const SHOWS = ['requests', 'unfiled', 'religion', 'scoped', 'hidden', 'words'] as const;
+export const SHOWS = ['requests', 'unfiled', 'religion', 'scoped', 'hidden', 'words', 'needs', 'parts', 'nosvc-cat', 'nosvc-part'] as const;
 export type CategoriesShow = (typeof SHOWS)[number];
 
 export type BackState = {
@@ -52,13 +57,15 @@ export function cleanOpen(v: string | null | undefined): string {
 
 /** Build a page address. Empty values are left out so URLs stay short. */
 export function categoriesHref(
-  state: Partial<BackState> & { add?: boolean; ok?: string; error?: string },
+  state: Partial<BackState> & { add?: boolean; ok?: string; error?: string; in?: string; at?: string },
 ): string {
   const p = new URLSearchParams();
   const list = state.list ?? 'categories';
   if (list !== 'categories') p.set('list', list);
   if (state.q) p.set('q', state.q.slice(0, 80));
   if (state.show && list === 'categories') p.set('show', state.show);
+  if (state.in && list === 'categories') p.set('in', cleanOpen(state.in));
+  if (state.at && list === 'categories' && !state.open) p.set('at', cleanOpen(state.at));
   if (state.open) p.set('open', cleanOpen(state.open));
   if (state.add) p.set('add', '1');
   if (state.ok) p.set('ok', state.ok);
@@ -117,7 +124,20 @@ export function readState(sp: SearchParamsRecord): BackState {
     if (view === 'faith') show = 'religion';
   }
   let open = cleanOpen(first(sp.open));
-  if (list === 'categories' && open && !/^[gcs]:/.test(open)) open = `c:${open}`;
+  if (list === 'categories' && open && !/^[gcspk]:/.test(open)) open = `c:${open}`;
   return { list, open, q: first(sp.q).trim().slice(0, 80), show: list === 'categories' ? show : '' };
 }
 
+
+/**
+ * Where the four-level map stands (③b): `in` (a group or category), `at` (the selected item while no
+ * drawer is open). Old addresses keep working: `?open=c:<id>` / `g:` / `s:` (every link and every
+ * redirect the page has ever written) opens that item's drawer with the map standing on it, and the
+ * retired `?add=1` on the categories list simply lands on the map — each column ends in its own
+ * "＋ Add …" row now.
+ */
+export function readMapParams(sp: SearchParamsRecord): { in: string; at: string } {
+  const ctx = cleanOpen(first(sp.in));
+  const at = cleanOpen(first(sp.at));
+  return { in: /^[gc]:/.test(ctx) ? ctx : '', at: /^[gcspk]:/.test(at) ? at : '' };
+}

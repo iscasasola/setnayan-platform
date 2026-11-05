@@ -90,7 +90,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
   const heading = isClaim ? `Claim your profile, ${row.name}` : `Take over ${row.name}'s care`;
   const body = isClaim
     ? `A guardian has kept your profile — your dates and milestones — inside their Setnayan account while you grew up. You're of age now: claiming it makes it yours. They'll keep the memories, read-only.`
-    : `A guardian wants to hand ${row.name}'s profile over to you. Accepting moves it into your account — their dates and celebrations become yours to keep.`;
+    : `A guardian wants to hand ${row.name}'s profile over to you. Accepting moves it into your account — their dates and events become yours to keep.`;
 
   return (
     <DoorShell eyebrow="Loved ones" title={heading} sub={body}>

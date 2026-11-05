@@ -74,6 +74,8 @@ const CONSIDERING_80K = vendor({
 
 /** What the resolver returns for that event: ₱80,000 is an ESTIMATE. */
 const MONEY_80K_ESTIMATED: EventMoney = {
+  // Every source answered — this fixture is about WHICH pesos count, not about a refused read.
+  reads: { suppliers: 'ok', orders: 'ok', costs: 'ok' },
   targetPhp: 500_000,
   estimated: 80_000,
   committed: 0,

@@ -25,7 +25,9 @@ export type ServiceName = {
 
 export const SERVICE_NAMES: Readonly<Record<ServiceNameKey, ServiceName>> = {
   'setnayan-ai': { plain: 'Planner', brand: 'Setnayan AI' },
-  papic: { plain: 'Guest photos', brand: 'Papic' },
+  /* 📷 PAPIC IS ITS OWN NAME (owner 2026-10-26, on Home's card: *"name it Papic and not Guest Photos"*): the one
+     service whose brand reads first — what it does ("Guest photos") is the small line under it. */
+  papic: { plain: 'Papic', brand: 'Guest photos' },
   'live-studio': { plain: 'Live stream', brand: 'Live Watch' },
   'music-maker': { plain: 'Music', brand: 'Music Maker' },
   patiktok: { plain: 'Video booth', brand: 'Patiktok' },
@@ -35,7 +37,7 @@ export function serviceName(key: ServiceNameKey): ServiceName {
   return SERVICE_NAMES[key];
 }
 
-/** The pair on one line, where there is no room for two: "Guest photos · Papic". */
+/** The pair on one line, where there is no room for two: "Papic · Guest photos". */
 export function serviceNameLine(key: ServiceNameKey): string {
   const n = SERVICE_NAMES[key];
   return `${n.plain} · ${n.brand}`;

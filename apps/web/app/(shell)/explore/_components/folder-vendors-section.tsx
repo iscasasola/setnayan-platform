@@ -157,7 +157,7 @@ export async function FolderVendorsSection({
             id={`${folderSlug}-vendors-preview-heading`}
             className="text-lg font-semibold tracking-tight text-ink sm:text-xl"
           >
-            Top {folderLabel.toLowerCase()} vendors right now
+            Top {folderLabel.toLowerCase()} suppliers right now
           </h2>
         </div>
         <Link
@@ -190,7 +190,7 @@ export async function FolderVendorsSection({
           href={seeAllHref}
           className="text-xs font-medium text-terracotta hover:underline"
         >
-          See all {folderLabel.toLowerCase()} vendors →
+          See all {folderLabel.toLowerCase()} suppliers →
         </Link>
       </p>
     </section>

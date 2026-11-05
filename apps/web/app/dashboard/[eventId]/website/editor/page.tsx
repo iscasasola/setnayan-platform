@@ -1,7 +1,10 @@
+import { startAhead } from '@/lib/start-ahead';
+import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
+import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
-import { makerMediaMeterState } from '@/lib/maker-media-limits';
+import { coupleMediaCapBytes, makerMediaMeterState } from '@/lib/maker-media-limits';
 import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
@@ -13,31 +16,34 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventCoupleWebsiteProActive, eventHubPartActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { getLifecyclePhase, manualLaunchPhase } from '@/lib/invitation-widgets';
-import { LaunchStdButton } from '../../studio/save-the-date/_components/launch-std-button';
+import { LaunchStdButton } from '../../launch/_components/details-lazy';
 import {
   MakerWork,
   type MakerRowPanel,
   type MakerScene,
   type RailGroup,
 } from './_components/editor-shell';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId, themeBackgroundName } from '@/lib/invite-themes';
 import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, hubMovingBackgroundIds, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubMusicButton } from '@/lib/hub-music-button';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { siteSkin } from '@/app/[slug]/_components/skins/site-skin';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, LookSample, MainBackgroundPanel, ProLockPanel, SceneBackgroundRow } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
+import { SCRUB_OUT_OFFERED, offeredTransition } from '@/lib/scrub-out-offered';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
    what returned a 500 for the whole editor (production 2026-09-23, digest
@@ -51,12 +57,13 @@ import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
 } from '@/lib/invitation-words-draft';
+/* ⚡ The rows' panels load when a row opens — stand-ins with the same names and props (details-lazy.tsx). */
 import {
   HeroPhotoPanel,
   GalleryPanel,
   SiteChromePanel,
   VisibilityPanel,
-} from './_components/media-panels';
+} from '../../launch/_components/details-lazy';
 import { updateSiteColors } from '../colors/actions';
 import { uploadHeroPhoto } from '../hero-photo/actions';
 import {
@@ -71,20 +78,21 @@ import { updateOurPhotos } from '../our-photos/actions';
 import { updateSiteChrome } from '../site-chrome/actions';
 import { updateLandingPageVisibility } from '../privacy/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { fetchHubMusicChoices } from '@/lib/hub-music-server';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { SectionsPanel } from './_components/sections-panel';
 import {
-  DressCodePanel,
   PhotoMomentsPanel,
   StoryPanel,
   SchedulePeekPanel,
   StdPanel,
   EditorialPanel,
 } from './_components/authoring-panels';
-import {LaunchPhasePanel,
+import {DressCodePanel,
+  LaunchPhasePanel,
   OpenBrowsePanel,
   RsvpBackdropPanel,
-  } from './_components/media-panels';
+  } from '../../launch/_components/details-lazy';
 import { launchPhaseLabel } from './_components/launch-phase-choices';
 import { clearRsvpBackdrop, saveRsvpBackdrop, setLaunchPhase, setOpenBrowse } from './actions';
 import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop';
@@ -93,8 +101,9 @@ import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { mainColoursOf } from '@/lib/main-colours';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
-import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-config';
 import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
@@ -196,10 +205,115 @@ export default async function WebsiteEditorPage({
 
   const supabase = await createClient();
 
+  /* ⚡ INSIDE THE MAKER, THE EDITOR'S READS LEAVE AT ONCE (2026-10-23, after "the tools arrive behind the Maker"). The
+     Maker draws this page as its canvas, and production showed the canvas still starting only as the Maker page ended:
+     the batch below needs nothing but this event's id, yet waited for the event row and then for the Pro question — two
+     trips in single file before any of it left. Inside the Maker (`maker=1`, read off the address before any read) the
+     batch and the Pro question now start HERE, beside the event row; every gate below still stands where it stood and
+     every value is still awaited where it always was, so a viewer the gates turn away is redirected with nothing drawn
+     (a started read's answer is simply dropped). Opened on its own — every save lands here, then forwards to the Maker —
+     nothing starts early: that path still forwards before a single one of them leaves. Nothing here writes.
+     Held by `the-maker-reads-start-together.test.ts`. */
+  const startEditorReads = () => {
+    const draftRead = startAhead(readHubDraft(supabase, eventId));
+    const widgetsRead = startAhead(Promise.resolve(
+      supabase
+        .from('invitation_widgets')
+        .select(
+          'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
+        )
+        .eq('event_id', eventId),
+    ));
+    const prefsRead = startAhead(Promise.resolve(
+      supabase
+        .from('events_host')
+        .select('style_preferences')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ));
+    const scheduleBlocksRead = startAhead(Promise.resolve(
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, start_at, location')
+        .eq('event_id', eventId)
+        .eq('is_public', true)
+        .is('audience', null)
+        .neq('visibility', 'coordinator_only')
+        .order('start_at', { ascending: true })
+        .limit(12),
+    ));
+    const couplePeopleRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
+        .select(ENTOURAGE_COLUMNS)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .in('role', ['bride', 'celebrant', 'groom'])
+        .limit(3),
+    ));
+    const riteRead = startAhead(Promise.resolve(
+      supabase
+        .from('events')
+        .select('ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ));
+    const roleRowsRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        .select('role')
+        .eq('event_id', eventId)
+        .is('deleted_at', null),
+    ));
+    const entourageRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`),
+    ));
+    const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
+    const revealStagesRead = startAhead(readMakerRevealStages(eventId));
+    const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
+    return { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
+  };
+  const readPro = () =>
+    Promise.all([
+      /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
+         viewer who switched on "View as a free couple" gets every padlock and
+         Pro offer below. Render only — each panel's action asks the real gate. */
+      (async () => asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)))(),
+      /* 📷 The one camera's Pro dress (owner 2026-10-24, `lib/camera-dress.ts`): the Logo & QR part or Full Pro — the
+         SAME ownership answer the line above asked (`eventHubOwnership`, asked once per render), as the viewer is shown it. */
+      (async () => asViewed(eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'logo_qr')))(),
+      /*
+        ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
+        `platform_retail_catalog_v2` is admin-managed and is the only figure a
+        customer is ever charged. Null on failure, and every unlock button then
+        renders with no number rather than a remembered one (`unlock-label.ts`).
+      */
+      formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    ]);
+  const editorReads = inMaker === '1' ? startEditorReads() : null;
+  const proReads = inMaker === '1' ? startAhead(readPro()) : null;
+
+  // ⚡ The couple-only gate's read needs only the event id and the viewer, so it leaves WITH the event row below and
+  // is awaited where the gate always stood (2026-10-23, the speed pass).
+  const membershipRead = startAhead(Promise.resolve(
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+  ));
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_roles, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -214,32 +328,14 @@ export default async function WebsiteEditorPage({
 
   // Couple gate — mirrors the launch surface this page absorbs (its go-live
   // actions are requireCouple).
-  const { data: membership, error: membershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .eq('member_type', 'couple')
-    .maybeSingle();
+  const { data: membership, error: membershipError } = await membershipRead;
   // ⚠ the viewer's membership. An absence here DENIES rather than renders.
   if (membershipError) {
     logQueryError('WebsiteEditorPage.membership', membershipError, { eventId }, 'graceful_degrade');
   }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [ownsPro, proSku] = await Promise.all([
-    /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
-       viewer who switched on "View as a free couple" gets every padlock and
-       Pro offer below. Render only — each panel's action asks the real gate. */
-    asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
-    /*
-      ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
-      `platform_retail_catalog_v2` is admin-managed and is the only figure a
-      customer is ever charged. Null on failure, and every unlock button then
-      renders with no number rather than a remembered one (`unlock-label.ts`).
-    */
-    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
-  ]);
+  const [ownsPro, cameraPro, proSku] = await (proReads ?? readPro());
   // A plain string crosses to the client panels — never a function or icon.
   const proPriceLabel = proPriceLabelFrom(proSku?.price_php, formatPhp);
 
@@ -265,6 +361,8 @@ export default async function WebsiteEditorPage({
     (event.event_date as string | null) ?? null,
     ((event as { timezone?: string | null }).timezone) ?? undefined,
     (event as { event_end_date?: string | null }).event_end_date ?? null,
+    undefined,
+    (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
   );
   const initialPhase = pinnedPhase ?? clockPhase;
 
@@ -280,7 +378,25 @@ export default async function WebsiteEditorPage({
     redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
   }
   // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.
-  const storeShell = await isStoreShellRequest();
+  /*
+    ⚡ THE EDITOR'S OWN READS START HERE, TOGETHER (2026-10-23, the speed pass). Past the couple-only gate and the
+    Maker-only redirect above, every read below needs nothing but this event's id — the draft, the scenes, the fixed
+    styles, the public schedule, the couple's names, the rite, the roles and their names, the entourage count, where
+    the reveal plays and the logo's fonts — yet each waited for the one above it: fourteen database trips in single
+    file AFTER the Maker page had already returned. Each is STARTED together (inside the Maker before the gates, above —
+    `startEditorReads`; otherwise here) with exactly the arguments it always had and
+    awaited at the line that always awaited it (`lib/start-ahead.ts`), so every value, every fallback and every refusal
+    arrives where it did; every one is awaited on every path below. Nothing here writes (`readPostEventForMaker`,
+    which may, stays where it was). Held by `the-maker-reads-start-together.test.ts`.
+  */
+  const { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
+  const iapGate = await getIapGate();
+  const storeShell = iapGate.storeShell;
+  /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
+     2026-10-18): then a Pro control is TRIED in the draft and Apply asks for Pro
+     through Apple's sheet — the web's rule. `proShell` is the store shell FOR
+     PRO TRYING only; every price, pitch, web link and tour keeps `storeShell`. */
+  const proShell = storeShell && !iapGate.iap;
 
   // Locked = no Pro AND no existing content (the grandfather rule shipped in
   // PR #3664 — a couple who already has content keeps editing it).
@@ -292,8 +408,8 @@ export default async function WebsiteEditorPage({
      Pro pick and the Apply sheet names it. It stays locked (so HIDDEN) only in
      the app-store shell. Rows whose writer is still LIVE (music, the gallery)
      keep `lockedIf`: unlocking them would be a save the server refuses. */
-  const draftedRowLockedIf = (hasContent: boolean) => storeShell && lockedIf(hasContent);
-  const proMark = makerProMark({ owns: ownsPro, storeShell });
+  const draftedRowLockedIf = (hasContent: boolean) => proShell && lockedIf(hasContent);
+  const proMark = makerProMark({ owns: ownsPro, storeShell: proShell });
   const proUnlockHref = `${base}/studio/website-pro`;
   /** A locked Pro row's inline panel: one honest line + the ONE umbrella CTA.
    *  Nothing at all in the store shell — no pitch, no price (App Review 3.1.1). */
@@ -312,10 +428,27 @@ export default async function WebsiteEditorPage({
   // Read here — before the media below — so the panels can show what is drafted.
   let hubDraft: HubDraft | null = null;
   try {
-    hubDraft = await readHubDraft(supabase, eventId);
+    hubDraft = await draftRead;
   } catch (e) {
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
+  /* ⚡ POST EVENT LEAVES AS SOON AS ITS INPUTS ARE IN (2026-10-23): the event's dates and the draft — both here, past
+     the couple-only gate. The SAME one call as below (see there for why this open may write), started here rather than
+     after the scenes' content map, and awaited where it always was. */
+  const postEventRead = startAhead(
+    readPostEventForMaker({
+      eventId,
+      eventEnded:
+        resolveHubPhase({
+          measured: true,
+          eventDate: (event.event_date as string | null) ?? null,
+          eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+          timezone: (event as { timezone?: string | null }).timezone ?? null,
+        }) === 'after',
+      isCouple: true,
+      draftEditorial: hubDraft?.editorial ?? null,
+    }),
+  );
   const musicRef = (event.site_bg_music_r2_key as string | null) ?? null;
   const videoRef = (event.landing_page_hero_video_r2_key as string | null) ?? null;
   const galleryRefs = ourPhotos.filter((r): r is string => typeof r === 'string');
@@ -347,14 +480,18 @@ export default async function WebsiteEditorPage({
     );
     return out;
   };
-  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay] = await Promise.all([
+  const [heroDisplay, galleryDisplay, chromeDisplay, stdBgDisplay, ourMusic] = await Promise.all([
     displayFor([heroRef]),
     displayFor([...new Set([...galleryRefs, ...panelGalleryRefs])]),
     displayFor([musicRef, videoRef, panelMusicRef, panelVideoRef]),
     displayFor([stdBgRef]),
+    // 🎵 Look › Music › Our music — the published tracks (owner 2026-10-08).
+    // A refused read is `{ ok: false }`, drawn as "couldn't load", never as none.
+    /* ⚡ The same list for every couple: a cached read (`HUB_MUSIC_TAG`), not one per Maker render. */
+    fetchHubMusicChoices(),
   ]);
 
-  /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a
+  /* 💾 THE PLAN'S ALLOWANCE (Free 10 MB · Pro 500 MB), shown where the uploads happen (Upload media on a
      scene, the Main background). The counter only grows between settles, so a
      picture the couple removed still sits on it: settle it — R2's own sizes of
      what the event still keeps (`lib/couple-media-allowance.ts`). Near the cap
@@ -363,7 +500,7 @@ export default async function WebsiteEditorPage({
      and the next refresh (every save brings one) shows the freed bytes. */
   const countedMediaBytes = (event as { couple_media_bytes?: number | null }).couple_media_bytes ?? 0;
   let mediaUsedBytes = countedMediaBytes;
-  if (makerMediaMeterState(countedMediaBytes).isNear) {
+  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(ownsPro)).isNear) {
     mediaUsedBytes = (await settleCoupleMediaBytes(eventId)) ?? countedMediaBytes;
   } else if (countedMediaBytes > 0) {
     after(async () => {
@@ -405,12 +542,7 @@ export default async function WebsiteEditorPage({
   ).slice(0, 8);
 
   // Sections manager data — the same reads the widgets sub-editor does.
-  const { data: widgetsRaw, error: widgetsRawError } = await supabase
-    .from('invitation_widgets')
-    .select(
-      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
-    )
-    .eq('event_id', eventId);
+  const { data: widgetsRaw, error: widgetsRawError } = await widgetsRead;
   // ⚠ 🚨 THE COUPLE'S OWN WEBSITE BLOCKS. Refused, the editor opens EMPTY — every
   // ⚠ widget they placed is absent, and an editor that loads blank invites them to
   // ⚠ rebuild a page that already exists. Worse: saving from that state could
@@ -471,12 +603,18 @@ export default async function WebsiteEditorPage({
      .scene_styles`, read through `events_host`, the couple-scoped read) with the
      draft laid on, so the Style row shows what the canvas draws. A failed read
      shows the defaults, which is what the page draws without a pick. */
-  const { data: prefsRow, error: prefsErr } = await supabase
-    .from('events_host')
-    .select('style_preferences')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const { data: prefsRow, error: prefsErr } = await prefsRead;
   if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
+  /* 🧱 The fixed blocks' looks (`lib/block-looks.ts`) — the RAW key, live with the drafted one laid on; the toolbar
+     reads it strictly and saves it back whole. */
+  const blockLooksRaw = (hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined)?.block_looks ??
+    ((prefsRow as { style_preferences?: Record<string, unknown> | null } | null)?.style_preferences ?? {}).block_looks;
+  const blockLooks = blockLooksRaw && typeof blockLooksRaw === 'object' && !Array.isArray(blockLooksRaw) ? (blockLooksRaw as Record<string, unknown>) : {};
+  /* 🕯 Each scene's Accent pick (owner 2026-10-16) — live with the drafted map laid on (the draft carries it whole). */
+  const draftedPrefs = hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined;
+  const sceneAccents = sceneAccentsFromPreferences(
+    draftedPrefs && SCENE_ACCENTS_PREF_KEY in draftedPrefs ? draftedPrefs : (prefsRow as { style_preferences?: unknown } | null)?.style_preferences,
+  );
   const fixedStyles = fixedSceneStylesAfter(
     fixedSceneStylesFromPreferences((prefsRow as { style_preferences?: unknown } | null)?.style_preferences),
     hubDraft?.fixedStyles,
@@ -493,6 +631,8 @@ export default async function WebsiteEditorPage({
      is HIDDEN in the store shell (never shown locked there). */
   const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
+  /* 🎵 The guest's music button design — the same row, the same draft-over-live read. */
+  const musicButtonNow = hubMusicButton(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
   /* What guests see today — a different hero shown is the couple's own edit (`lib/hero-frame-sync.ts`). */
   const liveHeroRef = resolveHero(event as Record<string, unknown>).photoRef;
@@ -528,14 +668,11 @@ export default async function WebsiteEditorPage({
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays
-  // the Schedule page; the panel mirrors it + links there).
-  const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id, label, start_at, location')
-    .eq('event_id', eventId)
-    .eq('is_public', true)
-    .order('start_at', { ascending: true })
-    .limit(12);
+  // the Schedule page; the panel mirrors it + links there). 🔒 "The same set"
+  // is the guests' fence: public · for Everyone · released — the three
+  // conditions the database's anonymous read asks (20271267138064). The host's
+  // session alone would also hand back their role-only moments.
+  const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await scheduleBlocksRead;
   // ⚠ the schedule the couple authored, shown on their site. Refused, the day reads
   // ⚠ as having no events in it.
   if (scheduleBlocksRawError) {
@@ -560,14 +697,7 @@ export default async function WebsiteEditorPage({
      person of the couple's own to show each style in: their Guest list row
      (middle name and all) when there is one, else the first person's name as
      typed (drafted over live). Read-only; the bar saves through the prints' door. */
-  const { data: couplePeople, error: couplePeopleErr } = await supabase
-    .from('guests')
-    // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
-    .select(ENTOURAGE_COLUMNS)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .in('role', ['bride', 'celebrant', 'groom'])
-    .limit(3);
+  const { data: couplePeople, error: couplePeopleErr } = await couplePeopleRead;
   if (couplePeopleErr) logQueryError('WebsiteEditorPage.couplePeople', couplePeopleErr, { eventId }, 'graceful_degrade');
   const nameExample: NameParts | null =
     ['bride', 'celebrant', 'groom']
@@ -608,11 +738,7 @@ export default async function WebsiteEditorPage({
      (`incDressCodeStarter`). Form defaults only: nothing is written until the
      couple presses Save. Its own small read, so the event select stays as is;
      a refused read offers no starter, which is the form as it was. */
-  const { data: riteRow, error: riteError } = await supabase
-    .from('events')
-    .select('ceremony_type, secondary_ceremony_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const { data: riteRow, error: riteError } = await riteRead;
   if (riteError) {
     logQueryError('WebsiteEditorPage.dressCodeRite', riteError, { eventId }, 'graceful_degrade');
   }
@@ -625,17 +751,13 @@ export default async function WebsiteEditorPage({
      panel was handed none, so it said the guest list had no ninongs to a couple
      who had them. An unread list offers no rows — and the saved outfits still
      ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
-  const { data: roleRows, error: roleRowsError } = await supabase
-    .from('guests')
-    .select('role')
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
+  const { data: roleRows, error: roleRowsError } = await roleRowsRead;
   if (roleRowsError) {
     logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
   }
   const dressCodeRoles = foldEventRoles(
     (roleRows ?? []) as { role: string | null }[],
-    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
+    await roleNamesRead,
   );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
@@ -691,6 +813,24 @@ export default async function WebsiteEditorPage({
      one keeps its panel, and the server lets them take it off. */
   const heroLocked = draftedRowLockedIf(Boolean(heroRef));
   const backdropLocked = draftedRowLockedIf(Boolean(rsvpBackdrop));
+
+  /* 🎬 THE HERO VIDEO's uploader — built ONCE, for the shipped Maker's `hero-video` row. The new Maker's Studio does
+     NOT draw it (owner 2026-10-14, Maker test item 1: it "has no use for the background"): there the hero video is
+     the Background's "Your video" card (`videoChoice`), and a new clip comes in through that source's own Upload. */
+  const heroVideoPanel = musicLocked ? (
+    lockPanel('Your own hero video')
+  ) : (
+    <SiteChromePanel
+      action={updateSiteChrome.bind(null, eventId)}
+      eventId={eventId}
+      part="video"
+      musicRef={panelMusicRef}
+      musicEnabled={panelMusicOn}
+      musicDisplay={chromeDisplay}
+      videoRef={panelVideoRef}
+      videoDisplay={chromeDisplay}
+    />
+  );
 
   const groups: RailGroup[] = [
     {
@@ -777,7 +917,8 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
-        ...(storeShell
+        /* 🌄 Built in the app too for a Pro event (owner 2026-10-26: "i cannot see the different background options") — `lib/main-background-offered.ts`. */
+        ...(!mainBackgroundRowOffered({ storeShell, ownsPro })
           ? []
           : [
               {
@@ -820,7 +961,20 @@ export default async function WebsiteEditorPage({
                         id,
                         name: themeBackgroundName(id),
                         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                        /* 🎞 The loop itself — Studio › Look › Background's Video card plays it, muted, while on screen. */
+                        loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
                       }))}
+                      /* 🌈 Studio › Look › Background's Colour source and Shade ▾ (the drafted look over live). */
+                      page={{
+                        bgColor: (drafted.site_bg_color as string | null) ?? null,
+                        resolved:
+                          boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.background ??
+                          themeColours(mainThemeId, (drafted as { role_palette?: unknown }).role_palette).colours.canvas,
+                        five: boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [],
+                        artDirection: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                        /* ⚡ A picture's tint leaves the couple's own button colour alone — the panel must know, to draw a pick without a render. */
+                        ownButton: false, // 🔘 the page no longer reads a stored `site_button_color` (owner 2026-10-08)
+                      }}
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
@@ -830,10 +984,10 @@ export default async function WebsiteEditorPage({
                 ),
               },
             ]),
-        /* 🔤 FONT · 🎨 COLOURS — two sections of the one Look panel
-           (`lib/maker-look-sections.ts`, owner 2026-10-02): the SAME
-           `ColorsPanel` and the same `updateSiteColors` door, drawn as two
-           parts so Look reads Background · Font · Colours · Buttons.
+        /* 🔤 FONT · 🎨 COLOURS — parts of the one Look panel
+           (`lib/maker-look-sections.ts`, owner 2026-10-02; under Elements since
+           2026-10-08): the SAME `ColorsPanel` and the same `updateSiteColors`
+           door, drawn as its parts.
            🆓 The font is FREE (owner 2026-10-05, DECISION_LOG "THEMES ARE
            REPLACED BY THREE DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are
            all free"*) — no ◆, never locked, never asked for at Apply. */
@@ -850,6 +1004,8 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="font"
               part="font"
+              /* 🔤 The Studio draws four rows here — it needs the other three fonts too (`events.site_roles`). */
+              siteRoles={(drafted as { site_roles?: unknown }).site_roles ?? null}
               themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
@@ -858,12 +1014,15 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
+        /* 🌈 THE PAGE FILL — Look › Background's since 2026-10-08 (owner, the Look
+           restudy: the colour of the page is a BACKGROUND, not one of the
+           colours of the things on it). The SAME `ColorsPanel` and the same
+           `updateSiteColors` door, its page part alone; free. */
         {
-          key: 'colors',
-          label: 'Colours',
-          blurb: 'Your page colour.',
+          key: 'page-colour',
+          label: 'Page colour',
+          blurb: 'One colour — plain, or blended as Dawn, Diagonal or Glow.',
           href: `${w}/colors`,
-          /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
           pro: false,
           locked: false,
           panel: (
@@ -872,13 +1031,39 @@ export default async function WebsiteEditorPage({
                   a first-visit tour). Mounted beside the panel it explains, as
                   the adaptive theme's is; sells nothing, so the shell keeps it. */}
               <MiniTour tourKey="customer_ombre_background_v1" storeShell={storeShell} />
+              <ColorsPanel
+                action={updateSiteColors.bind(null, eventId)}
+                eventId={eventId}
+                rowKey="page-colour"
+                part="page"
+                themeId={currentThemeId}
+                /* 🎨 Blank = the Mood Board's colours — shown AS those colours
+                   (owner 2026-09-27: "mood board palettes did not update"). */
+                moodBoard={boardSiteColours((drafted as { role_palette?: unknown }).role_palette)}
+                bgColor={(drafted.site_bg_color as string | null) ?? null}
+                buttonColor={(drafted.site_button_color as string | null) ?? null}
+                artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}
+              />
+            </>
+          ),
+        },
+        {
+          key: 'colors',
+          label: 'Colours',
+          blurb: 'Candlelight.',
+          href: `${w}/colors`,
+          /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
+          pro: false,
+          locked: false,
+          panel: (
+            <>
             <ColorsPanel
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
-              part="colours"
+              part="art"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Candlelight and motion')}
+              proLock={lockPanel('Effects and motion')}
               proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
@@ -890,9 +1075,6 @@ export default async function WebsiteEditorPage({
                 (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null
               }
               fontKey={(drafted as { site_font_key?: string | null }).site_font_key ?? null}
-              magicTraveller={
-                (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null
-              }
             />
             </>
           ),
@@ -918,7 +1100,7 @@ export default async function WebsiteEditorPage({
           return {
             key: 'buttons',
             label: 'Buttons',
-            blurb: 'The shape, fill and colour of every button on your Event Hub.',
+            blurb: 'The shape of every button on your Event Hub.',
             href: `${base}/launch?open=buttons`,
             locked: false,
             panel: (
@@ -946,13 +1128,29 @@ export default async function WebsiteEditorPage({
             <SiteChromePanel
               action={updateSiteChrome.bind(null, eventId)}
               eventId={eventId}
+              part="music"
               musicRef={panelMusicRef}
               musicEnabled={panelMusicOn}
               musicDisplay={chromeDisplay}
               videoRef={panelVideoRef}
               videoDisplay={chromeDisplay}
+              ourMusic={ourMusic.ok ? ourMusic.choices : null}
+              musicButton={musicButtonNow}
             />
           ),
+        },
+        /* 🎬 THE HERO VIDEO — Look › Background's since 2026-10-08 (owner: *"i see a
+           hero video on music. this should be for the background"*). The SAME
+           form part and the same `updateSiteChrome` door it had under Music,
+           with Music's own lock (one unlock covers the song and the video). */
+        {
+          key: 'hero-video',
+          label: 'Hero video',
+          blurb: 'Your own video, where the hero photo sits.',
+          href: `${w}/site-chrome`,
+          pro: true,
+          locked: musicLocked,
+          panel: heroVideoPanel,
         },
       ],
     },
@@ -1020,7 +1218,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'gallery',
           label: 'Photos you add',
-          blurb: 'A gallery you upload yourself.',
+          blurb: 'Photos you upload yourself.',
           href: `${w}/our-photos`,
           anchor: 'gallery',
           pro: true,
@@ -1268,18 +1466,14 @@ export default async function WebsiteEditorPage({
     mode: (row.mode ?? 'auto') as MakerScene['mode'],
     isVisible: row.is_visible,
     hasContent: sectionContent[row.widget_type] !== false,
-    transitionLabel: HUB_TRANSITION_LABEL[resolveTransition(sanitizeHubCanvas(row.config_json))],
+    /* 🌑 On the server only the constant speaks (never the lab's browser door): a stored Scrub reads as Scroll. */
+    transitionLabel: HUB_TRANSITION_LABEL[offeredTransition(resolveTransition(sanitizeHubCanvas(row.config_json)), SCRUB_OUT_OFFERED)],
   }));
   /* 🧭 THE NAVIGATOR FOLLOWS THE PAGE (owner 2026-09-25: *"why does the slides
      not follow the sequence alotted"*). For each stage, what the canvas draws,
      in its order — asked of the page's own plan (`lib/maker-scene-list.ts`) —
      with the fold of what that stage leaves out and why. */
-  const { count: entourageCount, error: entourageError } = await supabase
-    .from('guests')
-    .select('guest_id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
+  const { count: entourageCount, error: entourageError } = await entourageRead;
   // ⚠ Unread is NOT "nobody": the page reads the entourage with its own client,
   // so an unreadable count keeps the tile rather than hiding a real section.
   if (entourageError) {
@@ -1303,18 +1497,7 @@ export default async function WebsiteEditorPage({
     nothing is written (`eventEnded: false` never compiles). The couple's drafted
     arrangement and looks ride in, so the navigator lists what the canvas shows.
   */
-  const postEvent = await readPostEventForMaker({
-    eventId,
-    eventEnded:
-      resolveHubPhase({
-        measured: true,
-        eventDate: (event.event_date as string | null) ?? null,
-        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-        timezone: (event as { timezone?: string | null }).timezone ?? null,
-      }) === 'after',
-    isCouple: true,
-    draftEditorial: hubDraft?.editorial ?? null,
-  });
+  const postEvent = await postEventRead;
 
   const navigator = buildMakerNavigatorData({
     postEvent,
@@ -1388,7 +1571,7 @@ export default async function WebsiteEditorPage({
       only={row.widget_id}
       makerPart={makerPart}
       returnTo={`/dashboard/${eventId}/launch?scene=${row.widget_id}`}
-      hideLocked={storeShell}
+      hideLocked={proShell}
       eventId={eventId}
       rows={sectionRows}
       contentMap={sectionContent}
@@ -1446,11 +1629,33 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               ownsPro={ownsPro}
               storeShell={storeShell}
+              /* 🍎 Pro is TRIED here wherever the editor's own Pro rows are (`proShell`, owner 2026-10-18). */
+              proShell={proShell}
               /* 🎴 The hero's design lives on the hero row's canvas, read
                  drafted over live like `mainNow` above, and live for "in
                  your draft". */
               heroCanvas={sanitizeHubCanvas(allWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
               liveHeroCanvas={sanitizeHubCanvas(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+              /* 🖼 Details › Hero is the SECOND DOOR to the Cover Scene's Background (owner-approved 2026-10-15):
+                 the toolbar's own rows, the same lazy door, the same draft over live — one value, two doors. */
+              coverScene={
+                <SceneBackgroundRow
+                  eventId={eventId}
+                  widgetType="hero"
+                  canvas={sanitizeHubCanvas(allWidgets.find((r) => r.widget_type === 'hero')?.config_json)}
+                  stageScenes={[]}
+                  stageLabel=""
+                  draftAction={hubDraftAction}
+                  themeColours={colorChoices}
+                  board={mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId)}
+                  photoChoices={photoChoices}
+                  videoChoice={videoChoice}
+                  sceneUploads={sceneUploads}
+                  mediaUsedBytes={mediaUsedBytes}
+                  loopPosters={Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null]))}
+                  ownsPro={ownsPro}
+                />
+              }
             />
             {/* 🎞 The hero is also the Main background (owner 2026-09-25 item 6):
                 a new hero photo is measured HERE, where it was made, so the page
@@ -1471,14 +1676,65 @@ export default async function WebsiteEditorPage({
         ),
         /* 🧩 The Reveal in Details' three parts: its settings on the right, its
            openings in the navigator (the same picker, the same saves). */
-        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="settings" />,
-        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} part="options" />,
-        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} />,
+        /* 🍎 The three made-once panels try Pro exactly where the editor's own rows do — `proShell`, the store shell
+           FOR PRO TRYING (false where Apple sells Pro at Apply); `storeShell` keeps every price, pitch and tour. */
+        reveal: <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="settings" />,
+        'reveal-options': <MakerRevealPanel eventId={eventId} ownsPro={ownsPro} storeShell={storeShell} proShell={proShell} part="options" />,
+        logo: <MakerLogoPanel eventId={eventId} storeShell={storeShell} proShell={proShell} />,
+        /* 🪟 STUDIO › LOOK'S SAMPLE SCREEN (owner 2026-10-08, DECISION_LOG "THE LOOK PREVIEW IS A SAMPLE OF WHAT IS
+           BEING EDITED"): the header text and the two buttons, on the real background, drawn in the browser — Look
+           mounts no guest-page frame. Handed the drafted values this page ALREADY read (no read is added): the look
+           columns, the main background, and the addresses the Background panel was given for its cards. */
+        'look-sample': (
+          <LookSample
+            seed={{
+              eventId,
+              themeId: mainThemeId,
+              /* The theme's own faces, as the guest layout wears them (`lookScopeProps`) — class names only. */
+              fontClassName: siteSkin(mainThemeId, { accent: '#000000' })?.className ?? '',
+              row: {
+                role_palette: (drafted as { role_palette?: unknown }).role_palette ?? null,
+                site_bg_color: (drafted.site_bg_color as string | null) ?? null,
+                site_button_color: (drafted.site_button_color as string | null) ?? null,
+                site_button_style: (drafted as { site_button_style?: string | null }).site_button_style ?? null,
+                site_font_key: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
+                site_art_direction: (drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null,
+                site_roles: (drafted as { site_roles?: unknown }).site_roles ?? null,
+              },
+              main: mainNow,
+              coverRef: draftedHero.photoRef,
+              sources: {
+                loops: hubMovingBackgroundIds().map((id) => ({
+                  id,
+                  stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                  loopUrl: resolveThemeGround(id, { ownColours: false })?.loop ?? null,
+                })),
+                photoChoices,
+                videoChoice,
+                sceneUploads,
+                cover: heroPhotoUrl,
+                themeId: mainThemeId,
+                /* A background uploaded in the panel is in none of the lists — its still is the one this page signed for it. */
+                stored:
+                  isHubMainOwn(mainNow) && mainOverrideStillUrl
+                    ? { ref: mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? mainNow.media), url: mainOverrideStillUrl }
+                    : null,
+              },
+              words: {
+                names: (drafted.display_name as string | null) ?? null,
+                date: drafted.event_date ? formatEventDate(drafted.event_date as string) : null,
+                line: (event.venue_name as string | null) ?? null,
+              },
+              musicOn: panelMusicOn,
+              musicButton: musicButtonNow,
+            }}
+          />
+        ),
         /* 💌 Love Story's own page (the scrapbook) moved INTO Details — Story &
            plans › Love Story, drawn by the launch page (Details part 2b). */
       }}
       /* 🎭 Where the reveal plays (drafted over live) — its page previews the first. */
-      revealStages={await readMakerRevealStages(eventId)}
+      revealStages={await revealStagesRead}
       publicLandingUrl={slug ? `/${slug}` : null}
       /* 🔤 Per-element editing: every scene's canvas as the canvas draws it (the
          draft over live — `allWidgets`), and the theme's colours for swatches. */
@@ -1505,9 +1761,19 @@ export default async function WebsiteEditorPage({
            Board over the theme (`themeColours`, owner 2026-10-05). */
         palette: (() => {
           const { colours: pal } = themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
-          return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
+          return {
+            ink: pal.ink,
+            heading: pal.heading,
+            accent: pal.accent,
+            muted: pal.muted,
+            surface: pal.surface,
+            /* 🎨 The five main colours, in slot order — the one colour picker's "Your Mood Board" shelf (owner 2026-10-08). */
+            board: mainColoursOf((drafted as { role_palette?: unknown }).role_palette, currentThemeId),
+          };
         })(),
         draftAction: hubDraftAction,
+        /* ✈ The cover Logo's Action "Travels to the bar" reads the drafted journey (Look restudy row 9). */
+        magicTraveller: (drafted as { site_magic_traveller?: string | null }).site_magic_traveller ?? null,
         /* 🔤 "In use" on every font dropdown (owner 2026-09-29: "actively
            used") — from the SAME draft over live the canvas draws: the theme's
            faces, the couple's typeface, every part and letter run above, and
@@ -1516,7 +1782,7 @@ export default async function WebsiteEditorPage({
           themeFaces: (INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES] ?? INVITE_THEMES.house).fonts,
           siteFontKey: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
           canvases: elementCanvases,
-          logoFonts: await readMakerLogoFonts(eventId),
+          logoFonts: await logoFontsRead,
         }),
         /* ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`): the scene
            words a tap types in, read from the SAME draft over live the canvas
@@ -1538,6 +1804,11 @@ export default async function WebsiteEditorPage({
          — the same choices the old server panel was given. Animate has no lock
          any more: a couple without Pro tries it, and Apply asks (2026-09-28). */
       sceneFormat={{
+        /* 👗 Read again, never `dressCodeConfig`: that one carries the INC starter and a filled-in palette for
+           the old panel's form — writing it back would store words the couple never wrote. */
+        dressCode: normalizeDressCodeConfig((drafted as { dress_code_config?: unknown }).dress_code_config),
+        /* 🖼 The Cover Scene's Scene ◆ tiles — each ready-made loop's first frame, already on R2. */
+        loopPosters: Object.fromEntries(hubMovingBackgroundIds().map((id) => [id, resolveThemeGround(id, { ownColours: false })?.poster ?? null])),
         colorChoices,
         photoChoices,
         videoChoice,
@@ -1546,7 +1817,7 @@ export default async function WebsiteEditorPage({
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,
-        hideLocked: storeShell,
+        hideLocked: proShell,
         twoPeople: (await eventWordsFor((event.event_type as string | null) ?? 'wedding')).twoPeople,
         eventType: (event.event_type as string | null) ?? null,
         /* The hero is the invitation card unless there is a hero photo/video or
@@ -1557,6 +1828,9 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
+        sceneAccents,
+        cameraPro,
+        blockLooks,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
         /* 🎫 The Ticket style being edited — drafted over live (owner Q7 2026-10-02: it waits for Apply). */
         ticketStyle: passCardDesignFrom((drafted.print_details as { pass_design?: unknown } | null | undefined)?.pass_design),
@@ -1601,18 +1875,18 @@ export default async function WebsiteEditorPage({
          store shell a couple WITHOUT Pro is shown no tile, diamond or note — a
          Pro hint there is a purchase hint; a couple who owns Pro keeps them. */
       postEventPresets={
-        !makerProUsable({ owns: ownsPro, storeShell })
+        !makerProUsable({ owns: ownsPro, storeShell: proShell })
           ? null
           : {
               action: addCustomSection,
               returnTo: `/dashboard/${eventId}/launch`,
               used: allWidgets.filter((w) => isCustomSectionType(w.widget_type)).length,
               ownsPro,
-              storeShell,
+              storeShell: proShell,
             }
       }
       addScene={
-        storeShell
+        proShell
           ? null
           : /* 💎 Open to every couple on the web (owner 2026-09-28): the scene is
                added HIDDEN and shown in the draft; Apply asks for Pro to show it. */

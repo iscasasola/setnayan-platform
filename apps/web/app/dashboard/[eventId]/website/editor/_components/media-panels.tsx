@@ -2,16 +2,24 @@
 
 import { LAUNCH_PHASE_CHOICES, launchPhaseLabel, type LaunchPhaseKey } from './launch-phase-choices';
 import { useFormStatus } from 'react-dom';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useMaker } from '../../../launch/_components/maker-context';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT, TICKET_URL_MAX } from '@/lib/ticket-url';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
 import { FileUpload } from '@/app/_components/file-upload';
+/* 🎵 Our music's Song row and list — a lazy door, warmed with the Maker's other pieces (`scene-styles-lazy.tsx`). */
+import { MusicButtonRow, OurMusicSong } from './scene-styles-lazy';
+import { PickMenu } from './pick-menu';
+import { isHubMusicRef, type HubMusicChoice } from '@/lib/hub-music-ref';
+import type { HubMusicButton } from '@/lib/hub-music-button';
+import type { hubDraftAction } from '../../hub-draft-actions';
 import {
   SPATIAL_THEMES,
   type RsvpBackdropConfig,
   type SpatialIntensity,
   type SpatialThemeKey,
 } from '@/lib/spatial-backdrop';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Media + choice panels for the unified editor (PR-6) — the WYSIWYG push.
@@ -57,6 +65,7 @@ function SaveButton({ label = 'Save' }: { label?: string }) {
 
 const PANEL = 'border-t border-dashed border-ink/10 bg-cream/40 p-3';
 
+
 /** Hero photo — the picture at the top of the page. */
 export function HeroPhotoPanel({
   action,
@@ -70,7 +79,7 @@ export function HeroPhotoPanel({
   displayUrls?: Record<string, string>;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       {/* Into the draft — `uploadHeroPhoto`'s own door (Maker Phase 6). */}
       <HubDraftField />
       <input type="hidden" name="event_id" value={eventId} />
@@ -89,7 +98,7 @@ export function HeroPhotoPanel({
         help="Shown at the top of your page. JPG, PNG or WebP up to 10 MB."
       />
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -108,7 +117,7 @@ export function GalleryPanel({
   maxFiles: number;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       {/* Into the draft (`updateOurPhotos`' door, owner 2026-09-29) — tried by
           every couple; Apply puts the photos live, with Event Hub Pro. */}
       <HubDraftField />
@@ -128,68 +137,162 @@ export function GalleryPanel({
         help={`Photos you upload yourself — up to ${maxFiles}.`}
       />
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
 /**
- * Background music (Website Pro) + the hero video, which share one action.
- * ⚠ Both controls must post together: `updateSiteChrome` writes a column only
- * when the form carried its field (the omit-when-untouched hardening from PR
- * #3642), so rendering just one here would leave the other untouched — correct,
- * but the couple would not see it. We render both, matching the sub-page.
+ * Background music (Website Pro) and the hero video, which share one action.
+ *
+ * 🎵🎬 TWO PARTS, TWO PLACES (owner 2026-10-08, the Look restudy — *"i see a hero
+ * video on music. this should be for the background"*): `part="music"` is Look ›
+ * Music (the song and its on/off, nothing else) and `part="video"` is Look ›
+ * Background (the hero video). Each is its own form posting only its own field —
+ * `updateSiteChrome` writes a column only when the form carried its field (the
+ * omit-when-untouched hardening from PR #3642), so neither can clear the other.
+ *
+ * 🚫 NO SAVE BUTTON, ANYWHERE (owner 2026-10-08, *"and no save button"*; round 3
+ * did it for the new Maker's Studio, this is the rest): the form posts itself —
+ * into the SAME draft door (`HubDraftField`) — the moment an upload lands or the
+ * switch flips; ✓ Apply publishes it.
  */
 export function SiteChromePanel({
   action,
   eventId,
+  part,
   musicRef,
   musicEnabled,
   musicDisplay,
   videoRef,
   videoDisplay,
+  ourMusic,
+  musicButton,
+  draftAction,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
+  part: 'music' | 'video';
   musicRef: string | null;
   musicEnabled: boolean;
   musicDisplay?: Record<string, string>;
   videoRef: string | null;
   videoDisplay?: Record<string, string>;
+  /** 🎵 "Our music" — the published tracks, or `null` when they could not be read. Music part only. */
+  ourMusic?: readonly HubMusicChoice[] | null;
+  /** 🎵 The guest's music button design, the draft over live. Given → the Music part draws the "Music button" row. */
+  musicButton?: HubMusicButton;
+  /** The draft door for that row — the dev lab hands its own stand-in. */
+  draftAction?: typeof hubDraftAction;
 }) {
+  const studio = useMaker()?.stagesStudio === true;
+  const formRef = useRef<HTMLFormElement>(null);
+  /* 🎵 SOURCE ▾ — Our music · Upload your own (owner 2026-10-08, verbatim: *"Pick a music from our listing or upload
+     your own"* — the second source was first drawn as "Your music"). Which one a song
+     came from is read off the song itself (`isHubMusicRef`); with no song yet
+     it opens on Our music once there is any. Picking a source only changes
+     what is drawn — it writes nothing. */
+  const songIsOurs = isHubMusicRef(musicRef);
+  const [source, setSource] = useState<'ours' | 'yours'>(
+    songIsOurs || (!musicRef && (ourMusic?.length ?? 0) > 0) ? 'ours' : 'yours',
+  );
+  const [pickedTrack, setPickedTrack] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState(false);
+  const switchRef = useRef<HTMLInputElement>(null);
+  const ourTrack = pickedTrack ?? ourMusic?.find((c) => c.ref === musicRef)?.trackId ?? null;
+  /* After React has written the new value into the upload's hidden field. */
+  const draftNow = () => void window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+  const hint = 'it is added to your draft as soon as it uploads';
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm ref={formRef} action={action} className={PANEL} data-site-chrome={part}>
       {/* Into the draft (`updateSiteChrome`'s door, owner 2026-09-29) — the song
           and the video are tried by every couple; Apply puts them live, with Pro. */}
       <HubDraftField />
-      <ReturnTo eventId={eventId} rowKey="music" />
-      <FileUpload
-        bucket="media"
-        pathPrefix={`events/${eventId}/site-music`}
-        name="bg_music_url"
-        unsavedHint="press Save below"
-        multiple={false}
-        maxSizeMB={20}
-        acceptedTypes={AUDIO_TYPES}
-        currentValue={musicRef}
-        initialDisplayUrls={musicDisplay}
-        label="Background music"
-        help="Plays only when a guest taps the speaker — never on its own."
-      />
-      <label className="mt-2 flex items-center gap-2 text-xs text-ink/70">
-        <input
-          type="checkbox"
-          name="bg_music_enabled"
-          defaultChecked={musicEnabled}
-          className="h-3.5 w-3.5 rounded border-ink/30"
-        />
-        Play music on my Event Hub
-      </label>
-      <div className="mt-3 border-t border-ink/10 pt-3">
+      <ReturnTo eventId={eventId} rowKey={part === 'music' ? 'music' : 'hero-video'} />
+      {part === 'music' ? (
+        <>
+          <div className="flex min-h-11 items-center justify-between gap-3" data-music-source={source}>
+            <p className="shrink-0 text-[0.72rem] font-semibold text-ink/80">Source</p>
+            <PickMenu
+              label="Music source"
+              value={source}
+              dataAttr="data-music-source-pick"
+              options={[
+                { key: 'ours', label: 'Our music', hint: 'Setnayan’s own songs, by mood · free to use' },
+                { key: 'yours', label: 'Upload your own', hint: 'A song from your phone' },
+              ]}
+              onPick={(k) => setSource(k === 'ours' ? 'ours' : 'yours')}
+            />
+          </div>
+          {source === 'ours' ? (
+            <>
+              {/* The form names a TRACK; the server looks its file up. With no
+                  pick to post, `bg_music_keep` lets the switch below be saved
+                  without touching the song in place. */}
+              {ourTrack ? (
+                <input type="hidden" name="bg_music_track" value={ourTrack} />
+              ) : musicRef ? (
+                <input type="hidden" name="bg_music_keep" value="1" />
+              ) : null}
+              <OurMusicSong
+                choices={ourMusic ?? null}
+                currentRef={songIsOurs ? musicRef : null}
+                onPick={(trackId) => {
+                  // A first song is picked to be heard: the switch goes on with it.
+                  if (!musicRef && switchRef.current) switchRef.current.checked = true;
+                  setPickedTrack(trackId);
+                  draftNow();
+                }}
+              />
+            </>
+          ) : (
+            <>
+              {songIsOurs && !uploaded ? <input type="hidden" name="bg_music_keep" value="1" /> : null}
+              <FileUpload
+                bucket="media"
+                pathPrefix={`events/${eventId}/site-music`}
+                name="bg_music_url"
+                unsavedHint={hint}
+                onChange={(value) => {
+                  setUploaded(Boolean(value));
+                  draftNow();
+                }}
+                multiple={false}
+                maxSizeMB={20}
+                acceptedTypes={AUDIO_TYPES}
+                audioGuard
+                currentValue={songIsOurs ? null : musicRef}
+                initialDisplayUrls={musicDisplay}
+                label="Background music"
+                help="Plays only when a guest taps the speaker — never on its own."
+              />
+            </>
+          )}
+          {/* 🔀 The Studio draws it as a switch (owner 2026-10-08) — the SAME `bg_music_enabled` checkbox, its
+              look in the Studio's server-drawn CSS (`studioFullScreenCss`), so the Maker's first load carries no styles for it. */}
+          <label className="mt-2 flex items-center gap-2 text-xs text-ink/70" data-music-switch={studio ? '' : undefined}>
+            <input
+              ref={switchRef}
+              type="checkbox"
+              role={studio ? 'switch' : undefined}
+              name="bg_music_enabled"
+              defaultChecked={musicEnabled}
+              onChange={draftNow}
+              className="h-3.5 w-3.5 rounded border-ink/30"
+            />
+            Play music on my Event Hub
+          </label>
+          {/* 🎵 The button a guest taps, in three designs — its own held draft write, never this form's. */}
+          {musicButton ? (
+            <MusicButtonRow eventId={eventId} design={musicButton} hasSong={Boolean(musicRef) || pickedTrack !== null || uploaded} draftAction={draftAction} />
+          ) : null}
+        </>
+      ) : (
         <FileUpload
           bucket="media"
           pathPrefix={`events/${eventId}/landing-page-hero-video`}
           name="hero_video_url"
-          unsavedHint="press Save below"
+          unsavedHint={hint}
+          onChange={draftNow}
           multiple={false}
           maxSizeMB={100}
           acceptedTypes={['video/mp4', 'video/quicktime', 'video/webm']}
@@ -198,9 +301,8 @@ export function SiteChromePanel({
           label="Hero video"
           help="Plays in place of the hero photo when set."
         />
-      </div>
-      <SaveButton />
-    </form>
+      )}
+    </SafeForm>
   );
 }
 
@@ -222,7 +324,7 @@ export function VisibilityPanel({
   const [picked, setPicked] = useState<'public' | 'unlisted' | 'private'>(visibility);
   const [ticketError, setTicketError] = useState<string | null>(null);
   return (
-    <form
+    <SafeForm
       action={action}
       className={PANEL}
       onSubmit={(e) => {
@@ -315,7 +417,7 @@ export function VisibilityPanel({
         </div>
       ) : null}
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -330,7 +432,7 @@ export function OpenBrowsePanel({
   on: boolean;
 }) {
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open_browse" value={on ? '0' : '1'} />
@@ -341,13 +443,13 @@ export function OpenBrowsePanel({
           : 'Guests currently see only the page for the current moment (invitation, day-of, after).'}
       </p>
       <SaveButton label={on ? 'Turn off open browsing' : 'Turn on open browsing'} />
-    </form>
+    </SafeForm>
   );
 }
 
 
 /** The four faces, in the order the site lives through them. Same words the
- *  owner ribbon on the live page uses for its preview links. */
+ *  owner ribbon on the live page used for its preview links (removed 2026-10-15). */
 
 
 
@@ -382,7 +484,7 @@ export function LaunchPhasePanel({
       checked ? 'border-ink/40 bg-ink/[0.03]' : 'border-ink/10 hover:border-ink/25'
     }`;
   return (
-    <form action={action} className={PANEL}>
+    <SafeForm action={action} className={PANEL}>
       <HubSavesImmediately />
       <input type="hidden" name="event_id" value={eventId} />
       <ReturnTo eventId={eventId} rowKey="launch-phase" />
@@ -432,7 +534,7 @@ export function LaunchPhasePanel({
         </div>
       </fieldset>
       <SaveButton />
-    </form>
+    </SafeForm>
   );
 }
 
@@ -480,7 +582,7 @@ export function RsvpBackdropPanel({
           : 'Your invitation currently has a plain background. Pick a scene to add depth behind it.'}
       </p>
 
-      <form action={saveAction} className="mt-1">
+      <SafeForm action={saveAction} className="mt-1">
         <HubDraftField />
         <input type="hidden" name="event_id" value={eventId} />
         <ReturnTo eventId={eventId} rowKey="backdrop" />
@@ -541,10 +643,10 @@ export function RsvpBackdropPanel({
         </label>
 
         <SaveButton label={current ? 'Save scene' : 'Turn on backdrop'} />
-      </form>
+      </SafeForm>
 
       {current ? (
-        <form action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
+        <SafeForm action={clearAction} className="mt-3 border-t border-ink/10 pt-3">
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />
           <ReturnTo eventId={eventId} rowKey="backdrop" />
@@ -554,7 +656,7 @@ export function RsvpBackdropPanel({
           >
             Turn the backdrop off
           </button>
-        </form>
+        </SafeForm>
       ) : null}
     </div>
   );

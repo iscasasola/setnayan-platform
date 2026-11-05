@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { MoodPart, MoodPartNote } from './mood-board-parts';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import {
@@ -30,20 +31,18 @@ import {
   applyThemeIntent,
   fetchGalleryAssets,
   applyGalleryPick,
-  fetchRenderPool,
-  applyRenderPick,
 } from '../actions';
 import {
-  GALLERY_SLOT_KEYS,
   creditLine,
+  gallerySlotKeys,
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 /* ⚡ The studio's client pieces load when the board is opened — never with the
    Maker that draws it (`mood-board-lazy.tsx`). Types still come from their files. */
 import {
   ConceptPdfButton,
   InspirationBoard,
-  MakeItReal,
   MoodboardBoard,
   PaletteBoardProvider,
   PaletteSection,
@@ -53,7 +52,7 @@ import {
   ThemeStudio,
   MoodBoardStudio,
 } from './mood-board-lazy';
-import type { StudioAttireRow, StudioChange } from './mood-board-studio';
+import type { StudioChange } from './mood-board-studio';
 import {
   cancelPartFinalization,
   cancelPartReopen,
@@ -69,45 +68,37 @@ import {
 } from '@/lib/moodboard-finalization';
 import type { FinalizationPanelPart } from './part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { resolveProfileByEvent, resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { womanOrManOf } from '@/lib/guest-title';
 import type { BoardSection, BoardCard } from './moodboard-board';
+import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import {
-  RENDER_PARTS,
-  renderPartById,
-  WHOLE_LOOK_PART_ID,
-  type RenderPart,
-} from '@/lib/moodboard-render-parts';
-import { readEventRenders } from '@/lib/moodboard-render-gallery';
-import { signOwnRenderImage } from '@/lib/moodboard-render-serve';
-import {
-  MOODBOARD_RENDER_PACK_SKU,
-  readMoodboardRenderConfig,
-  readMoodboardRenderBalance,
-} from '@/lib/moodboard-render-credits';
+import { RENDER_PARTS, type RenderPart } from '@/lib/moodboard-render-parts';
 import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { pickCeremonyScene, pickFiguresByRole } from '@/lib/moodboard-board-picks';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
-import { normalizeDressCodeConfig } from './dress-code-fields';
+import { normalizeDressCodeConfig } from './dress-code-config';
 import type { DressCodeConfig } from '../dress-code-actions';
 import type { GuestRole } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
-import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
+import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { HUB_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { allRegions, resolveRegion } from '@/lib/region-source';
 import { describeColourChange, type ColourChangeRow } from '@/lib/colour-access';
 import { frozenNow } from '@/lib/moodboard-finalization-rows';
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, formatCallTime } from '@/lib/role-dress-code';
-import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { DressCodeListsForm } from './dress-code-lists-form';
+import { studioAttireRows } from '@/lib/studio-attire-rows';
+import { readRoleNames } from '@/lib/role-names.server';
 import { incDressCodeStarter } from './inc-dress-code-starter';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchScheduleBlocks } from '@/lib/schedule';
 
 /** The suppliers a part may be ASKED — the booked marketplace shop, named by its key (see the read). */
 export const BOOKED_SUPPLIER_SELECT = 'vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )';
@@ -128,7 +119,7 @@ export const BOOKED_SUPPLIERS_UNREAD = 'Your booked suppliers could not be read 
  *     always was, `‹ Back to add-ons` and all.
  *
  * Nothing about the board itself changed in the move: the same reads, the same
- * palette, inspirations, renders, and the supplier side — part finalizations
+ * palette, inspirations, and the supplier side — part finalizations
  * (`moodboard_part_finalizations`) and Share with vendors — unchanged, so Your
  * Team and every booked supplier read exactly what they read before.
  */
@@ -200,11 +191,13 @@ function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlo
 /**
  * Every read the board makes, and every part of it as a node — ONE build per
  * request (`cache`), drawn either as the page (`MoodBoardEditor`) or as the
- * Maker's three parts (`MoodBoardMakerBody` in the middle, `MoodBoardMakerControls`
- * on the right, `mood-board-parts.tsx` in the navigator).
+ * Maker's Studio › Mood Board & Dress Code (`MoodBoardStudioBody`).
  */
 const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const supabase = await createClient();
+  /* 🧩 The parts snapshot (step ② of PLAN `admin_inspiration_groups_2026-10-25`) — the credits' trades and the
+     gallery's slots are read off it; `cache()`d, so the Studio below asks the same read for free. */
+  const parts = await getInspirationParts();
 
   // ⚠ NO `moodboard_theme_templates` READ HERE — ON PURPOSE (2026-09-03).
   // This list used to carry an unfiltered, unlimited select of that table,
@@ -224,15 +217,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     venueFlowerRes,
     inspirationRes,
     bookedVendorRes,
-    moodboardRenderConfig,
-    moodboardRenderBalance,
-    moodboardRenderPackSku,
-    platformSettings,
-    moodboardRenderRows,
-    shareConsentRes,
     finalizationRes,
     bookedSupplierRes,
-    mayActRes,
   ] = await Promise.all([
     supabase
       .from('events')
@@ -284,8 +270,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .not('approved_at', 'is', null)
       .is('retired_at', null),
     // The couple's uploaded inspiration photos (per-event, from onboarding's
-    // intake) — surfaced here so they can add/manage them, and so they can feed
-    // the future "Make it real" render as extra references.
+    // intake) — surfaced here so they can add/manage them.
     // MB10 — the credit rides along. `library_asset_id` is only set on a
     // gallery pick, so a couple's own upload embeds nothing and costs nothing.
     // If RLS refuses the shop (unverified, hidden) the embed comes back null
@@ -294,7 +279,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     supabase
       .from('event_inspiration_assets')
       .select(
-        `slot_key, slot_position, image_url, library_asset_id,
+        `slot_key, slot_position, image_url, library_asset_id, from_suggestion_id,
          sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6,
          asset:moodboard_library_assets (
            asset_subtype,
@@ -312,24 +297,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .select('marketplace_vendor_id')
       .eq('event_id', eventId)
       .not('marketplace_vendor_id', 'is', null),
-    // MB7 — "Make it real": the admin-editable render parameters (Pattern H,
-    // world-readable) and this event's real credit balance
-    // (moodboard_render_balance — ZERO ROWS means "not permitted", not a
-    // fabricated zero; see readMoodboardRenderBalance's own docblock).
-    readMoodboardRenderConfig(supabase),
-    readMoodboardRenderBalance(supabase, eventId),
-    formatV2Sku(MOODBOARD_RENDER_PACK_SKU).catch(() => null),
-    fetchPlatformSettings(supabase),
-    // MB8 — the couple's own renders. `null` means the read was REFUSED, and
-    // the gallery says so; it must never render as "no renders yet" (see
-    // readEventRenders' own docblock — this is the guest-list failure's shape).
-    readEventRenders(supabase, eventId),
-    // MB8 — the event-level "let Setnayan feature your creation" consent.
-    supabase
-      .from('event_render_share_consent')
-      .select('consented')
-      .eq('event_id', eventId)
-      .maybeSingle(),
     // MB12 — every finalization handshake on this board. Read UNFILTERED by
     // state on purpose: the AGREED rows are what freeze the palette, and the
     // closed ones (declined / expired) are what let a row say "turned down —
@@ -359,12 +326,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .select(BOOKED_SUPPLIER_SELECT)
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
-    // Owner ruling 2026-09-11: only the couple (and Setnayan admins) start a
-    // render on the couple's credits or choose to share it. Asked of the SAME
-    // database gate the spend/consent functions use (migration 20271221631865),
-    // so the page and the refusal cannot disagree. Every other member still
-    // sees the balance, the renders and the pool — that is the read gate.
-    supabase.rpc('moodboard_render_caller_may_act', { p_event_id: eventId }),
   ]);
   const event = eventRes.data;
   if (!event) {
@@ -384,14 +345,14 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
     /* 👗 An INC event's EMPTY dress code starts from the modest guidance
        (owner 2026-10-04) — form defaults only; nothing is written until Save. */
-    const { config: cfg, started } = incDressCodeStarter(
-      event,
-      normalizeDressCodeConfig(
-        drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
-      ),
-    );
+    const stored = drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config;
+    const { config: cfg, started } = incDressCodeStarter(event, normalizeDressCodeConfig(stored));
     dressLists = { dos: cfg.dos, donts: cfg.donts, incStarter: started };
-    dressConfig = cfg;
+    /* 🪞 NOTHING STORED IS DROPPED ON THE WAY IN (2026-10-17, owner: "why did the attire not have the information we
+       already edited?"). The Studio saves the WHOLE dress code back (`dressCodeDraftFields`), so whatever its reader
+       drops, its next save deletes: the parser dropped the women's picks and the couple's own Wear, and a save after a
+       reload wrote the config back without them. Every stored key rides through; the parsed parts lay on top. */
+    dressConfig = { ...(stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {}), ...cfg } as DressCodeConfig;
   } catch (err) {
     console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }
@@ -407,6 +368,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     slot_position: number;
     image_url: string;
     library_asset_id: string | null;
+    from_suggestion_id?: string | null;
     sampled_hex_1: string | null;
     sampled_hex_2: string | null;
     sampled_hex_3: string | null;
@@ -436,11 +398,12 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter(
         (h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h),
       ),
+      fromSuggestionId: r.from_suggestion_id ?? null,
       credit:
         r.library_asset_id && shopName
           ? creditLine(
               shopName,
-              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null),
+              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null, parts),
             )
           : null,
     };
@@ -467,7 +430,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // A zone the venue genuinely lacks (a beach's ceiling, a garden's walls)
   // is dropped from the summary entirely — never printed as "Not set" next
   // to zones the couple could actually design. Same predicate the Seat
-  // Plan's drawing and 04's render brief gate on (`venueZoneApplies`).
+  // Plan's drawing gates on (`venueZoneApplies`).
   const receptionSummary = RECEPTION_PARTS.filter(
     (p) => p.id !== 'people' && venueZoneApplies(event.venue_setting, p.id),
   ).map((p) => ({
@@ -520,7 +483,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     visibleKeys.add('wedding_party');
   }
 
-  // ── MB7: "Make it real" — which RENDER_PARTS this event may offer ───────
+  // ── which RENDER_PARTS this event has (the sign-off panels below) ───────
   // RENDER_PARTS is derived (lib/moodboard-render-parts.ts) from
   // RECEPTION_PARTS / PALETTE_ORDER / MOODBOARD_SLOT_KEYS, so it offers every
   // attire role the taxonomy knows — including ones this event's guest list
@@ -585,8 +548,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const asPanelPart = (p: RenderPart): FinalizationPanelPart => ({
     id: p.id,
     label: p.label,
-    blockerMessage: bookedUnread ? BOOKED_SUPPLIERS_UNREAD : (finalizeBlocker(p.id, bookedSuppliers)?.message ?? null),
-    eligible: (bookedUnread ? [] : eligibleSuppliersForPart(p.id, bookedSuppliers)).map((s) => ({
+    blockerMessage: bookedUnread ? BOOKED_SUPPLIERS_UNREAD : (finalizeBlocker(p.id, bookedSuppliers, parts)?.message ?? null),
+    eligible: (bookedUnread ? [] : eligibleSuppliersForPart(p.id, bookedSuppliers, parts)).map((s) => ({
       vendorId: s.vendorId,
       name: s.name,
     })),
@@ -603,61 +566,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     )
     .map(asPanelPart);
 
-  // Every inspiration slot that holds at least one photo — the same
-  // `inspirations` rows InspirationBoard renders, read once here rather than
-  // re-fetched, so section 04's render gate can never see a different photo
-  // set than the couple does.
-  const inspirationPresence = Array.from(new Set(inspirations.map((i) => i.slot_key)));
-
-  // ── MB8: resolve each render's viewing URL, server-side ──────────────────
-  //
-  // Renders live in the PRIVATE bucket, so they are readable only through a
-  // short-lived presigned GET minted here. A row whose URL cannot be minted
-  // keeps `imageUrl: null`, and the gallery says "saved — reload to see it"
-  // rather than showing a broken image or, worse, treating a photograph the
-  // couple owns as if it did not exist.
-  //
-  // `partLabel` comes from the DERIVED registry, so a render of a zone added
-  // later is still labelled properly instead of showing its raw `room:foo` id.
-  const moodboardRenders =
-    moodboardRenderRows === null
-      ? null
-      : await Promise.all(
-          moodboardRenderRows.map(async (r) => ({
-            ...r,
-            partLabel:
-              r.part_id === WHOLE_LOOK_PART_ID
-                ? 'The whole look'
-                : (renderPartById(r.part_id)?.label ?? r.part_id),
-            // 🔒 Only THIS render's own object is ever signed — a key that is
-            // not `renders/<this event>/<this render>.<ext>` signs nothing.
-            imageUrl: await signOwnRenderImage({
-              eventId,
-              renderId: r.render_id,
-              key: r.image_key,
-            }),
-          })),
-        );
-  const shareConsented = shareConsentRes.data?.consented === true;
-  // A refused or failed check is "no" — the controls then say who can use them
-  // rather than offering a button the database will refuse.
-  const mayStartRenders = !mayActRes.error && mayActRes.data === true;
-
   const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
   const venueLabel = isVenueSetting(venueSetting)
     ? VENUE_SETTING_LABEL[venueSetting]
     : 'Not set yet';
-
-  const moodboardRenderPackPlan = moodboardRenderPackSku
-    ? {
-        sku_code: MOODBOARD_RENDER_PACK_SKU,
-        name: moodboardRenderPackSku.display_name,
-        scope: 'One pack of Mood Board render credits, used across every part or the whole look.',
-        price: formatPhp(moodboardRenderPackSku.price_php),
-        unit: '',
-        priceCentavos: String(moodboardRenderPackSku.price_centavos),
-      }
-    : null;
 
   // ── the blank-start fork (MB3, 2026-09-03) ──────────────────────────────
   // ⚠ CORRECTED: this page used to pre-fill the editor with a starter palette
@@ -892,14 +804,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // ── redesign (2026-09-02): one scrollable canvas instead of separated
   // tabs/sections. Every existing data-fetching contract above is unchanged;
   // this only restructures how the same data is composed into the page.
-  /**
-   * 🔒 MAKE IT REAL IS A PAID DIGITAL FEATURE — render credits bought for ₱ and
-   * spent here. The App Store / Play Store shell neither sells nor spends them
-   * (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the section and its
-   * jump link are not mounted there. The free Mood Board around it — theme,
-   * inspiration, palette, reception, share — is the planning surface the app
-   * exists for and stays whole. Desktop and the web are unaffected.
-   */
+  /** The App Store / Play Store shell — it withholds the "Back to add-ons" link below (App Review 3.1.1). */
   const storeShell = await isStoreShellRequest();
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
@@ -908,7 +813,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     { href: '#dos-and-donts', label: 'Do’s & don’ts' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
-    ...(storeShell ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -947,19 +851,16 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <header className="space-y-1">
         <InfoTip label="Your inspirations" labelAs="h2" labelClassName="text-2xl font-semibold text-ink" ariaLabel="About inspiration">
           Upload up to 3 photos per category — drag one onto another slot to reorder. We pull a matching palette
-          colour from each upload automatically, and these references will make your photo-real render match your
-          taste, not a generic wedding.
+          colour from each upload automatically.
         </InfoTip>
         <p className="max-w-prose text-sm text-ink/65">Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.</p>
       </header>
       <InspirationBoard
         eventId={eventId}
         initial={inspirations}
-        gallerySlots={GALLERY_SLOT_KEYS}
+        gallerySlots={gallerySlotKeys(parts)}
         fetchGalleryAction={fetchGalleryAssets}
         applyGalleryAction={applyGalleryPick}
-        fetchRenderPoolAction={fetchRenderPool}
-        applyRenderPickAction={applyRenderPick}
       />
     </section>
   );
@@ -1059,24 +960,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <MoodboardBoard sections={sections} compact />
     </section>
   );
-  const makeItReal = storeShell ? null : (
-    <MakeItReal
-      eventId={eventId}
-      eligibleParts={eligibleRenderParts}
-      palette={palette}
-      receptionDesign={receptionDesign}
-      inspirationPresence={inspirationPresence}
-      venueSetting={venueSetting}
-      venueLabel={venueLabel}
-      config={moodboardRenderConfig}
-      balance={moodboardRenderBalance}
-      packPlan={moodboardRenderPackPlan}
-      checkoutSettings={platformSettings}
-      renders={moodboardRenders}
-      shareConsented={shareConsented}
-      mayStartRenders={mayStartRenders}
-    />
-  );
   const shareWords = (
     <header className="space-y-1">
       <h2 className="text-2xl font-semibold text-ink">Share with your suppliers</h2>
@@ -1114,7 +997,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     storeShell,
     jumpLinks,
     provider,
-    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
+    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, shareWords, shareButton, pdfs },
     /* 🧭 What Studio › Mood Board & Dress Code draws from — the SAME reads, nothing re-fetched. */
     studio: {
       palette,
@@ -1123,6 +1006,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       dressLists,
       roleTally: guestRoleTally(guests),
       finalizations: finalizationRecords,
+      /* 🎂 Each celebrant, woman or man (owner 2026-11-05, (L)) — the row then draws only their column(s). */
+      celebrants: guests
+        .filter((g) => g.role === 'celebrant' || (g.extra_roles ?? []).includes('celebrant'))
+        .map((g) => womanOrManOf({ name_prefix: g.name_prefix ?? null, display_name: g.display_name ?? null, gender: g.gender ?? null, attire: g.attire ?? null })),
     },
   };
 });
@@ -1181,7 +1068,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
         <PaletteBoardProvider {...provider}>
           {parts.theme}
           {parts.inspiration}
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="mood-board-palette">
             {parts.paletteSection}
             {parts.peopleAgreed}
           </div>
@@ -1189,81 +1076,25 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
 
         <div className="border-t border-ink/10 pt-6">{parts.dressLists}</div>
 
-        <div className="space-y-4 border-t border-ink/10 pt-6">
+        <div className="space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-reception">
           {parts.reception}
           {parts.roomAgreed}
         </div>
 
         <div className="border-t border-ink/10 pt-6">{parts.colours}</div>
 
-        {parts.makeItReal}
-
-        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-share">
           {parts.shareWords}
           {parts.shareButton}
         </section>
       </div>
 
       {/* Persistent action bar — both PDF exports stay reachable at any scroll. */}
-      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 px-4 py-3 sm:px-6">
+      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pl-[max(1.5rem,var(--sn-safe-l))] sm:pr-[max(1.5rem,var(--sn-safe-r))]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
       </div>
-    </div>
-  );
-}
-
-/**
- * 🧩 THE MOOD BOARD IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG
- * "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the NAVIGATOR
- * lists its parts (`mood-board-parts.tsx`), the MIDDLE draws the picked one —
- * the theme, the inspirations, the palette, the reception, the board in your
- * colours, Make it real, sharing — and the RIGHT holds that part's controls:
- * the supplier sign-offs beside the palette and the reception, Share with
- * vendors, the two PDFs. Every part stays mounted inside ONE palette provider,
- * so the theme's main colours still derive the palette live (MB5).
- */
-export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
-  const board = await buildMoodBoard(eventId, true);
-  if (!board.ok) return <CouldNotLoad />;
-  const { provider, parts } = board;
-  return (
-    <div data-mood-board="maker" className="pb-6">
-      <PaletteBoardProvider {...provider}>
-        <MoodPart part="theme">{parts.theme}</MoodPart>
-        <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
-        <MoodPart part="palette">{parts.paletteSection}</MoodPart>
-      </PaletteBoardProvider>
-      {/* ✅ Under the colours each role wears — where a couple dresses people. */}
-      <MoodPart part="palette">{parts.dressLists}</MoodPart>
-      <MoodPart part="reception">{parts.reception}</MoodPart>
-      <MoodPart part="colours">{parts.colours}</MoodPart>
-      {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}
-      <MoodPart part="share">{parts.shareWords}</MoodPart>
-    </div>
-  );
-}
-
-/** The RIGHT column: the picked part's controls, and the exports every part keeps at hand. */
-export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
-  const board = await buildMoodBoard(eventId, true);
-  if (!board.ok) return <CouldNotLoad />;
-  const { parts } = board;
-  return (
-    <div data-mood-board-controls="" className="flex flex-col gap-3">
-      <MoodPart part="palette">{parts.peopleAgreed}</MoodPart>
-      <MoodPart part="reception">{parts.roomAgreed}</MoodPart>
-      <MoodPart part="share">{parts.shareButton}</MoodPart>
-      {/* 🪜 In the Maker's guided flow (a step is a setup control, nothing else):
-          no note under the part, no downloads — the board itself is the step's
-          picture (owner 2026-10-05). */}
-      <div className="contents group-data-[details-mode=guided]/ws:hidden" data-mood-board-note-wrap="">
-        <MoodPartNote />
-      </div>
-      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="">
-        <p className="text-xs font-semibold text-ink/60">Download your board</p>
-        <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
-        {parts.lastSaved}
-      </div>
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </div>
   );
 }
@@ -1279,49 +1110,16 @@ function guestRoleTally(guests: ReadonlyArray<{ role: GuestRole; extra_roles?: G
   return [...m].map(([role, count]) => ({ role, count }));
 }
 
-/**
- * The Attire tab's people, in the Mood Board order (owner 2026-10-06: couple →
- * parents → sponsors → entourage → bearers → guests). The couple and the guests
- * are a ROLE's own line in the shipped dress code (`roles`); everyone else is
- * their GROUP's line (`groups`) — the coarse tier the shipped editor offers.
- * Only the people this guest list has; the guests always.
- */
-const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: PaletteKey | null }> = [
-  { group: 'vip_family', paletteKey: 'parents_immediate_family' },
-  { group: 'principal_sponsors', paletteKey: 'principal_sponsors' },
-  { group: 'secondary_sponsors', paletteKey: 'secondary_sponsors' },
-  { group: 'muslim_principals', paletteKey: 'muslim_principals' },
-  { group: 'bridesmaids', paletteKey: 'bridesmaids' },
-  { group: 'groomsmen', paletteKey: 'groomsmen' },
-  { group: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl' },
-  { group: 'officiants', paletteKey: 'officiants' },
-];
+/* The Attire tab's rows — `studioAttireRows` (lib/studio-attire-rows.ts), the same function the dev lab draws. */
 
-function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: DressCodeConfig | null): StudioAttireRow[] {
-  const roles = new Set(tally.map((t) => t.role));
-  const groups = new Set(tally.map((t) => roleGroupOf(t.role)));
-  const callOf = (tier: 'roles' | 'groups', key: string) =>
-    formatCallTime(((config?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
-  const out: StudioAttireRow[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: 'The celebrant', paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
-  for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
-    if (!groups.has(group)) continue;
-    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group) });
-  }
-  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null });
-  return out;
-}
-
-/** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
+/** 🧭 The Maker's Studio › Mood Board & Dress Code — drawn by the launch page (the old Maker's three-part body went with it, 2026-10-25). */
 export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, true);
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes] = await Promise.all([
-    supabase.from('events').select('invite_theme, role_palette, region').eq('event_id', eventId).maybeSingle(),
+  const [eventRes, draft, changesRes, lookRes, suggestionsRes, scheduleRead, roleSet, profile] = await Promise.all([
+    supabase.from('events').select('invite_theme, role_palette, region, role_names, event_date').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
       .from('event_colour_changes')
@@ -1331,11 +1129,61 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       .not('vendor_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(6),
+    /* 🧾 The Dress code scene's canvas — the home of the Do's & Don'ts LOOK (`canvas.dos`), which moved here from the toolbar's Style
+       (owner, decided 2026-10-09). One row, read beside the others (not after them); a scene the event does not have is no row. */
+    supabase
+      .from('invitation_widgets')
+      .select('widget_id, widget_type, is_always_on, is_visible, display_order, config_json, mode')
+      .eq('event_id', eventId)
+      .eq('widget_type', 'dress_code')
+      .maybeSingle(),
+    /* 🤝🖼 Suppliers' photos — the ones WAITING for Keep / No thanks, and the KEPT ones (their shop is the photo's credit). */
+    supabase
+      .from('event_inspiration_suggestions')
+      .select('suggestion_id, slot_key, shop_label, state, image_url, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6, created_at')
+      .eq('event_id', eventId)
+      .in('state', ['waiting', 'kept'])
+      .order('created_at', { ascending: true })
+      .limit(200),
+    /* ⏰ The programme — the Guests row's CALL TIME is its arrival moment (`lib/guests-arrive.ts`, owner 2026-10-19). A refused
+       read is said on the row (`arrival: null`), never drawn as "not set". */
+    fetchScheduleBlocks(supabase, eventId).then(
+      (blocks) => ({ ok: true as const, blocks }),
+      (err: unknown) => {
+        logQueryError('moodBoardStudio.schedule', { message: err instanceof Error ? err.message : String(err) }, { eventId }, 'graceful_degrade');
+        return { ok: false as const };
+      },
+    ),
+    /* 🎂 The event's own role set — which principals the Attire draws (a debut's celebrant, never "The bride"). Cached
+       per request (the launch page already read it); a failed read degrades to the wedding's, the rows as shipped. */
+    resolveRoleSetForEvent(eventId),
+    /* 🎂 The event's type — a debut, a birthday, a christening, an anniversary or a graduation shows "The celebrant" from
+       the start (owner 2026-11-05, (J)). Cached per request, like the role set. */
+    resolveProfileByEvent(eventId),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
   if (changesRes.error) logQueryError('moodBoardStudio.colourChanges', changesRes.error, { eventId }, 'graceful_degrade');
-  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null };
+  if (lookRes.error) logQueryError('moodBoardStudio.dressCodeScene', lookRes.error, { eventId }, 'graceful_degrade');
+  /* 🤝🖼 A refused suggestions read is SAID on the Palette (`suggestionsUnread`) — never drawn as "nothing waiting". */
+  if (suggestionsRes.error) logQueryError('moodBoardStudio.suggestions', suggestionsRes.error, { eventId }, 'graceful_degrade');
+  type SuggestionRow = { suggestion_id: string; slot_key: string; shop_label: string; state: string; image_url: string | null } & Record<`sampled_hex_${1 | 2 | 3 | 4 | 5 | 6}`, string | null>;
+  const suggestionRows = (suggestionsRes.data ?? []) as SuggestionRow[];
+  const keptShop = new Map(suggestionRows.filter((r) => r.state === 'kept').map((r) => [r.suggestion_id, r.shop_label]));
+  const suggestions: CoupleSuggestion[] = suggestionRows
+    .filter((r) => r.state === 'waiting' && r.image_url)
+    .map((r) => ({
+      id: r.suggestion_id,
+      slotKey: r.slot_key,
+      shop: r.shop_label,
+      url: r.image_url!,
+      swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter((h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h)),
+    }));
+  const inspirations = studio.inspirations.map((it) => (it.fromSuggestionId ? { ...it, fromShop: keptShop.get(it.fromSuggestionId) ?? null } : it));
+  /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
+  const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
+  const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
+  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null, role_names: null, event_date: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null; role_names?: unknown; event_date?: string | null };
   const shown = overlayHubDraftEvent(live, draft);
   /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
   const themeId = normalizeThemeId(typeof shown.invite_theme === 'string' ? shown.invite_theme : null) ?? 'house';
@@ -1353,28 +1201,47 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
     .map((r) => ({ key: r.psgc_code!, label: r.display_label }));
 
   return (
+    <>
     <MoodBoardStudio
       eventId={eventId}
+      inspirationParts={await getInspirationParts()}
       /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
       palette={draft && ('role_palette' in draft.events || 'main_colours' in draft.events) ? drafted : studio.palette}
       fallbackFive={fallbackFive}
       frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
       changes={changes}
-      attire={studioAttireRows(studio.roleTally, studio.dressConfig)}
+      /* 👯 Named in the couple's own words (owner 2026-09-30) — the honour rows and the crews they renamed. */
+      attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names), { offered: roleSet.offeredRoles, eventType: profile.eventType, celebrants: studio.celebrants })}
       dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
       attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
-      inspirations={studio.inspirations}
+      inspirations={inspirations}
+      suggestions={suggestionsRes.error ? null : suggestions}
       autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
       regions={regions}
-      dos={
-        studio.dressLists ? (
-          <DressCodeListsForm eventId={eventId} dos={studio.dressLists.dos} donts={studio.dressLists.donts} inMaker incStarter={studio.dressLists.incStarter} studio />
-        ) : (
-          <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
-            Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a moment.
-          </p>
-        )
+      dosLists={studio.dressLists ? { dos: studio.dressLists.dos, donts: studio.dressLists.donts, incStarter: studio.dressLists.incStarter } : null}
+      dosLookCanvas={dosLookCanvas}
+      arrival={
+        scheduleRead.ok
+          ? {
+              blocks: scheduleRead.blocks.map((b) => ({
+                block_id: b.block_id,
+                label: b.label,
+                block_type: b.block_type,
+                start_at: b.start_at,
+                end_at: b.end_at,
+                is_public: b.is_public,
+                sort_order: b.sort_order,
+                parent_block_id: b.parent_block_id,
+                audience: b.audience ?? null,
+                time_tba: b.time_tba === true,
+              })),
+              eventDate: (() => { const d = (shown as { event_date?: unknown }).event_date; return typeof d === 'string' ? d : (live.event_date ?? null); })(),
+            }
+          : null
       }
     />
+    {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+    <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
+    </>
   );
 }

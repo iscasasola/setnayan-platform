@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Loader2, Check } from 'lucide-react';
+import { Share, Loader2, Check } from 'lucide-react';
 import { saveImageToDevice } from '@/lib/save-to-device';
 
 // "Save to phone" overlay control for a gallery/wall tile. On mobile the native
@@ -45,7 +45,7 @@ export function SavePhotoButton({ url, filename }: { url: string; filename: stri
       ) : state === 'done' ? (
         <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
       ) : (
-        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
       )}
       <span>{label}</span>
     </button>

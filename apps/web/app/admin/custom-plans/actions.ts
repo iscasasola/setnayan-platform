@@ -85,7 +85,9 @@ function parseComposition(formData: FormData): CustomComposition {
     slotsPerCategory: Math.max(0, Math.floor(num(formData.get('slotsPerCategory'), 8))),
     // Pinned to the included base — the +100-photo pack was dropped 2026-08-27.
     photos: CUSTOM_BASE.photos,
-    domain: bool(formData.get('domain')),
+    // Pinned off — a supplier's own web address is FREE for every shop (owner 2026-10-23:
+    // "keep it free"; the shop page already says so), so a quote can never charge for it.
+    domain: false,
     // No limit on customers chased per date (owner 2026-08-29: "2500 for no
     // limit"). Read from the form, unlike the two pinned axes above, because
     // this one IS priced — turning it on adds its ₱2,500 line to the same quote.

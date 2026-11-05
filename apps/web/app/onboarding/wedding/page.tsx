@@ -19,6 +19,7 @@
  * Wedding tile) lands in Phase 5. For Phase 1 the route is reachable directly
  * but NOT linked from any production surface yet.
  */
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -41,6 +42,7 @@ import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wed
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 import { fetchOnboardingDiscountPct } from '@/lib/onboarding-discount-server';
+import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -148,7 +150,14 @@ export default async function OnboardingWeddingPage({
   // The authoritative charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   // The sign-up discount is the ONE admin number (d18), never a typed constant.
-  const pricing = buildOnboardingPricing(customerSkus, bundles, null, await fetchOnboardingDiscountPct());
+  // 💲 …but only while the set-up price applies to this buyer at all (owner
+  // 2026-10-28, "ONE PRICE EVERYWHERE"): with the welcome switch on, an account
+  // that has bought before sees the regular price here — the same question the
+  // services card and the bill ask (`setupPriceAppliesForCreateFlow`).
+  const setupPct = (await setupPriceAppliesForCreateFlow(user?.id ?? null))
+    ? await fetchOnboardingDiscountPct()
+    : 0;
+  const pricing = buildOnboardingPricing(customerSkus, bundles, null, setupPct);
 
   // Date-anchor model: pre-select the faith on a Religious wedding from the
   // user's OWN profile religion (reference-only, opt-in). Only when it maps to
@@ -207,6 +216,7 @@ export default async function OnboardingWeddingPage({
       servicesStepView={servicesStepView}
       servicesStepAiValue={servicesStepAiValue}
       authed={!!user}
+      dateExempt={user ? await viewerIsInternal().catch(() => false) : false}
       resume={sp.resume === '1'}
       activeFaiths={activeFaiths}
       religionDefault={religionDefault}
@@ -238,7 +248,7 @@ function AlreadyPlanningWedding({
 }) {
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-16 sm:px-6">
-      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+      <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70">
         Plan your wedding
       </p>
       <h1 className="mt-3 font-serif text-3xl italic text-ink sm:text-4xl">
@@ -273,7 +283,7 @@ function AlreadyPlanningWedding({
         className="mt-10 flex cursor-not-allowed items-center justify-between rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-4 opacity-60"
       >
         <span className="text-sm font-medium text-ink/60">Start planning a wedding</span>
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/45">
+        <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-ink/70">
           Not available
         </span>
       </div>

@@ -1,198 +1,338 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { motionArrow, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
-import { SP_DIR, SP_PANE, SP_ROW, SP_ROW_LABEL } from '@/lib/maker-stage-room';
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { Chips } from '@/app/_components/chips';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
+import { PillSelector } from '@/app/_components/pill-selector';
+import { MOTION_SIZE_LABEL, motionArrow, motionDirLabel, motionDirName, withMotionFx, type MotionDir, type MotionFx } from '@/lib/motion-effects';
+import { ANIMATE_FEEL_LABEL, ANIMATE_FEELS, FEEL_OFF, type AnimateFeel } from '@/lib/animate-feel';
+import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF, SP_ANIMATE_LINE } from '@/lib/maker-animate-rows';
+import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
-import { About, Dd, Dir, PanelSwitch, Phases } from './kit';
-import { useAnimatePhase, type AnimatePhase } from './store';
+import { Dd, PanelSwitch, Phases } from './kit';
+import { useAnimatePhase, useDeskAnimateStack, type AnimatePhase } from './store';
 
 /**
- * ✨ ANIMATE — the prototype's ONE column (`S.tool === 'animate'`, owner 2026-10-06
- * "Animate — ONE column: full-width phases, then a switch per effect"):
+ * ✨ ANIMATE — FOUR ROWS, nothing scrolling (`TOOLBAR-SPEC-2026-10-09.md` § ANIMATE; it was one column of eleven rows,
+ * 364–416 px in a 210-px box):
  *
- *   [ Build in | Action | Build out ]
- *   ◆ HOW IT MOVES  Auto ▾                         the scene's preset (a part: its own, or the scene's)
- *   Build in   Fade ⬤ · Blur ⬤ · Move ⬤ ← → ↓ ↑ · Size ⬤ Grow | Shrink
- *              ROWS  All at once ▾                 a scene of rows (owner 2026-10-07 "put it in build in")
- *              SPEED ▾ · DELAY ▾                   a part's (shipped)
- *   Action     DOES  Still ▾ · TIMING  Plays once ▾
- *   Build out  the four switches again, the way it leaves
- *   ◆ INTO THE NEXT SCENE  Scroll ▾                a scene's
+ *   row 1   [ Build in | Action | Build out ]
+ *   row 2   Build in / Build out — Fade · Blur · Move · Size, four chips, each on or off      Action — Still | Drift
+ *           (Build out while this plays ON ARRIVAL: there is no Build out — one line says so, with the switch that
+ *           makes it follow the scroll. It never looks live and does nothing.)
+ *   row 3   only what the ON ones need: From / To ▾ (Move) · Grow | Shrink (Size), a half each
+ *   row 4   Build in  — Movement ◆ · Plays (On arrival | On scroll) · Delay (a part) or Rows (a scene of rows)
+ *                       · ✨ Words ▾ (a cover word) or Reveal ▾ (the cover's photo) — owner-approved 2026-10-16
+ *           Action    — nothing (it has no feel and no drive of its own)
+ *           Build out — Movement ◆ · Leaves ◆ (As it scrolls away | Scrub out | Auto scroll)
  *
- * Every switch writes the SHIPPED four-effect vocabulary (`lib/motion-effects.ts`
- * `withMotionFx` — a part's `motion.in/out`, a scene's `inFx/outFx`), through the
- * shipped saves the caller hands in. "Does" offers the SHIPPED words only (a part:
- * Still · Drift; a scene: Still · Slow lift) — the prototype's Float / Pulse /
- * Shimmer do not exist and are never invented.
+ * 🎚 MOVEMENT IS THE PHASE'S OWN FEEL (owner 2026-10-09: *"movement independent from each. not universal for all"* ·
+ * *"how does the effect execute its effect, calmly, cinematic"*) — Quick · Calm · Cinematic, `lib/animate-feel.ts`.
+ * It never chooses an effect (row 2 does), never the drive (Plays / Leaves do). Where there is nothing for it to
+ * time it is GREY and a tap says why. The old one-for-all preset (Still · Calm · Editorial · Cinematic · Custom) is
+ * not offered here any more; a stored one keeps playing, untouched.
+ *
+ * NO Duration row and no Timing row (owner: "build in no duration" · "action does not need next scene and timing").
+ * Every control writes through the shipped saves the caller hands in.
  */
 
-export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void } | null;
+export type AnimateDd = { value: string; options: readonly PickOption[]; onPick: (k: string) => void; buttonText?: string; small?: string } | null;
+/** Delay — the shipped steps, in seconds (a part's None · 0.3 s · 0.8 s). */
+export type AnimateTime = { value: number; steps: readonly number[]; onPick: (seconds: number) => void } | null;
 
 /** The arrow is the way the part TRAVELS: Build in ← comes from the right; Build out ↑ leaves to the top (prototype `DIRS`). */
 const DIRS: Record<'in' | 'out', readonly MotionDir[]> = {
   in: ['right', 'left', 'above', 'below'],
   out: ['above', 'left', 'right', 'below'],
 };
+/** Size's two ways — the shipped words (`MOTION_SIZE_LABEL`). */
+const SIZES = [
+  { key: 'grow', label: MOTION_SIZE_LABEL.grow },
+  { key: 'shrink', label: MOTION_SIZE_LABEL.shrink },
+] as const;
 /** Move switched on with no way chosen: the prototype's default (Build in ↑ from the bottom · Build out ↑ to the top). */
 const FIRST_DIR: Record<'in' | 'out', MotionDir> = { in: 'below', out: 'above' };
+/**
+ * 💎 EVERY ANIMATE CONTROL WEARS THE SHIPPED " ◆" (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
+ * ACCENTS ARE EVENT HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). Movement ◆ and Leaves ◆ wore it
+ * first; every other named control here does now — tried free in the draft, named at ✓ Apply (`hubDraftProEffects`).
+ */
+export const animatePro = (name: string): string => (name.endsWith('◆') ? name : `${name} ◆`);
+/** Row 2's four, in the prototype's order — each an effect, each ◆. */
+const EFFECTS = [
+  { key: 'fade', label: animatePro('Fade') },
+  { key: 'blur', label: animatePro('Blur') },
+  { key: 'move', label: animatePro('Move') },
+  { key: 'size', label: animatePro('Size') },
+] as const;
+type Effect = (typeof EFFECTS)[number]['key'];
 
-function EffectRows({ end, fx, onChange }: { end: 'in' | 'out'; fx: MotionFx | null; onChange: (next: MotionFx | null) => void }) {
-  const set = (part: keyof MotionFx, value: string | boolean | null) => onChange(withMotionFx(fx, part, value));
-  const verb = end === 'in' ? 'in' : 'out';
-  const note = (words: string) => <em className="not-italic text-[var(--sp-mute)]">{words}</em>;
-  const right = 'flex min-w-0 flex-1 items-center justify-end text-[12px] text-[var(--sp-ink2)]';
-  return (
-    <>
-      <div className={SP_ROW} data-stage-effect={`${end}-fade`}>
-        <span className={SP_ROW_LABEL}>Fade</span>
-        <PanelSwitch on={Boolean(fx?.fade)} label={`Fade ${verb}`} data={`${end}-fade`} onChange={(on) => set('fade', on)} />
-        <span className={right}>{fx?.fade ? note(end === 'in' ? 'Fades in' : 'Fades out') : note('Off')}</span>
-      </div>
-      <div className={SP_ROW} data-stage-effect={`${end}-blur`}>
-        <span className={SP_ROW_LABEL}>Blur</span>
-        <PanelSwitch on={Boolean(fx?.blur)} label={`Blur ${verb}`} data={`${end}-blur`} onChange={(on) => set('blur', on)} />
-        <span className={right}>{fx?.blur ? note(end === 'in' ? 'Soft focus to sharp' : 'Soft focus as it leaves') : note('Off')}</span>
-      </div>
-      <div className={SP_ROW} data-stage-effect={`${end}-move`}>
-        <span className={SP_ROW_LABEL}>Move</span>
-        <PanelSwitch on={Boolean(fx?.move)} label={`Move ${verb}`} data={`${end}-move`} onChange={(on) => set('move', on ? (fx?.move ?? FIRST_DIR[end]) : null)} />
-        <span className={`${right} gap-1`}>
-          {fx?.move
-            ? DIRS[end].map((d) => <Dir key={d} on={fx.move === d} glyph={motionArrow(d, end)} label={motionDirName(d, end)} onPick={() => set('move', d)} />)
-            : note('Stays in place')}
-        </span>
-      </div>
-      <div className={SP_ROW} data-stage-effect={`${end}-size`}>
-        <span className={SP_ROW_LABEL}>Size</span>
-        <PanelSwitch on={Boolean(fx?.size)} label={`Size ${verb}`} data={`${end}-size`} onChange={(on) => set('size', on ? (fx?.size ?? 'grow') : null)} />
-        <span className={`${right} gap-1`}>
-          {fx?.size
-            ? (['grow', 'shrink'] as const).map((s) => (
-                <button key={s} type="button" aria-pressed={fx.size === s} data-stage-size={s} onClick={() => set('size', s)} className={SP_DIR + ' !w-auto'}>
-                  <span
-                    className={`inline-flex h-[38px] items-center rounded-md border px-2.5 text-[12.5px] font-semibold ${
-                      fx.size === s ? 'border-[var(--sp-ink)] bg-[var(--sp-ink)] text-white' : 'border-[var(--sp-line)] bg-white text-[var(--sp-ink2)]'
-                    }`}
-                  >
-                    {s === 'grow' ? 'Grow' : 'Shrink'}
-                  </span>
-                </button>
-              ))
-            : note('Same size')}
-        </span>
-      </div>
-    </>
-  );
+/** Row 2 pressed: the effect goes on (Move and Size with their first way) or off. */
+export function toggleMotionFx(fx: MotionFx | null, end: 'in' | 'out', effect: Effect): MotionFx | null {
+  if (effect === 'move') return withMotionFx(fx, 'move', fx?.move ? null : FIRST_DIR[end]);
+  if (effect === 'size') return withMotionFx(fx, 'size', fx?.size ? null : 'grow');
+  return withMotionFx(fx, effect, !fx?.[effect]);
 }
 
-export function StageAnimate({
-  how,
-  howWords = 'How it moves',
+const seconds = (n: number) => `${n.toFixed(1)} s`;
+/** 🖥 One phase of a desktop's stack: its rows one under the other, each a row tall (a row it has no use for is not drawn). */
+const SP_ANIMATE_STACKED = 'flex flex-col gap-[var(--sp-rg)] [&>*]:min-h-[var(--sp-rh)]';
+
+/** Movement ◆ for one phase: the feel that plays, and — when there is nothing for it to time — why (a tap says it). */
+export type AnimateMove = { value: AnimateFeel; onPick: (feel: AnimateFeel) => void; off?: string | null } | null;
+/** Build in's drive. */
+export type AnimatePlays = { value: 'arrival' | 'scroll'; onPick: (drive: 'arrival' | 'scroll') => void } | null;
+
+const FEEL_OPTIONS = ANIMATE_FEELS.map((f) => ({ key: f, label: ANIMATE_FEEL_LABEL[f] }));
+const PLAYS_OPTIONS = [
+  { key: 'arrival', label: 'On arrival' },
+  { key: 'scroll', label: 'On scroll' },
+] as const;
+
+export type StageAnimateProps = Parameters<typeof AnimateRows>[0];
+
+/**
+ * The phone's four rows (`AnimateRows`) — or, on a desktop while its columns are on, the three phases STACKED under
+ * their bar (`stage-panel/desk.tsx`, lazy; handed in through `useDeskAnimateStack`, null on a phone and in either
+ * first render). A one-phase page (`only`) keeps its four rows everywhere: it has one phase to show.
+ */
+export function StageAnimate(p: StageAnimateProps) {
+  const Stack = useDeskAnimateStack();
+  return Stack && !p.only && !p.bare ? <Stack {...p} /> : <AnimateRows {...p} />;
+}
+
+export function AnimateRows({
+  phase: forced = null,
+  bare = false,
+  move,
+  plays = null,
   inFx,
   outFx,
   onIn,
   onOut,
   rows = null,
-  speed = null,
   delay = null,
   does,
-  timing,
-  next = null,
-  outAbout = null,
-  pro = null,
+  leaves = null,
+  band = null,
+  arrive = null,
+  actNote = null,
+  noteDoor = null,
   pending = false,
   error = null,
+  only,
+  onlyWhy,
+  note = null,
 }: {
-  how: AnimateDd;
-  howWords?: string;
+  /** 🖥 This phase, whatever Animate's own segment is on (a desktop's stack draws each of the three). */
+  phase?: AnimatePhase | null;
+  /** 🖥 Rows 2–4 only — the stack's own bar stands over all three phases. */
+  bare?: boolean;
+  /**
+   * One quiet line about WHERE this Build in plays, in row 3 while that row is free (no refusal to say, and neither
+   * Move nor Size is on — they need the row for their side and their way). The reply form's card says the Event
+   * Hub's sheet opens its own way (`rsvpSheetKeepsLine`, `lib/rsvp-look.ts`).
+   */
+  note?: string | null;
+  /**
+   * 🧩 ONE PHASE ONLY — a part of a page that is one screen with no scroll to follow and no exit (a line of a reply
+   * page: it arrives, and a guest leaves by answering). THE SAME FOUR ROWS as everywhere (owner 2026-10-10: *"please
+   * make Edit | Style | Background | Animate Consistent in design"*): row 1 is still Build in | Action | Build out,
+   * with Build in picked and the other two GREY — a tap on a grey one says why (`onlyWhy`), nothing is picked — the
+   * effects are still row 2 and Movement still row 4. (Row 1 was left out and the rows pulled up: the effects stood
+   * where the phases stand elsewhere, and Movement a row high.) Nothing that could not play is offered.
+   */
+  only?: 'in';
+  /** Why the other phases are grey, in one plain line — said by the toolbar's toast when one is tapped. */
+  onlyWhy?: string;
+  /** Movement ◆ — each end's OWN feel. Never an effect, never the drive. */
+  move: { in: AnimateMove; out: AnimateMove };
+  /** Build in's drive — and, on arrival, the reason Build out has nothing to play. */
+  plays?: AnimatePlays;
   inFx: MotionFx | null;
   outFx: MotionFx | null;
   onIn: (fx: MotionFx | null) => void;
   onOut: (fx: MotionFx | null) => void;
   /** 🧾 A scene of rows (a schedule, the march, the story …): Rows ▾ — the shipped `sequence`. */
   rows?: AnimateDd;
-  speed?: AnimateDd;
-  delay?: AnimateDd;
+  /** Build in's Delay (a part's — a scene stores none). Build out has none (decision 8). */
+  delay?: AnimateTime;
+  /** Action's two (Still | Drift) — the caller's shipped words. */
   does: AnimateDd;
-  timing: AnimateDd;
-  /** A scene's move into the next one (null on the stage's last scene, or a part). */
-  next?: AnimateDd;
-  /** ⓘ beside Build out — e.g. a part's out plays only as guests scroll. */
-  outAbout?: ReactNode;
-  /** 💎 Event Hub Pro, said behind ⓘ once (the ◆ marks on How it moves say it on the row). */
-  pro?: ReactNode;
+  /** Build out's Leaves ◆ — the scene's hand-off to the next one (null on the stage's last scene). */
+  leaves?: AnimateDd;
+  /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
+  band?: AnimateDd;
+  /**
+   * ✨ HOW IT ARRIVES (owner-approved 2026-10-16, "SIX NEW EFFECTS"): Words ▾ on a cover word (All at once · Word by word ·
+   * Spread) or Reveal ▾ on the photo (Plain · Develop · Curtain) — ONE stacked dropdown in Build in's row 4, the slot
+   * Rows ▾ has on a scene; it plays together with the chips. `small` is its name ("Words" · "Reveal").
+   */
+  arrive?: AnimateDd;
+  /** ✨ Action's row-3 line for what the picked Action does (Glow, Light leak — the prototype's words). */
+  actNote?: string | null;
+  /** 🎬 A door beside the note (a cover word on its own: "Reset to the cover's entrance ›"). */
+  noteDoor?: { label: string; onPress: () => void } | null;
   pending?: boolean;
   error?: string | null;
 }) {
   const [phase, setPhase] = useAnimatePhase();
+  const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  const at: AnimatePhase = only ?? forced ?? phase;
+  const end = at === 'act' ? null : at;
+  const fx = end === 'in' ? inFx : end === 'out' ? outFx : null;
+  const keep = end === 'in' ? onIn : onOut;
+  const set = (part: keyof MotionFx, value: string | boolean | null) => keep(withMotionFx(fx, part, value));
+  const verb = end === 'in' ? 'in' : 'out';
+  /* On arrival there is no Build out at all (the page has no timed exit; a part's is dropped) — say so. */
+  const noOut = end === 'out' && plays?.value === 'arrival';
+  const feel = end ? move[end] : null;
   return (
-    <div className={SP_PANE} data-stage-animate={phase} aria-busy={pending}>
-      <Phases<AnimatePhase>
-        label="Animate"
-        value={phase}
-        options={[
-          ['in', 'Build in'],
-          ['act', 'Action'],
-          ['out', 'Build out'],
-        ]}
-        onPick={setPhase}
-        data="animate"
-      />
-      {how ? (
-        <div className="flex h-11 shrink-0 items-center gap-1.5">
-          <Dd small={`◆ ${howWords}`} label={howWords} data="how" tone="how" value={how.value} options={how.options} onPick={how.onPick} />
-          {pro ? <About label="Animate">{pro}</About> : null}
+    <div className={bare ? SP_ANIMATE_STACKED : `${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
+      {/* ══ ROW 1 — when (on a one-screen page: Build in, and the two it has none of, grey) ══ */}
+      {bare ? null : <div className={`${SP_ROWS_ROW} row-start-1`}>
+        <Phases<AnimatePhase>
+          label="Animate"
+          value={at}
+          options={[
+            ['in', 'Build in'],
+            ['act', 'Action'],
+            ['out', 'Build out'],
+          ]}
+          onPick={only ? () => {} : setPhase}
+          off={only ? (k) => (k === only ? null : () => setWhy((w) => ({ words: onlyWhy ?? '', n: (w?.n ?? 0) + 1 }))) : undefined}
+          data="animate"
+        />
+      </div>}
+      {/* ══ ROW 2 — what it does ══ */}
+      {noOut && plays ? (
+        <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-no-out="">
+          <p className={SP_ANIMATE_LINE}>{FEEL_OFF.arrival}</p>
+          <PanelSwitch on={false} label="Follow the scroll" data="out-follow" onChange={() => plays.onPick('scroll')} />
+        </div>
+      ) : end ? (
+        <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-effects={end}>
+          {/* Four that are each on or off — the app's CHIPS (filled when on, plain when off), never segments of a
+              track: a different kind of control from row 1's one-of-three, so it looks different. */}
+          <Chips even={false} className={SP_ANIMATE_CHIPS} label={`Build ${verb}`} data={`${end}-effects`} value={EFFECTS.filter((e) => Boolean(fx?.[e.key])).map((e) => e.key)} options={EFFECTS} onToggle={(e) => keep(toggleMotionFx(fx, end, e))} />
+        </div>
+      ) : does ? (
+        <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">
+          {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing.
+              ✨ Three or more (a text part: Still · Drift · Shimmer — owner 2026-10-16) → ONE dropdown, the house rule
+              ("any set of choices is a dropdown"). */}
+          {does.options.length >= 3 ? (
+            <Dd small={animatePro('While on screen')} label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
+          ) : (
+            <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+          )}
         </div>
       ) : null}
-      {phase === 'in' ? (
-        <>
-          <EffectRows end="in" fx={inFx} onChange={onIn} />
-          {rows ? (
-            <div className="flex h-11 shrink-0" data-stage-rows="">
-              <Dd small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} />
-            </div>
-          ) : null}
-          {speed || delay ? (
-            <div className="flex h-11 shrink-0 gap-1.5">
-              {speed ? <Dd small="Speed" label="How fast it comes in" data="speed" value={speed.value} options={speed.options} onPick={speed.onPick} /> : null}
-              {delay ? <Dd small="Delay" label="Delay" data="delay" value={delay.value} options={delay.options} onPick={delay.onPick} /> : null}
-            </div>
-          ) : null}
-        </>
-      ) : phase === 'act' ? (
-        <>
-          {does ? (
-            <div className="flex h-11 shrink-0">
-              <Dd small="Does" label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
-            </div>
-          ) : null}
-          {timing ? (
-            <div className="flex h-11 shrink-0">
-              <Dd small="Timing" label="When it plays" data="timing" value={timing.value} options={timing.options} onPick={timing.onPick} />
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <>
-          {outAbout ? (
-            <div className="flex h-11 shrink-0 items-center justify-end">
-              <About label="Build out">{outAbout}</About>
-            </div>
-          ) : null}
-          <EffectRows end="out" fx={outFx} onChange={onOut} />
-        </>
-      )}
-      {next ? (
-        <div className="flex h-11 shrink-0">
-          <Dd small="◆ Into the next scene" label="Into the next scene" data="next" value={next.value} options={next.options} onPick={next.onPick} />
-        </div>
-      ) : null}
+      {/* ══ ROW 3 — only what the ON ones need, a half each ══ */}
       {error ? (
-        <p role="alert" className="shrink-0 py-1 text-[12.5px] font-semibold text-terracotta-700">
+        <p role="alert" className={`${SP_ROWS_ROW} row-start-3 text-[12.5px] font-semibold text-[rgb(var(--color-danger))]`}>
           {error}
         </p>
+      ) : end && !noOut && (fx?.move || fx?.size) ? (
+        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-needs={end}>
+          {fx?.move ? (
+            <span className={SP_ANIMATE_HALF} data-stage-need="move">
+              <Dd
+                stacked
+                small={animatePro(end === 'in' ? 'From' : 'To')}
+                label={end === 'in' ? 'Comes in from' : 'Goes out to'}
+                data={`${end}-move-dir`}
+                value={fx.move}
+                options={DIRS[end].map((d) => ({ key: d, label: `${motionArrow(d, end)}  ${motionDirName(d, end)}` }))}
+                buttonText={motionDirLabel(fx.move, end).replace(/^(?:From|To) /, '')}
+                onPick={(d) => set('move', d)}
+              />
+            </span>
+          ) : null}
+          {fx?.size ? (
+            <span className={SP_ANIMATE_HALF} data-stage-need="size">
+              {/* A stored "Settle back" is neither, so nothing is picked until one is. */}
+              <PillSelector label={`Size ${verb}`} data={`${end}-size`} value={fx.size === 'grow' || fx.size === 'shrink' ? fx.size : null} options={SIZES} onPick={(s) => s !== fx.size && set('size', s)} />
+            </span>
+          ) : null}
+        </div>
+      ) : at === 'act' && band ? (
+        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-band="">
+          <Dd small={animatePro('Band')} label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
+        </div>
+      ) : at === 'act' && actNote ? (
+        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-act-note="">
+          {actNote}
+        </p>
+      ) : note ? (
+        noteDoor ? (
+          <div className={`${SP_ROWS_ROW} row-start-3`}>
+            <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70" data-stage-animate-note="">
+              {note}
+            </p>
+            <span data-stage-note-door="" className="shrink-0">
+              <ActionButton tone="neutral" icon={RotateCcw} label={noteDoor.label} onClick={noteDoor.onPress} />
+            </span>
+          </div>
+        ) : (
+          <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
+            {note}
+          </p>
+        )
       ) : null}
+      {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
+      {end ? (
+        <div className={`${SP_ROWS_ROW} row-start-4`} data-stage-animate-row4={at}>
+          {feel ? (
+            <Dd
+              stacked
+              small="Movement ◆"
+              label="Movement"
+              data={`${end}-move`}
+              value={feel.value}
+              options={FEEL_OPTIONS}
+              onPick={(f) => feel.onPick(f as AnimateFeel)}
+              off={feel.off ? () => setWhy((w) => ({ words: feel.off as string, n: (w?.n ?? 0) + 1 })) : undefined}
+            />
+          ) : null}
+          {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
+              here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
+              scroll" switch is the way in). */}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small={animatePro('Plays')} label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {end === 'in' && rows ? <Dd stacked small={animatePro('Rows')} label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
+          {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
+          {end === 'in' && arrive ? <Dd stacked small={animatePro(arrive.small ?? 'Words')} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}
+          {end === 'in' && delay ? (
+            <Dd
+              stacked
+              small={animatePro('Delay')}
+              label="Delay"
+              data="delay"
+              value={String(delay.value)}
+              options={delay.steps.map((s) => ({ key: String(s), label: seconds(s) }))}
+              onPick={(k) => {
+                const s = Number(k);
+                if (s !== delay.value) delay.onPick(s);
+              }}
+            />
+          ) : null}
+          {/* On a PART the hand-off is its SCENE's (a part has none of its own — Scrub and Auto scroll are scene to scene), and the name says so. */}
+          {end === 'out' && leaves ? <Dd stacked small={animatePro(leaves.small ?? 'Leaves')} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
+        </div>
+      ) : null}
+      {/* The reason a grey Movement gives. Drawn on the page's body, not in the four rows: the tool sits in a box
+          that clips and may be moved, and a toast peeks from the top of the SCREEN. (`why` is only ever set by a tap.) */}
+      {why
+        ? createPortal(
+            <PeekToast key={why.n} tone="note" data="move-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
+              {why.words}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

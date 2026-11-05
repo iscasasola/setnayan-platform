@@ -1,6 +1,12 @@
 import Link from 'next/link';
-import { UploadYourQr } from './upload-your-qr';
+import { DoorChoices } from './door-choices';
+import { STRANGER_DOOR_WORDS, doorSignInHref } from './door-choice-words';
+import { FirstScreenDoor } from './first-screen-door';
 import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
+import { RequestKeyInput } from '@/app/_components/request-key-input';
+
+/** 🚪 The stranger's door's words — owner 2026-11-03, *"yes Open your invitation"* (it read "Confirm your Booking"). */
+export { STRANGER_DOOR_WORDS };
 
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
@@ -9,13 +15,12 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *
  * Two states, one button each:
  *
- *   · not signed in → **"Get inside"** · "Upload your QR · Sign in" — the two
- *     things it actually opens (it once said "Scan your QR · Tap NFC", which
- *     nothing behind it does).
- *     Pressing it opens exactly two things (owner 2026-09-27, the poster QR:
- *     "sign in to enter or upload your qr to login"): Upload your QR (a photo
- *     or screenshot, decoded on the phone) and Sign in. A `<details>`, so it
- *     opens with no script and in every in-app webview;
+ *   · not signed in → ONE button, **"Open your invitation"**, and nothing else on it (owner 2026-11-03,
+ *     DECISION_LOG "THE GUEST DOOR IS ONE BUTTON": *"both buttons does the same thing"* · *"just 1 button
+ *     please"* · *"i also saw sign in"*; it read "Confirm your Booking" with "Upload your QR · Sign in" under
+ *     it, and opened onto a SECOND full "Upload your QR" button). Pressing it shows exactly three choices
+ *     (`DoorChoices`): Scan QR (the live camera) · Upload QR (the phone's picker) · Lost QR? Login. A
+ *     `<details>`, so it opens with no script and in every in-app webview (Messenger);
  *   · signed in, not on this guest list → "You're not on the guest list for
  *     this event yet" + **"Ask to join"**, which goes to the couple's Requests
  *     (`/join/{eventId}`) — never an automatic entry; a name match alone never
@@ -26,6 +31,21 @@ import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
  *     guest and walks them in (owner 2026-09-30, "no reply, no approval unless
  *     the host picks 'I approve each one'"). A press, not the render: a page
  *     render may not write the guest cookie (lib/guest-membership-session.ts).
+ *   · signed in, and the seat read was REFUSED (2026-11-05, reads-are-honest) →
+ *     "We couldn't check your invitation just now" + **"Try again"** (a fresh
+ *     load of this same page). Never the not-listed copy and never a join
+ *     button: the person may well be on the list, and "Join as a guest" would
+ *     add them a second time.
+ *
+ * 🚪 THE FIRST SCREEN MAKES ROOM FOR THE DOOR (2026-10-11). Measured on the live
+ * sample event: the button's own place is under the date, at y 715 — entirely
+ * below a 375 × 667 screen, and under the bottom bar at 375 × 812. A first cut
+ * docked it over the cover and it then sat on the couple's names or the date.
+ * So the button stays IN THE COVER'S FLOW and the cover makes room: its air
+ * closes up, its mark is drawn smaller, and — only if it must — whole parts of
+ * the cover move below the button, the link first and the names never
+ * (`_lib/first-screen-fit.ts` is the rule; `FirstScreenDoor` measures and
+ * writes it). `dock={false}` on the Maker's canvas, which is not a first screen.
  *
  * 🔒 THIS IS THE DOOR, NOT THE GATE. What stays inside (camera, gallery,
  * announcements, seat, exact venue) is withheld by the SERVER before this page
@@ -35,10 +55,21 @@ export function GetInside({
   slug,
   eventId,
   signedInNotListed,
+  seatUnread = false,
   theOrganizer,
   mayAskToJoin = false,
   joinAction,
+  dock = true,
+  inFoot = false,
 }: {
+  /** Fit the first screen around the signed-out door (see above). */
+  dock?: boolean;
+  /**
+   * 🦶 Drawn IN the cover's foot (`PahinaMasthead` `door`, owner 2026-10-17): the foot is the bottom of the first
+   * screen — and where the text cover is taller than a short phone, the cover makes room for the foot by the same fit
+   * (`FirstScreenDoor foot`, 2026-10-18).
+   */
+  inFoot?: boolean;
   /**
    * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
    * join door's own action, bound to this event by the page
@@ -53,7 +84,29 @@ export function GetInside({
   slug: string | null;
   eventId: string;
   signedInNotListed: boolean;
+  /** Signed in, and their seat read was refused — we do not know whether they are listed. */
+  seatUnread?: boolean;
 }) {
+  // 🔌 FIRST: an unanswered question is never answered with "not on the list".
+  if (seatUnread) {
+    return (
+      <section aria-labelledby="seat-unread" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="seat-unread">
+        <h2 id="seat-unread" className="font-serif text-2xl leading-snug text-ink">
+          We couldn&rsquo;t check your invitation just now
+        </h2>
+        <p className="text-sm text-ink/70" role="status">
+          Your invitation is fine — something on our end is having trouble. Give it a moment and try again.
+        </p>
+        {/* A plain link, so it is a fresh server render of this same page — the read is asked again. */}
+        <a
+          href={slug ? `/${slug}` : '.'}
+          className="button-primary flex min-h-[52px] w-full items-center justify-center"
+        >
+          Try again
+        </a>
+      </section>
+    );
+  }
   if (signedInNotListed && joinAction) {
     return (
       <section aria-labelledby="come-in" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="join">
@@ -62,6 +115,7 @@ export function GetInside({
         </h2>
         <p className="text-sm text-ink/70">Tap once and this event is added to your account. No reply needed.</p>
         <form action={joinAction}>
+          <RequestKeyInput />
           <button type="submit" className="button-primary flex min-h-[52px] w-full items-center justify-center">
             Join as a guest
           </button>
@@ -95,26 +149,15 @@ export function GetInside({
       </section>
     );
   }
-  const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
   const door = (
-    <details className="group mx-auto max-w-md" data-get-inside="door">
+    <details className={`group mx-auto max-w-md${dock && !inFoot ? ' sn-door-dock' : ''}`} data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
-        <span className="text-base">Get inside</span>
-        {/* Names only what opens underneath (guest text audit 2026-09-30): the
-            button promised "Scan · Tap NFC", and neither is behind it. */}
-        <span className="text-xs font-normal opacity-80">{slug ? 'Upload your QR · Sign in' : 'Sign in'}</span>
+        <span className="text-base">{STRANGER_DOOR_WORDS}</span>
       </summary>
-      {/* The poster's door (owner 2026-09-27: "sign in to enter or upload your
-          qr to login") — exactly two things: the guest's own QR, read on the
-          phone, or their account. */}
-      <div className="mt-4 space-y-4">
-        {slug ? <UploadYourQr slug={slug} /> : null}
-        <Link
-          href={signIn}
-          className="flex min-h-[48px] w-full items-center justify-center text-sm font-medium text-ink underline underline-offset-4"
-        >
-          Sign in
-        </Link>
+      {inFoot ? <FirstScreenDoor foot /> : dock ? <FirstScreenDoor /> : null}
+      {/* Exactly three choices (owner 2026-11-03) — quiet buttons; the ONE primary is the door above. */}
+      <div className="mt-4">
+        <DoorChoices slug={slug} signIn={doorSignInHref(slug)} />
       </div>
     </details>
   );

@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, AlertTriangle } from 'lucide-react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import type { AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
@@ -53,7 +52,6 @@ export function AiBandsEditor({
   /** Sets ONE band's regular price. The sign-up price follows the one sign-up discount. */
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
-  const router = useRouter();
   const [bandState, bandFormAction] = useActionState<RowActionState, FormData>(setBandAction, {
     ok: false,
     message: null,
@@ -107,7 +105,6 @@ export function AiBandsEditor({
             discountPct={discountPct}
             formAction={bandFormAction}
               savePriceAction={savePriceAction}
-            onSaved={() => router.refresh()}
           />
         ))}
       </div>
@@ -193,14 +190,12 @@ function BandCard({
   discountPct,
   formAction,
   savePriceAction,
-  onSaved,
 }: {
   band: AiBandView;
   allKinds: EventKindView[];
   discountPct: number;
   formAction: (fd: FormData) => void;
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
-  onSaved: () => void;
 }) {
   const notOffered = band.regularPhp == null;
   const computedSignup =
@@ -234,7 +229,6 @@ function BandCard({
               band={band.band}
               regularPhp={band.regularPhp!}
               action={savePriceAction}
-              onSaved={onSaved}
             />
             <div className="w-40">
               <span className="mb-1 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
@@ -303,11 +297,11 @@ function BandCard({
 
         {/* Moving a kind IN. The select posts one kind + one band; that write is
             the whole move, because a kind's band is a single column on its row. */}
+        {/* ⚡ No refresh beside the write: `setEventTypeBand` revalidates, so its own answer redraws the bands. (The
+            refresh that sat here was fired WITHOUT waiting for the write — a second render that could even read the
+            row before it changed.) */}
         <form
-          action={(fd) => {
-            formAction(fd);
-            onSaved();
-          }}
+          action={formAction}
           className="mt-3 flex flex-wrap items-center gap-2"
         >
           <input type="hidden" name="band" value={band.band} />
@@ -370,12 +364,10 @@ function BandPriceField({
   band,
   regularPhp,
   action,
-  onSaved,
 }: {
   band: string;
   regularPhp: number;
   action: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
-  onSaved: () => void;
 }) {
   const [state, formAction] = useActionState<RowActionState, FormData>(action, {
     ok: false,
@@ -384,10 +376,8 @@ function BandPriceField({
 
   return (
     <form
-      action={(fd) => {
-        formAction(fd);
-        onSaved();
-      }}
+      // ⚡ `saveAiBandPrice` revalidates: its own answer redraws the page — no refresh beside it.
+      action={formAction}
       className="w-40"
     >
       <input type="hidden" name="band" value={band} />

@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -27,8 +27,10 @@ import { resolveMonogram } from '@/lib/monogram';
 import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { resolveStdBackground, stdFollowLegibility, stdFollowsTheme } from '@/lib/std-backgrounds';
-import { INVITE_THEMES } from '@/lib/invite-themes';
+import { stdFilmOnMain, stdFollowLegibility } from '@/lib/std-backgrounds';
+import { parseSiteBackground } from '@/lib/ombre';
+import { themeColours } from '@/lib/theme-colours';
+import { mainGroundStillFor } from '@/app/[slug]/_lib/main-ground-layer';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { resolveStdMedia, stdNsfwDisplayStatus, stdVideoNeedsScreen } from '@/lib/std-media';
 import { loadStdNsfwVerdict } from '@/lib/std-video-gate';
@@ -102,7 +104,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, invite_theme, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
+      'public_id, slug, display_name, event_date, venue_name, venue_address, ceremony_type, secondary_ceremony_type, love_story, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, monogram_motion_key, monogram_studio_config, role_palette, wax_seal_config, std_reveal_template, std_reveal_effects, std_invitation_launch_date, std_theme, std_film_date, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, std_film_story, std_film_accent_hex, std_background, site_bg_color, invite_theme, std_media, our_photos, site_bg_music_enabled, site_bg_music_r2_key, landing_page_hero_image_url, date_candidates, date_mode, landing_page_visibility, std_launched_at, scheduled_launch_at',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -183,25 +185,33 @@ export default async function SaveTheDatePage({ params }: Props) {
   const chosenTemplate = coerceTemplate(event?.std_reveal_template);
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
-  const stdFollows = stdFollowsTheme(event?.std_background);
-  // While it follows the theme, the Readability the couple kept rides on the picker's state.
-  const stdBackground = stdFollows
-    ? { ...resolveStdBackground(null, veilColor), legibility: stdFollowLegibility(event?.std_background) }
-    : resolveStdBackground(event?.std_background, veilColor);
-  /* 🎞 SAME AS THEME (owner 2026-10-05): with nothing of its own stored, the film
-     wears the Event Hub theme's canvas — the guest page's rule
-     (`stdFilmBackground`, app/[slug]/_lib/loaders.ts), so the preview here shows
-     what guests see, never the Mood Board veil. */
-  const stdFollowsThemeNow = stdFollows;
-  const themeCanvas =
-    INVITE_THEMES[
-      (await resolveHubTheme({ event_id: eventId, display_name: event?.display_name ?? null, invite_theme: event?.invite_theme ?? null }).catch(() => null))
-        ?.theme ?? 'house'
-    ]?.palette.canvas ?? null;
-  const stdBackgroundUploadUrl =
-    stdBackground.kind === 'upload'
-      ? await displayUrlForStoredAsset(siteMediaServeRef(stdBackground.value))
-      : null;
+  /* 🎞 THE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08) — the preview here shows
+     what guests see: the main background's picture (`mainGroundStillFor`, the guest page's own resolution, the
+     couple's draft laid over live as on the Maker's canvas), else the page colour; their Readability on it. */
+  const hubTheme =
+    (await resolveHubTheme({ event_id: eventId, display_name: event?.display_name ?? null, invite_theme: event?.invite_theme ?? null }).catch(() => null))
+      ?.theme ?? 'house';
+  const { data: heroRow, error: heroRowError } = await supabase
+    .from('invitation_widgets')
+    .select('config_json')
+    .eq('event_id', eventId)
+    .eq('widget_type', 'hero')
+    .maybeSingle();
+  // Refused: the preview wears the page colour instead of the main background's picture — a preview only; nothing is
+  // written from it, and the guest page resolves its own.
+  if (heroRowError) logQueryError('SaveTheDatePage.heroRow', heroRowError, { event_id: eventId }, 'graceful_degrade');
+  const pageBg = parseSiteBackground((event as { site_bg_color?: unknown } | null)?.site_bg_color);
+  const filmOnMain = stdFilmOnMain({
+    still: await mainGroundStillFor({
+      theme: hubTheme,
+      heroConfig: (heroRow as { config_json?: unknown } | null)?.config_json ?? null,
+      event: { event_id: eventId, landing_page_hero_image_url: event?.landing_page_hero_image_url ?? null, role_palette: event?.role_palette },
+      viewerIsHost: true,
+      tryOn: true,
+    }).catch(() => null),
+    pageColour: pageBg ? (pageBg.kind === 'plain' ? pageBg.hex : pageBg.ombre.base) : themeColours(hubTheme, event?.role_palette).colours.canvas,
+    legibility: stdFollowLegibility(event?.std_background),
+  });
   const stdMedia = resolveStdMedia(event?.std_media, eventId);
   // SEC-6 — the screening verdict is a SEPARATE, host-unwritable column bound to
   // the media it judged. The couple sees its status; they cannot set it. A
@@ -256,7 +266,8 @@ export default async function SaveTheDatePage({ params }: Props) {
       // 2026-09-24). The one host-facing resolver (service client, host of THIS
       // event), as the save action's gate reads it, so a co-host who did not
       // place the order sees the same answer the save gives.
-      eventCoupleWebsiteProActive(ent, eventId),
+      // 💎 The Save-the-Date's own film is the Reveal part's (owner 2026-10-22, gate 3).
+      eventHubPartActive(ent, eventId, 'reveal'),
     ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
   const openingsStandaloneSellable = openingsSellability === 'sellable';
@@ -396,13 +407,16 @@ export default async function SaveTheDatePage({ params }: Props) {
   const storeShell = await isStoreShellRequest();
   return (
     <section className="space-y-8">
-      <Link
-        href={studioHubHref(eventId)}
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
-      </Link>
+      {/* 🍎 "Back to add-ons" opens the More menu — not in the iPhone app (#6725), where it only re-opened Home. */}
+      {storeShell ? null : (
+        <Link
+          href={studioHubHref(eventId)}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to add-ons
+        </Link>
+      )}
 
       {/*
         ⚖ NAME AND PROMISE, BUT NO PRICE — AND THE ABSENCE IS THE DECISION.
@@ -548,10 +562,8 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialLaunchDate={launchDate}
         initialRevealTemplate={chosenTemplate}
         initialEffects={effects}
-        initialBackground={stdBackground}
-        initialFollowsTheme={stdFollowsThemeNow}
-        themeCanvas={themeCanvas}
-        initialUploadUrl={stdBackgroundUploadUrl}
+        initialBackground={filmOnMain.background}
+        initialUploadUrl={filmOnMain.imageUrl}
         initialMedia={stdMedia}
         initialNsfwStatus={stdNsfwStatus}
         initialVideoUrl={stdMediaVideoUrl}

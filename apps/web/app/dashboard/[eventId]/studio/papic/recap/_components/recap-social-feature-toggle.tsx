@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { setRecapSocialFeatureAllowed } from '../actions';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 // Social follow-through #2 — the couple's opt-out of Setnayan featuring their
 // PUBLISHED recap on Setnayan's OWN Facebook / Instagram. Checked = allowed
@@ -34,19 +35,9 @@ export function RecapSocialFeatureToggle({
             if (!res.ok) setAllowed(!next); // revert on failure
           });
         }}
-        className={[
-          'relative mt-0.5 inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2',
-          allowed ? 'bg-terracotta' : 'bg-ink/20',
-          pending ? 'opacity-50 cursor-not-allowed' : '',
-        ].join(' ')}
+        className={SWITCH_BUTTON}
       >
-        <span
-          className={[
-            'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
-            allowed ? 'translate-x-4' : 'translate-x-0',
-          ].join(' ')}
-        />
+        <SwitchTrack on={allowed} />
       </button>
       <span className="text-sm text-ink/75">
         <span className="font-medium text-ink">

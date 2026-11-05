@@ -57,6 +57,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { qrWords, payloadCarriesOwnAmount, AGREED_AMOUNT } from '@/lib/qr-amount-truth';
 import { mintOrderQr } from '@/lib/emv-qr';
 import { payAmount } from '@/lib/pay-amount';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type VendorDirectPayProps = {
   vendorName: string;
@@ -681,12 +682,7 @@ function ModalShell({
       className="fixed inset-0 z-[60] flex items-center justify-center p-4 focus:outline-none"
     >
       {/* Backdrop — click to dismiss. */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/40"
-      />
+      <OverlayBackdrop onClose={onClose} />
       <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-xl border border-ink/10 bg-cream shadow-xl">
         <header className="flex items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
           <h4 id={titleId} className="truncate text-sm font-semibold text-ink">

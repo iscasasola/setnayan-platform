@@ -197,7 +197,7 @@ export const YOUTUBE_READY_NOTICE =
  * the laptop stays required either way; only the software named changes.
  */
 export const ENCODER_BUY_NOTICE =
-  'You will need a Windows or Mac laptop at your celebration, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
+  'You will need a Windows or Mac laptop at your event, running free streaming software (OBS) alongside the control room — a phone or tablet on its own cannot send the broadcast to YouTube, and neither can a web browser. Your phones are the cameras; the laptop is what sends the picture out.';
 
 /**
  * ⚠ THE SECOND SENTENCE CHANGED SHAPE UNDER LS6 (2026-09-02). It used to name the

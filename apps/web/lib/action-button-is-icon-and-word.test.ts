@@ -18,6 +18,7 @@
  *
  * SABOTAGE, each seen red before this shipped (PR body has the run):
  *   T1 drop `aria-label={label}` from the <button> branch
+ *   T1 drop `name ??` from either branch (a row's Invite stops being named for its guest)
  *   T2 write a tone rule as a bare `.ab-brand`
  *   T2 put the doc's warn #B26B00 (`178 107 0`) back — 4.20:1 on white
  *   T3 let the pass drop `.ab-main` too
@@ -63,6 +64,21 @@ test('T1 · every tone renders its class, the word, and the word as aria-label',
   assert.match(link, /^<a /, 'href renders a link-shaped button');
   assert.match(link, /href="\/x"/);
   assert.match(link, /class="ab ab-neutral"/);
+});
+
+test('T1 · `name` is the accessible name where the word must say more — absent, aria-label is the word, byte for byte', () => {
+  const named = renderToStaticMarkup(
+    React.createElement(AB.ActionButton, { tone: 'brand', icon: Dot, label: 'Invite', name: 'Invite Maria Santos — sent Sep 30', main: true }),
+  );
+  assert.match(named, /aria-label="Invite Maria Santos — sent Sep 30"/, 'the button is not named for its guest');
+  assert.match(named, /<span class="lbl">Invite<\/span>/, 'the visible word changed');
+  assert.match(named, /title="Invite Maria Santos — sent Sep 30"/, 'hover does not say who');
+  const link = renderToStaticMarkup(
+    React.createElement(AB.ActionButton, { tone: 'neutral', icon: Dot, label: 'Open', name: 'Open Maria', href: '/x' }),
+  );
+  assert.match(link, /aria-label="Open Maria"/, 'the link branch ignores the name');
+  const plain = renderToStaticMarkup(React.createElement(AB.ActionButton, { tone: 'neutral', icon: Dot, label: 'Invite' }));
+  assert.match(plain, /aria-label="Invite" title="Invite"/, 'with no name the aria-label is no longer the word');
 });
 
 test('T1 · icon-only hides the word but keeps aria-label; quiet is muted, never on main', () => {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, ClipboardList } from 'lucide-react';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -502,6 +503,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
           &ldquo;Unread&rdquo; dot or show the wrong stage. Reload the page to try again.
         </p>
       ) : null}
+      {/* ↩ ONE Undo toast for the page — every booking's prep rows delete by swipe with Undo (owner 2026-11-03). */}
+      <UndoToastHost />
     </section>
   );
 }

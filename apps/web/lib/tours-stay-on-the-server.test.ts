@@ -56,7 +56,7 @@ test('the Maker bar (imported by the client shell) takes only the tour TYPE', ()
 test('GuidedTour stays a server component that hands the carousel one tour', () => {
   const wrapper = readFileSync(join(WEB, 'app/_components/guided-tour.tsx'), 'utf8');
   assert.ok(!isClient(wrapper), 'guided-tour.tsx is a client file again — TOURS rides into every role layout');
-  assert.match(wrapper, /<GuidedTourCard\b/, 'the wrapper no longer renders the carousel');
+  assert.match(wrapper, /<GuidedTourCard(?:Lazy)?\b/, 'the wrapper no longer renders the carousel');
   const card = readFileSync(join(WEB, 'app/_components/guided-tour-card.tsx'), 'utf8');
   assert.ok(isClient(card), 'the carousel is the client half');
   // A client file that imports the WRAPPER drags it — and TOURS — into the

@@ -123,7 +123,7 @@ export const resolveAddToEvent = cache(
           title: e.title,
           // the profile's own word for this kind of celebration. Falls back to
           // the neutral one rather than to a guessed label.
-          kindWord: e.profile?.terminology?.eventWord ?? 'celebration',
+          kindWord: e.profile?.terminology?.eventWord ?? 'event',
           dateISO: e.eventDate,
           // A service with no in-app surface of its own opens the celebration
           // itself, so every row lands somewhere real.

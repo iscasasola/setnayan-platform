@@ -31,11 +31,15 @@ test('a submit during an upload is refused, not silently emptied', () => {
     /inFlight\.length === 0\) return;/.test(SRC),
     'the guard must only arm while an upload is actually running',
   );
+  // ownerFormOf = closest('form'), else the form a portaled sheet names. A bare
+  // closest('form') finds NOTHING from inside the service-card maker's sheets
+  // (portaled to <body>), so this refusal switched itself off there
+  // (2026-09-07 → 2026-10-14).
   assert.ok(
-    /closest\('form'\)/.test(SRC),
-    'it must find the enclosing form — every consumer of this component has the ' +
-      'same gap, and the parents are server components whose buttons cannot see ' +
-      'this state',
+    /const form = ownerFormOf\(rootRef\.current\);/.test(SRC),
+    'it must find the form it belongs to, across a portal too — every consumer of ' +
+      'this component has the same gap, and the parents are server components whose ' +
+      'buttons cannot see this state',
   );
   assert.ok(
     /addEventListener\('submit', refuse, \{ capture: true \}\)/.test(SRC),

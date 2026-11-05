@@ -6,6 +6,8 @@ import {
   ShieldCheck,
   ArrowRight,
 } from 'lucide-react';
+import { LOCALE_SWITCH_CLASS } from '@/lib/marketing-i18n';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // /tl/about — Taglish edition of the brand/entity page (localization first
 // slice). The two public locales are ENGLISH (root) and TAGLISH (the real
@@ -26,7 +28,7 @@ const SITE_URL = (
 
 const PAGE_TITLE = 'Tungkol sa Setnayan — ang Philippines-first wedding platform';
 const PAGE_DESCRIPTION =
-  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para may sariling highlight reel ang bawat guest.';
+  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama sila.';
 
 // Reciprocal hreflang — both /about and /tl/about list the same alternates.
 const LANGUAGES = {
@@ -43,6 +45,7 @@ export const metadata = {
     languages: LANGUAGES,
   },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     type: 'website',
     url: `${SITE_URL}/tl/about`,
     title: PAGE_TITLE,
@@ -51,6 +54,7 @@ export const metadata = {
     locale: 'tl_PH',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: PAGE_TITLE,
     description: PAGE_DESCRIPTION,
@@ -62,7 +66,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: MapPin,
     label: 'Gawa sa Pilipinas',
     value:
-      'Designed at pinapatakbo para sa Pinoy weddings — from Metro Manila at Cavite hanggang Cebu, Davao, Tagaytay, at kahit saan may Pinoy vendor.',
+      'Designed at pinapatakbo para sa Pinoy weddings — from Metro Manila at Cavite hanggang Cebu, Davao, Tagaytay, at kahit saan may Pinoy supplier.',
   },
   {
     icon: Heart,
@@ -74,7 +78,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: ShieldCheck,
     label: '0% commission, forever',
     value:
-      'Hindi kailanman kumukuha ang Setnayan ng cut sa binabayad mo sa vendor. Direkta kayong nag-uusap ng vendor; galing ang kita sa software services at vendor subscriptions.',
+      'Hindi kailanman kumukuha ang Setnayan ng cut sa binabayad mo sa supplier. Direkta kayong nag-uusap ng supplier; galing ang kita sa software services at supplier subscriptions.',
   },
   {
     icon: Languages,
@@ -159,7 +163,7 @@ export default function AboutPageTaglish() {
             <Link
               href="/about"
               hrefLang="en-PH"
-              className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55 underline-offset-4 hover:text-ink hover:underline"
+              className={LOCALE_SWITCH_CLASS}
             >
               English
             </Link>
@@ -172,14 +176,15 @@ export default function AboutPageTaglish() {
             Ang Setnayan (<span className="font-medium">SET-na-yan</span>, galing sa
             Tagalog na <em>&ldquo;Set na &rsquo;yan.&rdquo;</em>) ang all-in-one
             wedding at life-events platform ng Pilipinas — at ang una ditong gawa
-            para gawin ang buong celebration sa isang place: i-plan ang event,
-            mag-hire from a 0%-commission marketplace ng verified local vendors, at
-            i-capture ang araw para may sariling highlight reel ang bawat guest.
+            para gawin ang buong event sa isang place: i-plan ang event,
+            mag-hire from a 0%-commission marketplace ng verified local suppliers, at
+            i-capture ang araw para mahanap ng bawat guest ang mga litratong
+            kasama sila.
           </p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
             Hindi &rsquo;to foreign directory na may Philippine filter — software
             na gawa at pinapatakbo dito mismo sa Pilipinas, para sa paraan ng
-            pag-plan ng mga Pinoy: free planning workspace, verified local vendors,
+            pag-plan ng mga Pinoy: free planning workspace, verified local suppliers,
             transparent peso pricing, at zero commission sa binabayad mo sa
             suppliers mo.
           </p>
@@ -208,18 +213,18 @@ export default function AboutPageTaglish() {
               Hindi wedding coordinator ang Setnayan, at hindi kumukuha ng cut sa
               supplier bills mo. Toolkit &rsquo;to: workspace para sa guest list,
               seating, budget, at schedule; free mood board; marketplace ng
-              verified Pinoy wedding vendors na direkta mong ma-message; at
+              verified Pinoy wedding suppliers na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
               mong YouTube (Live Watch), candid photo capture (Papic), custom
-              wedding song (Music Maker), at bespoke monograms. Libreng gamitin ang
-              bawat service; may malinaw na presyo ang ilang upgrades, gaya ng
-              multicam control room ng Live Watch. Kayo ng vendor ang nag-uusap sa booking;
+              wedding song (Music Maker), at bespoke monograms. Libre ang simula
+              ng ilan, gaya ng isang Papic camera sa bawat event at single-camera
+              stream; nasa Pricing page ang presyo ng iba. Kayo ng supplier ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
-              Weddings muna ang first surface, pero gawa ang platform para sa mas
-              malawak na Filipino life-events — birthdays, debut, binyag, at iba pa
-              habang lumalabas ang next iterations.
+              Weddings ang pinakakumpletong surface, at gamit na rin ang parehong
+              tools sa debut, binyag, birthdays, anniversaries, reunions at iba pa.
+              Naiipon ang lahat ng ginawa mo sa Memories, isang lugar na sa iyo.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               {/* 2026-09-01 — /how-it-works folded into /features.
@@ -271,7 +276,7 @@ export default function AboutPageTaglish() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Gawin ang guest list mo, i-sketch ang seating at budget, at mag-browse
-              ng verified Pinoy wedding vendors na 0% booking commission. No card
+              ng verified Pinoy wedding suppliers na 0% booking commission. No card
               needed para magsimula.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
@@ -283,7 +288,7 @@ export default function AboutPageTaglish() {
                 href="/explore"
                 className="inline-flex h-11 items-center justify-center rounded-sm border border-ink/20 px-6 text-sm font-medium tracking-wide text-ink transition-colors hover:bg-ink/5"
               >
-                Browse vendors
+                Browse suppliers
               </Link>
             </div>
           </div>

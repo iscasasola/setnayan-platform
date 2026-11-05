@@ -18,7 +18,7 @@
  *   4 · "Move … to…" lists only tables with room (a linked unit is one row).
  *   5 · Auto arrange places NEW tables only in free space — placed tables stay.
  *   6 · Undo is an intent of the same action (no new server action).
- *   7 · REACHABLE: Details › Your event › Seat plan (maker=1) → this editor →
+ *   7 · REACHABLE: Guests › Seats (R4 — `host=guests`; the Maker's old item forwards there) → this editor →
  *       on a phone the head (not the desk bar), ⋯ → Share & print → the A3.
  *
  * 🪤 `globalThis.React` is set BEFORE the dynamic imports (tsconfig "jsx":
@@ -31,8 +31,26 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { moveTargets, planPress, seatPlanHeadline, seatPlanRoomName } from '@/lib/seat-plan-details';
-import { checkPlacement, DEFAULT_FLOOR_PLAN, shapeHintFor, solveAutoLayout, tableGeometry, type EventTableRow } from '@/lib/seating';
+import {
+  moveTargets,
+  planMaxZoom,
+  planPress,
+  PLAN_ZOOM_MAX_FLOOR,
+  SEAT_NAME_PX,
+  SEAT_NAME_PX_AT_MAX_ZOOM,
+  seatPlanHeadline,
+  seatPlanRoomName,
+} from '@/lib/seat-plan-details';
+import {
+  checkPlacement,
+  DEFAULT_FLOOR_PLAN,
+  DEFAULT_ROOM_M,
+  shapeHintFor,
+  solveAutoLayout,
+  TABLE_FOOTPRINT_M,
+  tableGeometry,
+  type EventTableRow,
+} from '@/lib/seating';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -52,9 +70,13 @@ test('1 · no drag on a phone: a press is a tap below 768 px, and every plan pre
     /onPointerDown=\{on(Hub|Marker|Booth|Sign|RectGrip|WallGrip)(PointerDown|GripDown|Down)\(/,
     'a plan element binds a DRAG handler with no planPress check — it would drag on a phone',
   );
-  for (const kind of ['Hub', 'Marker', 'Booth', 'Sign']) {
+  for (const kind of ['Marker', 'Booth', 'Sign']) {
     assert.match(ed, new RegExp(`press === 'drag' \\? on${kind}PointerDown\\(`), `${kind}: the drag handler is not behind planPress`);
   }
+  /* 🗺 One exception (owner 2026-11-01, "SEATS 2D IS THE ROOM": *"impossible for me to move the table"*): in Guests ›
+     Seats › 2D the PICKED table drags on a phone too. Every other table still asks planPress (`tablePress`). */
+  assert.match(ed, /tablePress\(t\) === 'drag' \? onHubPointerDown\(/, 'Hub: the drag handler is not behind planPress / the picked-table rule');
+  assert.match(ed, /const tablePress = \(t: EventTableRow\): 'tap' \| 'drag' => \(roomOnly && highlightId === t\.table_id \? 'drag' : press\);/);
   assert.match(ed, /press === 'drag' \? onRectGripDown\('stage'\) : undefined/, 'the resize grips mount on a phone');
   assert.match(ed, /press === 'drag' \? onWallGripDown\('se'\) : undefined/, 'the wall grips mount on a phone');
   // The phone tap never moves anything: it selects, seats, or links.
@@ -100,7 +122,7 @@ test('2 · the phone head RENDERS the approved frame — and the Auto arrange li
       toast: { text: 'Everyone already has a seat', onUndo: null, onDismiss: () => {} },
     }),
   );
-  assert.ok(!done.includes('data-seat-plan-undo'), 'Undo shows with nothing to undo');
+  assert.ok(!done.includes('data-seat-plan-undo') && !done.includes('data-peek-toast-action'), 'Undo shows with nothing to undo');
 });
 
 test('3 · every number on the head is counted: units, linked once, the sweetheart not a guest table', () => {
@@ -201,13 +223,17 @@ test('6 · Undo is an intent of autoArrange — no new server action', () => {
   assert.match(ed, /data-auto-changed=\{t\.table_id\}/, 'the gold ring on changed tables is gone');
 });
 
-test('7 · REACHABLE: Details › Seat plan → the editor → on a phone the head, ⋯ → Share & print → the A3', () => {
+test('7 · REACHABLE: Guests › Seats → the editor → on a phone the head, ⋯ → Share & print → the A3', () => {
   const page = code('page.tsx');
-  assert.match(page, /if \(inMaker\) \{[\s\S]*editorFor\(/, 'the Maker no longer draws the editor');
+  assert.match(page, /const editor = editorFor\([\s\S]{0,200}host: inGuests \? 'guests' : 'maker',[\s\S]*if \(inGuests\) \{\s*return \(\s*<SeatPlanInGuests/, 'Guests › Seats no longer draws the editor');
   const ed = editor();
-  assert.match(ed, /\{isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
-  assert.match(ed, /\{isPhone \? null : \(\s*<CommandBar>/);
-  const more = ed.slice(ed.indexOf('more={'), ed.indexOf('view={details?.lab'));
+  /* The Studio's phone draws its compact head (studio round 3, 2026-10-08); every other phone the shipped one. */
+  assert.match(ed, /\{studioSeat \? studioHead : isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
+  /* 🗂 R4: Guests › Seats draws no desk command bar at any width — its verbs are the head's ⋯ and the thumb row. */
+  assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/);
+  /* ⋯'s menu is one copy (`phoneMore`), drawn by the shipped head and the Studio's (2026-10-08). */
+  const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
+  assert.match(ed, /<PhoneSeatPlanHead[\s\S]{0,600}?more=\{phoneMore\}/, 'the phone head no longer draws ⋯’s menu');
   assert.match(more, /\{shareMenuBody\}/, '⋯ does not hold Share & print');
   assert.match(more, /\{addMenuBody\}/, '⋯ does not hold Add a table/element');
   assert.match(ed, /href=\{`\/dashboard\/\$\{eventId\}\/seating\/export\?mode=moodboard`\}/, 'Share & print does not reach the A3 seat plan');
@@ -215,4 +241,74 @@ test('7 · REACHABLE: Details › Seat plan → the editor → on a phone the he
   assert.match(ed, /\{moveSheet\}/);
   const maker = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'maker-details.tsx'), 'utf8');
   assert.match(maker, /bodies\.seating = \(/, 'Details no longer hosts the Seat plan');
+});
+
+test('8 · Guests › Seats pop-ups on a phone (owner, live iPhone 2026-10-29): the sheet names the piece on the ✕ row, keeps its gutter, draws ONE ✕, and the marker steps are buttons', () => {
+  const src = editor();
+  // the people sheet: its heading is the picked piece's name, on the ✕'s row, clear of it; the body in the 16 px gutter
+  const sheet = src.slice(src.indexOf('labelledById="seat-plan-people-title"'), src.indexOf('</Sheet>', src.indexOf('labelledById="seat-plan-people-title"')));
+  assert.match(sheet, /className="flex min-w-0 flex-col gap-2 px-4 pb-4" data-seat-plan-people="sheet"/, 'the Seats sheet lost its 16 px gutter');
+  assert.match(sheet, /<div className="flex min-h-11 items-center pr-10 pt-3">\s*<h2 id="seat-plan-people-title"/, 'the sheet heading is not on the ✕ row');
+  assert.match(sheet, /\{dockInline \? pieceName\(\) :/, 'a picked table or piece is not named in the sheet heading');
+  // the dock drawn inside that sheet draws no name row and no second ✕
+  assert.match(src, /const dockInSheet = inGuests && isPhone;/, 'the dock no longer knows it sits in the Guests sheet');
+  const docks = [...src.matchAll(/onDismiss=\{([^}]*)\}/g)].map((m) => m[1]!).filter((d) => /clearSelection/.test(d));
+  assert.ok(docks.length >= 2, 'the read-only and marker docks moved — re-aim');
+  for (const d of docks) assert.match(d, /!dockInSheet/, `a dock inside the Guests sheet draws a second ✕ (${d})`);
+  // the marker's Done / Remove on a phone are THE ActionButton — never a bordered box that reads as a field
+  const marker = src.slice(src.indexOf("if (dockPrimary === 'marker' && selM) {"), src.indexOf("if (dockPrimary === 'notice' && !notice && autoRun) {"));
+  assert.ok(marker.length > 200, 'the marker dock moved — re-aim this guard');
+  assert.match(marker, /const doneBtn = big \? \(\s*<span className="ml-auto inline-flex">\s*<ActionButton tone="brand" main icon=\{Check\} label="Done"/, 'the marker Done is not the shared filled step on a phone');
+  assert.match(marker, /const removeBtn = big \? \(\s*<ActionButton tone="danger"/, 'the marker Remove is not the shared button on a phone');
+  assert.match(marker, /\{big \? <div className="flex flex-wrap items-center gap-2">\{mBody\}<\/div> : mBody\}/, 'the marker steps are stretched one per line again');
+  assert.match(marker, /\{big \? 'The stage stays on the plan — drag it to move it\.' : '· permanent'\}/, 'the Stage says an orphan "· permanent" on a phone');
+});
+
+test('9 · a guest card opened from a seat: its verbs at the foot (never clipped above the card), the whole screen on a phone, Back closes it', () => {
+  const card = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guest-card-sheet.tsx'), 'utf8'));
+  const actionsAt = card.indexOf('data-guest-card-actions');
+  assert.ok(actionsAt > card.indexOf('<InspectorColumn eyebrow="Guest"'), 'the surface verbs are drawn above the card again — the sticky head clips them');
+  const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
+  assert.match(css, /@media \(max-width: 700\.98px\) \{\s*\.sn-inspector-sheet\.sn-inspector-sheet--alone \{\s*left: 0;/, 'a card with no list behind it is offset by a dim strip on a phone');
+  assert.match(css, /\.sn-inspector-sheet \[data-guest-card-actions\] \{\s*position: sticky;/, 'the card verbs are not pinned to the sheet foot');
+});
+
+test('10 · zoomed all the way in, a seat name reads at body size (owner 2026-10-30, "names on the seats are normal font size")', () => {
+  // On screen a name is SEAT_NAME_PX × zoom × tableScale (the editor's to-scale factor). Every table type, on a
+  // 358 / 390 px phone and an 820 px tablet canvas of the free board, must reach ≥ 13 px at the closest zoom.
+  const caps: Record<keyof typeof TABLE_FOOTPRINT_M, number> = {
+    round_8: 8, round_10: 10, round_12: 12, long_banquet_6: 6, long_banquet_8: 8, long_banquet_10: 10,
+    family_head_12: 12, family_head_14: 14, family_head_16: 16, sweetheart_2: 2, serpentine: 10,
+  };
+  const scaleOf = (type: keyof typeof TABLE_FOOTPRINT_M, canvasW: number) =>
+    (TABLE_FOOTPRINT_M[type] * (canvasW / DEFAULT_ROOM_M.w)) / tableGeometry(shapeHintFor(type), caps[type]).box.w;
+  for (const w of [358, 390, 820]) {
+    const types = Object.keys(caps) as (keyof typeof TABLE_FOOTPRINT_M)[];
+    const zMax = planMaxZoom(types.map((t) => scaleOf(t, w)));
+    for (const t of types) {
+      const px = SEAT_NAME_PX * zMax * scaleOf(t, w);
+      assert.ok(px >= 13, `${t} on a ${w} px canvas: a seat name is only ${px.toFixed(1)} px at the closest zoom`);
+    }
+    // a plan of just round tables of 8 (the common case) on the 390 phone: names land at ~13.5 px, not 5
+    if (w === 390) {
+      const z = planMaxZoom([scaleOf('round_8', 390)]);
+      const px = SEAT_NAME_PX * z * scaleOf('round_8', 390);
+      assert.ok(px >= 13 && px <= 15, `round tables on a 390 px phone: ${px.toFixed(1)} px at the closest zoom`);
+      assert.ok(z > 6, `the 2D plan's closest zoom on a phone fell back to ${z.toFixed(2)} (it was a fixed 2.6, names ~5 px)`);
+    }
+  }
+  assert.equal(SEAT_NAME_PX_AT_MAX_ZOOM, 13.5);
+  assert.equal(planMaxZoom([]), PLAN_ZOOM_MAX_FLOOR, 'no tables: the old cap stands');
+  assert.equal(planMaxZoom([5]), PLAN_ZOOM_MAX_FLOOR, 'never closer-capped than before');
+
+  // the editor clamps every zoom (pinch · wheel · + −) to THAT cap, and Fit still opens where it always did
+  const ed = editor();
+  assert.doesNotMatch(ed, /const ZOOM_MAX = /, 'a fixed 2D zoom cap is back');
+  assert.match(ed, /const clampZoom = \(z: number\) => Math\.max\(ZOOM_MIN, Math\.min\(zoomMaxRef\.current, z\)\);/);
+  assert.match(ed, /zoomMaxRef\.current = planMaxZoom\(\s*metricPpm\s*\?\s*tables\.map\(/, 'the cap is not computed from this canvas + tables');
+  // The fit's size source may be the room box (rect) or, in Guests, the whole floor (fitW / fitH — #7055); either way it is
+  // capped at the old 2.6 so Fit never opens closer than it always did. The CAP is the property pinned here.
+  assert.match(ed, /const z1 = Math\.min\(PLAN_ZOOM_MAX_FLOOR, clampZoom\(Math\.min\((?:rect\.width|fitW) \/ bw, (?:rect\.height|fitH) \/ bh\) \* 0\.86\)\);/, 'Fit no longer opens at the old frame');
+  // the name the cap is sized for is the one drawn: SEAT_NAME_PX on the seat label
+  assert.match(ed, new RegExp(`absolute z-10 line-clamp-2 break-words text-\\[${SEAT_NAME_PX}px\\]`), 'the seat name size moved — planMaxZoom sizes for the wrong text');
 });

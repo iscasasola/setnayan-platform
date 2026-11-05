@@ -58,8 +58,6 @@
   /* Day-of: the WHERE and the WHEN share a hue — one day, two axes. */
   --ug-e-dayof: #8a4f6d; --ug-e-dayof-bg: #f4e6ee;
   --ug-e-studio: #4a6fa5; --ug-e-studio-bg: #e6edf6;
-  /* Mood Board renders — the paid image and the credits behind it (2026-09-03). */
-  --ug-e-render: #a0603f; --ug-e-render-bg: #f6ebe4;
   /* Mood Board library — the photo pool, incl. suppliers' credited work (MB10).
      A cooler sibling of the render hue: same subsystem, different substance. */
   --ug-e-gallery: #4f7a6a; --ug-e-gallery-bg: #e6f0ec;
@@ -71,6 +69,7 @@
      sign-off hue: same subsystem, a permission rather than an agreement. */
   --ug-e-colourgrant: #5c6b8a; --ug-e-colourgrant-bg: #e8ecf4;
   --ug-e-march: #8a5c6b; --ug-e-march-bg: #f4e8ec;
+  --ug-e-inspirationpart: #6b7a5c; --ug-e-inspirationpart-bg: #ecf0e6;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;
@@ -956,7 +955,7 @@
 .ug-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(25, 25, 25, 0.28);
+  /* The colour and blur are the one scrim's (`.sn-popup-dark` on the element, owner 2026-10-29). */
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
@@ -970,6 +969,7 @@
   position: fixed;
   top: 0;
   right: 0;
+  padding-right: var(--sn-safe-r);
   height: 100vh;
   width: 460px;
   max-width: 96vw;

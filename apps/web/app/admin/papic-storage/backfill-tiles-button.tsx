@@ -38,7 +38,7 @@ export function BackfillTilesButton({ pending }: { pending: number | null }) {
         className="inline-flex items-center gap-2 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
       >
         <ImageDown aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        {isPending ? 'Making wall-size copies…' : 'Fill in missing wall-size copies'}
+        {isPending ? 'Making Memory lane copies…' : 'Fill in missing Memory lane copies'}
       </button>
 
       {/* Two separate facts, never collapsed: how many still need one, and
@@ -47,7 +47,7 @@ export function BackfillTilesButton({ pending }: { pending: number | null }) {
         {pending == null
           ? 'How many still need one could not be measured just now.'
           : pending === 0
-            ? 'Every photo already has its wall-size copy.'
+            ? 'Every photo already has its Memory lane copy.'
             : `${pending} photo${pending === 1 ? '' : 's'} still without one. Runs up to 40 per press — press again if more remain.`}
       </p>
 

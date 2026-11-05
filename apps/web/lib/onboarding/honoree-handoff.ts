@@ -47,6 +47,14 @@ export type HonoreeCarry = {
   name: string;
   /** `dependents.dependent_id`, or null for "You" / "Someone else". */
   dependentId: string | null;
+  /**
+   * "For · You" was the answer (owner 2026-10-26: "if it is for you, the name of
+   * the celebrant should automatically be me"). `name` is then '' ON PURPOSE — a
+   * blank honoree is the account holder's own slot, and stamping their name would
+   * open a second one — and the wizard shows the settled "This one's yours" chip
+   * with their name instead of asking.
+   */
+  forSelf?: boolean;
 };
 
 /**
@@ -54,11 +62,20 @@ export type HonoreeCarry = {
  * clears the id with it, because an id with no name is a link to a person this
  * flow can no longer show the user.
  */
-export function stashHonoree(name: string, dependentId?: string | null): void {
+export function stashHonoree(
+  name: string,
+  dependentId?: string | null,
+  opts?: { forSelf?: boolean },
+): void {
   if (typeof window === 'undefined') return;
   const trimmed = name.trim().slice(0, 80);
   const dep = typeof dependentId === 'string' ? dependentId.trim() : '';
   try {
+    // "For you" carries no name and no record — only the answer itself.
+    if (opts?.forSelf) {
+      window.sessionStorage.setItem(KEY, JSON.stringify({ s: 1, t: Date.now() }));
+      return;
+    }
     if (!trimmed) {
       window.sessionStorage.removeItem(KEY);
       return;
@@ -84,9 +101,10 @@ export function takeHonoree(): HonoreeCarry | null {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return null;
     window.sessionStorage.removeItem(KEY);
-    const parsed = JSON.parse(raw) as { n?: unknown; d?: unknown; t?: unknown };
+    const parsed = JSON.parse(raw) as { n?: unknown; d?: unknown; t?: unknown; s?: unknown };
+    if (!isHandoffFresh(parsed?.t, Date.now())) return null;
+    if (parsed.s === 1) return { name: '', dependentId: null, forSelf: true };
     if (typeof parsed?.n !== 'string' || !parsed.n.trim()) return null;
-    if (!isHandoffFresh(parsed.t, Date.now())) return null;
     const dep = typeof parsed.d === 'string' && parsed.d.trim() ? parsed.d.trim() : null;
     return { name: parsed.n.trim().slice(0, 80), dependentId: dep };
   } catch {

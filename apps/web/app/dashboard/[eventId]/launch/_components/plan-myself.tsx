@@ -1,5 +1,6 @@
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
 import { PLAN_MYSELF_LABEL } from '@/lib/plan-myself';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * 🙋 PLAN IT MYSELF — Details › Your event (owner 2026-10-02, tracker d4:
@@ -41,7 +42,7 @@ export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean
     return <p className="text-sm text-ink/60">Could not load this. Refresh the page to try again.</p>;
   }
   return (
-    <form action={setPlanningMode} className="flex flex-col gap-3" data-plan-myself="">
+    <SafeForm action={setPlanningMode} className="flex flex-col gap-3" data-plan-myself="">
       <input type="hidden" name="event_id" value={eventId} />
       {/* The mode this tap SETS — the opposite of what is on now. */}
       <input type="hidden" name="mode" value={on ? 'guided' : 'manual'} />
@@ -70,6 +71,6 @@ export function PlanMyselfSwitch({ eventId, on }: { eventId: string; on: boolean
       <p className="text-[13px] text-ink/60">
         On: Setnayan stops matching suppliers for you and stops deadline reminders. Free — turn it off any time.
       </p>
-    </form>
+    </SafeForm>
   );
 }

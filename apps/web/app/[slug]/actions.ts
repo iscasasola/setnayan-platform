@@ -1,15 +1,18 @@
 'use server';
 
+import { NAME_CORRECTION_FIELD, adoptDeclinedContactArm, readNameCorrection, withNameCorrection } from '@/lib/rsvp-you-step';
 import { redirect } from 'next/navigation';
-import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
-import { plusOneSeats } from '@/lib/guests';
-import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
+import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, splitUnconfirmedSeats, type ExtraSeatRow } from '@/lib/extra-seats';
+import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
+import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING, SEAT_NAME_NOT_TICKED } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventAddressUnread } from '@/lib/guest-read';
+import { withSchemaRetry } from '@/lib/read-retry';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { planFaceSelfieDelete } from '@/lib/face-data-retention-core';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -21,9 +24,12 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
-import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { deleteSupplierPageCopy } from '@/lib/supplier-page-notice.server';
+import { readGuestSessionForEvent, readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { connectHostsTicked } from '@/lib/guest-connects-hosts';
+import { askEventHostsToConnect } from '@/lib/guest-connects-hosts.server';
 import {
   RSVP_TERMS_COOKIE,
   RSVP_TERMS_COOKIE_MAX_AGE,
@@ -33,6 +39,7 @@ import {
   rsvpTermsCarried,
 } from '@/lib/terms-agreement';
 import { SAVE_METHOD_FIELD, saveMethodFromForm, saveMethodSignsIn } from '@/lib/guest-one-path';
+import { mobileIsEnough } from '@/lib/mobile-number';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { eventConnectPath } from '@/lib/signup-landing';
@@ -41,9 +48,16 @@ import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
 import { cookies, headers } from 'next/headers';
-import type { MealPreference, RsvpStatus } from '@/lib/guests';
+import type { GuestRole, MealPreference, RsvpStatus } from '@/lib/guests';
+import { holdsARole } from '@/lib/guest-proxy';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
+import { replyWindowOfRow } from '@/lib/reply-window.server';
 import { FACE_TAGGING_FIELD, SELFIE_DELETE_FIELD, parseFaceTaggingAnswer, stripInviteFaceFields } from '@/lib/face-tagging-wish';
+import { CANT_CHAPTER_FIELD, resolveChapterReply } from '@/lib/invitation-chapters';
+import { readInvitationChapters, writeChapterReplies } from '@/lib/invitation-chapters.server';
+import { answerOneChapter } from './_lib/chapter-reply.server';
+import { CHAPTER_ONLY_FIELD } from './_lib/chapter-reply-fields';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_VALUES: MealPreference[] = [
@@ -120,7 +134,8 @@ async function eventHome(eventId: string): Promise<string> {
  * from the form" — and the owner's live test then read "with Apple" on the
  * button and landed on Google sign-in, because two requests were asked the
  * same question separately. The form now carries the method the button SAID
- * and this takes it while that provider is on (`saveMethodFromForm`, whose
+ * — since 2026-10-25 ("Show both") the provider button the guest PRESSED, a
+ * switched-off one refused — and this takes it while that provider is on (`saveMethodFromForm`, whose
  * docblock says why a posted provider grants nothing). Inside an in-app
  * browser there is no press to post: the page draws "Open in your browser"
  * (a copy of the guest's own link) instead, so a POST from one is sent back.
@@ -192,7 +207,7 @@ export async function startAccountSaveAction(
  * nothing. A couple seat this account may not hold comes back `couple_seat`
  * and the page says so in plain words (`?keep=couple_seat`).
  */
-export async function linkThisSeatAction(eventId: string) {
+export async function linkThisSeatAction(eventId: string, formData?: FormData) {
   const home = await eventHome(eventId);
   const supabase = await createClient();
   const {
@@ -201,6 +216,11 @@ export async function linkThisSeatAction(eventId: string) {
   const session = await readGuestSession();
   if (!user || !session || session.event_id !== eventId) return redirect(home);
   const result = await linkGuestSessionToUser(user.id, { eventId });
+  // 🤝 "Also connect with <the hosts>" — only after the seat is truly theirs, only when the tick was drawn and left
+  // on (lib/guest-connects-hosts.ts). Never throws, so it cannot cost them the link above.
+  if (result.linked && connectHostsTicked(formData)) {
+    await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
+  }
   revalidatePath(home);
   if (result.reason === 'couple_seat') return redirect(`${home}?keep=couple_seat`);
   return redirect(home);
@@ -233,6 +253,10 @@ export async function adoptSeatSessionAction(eventId: string): Promise<void> {
   await setGuestSession({ guest_id: seat.guestId, event_id: eventId, qr_token: seat.qrToken });
 }
 
+/** What a reply save reads of the guest before it writes — and again, if another save landed in between. */
+const REPLY_BEFORE_COLUMNS =
+  'rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles, updated_at, represented_by_guest_id, proxy_named_by_guest';
+
 export async function submitRsvp(
   eventId: string,
   guestId: string,
@@ -245,7 +269,9 @@ export async function submitRsvp(
   // The browser's pass for this event, or — for a signed-in guest on a new phone
   // — the seat their account holds (lib/guest-one-path.server.ts). Either way it
   // must be THIS guest on THIS event, exactly as before.
-  const session = await readGuestSessionForEvent(eventId);
+  // 🗳 The reply's ONE identity (owner bug 2026-10-24) — the same answer the reply page drew its form from.
+  const replyAs = await readReplyIdentityForEvent(eventId);
+  const session = replyAs.kind === 'none' ? null : replyAs.session;
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
     // Session got out of sync — kick them back to the slug landing (or, from
     // the arrival, back to its first door, where they can find themselves again).
@@ -255,7 +281,9 @@ export async function submitRsvp(
       .select('slug')
       .eq('event_id', eventId)
       .maybeSingle();
-    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : '/');
+    // 🔌 Never the site's home (lib/guest-read.ts `eventAddressUnread`): nothing
+    // has been written yet, so "not sent" is the truth.
+    redirect(ev?.slug ? (toInvite ? `/${ev.slug}/invite` : `/${ev.slug}`) : eventAddressUnread('submitRsvp · session'));
   }
 
   // 📵 No reply carries a face (owner 2026-09-30): every selfie field a crafted
@@ -263,6 +291,34 @@ export async function submitRsvp(
   // (`face_tagging`) and "No thanks — delete my selfie" (`delete_selfie`, which
   // only ever REMOVES face data) pass through.
   stripInviteFaceFields(formData);
+
+  /*
+    ✉ BY CHAPTER (owner 2026-11-01: *"Rsvp will depend on what chapters we make."* — plan §3, Step 5). Only the chapters
+    ON THE INVITATION are replied to, re-read here and never taken from the form: a posted tick for any other block is
+    ignored (`resolveChapterReply`). Yes = all of them. "I can't make it" with some ticked = a yes to the rest, so the
+    guest is COMING (`attending`); none or all ticked = a plain no. A chapter with no venue is replied to like any other
+    (Venue TBA still sends). The read happens before anything is written: if it fails while the guest ticked parts,
+    nothing is saved and they are told — a partial "no" is never stored as a whole one.
+  */
+  // Only a post that carries an answer is a reply (a checklist tick, a seat name, one chapter's answer carry none).
+  const postedAnswer = String(formData.get('rsvp_status') ?? '').trim();
+  const chapterAdmin = createAdminClient();
+  // ✉ THIS guest's invitation (owner 2026-11-02, "Invited to"): a chapter the hosts took them off is never answered.
+  const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId, guestId) : null;
+  const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
+  if (postedAnswer && replyChapters === null && cantTicks.length > 0) {
+    const { data: evNoChapters } = await chapterAdmin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+    const slugNoChapters = evNoChapters?.slug ?? null;
+    if (toInvite && slugNoChapters) redirect(`${inviteReplyPath(slugNoChapters)}?rsvp=error`);
+    redirect(slugNoChapters ? `/${slugNoChapters}?rsvp=error` : eventAddressUnread('submitRsvp · chapters'));
+  }
+  const chapterReply = replyChapters ? resolveChapterReply(postedAnswer, cantTicks, replyChapters) : null;
+  // The answer the rest of this action reads: "can't make SOME" arrives as a no and is stored as the yes it is.
+  // The guest typed their details on the DECLINE arm, so they are taken from there first (as a no's would be).
+  if (chapterReply && chapterReply.status !== postedAnswer) {
+    adoptDeclinedContactArm(formData, 'declined');
+    formData.set('rsvp_status', chapterReply.status);
+  }
 
   /*
     ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
@@ -330,6 +386,17 @@ export async function submitRsvp(
     return;
   }
 
+  /*
+    ✉ ONE CHAPTER, ON ITS OWN (owner 2026-11-01, plan §9 #7): a chapter added after this guest replied asks "Yes / Can't
+    make it" for that chapter alone, and a chapter taken off the invitation is acknowledged with one OK. The same
+    guest's own save, already matched to THIS guest on THIS event above — +0 server actions, the checklist tick's
+    precedent — and it returns before anything else of the reply is read or written.
+  */
+  if (clean(formData.get(CHAPTER_ONLY_FIELD)) === '1') {
+    await answerOneChapter(eventId, guestId, formData);
+    return;
+  }
+
   const status = clean(formData.get('rsvp_status')) as RsvpStatus;
   const meal_raw = clean(formData.get('meal_preference'));
   const meal = (meal_raw || 'no_preference') as MealPreference;
@@ -342,8 +409,14 @@ export async function submitRsvp(
   // The guest's OWN contact details. Named `contact_*` on the form so nothing
   // here can ever collide with the sign-in-link box elsewhere on this page,
   // which posts `email` to a completely different action.
+  // 🪑 TWO HOMES, ONE ANSWER (owner 2026-10-25, RSVP seats-first): on a Yes these boxes are the reply's You step;
+  // on a No they are the decline arm after the note, posted as `declined_contact_*` (both arms are in the form, the
+  // card's CSS shows one). A No's own boxes take these names first, so the reads below are the ones they always were.
+  adoptDeclinedContactArm(formData, status);
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
+  // ✍ "Wrong name? Tell the couple" (decision 1): one line added to the guest's note below — never the name itself.
+  const nameCorrection = readNameCorrection(formData.get(NAME_CORRECTION_FIELD));
 
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
@@ -370,11 +443,25 @@ export async function submitRsvp(
   // action writes with the ADMIN client. Its own header names "the guest
   // self-RSVP portal" as a path it covers; that is the one path it cannot fire
   // on. Until that is reconciled at the database, this IS the enforcement.
-  const { data: evRsvp } = await admin
-    .from('events')
-    .select('slug, event_date, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // 🔌 THIS READ IS THE ONE THE WHOLE SAVE STANDS ON, SO IT IS AN HONEST ONE
+  // (2026-10-11). Its `error` used to be thrown away, and a failed read then
+  // meant three wrong things at once: a FINAL guest list was treated as open
+  // (`replyLocked` false — the answer written into a closed list), a question
+  // the couple switched off was treated as asked, and every redirect below fell
+  // back to the site's home. It is retried through a blip, and a read that
+  // still failed — or an event with no address — stops the save HERE, before
+  // anything is written: the guest is told it was not sent, and it was not.
+  const { data: evRsvp, error: evRsvpError } = await withSchemaRetry(() =>
+    admin
+      .from('events')
+      // + the reply window's columns (`REPLY_WINDOW_EVENT_COLUMNS`) — on THIS read, never a second one.
+      .select(`slug, guest_count_locked_at, ${REPLY_WINDOW_EVENT_COLUMNS}`)
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
+  if (evRsvpError) logQueryError('submitRsvp (event)', evRsvpError, { event_id: eventId }, 'will_throw');
+  /** The event's address, read BEFORE the write — every redirect after it can use this one. */
+  const replySlug: string = evRsvpError || !evRsvp?.slug ? eventAddressUnread('submitRsvp · event') : evRsvp.slug;
   const replyLocked = guestListIsClosed({
     lockedAt: evRsvp?.guest_count_locked_at,
   });
@@ -383,6 +470,21 @@ export async function submitRsvp(
   // decides what is ENFORCED. A field that is off is ignored below even when a
   // crafted POST carries a value for it — never required, never applied.
   const ask = resolveRsvpAsk(evRsvp?.rsvp_ask_config);
+
+  /*
+    📬 REPLIES HAVE THEIR OWN OPEN AND CLOSE (owner 2026-10-14, DECISION_LOG 📬; `lib/reply-window.ts`).
+    Hiding the Reply button is the page's half; THIS is the half a stale tab, a bookmarked reply page or
+    a crafted post cannot skip. Outside the window NOTHING of the reply is written — not the answer, not
+    the meal, not the note: the reply card is not offered then, so there is no reply to take details
+    from — and the guest is sent back to the page with the sentence that says why
+    (`?rsvp=window` → `replyRefusedWords`). The checklist tick and "Add name" above are not replies and
+    returned before this. The couple's own Guest list edits never pass through here.
+    An unreadable event already stopped above (`replySlug`), so a failed read is never read as "open".
+  */
+  if (evRsvp && (await replyWindowOfRow(evRsvp)).state !== 'open') {
+    if (toInvite) redirect(`${inviteReplyPath(replySlug)}?rsvp=window`);
+    redirect(`/${replySlug}?rsvp=window`);
+  }
 
   // A locked reply renders NO rsvp_status control, so an ordinary save posts
   // nothing here — and the old `!RSVP_VALUES.includes(status) → return` would
@@ -413,7 +515,7 @@ export async function submitRsvp(
   // draft of this very note turned the guard red.
   const { data: before } = await admin
     .from('guests')
-    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles')
+    .select(REPLY_BEFORE_COLUMNS)
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -428,7 +530,7 @@ export async function submitRsvp(
   // CHECK are untouched — the couple's Guest list can still set 'maybe'.
   if (!replyLocked && status === 'maybe' && before?.rsvp_status !== 'maybe') {
     if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=choose`);
-    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : '/');
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : eventAddressUnread('submitRsvp · choose'));
   }
 
   // 📱 A NUMBER THE COUPLE ASKS FOR IS ASKED OF SOMEBODY WHO IS COMING — AND
@@ -441,9 +543,13 @@ export async function submitRsvp(
   // to the form with the sentence. A decline is never asked for one (`rsvpGate`:
   // "a decline must not go on to ask for the rest"), and a closed list — where the
   // gate never closes — takes no new requirement.
-  if (!replyLocked && status === 'attending' && ask.mobile && !contactMobile) {
+  //
+  // 📱 …AND "abc" IS NOT A NUMBER (a guest's walk 2026-10-11; owner the same day):
+  // a yes needs at least seven digits (`mobileIsEnough`, lib/mobile-number.ts) —
+  // the same sentence, the same way back. A decline is still never asked.
+  if (!replyLocked && status === 'attending' && ask.mobile && !mobileIsEnough(contactMobile)) {
     if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=mobile`);
-    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : '/');
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : eventAddressUnread('submitRsvp · mobile'));
   }
 
   let answerRefused = false;
@@ -482,45 +588,101 @@ export async function submitRsvp(
   const mealToWrite = ask.meal ? meal : before ? ((before.meal_preference as MealPreference | null) ?? meal) : undefined;
   const dietaryToWrite = ask.dietary ? dietary : before ? ((before.dietary_restrictions as string | null) ?? null) : undefined;
   const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
+  // ✍ …and a "Wrong name? Tell the couple" line rides on top of it, WHETHER OR NOT the note question is asked (owner
+  // 2026-10-25, RSVP seats-first decision 1 — the door always works). Only `guest_note`: names stay host-only
+  // (2026-08-01). No correction → exactly `guestNoteToWrite`; a failed read with the question off stays undefined.
+  const guestNoteWritten = withNameCorrection(guestNoteToWrite, nameCorrection);
   const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
+  /*
+    🧍 "I CAN'T COME — SOMEONE WILL STAND IN FOR ME" (owner 2026-10-27). A ROLE HOLDER's decline may name the person who
+    comes in their place (`stand_in_name`); the hosts confirm it on the guest card. Kept only with a decline, only for a
+    guest who holds a role and is not already represented (the database refuses a role-less one too —
+    `a_proxy_stands_in_for_a_role`); a Yes clears it (nobody stands in for a guest who comes). Anything else leaves it as
+    stored (`undefined` — dropped from the write). While it is set the decline KEEPS the seat (`free_seat_on_decline`).
+  */
+  const standInTyped = clean(formData.get('stand_in_name')).replace(/\s+/g, ' ').slice(0, 120) || null;
+  const mayNameAStandIn =
+    Boolean(before) &&
+    !(before as { represented_by_guest_id?: string | null }).represented_by_guest_id &&
+    holdsARole({ role: before!.role as GuestRole, extra_roles: (before!.extra_roles as GuestRole[] | null) ?? [] });
+  const standInToWrite: string | null | undefined =
+    status === 'declined' && mayNameAStandIn
+      ? standInTyped
+      : status === 'attending' && (before as { proxy_named_by_guest?: string | null } | null)?.proxy_named_by_guest
+        ? null
+        : undefined;
 
-  const { error } = await admin
-    .from('guests')
-    .update({
-      // The count is frozen: the stored answer is left exactly as it is.
-      ...(replyLocked
-        ? {}
-        : {
-            rsvp_status: status,
-            // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
-            // is `defaultValue=`, so a guest correcting their phone number
-            // reposts the answer they already gave — and this used to restamp
-            // it as though they had just replied. The host's twin of this bug
-            // was fixed the same day; this is the guest-side one.
-            // An unchanged answer keeps its own date, INCLUDING null: stamping
-            // an untouched answer invents one.
-            // ⚖ A failed `before` read stamps, deliberately — a stale date is
-            // wrong, a deleted date is gone.
-            rsvp_responded_at:
-              status === 'attending' || status === 'declined'
-                ? before?.rsvp_status === status
-                  ? ((before?.rsvp_responded_at as string | null) ?? null)
-                  : new Date().toISOString()
-                : null,
-          }),
-      meal_preference: mealToWrite,
-      dietary_restrictions: dietaryToWrite,
-      guest_note: guestNoteToWrite,
-      // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
-      // phone number corrected the week of the event is worth more then than
-      // at any other time.
-      // 📵 No `email` here — the reply does not collect one (see above).
-      mobile: mobileToWrite,
-      display_name: contactName,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId);
+  /*
+    🔁 TWO SAVES AT ONCE TELL THE COUPLE ONCE (event-day L1·6). Two submits of
+    this reply (a double tap, a retry after a lost answer, two tabs) each read
+    `before` while it still held the OLD answer, so each decided "it changed"
+    and the couple got two "replied" notices. The write therefore asks whether
+    the row is STILL the one that was read — `updated_at` as read — and when it
+    is not (somebody saved in between), the row is read again and THAT is what
+    this save is compared against, then written as before. The guest's answer
+    always lands; only the report of what moved is decided by the write.
+    A failed `before` read has no stamp to ask with: written unconditionally,
+    as it always was.
+  */
+  const beforeStamp = ((before as { updated_at?: string | null } | null)?.updated_at ?? null) || null;
+  const writeReply = (ifStillAt: string | null) => {
+    const row = admin
+      .from('guests')
+      .update({
+        // The count is frozen: the stored answer is left exactly as it is.
+        ...(replyLocked
+          ? {}
+          : {
+              rsvp_status: status,
+              // 🖐 The guest's own answer — it always replaces a host's "Marked by you" (owner 2026-10-21).
+              rsvp_set_by: 'guest',
+              // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
+              // is `defaultValue=`, so a guest correcting their phone number
+              // reposts the answer they already gave — and this used to restamp
+              // it as though they had just replied. The host's twin of this bug
+              // was fixed the same day; this is the guest-side one.
+              // An unchanged answer keeps its own date, INCLUDING null: stamping
+              // an untouched answer invents one.
+              // ⚖ A failed `before` read stamps, deliberately — a stale date is
+              // wrong, a deleted date is gone.
+              rsvp_responded_at:
+                status === 'attending' || status === 'declined'
+                  ? before?.rsvp_status === status
+                    ? ((before?.rsvp_responded_at as string | null) ?? null)
+                    : new Date().toISOString()
+                  : null,
+              // 🧍 The stand-in they named (see `standInToWrite`) — with the answer, so it freezes with it.
+              proxy_named_by_guest: standInToWrite,
+            }),
+        meal_preference: mealToWrite,
+        dietary_restrictions: dietaryToWrite,
+        guest_note: guestNoteWritten,
+        // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
+        // phone number corrected the week of the event is worth more then than
+        // at any other time.
+        // 📵 No `email` here — the reply does not collect one (see above).
+        mobile: mobileToWrite,
+        display_name: contactName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    return (ifStillAt ? row.eq('updated_at', ifStillAt) : row).select('guest_id');
+  };
+  let { data: wrote, error } = await writeReply(beforeStamp);
+  if (!error && beforeStamp && before && (wrote ?? []).length === 0) {
+    // Somebody saved this row between the read and the write — most often this
+    // same reply, sent twice. Compare against what is there NOW, then write.
+    const { data: now_, error: againErr } = await admin
+      .from('guests')
+      .select(REPLY_BEFORE_COLUMNS)
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (againErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guests.select(reply re-read)', againErr);
+    if (now_) Object.assign(before, now_);
+    ({ data: wrote, error } = await writeReply(null));
+  }
 
   if (error) {
     await insertFaultLog({
@@ -550,7 +712,20 @@ export async function submitRsvp(
       .maybeSingle();
     // From the invite arrival, back to the Reply door to try again.
     if (toInvite && evFail?.slug) redirect(`${inviteReplyPath(evFail.slug)}?rsvp=error`);
-    redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : '/');
+    // 🔌 This second read can fail too (the write just did). The address read
+    // before the write is still good — the guest goes back to the SAME card,
+    // told the reply was not saved, never to the site's home.
+    if (toInvite && !evFail?.slug) redirect(`${inviteReplyPath(replySlug)}?rsvp=error`);
+    redirect(evFail?.slug ? `/${evFail.slug}?rsvp=error` : `/${replySlug}?rsvp=error`);
+  }
+
+  // ✉ …AND WHICH CHAPTERS (see "BY CHAPTER" above). Only with an answer that was written: a closed list froze the
+  // answer, so it freezes the chapters with it. A write that did not land is said, never shown as sent.
+  if (!replyLocked && chapterReply && chapterReply.replies.length > 0) {
+    if (!(await writeChapterReplies(admin, guestId, chapterReply.replies))) {
+      if (toInvite) redirect(`${inviteReplyPath(replySlug)}?rsvp=error`);
+      redirect(`/${replySlug}?rsvp=error`);
+    }
   }
 
   // Smart seat-plan Phase 5 (gap G2): a guest confirming from their own invite
@@ -639,7 +814,7 @@ export async function submitRsvp(
     // then nothing was written, and there is no `before` to compare against.
     meal: mealToWrite ?? meal,
     dietary: dietaryToWrite ?? null,
-    guestNote: guestNoteToWrite ?? null,
+    guestNote: guestNoteWritten ?? null,
     // What was STORED, not what was posted. A blank box no longer changes the
     // email, so reporting it from `contactEmail` would tell the host a detail
     // moved when the row is untouched.
@@ -702,7 +877,7 @@ export async function submitRsvp(
       // there — a trip made for nothing, and the second time it teaches them to
       // ignore the notification.
       if (changed.includes('note')) {
-        parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+        parts.push(guestNoteWritten ? 'They left you a note.' : 'They removed their note.');
       }
       // The three the guest could never give until 2026-08-21. Each says WHICH
       // detail moved and never the value: a phone number and an email address
@@ -734,17 +909,32 @@ export async function submitRsvp(
       // ⚠ Two rows can carry the same user_id. Without this the couple gets the
       // same allergy twice.
       const seen = new Set<string>();
+      const hosts: string[] = [];
       for (const m of coupleMembers ?? []) {
         if (!m.user_id || seen.has(m.user_id as string)) continue;
         seen.add(m.user_id as string);
-        await emitNotification({
-          userId: m.user_id,
-          type: 'rsvp_received',
-          title,
-          body: parts.length ? parts.join(' ') : null,
-          relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
-        });
+        hosts.push(m.user_id as string);
       }
+      // 📱 AFTER THE REPLY IS SAVED, NEVER IN FRONT OF IT (owner 2026-10-31: every
+      // RSVP pushes at once — "instant, but each new RSVP notification replaces
+      // the last one on the lock screen"). The bell row and the phone notice go
+      // out once the response has left, so a slow push service can never hold a
+      // guest on a spinner. Fire-and-forget; a failure is logged, never thrown.
+      after(async () => {
+        for (const userId of hosts) {
+          try {
+            await emitNotification({
+              userId,
+              type: 'rsvp_received',
+              title,
+              body: parts.length ? parts.join(' ') : null,
+              relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
+            });
+          } catch (e) {
+            console.error('[rsvp] notifying a host failed:', e);
+          }
+        }
+      });
     } catch {
       // Notification failures must not break the guest-side RSVP submit.
     }
@@ -807,7 +997,12 @@ export async function submitRsvp(
   // guard (only-the-answer-freezes.test.ts, "replying lands the guest on the
   // event hub") pins it, and adding a branch ahead of it re-points no guard.
   if (toInvite && ev?.slug) redirect(`${inviteEnterPath(ev.slug)}?rsvp=${outcome}`);
-  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : '/');
+  // 🔌 THE REPLY IS SAVED BY NOW. If the read just above failed, the guest still
+  // goes where a saved reply goes — by the address read BEFORE the write. Never
+  // the site's home, and never a throw: a throw here would tell a guest whose
+  // reply landed that it was not sent.
+  if (toInvite && !ev?.slug) redirect(`${inviteEnterPath(replySlug)}?rsvp=${outcome}`);
+  redirect(ev?.slug ? `/${ev.slug}?rsvp=${outcome}` : `/${replySlug}?rsvp=${outcome}`);
 }
 
 /**
@@ -839,16 +1034,24 @@ async function nameTheSeats(
   // its own camera — at an event whose host allowed them none.
   //
   // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
-  const seatNames = readSeatNames(formData);
+  // 🔒 A typed name without its "They're coming" tick is dropped here, before anything is planned (owner 2026-10-25,
+  // `splitUnconfirmedSeats`) — and said: the result names it, so "Add name" shows the reason.
+  const { kept: seatNames, refused: unticked } = splitUnconfirmedSeats(readSeatNames(formData));
+  if (unticked > 0) {
+    logQueryError('submitRsvp.seatNotTicked', { message: `${unticked} named seat(s) posted without the coming tick` }, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+  }
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin
       .from('guests')
-      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category, plus_one_of_guest_id')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
     // Unread is not "not allowed": said, never shown as a saved name.
     if (primaryErr) return { ok: false, error: 'Their name did not save — try again.' };
+    // 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — their door never offers it, and a crafted post is refused
+    // here, before any seat is read or minted (`isAPlusOne`; the mint itself answers `bringer_is_plus_one`).
+    if (primary && isAPlusOne(primary)) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
 
     // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
     // regardless of what a crafted POST carries — a MASTER switch beside the
@@ -887,6 +1090,8 @@ async function nameTheSeats(
       const stamp = new Date().toISOString();
       let failed = false;
       let namedCount = 0;
+      // 🧹 The names that LANDED on a seat row, in order — the only names the primary's mirror may carry (below).
+      const landed: string[] = [];
 
       for (const op of ops) {
         // ⚖ Owner 2026-09-29: each plus-one is asked ONLY first name, last
@@ -916,6 +1121,10 @@ async function nameTheSeats(
         }
         const first = op.first || 'TBA';
         const last = op.last || '+1';
+        // ✅ "THEY'RE COMING" (owner 2026-10-25): every name that reaches here was ticked — an unticked one was dropped
+        // by `splitUnconfirmedSeats` above — so the seat's OWN reply is written as coming. A linked seat's person
+        // answers for themself: `lockLinkedSeatNames` already turned theirs into a details-only op.
+        const coming = { rsvp_status: 'attending' as const, rsvp_set_by: 'guest' as const, rsvp_responded_at: stamp };
         if (op.kind === 'name') {
           const { error } = await admin
             .from('guests')
@@ -931,6 +1140,7 @@ async function nameTheSeats(
               // the placeholder on the seating chart and in the emcee script.
               display_name: null,
               plus_one_name_confirmed_at: stamp,
+              ...coming,
               updated_at: stamp,
             })
             .eq('guest_id', op.seatId)
@@ -939,36 +1149,76 @@ async function nameTheSeats(
           if (error) {
             logQueryError('submitRsvp.nameSeat', error, { event_id: eventId, guest_id: op.seatId }, 'graceful_degrade');
             failed = true;
-          } else namedCount += 1;
+          } else {
+            namedCount += 1;
+            landed.push(`${op.first} ${op.last}`.trim());
+          }
         } else {
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
-          const { error } = await admin.from('guests').insert({
-            ...seatAnswers,
-            event_id: eventId,
-            first_name: first,
-            last_name: last,
-            ...seatNamePartColumns(op),
-            side: primary.side,
-            group_category: primary.group_category,
-            role: 'guest',
-            rsvp_status: 'pending',
-            photo_consent: true,
-            plus_one_of_guest_id: guestId,
-            plus_one_mode: primary.plus_one_mode,
-            plus_one_name_confirmed_at: stamp,
+          //
+          // 🔒 ONE SEAT PER NAME, NEVER PAST THE COUPLE'S COUNT — EVEN TWICE AT
+          // ONCE (event-day L1·1, migration 20271272305444). The plan above was
+          // made from a read; two submits of this reply (a double tap, a retry
+          // after a lost answer, two tabs) each planned this same create. So the
+          // mint is ONE database call under a lock on THIS bringer: the allowance
+          // is re-read there, a live seat already carrying this name is returned
+          // instead of a second one, and a bringer at their count gets `full` —
+          // the name is then not saved, exactly as `planSeatNames` drops a name
+          // past the count. The row's side, group and +1 mode are the bringer's,
+          // read inside the same lock.
+          const { data: minted, error } = await admin.rpc('guest_plus_one_seat_mint', {
+            p_event_id: eventId,
+            p_bringer_guest_id: guestId,
+            p_seat: {
+              ...seatAnswers,
+              first_name: first,
+              last_name: last,
+              ...seatNamePartColumns(op),
+              plus_one_name_confirmed_at: stamp,
+            },
           });
-          if (error) {
-            logQueryError('submitRsvp.mintSeat', error, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+          const mintStatus = (minted as { status?: string } | null)?.status;
+          // 🚫 The bringer turned out to be a +1 (asked inside the lock): refused, said — never logged as a fault.
+          if (!error && mintStatus === 'bringer_is_plus_one') return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+          if (error || (mintStatus !== 'ok' && mintStatus !== 'full')) {
+            logQueryError(
+              'submitRsvp.mintSeat',
+              error ?? { message: `guest_plus_one_seat_mint answered ${mintStatus ?? 'nothing'}` },
+              { event_id: eventId, bringer_guest_id: guestId },
+              'graceful_degrade',
+            );
             failed = true;
-          } else namedCount += 1;
+          } else if (mintStatus === 'ok') {
+            // The mint makes the row 'pending' (its own shape, shared with the host's seats); the tick is this
+            // reply's, so it is written on the row the mint answered with — this bringer's own seat only.
+            const mintedId = (minted as { guest_id?: string } | null)?.guest_id;
+            const { error: comingErr } = mintedId
+              ? await admin
+                  .from('guests')
+                  .update({ ...coming, updated_at: stamp })
+                  .eq('guest_id', mintedId)
+                  .eq('event_id', eventId)
+                  .eq('plus_one_of_guest_id', guestId)
+              : { error: { message: 'guest_plus_one_seat_mint answered ok without a guest_id' } };
+            if (comingErr) {
+              logQueryError('submitRsvp.seatComing', comingErr, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+              failed = true;
+            } else {
+              namedCount += 1;
+              landed.push(`${op.first} ${op.last}`.trim());
+            }
+          }
         }
       }
 
       // Mirror onto the primary so the host's list chips stop reading "+ TBA":
       // the first name given, as the single-seat reply always did.
-      const named = ops.find((o) => o.kind !== 'details');
-      const firstNamed = named ? `${named.first} ${named.last}`.trim() : '';
+      // 🧹 ONLY A NAME THAT LANDED ON A ROW (owner 2026-10-26: "I deleted that guest and added a new plus 1. It is still
+      // there?"). A mint answered `full` drops the name, a failed write saves nothing — the mirror once took the planned
+      // name anyway, a person on no row. The database also keeps it in step with the rows from here on (migration
+      // 20271288562348 `a_plus_ones_name_is_their_row`).
+      const firstNamed = landed.find(Boolean) ?? '';
       if (firstNamed) {
         const { error } = await admin
           .from('guests')
@@ -980,11 +1230,12 @@ async function nameTheSeats(
           failed = true;
         }
       }
-      return failed ? { ok: false, error: 'Their name did not save — try again.' } : { ok: true, named: namedCount };
+      if (failed) return { ok: false, error: 'Their name did not save — try again.' };
+      return unticked > 0 ? { ok: false, error: SEAT_NAME_NOT_TICKED } : { ok: true, named: namedCount };
     }
     return { ok: false, error: 'The couple is not taking names for your guests right now.' };
   }
-  return { ok: true, named: 0 };
+  return unticked > 0 ? { ok: false, error: SEAT_NAME_NOT_TICKED } : { ok: true, named: 0 };
 
 }
 
@@ -1395,7 +1646,11 @@ export type TakedownResult =
  */
 export async function askToTakeMyPhotoDown(
   eventId: string,
-  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  /* `vendor_papic_portfolio_photos` (2026-10-28, "OWNER: Agree to all" (1)): a guest who removes a supplier's photo
+     from the supplier's page also asks for the supplier's album copy to come down — the moderator's Hide already
+     reaches that table (TD-1, `REPORTED_PHOTO_TABLES`), and this action first takes it off the supplier's PAGE (below).
+     Before this, no guest could file one: the door did not exist. */
+  sourceTable: 'papic_photos' | 'papic_guest_captures' | 'vendor_papic_portfolio_photos',
   sourceId: string,
   formData: FormData,
 ): Promise<TakedownResult> {
@@ -1414,6 +1669,26 @@ export async function askToTakeMyPhotoDown(
     };
   }
   if (!sourceId) return { ok: false, message: 'Which photo?' };
+
+  /*
+    📣 A SUPPLIER'S PHOTO COMES OFF THE SUPPLIER'S PAGE NOW, NOT AFTER A MODERATOR (owner 2026-10-03, "A SUPPLIER'S
+    OWN PAPIC PHOTOS GO ON ITS PORTFOLIO AUTOMATICALLY AFTER A 7-DAY GUEST NOTICE": "<Supplier> will show this photo
+    on their page · Remove"; Remove keeps working after it went up). `remove_supplier_page_photo` closes the notice and
+    pulls the ref off the page in one write, bound to the event the cookie proved; the copied file is deleted. The
+    request below then asks for the supplier's private album copy to come down too — the moderator's Hide reaches it
+    (TD-1), and the trigger keeps it off the page for good (2026-10-28, "OWNER: Agree to all" (1)).
+  */
+  if (sourceTable === 'vendor_papic_portfolio_photos') {
+    const off = await createAdminClient().rpc('remove_supplier_page_photo', { p_photo_id: sourceId, p_event_id: eventId });
+    if (off.error) {
+      console.error('[takedown] could not take it off the supplier page', off.error);
+      return { ok: false, message: 'We couldn’t remove that just now. Please try again.' };
+    }
+    const row = (Array.isArray(off.data) ? off.data[0] : off.data) as { status?: string; page_ref?: string | null; vendor_profile_id?: string | null } | null;
+    if (!row || row.status === 'not_found') return { ok: false, message: 'That photo is not on this event any more.' };
+    await deleteSupplierPageCopy(row.vendor_profile_id, row.page_ref);
+    await revalidateSupplierPageOf(sourceId);
+  }
 
   const note = String(formData.get('note') ?? '')
     .trim()
@@ -1578,17 +1853,32 @@ async function wallPull(
       res.reason === 'not_yours'
         ? 'You can take down photos you took or are tagged in — this one is somebody else’s.'
         : res.reason === 'not_your_pull'
-          ? 'The hosts took this one off the wall, so it’s theirs to put back.'
-          : 'We couldn’t reach the wall just now. Please try again.';
+          ? 'The hosts took this one off Memory lane, so it’s theirs to put back.'
+          : 'We couldn’t reach Memory lane just now. Please try again.';
     return { ok: false, message };
   }
 
   await revalidateEventSlug(eventId);
   // The couple's control strip lists the same tiles; leaving it stale would
   // show a photograph as "on the wall now" that a guest has just pulled.
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/live`);
   return { ok: true, state: res.state };
+}
+
+/** The supplier's public page drops a removed photo now, not on its cache's own clock. Best-effort. */
+async function revalidateSupplierPageOf(photoId: string): Promise<void> {
+  try {
+    const { data } = await createAdminClient()
+      .from('vendor_papic_portfolio_photos')
+      .select('vendor_profiles(business_slug)')
+      .eq('photo_id', photoId)
+      .maybeSingle();
+    const slug = (data as { vendor_profiles?: { business_slug?: string | null } | null } | null)?.vendor_profiles?.business_slug;
+    if (slug) revalidatePath(`/v/${slug}`);
+  } catch (err) {
+    console.error('[takedown] could not refresh the supplier page', err);
+  }
 }
 
 /**

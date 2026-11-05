@@ -20,9 +20,9 @@
  *       against the single 50-pt free_grant pool (no per-seat 20/day reserve);
  *       a seat capture decrements the same pool a guest phone reads, and the
  *       51st capture across BOTH is refused.
- *   (e) ROUTE GATE (Fix 3) — the guest-capture route's extracted pool gate
- *       books to exhaustion and refuses the (N+1)th with the verdict the route
- *       maps to 409 `camera_points_exhausted` (reserve-before-record ordering).
+ *   (e) ROUTE GATE (Fix 3) — the guest-capture route's pre-check and its one
+ *       booking-and-record call (papic_record_guest_capture_and_spend) land 50
+ *       and refuse the (N+1)th as `camera_points_exhausted` with no row.
  *
  * Lives under lib/ (not tests/db/) so it runs in the `test:unit` glob
  * (lib/**\/*.test.ts) alongside the other metering unit tests; the replay
@@ -36,10 +36,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createReplayedDb, type ReplayResult } from '../tests/db/replay-migrations';
 import { papicCaptureCost } from './papic-cameras';
-import {
-  papicEventPoolPreCheckExhausted,
-  papicReserveEventPoolForCapture,
-} from './papic-event-pool-gate';
+import { papicEventPoolPreCheckExhausted } from './papic-event-pool-gate';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -130,10 +127,15 @@ async function eventRemaining(eventId: string): Promise<number> {
 }
 
 
-/** papic_camera_points_remaining(seat) — MAXINT means the seat has no per-seat cap. */
-async function cameraRemaining(seatId: string): Promise<number> {
+/**
+ * papic_seat_dedicated_points(seat) — 0 means the seat has no bucket of its own,
+ * so papic_reserve_capture_split books every shot from the event pool. (This used
+ * to read papic_camera_points_remaining's MAXINT "no per-seat cap"; that display
+ * probe lost its last caller and was dropped, 20271286935967.)
+ */
+async function seatDedicated(seatId: string): Promise<number> {
   const r = await db.query<{ v: number }>(
-    `SELECT public.papic_camera_points_remaining($1) AS v`,
+    `SELECT public.papic_seat_dedicated_points($1) AS v`,
     [seatId],
   );
   return Number(r.rows[0]!.v);
@@ -363,7 +365,7 @@ test('free event: seats + guest phones share ONE 50-pt pool with no per-seat res
   // path books through papic_reserve_capture_split — so what is left to pin is
   // that nothing per-seat bounds a free camera and no per-seat ledger exists.
   assert.equal(await seatDayUsageRows(seatId), 0, 'no per-seat ledger row → no per-seat reserve');
-  assert.equal(await cameraRemaining(seatId), 2147483647, 'free seat is per-seat-uncapped (pool is the only gate)');
+  assert.equal(await seatDedicated(seatId), 0, 'free seat has no bucket of its own (pool is the only gate)');
 
   // (2) A free seat and a guest phone draw the SAME 50-pt event pool. Nothing
   // above spent from the event pool, so it still reads a full 50. A seat capture then books 1 EVENT point (its sole gate),
@@ -381,62 +383,65 @@ test('free event: seats + guest phones share ONE 50-pt pool with no per-seat res
   assert.equal(await reserve(eventId, 1), false, '51st capture across seat + guest refused');
 });
 
-// ── (e) ROUTE gate: reserve-before-record ordering + FALSE→409 mapping ───────
+// ── (e) ROUTE gate: the pre-check, then ONE booking-and-record call ─────────
 // The guest-capture route (app/api/papic/guest-capture/route.ts) cannot be
 // imported in this runner (it pulls the Next `server-only` virtual module via
-// lib/r2 + lib/drive-copy), so this drives the route's EXTRACTED pool gate —
-// the exact two helpers the route now calls, against the real replayed pool.
-// Proves: the pre-check + reserve refuse the (N+1)th capture with the verdicts
-// the route maps to 409 `camera_points_exhausted`, and every reserve books
-// BEFORE the record RPC would run (reserve-before-record ordering).
-test('route pool gate: books to exhaustion, then N+1 → 409 camera_points_exhausted', async () => {
+// lib/r2 + lib/drive-copy), so this drives the two things it calls, against the
+// real replayed pool: the fail-OPEN pre-check helper, and
+// papic_record_guest_capture_and_spend — which books the point and writes the
+// row in ONE transaction (20271276810836), so a refused (N+1)th leaves neither.
+test('route pool gate: books to exhaustion, then N+1 → 409 camera_points_exhausted with no row', async () => {
   const eventId = await createEvent('Route Gate J'); // 50-pt free_grant
   const admin = makePoolAdmin();
   const cost = papicCaptureCost('photo'); // 1
   assert.equal(cost, 1);
+  const guestId = (
+    await db.query<{ guest_id: string }>(
+      `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, ugc_terms_accepted_at)
+       VALUES ($1, 'Route', 'Gate', 'both', 'friends', NOW()) RETURNING guest_id`,
+      [eventId],
+    )
+  ).rows[0]!.guest_id;
+  const shoot = async () =>
+    (
+      await db.query<{ r: { status: string } }>(
+        `SELECT public.papic_record_guest_capture_and_spend(
+           p_guest_id => $1, p_r2_object_key => $2, p_points_cost => $3) AS r`,
+        [guestId, `r2://media/route-gate/${randomUUID()}.jpg`, cost],
+      )
+    ).rows[0]!.r;
+  const rows = async () =>
+    Number(
+      (
+        await db.query<{ n: number }>(
+          `SELECT COUNT(*)::int AS n FROM public.papic_guest_captures WHERE guest_id = $1`,
+          [guestId],
+        )
+      ).rows[0]!.n,
+    );
 
-  // 50 captures book. On each, the fail-OPEN pre-check says "not exhausted" (so
-  // the route proceeds to the R2 PUT), then the AUTHORITATIVE reserve books the
-  // point BEFORE the record RPC — outcome 'allow', booked true.
+  // 50 captures land. On each, the fail-OPEN pre-check says "not exhausted" (so
+  // the route proceeds to the R2 PUT), then the one call books the point AND
+  // writes the row.
   for (let i = 1; i <= 50; i += 1) {
     assert.equal(
       await papicEventPoolPreCheckExhausted(admin, eventId, cost),
       false,
       `pre-check open at capture ${i}`,
     );
-    assert.deepEqual(
-      await papicReserveEventPoolForCapture(admin, eventId, cost),
-      { outcome: 'allow', booked: true },
-      `reserve ${i} books before record`,
-    );
+    assert.equal((await shoot()).status, 'ok', `capture ${i} refused`);
   }
+  assert.equal(await rows(), 50);
 
-  // The 51st: BOTH route seams refuse. The pre-check now reports exhausted (the
-  // route 409s before any R2 PUT), and the reserve returns FALSE → outcome
-  // 'exhausted' with booked=false (nothing to unwind) → the route returns
+  // The 51st: BOTH route seams refuse. The pre-check reports exhausted (the
+  // route 409s before any R2 PUT), and the one call answers
+  // camera_points_exhausted having written NO row — the route returns it as
   // NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 }).
   assert.equal(
     await papicEventPoolPreCheckExhausted(admin, eventId, cost),
     true,
     'pre-check reports exhausted at N+1 (route 409 before R2 PUT)',
   );
-  const refused = await papicReserveEventPoolForCapture(admin, eventId, cost);
-  assert.deepEqual(
-    refused,
-    { outcome: 'exhausted', booked: false },
-    'reserve refuses at N+1 → route maps to 409 camera_points_exhausted',
-  );
-
-  // Map the gate verdict to the exact HTTP response the route emits, so this
-  // test pins the FALSE→409 contract end-to-end (not just the verdict string).
-  const routeResponse = (r: { outcome: string }) =>
-    r.outcome === 'exhausted'
-      ? { status: 409 as const, body: { status: 'camera_points_exhausted' as const } }
-      : r.outcome === 'blocked'
-        ? { status: 503 as const, body: { status: 'points_check_failed' as const } }
-        : { status: 200 as const, body: null };
-  assert.deepEqual(routeResponse(refused), {
-    status: 409,
-    body: { status: 'camera_points_exhausted' },
-  });
+  assert.deepEqual(await shoot(), { status: 'camera_points_exhausted' });
+  assert.equal(await rows(), 50, 'the refused 51st left a row behind — a photo the pot never paid for');
 });

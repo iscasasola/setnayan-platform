@@ -8,7 +8,7 @@
  * columns. The wedding commit is NOT touched.
  */
 import type { GenericOnboardingPayload } from './types';
-import { anchorForType, isAnchorOrigin, resolveCadence } from '../event-anchor';
+import { anchorForType, isAnchorOrigin, resolveCadence, singlePickedDate } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
 import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '../rsvp-ask';
 import type { SetupAnswers } from './setup-answers';
@@ -99,6 +99,14 @@ export function buildGenericEventInsert(
   const setup = opts.setup ? setupColumns(opts.setup) : null;
   const dateMode = payload.dateMode === 'window' ? 'window' : 'specific';
   const candidates = dateMode === 'specific' ? (payload.dateCandidates ?? []).filter(Boolean) : [];
+  // 📅 ONE PICKED DATE IS THE DATE (owner 2026-10-08). A hangout with one day
+  // picked used to land as `event_date: null` + `date_candidates: [d]`, and Home
+  // — which reads `event_date` — showed no date. For a type whose date is an
+  // INPUT (`isFixedDateInputType`), a single pick is written exactly as
+  // onboarding/simple writes it: `event_date = d`, precision 'day', no
+  // candidates. Two or more picks keep the candidate flow. A wedding is never
+  // a fixed-date input type, so its flow is untouched.
+  const pickedDate = singlePickedDate(payload.eventType, candidates);
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
   // Normalize legacy 'nolimit' → DB canonical 'no_limit' (matches the wedding commit).
@@ -155,7 +163,9 @@ export function buildGenericEventInsert(
     // create path and the edit path call the same function, which is what stops
     // the three-way disagreement that left birthdays invisible on the Year view.
     recur_cadence: resolveCadence(payload.eventType, payload.recurCadence ?? payload.recurs),
-    event_date: null,
+    event_date: pickedDate,
+    // The column DEFAULTs to 'year'; an exact picked day is day precision.
+    ...(pickedDate ? { event_date_precision: 'day' } : {}),
     venue_name: setup?.venue_name ?? null,
     venue_address: null,
     ...(setup ? { invite_theme: setup.invite_theme } : {}),
@@ -187,7 +197,7 @@ export function buildGenericEventInsert(
     venue_latitude: payload.venueLatitude,
     venue_longitude: payload.venueLongitude,
     date_mode: dateMode,
-    date_candidates: candidates.length ? candidates : null,
+    date_candidates: pickedDate || !candidates.length ? null : candidates,
     date_window_start: windowStart,
     date_window_end: windowEnd,
     budget_band: budgetBand,

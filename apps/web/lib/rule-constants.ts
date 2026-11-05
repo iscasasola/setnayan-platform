@@ -35,6 +35,16 @@ export const REFUND_REPORT_WINDOW_DAYS = 7;
 export const ERROR_LOG_RETENTION_DAYS = 90;
 
 /**
+ * How long the database provider keeps each daily backup, as /privacy and
+ * /terms declare it. Read off Supabase › Database Backups by the owner on
+ * 2026-10-23 (daily physical backups, kept 7 days; storage objects not
+ * included) and recorded in the Breach Policy § 3.1. Enforced by the
+ * provider's plan, not by a job in this repo — change the plan and this
+ * together.
+ */
+export const DB_BACKUP_RETENTION_DAYS = 7;
+
+/**
  * A complimentary grant worth more than this many PESOS is flagged for owner +
  * spouse co-review (`issueCompGrant` writes `requires_two_admin_review`; the
  * admin form's hint quotes the same threshold). It still inserts — the two-admin

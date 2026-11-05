@@ -2,11 +2,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import {
   ALL_HELP_ARTICLES,
   findHelpArticle,
   relatedHelpArticles,
   helpMetaDescription,
+  HELP_NOT_IN_THE_APP,
 } from '@/lib/help';
 
 // Per-article help pages (SEO/GEO, 2026-06-13). Each of the 61 help articles
@@ -80,6 +82,7 @@ export async function generateMetadata({ params }: Props) {
     description,
     alternates: { canonical: canonicalUrl },
     openGraph: {
+      images: BRAND_OG_IMAGES,
       type: 'article',
       url: canonicalUrl,
       title: `${article.title} · Setnayan Help`,
@@ -88,6 +91,7 @@ export async function generateMetadata({ params }: Props) {
       locale: 'en_PH',
     },
     twitter: {
+      images: BRAND_TWITTER_IMAGES,
       card: 'summary',
       title: article.title,
       description,
@@ -102,6 +106,7 @@ export default async function HelpArticlePage({ params }: Props) {
   if (!found) notFound();
   const { article, topic } = found;
   const related = relatedHelpArticles(slug);
+  const notInApp = article.appBody === HELP_NOT_IN_THE_APP;
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -173,12 +178,12 @@ export default async function HelpArticlePage({ params }: Props) {
 
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
+          <Link href="/" className="-my-1.5 flex min-h-[44px] items-center text-ink">
             <Logo height={32} withWordmark title="Setnayan · Help" />
           </Link>
           <Link
             href="/help"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:-my-3 sm:inline-flex sm:min-h-[44px] sm:items-center"
           >
             All help topics
           </Link>
@@ -194,28 +199,51 @@ export default async function HelpArticlePage({ params }: Props) {
           <Link href="/help" className="hover:text-ink hover:underline">
             Help
           </Link>
-          <span className="mx-2">/</span>
-          <Link
-            href={`/help#${topic.key}`}
-            className="hover:text-ink hover:underline"
-          >
-            {topic.label}
-          </Link>
+          {/* 🍎 A question the app does not include names nothing in the app — not its topic
+              ("Papic — candid photos"), not its title — only the not-included sentence below. */}
+          <span data-web-only={notInApp ? '' : undefined}>
+            <span className="mx-2">/</span>
+            <Link
+              href={`/help#${topic.key}`}
+              className="hover:text-ink hover:underline"
+            >
+              {topic.label}
+            </Link>
+          </span>
         </nav>
 
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">
+        <h1
+          className="text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl"
+          data-web-only={notInApp ? '' : undefined}
+        >
           {article.title}
         </h1>
-        {renderHelpBody(article.body)}
+        {/*
+          🍎 ONE URL, TWO READERS (Apple check 2026-10-19, rows #6 · #14). This
+          page is prerendered, so it cannot ask the request whether it is in the
+          iPhone app; where an answer has app wording it ships both, and the
+          pre-paint `data-store-shell` mark shows exactly one (app/globals.css
+          `data-web-only` / `data-app-only`). Held by
+          lib/help-in-the-app-sells-nothing.test.ts.
+        */}
+        {article.appBody === undefined ? (
+          renderHelpBody(article.body)
+        ) : (
+          <>
+            <div data-web-only="">{renderHelpBody(article.body)}</div>
+            <div data-app-only="">{renderHelpBody(article.appBody)}</div>
+          </>
+        )}
 
         {related.length > 0 ? (
-          <section className="mt-12 border-t border-ink/10 pt-8">
+          <section className="mt-12 border-t border-ink/10 pt-8" data-web-only={notInApp ? '' : undefined}>
             <h2 className="text-lg font-semibold text-ink">
               More in {topic.label}
             </h2>
             <ul className="mt-4 space-y-2">
               {related.map((a) => (
-                <li key={a.slug}>
+                // A question the app does not include is not offered in the app.
+                <li key={a.slug} data-web-only={a.appBody === HELP_NOT_IN_THE_APP ? '' : undefined}>
                   <Link
                     href={`/help/${a.slug}`}
                     className="text-sm font-medium text-ink/75 underline-offset-4 hover:text-terracotta hover:underline"

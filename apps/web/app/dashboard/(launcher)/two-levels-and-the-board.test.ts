@@ -556,7 +556,7 @@ test('the empty Finished shelf explains the shelf and claims no zero', () => {
   );
   assert.match(
     src,
-    /Celebrations move here on their own/,
+    /Events move here on their own/,
     'The empty finished shelf lost the line that says what it is FOR.',
   );
   // 🔑 fetchUserEvents graceful-degrades to [] on EVERY error including an RLS
@@ -842,7 +842,7 @@ test('every rail destination stays inside the event you opened', () => {
   }
 });
 
-test('the event rail is the one tree — five rows (Stage D)', () => {
+test('the event rail is the one tree — five rows (Stage D; More left 22 Oct 2026; Memories joined 23 Oct)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"so basically. this is what an event
     needs. Guestlist · Your Team · Event Hub Maker · Our Services"*). The
@@ -858,7 +858,9 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   );
   assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars']);
   assert.deepEqual(keysByGroup.event, ['personalization']);
-  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'studio']);
+  // More Services left the rail with the bar's More (owner 22 Oct 2026, "Yes remove more"); Memories joined after
+  // Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
+  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'memories']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —
@@ -882,11 +884,11 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   assert.ok(!rows.some((i) => i.key === 'refer'), 'Refer a couple is an event row again');
   /*
     🔒 BUDGET IS NOT A MAIN ROOM (owner 2026-07-10). Since Stage D it is a
-    part of Your Team — never a row, never a phone tab — and its old page
-    lights Your Team.
+    part — never a row, never a phone tab. Since 2026-11-01 it is Home's own
+    page (owner: "Okay place it in home"), so Home lights it.
   */
   assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
-  assert.ok(rows.find((i) => i.key === 'explore')?.alsoMatch?.includes('/dashboard/EVT123/budget'));
+  assert.ok(rows.find((i) => i.key === 'home')?.alsoMatch?.includes('/dashboard/EVT123/budget'));
   assert.ok(
     !buildCustomerMenuTree('EVT123', { websiteEnabled: true }).some((m) => (m.key as string) === 'budget'),
     'Budget was promoted to a bottom-bar tab. The owner removed that on 2026-07-10.',
@@ -1001,14 +1003,14 @@ test('a folded event type is always one tap from being shown', () => {
   const src = read(PICKER);
   assert.match(
     src,
-    /show all event types/,
+    /[Ss]how all event types/,
     'The "show all event types" doorway is gone from the create grid. Hiding debut ' +
       'and christening then becomes a WALL — and a self-planning debutante or an ' +
       'aunt planning her niece\'s day has no record for us to match.',
   );
   assert.match(
     src,
-    /showAllTypes \|\| hidden\.length === 0/,
+    /\(showAllTypes && mayShowAll\) \|\| hidden\.length === 0/,
     'The create grid no longer un-folds when "show all" is pressed.',
   );
 });

@@ -59,11 +59,14 @@ test('🔒 a nameless row prints SOMETHING — never a blank card beside a QR', 
   assert.equal(typeof printedCardName(empty), 'string');
 });
 
-test('🔑 a display_name the couple typed WINS over the assembled parts', () => {
-  /* Both helpers honour it, so a couple who wrote "Tita Baby" gets "Tita Baby"
-     on the card rather than a title they never asked for. */
+test('🪪 a "Shown as" the couple typed NEVER replaces the full name on the card', () => {
+  /* Owner 2026-10-20, DECISION_LOG "THE INVITATION PRINTS A GUEST'S FULL NAME —
+     SHOWN AS NEVER REPLACES IT": "do not change the invitation. used the full
+     name." The nickname is the couple's label for their own list. */
   const g = row({ display_name: 'Tita Baby', name_prefix: 'Atty.' });
-  assert.equal(printedCardName(g), 'Tita Baby');
+  assert.equal(printedCardName(g), 'Atty. Indalecio Casasola');
+  /* A row with no name parts at all still prints its Shown as — never a blank card. */
+  assert.equal(printedCardName(row({ display_name: 'Tita Baby', first_name: '', last_name: '' })), 'Tita Baby');
 });
 
 test('🔒 the print sheet calls printedCardName, and the dashboard table does NOT', () => {

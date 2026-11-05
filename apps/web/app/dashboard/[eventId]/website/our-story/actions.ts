@@ -28,12 +28,13 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import { ourEventPhotoRefs } from './_components/our-events-read';
+import { readOurEventsOffer } from './_components/our-events-offer';
 import {
   chapterOf,
   formatMomentDate,
@@ -53,6 +54,7 @@ import { applyMomentIntent } from '@/lib/love-story-moment-intent';
    same blob. */
 
 export async function updateOurStory(eventId: string, formData: FormData): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -136,14 +138,19 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
    writes live, like `updateOurStory` always has. Phase 4's upload path + 100 MB
    meter take over the photo input when they land; clips wait on them. */
 
-const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order', 'pick'] as const;
+const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order', 'pick', 'offer'] as const;
 type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
 /* add · edit · delete · arrange are applied by `applyMomentIntent`
    (`lib/love-story-moment-intent.ts`) — the SAME function the Maker's instant
-   scrapbook applies at the tap, so the two can never disagree. */
+   scrapbook applies at the tap, so the two can never disagree.
+   🗣 TWO VOICES (owner 2026-10-17): the form's `voice_a` / `voice_b` are read
+   there too (`momentFromForm`) — a moment needs a year and at least one of the
+   line, voice a or voice b; a form without the line keeps the moment's own, so
+   writing a voice never blanks the line told together. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const back = `/dashboard/${eventId}/website/our-story`;
@@ -152,6 +159,14 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
   const intentRaw = String(formData.get('intent') ?? '');
   if (!(MOMENT_INTENTS as readonly string[]).includes(intentRaw)) fail('That did not save. Please try again.');
   const intent = intentRaw as MomentIntent;
+
+  /* 🔎 'offer' — THE ONE QUESTION THIS ACTION ANSWERS (2026-10-08). Studio › Love Story asks which of the pair's
+     OTHER events may lend a photo only when "Pick from our events" is opened — before, the page read them on every
+     open of Love Story, picked from or not. It writes nothing, revalidates nothing and redirects nowhere, so its
+     answer is the value alone (no render of the Maker). The scope is `readOurEvents`' own (the asker must be this
+     event's couple, else null) — the same read, and the same answer, the page used to draw. Answered here rather
+     than by a new action: the route budget has no room for one. */
+  if (intent === 'offer') return { offer: await readOurEventsOffer(user.id, eventId) } as unknown as void;
 
   const supabase = await createClient();
   /* 💾 THE DRAFT DOOR (2026-09-25). From the scrapbook the moments go into the
@@ -212,7 +227,8 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
      names it. The hundred-moment ceiling still refuses either way; a live
      write is capped exactly as before. */
   const ownsPro =
-    drafting || (await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId));
+    // 💎 Love Story photos and more than five moments are the Photos part's (owner 2026-10-22, gate 25).
+    drafting || (await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos'));
   const refusal = momentCapRefusal({ before, after, ownsPro });
   if (refusal === 'max') return fail('Your story holds 100 moments — the most one Event Hub can show.');
   if (refusal) redirect(`${back}?pro=${refusal === 'photos_pro' ? 'photos' : 'stories'}`);

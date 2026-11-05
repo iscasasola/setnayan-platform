@@ -1,5 +1,12 @@
 'use client';
 
+import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
+import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
+import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
+import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
@@ -7,11 +14,15 @@ import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import {
   Armchair,
+  ArrowLeftRight,
   CakeSlice,
   Camera,
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CircleDot,
   GripVertical,
   Lock,
   LockOpen,
@@ -31,12 +42,14 @@ import {
   Minus,
   MoreHorizontal,
   Navigation,
+  Pencil,
   Package,
   Plus,
   Printer,
   RotateCcw,
   RotateCw,
   Ruler,
+  Scan,
   Search,
   Signpost,
   Sparkles,
@@ -74,6 +87,18 @@ import {
   type SaveState,
 } from './seating-frame';
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
+import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '../../guests/_components/undo-toast';
+import { pushUndo } from '../../guests/_components/undo-store';
+import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
+import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { guestSeatView } from '../../guests/seat-view-actions';
+import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
+import { StatusLine } from '@/app/_components/status-line';
+import { Counter } from '@/app/_components/counter';
+import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
   CHAIR_PX,
@@ -133,6 +158,10 @@ import {
   type OracleZone,
   type DropHit,
   DRAFT_ROUND_TYPE,
+  VIP_PLUS_ONE_OPTIONS,
+  cannotFitWords,
+  parseVipPlusOneSeating,
+  type VipPlusOneSeating,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
@@ -151,6 +180,7 @@ import {
   addSeatingConstraint,
   assignGroup,
   assignGuest,
+  swapSeats,
   autoArrange,
   buildSeatingDraft,
   createTable,
@@ -177,19 +207,25 @@ import {
   updateTablePosition,
   updateTableRotation,
   updateTableType,
+  swapTableOccupants,
+  setGhostBoothsEnabled,
 } from '../actions';
+import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
+import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
-import { useSeatingLock } from './use-seating-lock';
+import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
   nextUnseatedGuest,
   parseSeatPlanPiece,
+  planMaxZoom,
   planPress,
+  PLAN_ZOOM_MAX_FLOOR,
   ROOM_PRESETS,
   seatAtChoices,
   seatPlanGuestSections,
@@ -200,15 +236,34 @@ import {
   SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
-import { MoveGuestSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead } from './seat-plan-phone';
+import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
+import { Sheet } from '@/app/_components/sheet';
+import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
+import { VipMark } from './vip-mark';
+import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
+import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
+import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
+import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
+import { PinCountDoor } from '../../guests/_components/view-summary-cards';
+import { useGuestsLens } from '../../guests/_components/guests-lens';
+import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
+import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
+import { createPortal } from 'react-dom';
+import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { resolvePlan3dFacts } from '@/lib/plan3d-control';
+import { SeatPlanFacts } from './seat-plan-facts';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
 import { useMaker } from '../../launch/_components/maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -223,6 +278,9 @@ function isSeatingLockLost(err: unknown): boolean {
   if (e.code === 'seating_lock_not_held') return true;
   return typeof e.message === 'string' && e.message.includes('locked by someone else on this event');
 }
+
+/** 📵 What the plan's notice strip says when a press's request never answered or was refused. */
+const SEAT_PLAN_NOT_SAVED = 'Couldn’t save that — please try again.';
 
 // The phone's Type ▾ groups the catalog by kind, in plain words.
 const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
@@ -251,6 +309,9 @@ export type SeatingGuest = {
   // Smart seat-plan Phase 4: this guest's seat is locked (pinned) — lock-and-fill
   // keeps it fixed and seats everyone else around it.
   seat_locked: boolean;
+  /** 🪑 Who placed this seat (lib/seat-why.ts) — absent / null = not recorded. */
+  seat_placed_by?: SeatPlacedBy | null;
+  seat_placed_at?: string | null;
   // Role taxonomy (0001) — drives the popup's "Role" picker tab via roleTier().
   role: string;
   group_category: string;
@@ -308,6 +369,12 @@ type Props = {
   /** 🪑 Has the event's day begun (Manila)? From then guests always see their
    *  seats — `seatDayHasCome` in lib/guests-may-see-seats.ts, read server-side. */
   seatDayHasCome?: boolean;
+  /**
+   * 🧊 The 3D Plan's facts that the plan itself does not hold (owner 2026-10-29, *"put it behind (i)"*) — read by the
+   * page: the event's link and time zone, whether that read succeeded, and how many guests made an avatar (`null` =
+   * that count was not read, so the fact says "—", never 0). Omitted (a lab): the same honest "—".
+   */
+  plan3d?: { slug: string | null; timezone: string | null; eventMeasured: boolean; withAvatar: number | null };
   /** Walima gender-separation advisory (null when not requested). */
   genderSeparationNote: string | null;
   /** How many non-declined guests exceed total effective seats (0 = enough). */
@@ -323,6 +390,12 @@ type Props = {
   /** The two policy toggles are plain server-action forms, passed down verbatim. */
   setSeatingAutoplace: (formData: FormData) => void | Promise<void>;
   setSeatingGroupAdjacency: (formData: FormData) => void | Promise<void>;
+  /**
+   * 🏷 "Show supplier suggestions in 3D" (the dashed ghost booths, flag `NEXT_PUBLIC_PLAN3D_BOOTH_ADS`). Its switch left
+   * the 3D room when the room became view-only (owner 2026-10-30) and lives here with the other seat settings. Absent
+   * (undefined) = the flag is off or the page did not read it — no switch is drawn.
+   */
+  ghostBoothsEnabled?: boolean;
   /** Initial view — 'list' when the lab's mirrored segment links here (?view=list). */
   initialView?: 'plan' | 'list';
   /**
@@ -343,6 +416,19 @@ export type SeatingDetailsShell = {
   sides: SeatPlanGuestOptions['sides'];
   /** Open on the Guests' map (the Indoor Blueprint's old address lands here, `?seat=map`). */
   part?: 'map' | null;
+  /**
+   * 🗂 R4 · Guests › Seats: the 3D room is streamed WITH the page (`lab`, always) and opened here, in place — a client
+   * switch, no new request (owner 2026-10-29, *"fastest load and fewest requests"*). `open3d`: the address asked for it
+   * (`?seat=3d`). Its code loads the first time it is opened, and it stays mounted after.
+   */
+  open3d?: boolean;
+  /**
+   * 🗂 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): `guests` — drawn by Guests › Seats, not the
+   * Maker. The SAME editor and the same three parts; only who holds the columns changes: Guests' own Seats view draws
+   * the two slots (`seat-plan-in-guests.tsx`), the plan is always on screen there, and a phone gets the Studio's phone
+   * seat plan (the map the screen, the people a pull-up sheet) — the shipped approved frames, never a new layout.
+   */
+  host?: 'maker' | 'guests';
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -394,6 +480,7 @@ export function SeatingEditor({
   me,
   eventDate,
   seatDayHasCome = false,
+  plan3d,
   genderSeparationNote,
   seatShortfall,
   nonDeclinedCount,
@@ -404,6 +491,7 @@ export function SeatingEditor({
   toSeatReserved,
   setSeatingAutoplace,
   setSeatingGroupAdjacency,
+  ghostBoothsEnabled,
   initialView = 'plan',
   details = null,
 }: Props) {
@@ -413,7 +501,22 @@ export function SeatingEditor({
   const roleSet = useMemo(() => resolveRoleSet(roleSetKey), [roleSetKey]);
   // Optimistic overlays: a seat/unseat/delete shows immediately, then the
   // server action revalidates and these reconcile to the authoritative data.
-  const [guests, applyGuestOpt] = useOptimistic(guestsProp, (state: SeatingGuest[], op: GuestSeatOp) => {
+  /* ↩ Tables deleted by a swipe (or a Delete), waiting out the Undo window (owner 2026-11-03, "SWIPE LEFT TO DELETE ON
+     EVERY LIST ROW"): gone from the plan at once, and everyone at them shown unseated — exactly what the delete's
+     ON DELETE CASCADE will do when it is written. Undo brings them back with nothing written. */
+  const [heldTables, setHeldTables] = useState<ReadonlySet<string>>(() => new Set());
+  const guestsBase = useMemo(
+    () =>
+      heldTables.size === 0
+        ? guestsProp
+        : guestsProp.map((g) => (g.seated_table_id && heldTables.has(g.seated_table_id) ? { ...g, seated_table_id: null, seat_number: null } : g)),
+    [guestsProp, heldTables],
+  );
+  const tablesBase = useMemo(
+    () => (heldTables.size === 0 ? tablesProp : tablesProp.filter((t) => !heldTables.has(t.table_id))),
+    [tablesProp, heldTables],
+  );
+  const [guests, applyGuestOpt] = useOptimistic(guestsBase, (state: SeatingGuest[], op: GuestSeatOp) => {
     switch (op.type) {
       case 'seat':
         return state.map((g) =>
@@ -442,9 +545,22 @@ export function SeatingEditor({
     }
   });
   const [tables, applyTableOpt] = useOptimistic(
-    tablesProp,
-    (state: EventTableRow[], op: { type: 'delete'; id: string }) =>
-      op.type === 'delete' ? state.filter((t) => t.table_id !== op.id) : state,
+    tablesBase,
+    (
+      state: EventTableRow[],
+      op: { type: 'delete'; id: string } | { type: 'chair'; id: string; seat: number; removed: boolean } | { type: 'vip'; id: string; vip: boolean },
+    ) =>
+      op.type === 'delete'
+        ? state.filter((t) => t.table_id !== op.id)
+        : op.type === 'vip'
+          ? state.map((t) => (t.table_id === op.id ? { ...t, is_vip: op.vip } : t))
+          : state.map((t) => {
+            if (t.table_id !== op.id) return t;
+            const next = removedSeatSet(t.removed_seats, t.capacity);
+            if (op.removed) next.add(op.seat);
+            else next.delete(op.seat);
+            return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
+          }),
   );
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -540,8 +656,14 @@ export function SeatingEditor({
   const boothsDirtyRef = useRef(false);
   boothsDirtyRef.current = boothsDirty;
   const tmpBoothSeq = useRef(0);
+  /* 👥 The booths (and signs, and floor) this editor STARTED FROM — sent as each save's base, so only what it changed
+     is written and a booth the other host added is never deleted here (owner 2026-10-18, two hosts never overwrite). */
+  const boothsBase = useRef(boothsProp);
   useEffect(() => {
-    if (!boothsDirtyRef.current) setBooths(boothsProp);
+    if (!boothsDirtyRef.current) {
+      setBooths(boothsProp);
+      boothsBase.current = boothsProp;
+    }
   }, [boothsProp]);
   // Wayfinding signs (rotatable arrow + label) — same local-state-then-save
   // model as booths: tmp- ids until the next save returns real rows.
@@ -550,8 +672,12 @@ export function SeatingEditor({
   const signsDirtyRef = useRef(false);
   signsDirtyRef.current = signsDirty;
   const tmpSignSeq = useRef(0);
+  const signsBase = useRef(signsProp);
   useEffect(() => {
-    if (!signsDirtyRef.current) setSigns(signsProp);
+    if (!signsDirtyRef.current) {
+      setSigns(signsProp);
+      signsBase.current = signsProp;
+    }
   }, [signsProp]);
   // Dock the cocktail room beside the reception at the entrance door: cross-axis
   // aligned to the door, out-axis pushed GAP + half-extent outside the wall
@@ -668,10 +794,12 @@ export function SeatingEditor({
   const floorDirtyRef = useRef(false);
   floorDirtyRef.current = floorDirty;
   const floorSeen = useRef(floorPlan);
+  const floorBase = useRef(floorPlanFieldsOf(floorPlan));
   useEffect(() => {
     if (!details || floorSeen.current === floorPlan) return;
     floorSeen.current = floorPlan;
     if (floorDirtyRef.current) return;
+    floorBase.current = floorPlanFieldsOf(floorPlan);
     setStage({ x: floorPlan.stage_x, y: floorPlan.stage_y, w: floorPlan.stage_w, h: floorPlan.stage_h });
     setEntrance({
       enabled: floorPlan.entrance_enabled,
@@ -784,6 +912,9 @@ export function SeatingEditor({
   // state only tracks `detail` (the level-of-detail flip) which changes rarely.
   const worldRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
+  // 🔍 The closest the 2D plan zooms — set every render from the canvas + tables (planMaxZoom); a ref so the
+  // wheel listener (bound once per view) never clamps to a stale cap.
+  const zoomMaxRef = useRef(PLAN_ZOOM_MAX_FLOOR);
   const panRef = useRef({ x: 0, y: 0 });
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const panStartRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
@@ -816,8 +947,9 @@ export function SeatingEditor({
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const [previewType, setPreviewType] = useState<TableType | null>(null);
   const [degEdit, setDegEdit] = useState<string | null>(null);
-  // Transient "Seat N removed · Undo" inline notice for the Seats stepper (§3).
-  const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number } | null>(null);
+  // The seat counter's last step — "Chair N removed." / "Chair N is back." with Undo (kind 12 status line; owner 2026-10-13).
+  // `removed`: what the step did, so Undo does the opposite — ONE step back, either way.
+  const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number; removed: boolean } | null>(null);
   // §5.3 — the Auto Arrange gold split-button's caret menu (Build draft / Fill).
   const [autoMenuOpen, setAutoMenuOpen] = useState(false);
   useOneOpen(autoMenuOpen, setAutoMenuOpen); // one open at a time — lib/one-open.ts
@@ -861,7 +993,8 @@ export function SeatingEditor({
   const canEdit = lock.status === 'editing';
   // View-only surface follows the editor live (the 3D lab, or another viewer) —
   // the EDITING surface never auto-refreshes (would clobber unsaved drafts).
-  useSeatingLiveRefresh(eventId, !canEdit);
+  // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   useEffect(() => {
     // Try to take the lock as soon as the editor opens (the surface itself is
     // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.
@@ -898,7 +1031,10 @@ export function SeatingEditor({
       addedTableIds: string[];
       seatedGuestIds: string[];
       positions: Record<string, { x: number; y: number } | null>;
-      booths: FloorBoothRow[];
+      /** null = this run moved no booth (Clear all seats) — Undo leaves the booths alone. */
+      booths: FloorBoothRow[] | null;
+      /** 🪑 Seats this run took off — Undo puts exactly these back (lib/seat-plan-scope.ts). */
+      restore?: RestoreSeat[];
     } | null;
     changed: ReadonlySet<string>;
   } | null>(null);
@@ -907,6 +1043,11 @@ export function SeatingEditor({
   const [moveTo, setMoveTo] = useState<string | null>(null);
   // 🔗 "Link…" — the table waiting for the next one tapped to join it.
   const [linkFrom, setLinkFrom] = useState<string | null>(null);
+  /* ⇄ SWAP WITH ANOTHER TABLE… — arm table A, tap table B, confirm: every guest at A goes to B and B's to A, seat
+     numbers travelling with them, in ONE atomic write (`swapTableOccupants` → `swap_table_assignments`). It was the 3D
+     room's "Swap two tables" until the room became view-only (owner 2026-10-30); its home is now here. */
+  const [swapFrom, setSwapFrom] = useState<string | null>(null);
+  const [confirmSwap, setConfirmSwap] = useState<{ a: string; b: string } | null>(null);
   // 📱 A press on the plan on a phone is a TAP (planPress): what was pressed,
   // and where, so a pan or a pinch that starts on it is not taken as a tap.
   const tapRef = useRef<{ kind: 'table' | 'booth' | 'sign' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail'; id: string; sx: number; sy: number } | null>(null);
@@ -1138,16 +1279,64 @@ export function SeatingEditor({
     setNotice('Editing was taken over by another co-host — you’re viewing only now. Your last change wasn’t saved.');
     return true;
   };
-  const runGated = async <T,>(fn: () => Promise<T>): Promise<T | null> => {
+  /* 📵 …and NEVER throws (owner 2026-10-11: "make sure requests does not cause a crash"). Every caller awaits this
+     inside a transition; the rethrow that used to end it handed React the rejection, and a press whose request never
+     answered (no signal, a 5xx) — or that the server refused — replaced the whole seat plan with the app's error
+     screen. Any failure is now the same answer a lost lock is: `null`, with the reason SAID in the plan's own notice
+     strip. The optimistic move the press drew ends with its transition, so the plan shows what is saved. `failed`
+     is a caller's own words for it. */
+  const runGated = async <T,>(fn: () => Promise<T>, failed: string = SEAT_PLAN_NOT_SAVED): Promise<T | null> => {
     try {
       return await fn();
     } catch (err) {
-      if (handleLockLost(err)) return null;
-      throw err;
+      if (!handleLockLost(err)) setNotice(failed);
+      return null;
     }
   };
 
   // --- seat / move / unseat -------------------------------------------------
+  /**
+   * 🗂 R4 · SWAP (owner 2026-10-29, *"tapping picks a guest or removes that guest or swaps it to another"*): two seated
+   * people trade chairs through the SHIPPED atomic swap (`swapSeats` → `swap_seat_assignments`, the 3D room's own); with
+   * one of them unseated, the seated one's chair changes hands through the shipped unseat + seat. Each drawn at once.
+   */
+  const tradeSeats = (aId: string, bId: string) => {
+    if (!canEdit || aId === bId) return;
+    const a = guests.find((g) => g.guest_id === aId);
+    const b = guests.find((g) => g.guest_id === bId);
+    if (!a || !b) return;
+    const form = (guestId: string, tableId?: string | null, seat?: number | null) => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('lock_id', lock.lockId ?? '');
+      fd.set('guest_id', guestId);
+      if (tableId) fd.set('table_id', tableId);
+      if (seat !== null && seat !== undefined) fd.set('seat_number', String(seat));
+      return fd;
+    };
+    const [ta, sa, tb, sb] = [a.seated_table_id, a.seat_number, b.seated_table_id, b.seat_number];
+    setPickedId(null);
+    startTransition(async () => {
+      if (tb) applyGuestOpt({ type: 'seat', guestId: aId, tableId: tb, seat: sb });
+      else applyGuestOpt({ type: 'unseat', guestId: aId });
+      if (ta) applyGuestOpt({ type: 'seat', guestId: bId, tableId: ta, seat: sa });
+      else applyGuestOpt({ type: 'unseat', guestId: bId });
+      if (ta && tb) {
+        const fd = form(aId);
+        fd.delete('guest_id');
+        fd.set('guest_a_id', aId);
+        fd.set('guest_b_id', bId);
+        await runGated(() => swapSeats(fd));
+      } else if (tb) {
+        await runGated(() => unassignGuest(form(bId)));
+        await runGated(() => assignGuest(form(aId, tb, sb)));
+      } else if (ta) {
+        await runGated(() => unassignGuest(form(aId)));
+        await runGated(() => assignGuest(form(bId, ta, sa)));
+      }
+    });
+  };
+
   const place = (tableId: string, seatNumber: number | null) => {
     if (!canEdit) return;
     if (!pickedId) return;
@@ -1167,6 +1356,7 @@ export function SeatingEditor({
 
   const unseat = (guestId: string) => {
     if (!canEdit) return;
+    const was = guests.find((g) => g.guest_id === guestId);
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
@@ -1174,22 +1364,61 @@ export function SeatingEditor({
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      await runGated(() => unassignGuest(fd));
+      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id) return;
+      /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
+         shipped seat write (`assignGuest`) — the place it was taken from. */
+      const tableId = was.seated_table_id;
+      const seat = was.seat_number;
+      pushUndo({
+        label: `${was.name} is off the seat`,
+        undo: async () => {
+          const back = new FormData();
+          back.set('event_id', eventId);
+          back.set('lock_id', lock.lockId ?? '');
+          back.set('table_id', tableId);
+          back.set('guest_id', guestId);
+          if (seat !== null) back.set('seat_number', String(seat));
+          startTransition(async () => {
+            applyGuestOpt({ type: 'seat', guestId, tableId, seat });
+            await runGated(() => assignGuest(back));
+          });
+        },
+      });
     });
   };
 
-  const removeTable = (tableId: string) => {
-    if (!canEdit) return;
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('lock_id', lock.lockId ?? '');
-    fd.set('table_id', tableId);
-    if (highlightId === tableId) setHighlightId(null);
-    startTransition(async () => {
-      applyTableOpt({ type: 'delete', id: tableId });
-      await runGated(() => deleteTable(fd));
+  /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
+  const removeTables = (tableIds: readonly string[], label: string) => {
+    if (!canEdit || tableIds.length === 0) return;
+    if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
+    const hold = (on: boolean) =>
+      setHeldTables((h) => {
+        const next = new Set(h);
+        for (const id of tableIds) {
+          if (on) next.add(id);
+          else next.delete(id);
+        }
+        return next;
+      });
+    deleteWithUndo({
+      label: `${label} deleted`,
+      hide: () => hold(true),
+      restore: () => hold(false),
+      commit: async () => {
+        for (const tableId of tableIds) {
+          const fd = new FormData();
+          fd.set('event_id', eventId);
+          fd.set('lock_id', lock.lockId ?? '');
+          fd.set('table_id', tableId);
+          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+        }
+        return { ok: true };
+      },
+      failed: `Couldn’t delete ${label}. It’s back — try again.`,
     });
   };
+  const removeTable = (tableId: string) =>
+    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.table_label ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with
@@ -1203,7 +1432,7 @@ export function SeatingEditor({
   // joined unit removes every member (each cascades its own seat assignments).
   const requestRemoveUnit = (u: TableDisplayUnit) => {
     const seated = u.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
-    if (seated === 0) u.members.forEach((m) => removeTable(m.table_id));
+    if (seated === 0) removeTables(u.members.map((m) => m.table_id), u.label);
     else setConfirmDelete({ label: u.label, members: u.members });
   };
 
@@ -1219,8 +1448,9 @@ export function SeatingEditor({
   // walls), (3) the server's role-tier auto-seat fills guests into the layout.
   // Optimistic: the new geometry paints immediately; the server action then
   // persists positions + booths and seats guests in one round-trip.
-  const runAutoArrange = () => {
+  const runAutoArrange = (scope: SeatScope = 'unseated') => {
     setConfirmAuto(false);
+    setAskArrange(false);
     if (!canEdit) return; // view-only: someone else holds the editor lock.
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
@@ -1271,8 +1501,8 @@ export function SeatingEditor({
     // are laid out, into the room's open space.
     const onScreen = arranging.map((t) => {
       const p = positions[t.table_id];
-      const placedByCouple = t.x_pos !== null || dirty.has(t.table_id);
-      return p && placedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
+      const tablePlacedByCouple = t.x_pos !== null || dirty.has(t.table_id);
+      return p && tablePlacedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
     });
     const keepPlaced = new Set(onScreen.filter((t) => t.x_pos !== null && t.y_pos !== null && !added.includes(t)).map((t) => t.table_id));
     // What Undo puts back: every table's saved spot and every booth before this run.
@@ -1334,6 +1564,7 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', boothsPayload(nextBooths));
+    fd.set('scope', scope);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
@@ -1359,6 +1590,9 @@ export function SeatingEditor({
               solved.altPlacedAtFloor > fitCount ? ` — at 0.6 m (Tight) ${solved.altPlacedAtFloor} fit` : ''
             }. Try a narrower walkway, fewer tables, or a bigger room.`
           : '';
+      // 🪑 What auto arrange could not keep together, or seat at all — SHOWN, never silent (owner 2026-11-02).
+      const fitWords = cannotFitWords(res.cannotFit ?? [], (id) => guests.find((g) => g.guest_id === id)?.name ?? '');
+      const cannotFitNote = fitWords ? ` ⚠ ${fitWords}.` : '';
       // The counts come from the SERVER (tables it added, guests it could not
       // seat) — never from this client's guess — so the toast cannot claim
       // "everyone has a seat" while anyone is still without one.
@@ -1366,10 +1600,10 @@ export function SeatingEditor({
       // the counts are the server's; the tables whose people changed (or that
       // are new) wear a gold ring until the line is dismissed or undone.
       setAutoRun({
-        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote,
+        text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote + cannotFitNote,
         undo:
-          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0
-            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore }
+          res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0 || (res.restoreSeats?.length ?? 0) > 0
+            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore, restore: res.restoreSeats ?? [] }
             : null,
         changed: new Set(res.changedTableIds),
       });
@@ -1386,10 +1620,11 @@ export function SeatingEditor({
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('intent', 'undo');
-    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions }));
-    fd.set('booths', boothsPayload(run.undo.booths));
+    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions, restore: run.undo.restore ?? [] }));
+    const boothsBack = run.undo.booths;
+    if (boothsBack) fd.set('booths', boothsPayload(boothsBack));
     setAutoRun(null);
-    setBooths(run.undo.booths);
+    if (boothsBack) setBooths(boothsBack);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return;
@@ -1397,8 +1632,43 @@ export function SeatingEditor({
       for (const [id, p] of Object.entries(run.undo!.positions)) if (p) back[id] = p;
       setPositions((p) => ({ ...p, ...back }));
       setDirty(new Set());
-      setNotice('Put back — the seat plan is as it was before Auto arrange.');
-      router.refresh();
+      setNotice(boothsBack ? 'Put back — the seat plan is as it was before Auto arrange.' : 'Put back — every seat is where it was.');
+    });
+  };
+
+  /* 🪑 WHO MOVES (owner 2026-11-02, live on his own event: *"When we click auto seat. We ask if we change all seated or
+     just the unseated ones?"*). With anybody seated, Auto arrange first asks in the house sheet: "Only the unseated (N)"
+     (the default) or "Seat everyone again" (locked seats never move). Nobody seated → nothing to ask, it just runs.
+     🔒 lib/auto-arrange-asks-who-moves.test.ts */
+  const [askArrange, setAskArrange] = useState(false);
+  const seatedNow = guests.filter((g) => Boolean(g.seated_table_id)).length;
+  const askAutoArrange = () => {
+    if (!canEdit || tables.length === 0) return;
+    if (seatedNow === 0) return runAutoArrange('unseated');
+    setAskArrange(true);
+  };
+
+  /* 🧹 CLEAR ALL SEATS (owner 2026-11-02, *"We want to be able to remove all seated"*) — asks first; locked seats stay
+     unless the host picks otherwise; Undo puts every seat back (the same Undo as Auto arrange). */
+  const [askClear, setAskClear] = useState(false);
+  const [clearLocked, setClearLocked] = useState<'keep' | 'clear'>('keep');
+  const runClearAll = () => {
+    setAskClear(false);
+    if (!canEdit) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('intent', 'clear');
+    fd.set('keep_locked', clearLocked === 'keep' ? 'true' : 'false');
+    startTransition(async () => {
+      const res = await runGated(() => autoArrange(fd));
+      if (!res) return;
+      const n = res.restoreSeats?.length ?? 0;
+      setAutoRun({
+        text: n > 0 ? `Cleared ${formatCount(n)} ${n === 1 ? 'seat' : 'seats'}` : 'No seats to clear',
+        undo: n > 0 ? { addedTableIds: [], seatedGuestIds: [], positions: {}, booths: null, restore: res.restoreSeats ?? [] } : null,
+        changed: new Set(res.changedTableIds),
+      });
     });
   };
 
@@ -1455,13 +1725,14 @@ export function SeatingEditor({
     () => floorPlan.priority_order ?? defaultPriorityOrder(roleSet),
   );
   const [dragTierIndex, setDragTierIndex] = useState<number | null>(null);
-  const persistPriority = (next: PriorityOrder) => {
+  const persistPriority = (next: PriorityOrder, before: PriorityOrder) => {
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('priority_order', JSON.stringify(next));
     startTransition(async () => {
-      await runGated(() => savePriorityOrder(fd));
+      /* ↩ Not saved (said by runGated): the list goes back — a failure never reads as an order that was kept. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setPriorityOrder(before);
     });
   };
   const reorderPriorityTo = (from: number, to: number) => {
@@ -1480,7 +1751,7 @@ export function SeatingEditor({
     if (!moved) return;
     next.splice(to, 0, moved);
     setPriorityOrder(next); // optimistic — the list reflows instantly
-    persistPriority(next);
+    persistPriority(next, priorityOrder);
   };
   const movePriorityTier = (index: number, dir: -1 | 1) => reorderPriorityTo(index, index + dir);
 
@@ -1510,7 +1781,8 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('role_seating', JSON.stringify(next));
     startTransition(async () => {
-      await runGated(() => savePriorityOrder(fd));
+      /* ↩ Not saved (said by runGated): the switch goes back. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setRoleSeating(roleSeating);
     });
   };
 
@@ -1523,7 +1795,44 @@ export function SeatingEditor({
     { key: 'together', label: 'Sit together' },
     { key: 'group', label: 'Sit with their group' },
   ] as const;
-  const roleRulesList =
+  /* 🪑 "+1s of VIP guests" (owner 2026-11-02, FINAL SEATING PRECEDENCE): ONE dropdown in the seating rules — beside
+     them at the VIP table (default), or all of them together at the table(s) nearest the VIP tables. Optimistic; saved
+     with the rules through savePriorityOrder (its `vip_plus_ones` field). */
+  const [vipPlusOnes, setVipPlusOnes] = useState<VipPlusOneSeating>(() => floorPlan.vip_plus_ones ?? 'beside');
+  const pickVipPlusOnes = (next: VipPlusOneSeating) => {
+    if (!canEdit || next === vipPlusOnes) return;
+    const before = vipPlusOnes;
+    setVipPlusOnes(next);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('vip_plus_ones', next);
+    startTransition(async () => {
+      /* ↩ Not saved (said by runGated): the pick goes back. */
+      if ((await runGated(() => savePriorityOrder(fd))) === null) setVipPlusOnes(before);
+    });
+  };
+  const vipTableCount = tables.filter((t) => t.is_vip === true).length;
+  const vipPlusOnesRow = (
+    <div data-vip-plus-ones-row="" className="flex min-h-11 items-center gap-2 px-1">
+      <span className="min-w-0 flex-1 text-sm text-ink">
+        +1s of VIP guests{' '}
+        <span className="font-mono text-[11px] text-ink/45">
+          {vipTableCount > 0 ? `${formatCount(vipTableCount)} VIP ${vipTableCount === 1 ? 'table' : 'tables'}` : 'no VIP table yet'}
+        </span>
+      </span>
+      <PickMenu
+        label="+1s of VIP guests"
+        value={vipPlusOnes}
+        options={VIP_PLUS_ONE_OPTIONS}
+        onPick={(k) => pickVipPlusOnes(parseVipPlusOneSeating(k))}
+        dataAttr="data-vip-plus-ones"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    </div>
+  );
+  const roleRulesOnly =
     roleSeatingRows.length === 0 ? (
       <p className="px-1 py-1 text-xs text-ink/55">
         No sponsors, family or entourage on the guest list yet — everyone sits with their group.
@@ -1548,6 +1857,12 @@ export function SeatingEditor({
         ))}
       </ul>
     );
+  const roleRulesList = (
+    <div className="space-y-1">
+      {roleRulesOnly}
+      {vipPlusOnesRow}
+    </div>
+  );
 
   // Keep-apart rules (smart seat-plan Phase 3) — couple-private guest pairs the
   // solver separates onto different tables (group-aware). Optimistic local list
@@ -1565,19 +1880,28 @@ export function SeatingEditor({
     fd.set('guest_a_id', aId);
     fd.set('guest_b_id', bId);
     startTransition(async () => {
-      await runGated(() => addSeatingConstraint(fd));
+      /* ↩ Not saved (said by runGated): the rule is taken off again — it was never kept. */
+      if ((await runGated(() => addSeatingConstraint(fd))) === null) {
+        setKeepApart((prev) => prev.filter((r) => !sameRule(r, aId, bId)));
+      }
     });
   };
   const removeKeepApart = (rule: KeepApartRule) => {
     if (!canEdit) return;
-    setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id)));
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_a_id', rule.guest_a_id);
     fd.set('guest_b_id', rule.guest_b_id);
-    startTransition(async () => {
-      await runGated(() => removeSeatingConstraint(fd));
+    /* 👈 The rule's row is its swipe (owner 2026-11-03), with Undo: off at once, written after the window. Not saved
+       (said by runGated): the rule is put back — it still stands. */
+    deleteWithUndo({
+      label: 'Keep-apart rule removed',
+      hide: () => setKeepApart((prev) => prev.filter((r) => !sameRule(r, rule.guest_a_id, rule.guest_b_id))),
+      restore: () =>
+        setKeepApart((prev) => (prev.some((r) => sameRule(r, rule.guest_a_id, rule.guest_b_id)) ? prev : [...prev, rule])),
+      commit: async () => ((await runGated(() => removeSeatingConstraint(fd))) === null ? { ok: false } : { ok: true }),
+      failed: 'Couldn’t remove that rule. It’s back — try again.',
     });
   };
 
@@ -1613,6 +1937,11 @@ export function SeatingEditor({
   };
 
   const [confirmFill, setConfirmFill] = useState(false);
+  // The two centred confirms below (Auto Arrange · Fill around locked) hold the page still while open.
+  const confirmAutoRef = useRef<HTMLDivElement>(null);
+  const confirmFillRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: confirmAuto, onClose: () => setConfirmAuto(false), containerRef: confirmAutoRef });
+  useModalA11y({ open: confirmFill, onClose: () => setConfirmFill(false), containerRef: confirmFillRef });
   // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
   // "N notices" banner-collapse state.
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -1670,13 +1999,8 @@ export function SeatingEditor({
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('venue_photo_visibility', next);
     startTransition(async () => {
-      try {
-        const res = await runGated(() => saveVenuePhotoVisibility(fd));
-        if (res === null) setPhotoVis(prev); // lock lost — revert to server truth.
-      } catch {
-        setPhotoVis(prev);
-        setNotice('Couldn’t save the photo setting — please try again.');
-      }
+      const res = await runGated(() => saveVenuePhotoVisibility(fd), 'Couldn’t save the photo setting — please try again.');
+      if (res === null) setPhotoVis(prev); // lock lost, or not saved (said by runGated) — revert to server truth.
     });
   };
 
@@ -1695,8 +2019,12 @@ export function SeatingEditor({
     // the event"; `stampTableSigns`). "Show guests their seats early" is its own
     // switch.
     startTransition(async () => {
-      await stampTableSigns(fd);
-      if (details) router.refresh();
+      /* 📵 The sheet is already opening (it reads live data); a stamp that never answered is said, never thrown. */
+      // ⚡ `stampTableSigns` revalidates: its own answer redraws the plan — no second render.
+      await runGated(async () => {
+        await stampTableSigns(fd);
+        return true;
+      });
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
@@ -1720,6 +2048,35 @@ export function SeatingEditor({
       await runGated(() => updateTableLabel(fd));
     });
   };
+  /* 🪑 VIP TABLE (owner 2026-11-02, "VIP Table/s will be identified"): the table's own setting. Optimistic; a refused
+     save puts the mark back (useOptimistic falls back to the server's rows). */
+  const setTableVip = (t: EventTableRow, vip: boolean) => {
+    if (!canEdit || (t.is_vip === true) === vip) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id', t.table_id);
+    fd.set('is_vip', vip ? 'true' : 'false');
+    startTransition(async () => {
+      applyTableOpt({ type: 'vip', id: t.table_id, vip });
+      await runGated(() => updateTableLabel(fd)); // the VIP form (no table_label) — updateTableVip on the label's route
+    });
+  };
+  const VIP_TABLE_OPTIONS = [
+    { key: 'no', label: 'Not VIP' },
+    { key: 'vip', label: 'VIP table' },
+  ] as const;
+  const vipPick = (t: EventTableRow, dataAttr: string) => (
+    <PickMenu
+      label={`${t.table_label}: VIP table`}
+      value={t.is_vip === true ? 'vip' : 'no'}
+      options={VIP_TABLE_OPTIONS.map((o) => ({ ...o, disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+      onPick={(k) => setTableVip(t, k === 'vip')}
+      dataAttr={dataAttr}
+      compact
+      className="shrink-0 border border-ink/15"
+    />
+  );
 
   // Bulk-seat a group onto a table (seat-what-fits; the server returns counts
   // and we surface a notice on overflow). Used by the pick-then-tap flow AND
@@ -1805,6 +2162,28 @@ export function SeatingEditor({
   // PR (owner 2026-07-16 — this PR connects tables by drag-snap POSITIONING, not
   // by linking); `doLinkTables` / the link gestures are retired. Existing
   // `link_group_id` data is left intact and can still be un-grouped here.
+  const armSwap = (t: EventTableRow) => {
+    setLinkFrom(null);
+    setSwapFrom((cur) => (cur === t.table_id ? null : t.table_id));
+    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${t.table_label}”.`);
+  };
+  const doSwapTables = (a: string, b: string) => {
+    setConfirmSwap(null);
+    if (!canEdit || a === b) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id_a', a);
+    fd.set('table_id_b', b);
+    startTransition(async () => {
+      try {
+        await swapTableOccupants(fd);
+        setNotice('Swapped — each table now seats the other’s guests, in the same chairs.');
+      } catch (err) {
+        if (!handleLockLost(err)) setNotice('Couldn’t swap those tables — please try again.');
+      }
+    });
+  };
   const doUnlink = (tableId: string) => {
     if (!canEdit) return;
     const fd = new FormData();
@@ -1893,10 +2272,10 @@ export function SeatingEditor({
         await commitWeld(fw);
         await linkTables(fl);
         setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
-        router.refresh();
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
         // Re-read the saved plan so the screen shows what was really kept.
+        // one-render: keep (after-failure) — a link that threw revalidated nothing; this shows what landed.
         router.refresh();
       }
     });
@@ -1985,7 +2364,14 @@ export function SeatingEditor({
     fd.set('table_id', tableId);
     fd.set('rotation_deg', String(next));
     startTransition(async () => {
-      await runGated(() => updateTableRotation(fd));
+      /* ↩ Not saved (said by runGated): the table turns back to its saved angle. */
+      if ((await runGated(() => updateTableRotation(fd))) === null) {
+        setRotById((m) => {
+          const n = { ...m };
+          delete n[tableId];
+          return n;
+        });
+      }
     });
   };
 
@@ -2120,7 +2506,14 @@ export function SeatingEditor({
     fd.set('table_id', t.table_id);
     fd.set('rotation_deg', String(next));
     startTransition(async () => {
-      await runGated(() => updateTableRotation(fd));
+      /* ↩ Not saved (said by runGated): the table turns back to its saved angle. */
+      if ((await runGated(() => updateTableRotation(fd))) === null) {
+        setRotById((m) => {
+          const n = { ...m };
+          delete n[t.table_id];
+          return n;
+        });
+      }
     });
   };
 
@@ -2159,36 +2552,31 @@ export function SeatingEditor({
     else commitRotation(t.table_id, target);
   };
 
-  // ── Seats stepper (verdict §3, the 90% path) — bulk chair remove/restore over
-  //    the same `toggleSeat` action. `−` removes the HIGHEST-index empty seat,
-  //    `+` restores the LOWEST-index removed seat. Presentation only. ───────────
-  const emptySeatIndices = (t: EventTableRow): number[] => {
-    const removed = removedSeatSet(t.removed_seats, t.capacity);
-    const occ = occupantsFor(t);
-    const out: number[] = [];
-    for (let i = 0; i < occ.length; i++) if (occ[i] === null && !removed.has(i)) out.push(i);
-    return out;
+  // ── THE SEAT COUNTER (kind 17, owner "approved" 2026-10-13) — bulk chair remove/restore over the same `toggleSeat`
+  //    action. Its rules are `lib/seat-counter.ts` (− the HIGHEST-numbered empty chair, refused when every chair left is
+  //    taken; + the LOWEST-numbered removed chair). It saves at once (live, never drafted) and its last step is said in
+  //    the status line with Undo — ONE step back. ─────────────────────────────────────────────────────────────────────
+  const counterFor = (t: EventTableRow) => {
+    const cap = sanitizeCapacity(t.capacity);
+    return seatCounter({ capacity: cap, removed: removedSeatSet(t.removed_seats, cap), occupied: occupantsFor(t).map((g) => g !== null) });
   };
-  const removedSeatIndices = (t: EventTableRow): number[] =>
-    [...removedSeatSet(t.removed_seats, t.capacity)].sort((a, b) => a - b);
   const decSeat = (t: EventTableRow) => {
     if (!canEdit) return;
-    const empties = emptySeatIndices(t);
-    if (empties.length === 0) return; // every remaining chair is occupied
-    const seat = empties[empties.length - 1]!; // highest-index empty
+    const seat = counterFor(t).less;
+    if (seat === null) return; // every remaining chair is occupied
     toggleSeat(t.table_id, seat, true);
-    setSeatNotice({ tableId: t.table_id, seat });
+    setSeatNotice({ tableId: t.table_id, seat, removed: true });
   };
   const incSeat = (t: EventTableRow) => {
     if (!canEdit) return;
-    const removed = removedSeatIndices(t);
-    if (removed.length === 0) return; // none removed to restore
-    toggleSeat(t.table_id, removed[0]!, false); // lowest-index removed
-    setSeatNotice(null);
+    const seat = counterFor(t).more;
+    if (seat === null) return; // none removed to restore
+    toggleSeat(t.table_id, seat, false);
+    setSeatNotice({ tableId: t.table_id, seat, removed: false });
   };
   const undoSeatRemoval = () => {
     if (!seatNotice) return;
-    toggleSeat(seatNotice.tableId, seatNotice.seat, false);
+    toggleSeat(seatNotice.tableId, seatNotice.seat, !seatNotice.removed);
     setSeatNotice(null);
   };
 
@@ -2202,6 +2590,8 @@ export function SeatingEditor({
     fd.set('seat_number', String(seatNumber));
     fd.set('removed', removed ? 'true' : 'false');
     startTransition(async () => {
+      /* The number ticks AT the press (owner: a press answers at once); a refused save puts it back and says so. */
+      applyTableOpt({ type: 'chair', id: tableId, seat: seatNumber, removed });
       await runGated(() => setTableSeat(fd));
     });
   };
@@ -2570,11 +2960,21 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
+     tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
+     everything else: an unpicked table, the elements, the booths). Any other press still pans. */
+  const tablePress = (t: EventTableRow): 'tap' | 'drag' => (roomOnly && highlightId === t.table_id ? 'drag' : press);
   const onTapDown =
     (kind: NonNullable<typeof tapRef.current>['kind'], id: string) => (e: React.PointerEvent) => {
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
+      clearSelection();
+      setBoothCardId(tap.id);
+      return;
+    }
     if (!canEdit) return;
     if (tap.kind === 'table') {
       const t = tables.find((x) => x.table_id === tap.id);
@@ -2585,6 +2985,11 @@ export function SeatingEditor({
         return place(t.table_id, free >= 0 ? free : null);
       }
       if (linkFrom && linkFrom !== t.table_id) return linkTablesByTap(linkFrom, t.table_id);
+      if (swapFrom && swapFrom !== t.table_id) {
+        setConfirmSwap({ a: swapFrom, b: t.table_id });
+        setSwapFrom(null);
+        return;
+      }
       return selectTable(t.table_id);
     }
     if (pickedId || pickedGroupId) return;
@@ -2685,9 +3090,19 @@ export function SeatingEditor({
   };
 
   const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
-  const ZOOM_MAX = 2.6;
+  // Owner 2026-10-30, "make it zoom a bit more so the names on the seats are normal font size": the closest zoom
+  // is where every table's seat names read at body size on THIS canvas (a fixed 2.6 left them ~5 px on a phone).
+  zoomMaxRef.current = planMaxZoom(
+    metricPpm
+      ? tables.map(
+          (t) =>
+            (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) /
+            tableGeometry(shapeHintFor(t.table_type), t.capacity, t.link_group_id != null).box.w,
+        )
+      : [],
+  );
   const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
-  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(zoomMaxRef.current, z));
 
   // Apply the world transform straight to the DOM (no per-frame re-render);
   // only flip `detail` state when crossing the level-of-detail threshold.
@@ -3141,6 +3556,9 @@ export function SeatingEditor({
     if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
     const x = cx - rect.left;
     const y = cy - rect.top;
+    /* 📱 A phone's canvas is narrower than the bubble's room on EITHER side (240 + its offset), so a flip pushed it off
+       the left edge (seen on the first phone drag, 2026-11-01). There the bubble is kept inside the canvas instead. */
+    if (rect.width < 2 * 260) return { x: Math.max(8, Math.min(x, rect.width - 260)), y, flipX: false, flipY: y < 150 };
     return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
   };
   const askConfirmDrop = (commit: () => void, revert: () => void) => {
@@ -3423,6 +3841,10 @@ export function SeatingEditor({
           );
         }
       }
+    } else if (d && !d.moved && roomOnly && d.kind === 'booth' && booths.some((b) => b.booth_id === d.id && boothHasSupplier(b))) {
+      // 🏪 2D is the room: a booth a booked supplier runs opens their card (the 3D walk's), not the booth's dock.
+      clearSelection();
+      setBoothCardId(d.id);
     } else if (d && !d.moved && !pickedId && !pickedGroupId && canEdit) {
       // A tap (no drag) selects the object → its verbs render in the Context Dock
       // (§1.4). Tables + every marker/booth/sign now share the one selection model
@@ -3751,8 +4173,39 @@ export function SeatingEditor({
   // Backspace typed on another item must never delete a table left selected
   // here. Under the 3D lab, the 2D selection is not showing either.
   const maker = useMaker();
+  /* 🗂 R4: in Guests › Seats the plan IS the view — it is on screen whenever it is drawn (no other item hides it). */
+  const inGuests = details?.host === 'guests';
+  /* ⇅ R4 slice 1 · THE GUESTS LENS (`guests-lens.tsx`): in Guests › Seats, while Seats is the view on screen, the shared
+     Show and this view's search DIM the faces they leave out — on the list and on the plan — and the plan draws THE
+     thumb row into the Guests screen's seat. Null anywhere else (the Studio keeps its own chrome). */
+  const lens = useGuestsLens('seats');
+  const [seatQ, setSeatQ] = useState('');
+  const seatQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (seatQTimer.current) clearTimeout(seatQTimer.current);
+  }, []);
+  const seatFound = useMemo(() => (lens && seatQ ? lens.find(seatQ) : null), [lens, seatQ]);
+  /** A face the shared Show or the typed words leave out — drawn faint, never hidden (its seat is still taken). */
+  const seatDim = (guestId: string): boolean => Boolean(lens) && (!lens!.shows(guestId) || (seatFound !== null && !seatFound.has(guestId)));
+  /* 🗂 R4: is the 3D room the view? In Guests it is a client switch over the room streamed with the page; in the Maker
+     (no longer drawn) it was the address re-read with the lab in it. */
+  const [show3d, setShow3d] = useState(inGuests ? details?.open3d === true : Boolean(details?.lab));
+  const [seen3d, setSeen3d] = useState(show3d);
+  const in3d = inGuests ? show3d && Boolean(details?.lab) : Boolean(details?.lab);
+  /* 🗺 SEATS 2D IS THE ROOM, LIST IS THE PEOPLE (owner 2026-11-01, DECISION_LOG — supersedes the same-day "2D does the
+     same"): in Guests › Seats the 2D plan edits the ROOM only. A tap on a table only SELECTS it (drag to move) and its
+     verbs are one slim bar in the thumb row (Rotate · Shape ▾ · Seats − N + · ⋯) — never the full table sheet over the
+     map. No guest list and no guest editing here: names show at their seats and a tap on them does nothing (the press
+     goes on to the room, which pans). The picked table drags, on a phone too (`tablePress`). Seats › List holds the people.
+     A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
+     🔒 lib/seats-2d-is-the-room.test.ts */
+  const roomOnly = inGuests && !in3d && view === 'plan';
+  const [boothCardId, setBoothCardId] = useState<string | null>(null);
+  /** The slim bar's ⋯ › Name… — the bar shows the table's name row until it is kept. */
+  const [renamingTable, setRenamingTable] = useState<string | null>(null);
   const seatPlanShowing =
     !details ||
+    (inGuests && !in3d) ||
     (maker?.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === 'seating' && !details.lab);
   // Leaving the plan for another Details item saves a dirty layout first — the
   // cross-projection rule's "auto-save on switch" (the 3D switch already does).
@@ -3949,7 +4402,13 @@ export function SeatingEditor({
     }
     const bw = Math.max(1, maxX - minX);
     const bh = Math.max(1, maxY - minY);
-    const z1 = clampZoom(Math.min(rect.width / bw, rect.height / bh) * 0.86);
+    /* 📐 In Guests Fit fills the FLOOR (the whole cell — the room box sits centred in it), not the room-aspect box: on a
+       phone the plan then uses the full width. The box stays centred in the cell, so its centre is the cell's. */
+    const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
+    const fitW = cell && cell.width > 0 ? cell.width : rect.width;
+    const fitH = cell && cell.height > 0 ? cell.height : rect.height;
+    // Fit opens no closer than it always did — only a pinch / + goes past the old cap (#7060).
+    const z1 = Math.min(PLAN_ZOOM_MAX_FLOOR, clampZoom(Math.min(fitW / bw, fitH / bh) * 0.86));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
@@ -4029,7 +4488,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('booths', boothsPayload(booths));
+          fd.set(MERGE_BASE_FIELD, boothsPayload(boothsBase.current));
           await saveBooths(fd);
+          boothsBase.current = booths;
           setBoothsDirty(false);
         }
         if (sDirty) {
@@ -4037,7 +4498,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('signs', signsPayload(signs));
+          fd.set(MERGE_BASE_FIELD, signsPayload(signsBase.current));
           await saveSigns(fd);
+          signsBase.current = signs;
           setSignsDirty(false);
         }
         for (const id of ids) {
@@ -4084,7 +4547,12 @@ export function SeatingEditor({
             fd.set('venue_width_m', String(venue.width));
             fd.set('venue_length_m', String(venue.length));
           }
+          // 👥 …and the floor it started from: only the columns this editor changed are written.
+          fd.set(MERGE_BASE_FIELD, JSON.stringify(floorBase.current));
           await saveFloorPlan(fd);
+          const sent: Record<string, string> = {};
+          for (const [k, v] of fd.entries()) if (k !== 'event_id' && k !== 'lock_id' && k !== MERGE_BASE_FIELD && typeof v === 'string') sent[k] = v;
+          floorBase.current = sent;
         }
         setDirty(new Set());
         setFloorDirty(false);
@@ -4096,7 +4564,10 @@ export function SeatingEditor({
           setNotice('Editing was taken over by another co-host — you’re viewing only now. Your unsaved layout changes weren’t saved.');
           return;
         }
-        throw err;
+        /* 📵 A step that never answered (no signal, a 5xx) is SAID — thrown into this transition it replaced the whole
+           plan with the app's error screen, and every unsaved move with it. The steps that landed are no longer
+           marked unsaved; the rest still are, so Save sends exactly what is left. */
+        setNotice(SEAT_PLAN_NOT_SAVED);
       }
     });
   };
@@ -4248,12 +4719,38 @@ export function SeatingEditor({
   // (which stays mounted — its lock, its guests, its lists), and leaving 3D
   // drops it and re-reads the plan the lab may have changed. `scroll: false`
   // keeps the Maker where it is.
-  const seatViewHref = (seat: '3d' | 'list' | null) =>
-    detailsItemHref(eventId, 'seating', seat ? `&seat=${seat}` : '');
+  /* 🗂 R4: the seat plan's home is Guests › Seats (the Maker's old item forwards there too). */
+  const seatViewHref = (seat: '3d' | 'list' | null) => guestsViewHref(eventId, 'seats', { seat });
+  /* 🗂 R4: Guests' switches change the address in place (`replaceState`) — a reload or a shared link lands on the same
+     mode — and never ask the server again. Leaving the 3D room re-reads the plan ONCE (`router.refresh`): the room may
+     have moved a table, and the 2D plan must draw saved truth. */
+  const go3d = () => {
+    if (inGuests) {
+      setShow3d(true);
+      setSeen3d(true);
+      window.history.replaceState(window.history.state, '', seatViewHref('3d'));
+    } else router.push(seatViewHref('3d'), { scroll: false });
+  };
+  /* ✨ Accents… (the ⋯'s 3D room row): the room, with its Accents sheet open over it — you see each accent while you
+     switch it. `&accents=1` is read by the room (`seating-lab-3d.tsx`), which closes the sheet back to the room. */
+  const openAccents = () => {
+    setShow3d(true);
+    setSeen3d(true);
+    window.history.replaceState(window.history.state, '', `${seatViewHref('3d')}&accents=1`);
+  };
+  const leave3d = (seat: 'list' | null) => {
+    if (inGuests) {
+      setShow3d(false);
+      window.history.replaceState(window.history.state, '', seatViewHref(seat));
+      // one-render: keep (other-frame) — the 3D room saved its moves through its own lock; the 2D plan re-reads them once.
+      router.refresh();
+    } else router.push(seatViewHref(seat), { scroll: false });
+  };
   useEffect(() => {
     if (switchAfterSaveRef.current && !isPending && !layoutDirty) {
       switchAfterSaveRef.current = false;
-      router.push(details ? seatViewHref('3d') : labUrl, details ? { scroll: false } : undefined);
+      if (details) go3d();
+      else router.push(labUrl);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `seatViewHref` is rebuilt every render; the address it makes is fixed per event
   }, [isPending, layoutDirty, router, labUrl, details]);
@@ -4266,12 +4763,13 @@ export function SeatingEditor({
         saveLayout();
         return;
       }
-      if (details) router.push(seatViewHref('3d'), { scroll: false });
+      if (details) go3d();
       else router.push(labUrl);
       return;
     }
     setView(target === 'list' ? 'list' : 'plan');
-    if (details?.lab) router.push(seatViewHref(target === 'list' ? 'list' : null), { scroll: false });
+    if (in3d) leave3d(target === 'list' ? 'list' : null);
+    else if (inGuests) window.history.replaceState(window.history.state, '', seatViewHref(target === 'list' ? 'list' : null));
   };
 
   // Banner slot (verdict §1, row 2): ONE single-line strip max. Priority
@@ -4557,6 +5055,7 @@ export function SeatingEditor({
         onTableFourWarning={() => setNotice(TABLE_FOUR_ADVISORY)}
         onDone={() => setShowAddTable(false)}
         onLockLost={handleLockLost}
+        onNotSaved={() => setNotice(SEAT_PLAN_NOT_SAVED)}
       />
     ) : null;
 
@@ -4587,9 +5086,20 @@ export function SeatingEditor({
               const cap = u.capacity;
               const full = filled >= cap;
               return (
-                <li
+                /* 👈 A table's Delete is its row's swipe (owner 2026-11-03) — the same ask when people sit at it, then Undo. */
+                <SwipeToDelete
                   key={u.key}
-                  className={`group flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
+                  as="li"
+                  label={`Delete ${u.label}`}
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={(close) => {
+                    close();
+                    requestRemoveUnit(u);
+                  }}
+                >
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     pickedGroupId
                       ? 'cursor-pointer border-mulberry/30 ring-1 ring-mulberry/20 hover:bg-mulberry/5'
                       : highlightId === u.lead.table_id
@@ -4634,15 +5144,8 @@ export function SeatingEditor({
                       {full ? 'Filled' : 'Open'}
                     </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => requestRemoveUnit(u)}
-                    aria-label={`Delete ${u.label}`}
-                    className="rounded p-1 text-ink/30 opacity-0 transition hover:bg-danger-50 hover:text-danger-600 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -4720,8 +5223,17 @@ export function SeatingEditor({
             {keepApart.map((r) => {
               const violated = isRuleViolated(r);
               return (
-                <li
+                /* 👈 A rule's Remove is its row's swipe (owner 2026-11-03), with Undo. */
+                <SwipeToDelete
                   key={`${r.guest_a_id}|${r.guest_b_id}`}
+                  as="li"
+                  label={`Remove the rule ${guestsById.get(r.guest_a_id)?.name ?? 'Guest'} and ${guestsById.get(r.guest_b_id)?.name ?? 'Guest'}`}
+                  word="Remove"
+                  radiusClass="rounded-lg"
+                  disabled={!canEdit}
+                  onDelete={() => removeKeepApart(r)}
+                >
+                <div
                   className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${
                     violated ? 'border-danger-300 bg-danger-50' : 'border-ink/10'
                   }`}
@@ -4745,16 +5257,8 @@ export function SeatingEditor({
                       </span>
                     ) : null}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removeKeepApart(r)}
-                    disabled={!canEdit}
-                    aria-label="Remove keep-apart rule"
-                    className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600 disabled:opacity-30"
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                </li>
+                </div>
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -4779,7 +5283,10 @@ export function SeatingEditor({
   // The tab strip + active pane. `panelBody` is rendered by EITHER the desktop
   // aside OR the mobile drawer (never both — `isNarrow` gates which).
   const panelTabs = (
-    <div role="tablist" aria-label="Seat-plan panel" className="flex shrink-0 gap-1 border-b border-ink/10 px-2">
+    /* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — People · Tables · Rules
+       were underlined tabs; they are the app's pill now, the thumb sliding to the picked one (`aria-selected`). */
+    <div className="shrink-0 px-2 pb-1.5">
+      <PillTrack role="tablist" aria-label="Seat-plan panel" grow data-seat-panel-tabs="">
       {([
         ['people', 'People', unseatedCount, false] as const,
         ['tables', 'Tables', 0, false] as const,
@@ -4787,29 +5294,21 @@ export function SeatingEditor({
       ]).map(([key, label, count, warm]) => {
         const active = panelTab === key;
         return (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => selectPanelTab(key)}
-            className={`relative flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-medium transition ${
-              active ? 'border-terracotta text-ink' : 'border-transparent text-ink/50 hover:text-ink'
-            }`}
-          >
+          <PillButton key={key} on={active} role="tab" aria-selected={active} onClick={() => selectPanelTab(key)} className="gap-1.5">
             {label}
             {count > 0 ? (
               <span
                 className={`rounded-full px-1.5 py-0.5 font-mono text-[9px] font-semibold tabular-nums ${
-                  warm ? 'bg-danger-100 text-danger-700' : 'bg-ink/8 text-ink/55'
+                  warm ? 'bg-danger-100 text-danger-700' : active ? 'bg-white/25 text-white' : 'bg-ink/8 text-ink/55'
                 }`}
               >
                 {formatCount(count)}
               </span>
             ) : null}
-          </button>
+          </PillButton>
         );
       })}
+      </PillTrack>
     </div>
   );
 
@@ -4988,6 +5487,35 @@ export function SeatingEditor({
           />
         </>
       ) : null}
+      {/* ✨ THE 3D ROOM'S SETTINGS (owner 2026-10-30 — the room is view-only; what it adds on is switched here or in its
+          own Accents tool, and nothing is placed). */}
+      {details?.lab || ghostBoothsEnabled !== undefined ? (
+        <>
+          <MenuDivider />
+          <MenuCaption>3D room</MenuCaption>
+          {details?.lab && inGuests ? (
+            <MenuRow icon={Sparkles} label="Accents…" hint="Switch the room's ceiling, backdrop, walls… on or off" onClick={openAccents} />
+          ) : null}
+          {PLAN3D_BOOTH_ADS_ENABLED && ghostBoothsEnabled !== undefined ? (
+            <form action={setGhostBoothsEnabled} className="px-1" data-ghost-booths-switch="">
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="enabled" value={ghostBoothsEnabled ? 'false' : 'true'} />
+              <button type="submit" className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]">
+                <Store className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                    Show supplier suggestions in 3D
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${ghostBoothsEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                      {ghostBoothsEnabled ? 'On' : 'Off'}
+                    </span>
+                  </span>
+                  <span className="text-[11px] leading-snug text-ink/55">Dashed booths for the suppliers you have not booked yet.</span>
+                </span>
+              </button>
+            </form>
+          ) : null}
+        </>
+      ) : null}
     </>
   );
   const shareMenuBody = (
@@ -5004,6 +5532,8 @@ export function SeatingEditor({
       <MenuDivider />
       <MenuRow icon={Video} label="Walkthrough videos" href={`/dashboard/${eventId}/seating/walkthrough`} />
       <MenuRow icon={Printer} label="Publish & print" hint="Freeze a snapshot + printable signs / place cards" onClick={publishAndPrint} disabled={isPending || tables.length === 0} emphasized />
+      {/* 🪧 The ENTRANCE SEATING CHART (owner 2026-10-13, #6503) — one sheet for the door, By table · A to Z, beside the pack it is printed with. */}
+      <MenuRow icon={ListOrdered} label="Entrance seating chart" hint="One sheet for the door · by table or A to Z" href={`/dashboard/${eventId}/seating/chart`} />
     </>
   );
 
@@ -5085,34 +5615,21 @@ export function SeatingEditor({
   };
 
   // ── Verb-row pieces (desktop dock density) ──────────────────────────────────
+  /* 🔢 THE SEAT COUNTER — the shared Counter (kind 17), on the phone's sheet and the desktop dock alike. */
   const dockSeatsStepper = (t: EventTableRow) => {
-    const effCap = effectiveCapacity(t.capacity, t.removed_seats);
-    const canDec = emptySeatIndices(t).length > 0;
-    const canInc = removedSeatIndices(t).length > 0;
+    const c = counterFor(t);
     return (
-      <div className="flex items-center rounded-lg border border-ink/15">
-        <button
-          type="button"
-          onClick={() => decSeat(t)}
-          disabled={!canDec || !canEdit}
-          aria-label="Remove a chair"
-          className="flex h-8 w-8 items-center justify-center rounded-l-lg text-ink/60 hover:bg-ink/5 disabled:opacity-30"
-        >
-          <Minus className="h-4 w-4" />
-        </button>
-        <span className="px-1 font-mono text-[11px] tabular-nums text-ink/70" aria-label={`${formatCount(effCap)} of ${formatCount(t.capacity)} seats`}>
-          {formatCount(effCap)}/{formatCount(t.capacity)}
-        </span>
-        <button
-          type="button"
-          onClick={() => incSeat(t)}
-          disabled={!canInc || !canEdit}
-          aria-label="Restore a chair"
-          className="flex h-8 w-8 items-center justify-center rounded-r-lg text-ink/60 hover:bg-ink/5 disabled:opacity-30"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+      <Counter
+        label="Seats at this table"
+        data="seats"
+        value={c.value}
+        onLess={() => decSeat(t)}
+        onMore={() => incSeat(t)}
+        lessDisabled={c.less === null || !canEdit}
+        moreDisabled={c.more === null || !canEdit}
+        lessLabel={c.lessLabel}
+        moreLabel={c.moreLabel}
+      />
     );
   };
   const dockRotateCluster = (t: EventTableRow, step: number) => {
@@ -5203,6 +5720,9 @@ export function SeatingEditor({
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
             </button>
+            <button type="button" role="menuitem" data-seat-plan-swap="" onClick={() => { setDockOverflow(false); armSwap(t); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+              Swap with another table…
+            </button>
             {t.link_group_id ? (
               <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); doUnlink(t.table_id); }} className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm text-mulberry hover:bg-mulberry/[0.06]">
                 <Ungroup className="h-4 w-4" /> Break apart
@@ -5222,8 +5742,26 @@ export function SeatingEditor({
   // Details on a phone, IN THE FLOW at the top of the guests part (`inline`),
   // never a sheet fixed over the Maker.
   const sheetVariant: 'sheet' | 'inline' = details ? 'inline' : 'sheet';
+  /* 🪪 What the picked piece is called — one answer for the read-only dock and for the Guests sheet's heading. */
+  const pieceName = (): string => {
+    if (selTable) return selTable.table_label;
+    if (!selM) return '';
+    if (selM.kind === 'booth') return booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth';
+    if (selM.kind === 'sign') return signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign';
+    if (selM.kind === 'dance') return 'Dance floor';
+    if (selM.kind === 'service') return 'Service door';
+    if (selM.kind === 'cocktail') return cocktail.label;
+    if (selM.kind === 'entrance') return entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance';
+    return selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
+  };
+  /* 🧾 IN GUESTS › SEATS ON A PHONE THE PIECE'S CONTROLS LIVE IN THE PEOPLE SHEET (owner, live iPhone 2026-10-29: the
+     Stage showed TWO ✕). That sheet names the piece in its own heading and owns the ✕ — so the dock drawn inside it
+     draws neither its name row nor a second ✕. */
+  const dockInSheet = inGuests && isPhone;
   const dockNode: React.ReactNode = (() => {
     if (dockPrimary === null) return null;
+    // 🗺 2D is the room: a picked table's verbs are the slim thumb bar (`tableBar`), never a dock or a sheet over the map.
+    if (roomOnly && dockPrimary === 'table') return null;
     const edge = computeDockEdge();
 
     // §1.5 view-only honesty — when a table/marker is selected but a peer
@@ -5231,31 +5769,16 @@ export function SeatingEditor({
     // Take-over button. Disabled looks disabled; the old silent no-op dies.
     if (!canEdit && (dockPrimary === 'table' || dockPrimary === 'marker')) {
       let glyph: React.ReactNode = null;
-      let name = '';
+      const name = pieceName();
       let summary: string | null = null;
       if (selTable) {
         glyph = <ShapeGlyph shape={shapeHintFor(selTable.table_type)} className="h-3.5 w-3.5" />;
-        name = selTable.table_label;
         summary = `${seatedAt(selTable.table_id)}/${effectiveCapacity(selTable.capacity, selTable.removed_seats)}`;
-      } else if (selM) {
-        name = selM.kind === 'booth'
-          ? (booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth')
-          : selM.kind === 'sign'
-            ? (signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign')
-            : selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
       }
       return (
-        <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
+        <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={dockInSheet ? undefined : glyph} name={dockInSheet ? undefined : name} boundsRef={regionRef} onDismiss={isPhone && !dockInSheet ? clearSelection : undefined}>
           {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
-          <button
-            type="button"
-            onClick={lock.acquire}
-            disabled={lock.status === 'acquiring'}
-            className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-ink/80 px-3 font-semibold text-cream hover:bg-ink disabled:opacity-50 ${isPhone ? 'h-11 text-sm' : 'h-8 text-xs'}`}
-          >
-            <Eye className="h-3.5 w-3.5" />
-            {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-          </button>
+          <ActionButton tone="neutral" icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           {!isPhone ? (
             <button type="button" onClick={clearSelection} aria-label="Done" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink/40 hover:bg-ink/5">
               <X className="h-4 w-4" />
@@ -5377,7 +5900,7 @@ export function SeatingEditor({
                 <>
                   {' · '}
                   <button type="button" onClick={undoSeatRemoval} className="font-semibold text-terracotta-700 underline">
-                    Undo seat {seatNotice.seat + 1}
+                    Undo chair {seatNotice.seat + 1}
                   </button>
                 </>
               ) : null}
@@ -5398,74 +5921,50 @@ export function SeatingEditor({
         );
       }
 
-      const undoStrip =
-        seatNotice && seatNotice.tableId === st.table_id ? (
-          <button
-            type="button"
-            onClick={undoSeatRemoval}
-            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2 font-mono text-[10px] text-ink/70 hover:border-terracotta"
-          >
-            Seat {seatNotice.seat + 1} removed · Undo
-          </button>
-        ) : null;
+      /* The counter's last step, said where it was pressed (kind 12 status line) — Undo takes back that ONE step. */
+      const seatNote = seatNotice && seatNotice.tableId === st.table_id ? { words: seatStepWords(seatNotice.seat, seatNotice.removed), onUndo: undoSeatRemoval } : null;
+      const undoStrip = seatNote ? (
+        <button
+          type="button"
+          onClick={seatNote.onUndo}
+          data-seat-note=""
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg bg-ink/[0.05] px-2 text-[12px] text-ink/75"
+        >
+          {seatNote.words} <span className="font-bold underline underline-offset-2">Undo</span>
+        </button>
+      ) : null;
 
-      const phoneBtn = 'sn-press inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3.5 text-[13px] font-medium text-ink/80 hover:bg-ink/5 disabled:opacity-40';
       const body = isPhone ? (
-        // 📱 THE PHONE DOCK (owner 2026-10-01, the approved frame 3): the table's
-        // name, Type ▾, then the shipped verbs in one wrap — − seats +, Rotate,
-        // Edit chairs…, Link… (the next table tapped joins it) or Unlink, Done.
+        // 📱 THE PHONE DOCK (owner 2026-10-01, the approved frame 3) — drawn by `PhoneTableDock` (`seat-plan-phone.tsx`), which holds the markup and takes every handler from
+        // here untouched: the table's name, Type ▾, then the shipped verbs — − seats +, Rotate, Edit chairs…, Link… (the next table tapped joins it) or Unlink, Done.
         // Its guests and empty seats follow under it (Details' guests part).
-        <div data-seat-plan-phone-dock={st.table_id} className="flex w-full flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            {nameField(true)}
-            <PickMenu
-              label="Table type"
-              value={st.table_type}
-              options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
-              onPick={(k) => changeStyle(st, k as TableType)}
-              buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
-              dataAttr="data-seat-plan-type"
-              compact
-              className="shrink-0 border border-ink/15"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {dockSeatsStepper(st)}
-            {undoStrip}
-            <button type="button" onClick={() => rotateTable(st, 90)} disabled={!canEdit} className={phoneBtn}>
-              <RotateCw className="h-4 w-4" /> Rotate
-            </button>
-            <button type="button" onClick={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} disabled={!canEdit} className={phoneBtn}>
-              Edit chairs…
-            </button>
-            {st.link_group_id ? (
-              <button type="button" onClick={() => doUnlink(st.table_id)} disabled={!canEdit} className={`${phoneBtn} text-mulberry`}>
-                <Ungroup className="h-4 w-4" /> Unlink
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-seat-plan-link=""
-                aria-pressed={linkFrom === st.table_id}
-                disabled={!canEdit}
-                onClick={() => {
-                  setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-                  if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
-                }}
-                className={`${phoneBtn} ${linkFrom === st.table_id ? 'border-terracotta bg-terracotta/10 text-terracotta-800' : ''}`}
-              >
-                <Link2 className="h-4 w-4" /> Link…
-              </button>
-            )}
-            {!details ? seatPeopleBtn(true) : null}
-            <button type="button" onClick={() => { setLinkFrom(null); clearSelection(); }} className={`${phoneBtn} ml-auto bg-ink text-cream hover:bg-ink`}>
-              Done
-            </button>
-          </div>
-          <button type="button" onClick={() => requestRemoveTable(st)} disabled={!canEdit} className="self-start text-[12px] text-danger-600 underline-offset-2 hover:underline">
-            Delete this table
-          </button>
-        </div>
+        <PhoneTableDock
+          tableId={st.table_id}
+          tableLabel={st.table_label}
+          typeValue={st.table_type}
+          typeOptions={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
+          typeWord={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
+          onRename={(label) => renameTable(st.table_id, label)}
+          onPickType={(k) => changeStyle(st, k as TableType)}
+          seats={dockSeatsStepper(st)}
+          seatsLine={counterFor(st).line}
+          seatNote={seatNote}
+          canEdit={canEdit}
+          onRotate={() => rotateTable(st, 90)}
+          onEditChairs={() => { setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }}
+          linked={Boolean(st.link_group_id)}
+          onUnlink={() => doUnlink(st.table_id)}
+          linkPressed={linkFrom === st.table_id}
+          onLink={() => {
+            setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+          }}
+          swapPressed={swapFrom === st.table_id}
+          onSwap={() => armSwap(st)}
+          seatPeople={!details ? seatPeopleBtn(true) : null}
+          onDone={() => { setLinkFrom(null); setSwapFrom(null); clearSelection(); }}
+          onDelete={() => requestRemoveTable(st)}
+        />
       ) : (
         // §1.2 — desktop dock, one row, exact order.
         <>
@@ -5503,24 +6002,34 @@ export function SeatingEditor({
     if (dockPrimary === 'marker' && selM) {
       const big = isPhone;
       const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-lg border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-8 px-2.5 text-xs'}`;
-      const removeBtn = (
+      /* 📱 On a phone the marker's two steps are THE shared ActionButton — Done the filled step, as on the table's sheet
+         (`PhoneTableDock`) — never a bare bordered box, which in the sheet's column read as a text field (owner 2026-10-29). */
+      const removeBtn = big ? (
+        <ActionButton tone="danger" icon={Trash2} label="Remove" onClick={removeSelectedMarker} />
+      ) : (
         <button type="button" onClick={removeSelectedMarker} className={`${actBtn} border-danger-300 text-danger-600 hover:bg-danger-50`}>
-          <Trash2 className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Remove
+          <Trash2 className="h-4 w-4" /> Remove
         </button>
       );
-      const doneBtn = (
+      const doneBtn = big ? (
+        <span className="ml-auto inline-flex">
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={clearSelection} />
+        </span>
+      ) : (
         <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/60 hover:bg-ink/5`}>
           Done
         </button>
       );
       const seg = (opts: { key: string; label: string; active: boolean; onClick: () => void }[], label: string) => (
-        <div role="group" aria-label={label} className="flex shrink-0 overflow-hidden rounded-lg border border-ink/15 text-[11px] font-semibold">
+        /* The app's ONE pill selector (owner 2026-10-08) — at the dock's own height: 44 px on a phone, 32 px beside
+           the desktop dock's 32-px buttons. */
+        <PillTrack role="group" aria-label={label} className="shrink-0">
           {opts.map((o) => (
-            <button key={o.key} type="button" onClick={o.onClick} aria-pressed={o.active} className={`${big ? 'h-11' : 'h-8'} px-2.5 ${o.active ? 'bg-terracotta text-cream' : 'text-ink/60 hover:bg-ink/[0.04]'}`}>
+            <PillButton key={o.key} on={o.active} onClick={o.onClick} aria-pressed={o.active} className={big ? '' : '!min-h-[26px]'}>
               {o.label}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
       );
 
       let glyph: React.ReactNode = null;
@@ -5626,12 +6135,14 @@ export function SeatingEditor({
           </>
         );
       } else {
-        // stage — honest permanence: no remove.
+        // stage — honest permanence: no remove. Said as a sentence beside Done, never an orphan "· permanent" line.
         glyph = <span className="font-mono text-[9px] font-semibold uppercase tracking-wide text-ink/50">Stage</span>;
         name = 'Stage';
         mBody = (
           <>
-            <span className="px-1 text-[11px] text-ink/45">· permanent</span>
+            <span data-seat-stage-stays="" className={big ? 'min-w-0 flex-1 text-[13.5px] text-ink/65' : 'px-1 text-[11px] text-ink/45'}>
+              {big ? 'The stage stays on the plan — drag it to move it.' : '· permanent'}
+            </span>
             {doneBtn}
           </>
         );
@@ -5642,13 +6153,14 @@ export function SeatingEditor({
           variant={isPhone ? sheetVariant : 'dock'}
           edge={isPhone ? 'bottom' : edge}
           tone="neutral"
-          glyph={glyph}
-          name={name}
+          glyph={dockInSheet ? undefined : glyph}
+          name={dockInSheet ? undefined : name}
           boundsRef={regionRef}
           panel={panel}
-          onDismiss={isPhone ? clearSelection : undefined}
+          onDismiss={isPhone && !dockInSheet ? clearSelection : undefined}
         >
-          {mBody}
+          {/* 📱 One wrapping row on a phone — the sheet's column would stretch each step into its own full-width line. */}
+          {big ? <div className="flex flex-wrap items-center gap-2">{mBody}</div> : mBody}
         </ContextDock>
       );
     }
@@ -5695,12 +6207,62 @@ export function SeatingEditor({
   //   RIGHT  the guests (`seatPlanGuestSections`): Unseated first, "Seat at… ▾",
   //          a picked table's own guests and empty seats, "+ Seat next unseated".
   const [, setSeatPiece] = useDetailsPiece('seating');
-  const openDetailsEditor = useDetailsEditorOpener();
+  /* 🧭 STUDIO › SEAT PLAN on a phone (owner 2026-10-08, studio round 3): the map gets the screen —
+     one compact head row, the tools in the thumb zone, the people list a pull-up sheet over the map
+     (`seat-plan-phone.tsx`). Every opener of the Details editor (the people, a table, the rules,
+     a new table) raises that sheet instead; the guests are drawn there, not in the lower third. */
+  /* 🗂 R4 (owner 2026-10-28/29, *"follow the screen"*): Guests › Seats wears this chrome at EVERY width — the pinned head,
+     the map filling the view, the verbs in the thumb row at the foot. Only a phone puts the people in a sheet; from 768
+     they are the side panel (`seat-plan-in-guests.tsx`). */
+  const studioSeat = details !== null && ((isPhone && maker?.stagesStudio === true) || inGuests);
+  const peopleInSheet = studioSeat && isPhone;
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const openDetailsEditorShipped = useDetailsEditorOpener();
+  const openDetailsEditor = () => (peopleInSheet ? setPeopleOpen(true) : openDetailsEditorShipped());
+  /* 📐 Studio: the WHOLE room on open — fitted to the map's own box, and fitted again while that box
+     settles (the head, the tools and the sheet arrive after the first frame), until the couple moves
+     the view themselves (the zoom or pan then differs from the last fit, and it is left alone). */
+  const studioFitRef = useRef<{ z: number; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!studioSeat || view !== 'plan') return;
+    const region = regionRef.current;
+    if (!region) return;
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const last = studioFitRef.current;
+        const moved = last && (last.z !== zoomRef.current || last.x !== panRef.current.x || last.y !== panRef.current.y);
+        if (moved) return;
+        const canvas = canvasRef.current;
+        const world = worldRef.current;
+        if (!canvas || !world) return;
+        if (venueScaled) {
+          applyView(1, { x: 0, y: 0 });
+          const box = canvas.getBoundingClientRect();
+          const z = roomOverviewZoom(box, [...world.querySelectorAll('*')].map((el) => el.getBoundingClientRect()));
+          applyView(z, { x: (box.width * (1 - z)) / 2, y: (box.height * (1 - z)) / 2 });
+        } else {
+          fitView();
+        }
+        studioFitRef.current = { z: zoomRef.current, x: panRef.current.x, y: panRef.current.y };
+      });
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(region);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit once per open of the plan; the observer refits while the box settles
+  }, [studioSeat, view, venueScaled]);
   const seatPieceKey = seatPlanPieceKey({ table: highlightId, marker: selMarker });
   useEffect(() => {
     if (!details) return;
     // The picked object is the navigator's picked piece; on a phone its part opens.
     setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
+    if (peopleInSheet && seatPieceKey && !(roomOnly && highlightId)) setPeopleOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
   }, [seatPieceKey]);
   // The right part shows the guests, the rules, the Guests' map (the Indoor
@@ -5721,6 +6283,32 @@ export function SeatingEditor({
     setDoorOpen(Boolean(floorPlan.published_at));
   }, [floorPlan.published_at]);
   const [doorNote, setDoorNote] = useState<string | null>(null);
+  /* 🪑 HOW GUESTS SEE THEIR SEAT (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 3) — beside the switch
+     above, live like it; a refusal puts the last saved choice back and says so (a save never resets the screen). */
+  const [seatView, setSeatView] = useState<GuestSeatView>(parseGuestSeatView(floorPlan.guest_seat_view));
+  useEffect(() => {
+    setSeatView(parseGuestSeatView(floorPlan.guest_seat_view));
+  }, [floorPlan.guest_seat_view]);
+  const [seatViewNote, setSeatViewNote] = useState<string | null>(null);
+  const pickSeatView = (next: string) => {
+    const v = parseGuestSeatView(next);
+    const was = seatView;
+    if (v === was) return;
+    setSeatView(v);
+    setSeatViewNote(null);
+    startTransition(async () => {
+      try {
+        const res = await guestSeatView(eventId, { kind: 'set', view: v });
+        if (!res.ok) {
+          setSeatView(was);
+          setSeatViewNote(res.error);
+        }
+      } catch {
+        setSeatView(was);
+        setSeatViewNote('That did not save — nothing changed. Please try again.');
+      }
+    });
+  };
   const flipDoor = (open: boolean) => {
     const was = doorOpen;
     setDoorOpen(open);
@@ -5731,54 +6319,70 @@ export function SeatingEditor({
       try {
         if (open) await publishSeating(fd);
         else await unpublishSeating(fd);
-        router.refresh();
       } catch {
         setDoorOpen(was);
         setDoorNote('That did not save — nothing changed. Please try again.');
       }
     });
   };
+  /* 🧩 THE SWITCH IS THE FORM ROW'S (owner 2026-10-09, the templates): the name with its ⓘ, the status line under it, a refusal under that — the SAME write
+     (`flipDoor`: `publishSeating` / `unpublishSeating`, live, never drafted). */
   const doorStrip = details ? (
-    <div
-      data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'}
-      className={`flex shrink-0 items-center gap-3 border-b border-ink/10 px-3 py-2 ${doorOpen || seatDayHasCome ? 'bg-success-50/70' : 'bg-cream'}`}
-    >
-      <span className="flex min-w-0 flex-1 flex-col">
-        <InfoTip label="Show guests their seats early" labelClassName="text-sm font-semibold text-ink" align="start">
-          Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and
-          they are hidden again. From the day itself guests always see their seats — this switch no longer hides them
-          then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs
-          does not turn it on. Apply in the Maker does not cover the seat plan.
-        </InfoTip>
-        <span className="truncate text-[11.5px] text-ink/60">
-          {seatDayHasCome
-            ? 'It’s the day — guests see their seats.'
-            : doorOpen
-              ? 'Guests see their seats now.'
-              : 'Guests see their seats on the day.'}
-        </span>
-        {doorNote ? (
-          <span role="alert" className="text-[11.5px] text-danger-700">
-            {doorNote}
-          </span>
-        ) : null}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={doorOpen}
-        aria-label="Show guests their seats early"
-        data-seat-plan-door-switch=""
-        onClick={() => flipDoor(!doorOpen)}
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-sn-control ease-sn ${doorOpen ? 'bg-success-700' : 'bg-ink/25'}`}
-      >
-        <span
-          aria-hidden
-          className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-sn-control ease-sn ${doorOpen ? 'translate-x-6' : 'translate-x-1'}`}
+    <div data-seat-plan-door={doorOpen || seatDayHasCome ? 'open' : 'closed'} className="shrink-0 border-b border-ink/10 bg-cream px-3">
+      <FormRows data="seat-plan-door" width="auto">
+        <SwitchRow
+          name="Show guests their seats early"
+          about={{
+            words:
+              'Guests see their seats on the day. Want them to see it earlier? Turn this on. Turn it off before the day and they are hidden again. From the day itself guests always see their seats — this switch no longer hides them then. Find your seat, the seat passes and the 3D walk of your room all follow this. Printing the table signs does not turn it on. Apply in the Maker does not cover the seat plan.',
+          }}
+          on={doorOpen}
+          onChange={(open) => flipDoor(open)}
+          note={
+            seatDayHasCome
+              ? 'It’s the day — guests see their seats.'
+              : doorOpen
+                ? 'Guests see their seats now.'
+                : 'Guests see their seats on the day.'
+          }
+          problem={doorNote}
+          attrs={{ 'data-seat-plan-door-switch': '' }}
         />
-      </button>
+        <ChosenRow
+          name="How guests see their seat"
+          about={{
+            words:
+              'What a guest’s seat page shows them. Both: the 2D map first, with the 3D walk beside it. 2D map: the map only. 3D walk: they walk to their seat in 3D (the map shows instead if your room has no 3D walk). Their guest card shows you the same.',
+          }}
+          value={seatView}
+          options={GUEST_SEAT_VIEWS.map((k) => ({ key: k, label: GUEST_SEAT_VIEW_LABEL[k] }))}
+          onPick={pickSeatView}
+          buttonText={GUEST_SEAT_VIEW_SHORT[seatView]}
+          dataAttr="data-seat-plan-guest-view"
+          problem={seatViewNote}
+          attrs={{ 'data-seat-plan-guest-view-row': '' }}
+        />
+      </FormRows>
     </div>
   ) : null;
+  /* 🧊 THE 3D PLAN'S FACTS, BEHIND ⓘ (owner 2026-10-29, *"put it behind (i)"*) — the four facts the retired 3D Plan page
+     showed (`lib/plan3d-control.ts`, restored as it was), counted from the plan this editor holds and the page's reads.
+     The status follows the switch above as it flips. Next to that switch in the Seats ⋯ menu; the switch stays the one
+     way to show the seats early. */
+  const plan3dFacts = details
+    ? resolvePlan3dFacts(
+        { measured: plan3d?.eventMeasured ?? true, slug: plan3d?.slug ?? null, eventDate, timezone: plan3d?.timezone ?? null },
+        {
+          measured: true,
+          published: doorOpen || seatDayHasCome,
+          publishedAt: doorOpen ? floorPlan.published_at ?? null : null,
+          tables: tables.length,
+          seated: guests.filter((g) => g.seated_table_id !== null).length,
+        },
+        { shared: true, measured: true, total: guests.length, withAvatar: plan3d?.withAvatar ?? null },
+      )
+    : null;
+  const plan3dFactsRow = plan3dFacts ? <SeatPlanFacts facts={plan3dFacts} /> : null;
 
   // LEFT — the place. Tapping a row picks it on the plan (the 2D plan: leaving
   // 3D or the list for it). A guest or group picked on the right is SEATED by
@@ -5809,7 +6413,7 @@ export function SeatingEditor({
       return;
     }
     const sel = parseSeatPlanPiece(key);
-    if (details?.lab) router.push(seatViewHref(null), { scroll: false });
+    if (in3d) leave3d(null);
     if (view !== 'plan') setView('plan');
     if (sel.table) {
       const t = tables.find((x) => x.table_id === sel.table);
@@ -5913,9 +6517,12 @@ export function SeatingEditor({
   // room's default Round, placed in open space and seated in the same tap).
   // No drag on a phone.
   const firstNameOf = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/)[0] ?? name;
+  /* 🔢 "Antonio’s +2" under a "+2 · TBA" seat — the seat's own number among its guest's seats, never a fixed "+1"
+     (owner 2026-11-01, DECISION_LOG "SEATS 2D IS THE ROOM"). 🔒 lib/a-second-plus-one-says-plus-two.test.ts */
+  const plusOneIdx = useMemo(() => plusOneSeatIndexes(guests), [guests]);
   const plusOneHint = (g: SeatingGuest) => {
     const by = g.plus_one_of ? guestsById.get(g.plus_one_of) : null;
-    return by ? `${firstNameOf(by.name)}’s +1` : null;
+    return by ? `${firstNameOf(by.name)}’s ${plusOneMark(plusOneIdx.get(g.guest_id) ?? 0)}` : null;
   };
   const openMove = (id: string) => {
     setMoveGuestId(id);
@@ -5976,8 +6583,10 @@ export function SeatingEditor({
       }
       fd.set('seat_guest_ids', JSON.stringify(party.map((g) => g.guest_id)));
       startTransition(async () => {
-        await runGated(() => createTable(fd));
-        router.refresh();
+        const made = await runGated(() => createTable(fd));
+        // A table that landed is redrawn by `createTable`'s own answer (it revalidates); only a refused one re-reads.
+        // one-render: keep (after-failure) — the refused create revalidated nothing; re-read what the plan really holds.
+        if (made === null) router.refresh();
       });
       return;
     }
@@ -6051,16 +6660,10 @@ export function SeatingEditor({
                 hint={isPhone ? plusOneHint(g) ?? 'tap · move' : null}
                 onCyclePriority={() => cyclePriority(g)}
                 roleSet={roleSet}
+                /* The templates' ICON-ONLY ActionButton (`iconOnly`): the guest's name keeps its room — a labelled pill took 80 px of it. 44 px to tap (`!w-11`, the height is the app's 44), named for the guest. */
                 trailing={
                   canEdit ? (
-                    <button
-                      type="button"
-                      onClick={() => unseat(g.guest_id)}
-                      aria-label={`Unseat ${g.name}`}
-                      className="shrink-0 rounded-md px-1.5 py-1 text-[11px] text-ink/55 hover:bg-danger-50 hover:text-danger-600"
-                    >
-                      Unseat
-                    </button>
+                    <ActionButton tone="neutral" quiet iconOnly icon={UserMinus} label="Unseat" name={`Unseat ${g.name}`} className="!w-11" onClick={() => unseat(g.guest_id)} />
                   ) : undefined
                 }
               />
@@ -6154,7 +6757,6 @@ export function SeatingEditor({
             guestOptions={blueprintGuests}
             saveAction={async (fd) => {
               await saveEntrance(fd);
-              router.refresh();
             }}
             noSeatsNote="Seat a guest on the plan and you can preview their map here."
           />
@@ -6170,15 +6772,9 @@ export function SeatingEditor({
             </span>
           </p>
           {searchRow}
-          <label className="flex min-h-10 items-center gap-2 text-[13px] text-ink/75">
-            <input
-              type="checkbox"
-              checked={onlyUnseated}
-              onChange={(e) => setOnlyUnseated(e.target.checked)}
-              className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-            />
-            Only unseated
-          </label>
+          <FormRows data="seat-plan-only-unseated">
+            <SwitchRow name="Only unseated" on={onlyUnseated} onChange={setOnlyUnseated} attrs={{ 'data-seat-plan-only-unseated': '' }} />
+          </FormRows>
           {guestSections?.sections.map((sec) => (
             <section key={sec.key} data-seat-plan-section={sec.key} className="flex flex-col gap-1">
               <p
@@ -6257,73 +6853,908 @@ export function SeatingEditor({
       openDetailsEditor();
     } else if (isNarrow) setDrawerSnap('half');
   };
+  /* 🗂 R4 · A FACE OPENS THE GUEST'S CARD; A BLANK ASKS WHO SITS THERE (owner 2026-10-29: *"tapping a seat can show a guest
+     card"* · *"tapping picks a guest or removes that guest or swaps it to another"*). In Guests › Seats — on the plan and
+     in the list alike — a face opens the shipped guest card with Remove · Swap over it; Swap picks them up, and the next
+     seat tapped is theirs (a blank: they move there; a face: the two trade). A blank tapped with nobody picked raises
+     the pop-up bar: Pick a guest ▾. While someone is picked the bar says so, with Cancel. */
+  const [faceCard, setFaceCard] = useState<{ id: string; name: string; seated: boolean } | null>(null);
+  /* ⇕ The Seats › List's OPEN (= picked) headers, held here so the thumb row's ⇕ opens or folds them all. One opens on
+     arrival, as on Guests › List (`firstOpen`): "To seat" while anyone coming has no seat, else the first table — so a
+     ✎ is never on every header at rest (owner 2026-11-01, "Edit icon only shows when the group is picked"). */
+  const [faceOpen, setFaceOpen] = useState<ReadonlySet<string>>(() => {
+    const first = guests.some((g) => !g.seated_table_id && g.rsvp_status !== 'declined') ? SEAT_LIST_UNSEATED : displayUnits[0]?.key;
+    return new Set(first ? [first] : []);
+  });
+  const toggleFaceFold = (k: string) =>
+    setFaceOpen((c) => {
+      const n = new Set(c);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  const [blankAt, setBlankAt] = useState<{ tableId: string; seat: number } | null>(null);
+  /* 🔁 R4 slice 6a — BEFORE A SEAT CHANGES HANDS (owner 2026-10-29, prototype `assess` / `requestMove`): a swap always
+     asks "Swap Ana (Table 2) with Ben (Table 5)?" — each person, where they sit and why (who placed it), the tickable side
+     effects (their +1 comes along) and the plain warnings (lib/seat-move-assess.ts); a move to a free seat asks only when
+     there is something to say. Done → one line with Undo (swap again / put back). */
+  const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
+  const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
+    guest_id: g.guest_id,
+    name: g.name,
+    plus_one_of: g.plus_one_of ?? null,
+    seated_table_id: g.seated_table_id,
+    seat_number: g.seat_number,
+    tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
+    seat_placed_by: g.seat_placed_by ?? null,
+    seat_placed_at: g.seat_placed_at ?? null,
+  });
+  const assessFor = (moverId: string, tableId: string, seat: number | null, otherId: string | null): MoveAssessment | null => {
+    const mover = guestsById.get(moverId);
+    if (!mover) return null;
+    const other = otherId ? guestsById.get(otherId) ?? null : null;
+    const tableMap = new Map(
+      tables.map((t) => {
+        const removed = removedSeatSet(t.removed_seats, t.capacity);
+        const free = occupantsFor(t).flatMap((g, i) => (g === null && !removed.has(i) ? [i] : []));
+        return [t.table_id, { label: t.link_group_label?.trim() || t.table_label, freeSeats: free }] as const;
+      }),
+    );
+    return assessSeatMove({
+      mover: moveGuestOf(mover),
+      target: { tableId, seat },
+      other: other ? moveGuestOf(other) : null,
+      guests: guests.map(moveGuestOf),
+      tables: tableMap,
+      keepApart,
+      tierLabel: (t) => roleSet.tierLabels[t],
+    });
+  };
+  const doAskedMove = () => {
+    const ask = askMove;
+    setAskMove(null);
+    if (!ask || !canEdit) return;
+    const mover = guestsById.get(ask.moverId);
+    const target = tables.find((t) => t.table_id === ask.tableId);
+    if (!mover || !target) return;
+    const other = ask.otherId ? guestsById.get(ask.otherId) ?? null : null;
+    const along = ask.a.sideEffects.filter((x) => ask.on[x.key]);
+    // What Undo puts back: everyone this moves, where they sat before.
+    const before = [mover, ...along.map((x) => guestsById.get(x.guestId)).filter((g): g is SeatingGuest => Boolean(g))].map((g) => ({
+      id: g.guest_id,
+      tableId: g.seated_table_id,
+      seat: g.seat_number,
+    }));
+    setPickedId(null);
+    if (other) tradeSeats(mover.guest_id, other.guest_id);
+    else seatGuestHere(target, mover.guest_id, ask.seat ?? undefined);
+    for (const x of along) seatGuestHere(target, x.guestId, x.seat);
+    const undo = () => {
+      setMoveNote(null);
+      if (other) return tradeSeats(mover.guest_id, other.guest_id);
+      for (const b of before) {
+        const t = b.tableId ? tables.find((x) => x.table_id === b.tableId) : null;
+        if (t) seatGuestHere(t, b.id, b.seat ?? undefined);
+        else unseat(b.id);
+      }
+    };
+    setMoveNote({
+      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
+      undo,
+    });
+  };
+  const askBefore = (moverId: string, tableId: string, seat: number | null, otherId: string | null): boolean => {
+    const a = assessFor(moverId, tableId, seat, otherId);
+    if (!a || a.quiet) return false;
+    setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
+    return true;
+  };
+  const tapFace = (guestId: string) => {
+    const g = guests.find((x) => x.guest_id === guestId);
+    if (!g) return;
+    if (pickedId && pickedId !== guestId) {
+      if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
+      tradeSeats(pickedId, guestId);
+      return;
+    }
+    setBlankAt(null);
+    setFaceCard({ id: g.guest_id, name: g.name, seated: g.seated_table_id !== null });
+  };
+  const tapBlank = (tableId: string, seat: number) => {
+    if (pickedId) {
+      if (askBefore(pickedId, tableId, seat, null)) return;
+      place(tableId, seat);
+      return;
+    }
+    setBlankAt({ tableId, seat });
+  };
+  const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
+  const faceOf = (g: SeatingGuest): SeatListGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, side: g.side, placed: seatPlacedShort(g.seat_placed_by) });
+  /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
+     in seat order, "8 of 10 seats" counted from those rows — never typed. */
+  const faceUnits: SeatListUnit[] = inGuests
+    ? displayUnits.map((u) => {
+        const seats = u.members.flatMap((m) => {
+          const removed = removedSeatSet(m.removed_seats, m.capacity);
+          return occupantsFor(m).flatMap((g, i) => (removed.has(i) ? [] : [{ tableId: m.table_id, seat: i, guest: g ? faceOf(g) : null }]));
+        });
+        return { key: u.key, label: u.label, seated: seats.filter((x) => x.guest).length, capacity: seats.length, seats, vip: u.members.some((m) => m.is_vip === true) };
+      })
+    : [];
+  /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
+     plan's own moves, with "before a seat changes hands" asked first where it asks. */
+  const dropSeat = (guestId: string, target: SeatDropTarget) => {
+    if (!canEdit) return;
+    const g = guestsById.get(guestId);
+    if (!g) return;
+    const plan = planSeatDrop({ id: guestId, seated: g.seated_table_id !== null }, target);
+    if (plan.kind === 'unseat') return unseat(guestId);
+    if (plan.kind === 'trade') {
+      if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
+      return tradeSeats(guestId, plan.otherId);
+    }
+    if (plan.kind === 'place') {
+      const t = tables.find((x) => x.table_id === plan.tableId);
+      if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      setPickedId(null);
+      seatGuestHere(t, guestId, plan.seat);
+    }
+  };
+  const unitOfKey = (key: string) => displayUnits.find((u) => u.key === key) ?? null;
+  /* ＋ An empty seat's Add ▾ — who comes and has no seat yet (the shared dropdown; the plan's own `seatGuestHere`). */
+  const seatListAdd = (tableId: string, seat: number) => {
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!t) return null;
+    return (
+      <SeatPickMenu
+        label={`Add a guest to ${t.table_label}, seat ${seat + 1}`}
+        value={null}
+        buttonText="Add"
+        options={
+          comingUnseated.length
+            ? comingUnseated.map((g) => ({ key: g.guest_id, label: g.name }))
+            : [{ key: '-', label: 'Everyone coming has a seat', disabledNote: 'Nobody to add' }]
+        }
+        onPick={(k) => {
+          if (k !== '-') seatGuestHere(t, k, seat);
+        }}
+        dataAttr="data-seat-row-add"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    );
+  };
+  /* ✎ Only on the PICKED (open) table — and only where one name renames it (a linked set is named on 2D). */
+  const seatListPencil = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || !canEdit || u.members.length !== 1) return null;
+    return (
+      <ActionButton
+        tone="neutral"
+        quiet
+        iconOnly
+        icon={Pencil}
+        label={`Rename ${u.label}`}
+        onClick={() => setRenamingTable((cur) => (cur === u.lead.table_id ? null : u.lead.table_id))}
+        data-testid="seat-table-rename"
+      />
+    );
+  };
+  const seatListRename = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || view !== 'list' || renamingTable !== u.lead.table_id || u.members.length !== 1) return null;
+    return (
+      <div className="min-w-0 py-1">
+        <FormRows data="seat-list-name">
+          <TypedRow
+            key={u.lead.table_id}
+            data="seat-list-table-name"
+            attrs={{ 'data-seat-list-table-name': '' }}
+            name="Table name"
+            value={u.lead.table_label}
+            maxLength={64}
+            required
+            onKeep={(label) => {
+              renameTable(u.lead.table_id, label);
+              setRenamingTable(null);
+              return { ok: true as const };
+            }}
+          />
+        </FormRows>
+      </div>
+    );
+  };
+  /* Type ▾ · seats − N + — each table of the unit (a linked set names each), the 2D bar's own Shape list and Counter. */
+  const seatListTools = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u) return null;
+    return u.members.map((m) => (
+      <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/60">{m.table_label}</span> : null}
+        <PickMenu
+          label="Table type"
+          value={m.table_type}
+          options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint], disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+          onPick={(k) => {
+            if (canEdit) changeStyle(m, k as TableType);
+          }}
+          buttonText={TABLE_TYPE_LABEL[m.table_type]}
+          dataAttr="data-seat-list-type"
+          compact
+          className="shrink-0 border border-ink/15"
+        />
+        {dockSeatsStepper(m)}
+        {vipPick(m, 'data-seat-list-vip')}
+      </span>
+    ));
+  };
+  const blankTable = blankAt ? tables.find((t) => t.table_id === blankAt.tableId) ?? null : null;
+  const seatPop =
+    inGuests && (pickedGuest || (blankAt && blankTable)) ? (
+      <div data-seat-plan-pop={pickedGuest ? 'moving' : 'blank'} className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-2xl bg-cream px-3 py-1.5 shadow-lg">
+        {pickedGuest ? (
+          <>
+            <span className="min-w-0 flex-1 text-[13.5px] text-ink">
+              <b className="font-semibold">{pickedGuest.name}</b> — tap a seat
+            </span>
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setPickedId(null)} />
+          </>
+        ) : blankAt && blankTable ? (
+          <>
+            <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
+              {blankTable.table_label} · seat {blankAt.seat + 1}
+            </span>
+            <SeatPickMenu
+              label="Pick a guest"
+              value={null}
+              buttonText="Pick a guest"
+              options={comingUnseated.map((g) => ({ key: g.guest_id, label: g.name }))}
+              onPick={(k) => {
+                seatGuestHere(blankTable, k, blankAt.seat);
+                setBlankAt(null);
+              }}
+              dataAttr="data-seat-pick-guest"
+            />
+            <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={() => setBlankAt(null)} />
+          </>
+        ) : null}
+      </div>
+    ) : null;
+  const faceCardSheet =
+    inGuests && faceCard ? (
+      <GuestCardSheet
+        eventId={eventId}
+        person={{ id: faceCard.id, name: faceCard.name }}
+        open={SHIPPED_GUEST_CARD.seats}
+        onClose={() => setFaceCard(null)}
+        onSaved={() => {
+          // one-render: keep (other-frame) — the guest card saved in its own sheet; the faces re-read its name and photo.
+          router.refresh();
+        }}
+        actions={
+          canEdit ? (
+            <>
+              {faceCard.seated ? (
+                <ActionButton
+                  tone="neutral"
+                  icon={UserMinus}
+                  label="Remove"
+                  onClick={() => {
+                    unseat(faceCard.id);
+                    setFaceCard(null);
+                  }}
+                  data-seat-face-remove=""
+                />
+              ) : null}
+              <ActionButton
+                tone="brand"
+                icon={faceCard.seated ? ArrowLeftRight : Armchair}
+                label={faceCard.seated ? 'Swap' : 'Seat'}
+                onClick={() => {
+                  setPickedId(faceCard.id);
+                  setFaceCard(null);
+                }}
+                data-seat-face-swap=""
+              />
+            </>
+          ) : null
+        }
+      />
+    ) : null;
+  /* The head's three menus — one copy, drawn by the shipped phone head and by the Studio's. */
+  const phoneRules = (
+    <>
+      <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Who sits together</p>
+      {roleRulesList}
+      {details ? (
+        <button
+          type="button"
+          data-close=""
+          onClick={() => {
+            setShowAddTable(false);
+            setGuestsMode('rules');
+            openDetailsEditor();
+          }}
+          className="mt-1 flex min-h-11 w-full items-center px-1 text-left text-[13px] text-mulberry-700"
+        >
+          Seating priority &amp; who sits apart ›
+        </button>
+      ) : null}
+    </>
+  );
+  const phoneMore = (
+    <>
+      {/* ✨ Owner 2026-10-30 (*"The menu does not work properly"* → ONE top row on every view): the old count row's
+          ✨ Auto arrange tile is GONE in Guests, so its run lives here, first in the ⋯ — the SAME `runAutoArrange`, the
+          same refusal (Edit first · no tables), its one line + Undo still rising over the thumb row (`seatToast`). */}
+      {inGuests ? (
+        <>
+          <MenuRow
+            icon={Sparkles}
+            label={isPending ? 'Arranging…' : 'Auto arrange'}
+            hint={canEdit ? 'Seats everyone by the seating rules · Undo after' : 'Tap Edit first — only one person arranges at a time'}
+            onClick={askAutoArrange}
+            disabled={!canEdit || tables.length === 0 || isPending}
+            emphasized
+          />
+          <MenuRow
+            icon={UserMinus}
+            label="Clear all seats"
+            hint={canEdit ? 'Everyone comes off their seat · Undo after' : 'Tap Edit first'}
+            onClick={() => {
+              setClearLocked('keep');
+              setAskClear(true);
+            }}
+            disabled={!canEdit || seatedNow === 0 || isPending}
+          />
+          <MenuDivider />
+        </>
+      ) : null}
+      {/* ⇅ R4 slice 1: in Guests the thumb row is the shared one — who sits together lives here, in the head's ⋯. */}
+      {inGuests ? (
+        <>
+          {phoneRules}
+          <MenuDivider />
+        </>
+      ) : null}
+      {doorStrip}
+      {plan3dFactsRow}
+      <MenuCaption>Add a table or element</MenuCaption>
+      {addMenuBody}
+      <MenuDivider />
+      <MenuCaption>Share &amp; print</MenuCaption>
+      {shareMenuBody}
+      <MenuDivider />
+      <MenuCaption>The room</MenuCaption>
+      {arrangeMenuBody}
+    </>
+  );
+  const phoneTrailing = (
+    <>
+      {!canEdit ? (
+        <ActionButton tone="neutral" icon={Eye} label={lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} waiting={lock.status === 'acquiring'} onClick={lock.acquire} />
+      ) : saveState !== 'saved' ? (
+        <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
+      ) : null}
+    </>
+  );
   const phoneHead = isPhone ? (
     <PhoneSeatPlanHead
       countLabel={headline.count}
       status={headline.status}
       unseated={unseatedComing}
       onUnseated={openUnseated}
-      onAutoArrange={runAutoArrange}
+      onAutoArrange={askAutoArrange}
       autoDisabled={!canEdit || tables.length === 0}
       autoBusy={isPending}
-      rules={
-        <>
-          <p className="px-1 pb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Who sits together</p>
-          {roleRulesList}
-          {details ? (
-            <button
-              type="button"
-              data-close=""
-              onClick={() => {
-                setShowAddTable(false);
-                setGuestsMode('rules');
-                openDetailsEditor();
-              }}
-              className="mt-1 flex min-h-11 w-full items-center px-1 text-left text-[13px] text-mulberry-700"
-            >
-              Seating priority &amp; who sits apart ›
-            </button>
-          ) : null}
-        </>
-      }
-      more={
-        <>
-          {doorStrip}
-          <MenuCaption>Add a table or element</MenuCaption>
-          {addMenuBody}
-          <MenuDivider />
-          <MenuCaption>Share &amp; print</MenuCaption>
-          {shareMenuBody}
-          <MenuDivider />
-          <MenuCaption>The room</MenuCaption>
-          {arrangeMenuBody}
-        </>
-      }
-      view={details?.lab ? '3d' : view === 'list' ? 'list' : '2d'}
+      rules={phoneRules}
+      more={phoneMore}
+      view={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
       onView={onSelectView}
       show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
       toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
-      trailing={
-        <>
-          {!canEdit ? (
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full border border-ink/15 px-3 text-[12px] font-medium text-ink/70"
-            >
-              <Eye className="h-3.5 w-3.5" />
-              {lock.status === 'acquiring' ? 'Opening…' : lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-            </button>
-          ) : saveState !== 'saved' ? (
-            <SaveStatusChip state={saveState} unsavedCount={unsavedCount} savedAt={savedAt} onSave={saveLayout} disabled={!canEdit} />
-          ) : null}
-        </>
-      }
+      trailing={phoneTrailing}
     />
   ) : null;
+  /* 🧭 Studio: the compact head, the thumb-zone tools, the people sheet — the SAME handlers and
+     counts as the shipped head above; the 3D door card is gone (View ▾ holds 3D). */
+  const studioView = in3d ? '3d' : view === 'list' ? 'list' : '2d';
+  const show3D = process.env.NEXT_PUBLIC_SEATING_3D !== 'false';
+  /* 🎚 R4 slice 2 (owner 2026-10-29, "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): in Guests the "Seat plan · 2D ▾"
+     head is GONE — its mode is the Guests top row's Seats ▾, and its Edit · ⋯ ride that row as rounds, left of the ⚙ (a
+     portal into `lens.toolsSlot`). The mode's ONE state stays here: the plan tells the screen its mode and how to change
+     it (`lens.registerSeats`) — never a second state. The Studio keeps its head as it was. */
+  const studioHead = studioSeat && !inGuests ? (
+    <StudioSeatPlanHead countLabel={headline.count} more={phoneMore} trailing={phoneTrailing} />
+  ) : null;
+  const seatToolRounds =
+    inGuests && lens?.toolsSlot ? createPortal(<SeatPlanToolRounds more={phoneMore} trailing={phoneTrailing} />, lens.toolsSlot) : null;
+  const onSelectViewRef = useRef(onSelectView);
+  onSelectViewRef.current = onSelectView;
+  /* 👁 "Switch to 2D" from inside the view-only room (its ⓘ) — the room cannot reach `onSelectView`, so it asks. */
+  useEffect(() => {
+    if (!inGuests) return;
+    const onAsk = (e: Event) => {
+      const v = (e as CustomEvent<string>).detail;
+      if (v === '2d' || v === 'list') onSelectViewRef.current(v);
+    };
+    window.addEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+    return () => window.removeEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+  }, [inGuests]);
+  const registerSeats = inGuests ? lens?.registerSeats : undefined;
+  useEffect(() => {
+    if (!registerSeats) return;
+    registerSeats({ mode: studioView, setMode: (m) => onSelectViewRef.current(m), show3D });
+  }, [registerSeats, studioView, show3D]);
+  /* 🗂 R4 · Guests › Seats' summary row — the Guests carousel's own cards (`view-summary-cards.tsx`), counted here from
+     the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
+     still to seat (that count is the door to them). */
+  const seatedComing = guests.filter((g) => g.seated_table_id && g.rsvp_status !== 'declined').length;
+  /* 📌 THE COUNTS RIDE THE ONE TOP ROW (owner 2026-10-30, iPhone app: *"Seat ls should be pinned on top row and on map
+     and 3d"* → *"Like this one"* — Guests › List's `✓ 80 ✗ 0 ? 152`). The fixed count row of four tiles (#7044) is GONE:
+     its three counts are the row's own doors on EVERY Seats mode (List · 2D · 3D), drawn by the ONE count door
+     (`PinCountDoor`) into the row's count seat (`lens.countsSlot`); each opens where its tile did — Seated the list,
+     Unseated the list narrowed to who is left, Tables the 2D plan. ✨ Auto arrange moved into the ⋯ (`phoneMore`).
+     Counted here from the plan this editor holds; guests who said no are not counted. */
+  const seatCountsSlot =
+    inGuests && lens?.countsSlot
+      ? createPortal(
+          <>
+            <PinCountDoor
+              dot="seated"
+              value={seatedComing}
+              id="gs-seats-seated"
+              word="seated"
+              icon={<Armchair aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('list')}
+              attrs={{ 'data-seat-count': 'seated' }}
+            />
+            <PinCountDoor
+              dot="unseated"
+              value={unseatedComing}
+              id="gs-seats-unseated"
+              word="unseated"
+              icon={<UserMinus aria-hidden strokeWidth={2.2} />}
+              onPress={() => {
+                onSelectView('list');
+                openUnseated();
+              }}
+              attrs={{ 'data-seat-count': 'unseated' }}
+            />
+            <PinCountDoor
+              dot="tables"
+              value={displayUnits.length}
+              id="gs-seats-tables"
+              word={displayUnits.length === 1 ? 'table' : 'tables'}
+              icon={<CircleDot aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('2d')}
+              attrs={{ 'data-seat-count': 'tables' }}
+            />
+          </>,
+          lens.countsSlot,
+        )
+      : null;
+  const addTable = () => {
+    selectPanelTab('tables');
+    setShowAddTable(true);
+    if (details) {
+      setGuestsMode('guests');
+      openDetailsEditor();
+    }
+  };
+  /* ⇅ R4 slice 1 · GUESTS › SEATS' THUMB ROW — THE shared `ThumbRow` (owner 2026-10-29, prototype v12 `renderThumb`):
+     ⇕ (the list's tables, folded or open) · Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the
+     shared Show, then the people to seat on a phone) · ＋ Add ▾ — the SAME placeables, handlers and refusals as the plan's
+     own Add menu (`addMenuBody`). Drawn into the Guests screen's seat; the "Pick a guest" bar and the run's toast rise
+     above it. Who-sits-together rules moved to the head's ⋯ (nothing lost). */
+  const goToFound = (words: string) => {
+    if (!lens) return;
+    const hits = lens.find(words);
+    const g = guests.find((x) => hits.has(x.guest_id));
+    if (!g) return;
+    if (view === 'list') {
+      const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
+      const key = unit ? unit.key : 'unseated';
+      setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
+      requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else if (g.seated_table_id) {
+      setSelMarker(null);
+      setHighlightId(g.seated_table_id);
+    }
+  };
+  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
+  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
+  const seatAddOptions: PickOption[] = [
+    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
+    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
+    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
+    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
+    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
+    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
+    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
+  ];
+  const onSeatAdd = (k: string) => {
+    if (k === 'table') return addTable();
+    if (k === 'entrance') return addEntrance();
+    if (k === 'service') return addServiceDoor();
+    if (k === 'dance') return addDanceFloor();
+    if (k === 'cocktail') return addCocktailArea();
+    if (k === 'sign') return addSign();
+    if (k === 'booth') return addBooth();
+  };
+  const seatToast = moveNote
+    ? { text: moveNote.text, onUndo: moveNote.undo, onDismiss: () => setMoveNote(null) }
+    : autoRun
+      ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) }
+      : null;
+  /* 🗺 2D IS THE ROOM — a picked table's ONE slim bar in the thumb row: Rotate · Shape ▾ · Seats − N + · ⋯ (Name… ·
+     Swap with another table… · Link… / Unlink · Delete). Every verb is the shipped one (`rotateTable` · `changeStyle` ·
+     the Counter · `renameTable` · `armSwap` · the link gesture · `doUnlink` · `requestRemoveTable`); nothing new writes. */
+  const barTable = roomOnly && selTable ? selTable : null;
+  const tableBar = barTable
+    ? (() => {
+        const st = barTable;
+        const seatNote = seatNotice && seatNotice.tableId === st.table_id ? { words: seatStepWords(seatNotice.seat, seatNotice.removed), onUndo: undoSeatRemoval } : null;
+        const armed = linkFrom === st.table_id || swapFrom === st.table_id;
+        const more: PickOption[] = [
+          { key: 'name', label: 'Name…' },
+          // 🪑 The table's own VIP setting (owner 2026-11-02) — in the ⋯ so the slim row keeps one line at 390.
+          st.is_vip ? { key: 'vip-off', label: 'Not a VIP table' } : { key: 'vip-on', label: 'Make it a VIP table' },
+          { key: 'swap', label: swapFrom === st.table_id ? 'Stop swapping' : 'Swap with another table…' },
+          st.link_group_id ? { key: 'unlink', label: 'Unlink' } : { key: 'link', label: linkFrom === st.table_id ? 'Stop linking' : 'Link…' },
+          { key: 'delete', label: 'Delete this table' },
+        ];
+        const onMore = (k: string) => {
+          if (!canEdit) return;
+          if (k === 'name') setRenamingTable(st.table_id);
+          else if (k === 'vip-on' || k === 'vip-off') setTableVip(st, k === 'vip-on');
+          else if (k === 'swap') armSwap(st);
+          else if (k === 'unlink') doUnlink(st.table_id);
+          else if (k === 'link') {
+            setSwapFrom(null);
+            setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+          } else if (k === 'delete') requestRemoveTable(st);
+        };
+        return (
+          <div
+            data-seat-table-bar={st.table_id}
+            className="pointer-events-auto flex min-w-0 flex-col gap-1.5 rounded-2xl bg-cream px-1 py-1.5 shadow-lg"
+          >
+            {renamingTable === st.table_id ? (
+              <FormRows data="seat-table-bar-name">
+                <TypedRow
+                  key={st.table_id}
+                  data="seat-table-name"
+                  attrs={{ 'data-seat-table-name': '' }}
+                  name="Table name"
+                  value={st.table_label}
+                  maxLength={64}
+                  required
+                  onKeep={(label) => {
+                    renameTable(st.table_id, label);
+                    setRenamingTable(null);
+                    return { ok: true as const };
+                  }}
+                />
+              </FormRows>
+            ) : null}
+            {/* ONE slim row at 390: Rotate keeps its word (12 Oct "buttons keep their words"), the shape's word is never cut
+                (`shrink-0`), the ⋯ is a 44 px round; on a narrower phone the row wraps rather than cut a word. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+              <ActionButton tone="neutral" quiet icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={() => rotateTable(st, 90)} />
+              <PickMenu
+                label="Shape"
+                value={st.table_type}
+                options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
+                onPick={(k) => {
+                  if (canEdit) changeStyle(st, k as TableType);
+                }}
+                buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
+                dataAttr="data-seat-table-shape"
+                compact
+                className="shrink-0 border border-ink/15"
+              />
+              {dockSeatsStepper(st)}
+              <PickMenu
+                label="More for this table"
+                value={null}
+                options={more}
+                onPick={onMore}
+                dataAttr="data-seat-table-more"
+                compact
+                trigger={<MoreHorizontal aria-hidden className="h-5 w-5" />}
+                className="sn-press ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/70"
+              />
+            </div>
+            {armed && notice ? (
+              <StatusLine tone="info" data="seat-table-armed">
+                {notice}
+              </StatusLine>
+            ) : seatNote ? (
+              <StatusLine tone="info" data="seat-step" action={{ label: 'Undo', onClick: seatNote.onUndo }}>
+                {seatNote.words}
+              </StatusLine>
+            ) : null}
+          </div>
+        );
+      })()
+    : null;
+  /* 🏪 The supplier card a 2D booth opens — the 3D walk's own, inspect-only (no walker here), "View" (they booked them). */
+  const boothCardRow = roomOnly && boothCardId ? booths.find((b) => b.booth_id === boothCardId) ?? null : null;
+  const boothCard = roomOnly ? (
+    <BoothVendorCard booth={boothCardRow ? boothCardFromRow(boothCardRow) : null} onClose={() => setBoothCardId(null)} profileCta="view" />
+  ) : null;
+  const seatThumb =
+    lens && lens.slot
+      ? createPortal(
+          <>
+            {seatToast ? <SeatToast toast={seatToast} /> : null}
+            {seatPop ?? tableBar}
+            <lens.ThumbRow
+              name="guests-seats"
+              left={
+                view === 'list' && !in3d
+                  ? [
+                      {
+                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
+                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
+                        expanded: facesAllOpen,
+                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
+                        testId: 'seats-expand',
+                      },
+                    ]
+                  : []
+              }
+              field={{
+                placeholder: 'Search guests',
+                input: {
+                  defaultValue: seatQ,
+                  enterKeyHint: 'search',
+                  'data-seats-search': '',
+                  onInput: (e) => {
+                    const v = e.currentTarget.value.trim();
+                    if (seatQTimer.current) clearTimeout(seatQTimer.current);
+                    seatQTimer.current = setTimeout(() => setSeatQ(v), SEARCH_WAIT_MS);
+                  },
+                  onKeyDown: (e) => {
+                    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                    e.preventDefault();
+                    const v = e.currentTarget.value.trim();
+                    setSeatQ(v);
+                    if (v) goToFound(v);
+                  },
+                },
+                /* ✕ — the words are gone: the seats are whole AT ONCE, not after the search's wait (owner 2026-10-31). */
+                onClear: () => {
+                  if (seatQTimer.current) clearTimeout(seatQTimer.current);
+                  setSeatQ('');
+                },
+              }}
+              right={[
+                guestsFilterMenu({
+                  view: 'seats',
+                  filter: lens.filter,
+                  onFilter: lens.setFilter,
+                  hasSides: lens.hasSides,
+                  label: 'Show, or open the people',
+                  extras: peopleInSheet && !roomOnly
+                    ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
+                    : [],
+                  onExtra: (k) => {
+                    if (k === 'people') setPeopleOpen(true);
+                  },
+                }),
+              ]}
+              action={{ menu: seatAddOptions, label: 'Add to the plan', value: null, onPick: onSeatAdd, mark: 'data-seat-plan-add' }}
+            />
+          </>,
+          lens.slot,
+        )
+      : null;
+  const askMoveSheet =
+    inGuests && askMove ? (
+      <Sheet open onClose={() => setAskMove(null)} labelledById="seat-move-ask-title" rise>
+        <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-move-ask={askMove.a.kind}>
+          <h2 id="seat-move-ask-title" className="pr-10 font-display text-lg leading-snug text-ink [overflow-wrap:anywhere]">
+            {askMove.a.title}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {askMove.a.rows.map((r, i) => (
+              <li key={r.guestId} className="flex items-start gap-2" data-seat-move-row={r.guestId}>
+                {i > 0 ? <ArrowLeftRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.8} /> : <span aria-hidden className="w-4 shrink-0" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">
+                    {r.name} <span className="font-normal text-ink/55">({r.where})</span>
+                  </span>
+                  {r.why ? <span className="block text-xs text-ink/60" data-seat-move-why="">{r.why}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {askMove.a.warnings.map((w) => (
+            <p key={w} className="flex items-start gap-2 text-[13px] text-warn-800" data-seat-move-warn="">
+              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" />
+              <span className="[overflow-wrap:anywhere]">{w}</span>
+            </p>
+          ))}
+          {askMove.a.sideEffects.length ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Also</p>
+              {askMove.a.sideEffects.map((x) => (
+                <button
+                  key={x.key}
+                  type="button"
+                  aria-pressed={askMove.on[x.key] === true}
+                  onClick={() => setAskMove((m) => (m ? { ...m, on: { ...m.on, [x.key]: !m.on[x.key] } } : m))}
+                  data-seat-move-also={x.key}
+                  className="sn-press flex min-h-11 items-center gap-3 rounded-xl border border-ink/10 px-3 py-2 text-left text-sm text-ink" // no-card-ok: a pressable choice row (a door), not a container
+                >
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{x.text}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${askMove.on[x.key] ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/55'}`}>
+                    {askMove.on[x.key] ? 'Yes' : 'No'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2 pt-1">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskMove(null)} />
+            <ActionButton tone="brand" main icon={askMove.a.kind === 'swap' ? ArrowLeftRight : Armchair} label={askMove.a.kind === 'swap' ? 'Swap' : 'Move'} onClick={doAskedMove} data-seat-move-go="" />
+          </div>
+        </div>
+      </Sheet>
+    ) : null;
+
+  /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
+     🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
+     🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
+     SCREEN — NO FULL-SCREEN BUTTON"), and its top is under the pinned row — so the stack sits on the plan's cell, in the
+     LOWER third, just above the floating thumb row (`--sn-thumb-room`, the room that row measures, less the dock the cell
+     already stops at). Fit wears corner brackets, never ⤢. */
+  const zoomStack = (
+    <div
+      data-seat-plan-zoom=""
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
+      style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
+    >
+      <button
+        type="button"
+        onClick={fitView}
+        aria-label="Fit all tables in view"
+        title="Fit"
+        className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
+      >
+        {/* Fit wears corner brackets, never ⤢ — ⤢ reads as "full screen", and the plan has none (owner 2026-10-30). */}
+        <Scan className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(1.25)}
+        aria-label="Zoom in"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(0.8)}
+        aria-label="Zoom out"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
+  const studioPeople = inGuests ? (
+    <>
+      {faceCardSheet}
+      {askMoveSheet}
+      {askArrange ? (
+        <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
+            <h2 id="seat-arrange-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Auto arrange — who moves?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(seatedNow)} {seatedNow === 1 ? 'guest has' : 'guests have'} a seat.
+              {lockedCount > 0 ? ` ${formatCount(lockedCount)} locked ${lockedCount === 1 ? 'seat stays' : 'seats stay'} either way.` : ''} Undo after.
+            </p>
+            <div className="flex flex-col gap-2">
+              <ActionButton tone="brand" main icon={Sparkles} label={`Only the unseated (${formatCount(unseatedComing)})`} onClick={() => runAutoArrange('unseated')} data-seat-arrange-scope="unseated" className="w-full" />
+              <ActionButton tone="neutral" icon={RotateCcw} label="Seat everyone again" onClick={() => runAutoArrange('all')} data-seat-arrange-scope="all" className="w-full" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+      {askClear ? (
+        <Sheet open onClose={() => setAskClear(false)} labelledById="seat-clear-ask-title" rise>
+          <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-clear-ask="">
+            <h2 id="seat-clear-ask-title" className="pr-10 font-display text-lg leading-snug text-ink">
+              Clear all seats?
+            </h2>
+            <p className="text-sm text-ink/70">
+              {formatCount(clearLocked === 'keep' ? seatedNow - lockedCount : seatedNow)} {seatedNow === 1 ? 'guest comes' : 'guests come'} off their seat. Undo puts every seat back.
+            </p>
+            {lockedCount > 0 ? (
+              <div className="flex min-h-11 items-center gap-2">
+                <span className="min-w-0 flex-1 text-sm text-ink">Locked seats <span className="font-mono text-[11px] text-ink/45">{formatCount(lockedCount)}</span></span>
+                <PickMenu
+                  label="Locked seats"
+                  value={clearLocked}
+                  options={[
+                    { key: 'keep', label: 'Keep them' },
+                    { key: 'clear', label: 'Clear them too' },
+                  ]}
+                  onPick={(k) => setClearLocked(k === 'clear' ? 'clear' : 'keep')}
+                  dataAttr="data-seat-clear-locked"
+                  compact
+                  className="shrink-0 border border-ink/15"
+                />
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskClear(false)} />
+              <ActionButton tone="danger" main icon={UserMinus} label="Clear seats" onClick={runClearAll} data-seat-clear-go="" />
+            </div>
+          </div>
+        </Sheet>
+      ) : null}
+      {boothCard}
+      {seatThumb}
+      {peopleInSheet ? (
+        <Sheet
+          open={peopleOpen}
+          onClose={() => {
+            setPeopleOpen(false);
+            clearSelection();
+          }}
+          labelledById="seat-plan-people-title"
+        >
+          {/* 📐 THE SHEET'S OWN HEAD AND GUTTER (owner, live iPhone 2026-10-29): the heading sits on the ✕'s row (clear of it,
+              `pr-14`) — the picked table's or piece's NAME when one is picked, the people's count otherwise — and the body
+              keeps the house 16 px from both edges, so nothing runs flush to the glass or is clipped at the right. */}
+          <div className="flex min-w-0 flex-col gap-2 px-4 pb-4" data-seat-plan-people="sheet">
+            <div className="flex min-h-11 items-center pr-10 pt-3">
+              <h2 id="seat-plan-people-title" className="min-w-0 text-[17px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">
+                {dockInline ? pieceName() : `${formatCount(guests.length)} ${guests.length === 1 ? 'guest' : 'guests'} · ${formatCount(unseatedComing)} to seat`}
+              </h2>
+            </div>
+            {guestsNode}
+          </div>
+        </Sheet>
+      ) : null}
+    </>
+  ) : studioSeat ? (
+      <PeopleSheet
+        guests={guests.length}
+        unseated={unseatedComing}
+        open={peopleOpen}
+        onOpen={() => setPeopleOpen(true)}
+        onClose={() => {
+          setPeopleOpen(false);
+          clearSelection();
+        }}
+        tools={
+          <StudioSeatPlanTools
+            onAutoArrange={askAutoArrange}
+            autoDisabled={!canEdit || tables.length === 0}
+            autoBusy={isPending}
+            rules={phoneRules}
+            view={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
+            onView={onSelectView}
+            show3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false'}
+            toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
+          />
+        }
+      >
+        {guestsNode}
+      </PeopleSheet>
+    ) : null;
   const phoneFoot =
-    isPhone && view === 'plan' && !details?.lab ? (
+    isPhone && view === 'plan' && !in3d && !studioSeat ? (
       <PhoneSeatPlanFoot
         room={venueScaled ? `${roomName} · ${formatCount(venue.width)} × ${formatCount(venue.length)} m${pxPerMeter ? ` · walkway ${aisleM.toFixed(1)} m` : ''}` : roomName}
         onOpen3D={process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? () => onSelectView('3d') : null}
@@ -6334,13 +7765,17 @@ export function SeatingEditor({
     <SeatingFrame fill={details !== null}>
       {/* 🪑 Details: the door guests' seats open on, above the plan. */}
       {/* 📱 A phone gets its own head (the approved frame 1) — the desk keeps the bar. */}
-      {isPhone ? phoneHead : doorStrip}
+      {/* 🗂 R4 (owner 2026-10-29, top to bottom): the concept on top (the head — the mode ▾, Edit, ⋯), then the Guests
+          summary row, then the editing space, the verbs at the foot. */}
+      {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
+      {seatToolRounds}
+      {seatCountsSlot}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
-      {isPhone ? null : (
+      {isPhone || inGuests ? null : (
       <CommandBar>
         {/* View axis — [2D · 3D · List] (verdict §4). Prefetch the lab on hover. */}
         <SeatingViewSegment
-          active={details?.lab ? '3d' : view === 'list' ? 'list' : '2d'}
+          active={in3d ? '3d' : view === 'list' ? 'list' : '2d'}
           onSelect={onSelectView}
           /* In Details, 3D is this same address re-read with the lab in it — no
              page to prefetch (a prefetch would render the whole Maker). */
@@ -6398,14 +7833,7 @@ export function SeatingEditor({
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-[11px] font-medium text-ink/70">
             <Eye className="h-3.5 w-3.5 text-ink/50" />
             {lock.status === 'acquiring' ? 'Opening…' : 'Viewing only'}
-            <button
-              type="button"
-              onClick={lock.acquire}
-              disabled={lock.status === 'acquiring'}
-              className="rounded-md bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-cream hover:bg-ink disabled:opacity-50"
-            >
-              {lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'}
-            </button>
+            <ActionButton tone="neutral" quiet icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           </span>
         ) : null}
 
@@ -6558,7 +7986,11 @@ export function SeatingEditor({
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
         {view === 'plan' && showRoomPanel ? (
-          <div className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg">
+          <div
+            className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg"
+            /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
+            style={inGuests ? { top: 'calc(var(--gs-stick-h, 0px) + 0.5rem)', maxHeight: 'calc(100% - var(--gs-stick-h, 0px) - 1rem)' } : undefined}
+          >
             <div className="flex w-full items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size &amp; scale</span>
               <button
@@ -6753,10 +8185,26 @@ export function SeatingEditor({
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerCancel={onCanvasPointerUp}
-          className="absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing"
+          /* 🖼 Frameless in Guests (R4 slice 6, owner: "2D/3D frameless edge to edge") — the floor is the page; the Studio
+             keeps its hairline. */
+          /* 📐 EDGE TO EDGE IN GUESTS (owner 2026-10-29, live phone shot: "look at 2d seat, did not maximize width"). The
+             canvas below stays the ROOM-ASPECT box — every percent → pixel step reads its rect, so positions stay isotropic
+             and nothing about the coordinate math changes — but in Guests the FLOOR is the whole cell: the box does not
+             clip (the cell does), and its floor (`::before`, the grid and the press area) reaches every edge of the cell,
+             so a drag or a pinch on the side strips pans the plan like anywhere else. The Studio keeps its letterbox. */
+          data-seat-floor={inGuests ? 'cell' : undefined}
+          className={
+            inGuests
+              ? "absolute inset-0 m-auto cursor-grab touch-none before:pointer-events-auto before:absolute before:-inset-[200vmax] before:bg-ink/[0.02] before:content-[''] before:[background-image:radial-gradient(circle_at_1px_1px,rgba(30,34,41,0.06)_1px,transparent_0)] before:[background-size:var(--seat-grid)_var(--seat-grid)] active:cursor-grabbing"
+              : 'absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing'
+          }
           style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
-            backgroundSize: `${gridPx}px ${gridPx}px`,
+            ...(inGuests
+              ? ({ '--seat-grid': `${gridPx}px` } as React.CSSProperties)
+              : {
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
+                  backgroundSize: `${gridPx}px ${gridPx}px`,
+                }),
             // The canvas fills the cell (verdict §1 — no aspect-[7/5] box, no 64vh
             // cap). To-scale mode letterboxes the room ratio INSIDE the fill,
             // sized to the measured region so a portrait room doesn't distort.
@@ -6771,11 +8219,14 @@ export function SeatingEditor({
           <DropConfirmBubble state={dropConfirm} onConfirm={onDropConfirm} onCancel={onDropCancel} />
           {/* world layer — pan/zoom applied to its transform directly via refs */}
           <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
-          {/* room outline (walls) + metric labels, when a venue size is set */}
-          {venueScaled ? (
+          {/* room outline (walls) + metric labels, when a venue size is set.
+              🖼 In Guests (owner 2026-10-29, "remove it" — R4 slice 6): no rounded outline on the frameless floor; the edge
+              is drawn only for a FIXED room (the couple's own saved size — then it is a wall), square, never for the
+              suggested / free board. The Studio keeps its blueprint as it was. */}
+          {venueScaled && (!inGuests || (floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null)) ? (
             <>
               {/* Blueprint (directive 2026-07-15): hairline walls, mono dims. */}
-              <div className="pointer-events-none absolute inset-0 rounded-lg border border-ink/30" />
+              <div className={`pointer-events-none absolute inset-0 border border-ink/30 ${inGuests ? '' : 'rounded-lg'}`} data-seat-room-wall="" />
               <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
                 {venue.width} m
               </span>
@@ -7415,7 +8866,7 @@ export function SeatingEditor({
                   <svg
                     className="absolute inset-0 h-full w-full overflow-visible"
                     viewBox={`${-geo.box.w / 2} ${-geo.box.h / 2} ${geo.box.w} ${geo.box.h}`}
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     style={{ cursor: pickedId || pickedGroupId ? 'pointer' : dragging ? 'grabbing' : 'grab' }}
                   >
                     <path
@@ -7465,15 +8916,19 @@ export function SeatingEditor({
                   return (
                     <div
                       key={i}
-                      className="absolute -translate-x-1/2 -translate-y-1/2"
-                      style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity"
+                      style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX, opacity: occupant && seatDim(occupant.guest_id) ? 0.22 : undefined }}
+                      data-seat-dim={occupant && seatDim(occupant.guest_id) ? '' : undefined}
                     >
                       {occupant ? (
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            /* 🗺 2D is the room: a name does nothing — the press goes on to the room (pan). */
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
+                            /* 🗂 R4: in Guests › Seats a face opens their card (or, with someone picked, they trade). */ else if (inGuests) tapFace(occupant.guest_id);
                             else if (pickedId) place(t.table_id, i);
                             else setPickedId(occupant.guest_id);
                           }}
@@ -7486,10 +8941,16 @@ export function SeatingEditor({
                           {/* Blueprint seat slot (directive 2026-07-15) — a seat
                               footprint tinted in the guest's colour, NOT a chair
                               illustration. Identity + selection clarity stay on
-                              the SeatBadge above it. */}
+                              the SeatBadge above it.
+                              ⭕ ROUND, like the chair it stands for (owner, live 2026-10-29: *"the different seats have
+                              color issues making each seat square"* — the July footprint was a `rounded-sm` square, and
+                              once the floor went frameless every tinted square read as a coloured tile). The approved
+                              Guests prototype draws every seat as a circle in the guest's colour; a blank one, dashed.
+                              🔒 lib/seats-in-guests-are-frameless.test.ts. */}
                           <span
                             aria-hidden
-                            className="absolute inset-[10%] rounded-sm border"
+                            data-seat-chair="taken"
+                            className="absolute inset-[10%] rounded-full border"
                             style={{
                               borderColor: colorFor(occupant),
                               backgroundColor: colorFor(occupant),
@@ -7503,8 +8964,10 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
+                            /* 🗂 R4: in Guests › Seats a blank seats the picked guest — or asks who sits there. */ else if (inGuests) tapBlank(t.table_id, i);
                             else if (pickedId) place(t.table_id, i);
                           }}
                           aria-label={`Empty seat ${i + 1}`}
@@ -7517,7 +8980,7 @@ export function SeatingEditor({
                           {/* Blueprint empty-seat slot — a footprint outline, not
                               a chair. `border-current` inherits the pick/idle
                               colour so the affordance stays obvious. */}
-                          <span className="block h-[70%] w-[70%] rounded-sm border border-current" />
+                          <span data-seat-chair="blank" className="block h-[70%] w-[70%] rounded-full border border-dashed border-current" />
                         </button>
                       )}
                       {/* §3 — delete this chair. ONLY in edit-chairs mode now (no
@@ -7561,6 +9024,7 @@ export function SeatingEditor({
                     we show only a centred number/count badge here instead. */}
                 {showRibbon ? (
                   <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center">
+                    {t.is_vip ? <VipMark /> : null}
                     <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                     <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                       {formatCount(filled)}/{formatCount(effCap)}
@@ -7569,7 +9033,7 @@ export function SeatingEditor({
                 ) : (
                   <button
                     type="button"
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     aria-label={`${t.table_label} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
@@ -7588,6 +9052,7 @@ export function SeatingEditor({
                       className="flex flex-col items-center"
                       style={rot ? { transform: `rotate(${-rot}deg)` } : undefined}
                     >
+                      {t.is_vip ? <VipMark /> : null}
                       <span className="font-mono text-sm font-semibold text-ink">{num || '·'}</span>
                       <span className="font-mono text-[8px] font-medium uppercase tracking-wide text-ink/45">
                         {formatCount(filled)}/{formatCount(effCap)}
@@ -7631,34 +9096,7 @@ export function SeatingEditor({
             </button>
           ) : null}
 
-          {/* zoom controls — §5.9: Fit first/largest, every target ≥44px. */}
-          <div className="absolute bottom-[64px] right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm lg:bottom-3">
-            <button
-              type="button"
-              onClick={fitView}
-              aria-label="Fit all tables in view"
-              title="Fit"
-              className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(1.25)}
-              aria-label="Zoom in"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(0.8)}
-              aria-label="Zoom out"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-          </div>
+          {inGuests ? null : zoomStack}
 
           {/* wall handles (to-scale mode) — drag the right/bottom edge or the
               SE corner to resize the ROOM; the typed Room-size inputs stay as
@@ -7819,6 +9257,29 @@ export function SeatingEditor({
 
         </div>
         </>
+        ) : inGuests ? (
+          /* 🪑 S1c · Guests › Seats › List: the Guests list grouped by table — its rows and headers, a row per seat. */
+          <SeatList
+            units={faceUnits}
+            unseated={comingUnseated.map(faceOf)}
+            pickedId={pickedId}
+            canEdit={canEdit}
+            open={faceOpen}
+            onToggle={toggleFaceFold}
+            onOpenGuest={tapFace}
+            onPick={(id) => {
+              setBlankAt(null);
+              setPickedId((cur) => (cur === id ? null : id));
+            }}
+            onRemove={unseat}
+            onSeatHere={tapBlank}
+            addMenu={seatListAdd}
+            headTools={seatListPencil}
+            renaming={seatListRename}
+            tableTools={seatListTools}
+            onDrop={dropSeat}
+            dim={seatDim}
+          />
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
             {tables.length === 0 ? (
@@ -7840,6 +9301,16 @@ export function SeatingEditor({
                   const open = cap - seated.length;
                   return (
                     <li key={u.key} className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                      {/* 👈 The table's Delete is its head's swipe (owner 2026-11-03) — the same ask, then Undo. */}
+                      <SwipeToDelete
+                        label={`Delete ${u.label}`}
+                        radiusClass=""
+                        disabled={!canEdit}
+                        onDelete={(close) => {
+                          close();
+                          requestRemoveUnit(u);
+                        }}
+                      >
                       <div className="flex items-center gap-2 p-3">
                         <span
                           className="h-3 w-3 shrink-0 rounded-full"
@@ -7882,15 +9353,8 @@ export function SeatingEditor({
                           </span>
                           <ChevronDown className={`h-4 w-4 text-ink/40 transition ${expanded ? 'rotate-180' : ''}`} />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => requestRemoveUnit(u)}
-                          aria-label={`Delete ${u.label}`}
-                          className="rounded p-1 text-ink/30 hover:bg-danger-50 hover:text-danger-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
+                      </SwipeToDelete>
 
                       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
                         {seated.length === 0 ? (
@@ -8002,14 +9466,20 @@ export function SeatingEditor({
             </p>
           </div>
         )}
+        {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
+        {inGuests && view === 'plan' ? zoomStack : null}
         {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
             always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
             stays mounted beneath it, so its lock, guests and lists stay put. */}
-        {details?.lab ? (
-          <div data-seat-plan-3d="" className="absolute inset-0 z-[45] overflow-hidden bg-cream">
+        {details?.lab && (!inGuests || seen3d) ? (
+          /* 🗂 R4: in Guests the room is mounted the first time it is opened and KEPT (hidden while 2D or List shows) —
+             its code and its lock load once. */
+          <div data-seat-plan-3d="" hidden={!in3d} className="absolute inset-0 z-[45] overflow-hidden bg-cream">
             {details.lab}
           </div>
         ) : null}
+        {/* 🧭 Studio: the thumb-zone tools and the people, pulled up over the map. */}
+        {studioPeople}
       </div>
       </FrameBody>
       {/* 📱 Under the plan: the room in one line, and the 3D door (one layout). */}
@@ -8023,7 +9493,8 @@ export function SeatingEditor({
       {isNarrow && !details ? (
         <div
           ref={drawerRef}
-          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
+          data-safe-x=""
+          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
           style={{ height: drawerHeight }}
         >
           <button
@@ -8047,8 +9518,9 @@ export function SeatingEditor({
 
       {/* auto-arrange confirm */}
       {confirmAuto ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmAuto(false)} />
+          <div ref={confirmAutoRef} role="dialog" aria-modal="true" aria-label="Auto Arrange" className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
@@ -8077,7 +9549,7 @@ export function SeatingEditor({
                 confirm later. No one you&rsquo;ve placed is moved; sweetheart tables are skipped.
               </li>
             </ol>
-            {roleSeatingRows.length > 0 ? (
+            {roleSeatingRows.length > 0 || vipTableCount > 0 ? (
               <div className="mt-3 border-t border-ink/10 pt-3">
                 <p className="text-sm font-semibold text-ink/85">Who sits together</p>
                 <p className="mt-0.5 text-xs text-ink/55">
@@ -8100,7 +9572,10 @@ export function SeatingEditor({
               </button>
               <button
                 type="button"
-                onClick={runAutoArrange}
+                onClick={() => {
+                  setConfirmAuto(false);
+                  askAutoArrange();
+                }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
               >
                 <Sparkles className="h-4 w-4" /> Auto Arrange
@@ -8113,8 +9588,9 @@ export function SeatingEditor({
       {/* Fill-around-locked confirm (smart seat-plan Phase 4) — it CLEARS unlocked
           seats and re-seats around the locked ones, so it asks first. */}
       {confirmFill ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmFill(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmFill(false)} />
+          <div ref={confirmFillRef} role="dialog" aria-modal="true" aria-label="Fill around locked seats" className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Lock className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>
@@ -8145,58 +9621,68 @@ export function SeatingEditor({
         </div>
       ) : null}
 
-      {/* delete-table confirm — shown only when seated guests would be released.
-          Bottom sheet on phones (thumb zone, safe area), centered card otherwise. */}
+      {/* delete-table confirm — shown only when seated guests would be released. THE CENTRED CONFIRM BOX (the approved template, `GuestPopup kind="confirm"`: dark and blurred
+          behind, nothing behind works, a tap on the dark keeps): Cancel first, the doing answer second — same handlers as the bottom sheet it replaced. */}
+      {confirmSwap ? (
+        <GuestPopup kind="confirm" onClose={() => setConfirmSwap(null)} labelledById="seat-swap-confirm-title">
+          {(() => {
+            const ta = tables.find((x) => x.table_id === confirmSwap.a);
+            const tb = tables.find((x) => x.table_id === confirmSwap.b);
+            return (
+              <div className="space-y-3" data-seat-plan-swap-confirm="">
+                <h3 id="seat-swap-confirm-title" className="font-display text-xl text-ink">
+                  Swap {ta?.table_label ?? 'this table'} and {tb?.table_label ?? 'that table'}?
+                </h3>
+                <p className="text-sm leading-relaxed text-ink/70">
+                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {ta?.table_label} move to {tb?.table_label}, and the{' '}
+                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {tb?.table_label} move to {ta?.table_label} — each keeps their chair number.
+                </p>
+                <GuestConfirmActions
+                  keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmSwap(null)} />}
+                  go={<ActionButton tone="brand" main icon={Check} label="Swap tables" onClick={() => doSwapTables(confirmSwap.a, confirmSwap.b)} />}
+                />
+              </div>
+            );
+          })()}
+        </GuestPopup>
+      ) : null}
+      {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
+      <UndoToastHost />
       {confirmDelete ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 md:items-center md:p-4"
-          onClick={() => setConfirmDelete(null)}
-        >
-          <div
-            className="w-full rounded-t-2xl border border-ink/10 bg-cream p-5 shadow-xl md:max-w-sm md:rounded-2xl"
-            style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(() => {
-              const seatedTotal = confirmDelete.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
-              const joined = confirmDelete.members.length > 1;
-              return (
-                <>
-                  <div className="mb-2 flex items-center gap-2">
-                    <Trash2 className="h-5 w-5 text-danger-600" />
-                    <h3 className="text-lg font-semibold text-ink">Delete {confirmDelete.label}?</h3>
-                  </div>
-                  <p className="text-sm text-ink/70">
-                    <span className="font-semibold">{formatCount(seatedTotal)}</span> seated{' '}
-                    {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
-                    <span className="font-semibold">Unseated</span>, and the{' '}
-                    {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from
-                    the plan.
-                  </p>
-                  <div className="mt-4 flex gap-2 md:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(null)}
-                      className="h-11 flex-1 rounded-lg border border-ink/15 bg-cream px-3 text-sm text-ink hover:bg-ink/5 md:h-auto md:flex-none md:py-1.5"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        confirmDelete.members.forEach((m) => removeTable(m.table_id));
-                        setConfirmDelete(null);
-                      }}
-                      className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-danger-600 px-3 text-sm font-semibold text-cream hover:bg-danger-700 md:h-auto md:flex-none md:py-1.5"
-                    >
-                      <Trash2 className="h-4 w-4" /> {joined ? 'Delete unit' : 'Delete table'}
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
+        <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
+          {(() => {
+            const seatedTotal = confirmDelete.members.reduce((n, m) => n + seatedAt(m.table_id), 0);
+            const joined = confirmDelete.members.length > 1;
+            return (
+              <div className="space-y-3" data-seat-plan-delete-confirm="">
+                <h3 id="seat-delete-confirm-title" className="font-display text-xl text-ink">
+                  Delete {confirmDelete.label}?
+                </h3>
+                <p className="text-sm leading-relaxed text-ink/70">
+                  <span className="font-semibold">{formatCount(seatedTotal)}</span> seated {seatedTotal === 1 ? 'guest' : 'guests'} will go back to{' '}
+                  <span className="font-semibold">Unseated</span>, and the {joined ? `${confirmDelete.members.length} joined tables are` : 'table is'} removed from the plan.
+                </p>
+                <GuestConfirmActions
+                  keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmDelete(null)} />}
+                  go={
+                    <div data-seat-plan-delete-go="">
+                      <ActionButton
+                        tone="danger"
+                        main
+                        icon={Trash2}
+                        label={joined ? 'Delete unit' : 'Delete table'}
+                        onClick={() => {
+                          removeTables(confirmDelete.members.map((m) => m.table_id), confirmDelete.label);
+                          setConfirmDelete(null);
+                        }}
+                      />
+                    </div>
+                  }
+                />
+              </div>
+            );
+          })()}
+        </GuestPopup>
       ) : null}
 
       {/* 🪑 Details: the place's elements into the navigator, the guests into the
@@ -8206,7 +9692,7 @@ export function SeatingEditor({
           <SeatPlanPortal name="place" on>
             {placeList}
           </SeatPlanPortal>
-          <SeatPlanPortal name="guests" on>
+          <SeatPlanPortal name="guests" on={!peopleInSheet && !roomOnly}>
             {guestsNode}
           </SeatPlanPortal>
         </>
@@ -8544,21 +10030,14 @@ function SeatPeoplePanel({
   return (
     <div className="w-full rounded-xl border border-ink/10 bg-ink/[0.03] p-2">
       <div className="mb-2 flex items-center gap-2">
-        <div className="inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5">
+        {/* The app's ONE pill selector (owner 2026-10-08) — three views of who can sit here. */}
+        <PillTrack grow data-seat-pick-tabs="">
           {(['guest', 'group', 'role'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onTab(t)}
-              aria-pressed={tab === t}
-              className={`flex-1 rounded-md px-2 py-1 text-xs font-medium capitalize transition ${
-                tab === t ? 'bg-ink/[0.06] text-ink' : 'text-ink/55 hover:text-ink'
-              }`}
-            >
+            <PillButton key={t} on={tab === t} onClick={() => onTab(t)} aria-pressed={tab === t} className="capitalize">
               {t}
-            </button>
+            </PillButton>
           ))}
-        </div>
+        </PillTrack>
         <span className={`shrink-0 text-[11px] ${free === 0 ? 'text-danger-600' : 'text-ink/55'}`}>
           {formatCount(seated)}/{formatCount(cap)} · {free} free
         </span>
@@ -8762,6 +10241,7 @@ function AddTablePanel({
   onTableFourWarning,
   onDone,
   onLockLost,
+  onNotSaved,
 }: {
   eventId: string;
   lockId: string | null;
@@ -8781,6 +10261,8 @@ function AddTablePanel({
   // Called when createTable reports the editor lock was lost (peer takeover) so
   // the parent drops to view-only + notices, instead of an unhandled throw.
   onLockLost: (err: unknown) => boolean;
+  /** The create never answered, or was refused: the parent says so in the plan's notice strip; the form stays open. */
+  onNotSaved: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   // A table can't have more seats than its TYPE allows (a Sweetheart seats 2).
@@ -8814,7 +10296,10 @@ function AddTablePanel({
             await createTable(fd);
           } catch (err) {
             if (onLockLost(err)) return; // handled — dropped to view-only
-            throw err;
+            /* 📵 Never thrown into this transition (it replaced the whole plan with the app's error screen): said in
+               the notice strip, and the form stays open with what was typed. */
+            onNotSaved();
+            return;
           }
           onDone();
         });

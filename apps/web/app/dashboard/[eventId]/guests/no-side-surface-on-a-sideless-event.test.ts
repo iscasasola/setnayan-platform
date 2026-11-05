@@ -68,13 +68,11 @@ function componentBody(src: string, name: string): string {
 }
 
 const COMPONENTS: ReadonlyArray<{ file: string; name: string }> = [
-  { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'RosterBulkBar' },
-  { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'NewGroupInlineForm' },
-  { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'MobileListRow' },
-  { file: 'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', name: 'GroupChipList' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'GroupsSidebarBody' },
-  { file: 'app/dashboard/[eventId]/guests/_components/groups-sidebar.tsx', name: 'TeamSideSelect' },
+  { file: 'app/dashboard/[eventId]/guests/_components/new-group-inline-form.tsx', name: 'NewGroupInlineForm' },
+  // (groups-sidebar.tsx — GroupsSidebarBody, TeamSideSelect — was deleted with
+  // the retired filter row, Maker PR 4f, 2026-10-07.)
   { file: 'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', name: 'GuestCardBody' },
+  { file: 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx', name: 'GuestsScreen' },
   { file: 'app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx', name: 'GuestNameFields' },
   { file: 'app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx', name: 'QuickAddSheet' },
   { file: 'app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx', name: 'CheckinDesk' },
@@ -106,7 +104,12 @@ test('the guest’s own page draws a side only from the wedding-only part', () =
   // people); the widget and the ticket line draw only through it.
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /const sideLabel: string \| null = !weddingOnly\.side_labels\s*\? null/);
-  assert.match(body, /\{sideLabel \? \(\s*<>\s*\{' '\}·\{' '\}/, 'the ticket line "You’re joining us as … · Both sides" is not gated');
+  // (2026-10-24: the "You're joining us as … · <side>" sentence became the greeting's role line — its side comes ONLY
+  // from `sideLabel`, and the greeting draws no tail when it is null.)
+  assert.match(body, /guestGreetingOf\(\{[\s\S]{0,300}?\bsideLabel,/, 'the greeting’s side is not the gated `sideLabel`');
+  const greeting = read('lib/guest-greeting.ts');
+  assert.match(greeting, /input\.sideLabel\?\.trim\(\) \|\| null/, 'the greeting computes its own side words');
+  assert.doesNotMatch(greeting, /SIDE_LABELS|'Both sides'|side ===/, 'the greeting computes its own side words');
   const widget = read('app/[slug]/_components/hideable-widget-render.tsx');
   assert.doesNotMatch(widget, /SIDE_LABELS|'Both sides'/, 'the widget computes its own side words');
   assert.match(widget, /sideLabel \? <Detail label="Side"/);
@@ -120,7 +123,9 @@ test('the pages that mount them pass the gate down', () => {
   assert.match(claims, /const hasSides = eventHasSides\(\{ coupleRoles \}\)/);
   assert.match(claims, /<KeepQuickAdd[\s\S]*?hasSides=\{hasSides\}/, 'the Accept quick add is not told whether the event has sides');
   assert.match(read('app/dashboard/[eventId]/guests/new/page.tsx'), /<GuestNameFields[^>]*hasSides=\{hasSides\}/);
-  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<GroupsSidebar[\s\S]*?hasSides=\{hasSides\}/);
+  // ⤷ Maker PR 4f: the Guest list is GuestsScreen (GroupsSidebar's inline mount
+  // left with the retired filter row).
+  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /<GuestsScreen[\s\S]*?hasSides=\{hasSides\}/);
 });
 
 test('the door refusals name the event’s own organizer, not "the couple"', () => {

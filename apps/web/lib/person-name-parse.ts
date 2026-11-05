@@ -140,8 +140,14 @@ const GIVEN_ABBR = new Set<string>(['ma', 'mo', 'jo', 'a', 'j']);
 /**
  * Surname particles. The family name STARTS here, so "Gabriel dela Peña"
  * splits first='Gabriel', last='dela Peña' — never last='Peña'.
+ *
+ * Exported for ONE reader besides the splitter: `displayPersonName`
+ * (lib/person-name-case.ts), which keeps these lower case after the first word
+ * when it cases a name typed all lower case (owner 2026-10-21) — minus the
+ * words that are capitalised in Filipino surnames (San · Santa · Santo · Sta. ·
+ * Sto. · Mac · Mc · Ng). One list, so a particle added here is a particle there.
  */
-const PARTICLES = new Set<string>([
+export const PARTICLES: ReadonlySet<string> = new Set<string>([
   'de', 'del', 'dela', 'delas', 'delos', 'della', 'di', 'da', 'das', 'dos',
   'du', 'la', 'las', 'le', 'los', 'van', 'von', 'der', 'den', 'ter', 'ten',
   'bin', 'binti', 'binte', 'ibn', 'al', 'el', 'san', 'santa', 'santo',

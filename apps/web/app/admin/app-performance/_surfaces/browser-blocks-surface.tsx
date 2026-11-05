@@ -106,6 +106,8 @@ export async function BrowserBlocksSurface() {
               <strong>{origins}</strong> {origins === 1 ? 'source' : 'sources'},
               busiest first. A source that appears here repeatedly and is one of
               ours belongs in the allowlist before the policy is tightened.
+              Since 13 October 2026 a block is counted at most once per server
+              every ten minutes, so the numbers say how often, not how many.
             </>
           }
           empty={{

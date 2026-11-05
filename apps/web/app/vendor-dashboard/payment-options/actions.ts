@@ -9,19 +9,38 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   classifyPaymentLink,
   initialLinkModeration,
-  isVendorProActive,
+  isShopProActive,
   type PaymentMethodType,
 } from '@/lib/vendor-payment-methods';
 import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
 import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 
-const BASE = '/vendor-dashboard/payment-options';
+/**
+ * Where an answer lands: Your details › How clients pay you (step 5, 2026-10-14) — straight there, not through the
+ * `/payment-options` forwarding stub, so the supplier sees the result on the fold they pressed in.
+ */
+const LANDING = '/vendor-dashboard/profile';
 
-function flash(msg: string): never {
-  redirect(`${BASE}?msg=${encodeURIComponent(msg)}`);
+/**
+ * ⚙ CUSTOMERS SETTINGS mounts this same editor ("Getting paid", owner 2026-10-28: "Customers ⚙ = getting paid + …").
+ * A save made THERE comes back THERE — Customers with its ⚙ still open (`gear=1`) and the answer said inside the sheet
+ * — never to Your details ("a save never resets the screen"). `return_to=customers` + `return_seg` say so; anything
+ * else lands where it always has.
+ */
+function landingOf(formData: FormData): (kind: 'msg' | 'error', msg: string) => string {
+  if (formData.get('return_to') === 'customers') {
+    const seg = String(formData.get('return_seg') ?? '');
+    const segQ = seg === 'dates' || seg === 'money' ? `seg=${seg}&` : '';
+    return (kind, msg) => `/vendor-dashboard/customers?${segQ}gear=1&g${kind}=${encodeURIComponent(msg)}`;
+  }
+  return (kind, msg) => `${LANDING}?${kind}=${encodeURIComponent(msg)}#pay`;
 }
-function fail(msg: string): never {
-  redirect(`${BASE}?error=${encodeURIComponent(msg)}`);
+function answers(formData: FormData): { flash: (msg: string) => never; fail: (msg: string) => never } {
+  const to = landingOf(formData);
+  return {
+    flash: (msg) => redirect(to('msg', msg)),
+    fail: (msg) => redirect(to('error', msg)),
+  };
 }
 
 function str(raw: FormDataEntryValue | null, max = 200): string | null {
@@ -42,7 +61,11 @@ async function requireVendor() {
 }
 
 export async function addPaymentMethod(formData: FormData) {
-  const { supabase, userId, vendorProfileId } = await requireVendor();
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
+  const { supabase, vendorProfileId } = await requireVendor();
 
   const methodType = str(formData.get('method_type')) as PaymentMethodType | null;
   if (methodType !== 'bank' && methodType !== 'qr' && methodType !== 'link') {
@@ -106,8 +129,8 @@ export async function addPaymentMethod(formData: FormData) {
     // link — Pro/Enterprise only
     // The final action — where a Pro-less shop is asked, and only while the
     // switch is on (vendorPaywallApplies). Off, every shop may add a link.
-    if (vendorPaywallApplies(await isVendorProActive(supabase, userId)))
-      fail('Payment links are part of Pro and Enterprise. Pick one on the Plans page to add this link.');
+    if (vendorPaywallApplies(await isShopProActive(supabase, vendorProfileId)))
+      fail('Payment links are part of Pro and Ultra. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');
     const cls = classifyPaymentLink(url);
@@ -144,7 +167,8 @@ export async function addPaymentMethod(formData: FormData) {
     }
   }
 
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash(
     approved
       ? 'Payment option saved — it’s now on your clients’ payment screen.'
@@ -153,6 +177,10 @@ export async function addPaymentMethod(formData: FormData) {
 }
 
 export async function deletePaymentMethod(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   if (!id) fail('Missing payment option.');
@@ -162,11 +190,16 @@ export async function deletePaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash('Payment option removed.');
 }
 
 export async function setPrimaryPaymentMethod(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   if (!id) fail('Missing payment option.');
@@ -183,11 +216,16 @@ export async function setPrimaryPaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash('Primary payment option updated.');
 }
 
 export async function togglePaymentMethodShown(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   const currentlyShown = str(formData.get('is_shown')) === 'true';
@@ -198,6 +236,7 @@ export async function togglePaymentMethodShown(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash(!currentlyShown ? 'Now showing to clients.' : 'Hidden from clients.');
 }

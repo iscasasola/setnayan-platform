@@ -35,7 +35,10 @@ test('off leaves the event QR off the prints and the guest keepsake', () => {
 
 test('the Studio switch drafts it, on by default', () => {
   const tools = read('app/dashboard/[eventId]/launch/_components/studio-tools.tsx');
-  assert.match(tools, /draftSend\(eventId, \{ events: \{ qr_shown: next \} \}\)/);
+  /* Drafted — ONE held write of the column (`studioDraftKeep`, the Info rows' one way to keep an answer). */
+  assert.match(tools, /studioDraftKeep\(eventId, 'events:qr_shown', \{ qr_shown: next \}\)/);
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
-  assert.match(details, /<StudioTool part="qr-shown" eventId=\{eventId\} shown=\{st\.qrShown !== false\} \/>/);
+  /* Drawn in Info's fold "More for guests" (`StudioHubSettings`), on unless it was switched off. */
+  assert.match(details, /qrShown=\{st\.qrShown !== false\}/);
+  assert.match(tools, /<StudioQrShown eventId=\{eventId\} shown=\{qrShown\}>/);
 });

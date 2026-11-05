@@ -5,28 +5,26 @@
 //
 // Server actions for the per-service workspace page.
 //
-// createAutoShareInviteAction — explicitly generates the auto-share claim link
-//   for a manual (off-platform) vendor the host has locked. This REPLACES the
-//   prior render-time self-heal: generating an invite is a write, and a server-
-//   component GET render (including Next.js prefetch) must never write. The
-//   workspace page now renders a "Create a shareable invite link" button that
-//   posts here instead.
+// 🔗 createAutoShareInviteAction is GONE (2026-11-02): the claim link's one door is the supplier's row on
+//   Suppliers › Booked › Team (`ClaimDoor`, booked-row.tsx), whose Share asks the one idempotent link writer
+//   (`createManualVendorInvite` → `ensureAutoShareInvite`, gated on `canInviteSupplier`).
 //
 // (The previous advanceWorkspaceStatus / advanceWorkspaceStatusForm exports were
 //  removed — they had zero callers and the status stepper is driven off the
 //  vendor_status enum, so workspace_status was never written.)
 //
-// Auth: gate on signed-in user, then rely on RLS — ensureAutoShareInvite runs
-// under the host's session client, which can only touch their own event_vendors
-// rows.
 // ============================================================================
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { ensureAutoShareInvite } from '@/lib/vendor-invites';
-import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { COVER_TILE_PREFIX, tileForCover } from '@/lib/shortlist-taxonomy';
+import { restoreTileToPlan } from '../../category-decision-actions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { planSupplierMove } from '@/lib/move-supplier-category';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   WORKING_NOTE_BODY_MAX,
   isCoordinatorVendorNotesEnabled,
@@ -35,60 +33,9 @@ import {
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
-
-/**
- * Idempotently create (or re-read) the auto-share claim link for a locked
- * off-platform supplier. Form-only — returns void and revalidates so the
- * freshly created link renders on the next paint. Silently no-ops on bad
- * input; the unique index in ensureAutoShareInvite makes repeat submits safe.
- *
- * ⚠ THIS WAS THE FOURTH ANSWER TO ONE QUESTION, AND IT WAS "NO CONDITION AT
- * ALL" — it minted an invite for whatever vendor_id the form named, including a
- * marketplace-linked supplier who already has an account and for whom the
- * invite is a no-op. It now asks `canInviteSupplier`, the same predicate the
- * page above it and both vendor actions ask.
- *
- * 🔑 AND THE INVITE'S IDENTITY NOW COMES FROM THE ROW, NOT THE FORM. The
- * denormalized `business_name` on `vendor_invites` is what the public claim
- * page shows the supplier; taking it from a hidden input let a caller stamp any
- * name onto it. Reading it here costs one query that the gate needs anyway.
- */
-export async function createAutoShareInviteAction(formData: FormData): Promise<void> {
-  const eventId = formData.get('event_id');
-  const vendorId = formData.get('vendor_id');
-
-  if (typeof eventId !== 'string' || typeof vendorId !== 'string') return;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // RLS scopes this to the caller's own events, so the read is the ownership
-  // check as well as the gate's input.
-  const { data: row } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name, category, marketplace_vendor_id')
-    .eq('event_id', eventId)
-    .eq('vendor_id', vendorId)
-    .maybeSingle();
-  if (!row || !canInviteSupplier(row)) return;
-
-  await ensureAutoShareInvite(supabase, {
-    eventVendorId: vendorId,
-    invitedByUserId: user.id,
-    businessName:
-      typeof row.vendor_name === 'string' && row.vendor_name.trim().length > 0
-        ? row.vendor_name.trim()
-        : 'Supplier',
-    serviceCategory: typeof row.category === 'string' && row.category.length > 0
-      ? row.category
-      : null,
-  });
-
-  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
-}
+import { PAY_WAYS_PRESENT_FIELD, parsePostedPayWays } from '@/lib/self-added-pay-ways';
+import { budgetPaymentProofPolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 // ============================================================================
 // updateHostServiceDetails (2026-06-11 · dual-path DIY parity, owner doctrine:
@@ -107,6 +54,7 @@ const MAX_INCLUSIONS = 20;
 const MAX_INCLUSION_LEN = 120;
 
 export async function updateHostServiceDetails(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (
@@ -130,14 +78,21 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
     ),
   ].slice(0, MAX_INCLUSIONS);
 
-  // "Also covers" — validated against the canonical plan groups so the column
-  // never stores an off-registry id.
+  // "Also covers" — the Suppliers page's rows (2026-10-20, `coverKeyForTile`):
+  // a plan-group id, or `tile:<id>` for a row no plan group opens on. Each is
+  // validated against its OWN registry so the column never stores an
+  // off-registry key — a plan group against PLAN_GROUPS, a row against the
+  // taxonomy snapshot the Suppliers page draws its rows from.
   const validGroups = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+  const knownTiles = (await getTaxonomy()).tileLabel as Record<string, string>;
+  const isValidCover = (c: string) =>
+    validGroups.has(c) ||
+    (c.startsWith(COVER_TILE_PREFIX) && typeof knownTiles[c.slice(COVER_TILE_PREFIX.length)] === 'string');
   const covers = [
     ...new Set(
       formData
         .getAll('covers')
-        .filter((c): c is string => typeof c === 'string' && validGroups.has(c)),
+        .filter((c): c is string => typeof c === 'string' && isValidCover(c)),
     ),
   ];
 
@@ -156,6 +111,18 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
   // that matches nothing returns NO ERROR: the host pressed save, nothing
   // happened, and nothing said so. The render gate above hid the form from
   // those suppliers too, so the two failures concealed each other.
+  // What it covered BEFORE this save — so a row ticked just now can be put on
+  // the event (below) without re-adding every row on each save.
+  const { data: before } = await supabase
+    .from('event_vendors')
+    .select('covers_plan_groups')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const coveredBefore = new Set<string>(
+    Array.isArray(before?.covers_plan_groups) ? (before.covers_plan_groups as string[]) : [],
+  );
+
   const { error } = await supabase
     .from('event_vendors')
     .update({ host_inclusions: inclusions, covers_plan_groups: covers })
@@ -164,10 +131,168 @@ export async function updateHostServiceDetails(formData: FormData): Promise<void
     .is('marketplace_vendor_id', null);
   if (error) throw new Error(error.message);
 
+  // A ROW TICKED HERE IS ON THE EVENT (owner 2026-10-20: ticking one the plan
+  // does not have yet "adds it the same way the Suppliers page adds a row").
+  // The SAME action as the page's "＋ Add to your event" — `restoreTileToPlan`
+  // clears a removal and records the row in `added_categories` — so there is no
+  // second writer of "which rows this event has". Its refusal (flag off, not a
+  // host) is not this save's failure: the covers above are already stored, and
+  // the card still draws under the row whenever the page shows it.
+  for (const key of covers) {
+    if (coveredBefore.has(key)) continue;
+    const tile = tileForCover(key);
+    if (!tile) continue;
+    await restoreTileToPlan({ eventId, tile });
+  }
+
   // 'layout' on /vendors so the Shortlist card chips + Compare inclusions
   // pick up the new covers/inclusions on the next paint.
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// moveSupplierToCategory (owner 2026-10-20 — "Move to another category" → "okay")
+//
+// Moves the card's OWN row: Dunkin' Donuts, typed in under Everything else, is
+// really a Food Truck. The plan is `planSupplierMove` (pure, shared with the
+// guard): `category` = the enum label the rest of the app keys on,
+// `category_key` = the row itself when the enum cannot name it, and "also
+// covers" without the new home or the old one. Price, payments, notes and the
+// contact card live on this same row, so they move with it.
+//
+// AUTH — THE SAME AS THE CARD'S OTHER EDITS (`updateHostServiceDetails`): a
+// signed-in session, the write under RLS (the event's own couple / a writing
+// coordinator), and off-platform rows only (`marketplace_vendor_id IS NULL`).
+// A supplier with a shop of their own never shows this block: their card is
+// theirs, and what they may see of the event is decided by this very column
+// (`get_vendor_seat_plan` / `get_vendor_event_brief` key on
+// `event_vendors.category`), so it is not moved from here.
+//
+// 🔑 A ZERO-ROW UPDATE IS NOT A MOVE. `.select()` reads the row back; nothing
+// returned means RLS or the off-platform rule refused it, and the couple is
+// told so instead of seeing "Moved".
+//
+// The supplier's claim link (`vendor_invites.service_category`, the category
+// the claim files their shop under) is kept in step while it is pending or
+// claimed-and-waiting-for-Approve — on the admin
+// client, AFTER the session write above proved the caller may write this row,
+// because a coordinator holds no RLS on `vendor_invites`.
+// ============================================================================
+
+export type MoveSupplierResult =
+  | { ok: true; from: string | null; to: string; removedCovers: string[]; warning?: string }
+  | { ok: false; error: string };
+
+export async function moveSupplierToCategory(input: {
+  eventId: string;
+  vendorId: string;
+  tile: string;
+  /** Undo only: "also covers" keys the move took off, put back. Validated like a save. */
+  restoreCovers?: string[];
+}): Promise<MoveSupplierResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const eventId = typeof input?.eventId === 'string' ? input.eventId : '';
+  const vendorId = typeof input?.vendorId === 'string' ? input.vendorId : '';
+  const tile = typeof input?.tile === 'string' ? input.tile.trim() : '';
+  if (!eventId || !vendorId || !tile) return { ok: false, error: 'Invalid input' };
+
+  // The target must be a row the Suppliers page can draw — the same snapshot
+  // the page and the picker are built from.
+  const knownTiles = (await getTaxonomy()).tileLabel as Record<string, string>;
+  if (typeof knownTiles[tile] !== 'string') return { ok: false, error: 'That category is not on the list.' };
+  const validGroups = new Set<string>(PLAN_GROUPS.map((g) => g.id as string));
+  const restore = (Array.isArray(input.restoreCovers) ? input.restoreCovers : []).filter(
+    (c): c is string =>
+      typeof c === 'string' &&
+      (validGroups.has(c) ||
+        (c.startsWith(COVER_TILE_PREFIX) && typeof knownTiles[c.slice(COVER_TILE_PREFIX.length)] === 'string')),
+  );
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+
+  // Under the caller's own RLS — the read is the ownership check.
+  const { data: row, error: readErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, category, category_key, covers_plan_groups, marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .maybeSingle();
+  if (readErr) {
+    logQueryError('moveSupplierToCategory.read', readErr, { event_id: eventId, vendor_id: vendorId });
+    return { ok: false, error: 'That did not load. Please try again.' };
+  }
+  if (!row) return { ok: false, error: 'Supplier not found.' };
+  const name = typeof row.vendor_name === 'string' && row.vendor_name.trim() ? row.vendor_name.trim() : 'This supplier';
+  if (row.marketplace_vendor_id) {
+    return { ok: false, error: `${name} is on Setnayan now — their card can’t be moved from here.` };
+  }
+
+  const plan = planSupplierMove(
+    {
+      category: row.category as string,
+      category_key: (row.category_key as string | null) ?? null,
+      covers_plan_groups: (row.covers_plan_groups as string[] | null) ?? [],
+    },
+    tile,
+    restore,
+  );
+  if ('refused' in plan) return { ok: false, error: `${name} is already in that category.` };
+
+  const { data: moved, error: moveErr } = await supabase
+    .from('event_vendors')
+    .update({ category: plan.category, category_key: plan.category_key, covers_plan_groups: plan.covers })
+    .eq('event_id', eventId)
+    .eq('vendor_id', vendorId)
+    .is('marketplace_vendor_id', null)
+    .select('vendor_id');
+  if (moveErr) {
+    logQueryError('moveSupplierToCategory.update', moveErr, { event_id: eventId, vendor_id: vendorId, tile });
+    // 23505: a category that holds one booked supplier only already has one.
+    return {
+      ok: false,
+      error:
+        moveErr.code === '23505'
+          ? `${knownTiles[tile]} already has a booked supplier, so ${name} can’t move there.`
+          : `${name} did not move. Please try again.`,
+    };
+  }
+  if (!moved || moved.length === 0) return { ok: false, error: `${name} did not move. Please try again.` };
+
+  const warnings: string[] = [];
+  const { error: inviteErr } = await createAdminClient()
+    .from('vendor_invites')
+    .update({ service_category: plan.category })
+    .eq('vendor_id', vendorId)
+    // 'claimed' too: since #6709 a claim waits for the couple's Approve with the
+    // record still unlinked (this row passed `marketplace_vendor_id IS NULL`),
+    // and the claim's own service registration checks this category.
+    .in('status', ['pending', 'claimed']);
+  if (inviteErr) {
+    logQueryError('moveSupplierToCategory.invite', inviteErr, { event_id: eventId, vendor_id: vendorId });
+    warnings.push('their sign-up link still names the old category');
+  }
+
+  // A row the event does not have yet is put on it the way "Also covers" and
+  // "＋ Add to your event" do — the one writer of which rows an event has. Its
+  // refusal is not the move's failure: a row holding a supplier always draws.
+  await restoreTileToPlan({ eventId, tile }).catch(() => null);
+
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+  revalidatePath(`/dashboard/${eventId}/budget`);
+  return {
+    ok: true,
+    from: plan.from,
+    to: plan.to,
+    removedCovers: plan.removedCovers,
+    ...(warnings.length > 0 ? { warning: `Moved — but ${warnings.join(' and ')}.` } : {}),
+  };
 }
 
 // ============================================================================
@@ -212,6 +337,7 @@ async function resolveWorkingNoteViewer(
 
 /** Append one working-folder note. Form-only; silent no-op on bad input. */
 export async function addWorkingNoteAction(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   if (!isCoordinatorVendorNotesEnabled()) return;
 
   const eventId = formData.get('event_id');
@@ -265,6 +391,7 @@ export async function addWorkingNoteAction(formData: FormData): Promise<void> {
 
 /** Remove the caller's OWN note (author safety valve — RLS enforces author). */
 export async function deleteWorkingNoteAction(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   if (!isCoordinatorVendorNotesEnabled()) return;
 
   const eventId = formData.get('event_id');
@@ -359,6 +486,7 @@ function readNote(formData: FormData, key: string, max: number): string | null {
 }
 
 export async function saveSelfAddedServiceCard(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (
@@ -417,6 +545,14 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   // Details sheet would have silently erased the GCash number the couple wrote
   // on the workspace. Same class of bug as the crew reset in updateVendorCosts.
   const carriesMethodNote = formData.has('payment_method_note');
+  // "How to pay them" (the record card, 2026-10-29) — the same rule: written only when the posting form carried the
+  // editor, and REFUSED, before anything is written, when a way cannot be kept as typed (a QR that is not this
+  // event's own private object). Inert words and a picture: nothing here reads or writes a money table.
+  const carriesPayWays = formData.get(PAY_WAYS_PRESENT_FIELD) === '1';
+  const payWays = carriesPayWays
+    ? parsePostedPayWays(formData, (ref) => parseClientRef(ref, budgetPaymentProofPolicy(eventId)) != null)
+    : null;
+  if (payWays && !payWays.ok) throw new Error(payWays.message);
   // A pin is BOTH-OR-NEITHER (the table CHECKs it) and only posted once placed,
   // so absence means "this form did not set one" — never "clear it".
   const pinLat = Number(formData.get('address_latitude'));
@@ -438,6 +574,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
       updated_at: new Date().toISOString(),
     };
     if (carriesMethodNote) update.payment_method_note = paymentMethodNote;
+    if (payWays?.ok) update.pay_ways = payWays.ways;
     if (carriesPin) {
       update.address_latitude = pinLat;
       update.address_longitude = pinLng;
@@ -476,6 +613,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
         contact_number: contactNumber,
         address: address.value,
         payment_method_note: paymentMethodNote,
+        ...(payWays?.ok ? { pay_ways: payWays.ways } : {}),
           created_by_user_id: user.id,
       })
       .select('manual_vendor_id')
@@ -502,4 +640,47 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
 
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
+}
+
+// ============================================================================
+// saveManualVenuePin (2026-10-22) — a manual venue's pin, from Studio › Info,
+// the Suppliers place sheet and Details › Venues.
+//
+// Owner, 2026-10-22: *"manual entry venues can set pin"* · *"manual is the
+// manual added suppliers."* ONE VALUE, TWO DOORS: the pin of a supplier the
+// couple added by hand lives on its contact card, and the card's own writer
+// (`saveSelfAddedServiceCard`, above) is the ONLY thing that writes it — this is
+// that writer with the address and the pin posted, answering in words instead
+// of throwing (an editor saving as you type has no form to throw at). The
+// writer still refuses a booking linked to a Setnayan shop ("their address …
+// come from their own listing"): a shop's pin is the shop's (`lib/venue-pin-door.ts`).
+// ============================================================================
+
+export type ManualVenuePinResult = { ok: true } | { ok: false; error: string };
+
+export async function saveManualVenuePin(input: {
+  eventId: string;
+  vendorId: string;
+  address: string;
+  pin: { lat: number; lng: number } | null;
+}): Promise<ManualVenuePinResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const fd = new FormData();
+  fd.set('event_id', input.eventId);
+  fd.set('vendor_id', input.vendorId);
+  fd.set('address', input.address);
+  if (input.pin) {
+    fd.set('address_latitude', String(input.pin.lat));
+    fd.set('address_longitude', String(input.pin.lng));
+  }
+  try {
+    await saveSelfAddedServiceCard(fd);
+  } catch (e) {
+    /* `redirect('/login')` is thrown, not returned — let it through. */
+    if (e && typeof e === 'object' && 'digest' in e && String((e as { digest?: unknown }).digest).startsWith('NEXT_REDIRECT')) throw e;
+    const msg = e instanceof Error ? e.message : '';
+    return { ok: false, error: msg || 'That did not save. Nothing changed — please try again.' };
+  }
+  return { ok: true };
 }

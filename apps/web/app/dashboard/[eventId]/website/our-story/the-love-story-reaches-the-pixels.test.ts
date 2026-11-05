@@ -68,7 +68,8 @@ test('🔒 the ONE action asks the entitlement helper and the cap BEFORE it writ
   const start = src.indexOf('export async function loveStoryMomentAction');
   assert.ok(start > 0, 'loveStoryMomentAction exists');
   const body = src.slice(start);
-  const pro = body.indexOf('eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)');
+  // 💎 Part by part (2026-10-22): the sixth moment is the Photos part — asked through the same ACTIVE gate.
+  const pro = body.indexOf("eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos')");
   const cap = body.indexOf('momentCapRefusal({ before, after, ownsPro })');
   const write = body.indexOf(".update({ love_story:");
   assert.ok(pro > 0, 'Pro is read with the ACTIVE gate');

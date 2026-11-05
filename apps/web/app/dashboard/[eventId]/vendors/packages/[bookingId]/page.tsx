@@ -23,7 +23,8 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
-import { releasePackage, removeItemFromPackage } from '../actions';
+import { releasePackage } from '../actions';
+import { PackageItemSwipe } from './_components/package-item-swipe';
 import { receiptSections } from './receipt-sections';
 import {
   readPricingSnapshot,
@@ -331,11 +332,9 @@ export default async function PackageBookingPage({ params }: Props) {
             {includedItems.map((item) => {
               const category = resolveVendorCategory(item.canonical_service);
               const categoryLabel = VENDOR_CATEGORY_LABEL[category] ?? category;
-              return (
-                <li
-                  key={item.item_id}
-                  className="flex items-start gap-3 rounded-lg border border-success-200/50 bg-success-50/30 p-3"
-                >
+              const rowClass = 'flex items-start gap-3 rounded-lg border border-success-200/50 bg-success-50/30 p-3';
+              const row = (
+                <>
                   <BookmarkCheck
                     aria-hidden
                     className="mt-0.5 h-4 w-4 shrink-0 text-success-700"
@@ -354,18 +353,23 @@ export default async function PackageBookingPage({ params }: Props) {
                       </p>
                     ) : null}
                   </div>
-                  {isLocked ? (
-                    <form action={removeItemFromPackage}>
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input
-                        type="hidden"
-                        name="booking_id"
-                        value={typedBooking.booking_id}
-                      />
-                      <input type="hidden" name="item_id" value={item.item_id} />
-                      <SubmitButton pendingLabel="Removing…" className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink/70 transition-colors hover:border-danger-300 hover:text-danger-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger-500">Remove</SubmitButton>
-                    </form>
-                  ) : null}
+                </>
+              );
+              /* 👈 Removing a line from a booked package is the row's swipe (owner 2026-11-03), with Undo. */
+              return isLocked ? (
+                <PackageItemSwipe
+                  key={item.item_id}
+                  eventId={eventId}
+                  bookingId={typedBooking.booking_id}
+                  itemId={item.item_id}
+                  name={item.service_description}
+                  className={rowClass}
+                >
+                  {row}
+                </PackageItemSwipe>
+              ) : (
+                <li key={item.item_id} className={rowClass}>
+                  {row}
                 </li>
               );
             })}

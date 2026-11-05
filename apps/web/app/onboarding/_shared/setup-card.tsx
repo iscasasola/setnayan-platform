@@ -80,7 +80,7 @@ export function SetupFrame({
   const [infoOpen, setInfoOpen] = useState(false);
   return (
     <div data-setup-card={dataCard} data-skin={skin}>
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
         {formatCount(n)} of {formatCount(total)}
       </p>
       <div className="mt-2 flex items-start gap-2">
@@ -96,9 +96,11 @@ export function SetupFrame({
           aria-expanded={infoOpen}
           aria-label="More about this"
           onClick={() => setInfoOpen((v) => !v)}
-          className="mt-1 inline-flex !min-h-0 h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink/20 text-xs text-ink/55"
+          className="sn-press sn-press-ring sn-dot-btn mt-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta sm:mt-3"
         >
-          i
+          {/* The house ⓘ, class for class — `<InfoTip>`'s trigger (owner 2026-10-25: "the (i) is not consistent
+              across the app"). Not InfoTip itself: this one opens the line in the page, under the title. */}
+          <span aria-hidden="true">i</span>
         </button>
       </div>
       <p className="mt-2 text-ink/60">{line}</p>
@@ -121,7 +123,7 @@ export function SetupFrame({
         </div>
       ) : null}
 
-      <p className="mt-6 text-xs text-ink/40">{footer}</p>
+      <p className="mt-6 text-xs text-ink/70">{footer}</p>
     </div>
   );
 }
@@ -234,7 +236,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
               return (
                 <div key={row} data-setup-more-row={row}>
                   <p className="text-sm font-medium text-ink/75">{r.title}</p>
-                  <p className="text-xs text-ink/45">{r.line}</p>
+                  <p className="text-xs text-ink/70">{r.line}</p>
                   <div className="mt-2 flex gap-2">
                     {r.options.map((o) => (
                       <button key={o.v} type="button" className={choice(value === o.v)} style={choiceStyle(value === o.v)} onClick={() => onChange({ [row]: o.v } as Partial<SetupAnswers>)}>

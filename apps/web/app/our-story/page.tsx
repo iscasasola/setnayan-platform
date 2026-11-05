@@ -111,13 +111,13 @@ export default async function OurStoryPage() {
             manifesto above untouched. */}
         <section className="border-t border-[var(--m-line)] px-6 py-16 sm:py-20">
           <div className="mx-auto max-w-3xl">
-            <p className="m-eyebrow text-[var(--m-orange)]">What Setnayan is</p>
+            <p className="m-eyebrow text-[var(--m-orange-2)]">What Setnayan is</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               The wedding experience — for the couple, and for everyone who attends
             </h2>
             <p className="mt-5 text-lg leading-relaxed text-[var(--m-slate)]">
               Setnayan is a Filipino wedding platform — and a place that keeps
-              every celebration you hold. The couple plans the whole
+              every event you hold. The couple plans the whole
               event in one place — and on the day, every guest leaves with their
               own tagged photos and a personal highlight reel of the moments that
               involved them. The day doesn&rsquo;t just happen for the couple
@@ -178,7 +178,7 @@ export default async function OurStoryPage() {
               the Google Drive and YouTube connections above — in our{' '}
               <Link
                 href="/privacy"
-                className="font-medium text-[var(--m-orange)] underline-offset-2 hover:underline"
+                className="font-medium text-[var(--m-orange-2)] underline-offset-2 hover:underline"
               >
                 Privacy Policy
               </Link>

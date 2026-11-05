@@ -609,7 +609,7 @@ export async function VendorCard({
               href={href}
               className="inline-flex items-center gap-1 text-xs font-medium text-terracotta hover:underline"
             >
-              View vendor
+              View supplier
               <ExternalLink className="h-3 w-3" strokeWidth={1.75} aria-hidden />
             </Link>
           ) : null}

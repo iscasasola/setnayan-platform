@@ -9,7 +9,7 @@
  * anonymous visitors.
  *
  * WHY A PURE MODULE AND NOT AN INLINE `&&`. Exactly the reason
- * `lib/owner-ribbon.ts` gives: the interesting part is a DECISION ("may this
+ * the old `lib/owner-ribbon.ts` (removed 2026-10-15) gave: the interesting part is a DECISION ("may this
  * viewer see proof of their own presence?"), it sits on a shared path where a
  * mistake leaks guest state to strangers, and it is not testable inside a
  * server component. So the call site becomes `buildAfterEventMemento(...) ? …`
@@ -18,7 +18,7 @@
  * THE ANONYMOUS DENIAL IS RE-STATED, NOT ASSUMED. The call site is already
  * inside `guestTree`, which only runs for `identity.kind === 'guest'` — so
  * `identityKind` below is, strictly speaking, redundant. It is required anyway,
- * and checked first, for the same reason `buildOwnerRibbon` re-checks the
+ * and checked first, for the same reason `viewerIsEventHost` re-checks the
  * capability's event binding: the shared `phasedBody` path is one refactor away
  * from being called with the wrong tier, and a redundant gate that a test pins
  * is cheaper than the leak it prevents. This module can only ever widen who

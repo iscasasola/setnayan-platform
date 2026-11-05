@@ -41,8 +41,8 @@ test('order is the vocab’s own and `enabled` is untouched — suppliers may pr
 const SUPPLIER_SIDE = [
   'app/open-shop/page.tsx',
   'app/open-shop/actions.ts',
-  'app/vendor-dashboard/services/new/page.tsx',
-  'app/vendor-dashboard/services/new/[category]/page.tsx',
+  // The doors into the maker read the roster through their ONE loader (2026-10-14).
+  'lib/service-card-maker.server.ts',
   'app/vendor-dashboard/services/_components/services-manager.tsx',
   'app/vendor-dashboard/services/coverage-actions.ts',
 ];

@@ -1,0 +1,290 @@
+/**
+ * the-guest-page-starts-its-reads-together.test.ts — ⏩ A READ THAT NEEDS
+ * NOTHING FROM ITS NEIGHBOUR DOES NOT WAIT FOR IT, AND THE BODY'S TIME HAS NAMES.
+ *
+ * Production, 2026-10-08 (one guest page, a real event): 2.2 s to render; its
+ * own timing line said `total_ms` ≈ 1,150 with phases summing to ≈ 270. The
+ * body was two dozen `await`s in single file, most of them independent, and
+ * three quarters of its time belonged to no named phase.
+ *
+ * Measured on the harness with a 30 ms database round trip (signed-in view,
+ * 35 requests before AND after — no read added, none removed):
+ *     body total  861–937 ms  →  596–629 ms
+ *
+ * This holds:
+ *   1. `startAhead` — the same promise back, a rejection neither lost nor loud;
+ *   2. what is started ahead on the guest page is awaited by the same call, with
+ *      the same arguments, further down — and is one of a short allowlist (never
+ *      a write, never a read only some viewers get);
+ *   3. `ServerTimer.mark` names a stretch, and whatever is left over is SAID
+ *      (`unnamed`) instead of being found by subtraction.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+import { startAhead } from './start-ahead';
+import { ServerTimer } from './server-timing';
+
+const WEB = join(__dirname, '..');
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/* ═══ 1 · startAhead ═════════════════════════════════════════════════════ */
+
+test('startAhead hands back the SAME promise — the await further down receives exactly what it always did', async () => {
+  const p = Promise.resolve({ rows: 3 });
+  assert.equal(startAhead(p), p);
+  assert.deepEqual(await startAhead(p), { rows: 3 });
+});
+
+test('a read that fails before anything awaits it is neither LOUD (no unhandled rejection) nor LOST (the await still throws it)', async () => {
+  // 🔎 This runner FAILS a test on an unhandled rejection (measured while writing this: a bare
+  // `Promise.reject` left alone for 20 ms failed the test with `failureType: 'unhandledRejection'`) —
+  // so reaching the end of this test is itself the proof that `startAhead` kept the rejection quiet.
+  const loud: unknown[] = [];
+  const onLoud = (e: unknown) => loud.push(e);
+  process.on('unhandledRejection', onLoud);
+  try {
+    const refused = new Error('events read refused');
+    const ahead = startAhead(Promise.reject(refused));
+    // Other work happens; nothing has awaited `ahead` yet.
+    await sleep(20);
+    assert.deepEqual(loud, [], 'a read started ahead raised an unhandled rejection');
+    // The line that always awaited it still gets the failure — the same error, not a value.
+    await assert.rejects(async () => {
+      await ahead;
+    }, (e) => e === refused);
+  } finally {
+    process.off('unhandledRejection', onLoud);
+  }
+});
+
+test('three reads of 40 ms each: in single file ≈ 120 ms, started together ≈ 40 ms — the same three answers', async () => {
+  let asked = 0;
+  const readOf = (v: string) => {
+    asked += 1;
+    return sleep(40).then(() => v);
+  };
+  let t = performance.now();
+  const a1 = await readOf('a');
+  const b1 = await readOf('b');
+  const c1 = await readOf('c');
+  const inFile = performance.now() - t;
+
+  t = performance.now();
+  const bAhead = startAhead(readOf('b'));
+  const cAhead = startAhead(readOf('c'));
+  const a2 = await readOf('a');
+  const b2 = await bAhead;
+  const c2 = await cAhead;
+  const together = performance.now() - t;
+
+  assert.deepEqual([a2, b2, c2], [a1, b1, c1]);
+  assert.equal(asked, 6, 'starting ahead must not add a read: three and three');
+  assert.ok(inFile >= 110, `single file took ${Math.round(inFile)} ms`);
+  assert.ok(together < 90, `started together took ${Math.round(together)} ms — they still waited for each other`);
+});
+
+/* ═══ 2 · THE GUEST PAGE ═════════════════════════════════════════════════ */
+
+const PAGE = read('app/[slug]/page.tsx');
+const LOADERS = read('app/[slug]/_lib/loaders.ts');
+const aheadCalls = (src: string) => [...src.matchAll(/startAhead\(\s*([A-Za-z]+)\(/g)].map((m) => m[1]);
+const count = (src: string, needle: string) => src.split(needle).length - 1;
+
+test('only these reads are started ahead — each one every path below awaits, none of them a write', () => {
+  // ⏩ 2026-10-12 — the second pass. The page also starts the one platform switch the
+  // schedule waits on; the live layer's five reads and the entourage's three event
+  // facts leave together instead of one behind another. Reads, every one.
+  assert.deepEqual(
+    aheadCalls(PAGE).sort(),
+    // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
+    //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
+    // + `readYourSchedule` (2026-11-02, Event Hub › Me › Your schedule): four reads, started once the guest's row is
+    //   known to be theirs, awaited once where Me is drawn — no return lies between (held below).
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readYourSchedule', 'resolveVendorCapability'].sort(),
+  );
+  {
+    const started = PAGE.indexOf('const yourScheduleAhead =');
+    const awaited = PAGE.indexOf('const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;');
+    assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, 'Your schedule is started before the guest is known, or never awaited');
+    assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, 'a path between starting Your schedule and awaiting it leaves without awaiting it');
+    assert.equal(count(PAGE, 'readYourSchedule('), 1, 'Your schedule is asked twice');
+  }
+  assert.deepEqual(
+    aheadCalls(LOADERS).sort(),
+    [
+      'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
+      'hubOwnershipFor',
+      'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
+      // ✉ The invitation's chapters (Step 5, 2026-11-02) — a read beside the schedule, awaited right after it, every path.
+      'readInvitationChapters',
+      'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
+      // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
+      // known to be theirs (the two early returns above them still cost one read).
+      'resolveEventQrLook', 'eventPapicGuestActive', 'resolveGuestCamera', 'getGuestLiveGallery', 'getGuestOwnShots',
+      'resolveFaceTagging', 'readFaceTaggingWish', 'isDataPrivacyControlActive', 'readGuestCheckin', 'readFirstScan',
+      'fetchEventVendorCredits',
+      // 🧍 Whom they stand in for (2026-10-27, `readGuestStandIn`) — a read, beside the others, after the row is theirs.
+      'readGuestStandIn',
+    ].sort(),
+  );
+  // …and none of them leaves before the guest's row has been checked.
+  const CONTEXT = LOADERS.slice(LOADERS.indexOf('export const loadGuestContext = cache('));
+  assert.ok(
+    CONTEXT.indexOf("kind: 'not_found'") > -1 && CONTEXT.indexOf("kind: 'not_found'") < CONTEXT.indexOf('startAhead('),
+    'a read about a guest is started before their row is known to exist',
+  );
+  // A guest's seat, their ticks, the supplier's desk are read only past the session checks — never ahead.
+  assert.doesNotMatch(PAGE, /startAhead\(\s*(findGuestSeatForUser(?:Measured)?|readSeatHolder|loadSupplierDesk|loadChaptersOnThisDay)\(/);
+  // Their own CONTEXT is the one exception (2026-10-12), and only under the three conditions that make every path
+  // below await it: a session was read and verified, it names THIS event, and the address carries no sample-guest `?as=` at all.
+  assert.match(
+    PAGE,
+    /if \(session && session\.event_id === event\.event_id && search\.as === undefined\) \{\s*startAhead\(loadGuestContext\(admin, event, session, dayOfPhase, slug, scheduleBlocksAhead\)\);\s*\}/,
+    'the guest context is started ahead without its three conditions',
+  );
+  assert.equal(count(PAGE, 'startAhead(loadGuestContext('), 1);
+  assert.ok(
+    PAGE.indexOf('const session = passStandingNow.session;') < PAGE.indexOf('startAhead(loadGuestContext('),
+    'the guest context is asked before the session cookie has been read and verified',
+  );
+  // …and it is awaited where it always was, with the SAME arguments (a cookie viewer's `guestSession` IS `session` —
+  // `resolveGuestViewer`), so `cache()` answers it with the read already under way: still one.
+  assert.match(PAGE, /loadGuestContext\(admin, event, guestSession, dayOfPhase, slug, scheduleBlocksAhead\),/);
+  assert.match(read('lib/guest-one-path.ts'), /if \(cookie && cookie\.event_id === eventId\) return \{ kind: 'cookie', session: cookie \};/);
+  // The day-of layer: started once (for the schedule), awaited once with the same arguments.
+  assert.equal(count(PAGE, 'loadLiveLayer(admin, event, dayOfPhase)'), 2);
+  // …and the context loader reads the row before anything else about the guest.
+  assert.match(CONTEXT, /const ownRead = loadGuestOwnRow\(admin, session\.guest_id\);\s*const \{ data: guest, error: guestError \} = await ownRead;/);
+});
+
+test('a `cache()`d read started ahead is awaited by the SAME call with the SAME arguments — so it is still one read', () => {
+  for (const call of [
+    'loadWidgets(admin, event.event_id)',
+    'loadDoorwayFacts(admin, event.event_id, event.event_type ?? null)',
+  ]) {
+    assert.equal(count(PAGE, `startAhead(${call})`), 1, `${call} is not started ahead`);
+    assert.ok(count(PAGE, call) >= 2, `${call}: the awaited call's arguments differ from the one started ahead — two reads`);
+    assert.ok(PAGE.indexOf(`startAhead(${call})`) < PAGE.lastIndexOf(call), `${call} is started after it is awaited`);
+  }
+  // The entourage's two calls share their arguments by name (the host canvas's drafted style and march are objects).
+  assert.equal(count(PAGE, 'startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch))'), 1);
+  assert.match(PAGE, /entourage: await loadEntourage\(\s*admin,\s*event\.event_id,\s*draftedNameStyle,\s*draftedMarch,\s*\)/);
+  assert.equal(count(PAGE, 'hostDraft?.march?.flat()'), 1, 'the drafted march is flattened twice — two arrays, two reads on the host canvas');
+  // The session and the account are asked again where they always were. 🪪 The pass (asked as the account since
+  // 2026-10-19, `readGuestPassStanding`) is NOT `cache()`d as a whole, so its started promise is the one awaited.
+  assert.equal(count(PAGE, 'const passStandingAhead = startAhead(readGuestPassStanding());'), 1);
+  assert.ok(PAGE.indexOf('startAhead(readGuestPassStanding())') < PAGE.indexOf('const passStandingNow = await passStandingAhead;'));
+  assert.equal(count(PAGE, 'readGuestPassStanding('), 1, 'the pass is asked twice — the started read is not the awaited one');
+  assert.ok(PAGE.indexOf('startAhead(getCurrentUser())') < PAGE.indexOf('const viewerAccount = await getCurrentUser();'));
+});
+
+test('a read that is NOT `cache()`d keeps its promise: started once, awaited once', () => {
+  assert.equal(count(PAGE, 'resolveVendorCapability('), 1, 'the supplier check runs twice');
+  assert.match(PAGE, /const vendorCapability = await vendorCapabilityAhead;/);
+  const MEDIA = LOADERS.slice(LOADERS.indexOf('export const loadMedia = cache('), LOADERS.indexOf('export const loadLiveLayer = cache('));
+  const LIVE = LOADERS.slice(LOADERS.indexOf('export const loadLiveLayer = cache('), LOADERS.indexOf('export const loadDoorwayFacts = cache('));
+  assert.ok(MEDIA.length > 2000 && LIVE.length > 2000, 'the loaders moved — re-anchor this test');
+  for (const [src, name, call] of [
+    [MEDIA, 'proWatermarkHiddenAhead', 'websiteProActiveFor(event.event_id)'],
+    // (the bookings also take the Venue scene's stored config from the scene rows — one read fewer, 2026-10-12)
+    [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig)'],
+    [MEDIA, 'ownsStdRevealAhead', 'eventStdOpeningsActive(admin, event.event_id)'],
+    [LIVE, 'hostCameraOpenAhead', 'eventPapicGuestActive(admin, event.event_id)'],
+  ] as const) {
+    assert.equal(count(src.replace(/\s+/g, ' '), `const ${name} = startAhead( ${call}, );`) + count(src, `const ${name} = startAhead(${call});`), 1, `${name} is not started ahead`);
+    assert.equal(count(src, `await ${name};`), 1, `${name} is never awaited — its failure would be swallowed`);
+    assert.equal(count(src, call), 1, `${call} is also asked a second time in the same loader`);
+  }
+});
+
+/* ═══ 2b · THE LANDING (`invite/enter`) ══════════════════════════════════ */
+
+const ENTER = read('app/[slug]/invite/enter/page.tsx');
+
+test('the landing starts its body\'s reads together — only reads, only past the routing, each awaited once', () => {
+  const BODY = ENTER.slice(ENTER.indexOf('const InviteEnterBody = async () => {'));
+  assert.ok(BODY.length > 2000, 'the landing\'s body moved — re-anchor this test');
+  // Every start is inside the body: past `notFound()`, the redirects and the guest's own row.
+  assert.equal(ENTER.indexOf('startAhead('), ENTER.indexOf('startAhead(', ENTER.indexOf('const InviteEnterBody = async () => {')));
+  assert.deepEqual(
+    aheadCalls(ENTER).sort(),
+    [
+      'resolveProfile', 'resolveEventOwnerSlug', 'resolveEventQrLook', 'eventWordsFor', 'plusOneSeatsFor',
+      'passCardEligibilityFor', 'plusOnePassCardIds', 'createClient', 'readSeatHolder', 'readTicketSeats',
+    ].sort(),
+  );
+  // Never the tile code (a write) and never the ceremony time (one screen's read).
+  assert.doesNotMatch(ENTER, /startAhead\(\s*(tileCodeOnce|ensureTileReentryCode|mintReentryCode|fetchPublicScheduleBlocks|isCoordinatorPrepReleaseEnabled)\(/);
+  for (const name of [
+    'profileAhead', 'ownerSlugAhead', 'qrLookAhead', 'wordsAhead', 'seatsAhead', 'passCardAhead',
+    'plusOneTicketIdsAhead', 'viewerAhead', 'seatHolderAhead', 'ticketSeatsAhead',
+  ]) {
+    assert.equal(count(BODY, `const ${name} = `), 1, `${name} is not started`);
+    // (the ticket pair is awaited together — held on the line below)
+    if (name === 'passCardAhead' || name === 'plusOneTicketIdsAhead') continue;
+    assert.equal(count(BODY, `await ${name}`), 1, `${name} is not awaited exactly once — never awaited, its failure would be swallowed`);
+  }
+  assert.match(BODY, /await Promise\.all\(\[passCardAhead, plusOneTicketIdsAhead\]\)/);
+  // …and each read is asked once (the started call is the only call).
+  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'auth.getUser(']) {
+    assert.equal(count(BODY, call), 1, `${call} is asked twice in the landing's body`);
+  }
+  // The canvas skips what it always skipped: the sample has no seats, holder, QR look or table.
+  for (const name of ['qrLookAhead', 'seatsAhead', 'seatHolderAhead']) {
+    assert.match(BODY, new RegExp(`const ${name} = canvas \\? null : startAhead\\(`), `${name} is asked on the Maker's canvas`);
+  }
+  assert.match(BODY, /const ticketSeatsAhead = canvas \|\| !seatDay \? null : startAhead\(readTicketSeats\(/);
+});
+
+/* ═══ 3 · THE BODY'S TIME HAS NAMES ══════════════════════════════════════ */
+
+function flushed(run: (t: ServerTimer) => Promise<void>): Promise<{ total_ms: number; phases: Array<{ label: string; ms: number }> }> {
+  const info = console.info;
+  let line = '';
+  console.info = (s: unknown) => {
+    line = String(s);
+  };
+  const t = new ServerTimer('test/route');
+  return run(t)
+    .then(() => t.flush())
+    .then(() => JSON.parse(line.replace('[server-timing] ', '')))
+    .finally(() => {
+      console.info = info;
+    });
+}
+
+test('`mark` names everything since the last named stretch, and what is left over is SAID — the phases add up to the total', async () => {
+  const out = await flushed(async (t) => {
+    await t.track('media', () => sleep(30));
+    await sleep(40); // a run of awaits nobody wrapped
+    t.mark('gates');
+    await sleep(25);
+    t.mark('live-layer');
+    await sleep(35); // …and a stretch nobody named at all
+  });
+  const ms = Object.fromEntries(out.phases.map((p) => [p.label, p.ms]));
+  assert.deepEqual(out.phases.map((p) => p.label), ['media', 'gates', 'live-layer', 'unnamed']);
+  assert.ok(ms.gates! >= 35 && ms.gates! < 80, `gates ${ms.gates}`);
+  assert.ok(ms['live-layer']! >= 20 && ms['live-layer']! < 60, `live-layer ${ms['live-layer']}`);
+  assert.ok(ms.unnamed! >= 30, `the unnamed stretch was not reported: ${JSON.stringify(out)}`);
+  const sum = out.phases.reduce((n, p) => n + p.ms, 0);
+  assert.ok(Math.abs(sum - out.total_ms) <= 4, `phases ${sum} ms vs total ${out.total_ms} ms — time is missing`);
+});
+
+test('a render with nothing unnamed logs no `unnamed` phase', async () => {
+  const out = await flushed(async (t) => {
+    await t.track('only', () => sleep(15));
+  });
+  assert.deepEqual(out.phases.map((p) => p.label), ['only']);
+});
+
+test('the guest body marks its long untimed stretches', () => {
+  for (const label of ['guest-session', 'gates', 'live-layer', 'capabilities', 'supplier-desk+seat', 'chapters+entourage+identity']) {
+    assert.equal(count(PAGE, `timer.mark('${label}');`), 1, `the body no longer names "${label}"`);
+  }
+});

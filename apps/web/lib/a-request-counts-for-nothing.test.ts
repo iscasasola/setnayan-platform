@@ -51,8 +51,14 @@ test('the list readers read the ACCEPTED list by default; only the roster opts i
   assert.match(count.slice(0, 700), /\.neq\('entry_source', REQUEST_ENTRY_SOURCE\)/, 'the guest total counts requests');
   // Exactly one caller opts in: the roster, which draws requests as their own rows.
   const roster = read('app/dashboard/[eventId]/guests/page.tsx');
-  assert.match(roster, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true(?:, includePassedAway: true)? \}\)/);
-  assert.match(roster, /const counted = guests\.filter\(countsTowardEvent\)/, 'the side counts include requests');
+  assert.match(roster, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true(?:, includePassedAway: true)?(?:, includeRepresented: true)? \}\)/);
+  // ⤷ Maker PR 4f: the counts are drawn by GuestsScreen, over the list the page
+  // hands it — requests excluded (they are the Review row), counted through the one rule.
+  assert.match(roster, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'the list includes requests');
+  const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /const stats = rosterStats\(roster\);/, 'the counts are not read off the drawn list');
+  const lib = read('lib/guest-roster-view.ts');
+  assert.match(lib, /const counted = guests\.filter\(\(g\) => countsTowardEvent\(g\)\)/, 'the counts include requests');
   assert.match(roster, /!countsTowardEvent\(g\)\s*\?\s*null/, 'a request is suggested a seat');
 });
 
@@ -63,7 +69,6 @@ const SWEEP: Array<[file: string, reads: number, what: string]> = [
   ['lib/print-set.server.ts', 1, 'printed passes'],
   ['app/dashboard/[eventId]/guests/checkin/page.tsx', 1, 'the door list'],
   ['app/dashboard/[eventId]/guests/souvenirs/page.tsx', 1, 'the souvenir table'],
-  ['app/dashboard/[eventId]/plan3d/page.tsx', 2, 'the 3D plan’s guest counts'],
   ['lib/after-summary.ts', 1, 'the after-the-day attending count'],
   ['lib/auto-recap.ts', 1, 'the recap’s guest count'],
   ['app/[slug]/_components/editorial/data.ts', 3, 'the story’s guests / attending / replied'],
@@ -82,8 +87,13 @@ test('every counting reader applies the rule', () => {
 
 test('the seat reconcile reads the accepted list — so no request is handed a provisional seat', () => {
   const src = read('lib/seating-reconcile.ts');
-  assert.match(src, /fetchGuestsByEvent\(supabase, eventId\)/, 'the reconcile reads guests some other way now — re-check it');
+  /* Through the stop-reader since 2026-10-11 (`lib/seating-inputs.ts` — a refused read stops the re-seat): the SAME
+     accepted list, `fetchGuestsByEventMeasured` with no options. */
+  assert.match(src, /guestsOrStop\(supabase, eventId\)/, 'the reconcile reads guests some other way now — re-check it');
   assert.doesNotMatch(src, /includeRequests/, 'the reconcile opted in to requests');
+  const stop = read('lib/seating-inputs.ts');
+  assert.match(stop, /fetchGuestsByEventMeasured\(supabase, eventId\);/, 'the stop-reader passes options to the guest read — re-check it');
+  assert.doesNotMatch(stop, /includeRequests|includePassedAway/, 'the stop-reader opted in to requests');
 });
 
 test('the SQL readers are rewritten with the rule — and only with the rule', () => {

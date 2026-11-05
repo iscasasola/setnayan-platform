@@ -117,6 +117,17 @@ export async function isMarketplaceVendorBookable(
  * The couple-facing copy when a lock is blocked because the vendor isn't
  * verified yet. Single source so every surface reads identically.
  */
+/**
+ * ✅ The supplier's own line when a Locked QR cannot be made (audit G8, 2026-11-02): the couple's scan books the shop,
+ * and only a verified shop can be booked.
+ */
+export const LOCKED_QR_NEEDS_VERIFIED =
+  'A Locked QR books the couple who scans it, and Setnayan books only verified shops. Send your papers in Your details › Your documents — once we approve them, you can make this code.';
+
+/** The couple's line when they scan a Locked QR from a shop that is not verified (audit G8). */
+export const LOCKED_QR_SHOP_NOT_VERIFIED =
+  'This supplier is still being verified by Setnayan, so this code cannot book them yet. Nothing was charged or changed — ask them to send it again once they are verified.';
+
 export const VENDOR_NOT_VERIFIED_COUPLE_MESSAGE =
   "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.";
 
@@ -663,6 +674,27 @@ export function countCompleteVendorSlots(uploads: DocUploadMap): number {
   return count;
 }
 
+/**
+ * 🔢 ONE DOCUMENT COUNT, EVERYWHERE (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2): the
+ * supplier is counted against the FOUR required papers only — "n of 4 required" on the stepper, on Today,
+ * on Your details, and "Required · n of 4" on a card. Never "of 7" (every upload) or "of 8" (DOC_SLOTS,
+ * whose 8th is Setnayan's own Google Meet). The optional three say "Optional" and carry no count.
+ */
+export const REQUIRED_DOC_COUNT: number = REQUIRED_DOC_SLOT_KEYS.size;
+
+/** How many of the REQUIRED papers are in — the only document count a supplier is shown. */
+export function countCompleteRequiredSlots(uploads: DocUploadMap): number {
+  let n = 0;
+  for (const key of REQUIRED_DOC_SLOT_KEYS) if (isSlotComplete(key, uploads?.[key])) n += 1;
+  return n;
+}
+
+/** A required paper's place among the four (1-based, DOC_SLOTS order) — null for an optional item. */
+export function requiredDocPosition(key: string): number | null {
+  if (!REQUIRED_DOC_SLOT_KEYS.has(key)) return null;
+  return DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).findIndex((s) => s.key === key) + 1;
+}
+
 /** Whether every REQUIRED upload (REQUIRED_DOC_SLOT_KEYS) is in. */
 export function requiredDocsComplete(uploads: DocUploadMap): boolean {
   for (const key of REQUIRED_DOC_SLOT_KEYS) {
@@ -694,9 +726,15 @@ export function verificationSubmitMissing(input: {
    * hard block), so a vendor whose number duplicated another's can still submit.
    */
   registrationNumberOnFile?: boolean;
+  /**
+   * TRUE when the logo is the ONLY business-profile item left (owner 2026-10-22, journey_fixes Supplier 2 ·
+   * A: the logo is its own first step, "Add your logo — needed to go live"). The refusal is unchanged —
+   * approval asks nothing less — only its words name the one thing to do.
+   */
+  onlyLogoMissing?: boolean;
 }): string[] {
   const missing: string[] = [];
-  if (!input.profileComplete) missing.push('Finish your business profile');
+  if (!input.profileComplete) missing.push(input.onlyLogoMissing ? 'Add your logo' : 'Finish your business profile');
   if (!requiredDocsComplete(input.uploads)) {
     missing.push('Upload your DTI/SEC, BIR 2303, Business Permit, and bank proof');
   }

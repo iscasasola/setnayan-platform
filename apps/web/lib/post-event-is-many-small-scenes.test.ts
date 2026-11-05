@@ -139,7 +139,9 @@ test('2 · after the compile the SAME keys are filled, never replaced by others'
 
 test('3 · SOURCE: the Maker reads Post Event before AND after the day, the draft laid over it — and sends nobody away', () => {
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /const postEvent = await readPostEventForMaker\(\{/, 'read on every open, not only after the day');
+  /* Started as soon as the draft is in (2026-10-23, the editor's own queue) — still one unconditional call, every open. */
+  assert.match(page, /const postEventRead = startAhead\(\s*readPostEventForMaker\(\{/, 'read on every open, not only after the day');
+  assert.match(page, /const postEvent = await postEventRead;/, 'read on every open, not only after the day');
   assert.match(page, /draftEditorial: hubDraft\?\.editorial \?\? null/);
   const compile = read('lib/post-event-compile.server.ts');
   assert.match(compile, /if \(!input\.eventEnded\) return readPostEventBeforeTheDay\(input\);/, 'before the day: the light read, which writes nothing');

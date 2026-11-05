@@ -69,15 +69,12 @@ test('⌘K still works — this is a second door, not a replacement', () => {
   assert.match(palette, /claimCommandKey\(\)/, 'the palette stopped claiming ⌘K on this doorway');
 });
 
-test('every other tree keeps the shared palette — the slot defaults to today', () => {
-  // The shell change must be invisible to the five other app trees. If the
-  // fallback goes, a couple loses the search over their own events.
+test('every other tree hands its own slot or none — signed in, no top-bar search (owner 2026-10-22)', () => {
+  // SUPERSEDED 2026-10-22 ("One thumb row"): the signed-in app bar no longer carries the shared palette — each list's
+  // thumb row searches the place you stand in. The admin's own slot is untouched (this file's point); everyone else
+  // gets `false` (no box), and a stranger still gets the marketplace box (`undefined`).
   const shell = read('app/_components/frontdoor/app-rail-shell.tsx');
-  assert.match(
-    shell,
-    /searchSlot \?\?[\s\S]{0,140}HomeCommandBar/,
-    'the shared palette stopped being the default',
-  );
+  assert.match(shell, /search=\{searchSlot \?\? \(account\.signedIn \? false : undefined\)\}/, 'the slot is no longer the override, or the default changed');
 });
 
 test('the box is a button, not a second input', () => {

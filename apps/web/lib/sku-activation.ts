@@ -1,3 +1,4 @@
+import { tellCoupleTheBookingIsConfirmed } from '@/lib/couple-booking-confirmed.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendLedger } from '@/lib/ledger';
 import {
@@ -22,7 +23,7 @@ import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
-import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
+import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
   readOnboardingOrderItems,
@@ -51,8 +52,10 @@ import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
+  shopPapicPackCodeOf,
   vendorPortfolioCreditsForFee,
 } from '@/lib/vendor-papic-credits';
+import { shopGiftCodeOf } from '@/lib/shop-gifts';
 import { resolveAddonDeactivationExpiry } from '@/lib/vendor-addon-deactivation';
 import { type VendorTier } from '@/lib/vendor-tier-caps';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
@@ -72,10 +75,6 @@ import {
   buildVendorDeepSearchInputs,
 } from '@/lib/vendor-deep-search-run';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
-import {
-  MOODBOARD_RENDER_PACK_SKU,
-  readMoodboardRenderConfig,
-} from '@/lib/moodboard-render-credits';
 import { formatPhp } from '@/lib/php';
 
 /**
@@ -223,75 +222,6 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
  * NON-FATAL per the dispatcher contract: a failure here leaves a paid order with
  * no points, which an admin can re-run — it must never roll back the approval.
  */
-/**
- * MOODBOARD_RENDER_PACK → the Mood Board "Make it real" render-credit pack
- * (MB2's ledger, MB7's Buy button). 50 credits per pack (moodboard_render_-
- * config.credits_per_pack — admin-editable, never hardcoded here) into
- * `event_render_credit_grants`, source `pack_order`.
- *
- * IDEMPOTENT BY order_id — same shape as grantPapicPassPoints, but here the
- * table's own `event_render_credit_grants_order_unique` partial UNIQUE index
- * (WHERE order_id IS NOT NULL) enforces it too, so a race between a re-
- * approval and this pre-read still can't double-grant; the insert's unique-
- * violation is treated as "already granted", not an error.
- *
- * NON-FATAL per the dispatcher contract: a failure here leaves a paid order
- * with no credits, which an admin can re-run — it must never roll back the
- * approval that already happened.
- */
-async function grantMoodboardRenderPackCredits(ctx: ActivationContext): Promise<void> {
-  if (!ctx.eventId) return;
-  const eventId = ctx.eventId;
-  try {
-    const { data: existing } = await ctx.admin
-      .from('event_render_credit_grants')
-      .select('grant_id')
-      .eq('order_id', ctx.orderId)
-      .limit(1);
-    if (Array.isArray(existing) && existing.length > 0) return;
-
-    const config = await readMoodboardRenderConfig(ctx.admin);
-    if (!config) {
-      console.error(
-        '[sku-activation] MOODBOARD_RENDER_PACK activation could not read moodboard_render_config (non-fatal):',
-        { order_id: ctx.orderId },
-      );
-      reportActivationFault('activate:moodboard_render_pack_config', ctx, new Error('config unreadable'));
-      return;
-    }
-
-    const { error } = await ctx.admin.from('event_render_credit_grants').insert({
-      event_id: eventId,
-      credits: config.creditsPerPack,
-      source: 'pack_order',
-      order_id: ctx.orderId,
-    });
-    if (error) {
-      // A UNIQUE violation on order_id means a concurrent approval already
-      // granted this order's credits — not a failure to report.
-      if (error.code !== '23505') {
-        console.error('[sku-activation] MOODBOARD_RENDER_PACK grant insert failed (non-fatal):', {
-          order_id: ctx.orderId,
-          error: error.message,
-        });
-        reportActivationFault('activate:moodboard_render_pack_insert', ctx, error);
-      }
-      return;
-    }
-
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'service_activated',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, event_id: eventId, credits_granted: config.creditsPerPack },
-    });
-  } catch (e) {
-    console.error('[sku-activation] MOODBOARD_RENDER_PACK grant threw (non-fatal):', e);
-    reportActivationFault('activate:moodboard_render_pack', ctx, e);
-  }
-}
-
 /**
  * VENDOR PAPIC CREDITS — one INSERT into the supplier's per-event ledger,
  * `vendor_papic_portfolio_credit_grants`. Shared by the two doors the owner
@@ -459,46 +389,200 @@ async function grantSetnayanGiftForBookingFee(
 
 /**
  * The pack door — 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS
- * credits for ONE event (25 until 2026-09-06; never restate it here)
- * (owner 2026-09-05, credits since RAISED to 100 on 2026-09-06 — the ₱500 did
- * not move: *"they pay 500 pesos for 25 papic credits … the photo importation
- * fee for their portfolio"*). The order must carry the event it is for and the
- * vendor who paid (`orders.event_id`, `orders.vendor_profile_id`); a pack with
- * no event has nowhere to land and is reported, not guessed.
+ * credits into the SHOP WALLET (owner 2026-10-23, option A: *"one shop
+ * wallet"* — packs go into one shop balance, spendable on the portfolio or on
+ * any event the shop is booked on). Until 2026-10-23 a pack landed in ONE
+ * event's ledger and the order had to carry that event; it now needs only the
+ * shop that paid (`orders.vendor_profile_id`). An order minted under the old
+ * per-event action still carries an `event_id` — it is ignored: every pack
+ * lands in the wallet.
  *
- * No tier or verification gate: the owner priced this for the import case
- * ("if they import a user and get to sync with them for free"), which is any
- * supplier. Ownership is asserted the same way as every `vendor_*` hook.
+ * IDEMPOTENT BY (order_id, kind): `shop_papic_wallet_entries_order_kind_unique`
+ * makes a re-approval — or two admins approving at once — land the credits
+ * once; the unique-violation is "already granted", not an error.
+ *
+ * No tier or verification gate (unchanged): any shop with an open rail may
+ * buy. Ownership is asserted the same way as every `vendor_*` hook.
  */
 async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<void> {
+  await grantShopWalletCredits(ctx, async () => VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS);
+}
+
+/**
+ * 🛍 2026-11-04 — a shop buys one of the COUPLE's Papic packs (`vendor_papic_pack__<PAPIC_GUEST code>`) into its
+ * wallet. The credits are that rung's `papic_pass_tiers.points`, read through `papicPointsBoughtBySku` — the same
+ * reader a couple's order uses, which also grants a rung retired after the order was paid.
+ */
+async function grantShopPapicPack(ctx: ActivationContext): Promise<void> {
+  const code = shopPapicPackCodeOf(ctx.serviceKey);
+  if (!code) return;
+  await grantShopWalletCredits(ctx, () => papicPointsBoughtBySku(ctx.admin, code));
+}
+
+/**
+ * 🎁 2026-11-04 — a shop buys GIFTS (`vendor_gift__<PAPIC_GUEST code>`, owner "SUPPLIER GIFTS: BOUGHT IN QUANTITY,
+ * KEPT AS STOCK"). Approval lands `quantity × credits_each` in the shop's GIFT STOCK (`shop_gift_stock_entries`,
+ * kind 'bought'), read from the `shop_gift_purchases` row the buy action wrote — `orders` has no quantity. Never the
+ * shop wallet: gift stock can only ever reach a couple's event. Idempotent by (order_id, kind).
+ */
+async function grantShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  if (!shopGiftCodeOf(ctx.serviceKey)) return;
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_purchases')
+      .select('vendor_profile_id, gift_kind, quantity, credits_each')
+      .eq('order_id', ctx.orderId)
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const p = data as { vendor_profile_id: string; gift_kind: string; quantity: number; credits_each: number } | null;
+    if (!p) {
+      reportActivationFault(
+        'activate:shop_gift_purchase',
+        ctx,
+        new Error(`gift order ${ctx.orderId} has no shop_gift_purchases row — nothing says how many were bought`),
+      );
+      return;
+    }
+    await assertOrderOwnsVendorTarget(ctx, p.vendor_profile_id);
+    const credits = p.quantity * p.credits_each;
+    if (!Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_gift_purchase', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: p.vendor_profile_id,
+      gift_kind: p.gift_kind,
+      delta: credits,
+      kind: 'bought',
+      order_id: ctx.orderId,
+      note: `Gifts bought · ${p.quantity} × ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already landed for this order
+      reportActivationFault('activate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: p.vendor_profile_id,
+        shop_gift_credits_granted: credits,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('activate:shop_gift_purchase', ctx, e);
+  }
+}
+
+/**
+ * A refunded / un-approved gift order takes its credits back OUT of the gift stock as a negative 'reversal' row —
+ * sized from the 'bought' row, so it takes back exactly what this order put in, and nothing when it never landed.
+ * The stock may go below zero when the gifts were already given; the delivery door then refuses until more land.
+ */
+async function reverseShopGiftPurchase(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_gift_stock_entries')
+      .select('vendor_profile_id, gift_kind, delta')
+      .eq('order_id', ctx.orderId)
+      .eq('kind', 'bought')
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, error);
+      return;
+    }
+    const bought = data as { vendor_profile_id: string; gift_kind: string; delta: number } | null;
+    if (!bought || !(bought.delta > 0)) return;
+    const { error: insErr } = await ctx.admin.from('shop_gift_stock_entries').insert({
+      vendor_profile_id: bought.vendor_profile_id,
+      gift_kind: bought.gift_kind,
+      delta: -bought.delta,
+      kind: 'reversal',
+      order_id: ctx.orderId,
+      note: `Gift order refunded or un-approved · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already taken back
+      reportActivationFault('deactivate:shop_gift_purchase', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: bought.vendor_profile_id,
+        shop_gift_credits_revoked: bought.delta,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_gift_purchase', ctx, e);
+  }
+}
+
+async function grantShopWalletCredits(
+  ctx: ActivationContext,
+  creditsOf: () => Promise<number | null>,
+): Promise<void> {
   try {
     const { data: order } = await ctx.admin
       .from('orders')
-      .select('vendor_profile_id, event_id')
+      .select('vendor_profile_id')
       .eq('order_id', ctx.orderId)
       .maybeSingle();
     const vendorProfileId =
       (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
-    const eventId =
-      ctx.eventId ?? (order as { event_id?: string | null } | null)?.event_id ?? null;
-    if (!vendorProfileId || !eventId) {
+    if (!vendorProfileId) {
       reportActivationFault(
         'activate:vendor_papic_portfolio_pack_target',
         ctx,
         new Error(
-          `vendor_papic_portfolio_pack order ${ctx.orderId} has no ` +
-            `${!vendorProfileId ? 'vendor_profile_id' : 'event_id'} — credits are per (supplier, event)`,
+          `vendor_papic_portfolio_pack order ${ctx.orderId} has no vendor_profile_id — ` +
+            'a pack lands in the shop wallet of the shop that paid',
         ),
       );
       return;
     }
     await assertOrderOwnsVendorTarget(ctx, vendorProfileId);
-    await grantVendorPapicCredits(ctx, {
-      vendorProfileId,
-      eventId,
-      credits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
-      source: 'pack_order',
-      note: `Papic portfolio pack · ${ctx.serviceKey}`,
+    const credits = await creditsOf();
+    if (credits === null || !Number.isInteger(credits) || credits <= 0) {
+      reportActivationFault('activate:shop_papic_wallet_pack_credits', ctx, new Error(`no credits for ${ctx.serviceKey}`));
+      return;
+    }
+    const { error } = await ctx.admin.from('shop_papic_wallet_entries').insert({
+      vendor_profile_id: vendorProfileId,
+      delta: credits,
+      kind: 'pack_order',
+      order_id: ctx.orderId,
+      note: `Papic credit pack · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (error) {
+      if (error.code === '23505') return; // already landed for this order
+      reportActivationFault('activate:shop_papic_wallet_pack', ctx, error);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: vendorProfileId,
+        shop_papic_wallet_credits_granted: credits,
+      },
     });
   } catch (e) {
     console.error('[sku-activation] vendor Papic portfolio pack threw (non-fatal):', e);
@@ -506,11 +590,64 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
   }
 }
 
+/**
+ * A refunded / un-approved pack takes its credits back OUT of the shop wallet —
+ * as a negative `reversal` row carrying the same order, never by deleting the
+ * pack row (the ledger is append-only, so the sheet's history stays true).
+ * Idempotent by (order_id, kind) like the grant. Sized from the grant row
+ * itself, so it takes back exactly what this order put in, and nothing when
+ * the pack never landed. The balance may go below zero when the credits were
+ * already spent — the spend door then refuses until a new pack lands.
+ */
+async function reverseShopPapicWalletPack(ctx: ActivationContext): Promise<void> {
+  try {
+    const { data, error } = await ctx.admin
+      .from('shop_papic_wallet_entries')
+      .select('vendor_profile_id, delta')
+      .eq('order_id', ctx.orderId)
+      .eq('kind', 'pack_order')
+      .maybeSingle();
+    if (error) {
+      reportActivationFault('deactivate:shop_papic_wallet_pack', ctx, error);
+      return;
+    }
+    const grant = data as { vendor_profile_id: string; delta: number } | null;
+    if (!grant || !(grant.delta > 0)) return; // never landed → nothing to take back
+    const { error: insErr } = await ctx.admin.from('shop_papic_wallet_entries').insert({
+      vendor_profile_id: grant.vendor_profile_id,
+      delta: -grant.delta,
+      kind: 'reversal',
+      order_id: ctx.orderId,
+      note: `Pack refunded or un-approved · ${ctx.serviceKey}`,
+      created_by: ctx.actorUserId,
+    });
+    if (insErr) {
+      if (insErr.code === '23505') return; // already taken back
+      reportActivationFault('deactivate:shop_papic_wallet_pack', ctx, insErr);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: {
+        service_key: ctx.serviceKey,
+        vendor_profile_id: grant.vendor_profile_id,
+        shop_papic_wallet_credits_revoked: grant.delta,
+      },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:shop_papic_wallet_pack', ctx, e);
+  }
+}
+
 async function grantPapicPassPoints(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   const eventId = ctx.eventId;
   try {
-    const points = await papicPassPointsForSku(ctx.admin, ctx.serviceKey);
+    // A rung retired after this order was paid still grants what it sold (papicPointsBoughtBySku).
+    const points = await papicPointsBoughtBySku(ctx.admin, ctx.serviceKey);
     if (points === null || points <= 0) return;
 
     // 🚨 SCOPED TO `source`, NOT JUST THE ORDER (fixed 2026-08-11). This used to
@@ -1169,7 +1306,81 @@ async function activateVendorDeepSearchOrder(ctx: ActivationContext): Promise<vo
 }
 
 // Exact-match hooks keyed by literal service_key.
+/**
+ * 💎 EVENT PLUS AND EVENT PRO (owner 2026-11-04, FINAL PRICE SHEET + "SETNAYAN AI IS NOT SOLD SEPARATELY" + "SIX
+ * OWNER ANSWERS"): each comes with Setnayan AI and with Papic credits for the event's shared pool — Plus 100, Pro
+ * 1,000. The credit count is the catalogue row's `included_papic_credits` (admin-managed), never a number here.
+ *
+ * TOP UP, NEVER ADD BOTH: the grant is the product's number LESS every `plan_included` credit this event already
+ * holds — so Plus then Pro lands 100 + 900 = 1,000 (owner 2026-11-02: "tops the grant up … never 600" in its day's
+ * numbers), and a re-approval grants nothing. A refund deletes this order's rows (`reversePapicPassPoints`, by
+ * order_id) and re-derives the AI flag (`deactivateSetnayanAiIfUnowned` now counts Plus and Pro).
+ */
+export const AI_INCLUDED_PLAN_SKUS: readonly string[] = ['EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY];
+
+async function activateEventPlan(ctx: ActivationContext): Promise<void> {
+  if (!ctx.eventId) return;
+  const eventId = ctx.eventId;
+  // 1 · Setnayan AI — the same per-event boolean a standalone AI order set.
+  const { error: aiErr } = await ctx.admin.from('events').update({ setnayan_ai_active: true }).eq('event_id', eventId);
+  if (aiErr) reportActivationFault('activate:plan_setnayan_ai', ctx, aiErr);
+
+  // 2 · the included Papic credits, topped up to this product's number.
+  try {
+    const { data: row, error: rowErr } = await ctx.admin
+      .from('platform_retail_catalog_v2')
+      .select('included_papic_credits')
+      .eq('service_code', ctx.serviceKey)
+      .maybeSingle();
+    if (rowErr) {
+      reportActivationFault('activate:plan_included_credits_read', ctx, rowErr);
+      return;
+    }
+    const included = Number((row as { included_papic_credits?: number | null } | null)?.included_papic_credits ?? 0);
+    if (!Number.isInteger(included) || included <= 0) return;
+    const { data: held, error: heldErr } = await ctx.admin
+      .from('papic_event_point_grants')
+      .select('points')
+      .eq('event_id', eventId)
+      .eq('source', 'plan_included');
+    if (heldErr) {
+      reportActivationFault('activate:plan_included_credits_held', ctx, heldErr);
+      return;
+    }
+    const already = (held ?? []).reduce(
+      (sum: number, r: { points?: number | null }) => sum + (typeof r.points === 'number' ? r.points : 0),
+      0,
+    );
+    const grant = included - already;
+    if (grant <= 0) return;
+    const { error } = await ctx.admin.from('papic_event_point_grants').insert({
+      event_id: eventId,
+      points: grant,
+      source: 'plan_included',
+      order_id: ctx.orderId,
+      note: `Included with ${ctx.serviceKey}`,
+    });
+    if (error) {
+      reportActivationFault('activate:plan_included_credits_insert', ctx, error);
+      return;
+    }
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'service_activated',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: eventId, points_granted: grant, setnayan_ai: true },
+    });
+  } catch (e) {
+    reportActivationFault('activate:plan_included_credits', ctx, e);
+  }
+}
+
 const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
+  // 💎 Event Plus / Event Pro → Setnayan AI on + their included Papic credits (owner 2026-11-04).
+  EVENT_PLUS: activateEventPlan,
+  [COUPLE_WEBSITE_PRO_SERVICE_KEY]: activateEventPlan,
+
   // 'vendor_photo_challenge' → Papic Challenges, a ₱2,500 / 28-day SHOP
   // subscription (owner 2026-08-28: "unlimited us 2500 for 4 weeks"). Stamps
   // vendor_profiles.papic_challenge_expires_at for the paying vendor — NOT a
@@ -1183,7 +1394,8 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
   // 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS Papic
-  // credits for ONE event, into the supplier's own ledger. ₱500 bought 25 on
+  // credits into the SHOP WALLET (since 2026-10-23; before that, ONE event's
+  // ledger). ₱500 bought 25 on
   // 2026-09-05 and 100 from 2026-09-06 — the price did not move, what it buys
   // did. ⚠ The figure is NOT repeated here: this comment said "25" for a year
   // after the rise, and the catalogue title it was echoing was wrong in prod
@@ -1191,11 +1403,6 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // is the `vendor_booking_fee__` prefix hook below. See
   // grantVendorPapicPortfolioPack.
   [VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE]: grantVendorPapicPortfolioPack,
-
-  // 'MOODBOARD_RENDER_PACK' → the Mood Board "Make it real" render-credit pack
-  // (MB2 ledger, MB7 surface). Grants credits_per_pack into
-  // event_render_credit_grants on approval. See grantMoodboardRenderPackCredits.
-  [MOODBOARD_RENDER_PACK_SKU]: grantMoodboardRenderPackCredits,
 
   // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
   // the entitlement window on the paying vendor (the free first cycle is
@@ -1356,6 +1563,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // someone who has never paid us before. If it were absent from this map it
   // would be the very first order we ever took and silently failed to honour.
   PAPIC_GUEST_100: grantPapicPassPoints,
+  // 📸 THE THREE PACKS (owner 2026-11-03, migration *_papic_is_three_packs_and_no_signup_price.sql): 150 · 1,000
+  // (PAPIC_GUEST_1K) · 3,000 (PAPIC_GUEST). The 150 pack is the only new code. Every other rung below is OFF SALE and
+  // keeps its hook, so an order bought before the retirement still converts on approval.
+  PAPIC_GUEST_150: grantPapicPassPoints,
   PAPIC_GUEST: grantPapicPassPoints,
   PAPIC_GUEST_6K: grantPapicPassPoints,
   PAPIC_GUEST_10K: grantPapicPassPoints,
@@ -1547,7 +1758,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
  * Pro basket would page the team with a false fault — and an alarm that always
  * fires on a healthy order is how the real one gets ignored.
  */
-const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set([COUPLE_WEBSITE_PRO_SERVICE_KEY]);
+// 💎 2026-11-04: Event Pro LEFT this set — it now provisions Setnayan AI and its included Papic credits
+// (`activateEventPlan`), so a Pro inside a basket must run its hook like any other item. Its Hub gates still read
+// the order/basket status live; the set stays for the next item that truly needs nothing.
+const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set<string>();
 
 async function activateOnboardingBasket(ctx: ActivationContext): Promise<void> {
   const items = await readOnboardingOrderItems(ctx.admin, ctx.orderId);
@@ -1734,6 +1948,16 @@ const PREFIX_HOOKS: ReadonlyArray<{
   run: ActivationHook;
 }> = Object.freeze([
   {
+    // 'vendor_papic_pack__<PAPIC_GUEST code>' → the couple's Papic pack, bought by a SHOP into its wallet (2026-11-04).
+    match: (serviceKey) => shopPapicPackCodeOf(serviceKey) !== null,
+    run: grantShopPapicPack,
+  },
+  {
+    // 'vendor_gift__<PAPIC_GUEST code>' → GIFTS a shop bought for its couples, into its gift stock (2026-11-04).
+    match: (serviceKey) => shopGiftCodeOf(serviceKey) !== null,
+    run: grantShopGiftPurchase,
+  },
+  {
     // 'vendor_subscription__{purchase_id}' → SWITCH THE PLAN ON.
     //
     // A plan purchase now mints an `orders` row so the shop has somewhere to
@@ -1854,6 +2078,13 @@ const PREFIX_HOOKS: ReadonlyArray<{
       } catch (e) {
         reportActivationFault('activate:vendor_hold_date', ctx, e);
       }
+
+      // 💌 THE COUPLE IS TOLD NOW (owner 2026-10-07 "no handshake, no
+      // confirmation … no booking fee paid to us"; 2026-10-12 #1). A billed
+      // fee held back the couple's "said yes" at the supplier's yes; this is
+      // the moment it becomes true. ONLY when the charge flipped just now, so a
+      // re-approval cannot send it twice. Fail-soft inside.
+      if (settled) await tellCoupleTheBookingIsConfirmed(ctx.admin, chargeId);
     },
   },
   {
@@ -2195,6 +2426,10 @@ export async function activateOrderSku(ctx: ActivationContext): Promise<void> {
 async function deactivateSetnayanAiIfUnowned(ctx: ActivationContext): Promise<void> {
   if (!ctx.eventId) return;
   if (await eventSkuActive(ctx.admin, ctx.eventId, 'SETNAYAN_AI')) return; // still owned → keep
+  // 💎 Event Plus / Event Pro carry Setnayan AI (owner 2026-11-04) — still held → keep.
+  for (const sku of AI_INCLUDED_PLAN_SKUS) {
+    if (await eventSkuActive(ctx.admin, ctx.eventId, sku)) return;
+  }
   const { error } = await ctx.admin
     .from('events')
     .update({ setnayan_ai_active: false })
@@ -2455,6 +2690,12 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     } catch (e) {
       reportActivationFault('deactivate:vendor_3d_booth', ctx, e);
     }
+  } else if (ctx.serviceKey === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE || shopPapicPackCodeOf(ctx.serviceKey) !== null) {
+    // The shop-wallet pack — take its credits back as a reversal row.
+    await reverseShopPapicWalletPack(ctx);
+  } else if (shopGiftCodeOf(ctx.serviceKey) !== null) {
+    // 🎁 A gift order — take its credits back out of the gift stock.
+    await reverseShopGiftPurchase(ctx);
   } else if (ctx.serviceKey === VENDOR_PHOTO_CHALLENGE_SKU_CODE) {
     try {
       await deactivatePhotoChallengeSponsorship(ctx);
@@ -2492,7 +2733,8 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       : [];
   const grantsAi =
     ctx.serviceKey === 'SETNAYAN_AI' ||
-    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI') ||
+    AI_INCLUDED_PLAN_SKUS.includes(ctx.serviceKey) ||
+    basketItems.some((i) => i.serviceCode === 'SETNAYAN_AI' || AI_INCLUDED_PLAN_SKUS.includes(i.serviceCode)) ||
     (BUNDLE_CHILD_SKUS[ctx.serviceKey as keyof typeof BUNDLE_CHILD_SKUS]?.includes(
       'SETNAYAN_AI',
     ) ??

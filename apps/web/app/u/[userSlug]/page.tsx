@@ -48,7 +48,9 @@ import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
 import { MutualDays } from '@/app/u/_components/mutual-days';
+import { ProfileBack } from '@/app/u/_components/profile-back';
 import { formatCount } from '@/lib/format-number';
+import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
 
 // Public account profile · setnayan.com/u/[user-slug].
 //
@@ -93,22 +95,6 @@ const SITE_URL = (
 // body, generateMetadata, the OG route, and the settings share-doorway gate all
 // agree on the SAME definition — a name/hero never leaks anywhere one of them
 // would have hidden it.
-
-// Owner-preview probe. Only ever called on the DORMANT path (profile disabled),
-// so the common enabled+public render never reads cookies and stays cacheable
-// under `revalidate`. The signed-in holder may preview their own hidden shell;
-// everyone else 404s.
-async function isSignedInHolder(ownerUserId: string): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return !!user && user.id === ownerUserId;
-  } catch {
-    return false;
-  }
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { userSlug } = await params;
@@ -170,6 +156,9 @@ export default async function AccountProfilePage({ params }: Props) {
 
   const { user, publicWebsiteEvents } = resolved;
   const canonicalSlug = (user.slug as string | null) ?? userSlug;
+  // Reached by the account's public handle (`/u/S89U-…`, the address People links a slug-less account by)
+  // while a slug exists → the slug is the address. A slug match never re-enters here (it IS the slug).
+  if (user.slug && user.slug.toLowerCase() !== userSlug.toLowerCase()) redirect(`/u/${user.slug}`);
 
   // #7b — per-account public/hidden gate. DORMANT by default: while the account
   // hasn't opted in, the /u shell 404s for strangers so it's neither a public
@@ -177,8 +166,23 @@ export default async function AccountProfilePage({ params }: Props) {
   // their own hidden shell (this is the ONLY branch that reads auth, so the
   // opted-in public render stays cacheable under `revalidate`).
   const enabled = user.public_profile_enabled === true;
-  const isOwnerPreview = enabled ? false : await isSignedInHolder(user.user_id);
-  if (!enabled && !isOwnerPreview) notFound();
+  /*
+    👥 WHO IS LOOKING — read only where the answer changes the page (this dormant branch, and the
+    single-event redirect below), so the opted-in public render stays cacheable under `revalidate`.
+
+    A switched-off profile used to 404 for EVERYONE but its holder — including the people the viewer's own
+    People page lists by name. Owner 2026-10-25, tapping a friend on People: "why don't i see their user
+    account page?" · "they should have an account like me." So somebody who already knows them
+    (`viewerKnowsThem`: connected, asked to connect, or following either way) gets the account page: the
+    initials, the name People already shows them, how the two of them stand, and only what is public on its
+    own (public events — each already reachable at its own address). Never the photo (the switch IS the
+    consent to publish it, owner 2026-09-23), never chapters (their pages gate on the switch, so a card
+    would be a door into a 404), never the audience numbers. A stranger still gets the 404.
+  */
+  let viewer: ProfileViewer | null = enabled ? null : await readProfileViewer(user.user_id);
+  const isOwnerPreview = !enabled && viewer?.isHolder === true;
+  const isConnectionView = !enabled && viewerKnowsThem(viewer);
+  if (!enabled && !isOwnerPreview && !isConnectionView) notFound();
 
   /*
     ── THE ACCOUNT'S FACE ─────────────────────────────────────────────────────
@@ -208,7 +212,9 @@ export default async function AccountProfilePage({ params }: Props) {
   // creator (no is_creator flag). We're already past the enabled/owner-preview
   // gate, so load the timeline here; when it's non-empty we NEVER auto-redirect
   // into a single event — the chapters are the point of the page.
-  const chaptersRead = await fetchPublishedChaptersResult(user.user_id);
+  const chaptersRead = isConnectionView
+    ? { items: [] as PublicChapter[], ok: true }
+    : await fetchPublishedChaptersResult(user.user_id);
   const chapters: PublicChapter[] = chaptersRead.items;
   const hasChapters = chapters.length > 0;
   // The chronicle is ordered by the day each celebration HAPPENED, so the
@@ -260,8 +266,14 @@ export default async function AccountProfilePage({ params }: Props) {
   // case sends a visitor who pressed this person's name in a byline onto a
   // WEDDING PAGE instead of the person's own, with nothing on screen wrong.
   // A read that failed knows nothing, so it decides nothing.
+  //
+  // 👥 AND ONLY FOR SOMEBODY WHO DOES NOT KNOW THEM (owner 2026-10-25). The jump is for a stranger
+  // following a public link; a person opening a friend from People lands on the friend's PROFILE, with the
+  // event as a card on it. The viewer is read here, inside the branch, so every other public render stays
+  // cookie-free and cached. The holder keeps the jump, as before.
   if (ongoing.length === 1 && !isOwnerPreview && !hasChapters && chaptersRead.ok) {
-    redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
+    viewer = viewer ?? (await readProfileViewer(user.user_id));
+    if (!viewerKnowsThem(viewer)) redirect(`/u/${canonicalSlug}/${ongoing[0]!.slug}`);
   }
 
   // ongoing≥2 → the celebrations gallery; ongoing 0 → published stories (past
@@ -538,14 +550,23 @@ export default async function AccountProfilePage({ params }: Props) {
   // empty state, where printing it would confirm "this slug exists and belongs
   // to <name>". A creator with a published chapter timeline counts as content.
   const hasPublicContent = mode !== 'empty' || hasChapters;
-  const displayName = user.display_name?.trim() || 'Celebrations';
-  const heading = hasPublicContent ? displayName : 'A Setnayan profile';
+  const displayName = user.display_name?.trim() || 'Events';
+  // A viewer who knows them already reads their name on People — the page says it too. Everyone else keeps
+  // the name-free heading on an empty profile (no name oracle).
+  const knowsThem = viewerKnowsThem(viewer);
+  const relation = relationLine(viewer);
+  const heading = hasPublicContent
+    ? displayName
+    : knowsThem
+      ? user.display_name?.trim() || 'Someone on Setnayan'
+      : 'A Setnayan profile';
+  const firstName = (user.display_name?.trim() || '').split(/\s+/)[0] || 'they';
 
   const subtitle =
     mode === 'gallery'
-      ? 'A collection of celebrations.'
+      ? 'A collection of events.'
       : mode === 'stories'
-        ? 'Stories from celebrations past.'
+        ? 'Stories from events past.'
         : null;
 
   return (
@@ -560,6 +581,7 @@ export default async function AccountProfilePage({ params }: Props) {
       ) : null}
 
       <div className="uprof-inner">
+        <ProfileBack />
         {isOwnerPreview ? (
           <div className="uprof-preview" role="status">
             Preview · your public profile is <strong>hidden</strong>. Turn it on in
@@ -576,6 +598,11 @@ export default async function AccountProfilePage({ params }: Props) {
             )}
           </span>
           <h1 className="m-serif uprof-name">{heading}</h1>
+          {relation ? (
+            <p className="uprof-relation" data-uprof-relation="">
+              {relation}
+            </p>
+          ) : null}
           {hasChapters ? (
             <div className="uprof-badge-row">
               <CreatorBadge size="md" />
@@ -676,7 +703,7 @@ export default async function AccountProfilePage({ params }: Props) {
             ) : null}
             {pastEvents.length > 0 ? (
               <section className="uprof-section uprof-past">
-                <h2 className="uprof-section-head">Past celebrations</h2>
+                <h2 className="uprof-section-head">Past events</h2>
                 <ul className="uprof-grid">{pastShown.shown.map(renderCelebration('past'))}</ul>
                 {/*
                     A PLAIN <details>, SO THE REST IS ONE TAP AND NO JAVASCRIPT.
@@ -698,12 +725,21 @@ export default async function AccountProfilePage({ params }: Props) {
             ) : null}
           </>
         ) : hasChapters ? null : (
-          <div className="uprof-empty">
-            <p className="uprof-empty-title">Nothing public to show yet</p>
-            <p className="uprof-empty-sub">
-              When a celebration is published, it will appear here.
-            </p>
-          </div>
+          knowsThem ? (
+            <div className="uprof-empty" data-uprof-empty="known">
+              <p className="uprof-empty-title">Nothing shared publicly yet</p>
+              <p className="uprof-empty-sub">
+                When {firstName} publishes an event, it shows here.
+              </p>
+            </div>
+          ) : (
+            <div className="uprof-empty">
+              <p className="uprof-empty-title">Nothing public to show yet</p>
+              <p className="uprof-empty-sub">
+                When an event is published, it will appear here.
+              </p>
+            </div>
+          )
         )}
 
         {/* "The days you were both there" — a per-VIEWER client island, for the
@@ -720,7 +756,7 @@ export default async function AccountProfilePage({ params }: Props) {
             nothing, which is always readable. */}
         <MutualDays
           profileUserId={user.user_id}
-          profileName={hasPublicContent ? (user.display_name?.trim() || null) : null}
+          profileName={hasPublicContent || knowsThem ? (user.display_name?.trim() || null) : null}
         />
 
         {hasChapters ? (
@@ -1018,7 +1054,7 @@ const UPROF_CSS = `
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
     /* The same radius token as .uprof-empty, its actual neighbour in this
-       column. ⚠ This comment used to point at .uprof-card, the celebration
+       column. ⚠ This comment used to point at .uprof-card, the event
        card — which the poster artwork replaced, and a poster rounds at 4px
        like a printed sheet. The token is still right; the reason given for it
        had stopped being true. */
@@ -1112,6 +1148,7 @@ const UPROF_CSS = `
     padding: clamp(3rem, 9vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
   }
   .uprof-inner { width: 100%; max-width: 760px; }
+  .uprof-back { display: flex; justify-content: flex-start; margin-bottom: 8px; }
 
   .uprof-preview {
     margin: 0 0 1.5rem;
@@ -1348,7 +1385,7 @@ const UPROF_CSS = `
 
   /* The status sash: paper-white, across the top-left corner, real text, first
      in reading order. Identical on every sheet that carries one — a memory
-     carries none, and an undated celebration carries none either. */
+     carries none, and an undated event carries none either. */
   .uprof-sash {
     position: absolute; top: 0; left: 0;
     width: 150px; height: 150px;
@@ -1364,10 +1401,10 @@ const UPROF_CSS = `
     color: var(--m-ink, #2C2A29);
   }
 
-  /* ⛔ NO font-family IN THE NAME RULES. The celebration's own Save-the-Date
+  /* ⛔ NO font-family IN THE NAME RULES. The event's own Save-the-Date
      typeface arrives as a utility class on this element (owner: "keep the
      typeface"), and a font-family here would out-specify it and flatten every
-     celebration back to one face — which is the exact defect the typeface was
+     event back to one face — which is the exact defect the typeface was
      added to fix. The date line below is deliberately house serif. */
   .uprof-names { line-height: 1; letter-spacing: -.005em; display: block; }
   .uprof-nm { display: block; }
@@ -1552,6 +1589,17 @@ const UPROF_CSS = `
     border-radius: var(--m-r-lg, 22px);
     padding: 2.75rem 1.5rem;
     background: #fff;
+  }
+  .uprof-relation {
+    display: inline-flex;
+    align-items: center;
+    margin: 0.5rem auto 0;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--m-line, #E2DED4);
+    border-radius: var(--m-r-full, 999px);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--m-ink, #1B1A17);
   }
   .uprof-empty-title { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--m-ink, #1B1A17); }
   .uprof-empty-sub { margin: 0.5rem 0 0; font-size: 0.9rem; color: var(--m-slate-2, #6A6E76); }

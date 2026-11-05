@@ -1,8 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Check, Clock, Trophy } from 'lucide-react';
+import { Check, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { type OpenRail } from '@/lib/payment-channels';
@@ -32,7 +31,7 @@ import { formatCount } from '@/lib/format-number';
  *
  * Honest states (mirror the 3D Booth card deliberately — same register, same
  * order, so a supplier reads three add-ons and not three inventions):
- *   • Papic Games switched off → "Coming soon", NO buy CTA. We never take money
+ *   • Papic Games switched off → card HIDDEN, NO buy CTA. We never take money
  *     for a product that cannot run.
  *   • not eligible (below Pro unless the tiered model is on, OR unverified) → a
  *     muted upsell, no CTA.
@@ -61,7 +60,7 @@ export type PapicChallengeCardProps = {
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
   openRails: readonly OpenRail[];
-  /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ "Coming soon". */
+  /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ the card is hidden. */
   available: boolean;
   /** Tier gate (Solo and up — owner 2026-08-29) AND verified. */
   eligible: boolean;
@@ -75,10 +74,8 @@ export type PapicChallengeCardProps = {
   pricePhp: number;
   /** One cycle in days — 28. Passed in, never re-typed in copy. */
   periodDays: number;
-  /** "Free until your 6th booking" is ACTIVE right now (owner 2026-07-25). */
+  /** "Free until your second booking" is ACTIVE right now (owner 2026-07-25; one free booking since 2026-10-23). */
   first5Free?: boolean;
-  /** How many of the first 5 bookings remain — the honest "2 to go" line. */
-  first5Remaining?: number;
 };
 
 export function PapicChallengeCard(props: PapicChallengeCardProps) {
@@ -93,10 +90,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     openRails,
   } = props;
   const first5Free = props.first5Free === true;
-  const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
 
   const toast = useToast();
-  const router = useRouter();
   const [state, formAction] = useActionState(sponsorPhotoChallenge, IDLE);
   const handled = useRef<PhotoChallengeActionState | null>(null);
 
@@ -105,10 +100,16 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
     if (state.status === 'activated') {
+      // ⚡ The action revalidates: its own answer redrew the page — no second render.
       toast.success(state.message);
-      router.refresh();
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
+
+  // Switched off → the card is not shown at all (2026-11-05). It used to say
+  // "Coming soon", which on a supplier's Plan page reads as an unfinished
+  // product; with the switch off there is nothing to sell, so there is nothing
+  // to show. The server action still refuses on its own.
+  if (!available) return null;
 
   return (
     <section className="sn-tile mt-8 p-6">
@@ -135,15 +136,15 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           <p className="mt-1 max-w-prose text-sm text-ink/65">
             Ask guests to photograph your work — the signature dish, the booth, the
             pour — and collect the shots they choose to share with you. Unlimited
-            challenges at every celebration you&rsquo;re booked for, not one at a
+            challenges at every event you&rsquo;re booked for, not one at a
             time. Free and fun for guests; each challenge needs the
             couple&rsquo;s okay before it goes live.
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
             {first5Free ? (
               <>
-                Free while you&rsquo;re on your first 5 bookings
-                {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
+                {/* ⚖ One free booking since 2026-10-23 — the add-on rides the same window. */}
+                Free until your second booking, then{' '}
                 {peso(pricePhp)} / {formatCount(periodDays)} days.
               </>
             ) : (
@@ -158,18 +159,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
         </div>
       </div>
 
-      {!available ? (
-        <div
-          className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
-          style={{ borderColor: 'var(--m-line)' }}
-        >
-          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
-          <span>
-            Coming soon — guest photo missions are being finalized. You&rsquo;ll be
-            able to turn Papic Challenges on here the moment they go live.
-          </span>
-        </div>
-      ) : !eligible ? (
+      {!eligible ? (
         <div
           className="mt-4 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs text-ink/60"
           style={{ borderColor: 'var(--m-line)' }}
@@ -182,7 +172,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
             </span>
           ) : (
             <span>
-              Papic Challenges comes with a paid plan — Solo, Pro, Enterprise or
+              Papic Challenges comes with a paid plan — Solo, Pro, Ultra or
               Custom. Move up above to add it.
             </span>
           )}

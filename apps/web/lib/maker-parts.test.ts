@@ -50,8 +50,12 @@ test('Date, Place and the Venue are set in Suppliers — read-only here', () => 
   assert.deepEqual(makerPartSource('date'), { kind: 'supplier', fact: 'date' });
   assert.deepEqual(makerPartSource('place'), { kind: 'supplier', fact: 'venue' });
   assert.deepEqual(makerPartSource('venue'), { kind: 'supplier', fact: 'venue' });
-  assert.equal(makerPartQuietRow('date')?.words, 'Change the date in Suppliers');
-  assert.equal(makerPartQuietRow('place')?.words, 'Change the venue in Suppliers');
+  /* (Re-aimed 2026-10-09: the door's words are the approved prototype's — one line for both, `TOOLBAR-SPEC-2026-10-09.md` § EDIT.
+     Which fact it is still rides in `to.suppliers`.) */
+  assert.equal(makerPartQuietRow('date')?.words, 'Change it in Suppliers');
+  assert.equal(makerPartQuietRow('place')?.words, 'Change it in Suppliers');
+  assert.deepEqual(makerPartQuietRow('date')?.to, { suppliers: 'date' });
+  assert.deepEqual(makerPartQuietRow('place')?.to, { suppliers: 'venue' });
 });
 
 test('the four for-each-guest parts are marked `my`, and only they', () => {
@@ -60,9 +64,12 @@ test('the four for-each-guest parts are marked `my`, and only they', () => {
   assert.deepEqual(my.map((k) => MAKER_PARTS[k].my), ['role', 'wear', 'arrive', 'guests']);
 });
 
-test('the Text tool is exactly Font · Colour · Size', () => {
+test('the Text rows are exactly Font · Colour · Size; the toolbar’s tools are Edit · Style · Background · Animate', () => {
+  /* The shipped part sheet's three rows (the older Maker and the desktop still draw them, `threeControls`). */
   assert.deepEqual([...MAKER_PART_TEXT_TOOLS], ['font', 'colour', 'size']);
-  assert.deepEqual([...MAKER_PART_TOOLS], ['style', 'text', 'animate']);
+  /* 🔁 Re-aimed 2026-10-09 (owner: *"so it is just Edit | Style | Background | Animate"*): it was Style | Text |
+     Animate — Text is not a tool of the toolbar any more (`lib/the-toolbar-is-four-rows.test.ts`). */
+  assert.deepEqual([...MAKER_PART_TOOLS], ['edit', 'style', 'bg', 'animate']);
 });
 
 test('PartTextTab with threeControls draws Font · Colour · Size and none of the retired rows', () => {
@@ -77,8 +84,7 @@ test('PartTextTab with threeControls draws Font · Colour · Size and none of th
         choose: () => {},
         chooseAlign: () => {},
         resetText: () => {},
-        themeColours: ['#5B4A6B'],
-        usedColours: [],
+        board: ['#5B4A6B'],
         shownColour: '#2C2A29',
         contrast: null,
         eventId: 'e-1',
@@ -125,8 +131,21 @@ test('every page lists real parts; every Studio source is a real Studio tile', (
 
 test('a tap names its part; only parts the page drew are tiles', () => {
   const present = new Set(['f:hero', 'w:countdown']);
-  assert.deepEqual(makerPartsTappable('save_the_date', 'home', present), ['logo', 'ename', 'names', 'date', 'place', 'countdown'] satisfies MakerPartKey[]);
+  /* 👆 2026-10-07 (owner: "every visible piece of the page must be a pickable part"): the cover's invite line and
+     link are parts too. A reader that does not list a section's parts is answered by the section… */
+  assert.deepEqual(makerPartsTappable('save_the_date', 'home', present), ['coverscene', 'logo', 'ename', 'names', 'heroline', 'date', 'place', 'coverphoto', 'herolink', 'countdown'] satisfies MakerPartKey[]);
+  /* …and one that does offers only the parts the page drew. */
+  const drawn = new Set(['f:hero', 'f:hero|mark', 'f:hero|eyebrow', 'f:hero|names', 'f:hero|date', 'f:hero|venue', 'f:hero|link', 'w:countdown']);
+  assert.deepEqual(makerPartsTappable('save_the_date', 'home', drawn), ['coverscene', 'logo', 'ename', 'names', 'date', 'place', 'herolink', 'countdown'] satisfies MakerPartKey[], 'no invite line drawn → no tile');
+  assert.equal(makerPartOfTap('rsvp', 'home', 'f:hero', 'line'), 'heroline', 'the invite line is its own part');
+  assert.equal(makerPartOfTap('rsvp', 'home', 'f:hero', 'link'), 'herolink', 'the link is its own part');
+  /* 🖼 The cover's photo plate is a part of its own (owner-approved 2026-10-16, "SIX NEW EFFECTS") — drawn only with a cover photo. */
+  assert.equal(makerPartOfTap('rsvp', 'home', 'f:hero', 'photo'), 'coverphoto', 'the cover photo is its own part');
+  assert.equal(makerPartOfTap('rsvp', 'details', 'f:details', 'label'), 'details', 'THE DETAILS title and its plates are the Details block');
+  assert.equal(makerPartOfTap('event', 'live', 'f:spotlight', null), 'spotlight', 'the Happening-now card is a part');
   assert.equal(makerPartOfTap('save_the_date', 'home', 'f:hero', 'date'), 'date');
+  /* 🖼 A tap on the cover's empty space (no word under it) selects the Cover Scene — it fell to the logo before. */
+  assert.equal(makerPartOfTap('save_the_date', 'home', 'f:hero', null), 'coverscene', 'the cover itself is the Cover Scene');
   assert.equal(makerPartOfTap('rsvp', 'details', 'w:dress_code', 'heading'), 'dress');
 });
 

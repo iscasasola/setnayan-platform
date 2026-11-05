@@ -21,7 +21,6 @@ import Link from 'next/link';
 import { useReducedMotion } from '@/app/[slug]/_components/editorial/living-moments';
 import { useFlashTimeline } from './use-flash-timeline';
 import { placeholderBackground, orbBackground } from './placeholder';
-import { captureLifeFlash } from './life-flash-analytics';
 import styles from './flash.module.css';
 import { formatCount } from '@/lib/format-number';
 
@@ -81,7 +80,7 @@ function preloadImages(urls: string[], timeoutMs = 4000): Promise<void> {
   return Promise.race([Promise.all(loads).then(() => undefined), timeout]);
 }
 
-export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind: string }) {
+export function Flash({ beats }: { beats: FlashBeatView[]; scopeKind: string }) {
   const [stage, setStage] = useState<Stage>('closed');
   const [currentBeat, setCurrentBeat] = useState(0);
   const reducedMotion = useReducedMotion();
@@ -90,16 +89,9 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
   const stopBtnRef = useRef<HTMLButtonElement | null>(null);
-  // Fire-once guards so a metric never double-counts within one playthrough.
-  const completedRef = useRef(false);
-  const perspectiveFiredRef = useRef(false);
-  const currentBeatRef = useRef(0);
 
   const open = stage !== 'closed';
   const timelineActive = stage === 'playing' || stage === 'paused';
-
-  const hasPerspective = beats.some((b) => b.kind === 'perspective');
-  const hasMemoriam = beats.some((b) => b.kind === 'memoriam_hold');
 
   const handle = useFlashTimeline({
     scope: stageRef,
@@ -107,20 +99,8 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
     dwellsMs: beats.map((b) => b.dwellMs),
     onBeatChange: (i) => {
       setCurrentBeat(i);
-      currentBeatRef.current = i;
-      if (beats[i]?.kind === 'perspective' && !perspectiveFiredRef.current) {
-        perspectiveFiredRef.current = true;
-        void captureLifeFlash('life_flash_perspective_viewed', { scope: scopeKind });
-      }
     },
-    onComplete: () => {
-      completedRef.current = true;
-      void captureLifeFlash('life_flash_completed', {
-        scope: scopeKind,
-        beat_count: beats.length,
-      });
-      setStage('ended');
-    },
+    onComplete: () => setStage('ended'),
   });
 
   // Scroll lock + focus management while the room is open.
@@ -137,29 +117,10 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
   }, [open]);
 
   const close = () => {
-    // A close before the ending (and not from the reduced-motion still sheet)
-    // is a cancellation — the emotional-drop-off signal (strategy §9).
-    if ((stage === 'playing' || stage === 'paused') && !completedRef.current && !reducedMotion) {
-      void captureLifeFlash('life_flash_cancelled', {
-        scope: scopeKind,
-        at_beat: currentBeatRef.current,
-        beat_count: beats.length,
-      });
-    }
     setStage('closed');
   };
 
   const play = async () => {
-    completedRef.current = false;
-    perspectiveFiredRef.current = false;
-    currentBeatRef.current = 0;
-    void captureLifeFlash('life_flash_started', {
-      scope: scopeKind,
-      beat_count: beats.length,
-      has_perspective: hasPerspective,
-      has_memoriam: hasMemoriam,
-      reduced_motion: reducedMotion,
-    });
     setStage('loading');
     setCurrentBeat(0);
     await preloadImages(
@@ -228,7 +189,7 @@ export function Flash({ beats, scopeKind }: { beats: FlashBeatView[]; scopeKind:
         ref={launcherRef}
         type="button"
         onClick={() => void play()}
-        className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink p-5 text-left transition-transform hover:-translate-y-0.5"
+        className="group mb-8 flex w-full items-center justify-between gap-4 rounded-2xl border border-ink/10 bg-ink dark:bg-raised p-5 text-left transition-transform hover:-translate-y-0.5"
       >
         <span>
           <span className="block text-sm font-semibold text-white">▶ Play your Life-Flash</span>

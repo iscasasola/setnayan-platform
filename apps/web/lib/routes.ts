@@ -1,3 +1,5 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
+
 /**
  * routes.ts — THE single source of truth for every URL in the Setnayan web app.
  *
@@ -308,7 +310,8 @@ export const routes = {
         setup: (eventId: string) => `/dashboard/${eventId}/studio/panood/setup`,
       },
       papic: {
-        index: (eventId: string) => `/dashboard/${eventId}/studio/papic`,
+        /** The Papic page is gone (2026-10-26) — its card on Home › Today. */
+        index: (eventId: string) => papicHomeHref(eventId),
         crew: (eventId: string) => `/dashboard/${eventId}/studio/papic/crew`,
         magazine: (eventId: string) => `/dashboard/${eventId}/studio/papic/magazine`,
         moderation: (eventId: string) => `/dashboard/${eventId}/studio/papic/moderation`,
@@ -379,6 +382,8 @@ export const routes = {
     seating: {
       index: (eventId: string) => `/dashboard/${eventId}/seating`,
       caterer: (eventId: string) => `/dashboard/${eventId}/seating/caterer`,
+      /** The entrance seating chart — By table · A to Z on one sheet (owner 2026-10-13). */
+      chart: (eventId: string) => `/dashboard/${eventId}/seating/chart`,
       export: (eventId: string) => `/dashboard/${eventId}/seating/export`,
       print: (eventId: string) => `/dashboard/${eventId}/seating/print`,
       walkthrough: (eventId: string) => `/dashboard/${eventId}/seating/walkthrough`,
@@ -418,6 +423,7 @@ export const routes = {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,
     findSeat: (slug: string) => `/${slug}/find-seat`,
     home: (slug: string) => `/${slug}`,
+    livePulse: (slug: string) => `/${slug}/live-pulse`,
     liveWall: (slug: string) => `/${slug}/live-wall`,
     recap: (slug: string) => `/${slug}/recap`,
     redeem: (slug: string) => `/${slug}/redeem`,

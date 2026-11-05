@@ -53,7 +53,8 @@ test('1 · "the theme\'s own" and "none" are stored choices on the one Main key 
   assert.deepEqual(hubMainGround({ main: { ground: 'none' } }), { ground: 'none' });
   // Parallax is kept on the couple's own PHOTO only.
   assert.equal((sanitizeHubMainGround({ kind: 'photo', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, 'parallax');
-  assert.equal((sanitizeHubMainGround({ kind: 'snippet', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, undefined);
+  // 🌄 A clip moves too since the Look restudy row 8 ("parallax is an effect also") — on the same shipped parallax.
+  assert.equal((sanitizeHubMainGround({ kind: 'snippet', media: PHOTO, motion: 'parallax' }) as { motion?: string }).motion, 'parallax');
 });
 
 test('1b · a choice beats the hero: with a measured hero up, "the theme\'s own" draws NO picture', () => {
@@ -89,10 +90,11 @@ test('2 · "None" hides the theme\'s loop and poster with the SAME switch the he
   );
   assert.ok(withHero.includes(HIDE), 'one switch, not two');
   // The page asks for it first, before any ownership read (it is free), and only where a loop exists.
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   const body = layer.slice(layer.indexOf('export async function mainGroundLayerFor'));
   const noneAt = body.indexOf('if (mainGroundIsNone(hubMainGround(heroConfig))) {');
-  assert.ok(noneAt > 0 && noneAt < body.indexOf('websiteProActiveFor'), '"none" is answered before the Pro read');
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.ok(noneAt > 0 && noneAt < body.indexOf('hubPartActiveFor'), '"none" is answered before the Pro read');
   assert.match(body, /return INVITE_THEMES\[theme\]\?\.media \? <MainGroundNone \/> : null;/);
 });
 
@@ -140,7 +142,7 @@ test('3c · a moving background stores ONLY a shipped loop, and the guest page d
   assert.equal(sanitizeHubMainGround({ ground: 'loop', loop: 'not-a-theme' }), null);
   assert.equal(sanitizeHubMainGround({ ground: 'loop' }), null);
   assert.ok(isHubMainLoop({ ground: 'loop', loop: 'cyber' }) && !isHubMainLoop({ ground: 'theme' }));
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
   assert.match(layer, /const loop = isHubMainLoop\(main\) \? movingBackground\(main\.loop\) : null;/);
   // Only the loop is drawn — never the loop theme's fonts or colours: the page's own theme dresses the veil.
   assert.match(layer, /const adaptive = resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\);/);

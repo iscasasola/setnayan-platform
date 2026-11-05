@@ -23,7 +23,7 @@ export function LivePhotoWallCard({ eventId }: { eventId: string }) {
       <header className="flex items-center justify-between">
         <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
           <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Live photo wall
+          Memory lane
         </p>
         <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta">
           Ready
@@ -43,7 +43,7 @@ export function LivePhotoWallCard({ eventId }: { eventId: string }) {
         href={`/wall/${eventId}`}
         className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-3 py-1.5 text-xs font-medium text-cream transition-opacity hover:opacity-90"
       >
-        Open the wall on a screen
+        Open Memory lane on a screen
         <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </Link>
     </article>

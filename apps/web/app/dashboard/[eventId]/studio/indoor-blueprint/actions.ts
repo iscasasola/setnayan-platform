@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { clampPct } from '@/lib/indoor-blueprint';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Save the venue entrance marker position for the Indoor Blueprint wayfinding.
@@ -30,6 +31,7 @@ import { clampPct } from '@/lib/indoor-blueprint';
  * that hasn't caught up. Any other error surfaces.
  */
 export async function saveEntrance(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const xRaw = formData.get('entrance_x');
   const yRaw = formData.get('entrance_y');

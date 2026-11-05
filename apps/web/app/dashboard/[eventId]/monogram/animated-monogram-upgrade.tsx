@@ -13,7 +13,7 @@ import {
 } from '@/lib/monogram-motion';
 import { buildEventLandingUrl } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPartPrices } from '@/lib/couple-website-pro';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
@@ -23,6 +23,7 @@ import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-re
 import { sanitizeStudioConfig, type StudioAnimKind } from '@/lib/monogram-studio-shared';
 import { DEFAULT_STUDIO_ANIM } from '@/lib/hero-monogram-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { FULL_PRO_SKU, hubPart } from '@/lib/hub-parts';
 
 /**
  * <AnimatedMonogramUpgrade> — the paid ANIMATED_MONOGRAM upgrade, rendered
@@ -57,7 +58,19 @@ import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
  * preview survive only for the fallback-lockup path (no custom mark).
  */
 
-const SKU_CODE = 'ANIMATED_MONOGRAM';
+/* 💎 THE ANIMATION IS THE LOGO & QR PART NOW (owner 2026-10-22, "Event Hub Pro, part by part", Q2 "yes"): the standalone
+   ₱500 Animated Monogram is retired from sale (migration 20271283592608); what this page sells is the Logo & QR part —
+   the animation, the logo travelling to the bar, and the logo on every guest QR. Its price is that row's. Ownership is
+   still asked through `eventOwnsAnimatedMonogram` / `eventAnimatedMonogramActive`, which read the part (and an old
+   ANIMATED_MONOGRAM order, by alias). */
+const SKU_CODE = hubPart('logo_qr').sku;
+
+/**
+ * ⛔ WHAT THIS PAGE SELLS (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * website"): the Logo & QR part only while its catalogue row is on sale; otherwise Event Hub Pro, whole — the
+ * animation is in it. The catalogue is the one switch (`hubPartPrices().onSale`); every figure is its read.
+ */
+type MonogramSale = { serviceKey: string; pricePhp: number | null; name: string; whole: boolean };
 
 /** Display labels for the studio's five reveal kinds — the EXACT vocabulary the
  *  "Animate the reveal" panel above uses (one taxonomy per page — council
@@ -156,8 +169,10 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
 
   // Price comes ONLY from the admin V2 catalog (owner rule 2026-06-14 — no
   // hardcoded price). null when the row is unreadable → the buy block degrades.
-  const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
-  const pricePhp = skuRecord?.price_php ?? null;
+  const catalogue = await hubPartPrices(createAdminClient()).catch(() => null);
+  const sale: MonogramSale = catalogue?.onSale.has(SKU_CODE)
+    ? { serviceKey: SKU_CODE, pricePhp: catalogue.parts.get(SKU_CODE) ?? null, name: 'Event Hub Pro · Logo & QR', whole: false }
+    : { serviceKey: FULL_PRO_SKU, pricePhp: catalogue?.full ?? null, name: 'Event Hub Pro', whole: true };
 
   /* ── THE UNLOCK IS A ROW, NOT A SECTION (owner 2026-09-20) ──────────────
    * "it doesn't need its own row. it just needs to be on the Animate and
@@ -178,7 +193,7 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
         <UnownedView
           compact
           monogram={monogram}
-          pricePhp={pricePhp}
+          sale={sale}
           eventId={eventId}
           displayName={event.display_name}
           motion={motion}
@@ -235,7 +250,7 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
       ) : (
         <UnownedView
           monogram={monogram}
-          pricePhp={pricePhp}
+          sale={sale}
           eventId={eventId}
           displayName={event.display_name}
           motion={motion}
@@ -377,7 +392,7 @@ function OwnedView({
 async function UnownedView({
   compact = false,
   monogram,
-  pricePhp,
+  sale,
   eventId,
   displayName,
   motion,
@@ -391,7 +406,7 @@ async function UnownedView({
    *  already SEEN the thing; the row only has to say what buying changes. */
   compact?: boolean;
   monogram: ReturnType<typeof resolveMonogram>;
-  pricePhp: number | null;
+  sale: MonogramSale;
   eventId: string;
   displayName: string | null;
   motion: MonogramMotionKey;
@@ -406,6 +421,7 @@ async function UnownedView({
   const supabase = await createClient();
   const settings = await fetchPlatformSettings(supabase);
   const metalStage = studioAnim.kind === 'gold' || studioAnim.kind === 'molten';
+  const pricePhp = sale.pricePhp;
 
   if (compact) {
     return (
@@ -435,8 +451,10 @@ async function UnownedView({
            * approved_at column, so approval latency has never been measured,
            * and a made-up "within 2 hours" is a number governing money. */}
           <p className="pt-1 text-xs text-ink/55">
-            One unlock for your wedding — designed mark or uploaded logo, whichever
-            you use. We check every payment by hand and email you the moment it
+            {sale.whole
+              ? 'Part of Event Hub Pro — one unlock for this event, with every other Pro feature.'
+              : 'One unlock for your wedding — designed mark or uploaded logo, whichever you use.'}{' '}
+            We check every payment by hand and email you the moment it
             goes live; your mark shows everywhere in the meantime.
           </p>
         </div>
@@ -444,8 +462,8 @@ async function UnownedView({
           <div className="shrink-0 sm:w-auto">
             <InlineCheckoutDrawer
               eventId={eventId}
-              serviceKey={SKU_CODE}
-              displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+              serviceKey={sale.serviceKey}
+              displayName={`${sale.name}${displayName ? ` · ${displayName}` : ''}`}
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
               /* NO price here: InlineCheckoutDrawer appends the formatted price
@@ -453,7 +471,7 @@ async function UnownedView({
                * "Animate & apply · ₱500 · ₱500.00" on a MONEY button — seen in
                * production, invisible to tsc, lint and every test, because the
                * appending happens inside the drawer. */
-              triggerLabel="Animate & apply"
+              triggerLabel={sale.whole ? 'Unlock Event Hub Pro' : 'Animate & apply'}
 
               triggerClassName="inline-flex w-full min-h-[48px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-70 sm:w-auto"
             />
@@ -604,17 +622,17 @@ async function UnownedView({
         {pricePhp != null ? (
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
-              One price for your wedding ·{' '}
+              {sale.whole ? 'Part of Event Hub Pro' : 'One price for your wedding'} ·{' '}
               <span className="font-mono text-base text-ink">{formatPhp(pricePhp)}</span>
             </p>
             <div className="sm:w-auto">
               <InlineCheckoutDrawer
                 eventId={eventId}
-                serviceKey={SKU_CODE}
-                displayName={`Animated Monogram${displayName ? ` · ${displayName}` : ''}`}
+                serviceKey={sale.serviceKey}
+                displayName={`${sale.name}${displayName ? ` · ${displayName}` : ''}`}
                 originalPriceCentavos={String(Math.round(pricePhp * 100))}
                 settings={settings}
-                triggerLabel="Draw my monogram live"
+                triggerLabel={sale.whole ? 'Unlock Event Hub Pro' : 'Draw my monogram live'}
                 triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
               />
             </div>

@@ -1,4 +1,4 @@
-import { Lock, NotebookPen, Trash2, Users } from 'lucide-react';
+import { Lock, NotebookPen, Users } from 'lucide-react';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
@@ -12,7 +12,8 @@ import {
   type WorkingNoteRow,
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
-import { addWorkingNoteAction, deleteWorkingNoteAction } from '../actions';
+import { addWorkingNoteAction } from '../actions';
+import { WorkingNoteSwipe } from './working-note-swipe';
 
 /**
  * Working folder — notes (Coordinator P4 · corpus
@@ -188,7 +189,7 @@ export async function WorkingFolderNotes({
           )}
           <SubmitButton
             pendingLabel="Adding…"
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
             Add note
           </SubmitButton>
@@ -201,15 +202,10 @@ export async function WorkingFolderNotes({
         <ul className="space-y-2">
           {notes.map((n) => {
             const isPrivate = n.visibility === 'coordinator_private';
-            return (
-              <li
-                key={n.note_id}
-                className={
-                  isPrivate
-                    ? 'rounded-lg border border-dashed border-ink/30 bg-ink/5 px-3 py-2.5'
-                    : 'rounded-lg border border-ink/10 bg-cream/80 px-3 py-2.5'
-                }
-              >
+            const card = isPrivate
+              ? 'rounded-lg border border-dashed border-ink/30 bg-ink/5 px-3 py-2.5'
+              : 'rounded-lg border border-ink/10 bg-cream/80 px-3 py-2.5';
+            const body = (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
@@ -230,23 +226,16 @@ export async function WorkingFolderNotes({
                     </p>
                     <p className="whitespace-pre-line text-sm text-ink/85">{n.body}</p>
                   </div>
-                  {canDeleteWorkingNote(user.id, n) ? (
-                    <form action={deleteWorkingNoteAction} className="shrink-0">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="vendor_id" value={vendorId} />
-                      <input type="hidden" name="note_id" value={n.note_id} />
-                      <SubmitButton
-                        pendingLabel="…"
-                        overlay={false}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                        aria-label="Remove your note"
-                        title="Remove your note"
-                      >
-                        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      </SubmitButton>
-                    </form>
-                  ) : null}
                 </div>
+            );
+            /* 👈 Your own note deletes by its swipe (owner 2026-11-03) — no trash on the note. */
+            return canDeleteWorkingNote(user.id, n) ? (
+              <WorkingNoteSwipe key={n.note_id} eventId={eventId} vendorId={vendorId} noteId={n.note_id} className={card}>
+                {body}
+              </WorkingNoteSwipe>
+            ) : (
+              <li key={n.note_id} className={card}>
+                {body}
               </li>
             );
           })}

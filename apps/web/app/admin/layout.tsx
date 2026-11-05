@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
@@ -13,11 +14,13 @@ import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunFaceDataRetention } from '@/lib/face-data-retention';
+import { maybeRunChatFileExpiry } from '@/lib/chat-file-expiry-sweep';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
@@ -28,6 +31,8 @@ import { countUnread } from '@/lib/notifications';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { needsTermsAgreement } from '@/lib/terms-agreement';
+import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
 import { completeTour } from '@/lib/tour-actions';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { AdminRailContext } from './_components/admin-rail-context';
@@ -117,14 +122,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false, shops: [] },
   };
 
   const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
     supabase
       .from('users')
       .select(
-        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys',
+        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys, terms_version',
       )
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -218,6 +223,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // enforced. Fails closed on any unreadable date; switching it off makes it a
   // DRY RUN, not a no-op.
   after(() => maybeRunFaceDataRetention().catch(() => {}));
+  // Chat files 90 days after the event (owner 2026-10-28). OFF until
+  // CHAT_FILE_EXPIRY_ENABLED=true — a dry run until then; see the module.
+  after(() => maybeRunChatFileExpiry().catch(() => {}));
   // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
   // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
   // claim, carried by admin AND public traffic so a quiet console cannot hold a
@@ -242,6 +250,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // couple visit. Bounded (≤25 events/sweep) + 15-min grace so an in-flight
   // screen is never re-run; never throws.
   after(() => maybeRunPapicNsfwRescreen().catch(() => {}));
+  // Papic save-first (2026-10-23): pieces a phone PUT straight to R2 and never
+  // recorded are removed — staging keys only, after the phone's own TTL + a day.
+  after(() => maybeRunPapicUploadSweep().catch(() => {}));
   // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
   // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential
   // back-off up to a ceiling and surfaces what's stranded past it, so a transient
@@ -263,6 +274,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // …) and writes it to email_deliveries, which the home strip and the
   // Notifications tab read. Bounded (20 per run); never throws.
   after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
+  // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
+  // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
+  after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 
@@ -278,7 +292,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       }
     : profile?.is_team_member
       ? {
-          label: 'Team Pool',
+          label: 'Team member',
           tone: 'bg-success-100 text-success-800',
           dot: 'bg-success-600',
         }
@@ -392,9 +406,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         console otherwise looking perfectly fine.
         `admin-rail-context.test.ts` fails if the class comes back.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher data={switcherData} here="admin" />
     </div>
   );
+
+  // 🔁 Asked once when the agreement on record is not to the Terms in force; a failed read is not asked.
+  const termsAsk = needsTermsAgreement(profile, { isAnonymous: !!user.is_anonymous });
 
   return (
     // `app-surface` keeps the app typeface (Hanken) for the CONTENT — the rail
@@ -471,9 +488,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* NAV-2 broken-out action — Payment requests (a sibling of the pill,
           never a tab). Hides itself when a docked SubNav is up. */}
       <AdminNavFab />
-      {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
+      {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔁 One-time Terms re-ask — an admin is an account too (lib/terms-agreement.ts `needsTermsAgreement`). */}
+      {termsAsk ? <TermsReacceptSheet /> : null}
     </div>
   );
 }

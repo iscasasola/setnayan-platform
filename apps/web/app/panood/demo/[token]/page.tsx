@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { after } from 'next/server';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -64,9 +63,6 @@ export default async function PanoodDemoJoinPage({ params }: Props) {
         title="This demo link expired."
         sub="Demo codes are fresh every time — open a new one from the Live Watch tile on the Setnayan homepage."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

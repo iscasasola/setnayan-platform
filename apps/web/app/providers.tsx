@@ -27,12 +27,16 @@ import { DEFAULT_LOADER_CONFIG, type LoaderConfig } from '@/lib/loader-config';
 import { DeferredObservability } from './_components/deferred-observability';
 import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
+import dynamic from 'next/dynamic';
 import { GlobalSliderHint } from './_components/global-slider-hint';
-import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
 import { ToastFromParams } from './_components/toast/toast-from-params';
 import { DesktopUpdaterListener } from './_components/desktop-updater-listener';
+
+/* ✕ The app-wide clear button loads after the page, never in anybody's first load (the Maker's first-load budget): it draws
+   nothing until a box is focused with words in it. */
+const GlobalClearField = dynamic(() => import('./_components/global-clear-field').then((m) => m.GlobalClearField), { ssr: false });
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
@@ -115,16 +119,16 @@ function createIdbStorage(): Storage {
 
 export function Providers({
   children,
-  initialThemeMode = 'auto',
+  initialThemeMode = 'light',
   brandMarkUrl = null,
   loaderConfig = DEFAULT_LOADER_CONFIG,
 }: {
   children: React.ReactNode;
   /**
-   * SSR-resolved theme mode from `users.theme_preference` (or 'auto' for
-   * anonymous visitors). Wraps everything so client components can call
-   * `useTheme()` to read/write the current mode.
-   * 2026-05-22 brand pivot — see CLAUDE.md decision-log.
+   * Retained for call-site compatibility; nothing passes it. The person's
+   * Appearance (Light · Dark, 2026-10-13) is read from the `sn-theme` cookie by
+   * the <head> script and the ThemeProvider — see lib/appearance.ts. Wraps
+   * everything so client components can call `useTheme()`.
    */
   initialThemeMode?: ThemeMode;
   /**
@@ -158,15 +162,6 @@ export function Providers({
           buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
         }}
       >
-        {/*
-          TODO: pass `userId` from a server component once we have a clean
-          place to read it (e.g., a SignedInProviders wrapper). For now the
-          PostHogProvider resolves the Supabase user_id itself via the
-          browser client + onAuthStateChange — keeps providers.tsx free of
-          server-only imports and avoids plumbing the id through every
-          layout.
-        */}
-        <PostHogProvider>
           {/*
             App-wide blocking loader overlay (Organic loaders handoff
             2026-06-07). Provides useLoader() to any client component for
@@ -195,7 +190,6 @@ export function Providers({
               </BrandProvider>
             </LoaderOverlayProvider>
           </LoaderConfigProvider>
-        </PostHogProvider>
         {/*
           Sentry browser SDK is lazy-loaded post-hydration via a deferred
           client component so the ~105 kB `@sentry/nextjs` chunk stays
@@ -217,6 +211,8 @@ export function Providers({
           Renders nothing; no-ops on engines without haptic support.
         */}
         <GlobalHaptics />
+        {/* ✕ in every type box while it is typed into (owner 2026-10-31) — `components/clear-field.tsx`. */}
+        <GlobalClearField />
         {/*
           App-wide "drag me" hint — one client effect adds a periodic left-right
           knob shake to opted-in line sliders (`.sn-range` / `[data-sn-hint]`)

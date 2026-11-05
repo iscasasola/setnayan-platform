@@ -168,6 +168,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // `guestOwnShots` (2026-10-01) — null here: the sample guest shot nothing.
     'guestOwnShots',
     'kind',
+    // `moreAnswers` (2026-10-20) — 0 here: the sample guest owes nothing more.
+    'moreAnswers',
     'needsFaceEnroll',
     'papicGuest',
     // passCard (2026-09-29) — whether THIS guest has a pass card; null in a simulation.
@@ -176,6 +178,8 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // switch on for guests (events.pool_gallery_open); a yes/no about what a
     // guest may browse, never an owner capability.
     'poolGalleryOpen',
+    // `earlyOwnShots` (2026-10-14) — false here: the sample guest's event is not shooting early.
+    'earlyOwnShots',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest
     // themselves supplied, never anything about the host or the event, and it is
@@ -188,6 +192,9 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'seatMap',
     'seatPassActive',
     'showClaimAccountCta',
+    // supplierPageNotices (2026-10-28) — suppliers who will show photos from THIS event on their page, each with
+    // Remove (the 7-day guest notice). About the event this guest belongs to; never an owner capability.
+    'supplierPageNotices',
   ].sort());
   for (const key of ['capability', 'ownerUserId', 'ownerEventId']) {
     assert.ok(!(key in identity), `owner key ${key} leaked onto the simulated identity`);

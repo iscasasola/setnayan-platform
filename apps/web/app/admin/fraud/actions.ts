@@ -40,6 +40,7 @@ import { deriveVendorFraudState } from '@/lib/fraud-enforcement';
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 function requireVendorId(formData: FormData): string {
@@ -105,6 +106,8 @@ export async function dismissVendorSignals(formData: FormData) {
       .eq('vendor_profile_id', vendorProfileId)
       .not('fraud_suspended_at', 'is', null)
       .is('fraud_banned_at', null);
+    // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+    clearHomeShelf('shops');
     if (unsuspErr) throw new Error(`Could not un-suspend: ${unsuspErr.message}`);
     await writeFraudEnforcementAudit(admin, {
       vendorProfileId,
@@ -157,6 +160,8 @@ export async function unsuspendVendor(formData: FormData) {
     .is('fraud_banned_at', null)
     .select('vendor_profile_id')
     .maybeSingle();
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (error) throw new Error(`Could not un-suspend: ${error.message}`);
   if (!updated) {
     throw new Error('Supplier is not currently auto-suspended (or is already banned).');
@@ -332,6 +337,8 @@ export async function executeFraudWipeBan(
       demotion_count: (vendor.demotion_count ?? 0) + 1,
     })
     .eq('vendor_profile_id', vendorProfileId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('shops');
   if (banErr) throw new Error(`Ban write failed: ${banErr.message}`);
 
   // 4. Refresh the matviews that read the now-voided rows + the fraud aggregate.

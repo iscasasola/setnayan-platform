@@ -156,11 +156,16 @@ async function executeApproved(
   // created.
   if (row.action_type === 'approve_journal_spotlight') {
     if (!row.target_id) throw new Error('Spotlight approval has no target spotlight');
-    const { error } = await admin
+    const { data: published, error } = await admin
       .from('journal_vendor_spotlights')
       .update({ admin_approved_at: new Date().toISOString() })
-      .eq('spotlight_id', row.target_id);
+      .eq('spotlight_id', row.target_id)
+      .select('blog_slug');
     if (error) throw new Error(`Spotlight approval failed: ${error.message}`);
+    // The article is ISR for a day (app/blog/[slug]/page.tsx): the credit shows at once.
+    for (const p of (published ?? []) as Array<{ blog_slug: string | null }>) {
+      if (p.blog_slug) revalidatePath(`/blog/${p.blog_slug}`);
+    }
     return;
   }
 
@@ -264,18 +269,12 @@ async function executeApproved(
   const t = row.target_user_id;
 
   if (row.action_type === 'grant_internal_account') {
-    // Mutually exclusive with team-pool (§10a XOR §10b) — clear the other flag.
+    // Internal (§10a) replaces the team-member flag — clear the other one.
     const { error } = await admin
       .from('users')
       .update({ is_internal: true, is_team_member: false })
       .eq('user_id', t);
     if (error) throw new Error(`Grant internal failed: ${error.message}`);
-  } else if (row.action_type === 'grant_team_pool') {
-    const { error } = await admin
-      .from('users')
-      .update({ is_team_member: true, is_internal: false })
-      .eq('user_id', t);
-    if (error) throw new Error(`Grant team-pool failed: ${error.message}`);
   } else if (row.action_type === 'promote_to_admin') {
     const { error } = await admin
       .from('users')
@@ -283,6 +282,8 @@ async function executeApproved(
       .eq('user_id', t);
     if (error) throw new Error(`Promote to admin failed: ${error.message}`);
   } else {
+    // A `grant_team_pool` request opened before its retirement (owner 2026-11-05) lands here and is refused,
+    // never executed — reject it from the queue.
     throw new Error(`Unknown action type: ${row.action_type as string}`);
   }
 }

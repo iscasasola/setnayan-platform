@@ -30,6 +30,10 @@
 import { oklchDistance, oklchOfHex, type Oklch } from './color-space';
 import { applyTouch } from './mood-board-board-ops';
 import { PALETTE_LIMITS, type PaletteKey, type RolePalette } from './mood-board';
+import { nearestColorName } from './color-names';
+import { recentColoursToShow } from './colour-picker-recent';
+import { AA_BODY, AA_LARGE, contrastRatio, relativeLuminance } from './hub-legibility';
+import { sanitizeCallTime } from './role-dress-code';
 
 const HEX = /^#[0-9A-F]{6}$/i;
 
@@ -44,6 +48,8 @@ export const MAIN_COLOUR_JOBS = [
 
 /** How many main colours there are — `PALETTE_LIMITS.reception.max`. */
 export const MAIN_COLOUR_COUNT = PALETTE_LIMITS.reception.max;
+/** The five's own names, by slot — Dominant · Supporting · Accent · Neutral · Accent 2 (`PALETTE_LIMITS.reception.slotLabels`). */
+export const MAIN_COLOUR_NAMES: readonly string[] = PALETTE_LIMITS.reception.slotLabels ?? [];
 
 /**
  * The five main colours AS SHOWN: the couple's (`reception`), filled out from
@@ -179,22 +185,82 @@ export function nextAutoPage(all: readonly AutoSuggestion[], page: number, size:
   return [...best, ...shown];
 }
 
-/* ══ THE PICKER'S SWATCHES ═════════════════════════════════════════════════ */
-
-/**
- * The picker's sixteen (owner 2026-10-06: "Swatches (16 curated)") — the
- * prototype's own sixteen, a ladder of the house's plums, golds, sages, blushes
- * and creams. Display choices only: nothing is written until one is tapped.
- */
-export const PICKER_SWATCHES = [
-  '#5B4A6B', '#6E5A80', '#3E3350', '#2A3A5E', '#2C2A29', '#B5543A', '#A9834B', '#C9A86A',
-  '#F1C27D', '#7A8B6F', '#B9C9B0', '#D9C4CF', '#E9C9D3', '#F3DDE3', '#F7F2EC', '#FFFFFF',
-] as const;
+/* ══ THE PICKER ═══════════════════════════════════════════════════════════ */
 
 /** A typed colour code ("c9a86a", "#C9A86A") as `#RRGGBB`, or null. */
 export function cleanHexInput(raw: string): string | null {
   const v = raw.trim().replace(/^#?/, '#').toUpperCase();
   return HEX.test(v) ? v : null;
+}
+
+/* ══ THE PICKER'S SHELVES ══════════════════════════════════════════════════ */
+
+/**
+ * 🔎 AGAINST THE BACKGROUND — the picker's AA line (owner 2026-10-08 "restudy is good";
+ * `BACKGROUND_RESTUDY_2026-10-08_fable.md` § 2.2: *"the picker's first shelf then says 'Hard to read —
+ * pick a deeper colour · 2.1:1'"*). How `colour` reads on `ground`, in the prototype's three words:
+ * 4.5:1 and up "Clear to read" · 3:1 and up "Clear for large words only" · under that "Hard to read".
+ * The advice names the way out that exists — deeper on a light ground, lighter on a dark one.
+ * Null = one of the two is not a colour (nothing is said, never a guessed verdict).
+ */
+export type PickerRead = { ratio: number; grade: 'clear' | 'large' | 'hard'; words: string };
+export function pickerReadsOn(colour: string, ground: string | null | undefined): PickerRead | null {
+  const c = cleanHexInput(colour.slice(0, 7));
+  const g = ground ? cleanHexInput(ground.slice(0, 7)) : null;
+  if (!c || !g) return null;
+  const ratio = contrastRatio(c, g);
+  const grade = ratio >= AA_BODY ? 'clear' : ratio >= AA_LARGE ? 'large' : 'hard';
+  const say =
+    grade === 'clear'
+      ? 'Clear to read'
+      : grade === 'large'
+        ? 'Clear for large words only'
+        : `Hard to read — pick a ${relativeLuminance(g) < 0.2 ? 'lighter' : 'deeper'} colour`;
+  return { ratio, grade, words: `${say} · ${ratio.toFixed(1)}:1` };
+}
+
+/**
+ * Colours that read on `ground` (4.5:1) FIRST, the rest after — each group in the order it came.
+ * Reordered, never hidden: the list that comes back holds exactly the colours handed in. With no
+ * ground (or one that is not a colour) the list is returned as it is.
+ */
+export function readableFirst<T extends { hex: string }>(list: readonly T[], ground: string | null | undefined): T[] {
+  const g = ground ? cleanHexInput(ground.slice(0, 7)) : null;
+  if (!g) return [...list];
+  const reads = (t: T) => contrastRatio(t.hex, g) >= AA_BODY;
+  return [...list.filter(reads), ...list.filter((t) => !reads(t))];
+}
+
+export type PickerRow = { hex: string; name: string | null };
+/**
+ * 🎨 THE PICKER'S TWO COLOUR ROWS, AS ROWS (owner 2026-10-17, verbatim *"Just have the Moodboard and
+ * Recently Used 5 colors"* — "Goes with your Mood Board" and the sixteen Swatches left the sheet that day):
+ *   · `board` — the Mood Board's five, each once, as the caller holds them;
+ *   · `recent` — what this person picked last in the picker (`lib/colour-picker-recent.ts`), newest first,
+ *     none of the five, at most five.
+ * Each colour with a name: the caller's own for its slot (`names`, by the position the caller listed it —
+ * "Dominant"), else the colour's own name (`nearestColorName`), else none. With a `readsOn` ground, the Mood
+ * Board row leads with the colours that read on it (`readableFirst`) — reordered, never hidden; Recently used
+ * keeps its newest-first order.
+ */
+export function pickerShelves(
+  palette: readonly string[],
+  opts: { names?: readonly string[]; readsOn?: string | null; recent?: readonly string[] } = {},
+): { board: PickerRow[]; recent: PickerRow[] } {
+  const five = [...new Set(palette.map((c) => cleanHexInput(c)).filter((c): c is string => c !== null))].slice(0, 5);
+  const named = new Map<string, string>();
+  palette.forEach((c, i) => {
+    const hex = cleanHexInput(c);
+    const name = opts.names?.[i];
+    if (hex && name && !named.has(hex)) named.set(hex, name);
+  });
+  const row = (hex: string): PickerRow => ({ hex, name: named.get(hex) ?? nearestColorName(hex) });
+  return {
+    board: readableFirst(five.map(row), opts.readsOn),
+    /* Newest first, always — the owner asked for the colours just used, in the order they were used; a ground marks
+       them (the AA line above) but never reorders them. */
+    recent: recentColoursToShow(opts.recent ?? [], five).map(row),
+  };
 }
 
 /* ══ ATTIRE — Wear ▾ ═══════════════════════════════════════════════════════ */
@@ -216,5 +282,41 @@ export function withAttireStyle<C extends { roles?: unknown; groups?: unknown }>
   const map = { ...((config[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
   if (style === null) delete map[key];
   else map[key] = { ...(map[key] ?? {}), style };
+  return { ...config, [tier]: map };
+}
+
+/* ══ ATTIRE — Call time ════════════════════════════════════════════════════ */
+
+/**
+ * ⏰ WHEN A ROW'S PEOPLE ARRIVE — `HH:MM`, or null (owner 2026-10-18: *"each role will have their call time"*).
+ *
+ * ONE HOME: the same `dress_code_config[tier][key].callTime` the guest page reads (`resolveAttireFor` → the reader's
+ * own row → "Call time" above their outfit) and the older desktop dress-code form wrote — so every time already set
+ * there is the time shown here, with nothing moved.
+ */
+export function callTimeOf(config: { roles?: unknown; groups?: unknown } | null | undefined, tier: 'roles' | 'groups', key: string): string | null {
+  const rule = ((config?.[tier] ?? {}) as Record<string, { callTime?: unknown } | undefined>)[key];
+  return sanitizeCallTime(rule?.callTime);
+}
+
+/**
+ * The row's call time set (`HH:MM`) or cleared (null or anything unreadable), the rest of the dress code kept exactly.
+ *
+ * 🔑 A TIME LIVES ON THE ROW'S OUTFIT LINE, so a row with no Wear picked has nowhere to keep one — every reader drops a
+ * line with no style (`sanitizeRoleAttire` / `sanitizeGroupAttire`), and a time written there would be a save that
+ * changes nothing anyone reads. Returned UNCHANGED then; the Studio says "Pick what they wear first".
+ */
+export function withCallTime<C extends { roles?: unknown; groups?: unknown }>(
+  config: C,
+  tier: 'roles' | 'groups',
+  key: string,
+  hhmm: string | null,
+): C {
+  const map = { ...((config[tier] as Record<string, Record<string, unknown>> | undefined) ?? {}) };
+  const rule = map[key];
+  if (!rule) return config;
+  const time = sanitizeCallTime(hhmm);
+  const { callTime: _was, ...rest } = rule;
+  map[key] = time ? { ...rest, callTime: time } : rest;
   return { ...config, [tier]: map };
 }

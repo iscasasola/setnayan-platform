@@ -1,18 +1,28 @@
-import { cache } from 'react';
+import { Suspense, cache } from 'react';
+import { appleWalletLink } from '@/lib/wallet-pass';
+import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
+import { AppleWalletButton } from '../../_components/apple-wallet-button';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnceBySlug } from '@/lib/event-row-once';
 import { createClient } from '@/lib/supabase/server';
-import { inviteReplyPath } from '@/lib/invite-arrival';
-import { arrivalDestinationFor, arrivalDestinationWords } from '@/lib/invite-destination';
+import { arrivalDestinationFor, arrivalDestinationWords, replyIsAsked } from '@/lib/invite-destination';
+import { joinDoorMeta } from '@/lib/join-door-meta';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { blockTime, ceremonyBlock } from '@/lib/print-pieces';
+import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { OPEN_REPLY_WINDOW, replyFaceOf, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
+import { ReplyWindowNote } from '../../_components/reply-window-note';
 import { renderInvitationQrSvg, buildInvitationUrl } from '@/lib/qr';
 import { QR_LOOK_COLUMNS_AFTER_INVITE_MARK, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { guestAccountState } from '@/lib/guest-one-path';
+import { guestAccountState, guestAnswersRead, moreAnswersOf, moreAnswersWords, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { readGuestSessionForEvent, readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
@@ -27,21 +37,27 @@ import { REQUEST_WORDS } from '@/lib/request-key';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { heroLineWord, wearTheHub } from '../_lib/wear-the-hub';
 import { hubDoorSkin } from '../_components/hub-door-skin';
+import { ArrivalLoading } from '../_components/arrival-loading';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
-import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpCelebration, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
 import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
+import { RsvpLookStyle } from '../../_components/rsvp-look-style';
+import { RsvpNoteLines } from '../../_components/rsvp-note-lines';
+import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
+import { signRsvpPictures } from '@/lib/rsvp-pictures.server';
 import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
-import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { EDITOR_CANVAS_HIDES_APP_CHROME, asksForHostCanvas } from '../../_lib/editor-canvas';
+import { loadEventShell, loadGuestLook, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
+import { shortcutLineShows } from '@/lib/home-screen-shortcut';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import {
   REENTRY_PARAM,
   isLinkPreviewFetch,
@@ -49,6 +65,7 @@ import {
   isUrlSecretShaped,
   passHopMissFault,
   reentryRedeemPath,
+  replyHrefCarrying,
   type PassHopHeld,
   type PassHopMissRule,
 } from '@/lib/guest-pass-hop';
@@ -60,7 +77,7 @@ import { loadPreviewPerson } from '../../_lib/preview-person.server';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { SIMULATED_GUEST_INVITATION_TEXT, SIMULATED_GUEST_QR_SVG, rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
-import { guestFullName } from '@/lib/guests';
+import { guestNameAsGiven } from '@/lib/guests';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { ticketShowsTable } from '@/lib/guests-may-see-seats';
 import {
@@ -71,16 +88,21 @@ import {
   landingDayLabel,
   landingHeadline,
   landingMessage,
+  landingWhenWhere,
   landingReplyOf,
   landingTicketOf,
+  landingTopStandsDown,
   openBeforeReplyHref,
   ticketFingerprint,
 } from '@/lib/guest-landing';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { PlusOneSeatList } from '../../_components/plus-one-seat-list';
 import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
-import { LandingPreReply } from '../_components/landing-pre-reply';
+import { LandingPreReply, LandingSaveTheDate } from '../_components/landing-pre-reply';
+import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
+import { startAhead } from '@/lib/start-ahead';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +119,11 @@ type Props = {
  * the Event Hub names, through the ONE helper (`eventShortcutMetadata`). Without
  * them a phone would make a tile of our generic app, or a screenshot.
  */
-export async function generateMetadata({ params, searchParams }: Props) {
+export async function generateMetadata(props: Props) {
+  return withGuestReadLimitQuiet('slug/invite/enter/metadata', () => inviteEnterMetadata(props));
+}
+
+async function inviteEnterMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
   const shell = await loadEventShell(slug).catch(() => null);
   const tileCode = shell?.event_id && !asksForHostCanvas(await searchParams)
@@ -208,8 +234,10 @@ async function leaveForTheHub(
  * much going on"). "Your guests · Send their invite", "Copy my link" and "Save
  * to my account" each also lived on the Event Hub's Me — two places for one
  * thing. They are Me's now; this page keeps the ticket and its ONE main action,
- * "Save my ticket". (The Save comes back here only to finish a press that
- * returned for the Terms tick — `?keep=terms`.)
+ * "Save my ticket". (Since 2026-10-25 the save widget is back under the ticket
+ * after a Yes — owner: "create a proper widget to link this event to your
+ * account", option A of prototypes/save_to_account_2026-10-25 — and it still
+ * finishes a press that returned for the Terms tick, `?keep=terms`.)
  *
  * What it grew from —
  *
@@ -233,22 +261,41 @@ async function leaveForTheHub(
  * cannot drift from the page it opens. Once the invitation is kept in an
  * account there is nothing to save, and that hand-off becomes the one button.
  */
-export default async function InviteEnterPage({ params, searchParams }: Props) {
+/** The Maker parts each screen draws lines of (`RSVP_LOOK_LINES`, `lib/rsvp-look.ts`). */
+const RSVP_YES_PARTS = ['yesnote', 'pass'] as const;
+const RSVP_NO_PARTS = ['nonote'] as const;
+
+// ⏱ Every read on the way in has a bounded wait; an essential one that never answers
+// is "didn't load", never a dead link (`lib/read-limit.ts`). The page is the function below.
+export default async function InviteEnterPage(props: Props) {
+  return withGuestReadLimit('slug/invite/enter', () => inviteEnterPage(props));
+}
+
+async function inviteEnterPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: liveEvent, error: eventError } = await admin
-    .from('events')
-    .select(
-      // + the QR look's remaining columns (the invite look and the invite mark
-      // already carry display_name · monogram_text · monogram_color · the two
-      // SVGs · role_palette): the pass drawn below wears the event's look —
-      // lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config`,
-    )
-    .ilike('slug', slug)
-    .maybeSingle();
+  /* 1️⃣ ONE READ OF THE EVENT (2026-10-12, `lib/event-row-once.ts`). The layout, the
+     metadata and the look already read this event's row for this request
+     (`loadEventShell`, one `cache()`d read) — with every column this door asks
+     for. So that read is awaited first, and the door's own read below, unchanged,
+     is SENT only when the row is not in hand (the shell could not be read, or a
+     column here is one it does not carry). Its failure is still this door's own. */
+  await loadEventShell(slug).catch(() => null);
+  const { data: liveEvent, error: eventError } = await eventRowOnceBySlug(admin, slug, () =>
+    admin
+      .from('events')
+      .select(
+        // + the QR look's remaining columns (the invite look and the invite mark
+        // already carry display_name · monogram_text · monogram_color · the two
+        // SVGs · role_palette): the pass drawn below wears the event's look —
+        // lib/qr-look.server.ts.
+        `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config, std_invitation_launch_date`,
+      )
+      .ilike('slug', slug)
+      .maybeSingle(),
+  );
   if (eventError) {
     throw new Error(`invite/enter: could not read the event for "${slug}": ${eventError.message}`);
   }
@@ -270,6 +317,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     }
   }
   const event = overlayHubDraftEvent(liveEvent as Record<string, unknown>, hostDraft) as typeof liveEvent;
+  /* 🖼 The note's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
+  const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
   const home = event.slug as string;
 
   // The guest's KEY for THIS event — their pass, or the seat their signed-in
@@ -297,12 +346,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           qr_token: null as string | null,
           rsvp_status: search.as === 'declined' ? 'declined' : 'attending',
           meal_preference: null as string | null,
+          mobile: null as string | null,
         },
         error: null,
       }
     : await admin
     .from('guests')
-    .select('guest_id, role, entry_source, qr_token, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, rsvp_status, meal_preference, plus_one_of_guest_id')
+    .select('guest_id, role, entry_source, qr_token, name_prefix, first_name, middle_name, last_name, name_suffix, display_name, rsvp_status, meal_preference, mobile, plus_one_of_guest_id')
     .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
     .is('deleted_at', null)
@@ -330,6 +380,44 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     }
   }
 
+  /* ⏳ THE ARRIVAL SHOWS SOMETHING WHILE IT LOADS (2026-10-11). Everything above
+     this line is a ROUTING decision — `notFound()`, the redirects, who this
+     guest is. Everything below is body work: a dozen-plus awaits. With no
+     boundary under this route nothing was drawn until the last one answered
+     (measured: a 2.9 s blank). The body is now ONE async part inside a
+     `<Suspense>`, so the door — the couple's names, their mark — is on screen
+     as soon as the routing is decided.
+     ⛔ NOT a `loading.tsx`: that commits HTTP 200 before `notFound()` can run
+     (app/[slug]/page.tsx, "THE BLANK WHITE SCREEN"). This boundary sits AFTER
+     the last `notFound()`/`redirect()`, so the status is settled first — and
+     nothing below it may call either (🛡 the-arrival-shows-something-while-it-
+     loads.test.ts).
+     (The body keeps its indentation on purpose: it is the page's own code,
+     unmoved, so its history and the guards that read it stay true.) */
+  // The look the guest layout already asked for on this request (`cache()`d) —
+  // best-effort, like the layout's own: unread, the fallback is the house door.
+  const loadingLook = await loadGuestLook(slug).catch(() => null);
+  const InviteEnterBody = async () => {
+  /* ⏩ THE LANDING'S READS LEAVE TOGETHER (2026-10-12). Nothing in this body redirects or 404s, and every read
+     started here is awaited on EVERY path before the pre-reply return below — so each one that needs only the
+     event or this guest's id leaves now and is awaited on its own line, unchanged: the same answer, the same
+     failure from the same `await`, no read added (`lib/start-ahead.ts`). Each was one round trip after another.
+     NOT started: the tile code (a WRITE) and the ceremony time (one screen only). A Maker canvas skips the same
+     reads it always skipped (`null` = not asked). */
+  const seatDay = ticketShowsTable({
+    eventDate: event.event_date as string | null,
+    eventDatePrecision: event.event_date_precision as string | null,
+  });
+  const profileAhead = startAhead(resolveProfile(event.event_type as string));
+  const ownerSlugAhead = startAhead(resolveEventOwnerSlug(admin, event.event_id as string));
+  const qrLookAhead = canvas ? null : startAhead(resolveEventQrLook(admin, event.event_id as string, event as QrLookRow));
+  const wordsAhead = startAhead(eventWordsFor(event.event_type as string));
+  const seatsAhead = canvas ? null : startAhead(plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string));
+  const passCardAhead = startAhead(passCardEligibilityFor(admin, guest.guest_id as string));
+  const plusOneTicketIdsAhead = startAhead(plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string));
+  const viewerAhead = startAhead(createClient().then((supabase) => supabase.auth.getUser()));
+  const seatHolderAhead = canvas ? null : startAhead(readSeatHolder(event.event_id as string, guest.guest_id as string));
+  const ticketSeatsAhead = canvas || !seatDay ? null : startAhead(readTicketSeats(admin, event.event_id as string));
   const cookieStore = await cookies();
 
   // What happened to the reply they just saved — the same sentences the
@@ -369,12 +457,14 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      🔒 ASKED, NEVER RESTATED. `arrivalDestinationFor` runs the SAME composition
      app/[slug]/page.tsx runs to pick its own face, so the door cannot drift
      from the page. No threshold is named here or in that module. */
+  const profile = await profileAhead;
   const destination = arrivalDestinationFor({
-    profile: await resolveProfile(event.event_type as string),
+    profile,
     eventDate: event.event_date as string | null,
     eventEndDate: (event.event_end_date as string | null) ?? null,
     launchMode: (event.launch_mode as string | null) ?? null,
     manualPhase: (event.manual_phase as string | null) ?? null,
+    invitationLaunchDate: (event.std_invitation_launch_date as string | null) ?? null,
     venueTz: eventTimezoneFromCoords(
       event.venue_latitude as number | null,
       event.venue_longitude as number | null,
@@ -389,7 +479,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      id it could be asked to look something up with. Same renderer, same url
      as the Event Hub's own card (`buildInvitationUrl` is the only speller). */
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-  const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id as string);
+  const ownerSlug = await ownerSlugAhead;
   const qrParams = {
     appUrl,
     // The DB-canonical slug, not the raw route param (matched case-insensitively).
@@ -398,15 +488,15 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     ownerSlug,
   };
   // The sample on the Maker's canvas has no key of its own — its QR says SAMPLE.
-  const qrSvg = canvas
+  const qrSvg = canvas || !qrLookAhead
     ? SIMULATED_GUEST_QR_SVG
     : await renderInvitationQrSvg({
         ...qrParams,
         // The event's look (lib/qr-look.ts): the Setnayan mark, or the couple's own on Pro.
-        look: await resolveEventQrLook(admin, event.event_id as string, event as QrLookRow),
+        look: await qrLookAhead,
       });
   const invitationUrl = canvas ? SIMULATED_GUEST_INVITATION_TEXT : buildInvitationUrl(qrParams);
-  const words = await eventWordsFor(event.event_type as string);
+  const words = await wordsAhead;
   const guestName =
     (guest.display_name as string | null)?.trim() ||
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
@@ -414,34 +504,40 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
 
   // ── THE PLUS-ONES THIS GUEST BRINGS — counted for the ticket's "and N guests".
   // (Their invites and tickets are handed on from Me — owner 2026-10-03.)
-  const seats = canvas ? [] : await plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string);
+  // A refused read (null) omits the count — "and N guests" is left off, never guessed (`plusOneSeatsFor`).
+  const seats = (seatsAhead ? await seatsAhead : null) ?? [];
 
   // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
   // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own
   // Digital ticket and one per NAMED plus-one who has one — the same cards the
   // route draws and "Save" hands over, and only for an accepted guest who is
   // coming (`passCardEligibility`). A blank seat keeps "Add name".
-  const [passCard, plusOneTicketIds] = await Promise.all([
-    passCardEligibilityFor(admin, guest.guest_id as string),
-    plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string),
-  ]);
+  const [passCard, plusOneTicketIds] = await Promise.all([passCardAhead, plusOneTicketIdsAhead]);
   const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
+  /* 🎟 THE PASS STEP AFTER SEND (owner 2026-10-25, RSVP seats-first: the after-Send frames of scenarios B · C). Each
+     +1 the guest named who has a ticket is listed under theirs, and Save hands over every card at once — the shipped
+     "Save all tickets" (`PASS_CARD_WORDS.saveAll`; the bringer may fetch a +1's card, `decidePassCardAccess`). A
+     seat still TBA is listed, never ticketed. With no +1 ticket it is "Save my ticket", exactly as before. */
+  const plusOneCardHrefs = seats
+    .filter((s) => plusOneTicketIds.has(s.guest_id))
+    .map((s) => `${PASS_CARD_ROUTE}?guest=${encodeURIComponent(s.guest_id)}`);
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
-  const supabase = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await viewerAhead;
   const account = guestAccountState({
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,
-    seatHolderUserId: canvas ? null : await readSeatHolder(event.event_id as string, guest.guest_id as string),
+    seatHolderUserId: seatHolderAhead ? await seatHolderAhead : null,
     seatName: seatDisplayName({
       display_name: guest.display_name as string | null,
       first_name: guest.first_name as string | null,
       last_name: guest.last_name as string | null,
     }),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
+    // 🔒 A host on a guest's thank-you is never offered the seat (lib/seat-binding.ts `'manager'`).
+    viewerManagesEvent: user ? await loadHostMembership(admin, event.event_id as string, user.id) : false,
   });
   const userAgent = (await headers()).get('user-agent');
 
@@ -451,7 +547,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      the headline is today's and there is no extra message. Words only — the
      status, the tickets and the counts never read them. */
   const rsvpWords = readRsvpWords(event.rsvp_ask_config);
-  // The Fable defaults (frames 3 · 4): "You replied — see you there" · "We'll miss you."
+  // The defaults: "You're on the list." (owner 2026-10-25, decision 5) · "We'll miss you." (Fable frame 4).
   const ownHeadline = landingHeadline(status, words.solemn);
   const firstName = ((guest.display_name as string | null)?.trim() || (guest.first_name as string | null) || '').split(/\s+/)[0] ?? '';
   const theirWords = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
@@ -459,6 +555,30 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   const ownMessage = theirWords.message;
   const headline = theirWords.heading;
   const nothingToSave = account.kind === 'linked' || account.kind === 'held_elsewhere';
+  /* 🪪 The save widget's place on this page: after a Yes (the ticket is theirs to keep) in every state a guest can act
+     on or needs told — the offer, a seat to confirm, a sign-in, saved, kept elsewhere — or to finish a press that came
+     back for the Terms. Never for a host, never on the Maker's canvas. */
+  const saveShows =
+    !canvas && account.kind !== 'host_viewing' && (nothingToSave || search.keep === 'terms' || status === 'attending');
+  /* 🪪 KEEP YOUR TICKET ON EVERY PHONE — the ONE save widget on this page (owner 2026-10-25: option A of
+     prototypes/save_to_account_2026-10-25; "create a proper widget to link this event to your account"; "but we are
+     supposed to have that with the save to wallet, correct?"). Drawn with the ticket's keep actions — directly under
+     Save my ticket · Add to Apple Wallet, before the +1 list — whenever the full ticket is drawn; otherwise after the
+     ticket's place. Once saved: the one quiet line. ⚠ This brings the offer back to the thank-you after a Yes, which the
+     2026-10-03 "one place each" call had moved to Me alone — flagged in the PR. */
+  const saveNode = saveShows ? (
+    <SaveToAccount
+      state={account}
+      eventId={event.event_id as string}
+      slug={home}
+      personalLink={invitationUrl}
+      userAgent={userAgent}
+      termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
+      termsMissing={search.keep === 'terms'}
+      ticketNames={(event.display_name as string | null) ?? null}
+      carries={search.keep === 'terms' ? 'your name, mobile, meal and your guests come along' : null}
+    />
+  ) : null;
 
   /* 🔓 "YOU'RE IN!" (frame D) — a requester whose request the couple accepted
      arrives here from the redeem hop (`?in=1`) with the SAME key they were given
@@ -476,6 +596,24 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      full after, none after a No) · How to use it · Open the invitation.
      Every rule is lib/guest-landing.ts, executed by its test. */
   const reply = landingReplyOf(status);
+  /* 📅 IS A REPLY ASKED FOR YET? Not while this door opens the Save the Date (owner
+     2026-10-11) — the same reading as `destination` above, never a second one. */
+  const replyAsked = replyIsAsked(destination);
+  /* 📬 …AND THE COUPLE'S REPLY WINDOW (owner 2026-10-14, `lib/reply-window.ts`): shut, the landing says
+     when replies open — or that they closed — where the Reply / Change button would be, and draws no
+     button. From the row in hand, on the venue's clock. The Maker's canvas always draws the buttons. */
+  const replies = canvas
+    ? OPEN_REPLY_WINDOW
+    : replyWindow(
+        event as unknown as ReplyWindowEvent,
+        Date.now(),
+        eventTimezoneFromCoords(event.venue_latitude as number | null, event.venue_longitude as number | null),
+        replyFaceOf(profile),
+      );
+  const repliesShut = replyWindowWords(replies, words.theOrganizer);
+  /* 📌 The shortcut line's one decision (`shortcutLineShows`): after a Yes, outside the store app and a chat app's
+     browser. (The Maker's canvas draws it as before — its sample said Yes.) */
+  const shortcutShows = shortcutLineShows({ reply, userAgent, storeShell: await isStoreShellRequest() });
   /* 📲 The tile's code for today — the SAME call the metadata makes
      (`tileCodeOnce`), so its row is stored before the page is done. Only after
      a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
@@ -483,17 +621,21 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     await tileCodeOnce(event.event_id as string, guest.guest_id as string);
   }
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
-  const seatDay = ticketShowsTable({
-    eventDate: event.event_date as string | null,
-    eventDatePrecision: event.event_date_precision as string | null,
-  });
-  // 🎟 On the day the ticket carries the seat — the same read the ticket route draws from.
-  const ownSeat = canvas || !seatDay ? null : ((await readTicketSeats(admin, event.event_id as string)).get(guest.guest_id as string) ?? null);
+  /* 🎟 THE TICKET ALREADY CARRIES THE MARK AND THE NAMES (owner 2026-10-26: *"since the ticket has the logo already and
+     Event Name, Just start with your on the list"*): after a Yes with the full ticket, the door's top stands down — the
+     page starts with "You're on the list." (or the couple's own heading). A No keeps it: no ticket says whose event
+     this is there (`landingTopStandsDown`). */
+  const topStandsDown = landingTopStandsDown({ reply, ticket });
+  /* 🧩 The Maker's "When no" sample is a guest who said no: no ticket (a real one's is withdrawn — `cannotCome`;
+     the sample has no row to read that from, so it is said here). Canvas only — false for every guest. */
+  const noTicketSample = canvas && reply === 'no';
+  // 🎟 On the day the ticket carries the seat — the same read the ticket route draws from (started above).
+  const ownSeat = ticketSeatsAhead ? ((await ticketSeatsAhead).get(guest.guest_id as string) ?? null) : null;
   // The couple's wording AND their Name style (owner 2026-09-30) — `{name}` is composed in it.
   const storedWords = parsePrintDetails((event as { print_details?: unknown }).print_details);
   const message = landingMessage({
     template: storedWords.inviteMessage,
-    formalName: guestFullName({
+    formalName: guestNameAsGiven({
       display_name: guest.display_name as string | null,
       name_prefix: (guest as { name_prefix?: string | null }).name_prefix ?? null,
       first_name: guest.first_name as string | null,
@@ -507,6 +649,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     eventDate: (event.event_date as string | null) ?? null,
     datePrecision: (event.event_date_precision as string | null) ?? null,
     reply,
+    // 📅 While the event is still its Save the Date nothing is asked (owner 2026-10-11).
+    askToReply: replyAsked || canvas,
   });
   const howTo = howToUseLines({
     seatDay,
@@ -522,7 +666,38 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
-  const changeWords = canvas ? null : changeReplyWords(reply);
+  // 🍎 "Add to Apple Wallet" under "Save my ticket" (lib/wallet-pass.ts) — on an iPhone, and only while the pass can be
+  // SIGNED right now (`appleWalletOffered`, on for everyone — owner 2026-10-25). Inside an iPhone's in-app browser the
+  // Save line is already the Safari hand-off, so no second hand-off is drawn; never on the Maker's canvas. In the
+  // Setnayan app it opens the in-app browser sheet, where Wallet's Add sheet works.
+  const appleWallet =
+    canvas || safariSave || passCard !== 'pass'
+      ? null
+      : appleWalletLink(userAgent, invitationUrl, await appleWalletOffered(), { storeShell: await isStoreShellRequest() });
+  /* ✉️ …SAID AS "N MORE ANSWERS" WHILE THE COUPLE'S SWITCHED-ON QUESTIONS ARE STILL UNANSWERED (owner 2026-10-20,
+     DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES") — the reply page's own missing set: the SAME `rsvpGate`
+     call `invite/reply/page.tsx` makes for the questions it shows, on this row, counted (`moreAnswersOf`). The link is
+     the same one; the reply page then asks only those. A row without the answers (`guestAnswersRead`) is not counted:
+     the shipped "Change my reply", and the miss logged. Never on the Maker's canvas (its sample answers nothing). */
+  const answersRead = guestAnswersRead(guest);
+  if (!canvas && !answersRead) {
+    console.error('[read-gap] invite/enter · guests row without rsvp_status/meal_preference/mobile — "Change my reply", not "N more answers"');
+  }
+  const ask = resolveRsvpAsk(event.rsvp_ask_config);
+  const moreAnswers =
+    canvas || !answersRead
+      ? 0
+      : (moreAnswersOf(
+          rsvpGate({
+            rsvpStatus: guest.rsvp_status as string | null,
+            mealPreference: guest.meal_preference as string | null,
+            mobile: (guest as { mobile?: string | null }).mobile ?? null,
+            askMeal: ask.meal,
+            askMobile: ask.mobile,
+            locked: guestListIsClosed({ lockedAt: (event as { guest_count_locked_at?: string | null }).guest_count_locked_at ?? null }),
+          }),
+        ) ?? 0);
+  const changeWords = canvas || repliesShut ? null : moreAnswers > 0 ? moreAnswersWords(moreAnswers) : changeReplyWords(reply);
   const ticketLabel = `${guestName}’s ${PASS_CARD_WORDS.digitalTicket}`;
   const ticketFallback = (
     <p role="alert" className="text-xs text-ink/70">
@@ -563,22 +738,66 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      only once a reply exists, further down this same page. Not for a plus-one whose
      bringer's reply already gave them a FULL ticket: they keep Save, their guests
      and the account button. */
+  /* 📅 The Save the Date landing's one door and its eyebrow — said here, above the pre-reply return, which
+     draws only its component. The door is the Event Hub itself: while nothing is asked the key gate lets an
+     unreplied guest straight in (`replyAskedInStage`, app/[slug]/page.tsx). */
+  const saveTheDateDoor = { href: `/${home}`, label: destinationWords.cta };
+  const stageEyebrow = replyAsked ? undefined : PUBLIC_STAGE_LABELS.save_the_date;
+
   if (unreplied && ticket !== 'full') {
+    /* 🗓 WHEN AND WHERE, ONE LINE (owner 2026-10-11) — the reply door's own line (`joinDoorMeta`), plus the
+       ceremony's time beside a real day. The time is the Schedule's Ceremony block AS GUESTS ARE SHOWN IT (the
+       public, for-everyone moments only — `fetchPublicScheduleBlocks`); a read that fails leaves the time out
+       rather than the page. Read here, for this one screen only. */
+    const precision = (event.event_date_precision as string | null) ?? null;
+    let ceremonyTime: string | null = null;
+    if (precision === 'day' && event.event_date) {
+      try {
+        ceremonyTime = blockTime(
+          ceremonyBlock(await fetchPublicScheduleBlocks(admin, event.event_id as string, await isCoordinatorPrepReleaseEnabled())),
+        );
+      } catch {
+        ceremonyTime = null;
+      }
+    }
+    const whenWhere = landingWhenWhere({
+      when: joinDoorMeta({ event_date: (event.event_date as string | null) ?? null, event_date_precision: precision, venue_name: null }) ?? null,
+      realDay: precision === 'day',
+      time: ceremonyTime,
+      place: (event.venue_name as string | null) ?? null,
+    });
     return (
       <GuestLookScope {...lookScopeProps(hub.look)}>
         {hub.ground}
         <InAppBar handoff={inApp} />
-        <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+        <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : stageEyebrow} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
           {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+          {/* 📅 STILL THE SAVE THE DATE: the landing says so and asks for nothing — no "please reply", no Reply
+              button, no ticket promised for a reply nobody is offered (`LandingSaveTheDate`). The invitation's
+              launch — the clock, or the couple's pin — brings today's landing back. */}
+          {replyAsked ? null : (
+            <LandingSaveTheDate
+              message={message}
+              hosts={hosts}
+              whenWhere={whenWhere}
+              openHref={saveTheDateDoor.href}
+              openLabel={saveTheDateDoor.label}
+              awaitingLine={passCard === 'awaiting' ? passCardLine(passCard) : null}
+            />
+          )}
+          {replyAsked ? (
           <LandingPreReply
             message={message}
             hosts={hosts}
-            replyHref={inviteReplyPath(home)}
+            replyHref={replyHrefCarrying(home, search.k)}
+            shut={repliesShut ? <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" /> : null}
             replyByLabel={replyByLabel}
+            whenWhere={whenWhere}
             fadedTicket={ticket === 'faded'}
             ticketSrc={PASS_CARD_ROUTE}
             awaitingLine={passCard === 'awaiting' ? passCardLine(passCard) : null}
           />
+          ) : null}
           {unlisted && !justIn ? (
             <DoorNotice>
               You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
@@ -593,9 +812,21 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   return (
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
+      {/* 🍪 Drawn inside the Maker's canvas, this page shows none of the app's own floating notices (the cookie card,
+          a stale-tab bar) — the rule every Event Hub canvas already carries (`EDITOR_CANVAS_HIDES_APP_CHROME`). A
+          host who never answered the cookie card saw it over the RSVP stage. Canvas only: a guest's page is as it was. */}
+      {canvas ? <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style> : null}
+      {/* 🎨 The look the couple gave each line of this screen (`lib/rsvp-look.ts`): the thank-you and the pass after a
+          Yes, the note after a No — nothing at all when they gave none. */}
+      <RsvpLookStyle
+        config={event.rsvp_ask_config}
+        board={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+        parts={reply === 'no' ? RSVP_NO_PARTS : RSVP_YES_PARTS}
+        canvas={canvas}
+      />
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
-      <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+      <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : topStandsDown ? undefined : (inviteLine ?? undefined)} skin={skin} quietTop={topStandsDown}>
         {/* 🎟 5 · A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
         {ticket === 'full' && !canvas ? (
           <TicketPopup
@@ -605,11 +836,12 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             src={PASS_CARD_ROUTE}
             name={guestName}
             safariHref={safariSave}
+            appleWallet={appleWallet}
           />
         ) : null}
         {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
         {canvas && wordKeys ? (
-          <RsvpCanvasBridge inertButtons />
+          <RsvpCanvasBridge />
         ) : null}
         {/* 🎉 WHEN YES — the couple's celebration, ONCE, as a guest who just
             said yes sees this (owner 2026-10-06). On the Maker's sample it plays
@@ -627,75 +859,50 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {/* 1 · THE COUPLE'S MESSAGE — name as given (frame 1). After a Yes, the
             "✓ You replied" pill carries the couple's "After they submit" words
             (frame 3); after a No, the card carries "When they decline" (frame 4). */}
+        {/* 🧩 ON THE MAKER'S CANVAS EVERY PIECE IS A PART (owner 2026-10-07/08: "yes and no page for the rsvp is to
+            show what the rsvp looks like after the reply yes or no"): the SHIPPED section marker stands before the
+            couple's words — the When-yes note, or the When-no note. Canvas only: a guest is served none of it. */}
+        {canvas ? <span hidden data-maker-section={reply === 'no' ? 'f:nonote' : 'f:yesnote'} /> : null}
         <div data-landing="message" className="space-y-3">
           {unreplied ? (
             <div className="sn-glass-bare rounded-2xl bg-cream/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm" data-landing-message="">
               <p>{message}</p>
               <p className="mt-2.5 font-serif text-base italic text-mulberry">— {hosts}</p>
             </div>
-          ) : reply === 'no' ? (
-            <div className="sn-glass-bare rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
-              <p
-                className="font-serif text-[34px] font-medium leading-tight text-ink"
-                data-landing-heading=""
-                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
-                data-rsvp-default={canvas ? ownHeadline : undefined}
-                data-rsvp-name={canvas ? firstName : undefined}
-              >
-                {headline}
-              </p>
-              <p
-                className="mt-2 text-sm text-ink/60"
-                data-thank-you-message=""
-                data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
-                data-rsvp-name={canvas ? firstName : undefined}
-              >
-                {ownMessage ?? LANDING_WORDS.missedSub}
-              </p>
-            </div>
           ) : (
-            <>
-              <p className="text-center">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EA] px-3.5 py-1.5 text-xs font-medium text-[#2F6B4F]"
-                  data-landing-done=""
-                >
-                  ✓{' '}
-                  <span
-                    data-landing-heading=""
-                    data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.heading) : undefined}
-                    data-rsvp-default={canvas ? ownHeadline : undefined}
-                    data-rsvp-name={canvas ? firstName : undefined}
-                  >
-                    {headline}
-                  </span>
-                </span>
-              </p>
-              {ownMessage || (canvas && wordKeys) ? (
-                <p
-                  className="text-center text-base leading-relaxed text-ink/80"
-                  data-thank-you-message=""
-                  data-rsvp-word={canvas && wordKeys ? rsvpWordBridgeKey(wordKeys.message) : undefined}
-                  data-rsvp-word-optional={canvas ? '' : undefined}
-                  data-rsvp-name={canvas ? firstName : undefined}
-                  hidden={!ownMessage || undefined}
-                >
-                  {ownMessage}
-                </p>
-              ) : null}
-            </>
+            /* 💌 The note after a reply — the "✓ You replied" pill and the couple's message after a Yes, the note's own
+               card after a No — drawn from the LIST of its lines (`rsvp-note-lines.tsx`): the couple's order, the
+               lines they added, their groups. From the config this page already holds; a couple who arranged
+               nothing gets the note exactly as it was (`the-note-after-a-reply-is-todays-page.test.ts`). */
+            <RsvpNoteLines
+              reply={reply === 'no' ? 'no' : 'yes'}
+              canvas={canvas}
+              wordKeys={wordKeys}
+              headline={headline}
+              ownHeadline={ownHeadline}
+              ownMessage={ownMessage}
+              firstName={firstName}
+              lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), reply === 'no' ? 'nonote' : 'yesnote')}
+              pictures={rsvpPictures}
+            />
           )}
         </div>
 
         {/* 2 · REPLY TO THE INVITATION — the one main button, only until they
             reply (then a small "Change my reply" stays at the foot). */}
         {unreplied ? (
+          !replyAsked ? null : repliesShut ? (
+          <div data-landing="reply" data-reply-window={replies.state}>
+            <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" />
+          </div>
+          ) : (
           <div data-landing="reply">
-            <Link className="button-primary w-full" href={inviteReplyPath(home)} data-landing-reply="">
+            <Link className="button-primary w-full" href={replyHrefCarrying(home, search.k)} data-landing-reply="">
               {LANDING_WORDS.reply}
             </Link>
-            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/55">Please reply by {replyByLabel}</p> : null}
+            {replyByLabel ? <p className="mt-2.5 text-center text-xs text-ink/70">Please reply by {replyByLabel}</p> : null}
           </div>
+          )
         ) : null}
 
         {unlisted && !justIn ? (
@@ -709,6 +916,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             PNG, the file Save hands over): faded (a PICTURE, no control — the "Reply to
             confirm your ticket" pill went 2026-10-01) until a Yes, full with "Save my ticket" after, none after a
             No (`landingTicketOf`). A seat with no ticket keeps the QR panel. */}
+        {canvas && !noTicketSample && ticket !== 'none' ? <span hidden data-maker-section="f:pass" /> : null}
         {ticket === 'full' ? (
           <section aria-labelledby="your-ticket" className="space-y-4 text-center" data-landing="ticket" data-landing-ticket="full">
             <h2 id="your-ticket" className="sr-only">
@@ -717,18 +925,40 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
               <TicketPicture src={PASS_CARD_ROUTE} alt={ticketLabel} fallback={ticketFallback} />
             </div>
+            {/* 🧩 The Save button is a LINE of the pass (`data-rsvp-line`, `rsvp-canvas-parts.ts`). The name is on a
+                box around it, not on the button: on the Maker's canvas a button is inert, so a tap on it lands on
+                what it sits in — which must be this line, not the whole pass. A plain block: it draws nothing, takes
+                the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
+            <div data-rsvp-line="save">
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
                 {LANDING_WORDS.saveInSafari}
               </a>
             ) : (
               <SavePassCardButton
-                hrefs={[PASS_CARD_ROUTE]}
-                label={justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket}
+                hrefs={[PASS_CARD_ROUTE, ...plusOneCardHrefs]}
+                label={plusOneCardHrefs.length > 0 ? PASS_CARD_WORDS.saveAll : justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket}
                 variant="primary"
               />
             )}
-            {justIn ? <p className="text-xs text-ink/60">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
+            </div>
+            {/* 🍎 APPLE WALLET SLOT — directly under Save, the two together under the ticket (controller layout call,
+                2026-10-25); the +1 list (#6911) sits below them. The guest's OWN pass only. `!mt-2` pulls it up
+                against Save inside the section's `space-y-4` rhythm. 📱 `empty:hidden` — on a "Macintosh" the link is
+                `touchOnly` (it may be iPad Safari) and the badge waits for the browser; on a real Mac it never comes,
+                and the slot takes no box and no gap. */}
+            {appleWallet ? (
+              <div data-landing-wallet-slot="" className="!mt-2 empty:hidden">
+                <AppleWalletButton link={appleWallet} />
+              </div>
+            ) : null}
+            {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
+            {/* 🪑 THE +1 LIST COMES AFTER SAVE, WALLET AND THE KEEP OFFER (owner-approved layout, 2026-10-25): the
+                ticket, then Save and Add to Apple Wallet together directly under it, then "Keep your ticket on every
+                phone" (`saveNode` above — owner: "we are supposed to have that with the save to wallet"), then the
+                seats the guest brings. Pinned by `the-reply-says-the-seats-first.test.ts` § 6. */}
+            {saveNode ? <div data-landing-keep-slot="" className="!mt-7 text-left">{saveNode}</div> : null}
+            <PlusOneSeatList seats={seats} ticketed={plusOneTicketIds} />
           </section>
         ) : ticket === 'faded' ? (
           <section aria-labelledby="your-ticket" className="relative text-center" data-landing="ticket" data-landing-ticket="faded">
@@ -739,7 +969,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
               <TicketPicture src={PASS_CARD_ROUTE} alt="" fallback={null} />
             </div>
           </section>
-        ) : ticket === 'none' ? null : passCard === 'awaiting' ? (
+        ) : ticket === 'none' ? null : noTicketSample ? null : passCard === 'awaiting' ? (
           <p className="text-sm text-ink/70" data-landing="ticket">{passCardLine(passCard)}</p>
         ) : (
           <div data-landing="ticket">
@@ -751,6 +981,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             />
           </div>
         )}
+
+        {/* 🪪 The save widget when no full ticket holds it (a Terms return after a No, or a seat kept elsewhere). */}
+        {ticket === 'full' ? null : saveNode}
 
         {/* 5 · HOW TO USE IT — on the day, the seat. */}
         {ticket === 'full' || ticket === 'faded' ? (
@@ -786,11 +1019,15 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
 
         {/* The reply is done: a small "Change my reply" stays (frame 3), or
             "Changed your plans?" after a No (frame 4). */}
+        {/* 📬 Replied, and replies have closed: the closed words where "Change my reply" was. */}
+        {!unreplied && replies.state === 'closed' ? (
+          <ReplyWindowNote window={replies} organizer={words.theOrganizer} align="center" />
+        ) : null}
         {changeWords ? (
           <p className="text-center">
             <Link
               className="inline-flex min-h-[44px] items-center text-sm font-medium text-mulberry underline underline-offset-4"
-              href={inviteReplyPath(home)}
+              href={replyHrefCarrying(home, search.k)}
               data-landing-change=""
             >
               {changeWords}
@@ -806,34 +1043,29 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             THIS phone open in place on a tap — a `<details>`, no script, never
             a popup — and the tile it makes is the couple's (`generateMetadata`
             above). Never on the Event Hub: the 2026-09-30 removal stands. */}
-        {reply === 'yes' ? <ShortcutLine userAgent={userAgent} /> : null}
+        {/* 🚪 …and only where "Add to Home Screen" exists (owner 2026-10-21): never inside the store app, never
+            inside Messenger / Instagram — the bar at the top of this page opens it in Safari / Chrome, where it is. */}
+        {shortcutShows ? <ShortcutLine userAgent={userAgent} /> : null}
 
-        {nothingToSave ? (
-          <SaveToAccount
-            state={account}
-            eventId={event.event_id as string}
-            slug={home}
-            personalLink={invitationUrl}
-            userAgent={userAgent}
-            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-          />
-        ) : search.keep === 'terms' ? (
-          /* 🔒 "Save to my account" is Me's (owner 2026-10-03, one place each);
-             it comes back here only to finish a press that returned for the
-             Terms tick (`startAccountSaveAction` → `?keep=terms`), with the
-             tick and the reason. Saved already, the line above says so. */
-          <SaveToAccount
-            state={account}
-            eventId={event.event_id as string}
-            slug={home}
-            personalLink={invitationUrl}
-            userAgent={userAgent}
-            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            termsMissing
-            carries="your name, mobile, meal and your guests come along"
-          />
-        ) : null}
       </DoorShell>
     </GuestLookScope>
+  );
+  };
+
+  return (
+    <Suspense
+      fallback={
+        <ArrivalLoading
+          look={loadingLook}
+          door={{
+            title: ((event.display_name as string | null) ?? '').trim(),
+            // The couple's mark, still: whether it plays is one of the slow reads.
+            skin: hubDoorSkin({ ...doorMarkFor(event), animate: false }),
+          }}
+        />
+      }
+    >
+      <InviteEnterBody />
+    </Suspense>
   );
 }

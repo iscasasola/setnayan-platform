@@ -198,7 +198,7 @@ test('the mint bills COUPLE_WEBSITE_PRO from three server-side measurements', ()
   assert.match(head, /eventAlreadyHasHubPro\(admin, eventId\)/, 'prior ownership is checked');
   assert.match(
     head,
-    /priceOf\(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY\)/,
+    /priceOf\(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY, setupApplies\)/,
     'priced by the same catalog rule as the card',
   );
   assert.match(head, /hubProBillLine\(\{ selected: true, websiteEnabled, alreadyOwned, unitPhp \}\)/);
@@ -235,10 +235,9 @@ test('every commit path carries hubPro through', () => {
 
 test('approving a Pro basket raises no false "never provisioned" fault', () => {
   const activation = read('lib/sku-activation.ts');
-  assert.match(
-    activation,
-    /const ORDER_GATED_BASKET_ITEMS: ReadonlySet<string> = new Set\(\[COUPLE_WEBSITE_PRO_SERVICE_KEY\]\);/,
-  );
+  // 💎 2026-11-04: Pro provisions Setnayan AI + its included Papic credits, so it has a HOOK now (and is therefore
+  // never reported as unhooked) instead of sitting in the order-gated skip set.
+  assert.match(activation, /\[COUPLE_WEBSITE_PRO_SERVICE_KEY\]: activateEventPlan,/);
   const fan = activation.slice(activation.indexOf('async function activateOnboardingBasket'));
   assert.match(
     fan.slice(0, 1500),

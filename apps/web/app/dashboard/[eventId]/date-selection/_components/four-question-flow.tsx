@@ -293,7 +293,13 @@ export function FourQuestionFlow({
     setError(null);
     startTransition(async () => {
       try {
-        await lockEventDate(form);
+        const res = await lockEventDate(form);
+        // 💍 A refusal comes back in words (lib/event-date-floor.ts) — said here, beside the date.
+        if (res && res.ok === false) {
+          setError(res.error);
+          setPickedDate(null);
+          return;
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Could not lock the date — please try again';
         if (

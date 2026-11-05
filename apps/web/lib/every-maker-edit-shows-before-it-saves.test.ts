@@ -68,10 +68,10 @@ const CANVAS_POST = new Set(['onPreview', 'lay', 'broadcastToCanvas', 'postToCan
  * `file › handler` (the handler is the nearest named function around the save).
  */
 const WAITS_ON_PURPOSE: Record<string, string> = {
-  'website/_components/hub-draft-bar.tsx › run':
+  'website/_components/hub-draft-bar.tsx › slow':
     'Undo · Restore · Reset · Apply: the result is computed by the server (the history, the live page). The bar shows the pending state, and the canvas reloads double-buffered, never blank.',
-  'launch/_components/studio-tools.tsx › saveRegistry':
-    'The registry link is drawn as it is typed (the box’s own state); this is the save on leaving the box, and a refusal puts the box back.',
+  'website/_components/hub-draft-bar.tsx › drawnIo':
+    '↺ drawn at the press: the runner drew the journal\'s step backwards on the canvas and in the Maker\'s copy BEFORE this held undo is sent (`lib/maker-undo-run.ts` `runDrawnUndo`); a refusal puts the step back and says why.',
   'launch/_components/maker-logo.tsx › flush':
     'The logo autosave: the edit is already drawn by the studio’s own state; this is the debounced save behind it.',
   'website/editor/_components/details-bound-field.tsx › answer':
@@ -86,8 +86,10 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
-  'launch/_components/studio-tools.tsx › saveHandle':
-    'Studio › E-Gifts (2026-10-07): a way to give\'s number and name — what the couple typed IS the visible change (the inputs\' own state, and "What guests see" redraws from it as they type); this is the save on leaving the field.',
+  'launch/_components/studio-info.tsx › studioDraftKeep':
+    'Studio › Info on the Form row (owner 2026-10-08): the ONE drafted write behind a kept answer. What the couple typed or picked IS the visible change — the row shows the kept words (the switch its new side, the dropdown its pick) BEFORE this is called by `TypedRow`\'s keep, `pickStyle`, the opening line\'s pick and the QR switch; a refusal puts back only what did not save, and says so.',
+  'launch/_components/studio-info.tsx › studioPhotosHeadingKeep':
+    'Studio › Info Photos heading (owner 2026-10-15): the same ONE drafted write as `studioDraftKeep`, for a scene\'s own row. The row shows the kept words BEFORE this is called by `TypedRow`\'s keep; a refusal puts back only what did not save, and says so.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
 };
@@ -505,7 +507,40 @@ test('a made-once page frame is double-buffered, never an iframe keyed on the re
 const ON_CANVAS = new Set([...CANVAS_POST, 'onSaving', 'hideOnCanvas', 'preview']);
 
 /** `held` handlers that draw nothing, and why that is right. */
-const HELD_WITHOUT_DRAWING: Record<string, string> = {};
+const HELD_WITHOUT_DRAWING: Record<string, string> = {
+  /* 🎵 Studio › Look › the guest's music button (2026-10-09). There is nothing to post to: the Maker's canvas does
+     not draw the music button at all (`site-body.tsx` mounts `BackgroundMusic` for guests only — `!isEditorCanvas`).
+     The one place the Maker shows it is the Look page's sample screen, which wears the pick AT THE TAP
+     (`tellLookSample`, drawn in the browser), so a render behind the save would change no pixel — `held` is true.
+     Both facts are held just below, so this entry cannot outlive them. */
+  'website/editor/_components/music-button-row.tsx › commit': 'not on the canvas — the Look sample wears it at the tap',
+  /* ✋ (2026-10-12, `rd/maker-moves-instant`) The work area's move is held ONLY when its caller says the page already
+     shows it (`drawn`): the drag's drop and the tag's step slide the scene into its new place on the canvas BEFORE they
+     call it (`add-part-sheet.tsx` `stepMove` slides first and passes `back !== null`; a drop lands after the slides).
+     Held by `lib/a-scene-move-is-drawn-at-once.test.ts` (2) and (1), which drive the slides on a stand-in page. */
+  'website/editor/_components/editor-shell.tsx › move': 'held only when drawn — the drag already slid it on the canvas',
+  /* ＋ likewise: held only when `drawn` — the caller has put the part's place on the canvas first ("Adding <part>…",
+     `add-part-sheet.tsx` posts `scenePlaceholder` before `o.add(…, true)`), and the save still owes its one render
+     (`makerNeedsRender`) for the Maker's list. */
+  'website/editor/_components/editor-shell.tsx › addHere': 'held only when drawn — its place is already held on the canvas',
+  /* ↺ (2026-10-13, `rd/maker-undo-instant`) the ↺'s held undo is sent only for a step the Maker DREW: the lazy runner
+     takes the journal's newest step and draws it backwards on the canvas (`undraw()`) BEFORE it calls this door
+     (`lib/maker-undo-run.ts` `runDrawnUndo`); every other ↺ is the unheld `slow` path, as ever. Held by
+     `lib/an-older-undo-is-drawn-at-once.test.ts` G3, which drives the runner with the real journal and draft store. */
+  'website/_components/hub-draft-bar.tsx › drawnIo': 'held only after the runner drew the step back at the press',
+  /* 🎁 E-Gifts › Wish list (owner 2026-10-08: "live"; owner rule the same day: a press costs one
+     request and never re-renders the page). A wish is a LIVE row, not a part of the drafted
+     canvas, and the place it is drawn is the list on this very screen — each handler writes that
+     list BEFORE its save (test A judges every one of them), and an add or an edit is answered
+     with the row as kept. Nothing a Maker render would bring back is missing, so none is owed. */
+  'launch/_components/studio-wish-list.tsx › addWish': 'The new wish is on the Studio’s list at the tap; the save answers with its real row.',
+  'launch/_components/studio-wish-list.tsx › keepWish': 'The row shows the edit at once; the save answers with the row as kept.',
+  'launch/_components/studio-wish-list.tsx › gotWish': 'The Got it switch and its row are drawn first; a refusal puts that one wish back.',
+  'launch/_components/studio-wish-list.tsx › removeWish': 'The row leaves at the second tap, and comes back in its place if refused.',
+  'launch/_components/studio-wish-list.tsx › finish': 'The list is already in its new order when the grip is let go; this is the one write behind it.',
+  'website/_components/hub-draft-bar.tsx › applyHeld': '✓ Apply (2026-10-15): it changes NOTHING the canvas draws — the canvas shows the draft, which is now live — so there is nothing to post; "N changes are now live" and the count come back with its own answer, and the Maker render it still owes is asked for behind it with the canvas kept (`keepCanvasForRender`, `requestMakerRefresh`).',
+  'launch/_components/studio-wish-list.tsx › changeGift': 'A gift record (5/5): the record, its wish’s sum and its Got it are drawn first by the server’s own rule (`settleDrawn`); a refusal puts back that one record.',
+};
 
 function optionsHold(call: ts.CallExpression): boolean {
   const opts = call.arguments[2];
@@ -535,6 +570,7 @@ function canvasFirst(call: ts.Node, handler: ts.Node): boolean {
 
 test('E · every held save (no render behind it) is a change the canvas already shows', () => {
   const blind: Hit[] = [];
+  const heldExcused = new Set<string>();
   let held = 0;
   for (const full of FILES) {
     const sf = parse(full);
@@ -543,11 +579,26 @@ test('E · every held save (no render behind it) is a change the canvas already 
       held += 1;
       const h = handlerOf(n);
       const key = `${rel(full)} › ${h?.name ?? '<top>'}`;
-      if (key in HELD_WITHOUT_DRAWING) return;
+      if (key in HELD_WITHOUT_DRAWING) {
+        /* One reason excuses ONE handler (as WAITS_ON_PURPOSE): a second save riding it is judged. */
+        if (heldExcused.has(key)) blind.push({ file: rel(full), handler: `${h?.name ?? '<top>'} (a second held save under one reason)`, line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
+        heldExcused.add(key);
+        return;
+      }
       if (!h || !canvasFirst(n, h.fn)) blind.push({ file: rel(full), handler: h?.name ?? '<top>', line: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
     });
   }
+  /* The music button's exception stands only while it is true: the canvas does not draw the button, and the sample
+     is told BEFORE the save. If either changes, post to the canvas (or drop `held`) and delete the entry. */
+  const body = fs.readFileSync(path.join(WEB, 'app/[slug]/_components/site-body.tsx'), 'utf8');
+  assert.match(body, /&& !isEditorCanvas \? <BackgroundMusic src=/, 'the Maker’s canvas now draws the music button — the held save must post to it');
+  const musicFile = fs.readFileSync(path.join(WEB, 'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx'), 'utf8');
+  const music = musicFile.slice(musicFile.indexOf('const commit = (next: HubMusicButton) => {'));
+  const told = music.indexOf('tellLookSample(eventId, { musicButton: next });');
+  assert.ok(told > 0 && told < music.indexOf('{ held: true }'), 'the Look sample is not told before the held save');
+  for (const key of Object.keys(HELD_WITHOUT_DRAWING)) assert.ok(fs.existsSync(path.join(WEB, 'app/dashboard/[eventId]', key.split(' › ')[0]!)), `a stale exception: ${key}`);
   console.log(`[every-maker-edit] held saves: ${held}`);
+  assert.deepEqual(Object.keys(HELD_WITHOUT_DRAWING).filter((k) => !heldExcused.has(k)), [], 'HELD_WITHOUT_DRAWING lists handlers that no longer hold a save — remove them');
   assert.ok(held >= 4, `only ${held} held saves found — the scan is not reading the Maker`);
   assert.deepEqual(
     blind,

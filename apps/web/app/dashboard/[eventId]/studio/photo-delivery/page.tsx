@@ -1,3 +1,4 @@
+import { isStoreShellRequest } from '@/lib/request-platform';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Radio, ShieldCheck } from 'lucide-react';
@@ -146,7 +147,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Galleries
+        Back to Memories
       </Link>
 
       <PageMasthead
@@ -193,11 +194,10 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
               Your photos stay — full resolution has a window
             </p>
             <p className="text-warn-900/85">
-              Every photo stays in your Setnayan gallery, free, for life. About{' '}
-              <span className="font-mono font-semibold">6 months</span> after
-              your first photo is taken — and never sooner than 3 months after
-              your event ends — we swap the full-resolution original for a compressed
-              copy, and we keep that copy indefinitely. Anything already in your
+              Every photo stays in your Memories, free, for life.{' '}
+              <span className="font-mono font-semibold">3 months</span> after
+              your event&rsquo;s last day we swap the full-resolution original for
+              the 720p copy, and we keep that copy indefinitely. Anything already in your
               Drive folder is yours: we only add to it, and never compress or
               remove what&rsquo;s there.
             </p>
@@ -214,6 +214,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
 
       <PhotoDeliveryPanel
         eventId={eventId}
+        storeShell={await isStoreShellRequest()}
         eventName={event?.display_name ?? null}
         eventDate={event?.event_date ?? null}
         syncMode={syncMode}

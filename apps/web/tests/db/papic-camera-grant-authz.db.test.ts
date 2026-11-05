@@ -81,19 +81,18 @@ test('the ANONYMOUS GUEST-CAPTURE path still works — this fix must not break P
   );
 });
 
-test('the two release functions were ALREADY closed — checked, not assumed', async () => {
-  // A first draft of this file asserted these were anon-callable because they
-  // appear on the same route. They are not: that route reaches them as
-  // service_role. Asserting the opposite would have published a false claim
-  // about our own surface, and it is pinned here so nobody re-opens them
-  // thinking the guest path needs it.
-  assert.ok(await exists('papic_release_event_points'), 'the pool release is live — update this guard');
-  for (const fn of ['papic_release_event_points']) {
-    assert.equal(await canExecute('anon', fn), false, `${fn} must stay closed to anon`);
-    assert.equal(await canExecute('authenticated', fn), false, `${fn} must stay closed`);
+test('the release functions are GONE — a booking is undone by its transaction, never by a refund', async () => {
+  // These were pinned as service-role-only while the guest route unwound its
+  // own booking by hand. Since 20271276810836 the guest route books inside the
+  // same transaction as the row (`papic_record_guest_capture_and_spend`), so
+  // nothing calls a release; both were dropped with their last caller. A
+  // release that came back would be a door to give back a spend that committed
+  // with its row.
+  // ⚠ canExecute() over a missing function returns false too, so absence is
+  // asserted directly rather than inferred from a privilege check.
+  for (const fn of ['papic_release_event_points', 'papic_release_capture_split', 'papic_release_camera_points']) {
+    assert.equal(await exists(fn), false, `${fn} is back`);
   }
-  // Its camera twin was dropped 2026-09-18 with the pre-split gate (S37).
-  assert.equal(await exists('papic_release_camera_points'), false);
 });
 
 test('the function refuses an order that does not belong to the event', async () => {

@@ -1,11 +1,12 @@
 import type { CSSProperties } from 'react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
-import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue, type VenueRole } from '@/lib/event-venues';
-import { appleMapsUrl, googleMapsNavUrl, googleMapsSearchByQuery, wazeNavUrl } from '@/lib/geo';
+import { VENUE_ROLE_LABEL, type EventVenue, type VenueRole } from '@/lib/event-venues';
+import { DirectionsMenu } from '@/app/_components/nav-links';
 import { ceremonyBlock, firstBlockOf, type ScheduleBlockRow } from '@/lib/print-pieces';
 import { formatBlockTimeRange } from '@/lib/schedule';
 import { mapFrame } from '@/lib/scene-map-tiles';
+import { NearViewport } from '@/app/_components/near-viewport';
+import { venueDrawingFor, type ParishDrawing } from '@/lib/parish-drawings';
 
 /**
  * 🏛 THE VENUE SCENE'S OTHER TWO STYLES — Full photo · The journey (owner
@@ -60,9 +61,20 @@ export function venueStopTimes(blocks: readonly ScheduleBlockRow[] | null | unde
  * ONE MAP FOR EVERY PLACE — the standard OSM tiles with a numbered pin per
  * located venue (`lib/scene-map-tiles.ts`); `route` joins the pins in the order
  * of the day. Null when nothing is located.
+ *
+ * 📍 A PLACE WITH NO PIN SAYS SO, ON THE MAP (owner 2026-10-21, cale-ice: "why
+ * do i see a map"). The map is framed to fit every pin it holds — and the
+ * ceremony had none, so the "one map for both" was one street-level map with a
+ * lone "2" on it: nothing told a guest (or the couple) that pin 1 was missing,
+ * which reads exactly like a map that is working. Every venue is now either a
+ * numbered pin or a numbered line "Ceremony · not on the map" in the corner,
+ * so the gap shows where it is, and its card's directions still search by name
+ * and address. Held by `every-venue-is-on-the-map-or-says-so.test.ts`.
  */
 export function PinnedMap({ venues, route = false }: { venues: readonly EventVenue[]; route?: boolean }) {
-  const located = venues.map((v, i) => ({ v, n: i + 1 })).filter(({ v }) => hasPin(v));
+  const numbered = venues.map((v, i) => ({ v, n: i + 1 }));
+  const located = numbered.filter(({ v }) => hasPin(v));
+  const unplaced = numbered.filter(({ v }) => !hasPin(v));
   const box = { width: 360, height: 220 };
   const frame = mapFrame(
     located.map(({ v }) => ({ latitude: v.latitude as number, longitude: v.longitude as number })),
@@ -70,15 +82,21 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
   );
   if (!frame) return null;
   const label = located.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ');
+  const missing = unplaced.length
+    ? `. ${unplaced.map(({ v }) => v.name ?? VENUE_ROLE_LABEL[v.role]).join(' and ')} ${unplaced.length > 1 ? 'are' : 'is'} not on the map`
+    : '';
   const line = route && located.length > 1 ? frame.spots.map((s) => `${s.leftPct},${s.topPct}`).join(' ') : null;
   return (
     <figure
       role="img"
-      aria-label={`Map showing ${label}`}
+      aria-label={`Map showing ${label}${missing}`}
       data-venue-map-pins={located.length}
+      data-venue-map-unplaced={unplaced.length || undefined}
       className="relative w-full overflow-hidden bg-veil"
       style={{ aspectRatio: `${box.width} / ${box.height}` }}
     >
+      {/* 🗺 The tiles load only when the map nears the screen (Batch 9 walk W2) — never on landing. */}
+      <NearViewport className="absolute inset-0">
       {frame.tiles.map((t) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -92,6 +110,7 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
           style={{ left: `${t.leftPct}%`, top: `${t.topPct}%`, width: `${t.widthPct}%`, height: `${t.heightPct}%` }}
         />
       ))}
+      </NearViewport>
       {line ? (
         <svg aria-hidden data-venue-route="" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
           <polyline
@@ -115,54 +134,32 @@ export function PinnedMap({ venues, route = false }: { venues: readonly EventVen
           {n}
         </span>
       ))}
+      {unplaced.length ? (
+        <ul data-venue-map-missing="" className="absolute left-0 top-0 space-y-0.5 bg-cream/90 px-2 py-1 font-sans text-xs text-ink">
+          {unplaced.map(({ v, n }) => (
+            <li key={v.role} className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-ink/60 font-mono text-[0.65rem] text-cream"
+              >
+                {n}
+              </span>
+              {VENUE_ROLE_LABEL[v.role]} · not on the map
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <a
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-0 right-0 bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80"
+        /* 👆 The credit is drawn as it always was (the span); the LINK around it is a 44 px corner, so a thumb that
+           reaches for it lands on it (it measured 20 px tall — the Hub button walk, 2026-10-21). */
+        className="absolute bottom-0 right-0 flex min-h-[44px] min-w-[44px] items-end justify-end"
       >
-        © OpenStreetMap
+        <span className="bg-cream/85 px-1.5 py-0.5 font-sans text-xs text-ink/80">© OpenStreetMap</span>
       </a>
     </figure>
-  );
-}
-
-/**
- * DIRECTIONS ▾ — three map apps are ONE dropdown, never three buttons (the
- * prototype's journey note; any set of 3+ choices is a dropdown). A native
- * `<details>`: no JavaScript on the guest page. With no pin, the one honest
- * link is a maps search for the place.
- */
-function DirectionsMenu({ venue }: { venue: EventVenue }) {
-  const query = venueSearchQuery(venue)?.trim();
-  const apps = hasPin(venue)
-    ? [
-        { name: 'Google Maps', href: googleMapsNavUrl(venue.latitude!, venue.longitude!) },
-        { name: 'Waze', href: wazeNavUrl(venue.latitude!, venue.longitude!) },
-        { name: 'Apple Maps', href: appleMapsUrl(venue.latitude!, venue.longitude!) },
-      ]
-    : query
-      ? [{ name: 'Google Maps', href: googleMapsSearchByQuery(query) }]
-      : [];
-  if (apps.length === 0) return null;
-  return (
-    <details className="group mt-2" data-venue-directions="">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
-        Directions
-        <span aria-hidden className="text-xs text-ink/80 transition-transform group-open:rotate-180">
-          ▾
-        </span>
-      </summary>
-      <ul className="mt-1 divide-y divide-ink/10 overflow-hidden rounded-md border border-ink/15 bg-cream">
-        {apps.map((a) => (
-          <li key={a.name}>
-            <a href={a.href} target="_blank" rel="noreferrer" className="flex min-h-11 items-center px-3 text-sm font-medium text-ink">
-              {a.name}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }
 
@@ -193,6 +190,44 @@ function Eyebrow({ count }: { count: number }) {
 }
 
 /**
+ * ⛪ THE PARISH'S DRAWING (owner 2026-10-16, `lib/parish-drawings.ts`) — drawn on
+ * the ceremony card, ABOVE the venue's name, on the plate itself: the file's
+ * white is cut to transparent, so the plate's own paper shows round the church
+ * on every Look, light or dark — no box. AVIF first, WebP fallback, lazy, with
+ * its size reserved. Where the couple PICKED the drawing it takes the place of
+ * the card's photo (one picture per card), as in the owner's art-kit proof.
+ */
+export function ParishDrawingFigure({ drawing }: { drawing: ParishDrawing }) {
+  return (
+    <figure className="m-0" data-venue-drawing={drawing.key}>
+      <picture>
+        <source type="image/avif" srcSet={drawing.avif} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={drawing.webp}
+          alt={drawing.alt}
+          width={drawing.width}
+          height={drawing.height}
+          loading="lazy"
+          decoding="async"
+          className="block h-auto w-full"
+        />
+      </picture>
+    </figure>
+  );
+}
+
+/**
+ * The card's picture: the parish drawing when the couple PICKED it (and the
+ * library has one), else the photo. Never the drawing on its own (owner
+ * 2026-10-16, "A VENUE CARD'S PICTURE IS THE COUPLE'S CHOICE").
+ */
+export function venuePicture(venue: EventVenue): { drawing: ParishDrawing | null; photoUrl: string | null } {
+  const drawing = venueDrawingFor(venue);
+  return { drawing, photoUrl: drawing ? null : (venue.photoUrl ?? null) };
+}
+
+/**
  * 2 · FULL PHOTO — the photo is the card; the role and name sit on a fixed dark
  * gradient over it. The address and directions stay on the plate below, so they
  * never fight the picture. A venue with no photo is a clean text card — never
@@ -210,16 +245,18 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
             {venue.name ? <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight">{venue.name}</h3> : null}
           </>
         );
+        // ⛪ A parish drawing the couple picked takes the photo's place, on the plate above the name.
+        const { drawing, photoUrl } = venuePicture(venue);
         // Under a photo the plate carries only the address and directions — with
         // neither (withheld), there is no plate at all.
         const plateUnderPhoto = Boolean(venue.address) || !withheld;
         return (
           <div key={venue.role} data-venue-role={venue.role}>
-            {venue.photoUrl ? (
+            {photoUrl ? (
               <figure className="relative aspect-[4/3] overflow-hidden bg-ink" data-venue-photo="">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={venue.photoUrl}
+                  src={photoUrl}
                   alt={venue.name ? `${venue.name}` : 'The venue'}
                   loading="lazy"
                   className="absolute inset-0 h-full w-full object-cover"
@@ -233,19 +270,12 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
                 <figcaption className="absolute inset-x-4 bottom-4 space-y-1 text-white">{words}</figcaption>
               </figure>
             ) : null}
-            {venue.photoUrl && !plateUnderPhoto ? null : (
+            {photoUrl && !plateUnderPhoto ? null : (
               <div className="pahina-plate space-y-3" style={plateStyle}>
-                {venue.photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
+                {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
+                {photoUrl ? null : <div className="space-y-1 text-ink">{words}</div>}
                 {venue.address ? <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p> : null}
-                {withheld ? null : (
-                  <NavLinksRow
-                    latitude={venue.latitude ?? null}
-                    longitude={venue.longitude ?? null}
-                    addressFallback={venueSearchQuery(venue)}
-                    label="Get directions"
-                    compact
-                  />
-                )}
+                {withheld ? null : <DirectionsMenu venue={venue} />}
               </div>
             )}
           </div>

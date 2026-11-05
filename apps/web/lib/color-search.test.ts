@@ -99,3 +99,29 @@ test('🚨 THE COVERAGE MEASUREMENT · every real wedding-vocabulary search term
   const missing = REAL_SEARCH_TERMS.filter((t) => searchColorNames(t).matches.length === 0);
   assert.deepEqual(missing, [], `${missing.length}/${REAL_SEARCH_TERMS.length} search terms returned nothing`);
 });
+
+test('🔁 a colour is listed once — by its swatch AND by its name, for every prefix of every name (2026-10-18: "Coral", "Gold", "Navy" were each listed twice)', async () => {
+  const { WEDDING_NAMES, CSS_NAMES, foldColorName } = await import('./color-names');
+  const queries = new Set<string>();
+  for (const n of [...WEDDING_NAMES, ...CSS_NAMES]) {
+    const f = foldColorName(n.name);
+    for (let i = 2; i <= f.length; i += 1) queries.add(f.slice(0, i));
+  }
+  assert.ok(queries.size > 500, `only ${queries.size} queries were tried — the sweep found nothing to try`);
+  let listed = 0;
+  for (const q of queries) {
+    for (const list of [searchColorNames(q).matches, searchColorNames(`${q}zq`).suggestions]) {
+      const names = list.map((m) => foldColorName(m.name));
+      const hexes = list.map((m) => m.hex.toUpperCase());
+      assert.equal(new Set(names).size, names.length, `"${q}" lists a name twice: ${list.map((m) => `${m.name} ${m.hex}`).join(' | ')}`);
+      assert.equal(new Set(hexes).size, hexes.length, `"${q}" lists a swatch twice`);
+      listed += list.length;
+    }
+  }
+  assert.ok(listed > 1000, 'the sweep listed almost nothing — the search is not answering');
+  /* The curated colour keeps its place; the CSS one with the same name is the one dropped. */
+  const coral = searchColorNames('coral').matches;
+  assert.deepEqual(coral.filter((m) => m.name === 'Coral').map((m) => m.source), ['wedding']);
+  assert.equal(coral[0]?.name, 'Coral');
+  assert.ok(coral.some((m) => m.name === 'Light Coral'), 'a different name with the word is still listed');
+});

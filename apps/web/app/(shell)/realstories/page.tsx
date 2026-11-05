@@ -17,6 +17,7 @@ import {
 import { STORIES_SEARCH_MIN_POOL } from '@/lib/stories-search-config';
 import { sampleStoriesAreShowing } from '@/lib/sample-stories';
 import { publishedBlogArticles } from '@/lib/blog';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 
 // /realstories — THE single public stories hub. ONE SHELF, THREE VOICES
@@ -81,7 +82,7 @@ export const metadata: Metadata = {
   keywords: [
     'real Filipino weddings',
     'Filipino debut stories',
-    'Filipino anniversary celebration',
+    'Filipino wedding anniversary',
     'Philippines life milestones',
     'Setnayan stories',
     'Setnayan storytellers',
@@ -90,11 +91,13 @@ export const metadata: Metadata = {
     'wedding stories Philippines',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
     url: '/realstories',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Stories · Setnayan',
     description: HUB_DESCRIPTION,
@@ -438,7 +441,7 @@ export default async function RealStoriesIndexPage() {
               href="/explore"
               className="inline-flex h-11 items-center justify-center rounded-md border border-ink/15 px-6 text-sm font-medium text-ink hover:bg-ink/5"
             >
-              Browse vendors
+              Browse suppliers
             </Link>
           </div>
         </div>

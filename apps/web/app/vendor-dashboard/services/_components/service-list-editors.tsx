@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
+import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 
 /**
  * Repeatable list editors for a service card (service-card redesign · Phase 3b).
@@ -50,10 +52,10 @@ function RowRemove({ onClick, label }: { onClick: () => void; label: string }) {
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border"
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
       style={{ borderColor: line, color: 'var(--m-slate)' }}
     >
-      <X className="h-3.5 w-3.5" strokeWidth={1.75} />
+      <X className="h-4 w-4" strokeWidth={1.75} />
     </button>
   );
 }
@@ -63,14 +65,32 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 text-xs font-medium"
+      className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold"
       style={{ color: 'var(--m-orange-2)' }}
     >
-      <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+      <Plus className="h-4 w-4" strokeWidth={2} />
       {children}
     </button>
   );
 }
+
+/**
+ * A peso worth: numeric, WITHOUT the native spinner. `type="number"` draws ▲▼ arrows in a desktop browser (the walk
+ * caught them in "worth ₱", 2026-11-01) and nudges the value on a scroll-wheel. A text box with the numeric keypad,
+ * a digits-only pattern and a filter that drops anything else keeps the answer a whole number of pesos — what
+ * `parseInclusionRows` (actions.ts) already insists on. 🔒 a-worth-box-has-no-spinner.test.ts
+ */
+const WHOLE_PESOS = {
+  type: 'text',
+  inputMode: 'numeric',
+  pattern: '[0-9]*',
+  autoComplete: 'off',
+  onInput: (e: React.FormEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const digits = el.value.replace(/[^0-9]/g, '');
+    if (digits !== el.value) el.value = digits;
+  },
+} as const;
 
 // ════════════════════════════════════════════════════════════════════════════
 // 1 · InclusionsEditor — FREE items each with an optional stated worth
@@ -78,15 +98,71 @@ function AddRowButton({ onClick, children }: { onClick: () => void; children: Re
 export type InclusionDraft = { label: string; worth: string };
 type InclusionRow = InclusionDraft & { key: number };
 
-export function InclusionsEditor({ initial }: { initial: InclusionDraft[] }) {
-  const nextKey = useRef(initial.length);
+export function InclusionsEditor({
+  initial,
+  bare = false,
+}: {
+  initial: InclusionDraft[];
+  /**
+   * The rows only, open, with ONE line ready to type when there is none (the simpler maker's "What's included ·
+   * One line is enough", 2026-10-14) — no second fold inside the maker's own. Same field names.
+   */
+  bare?: boolean;
+}) {
+  const nextKey = useRef(Math.max(initial.length, 1));
   const [rows, setRows] = useState<InclusionRow[]>(
-    initial.map((r, i) => ({ key: i, ...r })),
+    initial.length > 0 || !bare
+      ? initial.map((r, i) => ({ key: i, ...r }))
+      : [{ key: 0, label: '', worth: '' }],
   );
 
   const add = () =>
     setRows((cur) => [...cur, { key: nextKey.current++, label: '', worth: '' }]);
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
+
+  if (bare) {
+    /* ✍ THE MAKER'S LINES ARE ROWS OF THE ONE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it).
+       Each line is two rows — what is included, and its worth — posting `inclusion_label` and `inclusion_worth` exactly
+       as the raw boxes did: every row draws its carrier, filled or not, so the two lists stay index-aligned for
+       `parseInclusionRows`. The worth is an AMOUNT row: it keeps its ₱, opens the numeric keypad, and keeps only whole
+       pesos (`amountDigits`) — no spinner, nothing but digits posted. */
+    const patch = (key: number, next: Partial<InclusionDraft>) =>
+      setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
+    return (
+      <div data-inclusions-bare="">
+        <FormRows width="short">
+          {rows.map((r, i) => (
+            <Fragment key={r.key}>
+              <TypedRow
+                name={`Included ${i + 1}`}
+                value={r.label}
+                empty="e.g. Same-day highlight reel"
+                maxLength={80}
+                fieldName="inclusion_label"
+                onKeep={(t) => patch(r.key, { label: t })}
+                data="inclusion-label"
+              />
+              <TypedRow
+                name="Worth"
+                value={r.worth}
+                amount
+                empty="Optional"
+                fieldName="inclusion_worth"
+                onKeep={(t) => patch(r.key, { worth: t })}
+                data="inclusion-worth"
+                below={
+                  <div className="flex justify-end pb-2">
+                    <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
+                  </div>
+                }
+              />
+            </Fragment>
+          ))}
+        </FormRows>
+        <AddRowButton onClick={add}>Add a line</AddRowButton>
+      </div>
+    );
+  }
 
   return (
     <details
@@ -133,9 +209,7 @@ export function InclusionsEditor({ initial }: { initial: InclusionDraft[] }) {
                 <input
                   name="inclusion_worth"
                   defaultValue={r.worth}
-                  type="number"
-                  min={0}
-                  step={1}
+                  {...WHOLE_PESOS}
                   placeholder="worth ₱"
                   className="input-field flex-1"
                 />
@@ -355,31 +429,16 @@ export function DiscountsEditor({
                   {/* Unit toggle — a hidden input carries the value so getAll()
                       stays index-aligned regardless of which button is active. */}
                   <input type="hidden" name="discount_unit" value={r.unit} />
-                  <div
-                    className="inline-flex overflow-hidden rounded-lg border"
-                    style={{ borderColor: line }}
-                    role="group"
-                    aria-label="Discount unit"
-                  >
+                  <PillTrack role="group" aria-label="Discount unit">
                     {(['pct', 'php'] as const).map((u) => {
                       const on = r.unit === u;
                       return (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => patch(r.key, { unit: u })}
-                          aria-pressed={on}
-                          className="px-3 py-2 text-xs font-medium"
-                          style={{
-                            background: on ? 'var(--m-ink)' : 'var(--m-paper-2)',
-                            color: on ? 'var(--m-paper)' : 'var(--m-slate-2)',
-                          }}
-                        >
+                        <PillButton key={u} on={on} onClick={() => patch(r.key, { unit: u })} aria-pressed={on} className="px-3">
                           {u === 'pct' ? '%' : '₱'}
-                        </button>
+                        </PillButton>
                       );
                     })}
-                  </div>
+                  </PillTrack>
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">

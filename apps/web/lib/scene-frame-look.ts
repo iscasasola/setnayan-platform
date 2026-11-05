@@ -20,11 +20,14 @@ import {
   hubCanvasClass,
   hubCanvasVars,
   hubPhotoPlacement,
+  hubSpacingClass,
   type HubBackground,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
 import type { InviteTheme } from '@/lib/invite-themes';
 import { sceneLegibilityVars } from '@/lib/scene-legibility';
+import { ombreCss } from '@/lib/ombre';
+import { sceneColourShade, sceneMediaShadeVars } from '@/lib/scene-media-shade';
 
 export type SceneFrameLook = { className: string; style: Record<string, string>; placement: ReturnType<typeof hubPhotoPlacement> };
 
@@ -35,18 +38,32 @@ export function sceneFrameLook(
 ): SceneFrameLook {
   const { bg, mediaUrl, painted } = ground;
   const placement = hubPhotoPlacement(canvas, painted);
-  const tint = hubBackgroundTint(bg);
+  const own = hubBackgroundTint(bg);
+  /* 🌗 Darker ↔ Lighter on a colour that is its own ground (Plain · Diagonal · Glow): the colour itself is mixed
+     (`sceneColourShade`), and everything below — the paint, the ramp, the words — reads the mixed colour. A glass
+     keeps its Opacity instead (the sanitizer stores no shade for one). */
+  const shaded = own && bg && canvas.shade && (bg.kind === 'color' || bg.kind === 'diagonal' || bg.kind === 'glow') ? sceneColourShade(own, canvas.shade, theme) : null;
+  const tint = shaded ?? own;
   const legible =
     placement !== 'behind'
       ? null
       : tint && bg && bg.kind !== 'photo' && bg.kind !== 'snippet' && bg.kind !== 'none'
         ? sceneLegibilityVars(theme, tint, bg.kind, canvas.opacity)
         : mediaUrl && (bg?.kind === 'photo' || bg?.kind === 'snippet')
-          ? sceneLegibilityVars(theme, '#ffffff', 'media')
+          ? /* 🌗 Darker ↔ Lighter (`lib/scene-media-shade.ts`): the veil and the words over it, never under AA. */
+            canvas.shade
+            ? sceneMediaShadeVars(canvas.shade, theme)
+            : sceneLegibilityVars(theme, '#ffffff', 'media')
           : null;
   return {
-    className: hubCanvasClass(canvas, painted),
-    style: { ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl), ...(legible ?? {}) },
+    className: [hubCanvasClass(canvas, painted), hubSpacingClass(canvas)].filter(Boolean).join(' '),
+    style: {
+      ...hubCanvasVars(canvas, placement === 'none' ? null : mediaUrl),
+      /* The mixed colour is what is painted — the flat fill, and the ramp of a Diagonal or a Glow (the legibility
+         vars after it may lay their own veil into that ramp, from the same mixed colour). */
+      ...(shaded && bg ? { '--hub-bg-color': shaded, ...(bg.kind === 'diagonal' || bg.kind === 'glow' ? { '--hub-bg-image': ombreCss({ shape: bg.kind, base: shaded }) } : {}) } : {}),
+      ...(legible ?? {}),
+    },
     placement,
   };
 }

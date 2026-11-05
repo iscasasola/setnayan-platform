@@ -204,21 +204,14 @@ test('the pill names the signed-in person when there is no event name to show', 
     /className="hidden max-w-\[150px\] truncate text-xs font-medium text-ink\/80 lg:inline"/,
     'the account name lost its `hidden … lg:inline` gate or its truncation. The shared bar carries ' +
       'identity, search and this cluster on ONE row (owner struck the second row 2026-07-30), and ' +
-      '"+ Create event" beside it is hidden below 1024 for exactly this reason.',
+      'the name is a desktop-width luxury on that one row.',
   );
 });
 
-/* ─── 6 · THE PANEL'S CIRCLE IS LEFT ALONE, ON PURPOSE ───────────────────── */
-
-test('the panel header keeps its pale circle — the words beside it do the identifying', () => {
-  const panel = panelAvatarClasses();
-  assert.ok(
-    /\bbg-terracotta\/15\b/.test(panel),
-    'the panel header avatar changed too. It was deliberately NOT touched: it sits beside ' +
-      '"Signed in as {name}", so the circle is decoration there and its faintness costs nothing. ' +
-      'If this is an intended redesign, delete this test rather than loosening it.',
-  );
-});
+/* ─── 6 · RETIRED 2026-10-22 ─────────────────────────────────────────────────
+   The panel header's pale circle was kept "deliberately unchanged" beside "Signed in as {name}", and this test said
+   to delete it, not loosen it, if the header were ever redesigned. Direction 2 (owner: "Direction 2") redrew the
+   header as the cover: a 56 px photo on the solid ink fill, the same one the trigger avatar above is held to. */
 
 /* ─── LOCATING THE TWO AVATARS ───────────────────────────────────────────── */
 
@@ -254,9 +247,4 @@ function triggerAvatarClasses(): string {
     'trigger pill',
     2,
   );
-}
-
-/** Inside SwitcherPanelBody's "Signed in as" header. */
-function panelAvatarClasses(): string {
-  return classesAfter(/border-b border-ink\/10 px-4 py-3/, 'panel identity header');
 }

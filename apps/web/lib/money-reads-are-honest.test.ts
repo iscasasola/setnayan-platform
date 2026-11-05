@@ -155,15 +155,30 @@ for (const r of RENDERS) {
 }
 
 test('the Overview passes the payday measurement through to what it prints', () => {
-  // Since 2026-10-01 the payday figures are Today's "owed to you" number and
-  // the "Confirmed of booked" line — each says "—" when payday was not read,
-  // never ₱0 (`owedToYouPhp` returns null on !paydayMeasured).
-  const s = src('app/vendor-dashboard/page.tsx');
-  assert.equal(all(s, 'owedToYouPhp(earnings)').length, 1);
-  assert.equal(all(s, "owedPhp === null ? '—'").length, 1);
-  assert.match(s, /earnings\.paydayMeasured\s*\?/, 'the "Confirmed of booked" line no longer asks whether payday was read');
+  // Since 2026-10-08 (supplier redesign S-PR1) Today prints ONE payday figure —
+  // the "to come in" number — and when payday was not read it says "couldn't
+  // load" in WORDS (`owedToYouPhp` returns null on !paydayMeasured; the page
+  // hands that null on, and the first screen draws <Unread /> for it). The
+  // "Confirmed of booked" line left Today with the two money tiles; that
+  // figure is on Payday, whose own honest read the rows above hold.
+  // 🧩 Since the simpler Today (2026-10-14) the page reads, `assembleSupplierToday` decides and `SupplierTodayScreen`
+  // draws — the null travels through all three.
+  const s = src('app/vendor-dashboard/page.tsx') + src('lib/supplier-today-view.ts') + src('app/vendor-dashboard/_components/supplier-today-screen.tsx');
+  assert.equal(all(s, 'owedToYouPhp(input.earnings)').length, 1);
+  assert.equal(all(s, 'toComeInPhp: owedPhp,').length, 1, 'the assembly no longer hands payday on as read or not');
+  assert.equal(all(s, 'toComeIn: view.numbers.toComeInPhp === null ? null : formatPesoCompact(view.numbers.toComeInPhp * 100)').length, 1, 'an unread payday is no longer handed on as "not read"');
+  assert.equal(all(s, "=== null ? '—'").length, 0, 'the bare dash is back — an unread payday must be said in words');
+  assert.equal(all(s, 'earnings.confirmedPhp').length, 0, 'Today prints a payday figure again without asking whether payday was read');
+  // 📌 Since 2026-10-28 the number is the pinned row's filter (`TodayCounts`): the first screen hands the null on, and
+  // the count says "couldn't load" in its own place (its list says so too — `the-counts-filter-in-place.test.ts`).
+  const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
+  assert.match(screen, /toComeIn=\{numbers\.toComeIn\}/, 'the first screen no longer hands an unread payday on as unread');
+  const counts = src('app/vendor-dashboard/_components/today-counts.tsx');
+  // 📌 2026-10-31: the count is the shared door (`PinDoor`) — the null is handed on, and the door says it.
+  assert.match(counts, /value=\{value === null \? null :/, 'the pinned count no longer says when it could not read');
+  assert.match(src('app/_components/pinned-row/pin-door.tsx'), /couldn&rsquo;t load/, 'the unread number lost its words');
   const today = src('lib/supplier-today.ts');
   assert.equal(all(today, 'if (!earnings || !earnings.paydayMeasured) return null;').length, 1);
   const lib = src('lib/vendor-overview.ts');
-  assert.equal(all(lib, 'paydayMeasured: paydayTotals !== null').length, 1);
+  assert.equal(all(lib, 'paydayMeasured: payday !== null').length, 1);
 });

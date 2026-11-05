@@ -29,6 +29,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
         body: JSON.stringify({ eventId, code: code.trim() }),
       });
       if (res.ok) {
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/wall/claim; no server action answered with a render.
         router.refresh();
         return;
       }
@@ -48,7 +49,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
     <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
       <div className="w-full max-w-lg text-center">
         <MonitorPlay aria-hidden className="mx-auto h-10 w-10 text-cream/60" strokeWidth={1.5} />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Light up the photo wall</h1>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Light up Memory lane</h1>
         <p className="mt-2 text-sm text-cream/60">
           Enter the screen code from the couple&rsquo;s Setnayan dashboard.
         </p>
@@ -78,7 +79,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mulberry px-6 py-3.5 text-base font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
           >
             {busy ? <Loader2 aria-hidden className="h-5 w-5 animate-spin" strokeWidth={2} /> : null}
-            Start the wall
+            Start Memory lane
           </button>
         </form>
         {error ? <p className="mt-4 text-sm text-terracotta">{error}</p> : null}

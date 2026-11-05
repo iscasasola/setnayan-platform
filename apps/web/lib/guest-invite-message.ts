@@ -39,6 +39,7 @@
  */
 
 import type { NameStyle } from '@/lib/name-style';
+import { isPlaceholderNameWord, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
 
 /** Who is sending: the couple/hosts ("our Event Hub"), or a guest passing a
  *  plus-one their own key ("the Event Hub"). */
@@ -59,7 +60,7 @@ export type InviteEventFacts = {
   /**
    * 🔤 The event's Name style (`events.print_details.name_style`, owner
    * 2026-09-30) — the caller composes `formalName` in it:
-   * `guestFullName(guest, facts.nameStyle)`. A Display name is still as given.
+   * `guestNameAsGiven(guest, facts.nameStyle)`. A "Shown as" is still as given.
    */
   nameStyle?: NameStyle;
 };
@@ -68,7 +69,7 @@ export type GuestInviteContext = InviteEventFacts & {
   /**
    * 📝 `{name}` — THE GUEST'S NAME EXACTLY AS THE COUPLE ENTERED IT on the Guest
    * list (owner 2026-09-30: *"we want the copy to indicate the name as given. to
-   * them"*): `guestFullName` — the couple's own Display name when they set one,
+   * them"*): `guestNameAsGiven` — the couple's own "Shown as" when they set one,
    * else the five parts composed, "Mr. Manuel Cortez Casasola Jr.". Never cut
    * to a first name. The two fields below are only the fallback for a caller
    * with no row to compose from.
@@ -101,6 +102,7 @@ export const INVITE_PLACEHOLDERS = [
   { token: '{event}', says: 'your event, by name' },
   { token: '{date}', says: 'the date' },
   { token: '{link}', says: 'their own link' },
+  { token: '{hosts}', says: 'your names, to sign it' },
 ] as const;
 
 const APOS = '’';
@@ -195,15 +197,41 @@ export function defaultInviteTemplate(opts: {
       keep,
     ].join('\n');
   }
+  if (opts.voice === 'guest') {
+    return [
+      `Hi {name}! 💌 You${APOS}re invited to {event} on {date}.`,
+      '',
+      `Here${APOS}s your invitation — tap to reply:`,
+      '{link}',
+      '',
+      qr,
+      '',
+      keep,
+    ].join('\n');
+  }
+  // 💌 THE HOSTS' WORDING — APPROVED 2026-10-30 (DECISION_LOG "THE INVITE TEXTS — GUEST AND SELF-ADDED SUPPLIER —
+  // APPROVED"; owner: "this is another website's message. we want our own" · "english. but a more wow approach" →
+  // "perfect"). Setnayan's own voice, signed by the couple ({hosts} on its own last line, dropped whole when empty).
+  // ⚖ The ticket line stays true in both paths: "Inside is your ticket" (on the page the link opens) — or, when the
+  // share sheet carries the Digital ticket, "Your ticket is attached".
+  const inside = opts.ticketAttached
+    ? `Your ticket is attached: it opens our Event Hub anytime, and it${APOS}s your pass at the door.`
+    : `Inside is your ticket: it opens our Event Hub anytime, and it${APOS}s your pass at the door.`;
   return [
-    `Hi {name}! 💌 You${APOS}re invited to {event} on {date}.`,
+    'Hi {name}! 💌',
     '',
-    `Here${APOS}s your invitation — tap to reply:`,
+    `You${APOS}re invited to {event} on {date}, and it simply wouldn${APOS}t be the same without you.`,
+    '',
+    `Your invitation is ready. Tap to open it and let us know if you${APOS}re coming — it only takes a minute:`,
     '{link}',
     '',
-    qr,
+    inside,
     '',
-    keep,
+    'This link was made just for you, so please keep it to yourself.',
+    '',
+    `We can${APOS}t wait to see you there. ✨`,
+    '',
+    '{hosts}',
   ].join('\n');
 }
 
@@ -224,16 +252,28 @@ export function sanitizeInviteTemplate(raw: unknown): string | null {
   return s ? s : null;
 }
 
-function fill(template: string, values: { name: string; event: string; date: string | null; link: string }): string {
+function fill(
+  template: string,
+  values: { name: string; event: string; date: string | null; link: string; hosts?: string },
+): string {
   let t = template;
+  // No names to sign with → the sign-off goes too, never a bare "With love,".
+  // A {hosts} alone on its line (ours, 2026-10-30) goes with the blank line before it.
+  if (!values.hosts)
+    t = t
+      .replace(/\n*[ \t]*With love,[ \t]*\n[ \t]*\{hosts\}/gi, '')
+      .replace(/\n+[ \t]*\{hosts\}[ \t]*(?=\n|$)/gi, '')
+      .replace(/[ \t]*\{hosts\}/gi, '');
   // An absent value takes its lead-in with it: "Hi {name}!" → "Hi!",
   // "…wedding on {date}." → "…wedding." — never "Hi !" or "on .".
   if (!values.name) t = t.replace(/[ \t]*\{name\}/gi, '');
   if (!values.date) t = t.replace(/[ \t]+on[ \t]+\{date\}/gi, '').replace(/[ \t]*\{date\}/gi, '');
   // ONE pass, function replacer: a value is never re-scanned, and `$&` in a
   // name is text, not a regex back-reference.
-  return t.replace(/\{(name|event|date|link)\}/gi, (_m, key: string) => {
+  return t.replace(/\{(name|event|date|link|hosts)\}/gi, (_m, key: string) => {
     switch (key.toLowerCase()) {
+      case 'hosts':
+        return values.hosts ?? '';
       case 'name':
         return values.name;
       case 'event':
@@ -248,11 +288,14 @@ function fill(template: string, values: { name: string; event: string; date: str
 
 function greetingName(ctx: Pick<GuestInviteContext, 'formalName' | 'firstName' | 'guestName'>): string {
   // The name as given — whole, never shortened (owner 2026-09-30).
-  const given = (ctx.formalName ?? '').replace(/\s+/g, ' ').trim();
+  // 🪪 An unnamed +1's stand-ins ("+1 · TBA", "TBA", "+1") are not a name: the greeting is "Hi!", never "Hi TBA!"
+  // (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const given = withoutPlaceholderWord('display', (ctx.formalName ?? '').replace(/\s+/g, ' ').trim());
   if (given) return given;
-  const first = (ctx.firstName ?? '').trim();
+  const first = withoutPlaceholderWord('first', ctx.firstName);
   if (first) return first;
-  return (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  const word = (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  return isPlaceholderNameWord('first', word) || isPlaceholderNameWord('last', word) ? '' : word;
 }
 
 /**
@@ -273,6 +316,7 @@ export function buildGuestInviteMessage(ctx: GuestInviteContext): string | null 
     event: inviteEventPhrase(ctx, voice),
     date: formatInviteDate(ctx.eventDate, ctx.datePrecision, ctx.now),
     link,
+    hosts: voice === 'hosts' ? (ctx.hostsName ?? '').trim() : '',
   });
   return out.includes(link) ? out : `${out}\n\n${link}`;
 }

@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revokeAllSessions } from '@/lib/force-logout';
+import { revokeHeldAppleSignIn } from '@/lib/apple-sign-in-store';
 import { executeCleanupDelete } from '@/lib/cleanup-delete';
 import { CleanupDeleteRefused, planCleanupDelete } from '@/lib/cleanup-delete-scope';
 import { eraseUserAccount, type ErasureIo } from '@/lib/erasure/purge';
@@ -56,6 +57,9 @@ function erasureIo(): ErasureIo {
       await executeCleanupDelete(decision.target);
     },
     revokeAllSessions,
+    // App Store 5.1.1(v): revoke the Sign in with Apple grant at Apple. Never
+    // throws; the purge records every outcome (lib/erasure/purge.ts step 2b).
+    revokeAppleSignIn: revokeHeldAppleSignIn,
   };
 }
 

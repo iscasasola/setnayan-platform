@@ -34,6 +34,7 @@ import {
   type LifecyclePhase,
 } from './invitation-widgets';
 import { solemnAdjustedPhase } from '@/app/[slug]/_lib/event-words';
+import { inviteEnterPath } from './invite-arrival';
 
 /** The face the Event Hub will be wearing when this guest arrives on it. */
 export type ArrivalDestination = 'save_the_date' | 'invitation' | 'day_of' | 'story';
@@ -65,6 +66,18 @@ export function arrivalDestination(input: {
 }
 
 /**
+ * IS A REPLY ASKED FOR YET? — not while this door opens the Save the Date
+ * (owner 2026-10-11). The landing's reading of the one rule
+ * (`replyAskedInStage`, lib/invitation-widgets.ts, which has the account):
+ * `'save_the_date'` here IS "the lifecycle engine is on and the stage is the
+ * Save the Date" (`arrivalDestination` above), so the two cannot differ —
+ * `lib/the-reply-waits-for-the-invitation.test.ts` runs both on every input.
+ */
+export function replyIsAsked(destination: ArrivalDestination): boolean {
+  return destination !== 'save_the_date';
+}
+
+/**
  * The same composition `app/[slug]/page.tsx` runs to pick its own face — asked
  * here so the door and the page can never disagree about which one it is.
  */
@@ -79,6 +92,8 @@ export function arrivalDestinationFor(input: {
    *  this, or a pinned site's door describes a face the page is not wearing. */
   launchMode?: string | null;
   manualPhase?: string | null;
+  /** `events.std_invitation_launch_date` — the ONE date the Invitation opens (owner 2026-10-14). */
+  invitationLaunchDate: string | null;
   nowMs?: number;
 }): ArrivalDestination {
   const { profile } = input;
@@ -87,7 +102,7 @@ export function arrivalDestinationFor(input: {
     phasesEnabled,
     lifecyclePhase: solemnAdjustedPhase(
       (phasesEnabled ? manualLaunchPhase(input.launchMode, input.manualPhase) : null) ??
-        getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs),
+        getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs, input.invitationLaunchDate),
       profile.terminology.register === 'solemn',
     ),
   });
@@ -142,4 +157,25 @@ export function arrivalDestinationWords(
         cta: 'Open the invitation',
       };
   }
+}
+
+/**
+ * 💌 WHERE A PERSONAL LINK OPENS (owner 2026-10-19, 21:40, looking at a guest's
+ * link landing on the pre-reply welcome: *"why am i at rsvp. we should be at the
+ * invitation page and not here"*). This overrides the 2026-09-30 row "THE
+ * PERSONAL LINK OPENS THE GUEST'S OWN LANDING PAGE" and the 2026-10-11 N04 call
+ * for every face of the Event Hub that ASKS for a reply: the link opens the
+ * invitation itself (`/{slug}` — their name, role, what to wear, arrive by),
+ * and the invitation's own Reply button leads to the one reply page.
+ *
+ * 📅 KEPT — N05 (owner 2026-10-11): while the Event Hub is still the Save the
+ * Date (`replyIsAsked` false), the link keeps opening the Save the Date landing,
+ * which asks nothing. A destination that could not be read keeps the landing
+ * too — the answer before this row, never a guess.
+ *
+ * `slug` must come from the DATABASE, never from input (the redeem's
+ * open-redirect rule, 2026-08-06). 🛡 app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts
+ */
+export function personalLinkLandingPath(slug: string, destination: ArrivalDestination | null): string {
+  return destination !== null && replyIsAsked(destination) ? `/${slug}` : inviteEnterPath(slug);
 }

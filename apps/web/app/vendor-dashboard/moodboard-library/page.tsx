@@ -13,6 +13,9 @@ import {
   type ImportableEditorialPhoto,
 } from './actions';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+import { listShopOwnPhotos } from '@/lib/shop-own-photos.server';
+import { shopCardChoices } from '@/lib/inspiration-card-link.server';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 export const metadata = { title: 'Moodboard Library · My Designs' };
 export const dynamic = 'force-dynamic';
@@ -41,7 +44,7 @@ export default async function StylistMoodboardLibraryPage() {
   const { profile, slots } = access;
 
   const admin = createAdminClient();
-  const { data: rows } = await admin
+  const { data: rows, error: rowsError } = await admin
     .from('moodboard_library_assets')
     .select(
       // MB21 · `rejected_at` + `rejection_reason` are what turn "draft
@@ -49,10 +52,16 @@ export default async function StylistMoodboardLibraryPage() {
       // `screen_findings` is deliberately NOT read here: it holds the screen's
       // internals and the reviewer's raw transcript, which is an admin's view
       // of a supplier's photo, not the supplier's.
-      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at, source_event_id, rejected_at, rejection_reason',
+      'asset_id, asset_type, asset_subtype, label, storage_path, approved_at, retired_at, created_at, source_event_id, source_suggestion_id, rejected_at, rejection_reason',
     )
     .eq('uploaded_by', user.id)
     .order('created_at', { ascending: false });
+  // 🔒 A REFUSED READ IS NOT "NO UPLOADS YET". Read as empty, a supplier with a
+  // shelf of photos is told they have none and may upload them all again.
+  // Throw to the dashboard's error screen, which says to try again.
+  if (rowsError) {
+    throw new Error(`moodboard-library: could not read your uploads (${rowsError.message})`);
+  }
 
   const assetIds = (rows ?? []).map((r) => r.asset_id);
   const colorRangesByAsset = new Map<string, ColorRangeMap>();
@@ -88,6 +97,7 @@ export default async function StylistMoodboardLibraryPage() {
       rejection_reason: r.rejection_reason ?? null,
       created_at: r.created_at,
       source_event_id: r.source_event_id ?? null,
+      from_suggestion: Boolean((r as { source_suggestion_id?: string | null }).source_suggestion_id),
       public_url: pub.publicUrl,
       color_ranges: colorRangesByAsset.get(r.asset_id) ?? {},
     };
@@ -121,6 +131,18 @@ export default async function StylistMoodboardLibraryPage() {
     importableFailed = true;
   }
 
+  // 🌱🖼 THE SHOP'S OWN PHOTOS (owner 2026-10-19: "add from the shop's own gallery photos as well as upload") — its
+  // page gallery and service cards, read under the supplier's own session. A failed read is said in the picker's
+  // place (`shopPhotosFailed`), never drawn as "no photos".
+  // 🔗 "Which of your services is this?" (owner 2026-10-30) — per part this shop may fill, its live cards whose Service
+  // links that part. Read on the service role, scoped by the shop the access gate resolved; null = unreadable (said).
+  const [shopPhotos, cardsByPart] = await Promise.all([
+    listShopOwnPhotos(supabase, profile),
+    getInspirationParts().then((parts) =>
+      shopCardChoices(admin, profile.vendor_profile_id, slots.map((s) => s.key), parts),
+    ),
+  ]);
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
@@ -153,9 +175,12 @@ export default async function StylistMoodboardLibraryPage() {
       <StylistLibraryEditor
         initialAssets={assets}
         gallerySlots={slots}
+        shopPhotos={shopPhotos.photos}
+        shopPhotosFailed={shopPhotos.failed}
         backCatalogueCap={cap}
         importableEditorial={importable}
         importableEditorialFailed={importableFailed}
+        cardsByPart={cardsByPart}
       />
     </div>
   );

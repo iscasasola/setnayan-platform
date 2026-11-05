@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PointsGateVerdict } from '@/lib/papic-cameras';
+import { askedOnce } from '@/lib/request-once';
 
 /**
  * apps/web/lib/papic-event-pool.ts
@@ -269,6 +270,17 @@ export async function readEventPoolStatus(
   eventId: string,
 ): Promise<EventPoolRead> {
   if (!eventId) return { ok: true, status: EVENT_POOL_ABSENT };
+  // 🔌 ONCE PER RENDER (2026-10-13, owner: least requests per screen). The Papic
+  // page asked this same question SIX times in one view — the standings, the
+  // meter, the credit card, the challenges, the allotment and the guest gate
+  // each read it themselves. Inside a render the first ask is shared
+  // (`askedOnce`, keyed by authority + event); outside one — every action, the
+  // capture path, a route handler — nothing is remembered and every call reads
+  // fresh, so no gate ever sees a stale pool.
+  return askedOnce(admin, 'papic-pool-status', [eventId], () => readEventPoolStatusNow(admin, eventId));
+}
+
+async function readEventPoolStatusNow(admin: SupabaseClient, eventId: string): Promise<EventPoolRead> {
   try {
     const { data, error } = await admin.rpc('papic_event_pool_status', {
       p_event_id: eventId,

@@ -441,23 +441,6 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     impact:
       'Only sourcemap upload during builds; the app keeps running either way.',
   },
-  {
-    id: 'posthog_key',
-    label: 'PostHog project key',
-    group: 'observability',
-    store: 'vercel',
-    envVars: ['NEXT_PUBLIC_POSTHOG_KEY'],
-    editable: 'instructions-only',
-    policyDays: null,
-    providerUrl: 'https://app.posthog.com/settings/project',
-    steps: [
-      'This key is PUBLIC by design — it ships to every browser, so leaking it is not a breach.',
-      'It only changes if you rotate the PostHog PROJECT itself, which starts analytics history over.',
-      'If you do: update NEXT_PUBLIC_POSTHOG_KEY in Vercel, redeploy, then Mark rotated here.',
-    ],
-    impact:
-      'Public by design (ships to the browser); rotate only if you also rotate the PostHog project.',
-  },
 
   // ── internal (self-generated shared secrets) ──────────────────────────────
   {
@@ -641,6 +624,35 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     ],
     impact:
       'Desktop/app signing identities. Rotate only if compromised — new certificates change the signing identity.',
+  },
+  {
+    // 🍎 The guest's Apple Wallet pass (lib/wallet-pass-config.server.ts reads these,
+    // by name, in one place). Set up by the owner 2026-10-13; the certificate
+    // EXPIRES 2027-11-12 — renew before then or no new pass can be signed.
+    id: 'apple_wallet_pass',
+    label: 'Apple Wallet pass certificate (guest tickets)',
+    group: 'infra',
+    store: 'vercel',
+    envVars: [
+      'APPLE_PASS_TYPE_ID',
+      'APPLE_TEAM_ID',
+      'APPLE_PASS_CERT_B64',
+      'APPLE_PASS_KEY_B64',
+      'APPLE_PASS_KEY_PASSPHRASE',
+      'APPLE_WWDR_CERT_B64',
+    ],
+    editable: 'instructions-only',
+    policyDays: 365,
+    providerUrl: 'https://developer.apple.com/account/resources/certificates/list',
+    steps: [
+      'The Pass Type ID certificate for pass.com.setnayan.ticket expires 2027-11-12 — renew a few weeks before.',
+      'In Certificates, IDs & Profiles, create a new Pass Type ID Certificate for pass.com.setnayan.ticket from a fresh certificate request, and export it from Keychain as a .p12.',
+      'Convert it to the three text values with the helper (controller folder: wallet-apple-to-clipboard.sh cert|key|wwdr) and paste each into its Vercel variable (Production).',
+      'Redeploy production, then add a ticket to Wallet on an iPhone to confirm it signs.',
+      'Come back here and click "Mark rotated".',
+    ],
+    impact:
+      'Signs every guest Apple Wallet pass. Expired or wrong: "Add to Apple Wallet" stops showing (the page draws it only while a probe signature succeeds) — the PNG ticket and "Save my ticket" are unaffected.',
   },
 ];
 

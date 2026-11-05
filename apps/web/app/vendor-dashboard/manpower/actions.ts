@@ -39,6 +39,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { resolveActiveShopId } from '@/lib/active-shop';
 
 // ============================================================================
 // Shared types
@@ -203,11 +204,14 @@ export async function completeGig(gigId: string): Promise<CompleteGigResult> {
   } = await supabase.auth.getUser();
   if (!user) return { status: 'not_signed_in' };
 
-  const { data: vendor } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // 🔀 The ACTIVE shop (lib/active-shop.ts) — the shop on screen, so a gig is completed for the shop that holds it.
+  let activeShopId: string | null;
+  try {
+    activeShopId = await resolveActiveShopId(supabase, user.id);
+  } catch {
+    return { status: 'error', message: 'We couldn’t load your shop just now. Nothing was changed — please try again.' };
+  }
+  const vendor = activeShopId ? { vendor_profile_id: activeShopId } : null;
 
   if (!vendor) return { status: 'no_vendor_profile' };
 

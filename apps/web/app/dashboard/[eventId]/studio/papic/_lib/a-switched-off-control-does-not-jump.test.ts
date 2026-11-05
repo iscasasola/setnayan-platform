@@ -67,7 +67,8 @@ test('THE ALLOTMENT CONTROLS ARE NOT UNMOUNTED BY THEIR OWN SWITCH', () => {
   */
   const switchLabel = SRC.indexOf("{enabled ? 'On' : 'Off'}");
   assert.ok(switchLabel > 0 && switchLabel < wrapper, 'the switch is gone or has moved below the block');
-  const afterSwitch = SRC.indexOf('</form>', switchLabel);
+  /* (2026-10-26) the switch's form saves in place — `PapicStayForm` closes it. */
+  const afterSwitch = SRC.indexOf('</PapicStayForm>', switchLabel);
   assert.ok(afterSwitch > 0 && afterSwitch < wrapper, "the switch's form does not close before the block");
   assert.ok(
     !/\{enabled \?\s*\(/.test(SRC.slice(afterSwitch, wrapper)),

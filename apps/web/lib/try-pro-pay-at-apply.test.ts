@@ -72,10 +72,10 @@ function triedDraft(): HubDraft {
   let d = emptyHubDraft();
   // Pro: a theme, the Event Hub typeface. Free: the background colour.
   d = mergeHubDraft(d, { events: { invite_theme: 'velvet', site_font_key: 'cormorant', site_bg_color: '#112233' } });
-  // Pro: an animation on the hero's names — beside a FREE colour and a FREE font
-  // (a part's font is free since 2026-10-06) on the same part.
+  // Pro: an animation on the hero's names, and — 💎 since 2026-10-16 ("everything in Style is Pro") — its own font and
+  // colour; beside them, on the same canvas, a FREE change: the joiner's own word.
   d = mergeHubDraft(d, {
-    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344', motion: { in: 'rise' } } } } as HubSectionCanvas } },
+    widgets: { hero: { canvas: { elements: { names: { font: 'cormorant', color: '#aa3344', motion: { in: 'rise' } }, joiner: { word: '+' } } } as HubSectionCanvas } },
   });
   // Pro: how the Schedule moves (a preset + a hand-over into the next scene).
   d = mergeHubDraft(d, { widgets: { schedule: { canvas: { preset: 'cinematic', transition: 'scrub' } as HubSectionCanvas } } });
@@ -103,7 +103,9 @@ test('1 · a free couple’s draft keeps every Pro pick (the draft door strips n
   // The server's `save` is that merge and nothing else — no Pro read on the way in.
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save')"), action.indexOf("if (intent === 'reset')"));
-  assert.match(save, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, patch\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  /* RE-AIMED 2026-10-18 round 3 (rulings A + B): every step records who made it (`by`); the bar greys ↺ for the viewer (`me`). Same property. */
+  assert.match(save, /const next = mergeHubDraft\(c, rebased\.patch, by\);/);
   assert.doesNotMatch(save, /lookProAllows|eventCoupleWebsiteProActive|planHubDraftApply/, 'the draft save asks Pro');
 
   // …and "+ Add a scene" in the Maker is not refused at the door any more.
@@ -126,7 +128,12 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       continue;
     }
     if (item.kind === 'fixed-style') {
-      assert.equal(item.pro, false, 'a fixed part\'s Style pick is free');
+      assert.equal(item.pro, false, 'a fixed part\'s Pro card went live');
+      continue;
+    }
+    // 💎 A custom address is the Custom address part (2026-10-22) — Pro, so never published for a free couple.
+    if (item.kind === 'address') {
+      assert.equal(item.pro, false, 'Apply renamed the address for a couple without the Custom address part');
       continue;
     }
     // 🚶 A Wedding March move is free (owner 2026-10-06, "Wait for apply").
@@ -144,20 +151,22 @@ test('2 · Apply for a free couple writes only free changes — every Pro effect
       assert.ok(!(item.widgetType === 'custom_1' && item.field === 'is_visible' && item.value === true), 'a scene of their own went live');
     }
   }
-  // The free colour AND the free font on the SAME part as the Pro animation still go live (#6075's split).
+  // The free word on the SAME canvas as the Pro animation and Style still goes live (#6075's split).
   const hero = plan.apply.find((i) => i.kind === 'widget' && i.widgetType === 'hero' && i.field === 'canvas');
   assert.ok(hero, 'the free half of the hero canvas is not applied');
-  const names = (hero!.value as HubSectionCanvas).elements?.names;
-  assert.equal(names?.color, '#aa3344', 'the free colour was held with the Pro animation');
-  assert.equal(names?.font, 'cormorant', 'the free font was held as Pro (it is free since 2026-10-06)');
-  assert.equal(names?.motion, undefined, 'the Pro animation leaked through the free half');
+  const els = (hero!.value as HubSectionCanvas).elements;
+  assert.equal(els?.joiner?.word, '+', 'the free word was held with the Pro animation');
+  assert.equal(els?.names?.color, undefined, 'the Pro colour leaked through the free half (Pro since 2026-10-16)');
+  assert.equal(els?.names?.font, undefined, 'the Pro font leaked through the free half (Pro since 2026-10-16)');
+  assert.equal(els?.names?.motion, undefined, 'the Pro animation leaked through the free half');
   // The background colour is free and goes live.
   assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'site_bg_color'));
 
   // The server's Apply still asks the one live gate, fail-closed in the shell.
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /const ownsPro = storeShell \? false : await lookProAllows\(eventId, 'change'\);/);
-  assert.match(action, /const plan = planHubDraftApply\(current, live, ownsPro\);/);
+  /* RE-AIMED 2026-10-22 (part by part): the one live gate is what the event owns, part by part — fail-closed in the shell. */
+  assert.match(action, /const owned = storeShell \? NO_HUB_PARTS : await hubOwnershipForWrite\(eventId\);/);
+  assert.match(action, /const plan = planHubDraftApply\(current, live, owned\);/);
   // …and a held scene of their own stays SHOWN in the draft after Apply.
   assert.match(action, /else if \(item\.field === 'is_visible'\) \{\s*\(remaining\.widgets\[item\.widgetType\] \?\?= \{\}\)\.is_visible = item\.value as boolean;/);
 });
@@ -170,23 +179,25 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
   console.log(`[try-pro] sheet: ${lines.join(' | ')}`);
   assert.deepEqual(lines.sort(), [
     'Added scene · Photo left, words right',
-    'Animation · Names on the Hero',
+    'Animation · Event title on the Hero',
     'Animation · Schedule',
+    // 💎 2026-10-16: a part's own Style is Pro — named by the Maker's own words.
+    'Font · Colour · Event title on the Hero',
     'Photo background · Countdown',
     'Theme · Luxe',
     'Transition · Schedule',
     // 🆓 'Typeface · Whole Event Hub' left this list 2026-10-05 — the font is free
     // ("Colors, and Fonts are all free"); the draft still holds it, Apply writes it.
   ]);
-  // Never a free change: the background colour and the part's colour are not named.
-  assert.ok(!lines.some((l) => /colour|color/i.test(l)), 'a free colour is named as Pro');
+  // Never a free change: the page's background colour is not named.
+  assert.ok(!lines.some((l) => /background colour|Whole Event Hub/i.test(l)), 'a free colour is named as Pro');
   // Each row can be taken to, and (except a Love Story) taken off.
   for (const e of effects) {
     assert.ok(e.jump, `${hubProEffectLine(e)} cannot be jumped to`);
     assert.ok(e.remove, `${hubProEffectLine(e)} cannot be removed`);
   }
-  assert.ok(!effects.some((e) => e.what === 'Font'), 'a part’s font is named as Pro (it is free since 2026-10-06)');
-  const anim = effects.find((e) => e.what === 'Animation' && /Names/.test(e.where))!;
+
+  const anim = effects.find((e) => e.what === 'Animation' && /Event title/.test(e.where))!;
   assert.deepEqual(anim.jump, {
     kind: 'scene',
     widgetId: 'W-HERO',
@@ -227,8 +238,9 @@ test('3 · one source: no Pro effect named for an owning couple, and none once t
   const plan = planHubDraftApply(triedDraft(), LIVE, false);
   const effects = hubDraftProEffects(triedDraft(), LIVE, false);
   for (const item of plan.refused) {
-    if (item.kind === 'fixed-style') continue; // free — never refused
+    if (item.kind === 'fixed-style') continue; // none drafted here
     if (item.kind === 'march') continue; // free — never refused
+    if (item.kind === 'address') continue; // none drafted here
     const key = item.kind === 'event' ? `event:${item.column}` : item.kind === 'editorial' ? 'pe:' : item.widgetType;
     assert.ok(
       effects.some((e) =>
@@ -267,7 +279,8 @@ test('4 · removing one effect from the sheet takes exactly it off the draft', (
   assert.deepEqual(hubDraftProEffects(clean, LIVE, false), []);
   assert.equal(planHubDraftApply(clean, LIVE, false).refused.length, 0);
   assert.equal(clean.events.site_bg_color, '#112233', 'a free colour was removed with the Pro effects');
-  assert.equal(clean.widgets.hero?.canvas?.elements?.names?.color, '#aa3344', 'the part’s free colour was removed');
+  assert.equal(clean.widgets.hero?.canvas?.elements?.joiner?.word, '+', 'the part’s free word was removed');
+  assert.equal(clean.widgets.hero?.canvas?.elements?.names?.color, undefined, 'the part’s Pro colour was not removed');
   // Undo can take a removal back (every drop is one merge on the history).
   assert.ok(clean.history.length > d.history.length);
 });
@@ -277,7 +290,8 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
   const drop = action.slice(action.indexOf("if (intent === 'drop')"), action.indexOf('const live = await readHubLiveState(supabase, eventId);\n    const storeShell'));
   assert.match(drop, /const id = formData\.get\('effect'\);/);
   assert.match(drop, /hubDraftProEffects\(current, live, false\)\.find\(\(e\) => e\.id === id\)/);
-  assert.match(drop, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, effect\.remove\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  assert.match(drop, /const remove = hubDraftProEffects\(cur \?\? emptyHubDraft\(\), live, false\)\.find\(\(e\) => e\.id === id\)\?\.remove;\s*return remove \? \{ next: mergeHubDraft\(cur \?\? emptyHubDraft\(\), remove, by\) \} : null;/);
   assert.doesNotMatch(drop, /formData\.get\('patch'\)/, 'a drop took a patch from the client');
   // The sheet sends only the id.
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
@@ -289,9 +303,20 @@ test('4 · the server’s drop recomputes the list from the STORED draft — onl
 test('the bar’s list comes from the one plan, as the viewer is shown it — and is empty in the store shell', () => {
   const store = code('lib/hub-draft-store.ts');
   const load = store.slice(store.indexOf('export const loadHubDraftBarData'));
-  assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);\s*if \(!storeShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+  assert.match(load, /const proShell = storeShell && !iap;/);
+  /* RE-AIMED 2026-10-18 round 3 (rulings A + B): every step records who made it (`by`); the bar greys ↺ for the viewer (`me`). Same property. */
+  /* RE-AIMED 2026-10-22 (part by part): the plan is asked with the event's parts (none in a shell that cannot sell Pro). */
+  assert.match(load, /const forPlan = proShell \? NO_HUB_PARTS : owned;\s*summary = summarizeHubDraft\(draft, live, forPlan, me\);\s*if \(!proShell\) proEffects = hubDraftProEffects\(draft, live, owned\)\.map\(hubProEffectView\);/);
+  // …and still no web price or web link in ANY store shell, Apple or not.
+  assert.match(load, /if \(!storeShell && summary\.proCount > 0\)/);
+  assert.match(load, /proHref: iap \? `\/dashboard\/\$\{eventId\}\/apple-pro\?from=maker` : storeShell \? null :/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /const asksForPro = !storeShell && proHref !== null && proEffects\.length > 0;/);
+  // 🍎 Where Apple sells Pro, the DOCK hands the toolbar `storeShell: false` for Pro (server-side, so the
+  // Maker's first load gains nothing) — and the after-save read refuses the web price in any store shell.
+  assert.match(code('app/dashboard/[eventId]/website/_components/hub-draft-dock.tsx'), /storeShell=\{bar\.storeShell && !bar\.appleIap\}/);
+  assert.match(store, /if \(free\.proCount > 0 && !\(await getIapGate\(\)\)\.storeShell\)/);
   // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px
   // icon — a mis-tap never publishes); the sheet names the Pro effects when
   // `asksForPro`, else says "Ready to apply" with the count.
@@ -316,7 +341,8 @@ test('a Love Story past the free cap is tried in the draft, named on the sheet, 
   assert.deepEqual(story!.jump, { kind: 'tool', key: 'love-story' });
   // The moment action does not refuse the draft; the live write is capped as before.
   const action = code('app/dashboard/[eventId]/website/our-story/actions.ts');
-  assert.match(action, /const ownsPro =\s*drafting \|\| \(await eventCoupleWebsiteProActive\(await eventEntitlementClient\(eventId\), eventId\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
+  // RE-AIMED 2026-10-22 (part by part): Love Story photos and moments are the Photos part's (gate 25).
+  assert.match(action, /const ownsPro =\s*drafting \|\| \(await eventHubPartActive\(await eventEntitlementClient\(eventId\), eventId, 'photos'\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
 });
 
 test('a drafted Pro theme is worn on the verified host’s canvas — never on a guest’s', () => {

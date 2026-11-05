@@ -38,8 +38,12 @@ import { HUB_SCENE_SHAPES,
   HUB_OUT,
   HUB_TIMELINE,
   hubCanvasClass,
+  hubSpacingClass,
+  sanitizeHubCanvas,
+  HUB_SCENE_SPACINGS,
 } from './hub-canvas';
 import { HUB_SCENE_CLASSES } from './hub-scenes';
+import { HUB_COVER_CLASSES, HUB_PAGE_HOLD_CLASSES, HUB_SCRUB_CLASSES } from '../app/[slug]/_components/hub-scrub-math';
 import { SCENE_TEMPLATE_IDS } from './scene-templates';
 
 const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
@@ -63,13 +67,51 @@ const RAW = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
  */
 const CSS = stripComments(RAW);
 
-/** The canvas block, from its first rule to the end of the file. */
+/**
+ * 🎚 THE SCRUB BLOCK (2026-10-09, commit 8c — "SCRUB — A HELD HAND-OVER"): its gate is not a scroll timeline. It is
+ * placed by a script that measures (`hub-scrub-engine.ts`), so it works where scroll timelines do not; what keeps it
+ * fail-visible is that EVERY rule in it needs the mark only that script sets (`data-hub-scrub-on`), behind `screen`
+ * and "no reduced motion". That is asserted on its own below — and only then is the block left out of the two-gate
+ * checks, which are about the timeline-driven rules.
+ */
+const SCRUB_OPEN = '@media screen and (prefers-reduced-motion: no-preference) {';
+function scrubBlock(): string {
+  const at = CSS.lastIndexOf(SCRUB_OPEN);
+  assert.ok(at > 0 && CSS.indexOf('[data-hub-scrub-on]') > at, 'the Scrub block must exist, and nothing outside it may use its mark');
+  let depth = 0;
+  for (let i = CSS.indexOf('{', at); i < CSS.length; i += 1) {
+    if (CSS[i] === '{') depth += 1;
+    else if (CSS[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return CSS.slice(at, i + 1);
+    }
+  }
+  assert.fail('the Scrub block never closes');
+}
+
+/** The canvas block, from its first rule to the end of the file — less the Scrub block, which has its own gate. */
 function canvasBlock(): string {
-  const at = CSS.indexOf('.hub-canvas');
+  /* 🔁 RE-AIMED 2026-10-09 (the card rule): its first RULE — a line that begins with `.hub-canvas` — not the first
+     place the class is written. The hub's card rule, further up, now names a frame (`… > .hub-canvas.hub-no-media … >
+     section`), and from there this window took in the couple's Home, whose animations are not the canvas's. The
+     window is exactly what it was. */
+  const at = CSS.search(/^\.hub-canvas\b/m);
   assert.ok(at > 0, 'the canvas block must exist in globals.css');
   assert.ok(RAW.includes('THE EVENT HUB CANVAS'), 'and it must still carry its banner comment');
-  return CSS.slice(at);
+  return CSS.slice(at).replace(scrubBlock(), '');
 }
+
+test('🔒 the Scrub block: every rule needs the engine’s mark — with no script the page is the plain page', () => {
+  const block = scrubBlock();
+  const inner = block.slice(block.indexOf('{') + 1, block.lastIndexOf('}'));
+  const selectors = [...inner.matchAll(/([^{}]+)\{[^{}]*\}/g)].map((m) => (m[1] as string).trim());
+  assert.ok(selectors.length >= 10, `anti-vacuity: ${selectors.length} Scrub rules were found`);
+  /* (2026-10-09: the page's own hold wears the engine's OTHER mark — `data-hub-page-on`, on the outermost pair.) */
+  for (const list of selectors) for (const sel of list.split(',')) assert.ok(/^\.hub-scenes\[data-hub-scrub-on\]|^\.hub-page-cell\[data-hub-page-on\]/.test(sel.trim()), `a Scrub rule applies without the engine: ${sel.trim()}`);
+  /* …and it IS the block that hides and binds: a rule like these anywhere else is still caught by the checks below. */
+  assert.match(inner, /visibility: hidden/);
+  assert.match(inner, /animation: var\(--hub-in-kf, none\) 1s linear both paused/);
+});
 
 /**
  * The region inside `@supports (animation-timeline: view())` →
@@ -94,8 +136,36 @@ function guardedRegion(): string {
   assert.fail('the @supports block never closes');
 }
 
-test('🔒 every animation binding on a .hub- selector is inside BOTH gates', () => {
+/**
+ * 🧭 THE OTHER HALF OF THE GATE (2026-10-16, the Animate walk F12): `@supports not (animation-timeline: view())` →
+ * `screen` + no reduced motion. An engine without scroll timelines (Safari before 26, Firefox) plays every scene's
+ * ARRIVAL there, on the clock, once the page's observer has marked it — so it is still fail-visible (no mark, no
+ * motion) — and it may never bind a Build out or a timeline (a Build out on a clock would hide the words for good).
+ */
+function noViewRegion(): string {
   const block = canvasBlock();
+  const at = block.indexOf('@supports not (animation-timeline: view())');
+  assert.ok(at > 0, 'the arrival for an engine without scroll timelines is gone');
+  const open = block.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < block.length; i += 1) {
+    if (block[i] === '{') depth += 1;
+    else if (block[i] === '}' && (depth -= 1) === 0) return block.slice(open, i);
+  }
+  assert.fail('the no-scroll-timeline block never closes');
+}
+
+test('🧭 without scroll timelines: arrivals only, behind the observer’s mark, screen and no reduced motion', () => {
+  const r = noViewRegion();
+  assert.match(r, /^\{\s*@media screen and \(prefers-reduced-motion: no-preference\) \{/, 'the no-scroll-timeline block is not behind screen + no reduced motion');
+  assert.doesNotMatch(r, /--hub-out-kf|el-out-|animation-timeline|animation-range/, 'a Build out or a scroll timeline where the engine has none');
+  for (const m of r.matchAll(/([^{}]+)\{[^{}]*animation(?:-name)?\s*:\s*var\(--hub-in-kf[^{}]*\}/g)) {
+    for (const sel of (m[1] as string).split(',')) assert.match(sel.trim(), /\.pahina-in|\.sn-replay/, `an arrival bound without the observer’s mark: ${sel.trim()}`);
+  }
+});
+
+test('🔒 every animation binding on a .hub- selector is inside BOTH gates', () => {
+  const block = canvasBlock().replace(noViewRegion(), '');
   const guarded = guardedRegion();
   assert.match(guarded, /prefers-reduced-motion:\s*no-preference/, 'the second gate is inside the first');
 
@@ -124,7 +194,7 @@ test('🔒 every animation binding on a .hub- selector is inside BOTH gates', ()
 test('🔒 nothing outside the gates sets opacity or a transform on a .hub- rule', () => {
   const block = canvasBlock();
   const guarded = guardedRegion();
-  const outside = block.replace(guarded, '');
+  const outside = block.replace(guarded, '').replace(noViewRegion(), '');
   // Keyframes are allowed out here: they bind to nothing by themselves, and
   // their names are `hub-in-*` / `hub-out-*` which would otherwise read as
   // `.hub-` selectors to the regexes below.
@@ -267,9 +337,19 @@ test('⛔ no rule branches on a class the contract can never emit', async () => 
       for (const c of hubCanvasClass(canvas, true).split(' ')) emitted.add(c);
     }
   }
+  /* ↕ Arrange › Spacing (2026-10-07) — MEASURED through the real `hubSpacingClass`, for every stored value. */
+  for (const spacing of HUB_SCENE_SPACINGS) {
+    const c = hubSpacingClass(sanitizeHubCanvas({ canvas: { spacing } }));
+    if (c) emitted.add(c);
+  }
   // The Scroll · Scrub scenes (hub-scenes.tsx) emit their own small vocabulary,
   // exported beside the contract so it is held to the same rule, not exempted.
   for (const c of HUB_SCENE_CLASSES) emitted.add(c);
+  /* 🎚 …and the wrappers of a page with a Scrub hand-over (`hub-scenes.tsx` `flow`), rendered in `a-hybrid-page-renders-runs.test.ts`. */
+  for (const c of HUB_SCRUB_CLASSES) emitted.add(c);
+  for (const c of HUB_PAGE_HOLD_CLASSES) emitted.add(c);
+  /* 🎬 …and the cover's own boxes (`HubCoverHold`, 2026-10-10 — the cover as hand-over zero). */
+  for (const c of HUB_COVER_CLASSES) emitted.add(c);
   /* 🎬 THE 25 TEMPLATES (Event Hub Maker Phase 5) — RENDERED, not declared.
      Every template is drawn through the real `renderScene` with every slot
      filled, a clip both ways, and its words, and whatever `hub-*` class the

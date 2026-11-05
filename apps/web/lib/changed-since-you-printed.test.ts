@@ -31,13 +31,13 @@ test('changed only when a save was seen AND the inputs moved on — never a fals
 test('every print PDF carries its version; the Save keeps it; the pieces show the notice', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /\.\.\.\(version \? \{ \[PRINT_VERSION_HEADER\]: version \} : \{\}\)/);
-  assert.equal((route.match(/false, await printInputsVersion\(eventId\)\.catch\(\(\) => null\)\)/g) ?? []).length, 2, 'the ticket batch or the set/piece PDF lost its version');
+  assert.equal((route.match(/false, await printInputsVersion\(eventId\)\.catch\(\(\) => null\)\)/g) ?? []).length, 4, 'the ticket batch, one guest’s pass (2026-10-16), Everything (2026-10-17) or the set/piece PDF lost its version');
   assert.equal(PRINT_VERSION_HEADER, 'x-print-version');
   const save = read('app/dashboard/[eventId]/launch/_components/print-save-button.tsx');
   assert.match(save, /if \(version && target\) writePrintedStamp\(target\.eventId, target\.piece, version\)/);
   const prints = read('app/dashboard/[eventId]/launch/_components/maker-prints.tsx');
   for (const piece of ['piece={k}', 'piece="set"', 'piece="passes"']) {
-    assert.match(prints, new RegExp(`<ChangedSincePrinted eventId=\\{[^}]+\\} ${piece.replace(/[{}]/g, '\\$&')} version=\\{input\\.previewVersion\\} />`), `no notice on ${piece}`);
+    assert.match(prints, new RegExp(`<ChangedSincePrinted\\s+eventId=\\{[^}]+\\}\\s+${piece.replace(/[{}]/g, '\\$&')}\\s+version=\\{input\\.previewVersion\\}(?:\\s+again=[\\s\\S]{0,400}?)?\\s*/>`), `no notice on ${piece}`);
   }
   // Lazy, in the existing Maker details chunk (the Maker budget is at its ceiling).
   const lazy = readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/details-lazy.tsx'), 'utf8');

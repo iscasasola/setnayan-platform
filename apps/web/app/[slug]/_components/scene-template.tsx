@@ -75,9 +75,19 @@ export type SceneRenderInput = {
   clipStillRef?: string | null;
   /** The scene-clip switch (`GUEST_SCENE_CLIP_PLAYBACK`); tests pass `false`. */
   sceneClipsOpen?: boolean;
+  /**
+   * 🖼 THE MAKER'S CANVAS ONLY (`isMakerCanvas`, never a guest): every picture slot the template has is drawn IN ITS
+   * PLACE — a filled one as a guest sees it, an empty one as the template's own box with "＋ Photo" — and each carries
+   * `data-scene-slot`, so a tap on it opens that slot's picture in the Maker's Edit (owner 2026-10-18, *"we already
+   * have the templates, just make them work"*). Absent: exactly the guest render.
+   */
+  makerSlots?: boolean;
 };
 
-type Pic = { url: string; snippet: boolean; index: number };
+/** 🖼 The attribute a slot's picture carries on the Maker's canvas — its index in `canvas.slots` (`makerSlots`). */
+export const SCENE_SLOT_ATTR = 'data-scene-slot';
+
+type Pic = { url: string; snippet: boolean; index: number; empty?: true };
 
 export function renderScene(input: SceneRenderInput): ReactElement | null {
   const id = input.canvas.template;
@@ -107,6 +117,8 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
       continue;
     }
     if (url) pics.push({ url, snippet: s?.kind === 'snippet', index: i });
+    /* 🖼 The Maker draws the slot the template has even while it is empty — where the picture will go. */
+    else if (input.makerSlots) pics.push({ url: '', snippet: false, index: i, empty: true });
   }
   const blocks = t.blocks > 0 ? readBlocks(slots, t, facts) : [];
   const display = displayText(t, facts, title);
@@ -119,13 +131,17 @@ export function renderScene(input: SceneRenderInput): ReactElement | null {
       : body;
   const hasWords = Boolean(title || letterBody);
 
-  const anything = pics.length > 0 || blocks.length > 0 || Boolean(display) || hasWords;
+  const anything = pics.some((p) => !p.empty) || blocks.length > 0 || Boolean(display) || hasWords || (input.makerSlots === true && pics.length > 0);
   if (!anything) return null;
 
   const video = input.canvas.video;
+  const slotMark = input.makerSlots ? (p: Pic) => ({ [SCENE_SLOT_ATTR]: String(p.index), ...(p.empty ? { 'data-scene-slot-empty': '' } : {}) }) : () => ({});
   const media = (p: Pic) => (
-    <figure key={`m${p.index}`} className="hub-tpl-m">
-      {p.snippet ? (
+    <figure key={`m${p.index}`} className="hub-tpl-m" {...slotMark(p)}>
+      {p.empty ? (
+        /* No `p` here: a paragraph is a scene's Words to the canvas stamp (`HUB_SCENE_ELEMENT_SELECTOR`). */
+        <span>＋ {t.clip ? 'Clip' : 'Photo'}</span>
+      ) : p.snippet ? (
         <SceneClip
           src={p.url}
           play={video?.play ?? 'loop'}

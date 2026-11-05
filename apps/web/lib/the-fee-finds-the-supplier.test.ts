@@ -40,7 +40,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { bookingFeePhp, BOOKING_FEE } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import {
   BOOKING_FEE_BILL_SURFACES,
   billsForSurface,
@@ -141,13 +141,25 @@ test('a supplier with no pending fee sees none of it, on every surface', () => {
  * cannot say which component holds it, and a count of 1 that becomes 0 is the
  * whole failure this guard exists to catch.
  */
-const BILL_MOUNTS: Record<(typeof BOOKING_FEE_BILL_SURFACES)[number], { file: string; surfaceArg: RegExp }> = {
+const BILL_MOUNTS: Record<
+  (typeof BOOKING_FEE_BILL_SURFACES)[number],
+  {
+    file: string;
+    surfaceArg: RegExp;
+    /** Where the bills are READ, when it is not the file that draws them (Money: read in the segment, drawn in the view). */
+    argFile?: string;
+  }
+> = {
+  // The simpler Today (2026-10-14): read on the page, drawn (once) by its one drawing — the screen the dev lab shares.
   today: {
-    file: 'app/vendor-dashboard/page.tsx',
+    file: 'app/vendor-dashboard/_components/supplier-today-screen.tsx',
+    argFile: 'app/vendor-dashboard/page.tsx',
     surfaceArg: /billsForSurface\(feeBillsRead, 'today'\)/,
   },
+  // S-PR4: the `earnings` surface is Customers › Money — read in the segment, drawn (once) in its view.
   earnings: {
-    file: 'app/vendor-dashboard/earnings/surface.tsx',
+    file: 'app/vendor-dashboard/customers/_components/money-view.tsx',
+    argFile: 'app/vendor-dashboard/customers/_components/money-segment.tsx',
     surfaceArg: /billsForSurface\(feeBillsRead, 'earnings'\)/,
   },
   client: {
@@ -172,10 +184,11 @@ test('every surface in BOOKING_FEE_BILL_SURFACES really mounts the bill', () => 
       1,
       `${mount.file} must mount <BookingFeeBills> exactly once (it is the ${surface} surface)`,
     );
+    const argFile = mount.argFile ?? mount.file;
     assert.equal(
-      count(src, mount.surfaceArg),
+      count(read(argFile), mount.surfaceArg),
       1,
-      `${mount.file} must ask billsForSurface for '${surface}' — ${mount.surfaceArg.source}`,
+      `${argFile} must ask billsForSurface for '${surface}' — ${mount.surfaceArg.source}`,
     );
     // The door, not just the sentence. A row without a pay link reproduces the
     // original defect with better wording.
@@ -204,7 +217,7 @@ test('an unreadable fee read is not an empty one', () => {
       `${fn} no longer distinguishes a refused read from an empty one`,
     );
   }
-  for (const file of Object.values(BILL_MOUNTS).map((m) => m.file)) {
+  for (const file of Object.values(BILL_MOUNTS).map((m) => m.argFile ?? m.file)) {
     assert.ok(
       /FEE_BILLS_UNREADABLE/.test(read(file)),
       `${file} does not distinguish "you owe nothing" from "we could not check"`,
@@ -225,7 +238,10 @@ const DISCLOSURE_MOUNTS: Array<[string, string, RegExp]> = [
   ['quote shortcut', 'app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx', /<BookingFeeNotice disclosure=\{feeCopy\}/],
   ['Agree · chat card', 'app/_components/lock-answer-forms.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
   ['Agree · Today feed', 'app/vendor-dashboard/_components/overview-sections.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
-  ['Agree · client page', 'app/vendor-dashboard/clients/[eventId]/page.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
+  // The client page's ask moved into its own panel (2026-10-12, pair P2) — the
+  // page hands it the forecast, the panel names it above Agree.
+  ['Agree · client page', 'app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx', /<BookingFeeNotice disclosure=\{feeForecast\}/],
+  ['Agree · client page hands the panel its forecast', 'app/vendor-dashboard/clients/[eventId]/page.tsx', /<LockRequestAnswer[^>]*feeForecast=\{feeForecast\}/],
 ];
 
 // SABOTAGE: remove <BookingFeeNotice> from lock-answer-forms.tsx → RED, named.
@@ -247,7 +263,8 @@ test('the fee is named before the supplier commits — all four places', () => {
  * no mention of the fee at all — measured 2026-09-22:
  *
  *   · `front-door-feed.tsx`  — "No commission on your bookings, ever."
- *   · `earnings/surface.tsx` — "you always get paid directly, 0% commission."
+ *   · `earnings/surface.tsx` — "you always get paid directly, 0% commission." (S-PR4: now Customers › Money's
+ *     year fold, `money-segment.tsx` — the locked line names the fee.)
  *
  * 🔑 THE PROPERTY IS UNCONDITIONAL, NOT KEYED ON A PHRASE. A guard that only
  * fires when it sees the word "commission" is a phrasing ban, and a phrasing ban
@@ -264,7 +281,7 @@ test('the fee is named before the supplier commits — all four places', () => {
  */
 const SELLING_SURFACES: Array<[string, string]> = [
   ['front door · Open your shop', 'app/_components/frontdoor/front-door-feed.tsx'],
-  ['earnings · Solo gate', 'app/vendor-dashboard/earnings/surface.tsx'],
+  ['Money · the year on a plan without it', 'app/vendor-dashboard/customers/_components/money-segment.tsx'],
 ];
 
 // SABOTAGE: drop `bookingFeeScheduleSummary()` from the front-door card → RED.
@@ -303,7 +320,7 @@ test('every Agree button names the fee ABOVE itself, not after', () => {
   const agreeSurfaces: Array<[string, RegExp]> = [
     ['app/_components/lock-answer-forms.tsx', /action=\{agreeLock\}/],
     ['app/vendor-dashboard/_components/overview-sections.tsx', /action=\{agreeLock\}/],
-    ['app/vendor-dashboard/clients/[eventId]/page.tsx', /action=\{vendorAgreeToLock\}/],
+    ['app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx', /action=\{agreeLock\}/],
   ];
   for (const [file, formRe] of agreeSurfaces) {
     const src = read(file);
@@ -356,7 +373,7 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
 
   // Same rule at sign-up: no schedule ⇒ no rate on screen, but still a warning.
   const noSchedule = bookingFeeJoinDisclosure(null);
-  assert.match(noSchedule.detail, new RegExp(`first ${FREE_BOOKING_LIMIT} of those are free`));
+  assert.ok(noSchedule.detail.includes(FIRST_BOOKING_ON_US_CLAUSE), 'sign-up lost the free first booking');
   assert.doesNotMatch(noSchedule.detail, /%/, 'sign-up printed a rate it could not load');
   assert.match(bookingFeeJoinDisclosure(BOOKING_FEE).detail, /5% of the first/);
 });
@@ -374,10 +391,14 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
  * → RED on the amount assertion. SABOTAGE: return the old bare
  * "Free — booking 3 of your first 5" → RED on BOTH the amount and the bare-Free
  * scan below.
+ *
+ * ⚖ ONE FREE BOOKING since 2026-10-23 (owner: "Your first booking is on us. Not
+ * 5."). Booking 1 is THE free one; a FROZEN booking 3 that was waived under the
+ * old five-booking rule keeps its waiver and says it stays free.
  */
 test('a waived booking names the amount it would have cost, and why it is free', () => {
   const free = bookingFeeForecast(
-    { kind: 'free', ordinal: 3, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   );
   assert.ok(free, 'silence on a free booking is the old defect');
@@ -386,21 +407,21 @@ test('a waived booking names the amount it would have cost, and why it is free',
   assert.equal(bookingFeePhp(10_170, BOOKING_FEE), 508.5);
   assert.match(free.headline, /₱508\.50/, 'the waived line did not name the amount');
   assert.match(free.headline, /waived/i, 'the waived line did not say it was waived');
-  assert.match(free.detail, /booking 3 of your first 5/, 'the reason is missing the position');
-  assert.match(free.detail, /which are free/, 'the reason is missing WHY it is waived');
-  assert.match(free.detail, /2 more free bookings/);
+  assert.match(free.detail, /This is your first booking from Setnayan/, 'the reason is missing the position');
+  assert.match(free.detail, /which is on us/, 'the reason is missing WHY it is waived');
 
-  // The last free one says so, and the next is payable.
-  const last = bookingFeeForecast(
-    { kind: 'free', ordinal: FREE_BOOKING_LIMIT, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+  // A booking frozen free under the earlier five-booking rule stays free.
+  const legacy = bookingFeeForecast(
+    { kind: 'free', ordinal: 3, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   )!;
-  assert.match(last.detail, /last of them/);
+  assert.match(legacy.headline, /waived/i);
+  assert.match(legacy.detail, /stays free/);
 
-  // 🔑 SAME LINE SHAPE once the free five are used up — the first payable fee
+  // 🔑 SAME LINE SHAPE once the free booking is used — the first payable fee
   // is the same sentence with a different verdict, not a new kind of news.
   const payable = bookingFeeForecast(
-    { kind: 'billable', ordinal: 6, ordinalIsFrozen: true, schedule: BOOKING_FEE },
+    { kind: 'billable', ordinal: 2, ordinalIsFrozen: true, schedule: BOOKING_FEE },
     10_170,
   )!;
   for (const line of [free.headline, payable.headline]) {
@@ -409,16 +430,21 @@ test('a waived booking names the amount it would have cost, and why it is free',
   assert.match(payable.headline, /payable/i);
 
   // A projection is worded as one — before the booking is agreed there is no
-  // ledger row, so "this is booking 3" would be stating a fact we do not have.
+  // ledger row, so "this is your first booking" would be stating a fact we do not have.
   const projected = bookingFeeForecast(
-    { kind: 'free', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     10_170,
   )!;
-  assert.match(projected.detail, /would be booking 3/);
+  assert.match(projected.detail, /This would be your first booking/);
+  const projectedBill = bookingFeeForecast(
+    { kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    10_170,
+  )!;
+  assert.match(projectedBill.detail, /would be number 3/);
 
   // No amount ⇒ no number, and still no bare "Free".
   const noTotal = bookingFeeForecast(
-    { kind: 'free', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE },
+    { kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     null,
   )!;
   assert.match(noTotal.headline, /waived/i);
@@ -450,8 +476,8 @@ test('a waived CHARGE names its recorded amount, and never degrades to ₱0', ()
   assert.match(copy.headline, /₱508\.50/);
   assert.match(copy.headline, /waived/i);
   assert.match(copy.headline, /Rosa & Ben/);
-  assert.match(copy.detail, /booking 1 of your first 5/);
-  assert.match(copy.detail, /which are free/);
+  assert.match(copy.detail, /This was your first booking from Setnayan/);
+  assert.match(copy.detail, /which is on us/);
 
   // An unreadable computed amount prints NO number — never ₱0, which would say
   // the fee was nothing rather than that it was waived.
@@ -461,8 +487,8 @@ test('a waived CHARGE names its recorded amount, and never degrades to ₱0', ()
 
   // The position is only claimed when the ledger gave one.
   const noOrdinal = waivedFeeCopy({ ...charge, ordinal: null });
-  assert.doesNotMatch(noOrdinal.detail, /booking \d+ of/);
-  assert.match(noOrdinal.detail, /inside your first 5/);
+  assert.doesNotMatch(noOrdinal.detail, /first booking/);
+  assert.match(noOrdinal.detail, /one of your free bookings/);
 });
 
 /**
@@ -524,7 +550,8 @@ test('the free-5 position comes off the ledger, not a local count', () => {
   // comparison was vacuous. Reordering the two blocks kept it GREEN. The real
   // ordinal is the one that SELECTS `booking_ordinal` for this event; the
   // projection is the one that asks for a COUNT.
-  const ledgerRow = standing.indexOf("select('booking_ordinal')");
+  // (Since 2026-10-12 the same select also reads the launch-offer columns.)
+  const ledgerRow = standing.indexOf("select('booking_ordinal");
   const countFallback = standing.indexOf("count: 'exact'");
   assert.ok(ledgerRow > 0, 'the real ordinal is no longer selected at all');
   assert.ok(countFallback > 0, 'the projection fallback vanished');
@@ -537,7 +564,7 @@ test('the free-5 position comes off the ledger, not a local count', () => {
   // The waived list takes its ordinal by JOIN, never by counting.
   assert.match(
     server,
-    /ledger:booking_fee_ledger!inner\(booking_ordinal\)/,
+    /ledger:booking_fee_ledger!inner\(booking_ordinal[,)]/,
     'the waived charges stopped joining the ledger for the ordinal',
   );
 });
@@ -548,12 +575,13 @@ test('the free-5 position comes off the ledger, not a local count', () => {
  * SABOTAGE: delete <WaivedFeeRows> from the fee hub → RED, named.
  */
 test('every waived charge surface really mounts it', () => {
-  const WAIVED_MOUNTS = [
-    'app/vendor-dashboard/booking-fees/page.tsx',
-    'app/vendor-dashboard/clients/[eventId]/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+  // [drawn in, read in] — the same file, except Customers › Money (S-PR4: read in the segment, drawn in its view).
+  const WAIVED_MOUNTS: Array<[string, string]> = [
+    ['app/vendor-dashboard/booking-fees/page.tsx', 'app/vendor-dashboard/booking-fees/page.tsx'],
+    ['app/vendor-dashboard/clients/[eventId]/page.tsx', 'app/vendor-dashboard/clients/[eventId]/page.tsx'],
+    ['app/vendor-dashboard/customers/_components/money-view.tsx', 'app/vendor-dashboard/customers/_components/money-segment.tsx'],
   ];
-  for (const file of WAIVED_MOUNTS) {
+  for (const [file, readIn] of WAIVED_MOUNTS) {
     const src = read(file);
     assert.equal(
       count(src, /<WaivedFeeRows\b/),
@@ -561,7 +589,7 @@ test('every waived charge surface really mounts it', () => {
       `${file} must show the waived fee exactly once — a free booking priced at nothing is the old defect`,
     );
     assert.ok(
-      /fetchWaivedFeeCharges\(/.test(src),
+      /fetchWaivedFeeCharges\(/.test(read(readIn)),
       `${file} mounts the rows without reading any waived charge`,
     );
   }
@@ -606,7 +634,7 @@ test('the couple is never shown the supplier’s fee', () => {
 // SABOTAGE: set feePesos to maximumFractionDigits 0 → RED on every assertion.
 test('a ₱837.50 bill never reads ₱838 — anywhere', () => {
   assert.equal(feePesos(837.5), '₱837.50');
-  assert.match(feeDueCopy(OWNERS_BILL, '2026-09-20').headline, /₱837\.50/);
+  assert.match(feeDueCopy(OWNERS_BILL, '2026-09-20', false).headline, /₱837\.50/);
   assert.match(bookingFeeNoticeCopy(OWNERS_BILL).title, /₱837\.50/);
   assert.match(bookingFeeNoticeCopy(OWNERS_BILL).body, /Sep 27, 2026/);
   // The rounding formatter is GONE, not merely unused.
@@ -691,7 +719,8 @@ test('the due date escalates by day, compared as strings', () => {
  * SABOTAGE: add "your booking will be cancelled" to the overdue detail → RED.
  */
 test('the overdue warning promises no consequence the code does not implement', () => {
-  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05');
+  // With the lock OFF the booking is not affected — and nothing is invented either way.
+  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05', false);
   assert.equal(overdue.tone, 'overdue');
   assert.match(overdue.headline, /overdue/i);
   assert.match(overdue.detail, /booking is not affected/);
@@ -772,10 +801,14 @@ test('the overdue copy derives its consequence from feeEnforcementSentence, neve
       '(lib/event-access-stage.ts) — the ONE place NEXT_PUBLIC_FEE_UNLOCKS_EVENT is ' +
       'read — never hand-write "not affected" a second time.',
   );
-  const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05');
-  assert.ok(
-    overdue.detail.includes(feeEnforcementSentence()),
-    "the overdue detail does not contain feeEnforcementSentence()'s live sentence " +
-      '— it has drifted from the gate it is supposed to match',
-  );
+  for (const enforced of [false, true]) {
+    const overdue = feeDueCopy(OWNERS_BILL, '2026-10-05', enforced);
+    assert.ok(
+      overdue.detail.includes(feeEnforcementSentence({ enforced })),
+      `the overdue detail (enforced=${enforced}) does not contain feeEnforcementSentence's sentence ` +
+        '— it has drifted from the gate it is supposed to match',
+    );
+  }
+  // 🔴 batch-5 walk F: the LOCKED state must never be told "not affected".
+  assert.doesNotMatch(feeDueCopy(OWNERS_BILL, '2026-10-05', true).detail, /not affected/);
 });

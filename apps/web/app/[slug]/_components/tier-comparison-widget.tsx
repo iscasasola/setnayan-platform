@@ -50,28 +50,28 @@ export function TierComparisonWidget({
     return (
       <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
         <header>
-          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">
             Your access
           </p>
           <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
         </header>
         <p className="rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
-          You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
+          You&rsquo;re a +1 to your inviter. Your photos will appear in their Memories —
           ask them to show you. Want full access? You can register your own Setnayan account
           anytime — but for this {words.eventWord}, you&rsquo;re invited as their +1.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
-            <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
+            <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/70">
               Public
             </p>
-            <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
+            <p className="text-sm text-ink/70">View invitation · RSVP · 3-day photo window</p>
           </div>
           <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
             <p className="font-sans text-xs uppercase tracking-[0.15em] text-terracotta">
               Registered (locked for +1s)
             </p>
-            <p className="text-sm text-ink/60">
+            <p className="text-sm text-ink/70">
               Shutter · Selfie Camera · Saved · Reel builder
             </p>
           </div>
@@ -91,12 +91,12 @@ export function TierComparisonWidget({
   return (
     <section data-scene-card={bare ? 'bare' : 'own'} className={sceneCardClass('card', bare)}>
       <header>
-        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
+        <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Your access</p>
         <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
-          <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/50">
+          <p className="font-sans text-xs uppercase tracking-[0.15em] text-ink/70">
             Public · As you are now
           </p>
           <p className="font-medium text-ink">Free · No sign-up needed</p>
@@ -118,7 +118,7 @@ export function TierComparisonWidget({
               sibling card in site-body.tsx: the accountless GUEST VIEW winds
               down about a day after the event (`accountlessPhotosClosed`). The
               photographs are untouched. */}
-          <p className="text-xs italic text-ink/60">
+          <p className="text-xs italic text-ink/70">
             Nothing is ever deleted — the guest view just winds down about a day
             after the {eventNoun}. A free account keeps it open on any device.
           </p>

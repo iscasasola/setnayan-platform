@@ -28,6 +28,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { bookVendorAtChatLock } from '@/lib/chat-lock-booking.server';
 import { VENDOR_NOT_VERIFIED_COUPLE_MESSAGE } from '@/lib/vendor-verification';
+import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import {
   signedAmount,
@@ -811,6 +812,9 @@ export async function lockDeal(formData: FormData): Promise<void> {
     if (outcome.status === 'not_verified') {
       failBack(VENDOR_NOT_VERIFIED_COUPLE_MESSAGE);
     }
+    if (outcome.status === 'bookings_closed') {
+      failBack(BOOKINGS_CLOSED_COUPLE_MESSAGE);
+    }
     if (outcome.status === 'hard_single_blocked') {
       failBack(
         'You already booked another supplier in this category. Switch them from the supplier page first, then book this deal.',
@@ -879,6 +883,7 @@ export async function lockDeal(formData: FormData): Promise<void> {
             title: `${who} wants to book you`,
             body: `${who} has asked you to take their booking at the price you agreed. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
             relatedUrl: '/vendor-dashboard',
+            eventId: ctx.thread.event_id,
           });
         }
       } catch (e) {

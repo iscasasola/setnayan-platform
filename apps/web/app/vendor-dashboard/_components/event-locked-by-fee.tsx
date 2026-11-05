@@ -42,7 +42,12 @@ export function EventLockedByFee({
   className?: string;
 }) {
   if (stage === 'unlocked') return null;
-  const { headline, detail, cta } = feeLockCopy({ stage, owed: access.owed, withheld });
+  const { headline, detail, cta } = feeLockCopy({
+    stage,
+    owed: access.owed,
+    withheld,
+    reason: access.reason,
+  });
   const payHref = access.owed?.orderId
     ? vendorBookingFeePayPath(access.owed.orderId)
     : VENDOR_BOOKING_FEES_PATH;

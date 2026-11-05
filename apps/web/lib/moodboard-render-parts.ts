@@ -1,6 +1,12 @@
 /**
  * The RENDERABLE PART REGISTRY for Mood Board section 04, "Make it real".
  *
+ * 🗑 "MAKE IT REAL" ITSELF WAS RETIRED 2026-10-26 (owner: "mood board render is no
+ * longer available. can we delete that?") — the renders, their credits and the
+ * pack are gone. This registry stays because it outlived them: it is the PART
+ * VOCABULARY the supplier sign-offs (lib/moodboard-finalization.ts) and the 3D
+ * Plan's locks read. The name is historical; nothing here renders or charges.
+ *
  * Owner, 2026-09-03: *"make it real is not just 4, it can grow? … they can
  * render each one or … a more expensive render to see the whole look in one
  * photo."* — so a render is addressed to a PART, and the whole look is one more
@@ -43,9 +49,9 @@
  * the vocabulary; the surface is the editing.
  *
  * It also carries NO PRICE and NO CREDIT COST. Credits per part and per whole
- * look live in `moodboard_render_config` (admin-editable, migration
- * `20271199871696`), and the peso price of the pack lives in
- * `platform_retail_catalog_v2` and nowhere else.
+ * look lived in `moodboard_render_config` (migration `20271199871696`), and the
+ * peso price of the pack in `platform_retail_catalog_v2` — both retired with the
+ * renders on 2026-10-26 (the config table was dropped by 20271289858095).
  *
  * Pure + DOM-free + no Supabase import, so it runs in a server action, a client
  * component and a `tsx --test` unit test identically.
@@ -65,8 +71,9 @@ export type RenderPartGroup = 'room' | 'people' | 'places';
 /**
  * A part a couple can spend credits to see photographed.
  *
- * `id` is what lands in `event_renders.part_id` and what MB9 keys its cache on
- * alongside the config digest. It is NAMESPACED because the three sources
+ * `id` was what landed in `event_renders.part_id` (dropped 2026-10-26 with the
+ * retired renders) and is what `moodboard_part_finalizations.part_id` holds. It
+ * is NAMESPACED because the three sources
  * genuinely collide: `bride` is both a `PaletteKey` and an inspiration slot,
  * `ceiling` is both a `RECEPTION_PARTS` zone and an inspiration slot. An
  * un-namespaced id would silently merge two different pictures.
@@ -95,8 +102,8 @@ export type RenderPart = {
 export const WHOLE_LOOK_PART_ID = 'whole_look';
 
 /**
- * The shape `event_renders.part_id` must match. Mirrors the CHECK constraint in
- * migration `20271200273322_moodboard_event_renders.sql`, which constrains the
+ * The part-id shape. It mirrored the CHECK constraint on `event_renders.part_id`
+ * (migration `20271200273322`; the table was dropped 2026-10-26), which constrained the
  * SHAPE and not the list for the same reason this file derives rather than
  * enumerates. `moodboard-render-parts.test.ts` asserts every generated id
  * matches, so the two cannot drift apart without going red.
@@ -175,6 +182,51 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
   centrepieces: {
     kind: 'not_a_part',
     why: 'an inspiration card (florists, stylists, caterers), not a render part — the tables zone keeps its own trades',
+  },
+  // 🎨🖼 The Palette's five parts with photos (2026-10-19): inspiration boards of their own, NOT render parts — the
+  // same answer step 4c gave the bouquet and the centrepieces.
+  chairs: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the stylist’s chairs), not a render part — the tables zone keeps its own trades',
+  },
+  ribbons_candles: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the stylist’s ribbons and candles), not a render part — the tables zone keeps its own trades',
+  },
+  lights: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (lights and sound), not a render part — the ceiling zone keeps its own trades',
+  },
+  entourage_bouquets: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the wedding party’s part keeps its own trades',
+  },
+  flower_accents: {
+    kind: 'not_a_part',
+    why: 'an inspiration card (the florist’s shelf), not a render part — the tables zone keeps its own trades',
+  },
+  // 👗 The four attire boards (2026-10-08): inspiration boards of their own, NOT
+  // render parts — the same answer step 4c gave, for the same reason. Aliasing
+  // them onto an attire role would move what a paid render is conditioned on
+  // and who may sign that role off (`inspirationSlotsForPart` feeds both), and
+  // the bearers' part keeps trades the owner decided on 2026-09-04
+  // (`MOODBOARD_PART_TRADES`), which a slot alias would silently replace. The
+  // whole party's reference photos stay the `entourage` slot's.
+  bridesmaids: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the wedding party’s part is fed by the entourage slot',
+  },
+  groomsmen: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the wedding party’s part is fed by the entourage slot',
+  },
+  flower_girl: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the bearers’ part keeps its own owner-decided trades',
+  },
+  ring_bearer: {
+    kind: 'not_a_part',
+    why: 'an attire inspiration board, not a render part — the bearers’ part keeps its own owner-decided trades',
   },
   palette: {
     kind: 'not_a_part',
@@ -288,7 +340,7 @@ export function renderPartById(id: string): RenderPart | undefined {
   return RENDER_PART_BY_ID.get(id);
 }
 
-/** `whole_look` counts: it is a legal `event_renders.part_id`, just not a RenderPart. */
+/** `whole_look` counts: it is a legal part id (it was one on the dropped `event_renders`), just not a RenderPart. */
 export function isRenderPartId(id: string): boolean {
   return id === WHOLE_LOOK_PART_ID || RENDER_PART_BY_ID.has(id);
 }
@@ -328,28 +380,4 @@ export function inspirationSlotsForPart(partId: string): MoodboardSlotKey[] {
     }
   }
   return out;
-}
-
-/**
- * The admin-editable render parameters, as the app sees them.
- *
- * Shape of one `moodboard_render_config` row. There is deliberately no default
- * object here: a caller that cannot read the row must say so, not substitute a
- * guess — "1 credit" quietly assumed while the owner has moved it to 2 is a
- * charge nobody authorised. And the peso price is NOT in this shape at all;
- * `packServiceCode` points at `platform_retail_catalog_v2`, which is the only
- * place a customer price exists.
- */
-export type MoodboardRenderConfig = {
-  creditsPerPart: number;
-  creditsWholeLook: number;
-  creditsPerPack: number;
-  packServiceCode: string;
-  maxNoteChars: number;
-  isActive: boolean;
-};
-
-/** What one render of `partId` costs, in credits, given the live config row. */
-export function creditsForPart(partId: string, config: MoodboardRenderConfig): number {
-  return partId === WHOLE_LOOK_PART_ID ? config.creditsWholeLook : config.creditsPerPart;
 }

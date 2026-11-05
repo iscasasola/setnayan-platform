@@ -105,6 +105,7 @@ test('switching a guest`s blur OFF sends NO email — the notice is removed (own
   assert.doesNotMatch(src, /no longer blurred/i, 'the face-unblur notice copy is still in the action');
   assert.doesNotMatch(src, /blurWasOn/, 'the ON → OFF notice branch is still there');
   // The previous blur state is still SELECTED — the wall re-bake compares it.
-  const sel = src.match(/\.select\(\s*'[^']*faceblock_enabled[^']*'/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): the prevGuest select is a list now (it also reads every column the card compares). */
+  const sel = src.match(/\.select\(\s*'[^']*faceblock_enabled[^']*'/) ?? src.match(/\.select\(\s*\[\s*\.\.\.new Set\(\[[^\]]*'faceblock_enabled'/);
   assert.ok(sel, 'faceblock_enabled left the prevGuest select — the re-bake can no longer see a change');
 });

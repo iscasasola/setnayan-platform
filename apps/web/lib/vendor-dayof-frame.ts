@@ -14,7 +14,7 @@
  * owning its own subdirectory, and none of them needs to touch this file or the
  * page (see "HOW THE NEXT AGENT PLUGS IN" below).
  *
- * WHY A PURE MODULE. Same reason as `lib/owner-ribbon.ts` and the gate this
+ * WHY A PURE MODULE. Same reason as the old `lib/owner-ribbon.ts` (removed 2026-10-15) and the gate this
  * consumes: the interesting part is a DECISION — "does a specialization section
  * exist, is it built yet, and does an upsell belong on the page?" — and a
  * decision is only trustworthy if a test can hold it down. The page becomes a

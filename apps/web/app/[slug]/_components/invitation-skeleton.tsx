@@ -6,6 +6,8 @@ import { HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import type { EventWords } from '../_lib/event-words';
 import { invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
 import { PahinaMasthead } from './pahina-masthead';
+import { CoverSceneMenuWaits } from './cover-scene-menu';
+import { COVER_SCENE_ABOVE_PAGE } from '@/lib/cover-scene-screen';
 
 /**
  * invitation-skeleton.tsx — what a guest sees while the invitation loads.
@@ -109,7 +111,32 @@ export function InvitationSkeleton({
   showHeader = true,
   mark = null,
   design = HERO_DESIGN_DEFAULT,
+  quiet = false,
+  arriving = [],
+  veiled = false,
 }: {
+  /**
+   * 🎭 THE PAGE ABOUT TO LAND OPENS UNDER A VEIL (`loadingOpensUnderAVeil`, `_lib/loading-stage.ts`): the loading
+   * screen keeps every cover line's place but draws none of them (`data-loading-veiled`, globals.css) — behind the
+   * veil none of the cover's words show (owner 2026-10-16), and the loading frame before it is no exception.
+   */
+  veiled?: boolean;
+  /**
+   * 👻 The hero parts that ARRIVE with a Build in of their own (`heroArrivingForSkeleton`): kept in place but not
+   * drawn for a moment, so the cover's own arrival is the first time the guest sees them — never drawn, gone, then
+   * faded in again (the 2026-10-15 walk, F4).
+   */
+  arriving?: readonly string[];
+  /**
+   * 🤫 THE QUIET SCREEN — the couple's mark on the page's own ground, and
+   * nothing else: no band, no cover, no "invite you to…", no link down, no
+   * scene cards. Drawn when the page about to appear is NOT this cover — the
+   * Save the Date's full-screen film (a guest's walk 2026-10-11: the
+   * invitation's cover stood here for a second and a half and the film then
+   * replaced all of it). `_lib/loading-stage.ts` decides; it never draws a
+   * stage's page it is not sure of.
+   */
+  quiet?: boolean;
   /** The couple's names, straight off the already-loaded event row. */
   displayName: string | null;
   /** Their monogram letters, if they set any. */
@@ -185,6 +212,22 @@ export function InvitationSkeleton({
     </span>
   );
 
+  if (quiet) {
+    return (
+      <main
+        // The same ground rule as the page's own screen below.
+        className="flex min-h-dvh items-center justify-center bg-cream text-ink [[data-hub-theme]_&]:bg-transparent [[data-guest-look]:has(>[data-guest-ombre])_&]:bg-transparent"
+        aria-busy="true"
+        data-loading-screen="quiet"
+      >
+        <p role="status" className="sr-only">
+          Loading…
+        </p>
+        {markSlot}
+      </main>
+    );
+  }
+
   return (
     <main
       // The shell's own ground rule, spelled in CSS because the theme is not
@@ -192,18 +235,26 @@ export function InvitationSkeleton({
       // leaves it off so the layout's fixed ground shows through.
       className="min-h-dvh bg-cream text-ink [[data-hub-theme]_&]:bg-transparent [[data-guest-look]:has(>[data-guest-ombre])_&]:bg-transparent"
       aria-busy="true"
+      {...(veiled ? { 'data-loading-veiled': '' } : {})}
     >
+      {/* 🖼 NO BAR OVER THE COVER, HERE EITHER (owner 2026-10-15, "THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO
+          TOP BAR, NO BOTTOM BAR OVER IT"). The page's own marker, written now rather than when the page lands: the
+          band below is the shell's band (`data-sticky-top`), so the ONE rule that holds the page's bar off the cover
+          holds this one off too, and the column drops its top padding as the page's does — the cover starts at the
+          top edge on the loading frame exactly where it will on the page (coordinator, live 2026-10-16: a SETNAYAN
+          bar stood over the loading frame's cover). The page's own copy finds the marker and stands down. */}
+      <CoverSceneMenuWaits />
       {showHeader ? (
-        <header className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+        <header data-sticky-top="" className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur">
           <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
             <span className="flex items-center gap-2 text-ink">
               <Logo height={28} />
-              <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">Setnayan</span>
+              <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">Setnayan</span>
             </span>
             {initials ? (
               <span className="sn-top-label font-pahina text-lg italic text-gild">{initials}</span>
             ) : phaseLabel ? (
-              <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/50">
+              <span className="sn-top-label font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
                 {phaseLabel}
               </span>
             ) : (
@@ -215,8 +266,11 @@ export function InvitationSkeleton({
 
       <div
         // Same column as the real page at every width, so the content does not
-        // jump sideways (or, at `xl`, grow) when the invitation replaces this.
-        className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20"
+        // jump sideways (or, at `xl`, grow) when the invitation replaces this —
+        // and the same `data-page-column` + cover-scene measures, so the cover's
+        // first screen is the page's (`invitation-shell.tsx`).
+        data-page-column=""
+        className={`${COVER_SCENE_ABOVE_PAGE} mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20`}
       >
         {/* Announced, not drawn: a screen reader hears that it is loading; a
             sighted guest sees the page itself filling in. */}
@@ -234,6 +288,7 @@ export function InvitationSkeleton({
             venueName={venueName}
             card={card ?? undefined}
             monogramSlot={markSlot}
+            waiting={arriving}
             mediaSlot={
               heroMedia ? <span aria-hidden className="skeleton absolute inset-0 block" style={SHIMMER} /> : undefined
             }

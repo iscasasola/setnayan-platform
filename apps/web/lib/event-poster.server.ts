@@ -3,8 +3,9 @@ import 'server-only';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { resolveHubLook } from '@/app/[slug]/_lib/hub-look';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { posterFor, type EventPosterFacts } from '@/lib/event-poster';
-import { themeColours } from '@/lib/theme-colours';
+import type { EventPosterFacts } from '@/lib/event-poster';
+import { eventPosterGiven, type PosterEvent } from '@/lib/event-poster-given';
+import type { InviteThemeId } from '@/lib/invite-themes';
 
 /**
  * THE ONE POSTER RESOLVER — an event's hero, as a 3:4 poster.
@@ -45,30 +46,8 @@ import { themeColours } from '@/lib/theme-colours';
  * previous cover rather than guessing — a wake must never be handed a
  * celebration poster because a read failed.
  */
-export type PosterEvent = {
-  event_id: string;
-  display_name: string;
-  event_date: string | null;
-  venue_name: string | null;
-  event_type: string;
-  monogram_text: string | null;
-  monogram_color: string | null;
-  /** The couple's SAVED invite theme (`events.invite_theme`), ungated. */
-  invite_theme: string | null;
-  /**
-   * `events.std_background`, raw. REQUIRED (not optional) on purpose: a caller
-   * that forgets it silently draws a Pro event's card as plain paper — the
-   * 2026-09-29 owner report. `null` is an honest "none / not read".
-   */
-  std_background: unknown;
-  /**
-   * 🎨 `events.role_palette`, raw — REQUIRED for the same reason: the poster's
-   * veil and ink follow the Mood Board (owner 2026-10-05, "THE MOOD BOARD
-   * PALETTE IS THE PRIORITY"), and a caller that forgets it would silently draw
-   * the theme's own colours. `null` = no board / not read.
-   */
-  role_palette: unknown;
-};
+/* `PosterEvent` moved with the composing to `lib/event-poster-given.ts`. */
+export type { PosterEvent } from '@/lib/event-poster-given';
 
 export async function resolveEventPoster(
   event: PosterEvent,
@@ -87,19 +66,21 @@ export async function resolveEventPoster(
       event_type: event.event_type,
     }).catch(() => null),
   ]);
-  if (!words) return null;
-  // A look that could not be resolved is House — decoration, never a word.
-  const theme = look?.theme ?? 'house';
-  return posterFor({
-    displayName: event.display_name,
-    eventDate: event.event_date,
-    venueName: event.venue_name,
+  // ⚡ The composing is `eventPosterGiven` — one copy, shared with the Discover
+  // card, which already holds these two answers and asks it without a read.
+  return eventPosterGiven(event, heroSrc, {
     words,
-    theme,
-    accent: event.monogram_color,
-    heroSrc,
-    backgroundSrc: look?.photo ?? null,
-    themeStillSrc: resolveThemeGround(theme, { ownColours: false })?.poster ?? null,
-    colours: themeColours(theme, event.role_palette).colours,
+    look,
+    themeStill: posterThemeStill,
   });
+}
+
+/**
+ * The theme's still for a poster — the same public still the guest pages lay
+ * under the loop. Named once, here, so the Discover card (which composes the
+ * same poster from answers it already holds) hands `eventPosterGiven` this and
+ * not a second reading of the theme ground.
+ */
+export function posterThemeStill(theme: InviteThemeId): string | null {
+  return resolveThemeGround(theme, { ownColours: false })?.poster ?? null;
 }

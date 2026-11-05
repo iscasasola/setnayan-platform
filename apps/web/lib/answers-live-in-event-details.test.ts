@@ -147,9 +147,11 @@ test('Papic No: no free pool is armed at the commit — in every onboarding path
     const gate = src.search(/if \(setupArmsPapic\(/);
     assert.ok(gate > 0, `${rel} arms Papic without asking the answer`);
     const pool = src.indexOf('ensureFreePapicPoolGrantAdmin(admin', gate);
-    const camera = src.indexOf('ensureFreePapicOneCameraAdmin(admin', gate);
     const close = src.indexOf('\n  }\n', gate);
-    assert.ok(pool > gate && pool < close && camera > gate && camera < close, `${rel}: both grants must sit inside the answer's gate`);
+    // 🔌 The free "One" camera call is gone (owner 2026-10-13): its points are 0
+    // since 20271130515135, so the pool grant is the one grant left to gate.
+    assert.ok(pool > gate && pool < close, `${rel}: the free pool grant must sit inside the answer's gate`);
+    assert.ok(!src.includes('ensureFreePapicOneCameraAdmin('), `${rel}: the retired free camera is being asked for again`);
   }
 });
 
@@ -168,9 +170,9 @@ test('Papic No closes the guest camera door for every caller; Yes turns it back 
   const off = access.search(/!papicIsOn\(/);
   assert.ok(off > 0 && off < access.indexOf('owned.some(Boolean)'), 'a purchase must not reopen a camera the host said No to');
   const apply = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(apply, /if \(eventsPatch\.papic_on === true\) \{[\s\S]{0,120}ensureFreePapicPoolGrantAdmin\(admin, eventId\);\s*await ensureFreePapicOneCameraAdmin\(admin, eventId\);/);
-  // The studio's self-heal leaves an answered-No event unarmed.
-  assert.match(read('app/dashboard/[eventId]/studio/papic/page.tsx'), /if \(!papicAnsweredNo\) \{\s*await ensureFreePapicPoolGrantAdmin\(unlockAdmin, eventId\);/);
+  assert.match(apply, /if \(eventsPatch\.papic_on === true\) \{[\s\S]{0,120}ensureFreePapicPoolGrantAdmin\(admin, eventId\);/);
+  // The Papic card's self-heal (moved from the removed Papic page, 2026-10-26) leaves an answered-No event unarmed.
+  assert.match(read('app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'), /answeredNo \? Promise\.resolve\(\) : ensureFreePapicPoolGrantAdmin\(admin, eventId\)/);
 });
 
 /* ══ GIFTS ══ */
@@ -192,7 +194,7 @@ test('Gifts No: the guest-facing gift reader returns nothing, and the gift page 
   assert.equal(giftsAreOn(true), true);
   const egift = read('lib/egift.ts');
   const fetcher = egift.slice(egift.indexOf('export async function fetchEgiftMethods'));
-  assert.match(fetcher, /opts\.enabledOnly\s*\?\s*supabase\.from\('events'\)\.select\('gifts_on'\)/);
+  assert.match(fetcher, /opts\.enabledOnly\s*\?\s*(?:eventRowOnce\(supabase, eventId, 'gifts_on', \(\) =>\s*)?supabase\.from\('events'\)\.select\('gifts_on'\)/);
   // (2026-10-06: the reader says whether it READ — `readEgiftMethods`; an explicit No is a read empty list.)
   assert.match(fetcher, /!giftsAreOn\([\s\S]{0,80}?\.gifts_on\)\) \{\s*return \{ methods: \[\], read: true \};/);
   assert.match(read('app/[slug]/pabuya/page.tsx'), /if \(!giftsAreOn\(event\.gifts_on\)\) notFound\(\);/);

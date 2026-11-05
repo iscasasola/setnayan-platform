@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, Images } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 /**
  * GalleryDoors — one row per event the signed-in person HOSTS, each a door
@@ -23,8 +23,7 @@ import { ChevronRight, Images } from 'lucide-react';
  * ── NOTHING IS COPIED ──────────────────────────────────────────────────────
  * A link, not a grid. The gallery stays in one place.
  *
- * Phone first: each row is one tap target, `min-h-12` (48px, above the 44px
- * floor).
+ * Phone first: the door is one tap target, `min-h-11` (44px).
  */
 export type GalleryDoorEvent = {
   event_id: string;
@@ -36,33 +35,21 @@ export function galleryDoorHref(eventId: string): string {
   return `/dashboard/${eventId}/galleries`;
 }
 
-export function GalleryDoors({ events }: { events: GalleryDoorEvent[] }) {
-  const hosted = events.filter((e) => e.role === 'couple');
-  if (hosted.length === 0) return null;
-
+/**
+ * 2026-10-22 (Memories wears the Papic gallery): the door rides each event's chapter heading — "Gallery ›" at its
+ * right end — instead of a list of rows under the shelf. Same rule, same address: hosts only, no Papic condition.
+ */
+export function GalleryDoor({ event }: { event: GalleryDoorEvent }) {
+  if (event.role !== 'couple') return null;
   return (
-    <section aria-labelledby="gallery-doors-heading" className="mb-8">
-      <h2 id="gallery-doors-heading" className="mb-2 text-sm font-semibold text-ink">
-        Gallery
-      </h2>
-      <ul className="divide-y divide-ink/10 border-y border-ink/10">
-        {hosted.map((e) => (
-          <li key={e.event_id}>
-            <Link
-              href={galleryDoorHref(e.event_id)}
-              data-gallery-door={e.event_id}
-              className="sn-press flex min-h-12 items-center gap-3 px-4 py-2"
-            >
-              <Images aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                {e.display_name}
-              </span>
-              <span className="shrink-0 text-xs text-ink/55">Gallery</span>
-              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Link
+      href={galleryDoorHref(event.event_id)}
+      data-gallery-door={event.event_id}
+      aria-label={`${event.display_name} — Memories`}
+      className="inline-flex min-h-11 shrink-0 items-center gap-0.5 text-[13px] text-ink/60"
+    >
+      Memories
+      <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+    </Link>
   );
 }

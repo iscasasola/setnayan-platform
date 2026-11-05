@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { takeGenderMark } from '@/lib/guest-title';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 type QuickEntry = { firstName: string; lastName: string };
 
@@ -15,6 +17,7 @@ const MAX_BULK = 500;
 // later from the full guest editor. Enforces a soft cap of 500 names per
 // upload — anything beyond that should use CSV import.
 export async function bulkAddGuests(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const raw = formData.get('guests');
   if (typeof raw !== 'string') {
     return redirect(`/dashboard/${eventId}/guests/quick?error=missing`);
@@ -51,12 +54,15 @@ export async function bulkAddGuests(eventId: string, formData: FormData) {
     // The SAME split as the capture bar, the full form and the import
     // (lib/person-name-parse.ts): a title, a typed initial and a suffix land in
     // their own parts, and no bare word is guessed into a middle name.
-    const p = parsePersonName(`${e.firstName} ${e.lastName}`.trim());
+    // 🪪 "(Woman)" / "(Man)" typed on a line is the host's mark for the title's gender, never part of the name.
+    const marked = takeGenderMark(`${e.firstName} ${e.lastName}`.trim());
+    const p = parsePersonName(marked.text);
     return {
       event_id: eventId,
       first_name: p.firstName || e.firstName,
       last_name: p.firstName ? p.lastName : e.lastName || '',
       name_prefix: p.prefix || null,
+      gender: marked.gender,
       middle_name: p.middleName || null,
       name_suffix: p.suffix || null,
       side: 'both' as const,

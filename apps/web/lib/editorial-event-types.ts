@@ -84,7 +84,7 @@ export function editorialAllowsEventType(
  * hardcoded vocabulary drifting from the admin-managed one is the same disease
  * this module exists to cure — so one true word for all sixteen kinds.
  */
-export const UNNAMED_EDITORIAL_LABEL = 'A Setnayan celebration';
+export const UNNAMED_EDITORIAL_LABEL = 'A Setnayan event';
 
 /**
  * Apply the KIND exclusion to an `events` query. THE ONE FILTER — every surface

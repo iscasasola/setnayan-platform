@@ -4,3 +4,6 @@
  * the same split as `papic-step-field-names.ts`.
  */
 export const SIMPLE_SETUP_FIELD = 'setup';
+
+/** "What do you need?" (Level 1, owner 2026-10-08) — the rows as JSON; the action re-reads them (`sanitizeNeeds`). */
+export const SIMPLE_NEEDS_FIELD = 'needs';

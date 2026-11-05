@@ -445,6 +445,11 @@ export type ChecklistItemRow = {
   sort_order: number;
   completed_at: string | null;
   created_at: string;
+  /**
+   * The date the host set on this task in Planning Stage (migration 20271300250517). NULL / absent = the template date
+   * (`dueDateForItem`). Optional so a row built in a test or fixture without it reads as "not moved".
+   */
+  due_date_set?: string | null;
 };
 
 /** A row enriched with computed due-date + urgency, for ranking + display. */
@@ -821,27 +826,19 @@ export function rankUrgentChecklistItems(
 }
 
 const FIELDS =
-  'item_id,public_id,event_id,template_key,title,category,due_offset_days,status,sort_order,completed_at,created_at';
+  'item_id,public_id,event_id,template_key,title,category,due_offset_days,status,sort_order,completed_at,created_at,due_date_set';
 
 /**
- * Fetch all checklist rows for an event. Graceful-degrade to [] on any error
- * (mirrors lib/guests) so the home-page render never crashes if the migration
- * hasn't reached this environment yet — the checklist card just won't show.
- */
-export async function fetchChecklistItems(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<ChecklistItemRow[]> {
-  return (await readChecklistItems(supabase, eventId)) ?? [];
-}
-
-/**
- * THE SAME READ, HONEST ABOUT FAILING: `null` when the rows could not be read,
- * `[]` only when the event genuinely has none.
+ * THE ONE READ OF THE PLAN'S TASKS, HONEST ABOUT FAILING: `null` when the rows
+ * could not be read, `[]` only when the event genuinely has none.
  *
- * `fetchChecklistItems` degrades a refused read to `[]`, which is right for a
- * page that must render — and wrong for a caller that turns the rows into a
- * NUMBER shown to a person. On the home board `[]` became "no percentage" and
+ * ✅ Since the owner merged the Checklist into Planning Stage (2026-11-01) its
+ * only caller is the one list (`lib/preparation.ts` · `fetchPreparationAgenda`);
+ * every surface reads the tasks through that list, never this directly
+ * (`lib/the-plan-is-one-list.test.ts`).
+ *
+ * A refused read degraded to `[]` is wrong for anything that turns the rows into
+ * a NUMBER shown to a person. On the home board `[]` became "no percentage" and
  * "0 tasks overdue": a confident "nothing needs you" printed off a read that
  * never completed. Such callers read this one and render `null` as "couldn't
  * load" (collection template, owner-approved 2026-09-24).
@@ -858,7 +855,7 @@ export async function readChecklistItems(
 
   if (error) {
     logQueryError(
-      'fetchChecklistItems',
+      'readChecklistItems',
       error,
       { event_id: eventId, missing_relation_match: isMissingRelationError(error) },
       'graceful_degrade',
@@ -1316,43 +1313,3 @@ export function checklistChrome(eventType: string | null | undefined): Checklist
   };
 }
 
-/**
- * Two head-counts for the Overview's "N% done" chip — done and total, no rows.
- *
- * 🔑 THREE OUTCOMES, NOT TWO, AND THEY MUST NOT COLLAPSE.
- *   · `null`      — the read FAILED, or the table has no rows because the seed
- *                   has never run for this event. Show NO chip.
- *   · `{0, n}`    — genuinely seeded and nothing done yet. Show `0% done`.
- * A failed read and an untouched checklist both arrive as "no completed items",
- * and rendering `0% done` for either would state a fact about the couple's
- * planning that nobody measured. `total === 0` therefore returns null: an event
- * whose checklist has never been seeded has no percentage, and "0%" would read
- * as "you have done nothing" to someone who has not been given a list yet.
- *
- * ⚠ THIS DELIBERATELY DOES NOT SEED. `ensureChecklistSeeded` mutates, and it
- * belongs to the checklist surfaces; a read on the Overview must never write.
- *
- * ⚠ SUPABASE RESOLVES WITH `{ error }` RATHER THAN THROWING, so the error is
- * checked explicitly — a `try/catch` alone would let a rejected query fall
- * through as a count of zero, which is the failure this whole comment is about.
- */
-export async function fetchChecklistProgress(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<{ done: number; total: number } | null> {
-  try {
-    const base = () =>
-      supabase.from('event_checklist_items').select('item_id', { count: 'exact', head: true });
-    const [totalRes, doneRes] = await Promise.all([
-      base().eq('event_id', eventId),
-      base().eq('event_id', eventId).eq('status', 'done'),
-    ]);
-    if (totalRes.error || doneRes.error) return null;
-    const total = totalRes.count ?? 0;
-    const done = doneRes.count ?? 0;
-    if (total <= 0) return null; // never seeded — no percentage exists to state
-    return { done: Math.min(done, total), total };
-  } catch {
-    return null;
-  }
-}

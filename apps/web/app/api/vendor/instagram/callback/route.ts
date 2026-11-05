@@ -17,10 +17,10 @@ import {
 // 3. Resolves the connected IG account's profile (id + username) via /me.
 // 4. Encrypts the token at-rest (lib/encryption) and upserts
 //    public.vendor_ig_connections keyed by vendor_profile_id (one per vendor).
-// 5. Redirects back to My Shop (/vendor-dashboard/shop) with a status flag,
-//    deep-linking to the Gallery & media / Instagram section (#gallery-media).
-//    (Repointed 2026-07-05 — the IG editor moved from the retired /profile page
-//    into the My Shop → Website Editor.)
+// 5. Redirects to Your collections (/vendor-dashboard/collections) with a status
+//    flag, deep-linking to its Add photos fold (#gallery-media), which holds the
+//    Instagram card. (Repointed 2026-07-05 from the retired /profile page into
+//    My Shop → Website Editor; repointed again 2026-10-14, step 5.)
 //
 // SECURITY: the access token is encrypted before it touches the DB and NEVER
 // leaves this route in a redirect param, log, or error. Error reasons are
@@ -30,8 +30,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const STATE_TTL_MIN = 10;
-// My Shop → Website Editor hosts the Instagram card now (relocated 2026-07-05).
-const SHOP_PATH = '/vendor-dashboard/shop';
+// Your collections › Add photos holds the Instagram card since 2026-10-14 (step 5); it was My Shop's Website tile.
+const SHOP_PATH = '/vendor-dashboard/collections';
 // Deep-link to the Gallery & media section so the vendor lands on the IG card.
 const IG_SECTION_HASH = '#gallery-media';
 

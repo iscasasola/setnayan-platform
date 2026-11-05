@@ -172,7 +172,6 @@ test('🔒 the line draws without calling the action; only "Use it" calls it', a
     askPlusOnes: false,
     eventName: 'Claire & Jon',
     guests: [],
-    passes: {},
     account: { kind: 'linked' as const, accountEmail: 'c@x.test' },
     personalLink: null,
     userAgent: null,

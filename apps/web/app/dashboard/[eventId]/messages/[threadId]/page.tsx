@@ -9,8 +9,7 @@ import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
-import { resolveVendorDisplayName } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { closingCopy } from '@/lib/thread-closing-copy';
 import { resolveLivePax } from '@/lib/pax';
@@ -26,22 +25,23 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ChevronLeft } from 'lucide-react';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
-import { RevealToolButton } from '@/app/_components/chat/reveal-tool-button';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
+import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
+import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
-import { initialsFor } from '@/lib/conversation-list';
+import { initialsForSupplierName } from '@/lib/conversation-list';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { firstPaymentSentence } from '@/lib/accepted-quote-terms';
@@ -113,12 +113,22 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     return (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
   })();
 
+  // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
+  const eventDayRead = (async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_date_precision, event_end_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) logQueryError('CoupleThreadPage.eventDay', error, { event_id: eventId }, 'graceful_degrade');
+    return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
+  })();
+
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
   const blockStateRead = getThreadBlockState(thread, user.id, 'couple');
 
-  // Is voice/video calling unlocked for this vendor's tier? (paid capability,
-  // gate-dark by default). The couple sees the call UI only when it's on.
-  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
+  // 📵 No calls in the chat (owner 2026-10-28, "remove both voice and video call") — the calls-gate read is gone
+  // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
 
   // Mark this thread read for the couple viewer so the Messages-icon unread
   // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
@@ -128,36 +138,20 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // exactly as before (a page that failed on one of them never marked the
   // thread read), and the conversation column below waits for it.
   const markedRead = (async () => {
-    await Promise.all([eventDateRead, blockStateRead, callsEnabledRead]);
+    await Promise.all([eventDateRead, blockStateRead]);
     await markThreadRead(threadId);
   })();
 
-  // Anonymity surface per CLAUDE.md 2026-05-30 row — pull screen_name +
-  // name_revealed_at + services + location_city so the header label and
-  // the <ChatMessageStream> counterpartyLabel render through the canonical
-  // `resolveVendorDisplayName` helper. Free/Verified vendors pre-first-reply
-  // surface as their Bark screen_name; Pro/Enterprise + revealed + venue
-  // vendors surface as business_name. Single resolver call drives both
-  // surfaces so the header pill and the in-thread sender attribution stay
-  // in lock-step.
-  const vendorRead = (async () => {
-    const { data: vendor, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select(
-        'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
-      )
-      .eq('vendor_profile_id', thread.vendor_profile_id)
-      .maybeSingle();
-    if (vendorError) {
-      logQueryError(
-        'CoupleThreadPage.vendor',
-        vendorError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-    }
-    return vendor;
-  })();
+  // Anonymity surface per CLAUDE.md 2026-05-30 row — the header label, the
+  // <ChatMessageStream> counterpartyLabel, the receipts and the left column all
+  // read ONE answer: `couple_thread_supplier_names` (lib/chat-supplier-names.ts),
+  // run through the canonical `resolveVendorDisplayName`. NOT a `vendor_profiles`
+  // read: under the couple's RLS that refuses every shop that is not public +
+  // verified, and this page then titled the conversation "Supplier" (owner, live,
+  // 2026-10-28). Pre-reveal the label is the screen name; the real name and logo
+  // arrive only once revealed. A failed read says so — never a generic word.
+  const supplierNamesRead = readCoupleThreadSupplierNames(supabase, thread.event_id);
+  const vendorRead = supplierNamesRead.then((names) => nameForThread(names, threadId));
 
   // Server-render the first batch so the page is useful on first paint and
   // remains SEO-friendly. The <ChatMessageStream> client component takes
@@ -279,23 +273,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     standingNowMs,
   ).then((extras) => extras.get(thread.vendor_profile_id));
 
-  const vendorLabelRead = (async () => {
-    const vendor = await vendorRead;
-    return vendor
-      ? resolveVendorDisplayName({
-          business_name: vendor.business_name ?? null,
-          name_revealed_at: vendor.name_revealed_at ?? null,
-          services: vendor.services ?? null,
-          screen_name: vendor.screen_name ?? null,
-          // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
-          // lock: a VERIFIED vendor's name is never gated (any tier).
-          isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
-          is_verified: vendor.verification_state === 'verified',
-          primary_canonical_service: vendor.services?.[0] ?? null,
-          location_city: vendor.location_city ?? null,
-        })
-      : 'Supplier';
-  })();
+  const vendorLabelRead = vendorRead.then((v) => v.name);
 
   // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
   // not see the confirmation here and the payment action?"). Read through the
@@ -473,24 +451,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
        header above and the Messages list already run. The column receives a name
        that is already safe to print, and the avatar is its INITIALS, never the
        logo: a logo is exactly as identifying as the name it stands for. */
+    const listNames = await supplierNamesRead;
     const listDisplayNames = new Map<string, string>();
     for (const t of listVisible) {
-      const v = t.vendor;
-      listDisplayNames.set(
-        t.vendor_profile_id,
-        v
-          ? resolveVendorDisplayName({
-              business_name: v.business_name ?? null,
-              name_revealed_at: v.name_revealed_at ?? null,
-              services: v.services ?? null,
-              screen_name: v.screen_name ?? null,
-              isPaidTier: isTrueNameTier(v.tier_state ?? null),
-              is_verified: v.verification_state === 'verified',
-              primary_canonical_service: v.services?.[0] ?? null,
-              location_city: v.location_city ?? null,
-            })
-          : 'Supplier',
-      );
+      listDisplayNames.set(t.vendor_profile_id, nameForThread(listNames, t.thread_id).name);
     }
 
     const conversationRows = await buildCoupleConversationRows({
@@ -511,11 +475,24 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     return conversationRows;
   })();
 
+  // ✓✓ "Seen" under your last message, and the shop member's name on theirs (owner 2026-10-28) — one started read,
+  // like every other (`lib/chat-thread-receipts.server.ts` says why it needs the service client and what it shows).
+  const receiptsRead = (async () => {
+    const [msgs, v] = await Promise.all([messagesRead, vendorRead]);
+    return readThreadReceipts(createAdminClient(), {
+      threadId,
+      viewerRole: 'couple',
+      viewerUserId: user.id,
+      vendorProfileId: thread.vendor_profile_id,
+      messages: msgs,
+      revealed: v.revealed,
+    });
+  })();
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
     eventDate,
     blockState,
-    callsEnabled,
     ,
     vendor,
     initialMessages,
@@ -527,10 +504,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     vendorLabel,
     { bookedMoney, couplePay },
     conversationRows,
+    receipts,
+    eventDay,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
-    callsEnabledRead,
     markedRead,
     vendorRead,
     messagesRead,
@@ -542,6 +520,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     vendorLabelRead,
     bookedRead,
     conversationRowsRead,
+    receiptsRead,
+    eventDayRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -619,7 +599,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // folder + leaf for a `#group-<id>` hash (plan-budget-accordion useEffect).
   // Fail-soft: unknown / unmappable canonical service → plain link, never a
   // broken anchor.
-  const primaryCanonicalService = vendor?.services?.[0] ?? null;
+  const primaryCanonicalService = vendor.primaryService;
   const similarGroupId = primaryCanonicalService
     ? canonicalServiceToPlanGroupId(primaryCanonicalService)
     : null;
@@ -659,32 +639,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     !blocked &&
     (thread.inquiry_status === 'accepted' ||
       (thread.inquiry_status === 'pending' && canFollowUpWhilePending));
-  // Which of the two tools this box carries. Neither is mounted when it would
-  // open onto nothing: the call launcher renders null for a couple whose
-  // supplier's plan has calling locked, and the deal menu renders null while
-  // the negotiation flag is off — an icon that opens an empty panel is worse
-  // than no icon.
-  const callsOpen = !blocked && thread.inquiry_status === 'accepted' && callsEnabled;
+  // The one tool panel this box carries (📵 no call panel since 2026-10-28). It is not mounted when it would open
+  // onto nothing: the deal menu renders null while the negotiation flag is off.
   const dealOpen = composerOpen && chatNegotiationEnabled();
-  const openPanelIds = new Set<string>(
-    [callsOpen ? affordancePanelId('call') : null, dealOpen ? affordancePanelId('deal') : null].filter(
-      (id): id is string => id !== null,
-    ),
-  );
+  const openPanelIds = new Set<string>(dealOpen ? [affordancePanelId('deal')] : []);
   const couplePanels = COUPLE_THREAD_PANELS.filter((p) => openPanelIds.has(p.id));
   const toolNodes: Record<string, React.ReactNode> = {
-    // Free 1:1 voice/video call — accepted threads only (PR 10). The ids the
-    // composer's 📞 reveals (`thread-call-voice`) exist because of the prefix.
-    'thread-call': (
-      <ThreadCallLauncher
-        threadId={threadId}
-        currentUserId={user.id}
-        counterpartyLabel={vendorLabel}
-        callsEnabled={callsEnabled}
-        viewerRole="couple"
-        buttonIdPrefix="thread-call"
-      />
-    ),
     'deal-or-meeting': (
       <NegotiationComposerMenu
         embedded
@@ -698,84 +658,69 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   };
 
   return (
-    <div className="flex h-[calc(100dvh-12rem)] min-h-[27rem] gap-4">
-      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
-          xl, where there is room for it without squeezing the conversation —
-          giving the conversation back its space was the whole point. */}
-      <ConversationColumn
-        rows={conversationRows}
-        activeThreadId={threadId}
-        side="couple"
-        hrefBase={`/dashboard/${eventId}/messages`}
-        heading="Suppliers you’re talking to"
-        backHref={`/dashboard/${eventId}/vendors`}
-        backLabel="‹ Saved"
-      />
-      {/* Honours `#deal-or-meeting` / `#thread-call` on arrival and on change. */}
-      <ThreadToolHashReveal />
-      {/* The column scrolls ITSELF when the frame outgrows it (a tool open on a
-          short phone) — the frame never clips its own composer. */}
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+    // THE ONE THREAD PAGE (`ChatThreadFrame`) — the supplier's thread returns the same frame, holding one ChatBox.
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08). The list appears at xl, where there is room for it without squeezing the
+      // conversation — giving the conversation back its space was the whole point.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="couple"
+          hrefBase={`/dashboard/${eventId}/messages`}
+          heading="Suppliers you’re talking to"
+          backHref={`/dashboard/${eventId}/vendors`}
+          backLabel="‹ Saved"
+        />
+      }
+    >
         <ChatBox
           header={
-            <>
-              <Link
-                href={`/dashboard/${eventId}/messages`}
-                aria-label="Back to Messages"
-                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
-              >
-                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-              </Link>
-              {/* Initials, never the logo — a logo is exactly as identifying as
-                  the name it stands for, and the name here is already the
-                  reveal-safe one. */}
-              <span
-                aria-hidden
-                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
-              >
-                {initialsFor(vendorLabel)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">{vendorLabel}</p>
-                {/* ONE muted line: what they asked about · the date · the count
-                    this vendor is quoting against (Adaptive Pax Pricing, fresh
-                    on view — the couple sees what the vendor sees). */}
-                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+            <ChatThreadHead
+              back={<BackButton route="/dashboard/[eventId]/messages/[threadId]" params={{ eventId, threadId }} label="Chats" variant="chat" />}
+              name={vendorLabel}
+              initials={initialsForSupplierName(vendorLabel)}
+              // ONE muted line: what they asked about · the date · the count this supplier quotes against (Adaptive
+              // Pax Pricing, fresh on view — the couple sees what the supplier sees).
+              line={
+                <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {eventDate ? <span>{formatLongDate(eventDate)}</span> : null}
                   {headerPax ? (
-                    <span className="text-terracotta">
+                    <span className="whitespace-nowrap">
                       ~{formatCount(headerPax)} guests
                       {thread.pax_at_inquiry && thread.pax_at_inquiry < headerPax
                         ? ` · was ${formatCount(thread.pax_at_inquiry)} at inquiry`
                         : ''}
                     </span>
                   ) : null}
-                </p>
-              </div>
-              <ChatThreadMenu
-                threadId={threadId}
-                returnTo={`/dashboard/${eventId}/messages/${threadId}`}
-                blockedByMe={blockState.blockedByMe}
-                // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
-                // That page used to embed its own copy of this conversation and
-                // now sends a chat landing HERE; these are the way back to what
-                // it still holds. Only once the workspace route is known — it is
-                // keyed by `event_vendors.vendor_id`, resolved above for the
-                // Lock button, and null on a thread with no row yet.
-                links={
-                  workspaceHref
-                    ? [
-                        { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
-                        { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
-                        { href: `${workspaceHref}?tab=files`, label: 'Files' },
-                        { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
-                        { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
-                      ]
-                    : []
-                }
-              />
-            </>
+                </>
+              }
+              actions={
+                <ChatThreadMenu
+                  threadId={threadId}
+                  returnTo={`/dashboard/${eventId}/messages/${threadId}`}
+                  blockedByMe={blockState.blockedByMe}
+                  // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
+                  // That page used to embed its own copy of this conversation and
+                  // now sends a chat landing HERE; these are the way back to what
+                  // it still holds. Only once the workspace route is known — it is
+                  // keyed by `event_vendors.vendor_id`, resolved above for the
+                  // Lock button, and null on a thread with no row yet.
+                  links={
+                    workspaceHref
+                      ? [
+                          { href: `${workspaceHref}?tab=quote`, label: 'Quote', icon: 'quote' },
+                          { href: `${workspaceHref}?tab=payments`, label: 'Payments', icon: 'payments' },
+                          { href: `${workspaceHref}?tab=files`, label: 'Files', icon: 'files' },
+                          { href: `${workspaceHref}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                          { href: `${workspaceHref}?tab=details`, label: 'Booking details', icon: 'details' },
+                        ]
+                      : []
+                  }
+                />
+              }
+            />
           }
           notice={<ChatSafetyBanner inBox />}
           composer={
@@ -793,19 +738,14 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                     accept.
                   </p>
                 ) : null}
-                {/* attach · message · 🧾 deal · 📞 call · send. The two icons
-                    open the panels in the tray below; neither dials or sends. */}
+                {/* ＋ · 📷 · 🖼 · message · send (chat prototype 2026-10-28, frame B). ONE ＋ opens the couple's tools —
+                    Deal or meeting, and the ONE Share a file (frame C); 📵 no call. */}
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  accessories={
-                    <>
-                      {dealOpen ? <RevealToolButton affordance="deal" entry={dealEntry} /> : null}
-                      {callsOpen ? (
-                        <RevealToolButton affordance="call" label={`Call ${vendorLabel}`} />
-                      ) : null}
-                    </>
-                  }
+                  lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} />}
+                  attachInputId={CHAT_ATTACH_INPUT_ID}
+                  userId={user.id}
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (
@@ -896,9 +836,15 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}
             couplePay={couplePay}
+            theirLastReadAt={receipts.theirLastReadAt}
+            senderNames={receipts.senderNames}
+            fileExpiry={{
+              eventDate,
+              endDate: eventDay?.event_end_date ?? null,
+              precision: eventDay?.event_date_precision ?? null,
+            }}
           />
         </ChatBox>
-      </section>
-    </div>
+    </ChatThreadFrame>
   );
 }

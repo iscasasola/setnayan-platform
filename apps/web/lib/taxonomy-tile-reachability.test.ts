@@ -49,16 +49,13 @@
  * family now exist; `accommodation` keeps its catering cross-list. Kept in
  * this comment as the worked example of what a count check CANNOT catch.
  *
- * 🚨 `filipiniana_barongs` is the SAME BUG CLASS, still live, and this guard
- * does NOT catch it either. It reports 10 canonicals — but only because
- * `vendor-counts.ts` hard-codes `map.set('filipiniana_barongs', [...])` for
- * the cross-view. ZERO rows in `TAXONOMY_MAP` (and zero in prod
- * `canonical_service_taxonomy`) actually name that tile; all 10 ids live
- * under `brides_attire` / `grooms_attire` with no `secondary_tiles`. So the
- * marketplace shows the tile while `getCoverageTaxonomy()` prunes the branch
- * and no vendor can ever declare it — advertised to couples, denied to
- * vendors. Needs its own owner call (cross-list via `secondary_tiles`, or
- * drop the hard-coded cross-view); deliberately NOT fixed here.
+ * ✅ `filipiniana_barongs` — CALLED 2026-10-26 (③0-a, "Filipiniana & Barongs stays as a
+ * cross-view"). It used to report 10 canonicals only because `vendor-counts.ts`
+ * hard-coded `map.set('filipiniana_barongs', [...])`; no row named the tile. The ten
+ * are now cross-listed through `secondary_tiles` (TAXONOMY_MAP + migration
+ * `one_source_filipiniana_cross_view`), so the count below is real data an admin can
+ * edit. A supplier still declares the PRIMARY attire leaf in `getCoverageTaxonomy()`
+ * (it reads `tile_id`) and reaches this shelf through the cross-listing — by design.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

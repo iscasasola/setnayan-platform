@@ -53,6 +53,8 @@ type Props = {
   vendorId: string;
   vendorName: string;
   changeOrders: ChangeOrderRow[];
+  /** 🔌 The change-order read was refused — said, never "No change orders yet." (reads-are-honest, audit #12). */
+  readFailed?: boolean;
 };
 
 function fmtPHP(raw: number | string | null): string {
@@ -104,6 +106,7 @@ export function ChangeOrderTrail({
   vendorId,
   vendorName,
   changeOrders,
+  readFailed = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<'add-on' | 'removal'>('add-on');
@@ -244,7 +247,7 @@ export function ChangeOrderTrail({
               maxLength={120}
               required
               placeholder={kind === 'add-on' ? 'e.g. Extra hour of coverage' : 'e.g. Drop the photo booth'}
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
 
@@ -262,7 +265,7 @@ export function ChangeOrderTrail({
                 required
                 inputMode="decimal"
                 placeholder="e.g. 5000"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
             <div className="space-y-1">
@@ -273,7 +276,7 @@ export function ChangeOrderTrail({
                 id="co_due"
                 name="proposed_due_date"
                 type="date"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
           </div>
@@ -288,7 +291,7 @@ export function ChangeOrderTrail({
               rows={2}
               maxLength={2000}
               placeholder="Anything the supplier should know"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
 
@@ -312,7 +315,7 @@ export function ChangeOrderTrail({
                 setErrorMsg(null);
               }}
               disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
             >
               Cancel
             </button>
@@ -320,7 +323,11 @@ export function ChangeOrderTrail({
         </form>
       ) : null}
 
-      {changeOrders.length === 0 ? (
+      {readFailed ? (
+        <p role="alert" className="text-[13px] text-ink/70">
+          We couldn’t load the change orders. This does not mean there are none — reload in a moment.
+        </p>
+      ) : changeOrders.length === 0 ? (
         <p className="text-[11px] italic text-ink/45">No change orders yet.</p>
       ) : (
         <ul className="space-y-2">
@@ -399,7 +406,7 @@ export function ChangeOrderTrail({
                       type="button"
                       disabled={pending}
                       onClick={() => handleRespond(co.change_order_id, 'decline')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                     >
                       Decline
                     </button>
@@ -413,7 +420,7 @@ export function ChangeOrderTrail({
                       type="button"
                       disabled={pending}
                       onClick={() => handleWithdraw(co.change_order_id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                     >
                       {busy && pending ? (
                         <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />

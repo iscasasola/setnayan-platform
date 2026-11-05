@@ -32,6 +32,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '../../lib/vendor-tier-caps';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -508,7 +509,7 @@ test('GAP 2 · the asking couple’s own event never counts against them', async
 
 /* ── NOT A GAP · the per-plan customers-per-date ceiling ────────────────── */
 
-test('NOT A GAP · the per-PLAN ceiling is a SECURITY DEFINER trigger — a Solo supplier’s 4th accept on a date is refused, the 3rd is not', async () => {
+test('NOT A GAP · the per-PLAN ceiling is a SECURITY DEFINER trigger — a Solo supplier’s accept past the ceiling is refused, the last one is not', async () => {
   await db.query(`UPDATE public.platform_settings SET vendor_tier_pipeline_caps_enabled = TRUE WHERE id = 1`);
   const trig = await db.query<{ prosecdef: boolean }>(
     `SELECT p.prosecdef FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
@@ -516,7 +517,7 @@ test('NOT A GAP · the per-PLAN ceiling is a SECURITY DEFINER trigger — a Solo
   );
   assert.deepEqual(trig.rows, [{ prosecdef: true }], 'the ceiling is not a definer trigger on chat_threads any more');
   const lim = await db.query<{ n: number }>(`SELECT public.vendor_tier_limit('solo', 'whitelist_per_date') AS n`);
-  assert.equal(lim.rows[0]!.n, 3);
+  assert.equal(lim.rows[0]!.n, WHITELIST_PER_DATE_ALL_PLANS, 'the ceiling is the same on every plan (2026-10-23; Solo was 3)');
 
   const thread = async () => {
     const e = await db.query<{ e: string }>(
@@ -531,8 +532,8 @@ test('NOT A GAP · the per-PLAN ceiling is a SECURITY DEFINER trigger — a Solo
       ])
     ).rows[0]!.t;
   };
-  // Two couples already being chased for the date — accepted by the server, not by this session.
-  for (let i = 0; i < 2; i += 1) {
+  // All but one place already taken for the date — accepted by the server, not by this session.
+  for (let i = 0; i < WHITELIST_PER_DATE_ALL_PLANS - 1; i += 1) {
     await db.query(`UPDATE public.chat_threads SET inquiry_status = 'accepted'::public.chat_inquiry_status WHERE thread_id = $1`, [
       await thread(),
     ]);
@@ -551,6 +552,6 @@ test('NOT A GAP · the per-PLAN ceiling is a SECURITY DEFINER trigger — a Solo
     (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.events WHERE event_date = $1::date`, [PLAN_DAY])).rows[0]!.n,
   );
   assert.equal(visible, 0, 'the supplier session sees the couples’ events — this proof would be vacuous');
-  assert.equal(await acceptAsSupplier(await thread()), 1, 'the 3rd accept did not land (RLS refused the supplier’s own thread?)');
-  await assert.rejects(acceptAsSupplier(await thread()), /WHITELIST_DATE_LIMIT/, 'a Solo supplier’s 4th accept on one date landed');
+  assert.equal(await acceptAsSupplier(await thread()), 1, 'the last place’s accept did not land (RLS refused the supplier’s own thread?)');
+  await assert.rejects(acceptAsSupplier(await thread()), /WHITELIST_DATE_LIMIT/, 'a Solo supplier’s accept past the ceiling landed');
 });

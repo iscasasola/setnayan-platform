@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
@@ -70,9 +71,9 @@ export async function tellTheCouplePapicPoolIsSpent(eventId: string): Promise<vo
       .select('display_name')
       .eq('event_id', eventId)
       .maybeSingle();
-    const displayName = (ev?.display_name as string | undefined) ?? 'your celebration';
+    const displayName = (ev?.display_name as string | undefined) ?? 'your event';
 
-    const relatedUrl = `/dashboard/${eventId}/studio/papic`;
+    const relatedUrl = papicHomeHref(eventId);
     for (const userId of recipients) {
       await emitNotification({
         userId,

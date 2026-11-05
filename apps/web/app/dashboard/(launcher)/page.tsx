@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type ComponentType,
 } from 'react';
+import { EventsThumbRow } from '@/app/_components/frontdoor/shell-thumb-rows';
 import Link from 'next/link';
 import { daysToGo } from '@/lib/countdown-target';
 import { redirect } from 'next/navigation';
@@ -14,15 +15,15 @@ import {
   Users,
   Clapperboard,
   Heart,
-  HeartHandshake,
   Baby,
-  Mail,
   CalendarClock,
   Plus,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
+import { Spotlight } from '@/app/_components/spotlight';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
+import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
 import { rethrowIfSchemaBlip } from '@/lib/read-retry';
@@ -48,13 +49,8 @@ import {
   fetchUserCommunities,
   type CommunityWithRole,
 } from '@/lib/communities';
-import {
-  readChecklistItems,
-  checklistAnchorDateFor,
-  checklistRunwayFor,
-  daysUntilEvent,
-  dueDateForItem,
-} from '@/lib/checklist';
+import { daysUntilEvent } from '@/lib/checklist';
+import { readPlanningProgress } from '@/lib/planning-progress.server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import {
   readEventDecisionCounts,
@@ -107,9 +103,14 @@ import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveHero } from '@/lib/event-hero';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { myLovedOnes, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
+import { readForTags } from '@/lib/event-for-tag.server';
+import { cardShowsForTag, type ForTag } from '@/lib/for-tag';
+import { StanceChip } from './_components/stance-chip';
+import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
   title: 'Your events',
@@ -179,7 +180,7 @@ export const metadata = {
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
  *     (Profile · Setnayan AI), killing the old zone overlap.
- * Plus the deterministic SEARCH bar (HomeCommandBar, ⌘K): client-side jump-to
+ * The search is the Events thumb row ("Search events" · ＋ Create event, 2026-10-22); the retired top-bar palette was a client-side jump-to
  * over the user's own events/spaces/destinations — no LLM (Setnayan AI Rule 1).
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
@@ -460,33 +461,28 @@ export default async function LauncherPage({
         try {
           // 🔑 UNKNOWN IS NOT ZERO (collection template, 2026-09-24). A refused
           // read used to arrive here as `[]` and leave the card saying nothing
-          // needs you. `readChecklistItems` returns `null` for "could not read",
-          // and the card then says so.
-          const items = await readChecklistItems(supabase, e.event_id);
-          if (items === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
-          if (items.length === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
-          const done = items.filter((i) => i.status === 'done').length;
-          // Same deadline ANCHOR the checklist page dates by — locked date, else
-          // earliest candidate, else window start; weddings on the locked date
-          // alone. This card used to pass `e.event_date` straight through, so a
-          // non-wedding event whose date isn't locked yet resolved no due dates
-          // at all and the card claimed 0 overdue while the page it links to
-          // listed real deadlines. One helper, both surfaces, no drift.
-          const anchorDate = checklistAnchorDateFor(e);
-          // Same runway rule the checklist page renders with — an event whose
-          // template is longer than its runway must not report every task as
-          // overdue on the card either. Null runway ⇒ authored offsets stand.
-          // Measured from the SAME anchor: the runway is (creation → anchor), so
-          // it has to move with the anchor or the compression would disagree too.
-          const runway = checklistRunwayFor(items, anchorDate, e.created_at ?? null);
-          const overdue = items.filter((i) => {
-            if (i.status !== 'pending') return false;
-            const due = dueDateForItem(anchorDate, i.due_offset_days, runway);
-            return !!due && due < todayISO;
-          }).length;
+          // needs you. The read answers `null` for "could not read", and the
+          // card then says so.
+          //
+          // ✅ THE ONE LIST (owner 2026-11-01, "Checklist merges into Planning
+          // Stage"): the card counts Planning Stage's To do filter through the
+          // same reader and rule as the list and Home's To do tile
+          // (`readPlanningProgress` → `fetchPreparationAgenda` · `planningProgress`)
+          // — the same deadline ANCHOR (`checklistAnchorDateFor`, inside the
+          // reader: locked date, else earliest candidate, else window start) and
+          // the same runway, measured from this row's own date fields.
+          const p = await readPlanningProgress(supabase, e.event_id, {
+            event_type: e.event_type ?? null,
+            event_date: e.event_date ?? null,
+            date_candidates: e.date_candidates ?? null,
+            date_window_start: e.date_window_start ?? null,
+            created_at: e.created_at ?? null,
+          }, new Date(`${todayISO}T12:00:00`));
+          if (p === null) return [e.event_id, { pct: null, overdue: null, failed: true }];
+          if (p.total === 0) return [e.event_id, { pct: null, overdue: 0, failed: false }];
           return [
             e.event_id,
-            { pct: Math.round((done / items.length) * 100), overdue, failed: false },
+            { pct: Math.round((p.done / p.total) * 100), overdue: p.overdue, failed: false },
           ];
         } catch {
           return [e.event_id, { pct: null, overdue: null, failed: true }];
@@ -706,11 +702,15 @@ export default async function LauncherPage({
       (await isDataPrivacyControlActive('dependent_minor_profiles'))
     ) {
       try {
-        const { count, error } = await supabase
-          .from('dependents')
-          .select('dependent_id', { count: 'exact', head: true });
+        // ⚠ RLS admits an ADMIN to every dependent on the platform — a bare count counted everyone's
+        // (owner 2026-10-27). Count by the ONE rule the People page lists by (`lib/my-loved-ones.ts`).
+        const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+          supabase.from('dependents').select('owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at'),
+          supabase.rpc('current_spouse_user_ids'),
+        ]);
         if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
-        if (!error) alagaCount = count ?? 0;
+        if (spouseError) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · rpc:current_spouse_user_ids', spouseError);
+        if (!error) alagaCount = myLovedOnes((data ?? []) as DependentOwnership[], user.id, spouseIdSet(spouseIds)).length;
       } catch {
         alagaCount = null;
       }
@@ -847,6 +847,38 @@ export default async function LauncherPage({
     ownHeroByIdRead,
     user.id,
   );
+  // "FOR <NAME>" (owner 22 Oct 2026) — the Planning page's posters only, and only the
+  // viewer's OWN events: the subject resolves under `owner_user_id = viewer`, so asking
+  // about an invited or helping card would spend a read that can only come back empty.
+  // A failed read is an empty map — every card keeps its stance chip.
+  const forTagByIdRead = readForTags(
+    supabase,
+    user.id,
+    upcomingOnPage.filter((e) => e.member_type === 'couple').map((e) => e.event_id),
+  ).catch(() => new Map<string, ForTag>());
+
+  // 👁 "View Event Hub" in each card's ⋯ menu (owner 2026-10-27: *"View event hub add that if event hub is available
+  // for that event"*). Home's own rule (`lib/home-control.server.ts`): the event has a slug AND its page is Public or
+  // Unlisted. A small read of its own, NOT a column added to `fetchUserEvents` — that shared read powers every
+  // dashboard, and one column a role cannot SELECT would reject it whole. A failed read only drops the menu row.
+  const hubUrlByIdRead = (async (): Promise<Map<string, string>> => {
+    const own = organiserEvents.filter((e) => e.member_type === 'couple' && e.slug);
+    if (own.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_id, landing_page_visibility')
+      .in('event_id', own.map((e) => e.event_id));
+    if (error) {
+      logQueryError('Launcher (hub visibility)', error, { user_id: user.id }, 'graceful_degrade');
+      return new Map();
+    }
+    const open = new Set(
+      (data ?? [])
+        .filter((r) => r.landing_page_visibility === 'public' || r.landing_page_visibility === 'unlisted')
+        .map((r) => r.event_id as string),
+    );
+    return new Map(own.filter((e) => open.has(e.event_id)).map((e) => [e.event_id, publicEventPath(e.slug as string)]));
+  })().catch(() => new Map<string, string>());
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -862,6 +894,8 @@ export default async function LauncherPage({
     eventTypeHero,
     ownHeroById,
     posterById,
+    forTagById,
+    hubUrlById,
   ] = await Promise.all([
     checklistRead,
     decisionRead,
@@ -875,6 +909,8 @@ export default async function LauncherPage({
     eventTypeHeroRead,
     ownHeroByIdRead,
     posterByIdRead,
+    forTagByIdRead,
+    hubUrlByIdRead,
   ]);
 
   const checklistByEvent = new Map(checklistEntries);
@@ -1065,7 +1101,7 @@ export default async function LauncherPage({
     const moreCount = communities.length - MAX_SAMAHAN_CARDS;
     samahanRows.push({
       id: 'more-samahans',
-      href: '/dashboard/samahan',
+      href: PEOPLE_GROUPS_HREF,
       icon: Users,
       title: `${moreCount} more ${moreCount === 1 ? 'samahan' : 'samahans'}`,
       subtitle: 'See all your groups',
@@ -1109,7 +1145,9 @@ export default async function LauncherPage({
     : undefined;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+      {/* 🔍 ONE THUMB ROW (owner 2026-10-22): "Search events" · ＋ Create event — the top bar has no search now. */}
+      <EventsThumbRow />
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
           No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 
@@ -1130,8 +1168,10 @@ export default async function LauncherPage({
           what this shelf is FOR and never that you have none." The title now
           obeys the same rule its own page wrote: it NAMES the page and makes no
           claim about how many events you have, so it is true in both states.
-          The invitation to create one is the top bar's "+ Create event" (and,
-          on phones, the bottom bar's ➕ and the dashed New-event card below). */}
+          The invitation to create one is this board's own: the Planning
+          header's (+), the dashed New-event card and the empty shelf's
+          "Create an event" (the top bar's "+ Create event" left it at every
+          width on 2026-10-22 — Create lives here). */}
       {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
           on My Events. we don't need that text.").
 
@@ -1152,6 +1192,11 @@ export default async function LauncherPage({
           "Pick up where you left off" tail still apply and still pass: what was
           removed is the visible duplicate, never the page's identity. */}
       <h1 className="sr-only">Your events</h1>
+
+      {/* 🔦 The account bar's first-visit spotlight (Events · Memories · People — owner 2026-10-22), after the
+          host's journey so the two never stack. A server component: it reads its own seen keys and ships only
+          this tour's words (`lib/tours-stay-on-the-server.test.ts`). */}
+      <Spotlight tourKey="customer_account_bar_v2" after="host_spotlight_v1" />
 
       {/* INCOMING REQUESTS — at the top, only while one is waiting (owner
           2026-09-28: "if they have an account. it must show on their event
@@ -1175,8 +1220,8 @@ export default async function LauncherPage({
           button arrived 2026-08-15 and overtook that premise. It also read as
           a second search bar one row under the real one — the owner himself
           misread it — so keeping it cost more than it invited. Creation stays
-          reachable here via the dashed New-event card, the phone pill's ➕,
-          the top bar and ⌘K. */}
+          reachable here via the Planning header's (+), the dashed New-event
+          card and ⌘K (the top bar's button left on 2026-10-22). */}
 
 
       {/* ⚠ THE ONE-EVENT NUDGE BANNER IS RETIRED (owner 2026-08-20: "for the
@@ -1229,19 +1274,19 @@ export default async function LauncherPage({
       >
         <SectionLabel
           sub="today"
-          info="Your celebration is running today. It leaves this row on its own tomorrow."
+          info="Your event is running today. It leaves this row on its own tomorrow."
         >
           Now happening
         </SectionLabel>
         {happeningNow.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
-            On the day itself, your celebration moves up here — and moves on by
+            On the day itself, your event moves up here — and moves on by
             itself the morning after.
           </p>
         ) : null}
         <CollectionGrid>
           {happeningNow.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event}>
+            <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -1261,6 +1306,7 @@ export default async function LauncherPage({
 
       <section
         id="events"
+        data-tour="events-planning"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.4s' }}
       >
@@ -1286,12 +1332,13 @@ export default async function LauncherPage({
             has an empty Planning shelf too — so it never says "no events". */}
         {upcoming.length === 0 ? (
           <CollectionEmptyState
-            title="Start a celebration"
+            title="Start an event"
             body="Guests, suppliers, the day itself — everything you plan gathers here, soonest first."
             action={
               <Link
                 href="/dashboard/create-event"
                 className="sn-press inline-block rounded-full bg-ink px-[18px] py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-black"
+                data-tour="create-event"
               >
                 Create an event
               </Link>
@@ -1300,7 +1347,7 @@ export default async function LauncherPage({
         ) : (
         <CollectionGrid layout="poster">
           {upcomingOnPage.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event}>
+            <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -1312,6 +1359,7 @@ export default async function LauncherPage({
                 progressFailed={progressFailed.has(event.event_id)}
                 hasMenu={event.member_type === 'couple'}
                 poster={posterById.get(event.event_id)}
+                forTag={forTagById.get(event.event_id) ?? null}
               />
             </BoardCardWithMenu>
           ))}
@@ -1345,7 +1393,7 @@ export default async function LauncherPage({
             </p>
             <CollectionGrid>
               {putAway.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+                <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1388,6 +1436,7 @@ export default async function LauncherPage({
           would have a person looking for their wedding among suggestions. */}
       <section
         id="worth-planning"
+        data-tour="events-worth"
         className="sn-reveal mb-7 scroll-mt-24 sm:mb-6"
         style={{ animationDelay: '0.44s' }}
       >
@@ -1433,7 +1482,7 @@ export default async function LauncherPage({
           info={
             storiesMeasured
               ? 'The day has passed and its story isn’t written. Pick the ones worth telling.'
-              : 'Celebrations move here on their own once the day has passed.'
+              : 'Events move here on their own once the day has passed.'
           }
         >
           {storiesMeasured ? 'Untold' : 'Ended'}
@@ -1441,8 +1490,8 @@ export default async function LauncherPage({
         {unwritten.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
             {storiesMeasured
-              ? 'Celebrations move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
-              : 'Celebrations move here on their own once the day has passed. Nothing you keep is ever taken away.'}
+              ? 'Events move here on their own once the day has passed — this is where you pick the ones to tell. Nothing you keep is ever taken away.'
+              : 'Events move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
         ) : (
           <>
@@ -1461,7 +1510,7 @@ export default async function LauncherPage({
                 "Celebrated". */}
             <CollectionGrid>
               {unwritten.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event} finished>
+                <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1514,13 +1563,13 @@ export default async function LauncherPage({
         {written.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-ink/15 bg-white/[0.35] px-4 py-5 text-[13px] text-[color:var(--sn-ink-500)]">
             {storiesMeasured
-              ? 'The celebrations you write up land here, as chapters of your story.'
-              : 'This is where the celebrations you have written up live.'}
+              ? 'The events you write up land here, as chapters of your story.'
+              : 'This is where the events you have written up live.'}
           </p>
         ) : null}
         <CollectionGrid>
           {written.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event} finished>
+            <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -1578,8 +1627,9 @@ export default async function LauncherPage({
 
       {/* The phone thumb nav MOVED to `(launcher)/layout.tsx` + `(account)/layout.tsx`
           on 2026-08-23. Rendered from here it existed on exactly one route, so it
-          disappeared the moment anyone used it. The page keeps its `pb-28` — the
-          bar is still fixed over this content. */}
+          disappeared the moment anyone used it. Since 2026-10-21 the bar is the
+          anchored <BottomDock>, and the LAYOUT's <main> reserves its measured
+          height — this page's own bottom padding is only a breath. */}
     </div>
   );
 }
@@ -1605,7 +1655,7 @@ function ShelfInfo({ children }: { children: string }) {
   return (
     <details className="group relative shrink-0">
       <summary
-        className="relative flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition before:absolute before:-inset-2.5 before:content-[''] hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        className="relative flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn before:absolute before:-inset-[15px] before:content-[''] hover:border-terracotta hover:text-terracotta group-open:border-terracotta group-open:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
         aria-label="What is this row?"
       >
         i
@@ -1614,8 +1664,11 @@ function ShelfInfo({ children }: { children: string }) {
           left-0 opened mostly off-screen. Below `sm` it is `fixed` with auto top
           (its static position, just under the ⓘ) and spans the screen with a
           16 px gutter; `sm` and up keep the anchored bubble. The summary's
-          `before:` layer widens the tap area to 40 px without changing the look. */}
-      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:inset-x-4 max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
+          `before:` layer widens the tap area to 46 px without changing the look.
+          🎯 The circle is the house ⓘ, class for class (`<InfoTip>`'s trigger — owner 2026-10-25, *"the (i) is not
+          consistent across the app"*); `group-open:` stands in for InfoTip's `aria-expanded:`. A <details>, not
+          InfoTip, so it still opens with JavaScript off. `there-is-one-info-dot.test.ts`. */}
+      <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
         {children}
       </p>
     </details>
@@ -1741,37 +1794,6 @@ function SectionLabel({
 }
 
 /**
- * THE STANCE CHIP — "You organise this" / "You're invited".
- *
- * The one thing a card has to answer before it is pressed, because it decides
- * what is behind it: an organiser opens the event dashboard, an invited person
- * opens the event's own public page (their photos, their table, their RSVP —
- * with the money and plan surfaces absent, not present-and-refused).
- *
- * Rendered on EVERY card, not just the invited ones. An unexplained difference
- * between two cards is worse than a label on both — and "you organise this" is
- * the sentence that makes the other one legible.
- */
-function StanceChip({ stance }: { stance: EventStance }) {
-  const invited = stance === 'invited';
-  // A helper's chip is the organiser's colour (both open the dashboard) with
-  // its own mark, so the two never read as the same sentence at a glance.
-  const Icon = invited ? Mail : stance === 'helper' ? Users : HeartHandshake;
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-[0_2px_8px_rgba(30,26,18,0.08)] ${
-        invited
-          ? 'bg-[color:var(--sn-mulberry-100,rgba(194,78,37,0.14))] text-mulberry'
-          : 'bg-white/85 text-[color:var(--sn-ink-500)]'
-      }`}
-    >
-      <Icon aria-hidden className="h-[11px] w-[11px]" strokeWidth={2.25} />
-      {stanceLabel(stance)}
-    </span>
-  );
-}
-
-/**
  * One EVENTS glass card (owner-approved final design 2026-07-15). A frosted
  * panel over the warm paper — the Atelier + macOS-glass language (owner-locked
  * 2026-07-12) — carrying the same signals as the old timeline node: badge ·
@@ -1800,6 +1822,7 @@ async function GlassEventCard({
   storyHref,
   poster,
   scenePoster,
+  forTag = null,
 }: {
   event: EventWithRole;
   pct: number | null;
@@ -1850,9 +1873,16 @@ async function GlassEventCard({
    * (`sceneCoverFor`) — the Event Hub's cover, not the stock type photo.
    */
   scenePoster?: EventPosterFacts;
+  /**
+   * "FOR <NAME>" (owner 22 Oct 2026) — who this event is for, when the viewer holds that
+   * subject (`readForTags`). Drawn on a POSTER card only, in the stance chip's slot; absent
+   * or unread ⇒ the stance chip as before, never a guessed name.
+   */
+  forTag?: ForTag | null;
 }) {
   const { badge, dateLabel, place, status, keptNote, stance, href, closedReason } =
     deriveEventView(event, pct, finished, todayISO);
+  const tagged = poster && forTag && cardShowsForTag(stance, forTag) ? forTag : null;
   // The score is an organiser's number for a plan still in motion: never on an
   // invited card (whose plan is somebody else's), never on a finished one
   // (whose day has happened — a planning score on a celebrated day is the
@@ -1917,7 +1947,7 @@ async function GlassEventCard({
       }
       /* Type badge + STANCE, one row: what kind of event this is, and which
          side of it you are on. */
-      kicker={stance ? [badge, <StanceChip stance={stance} key="stance" />] : [badge]}
+      kicker={stance ? [badge, <StanceChip stance={stance} forTag={tagged} key="stance" />] : [badge]}
       /* The event's REAL monogram (uploaded / bespoke SVG · framed lockup ·
          lettered). Uploaded outranks custom per app-wide precedence;
          EventMonogram only reads monogram_custom_svg, so resolve it here. */
@@ -1948,7 +1978,7 @@ async function GlassEventCard({
       meta={
         poster
           ? [
-              stance ? `${badge}, ${stanceLabel(stance)}` : badge,
+              stance ? `${badge}, ${tagged ? `for ${tagged.name}` : stanceLabel(stance)}` : badge,
               poster.date ? `${poster.weekday} ${poster.date}` : 'Date to be set',
             ].join(' · ')
           : (dateLabel ?? 'Date to be set')
@@ -2184,6 +2214,7 @@ function BoardCardWithMenu({
    * calendar, so `EventCardMenu` drops that row entirely when this is true.
    */
   finished = false,
+  hubUrl = null,
   children,
 }: {
   event: EventWithRole;
@@ -2193,6 +2224,8 @@ function BoardCardWithMenu({
    *  partly off the left of the screen, where it cannot be scrolled to. */
   align?: 'left' | 'right';
   finished?: boolean;
+  /** The public Event Hub's path when guests can open it — the menu then offers "View Event Hub". */
+  hubUrl?: string | null;
   children: ReactNode;
 }) {
   if (event.member_type !== 'couple') return <>{children}</>;
@@ -2209,6 +2242,7 @@ function BoardCardWithMenu({
         finished={finished}
         tone={tone}
         align={align}
+        hubUrl={hubUrl}
       />
     </div>
   );
@@ -2227,6 +2261,7 @@ function NewEventCard({ delay = 0, poster = false }: { delay?: number; poster?: 
     <NewThingTile
       href="/dashboard/create-event"
       label="New event"
+      tour="create-event"
       delay={delay}
       layout={poster ? 'poster' : 'card'}
     />

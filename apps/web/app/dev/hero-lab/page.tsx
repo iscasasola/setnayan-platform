@@ -14,7 +14,7 @@
  *   ?theme=galeriya|velvet|…   the theme (default: house, i.e. Classic)
  *   ?photo=1                   the plain masthead with a cover plate (a hero photo)
  *   ?onday=1                   the Happening-now pill
- *   ?names=short               "Indalecio & Claire" instead of the long pair
+ *   ?names=short               "Indalecio & Claire" instead of the long pair (`&order=a`: "Claire & Indalecio")
  *   ?link=See+you+there        the couple's own words on the link down (the `link` part)
  *   ?maker=1                   stamp the parts as the Maker canvas does (`data-el`)
  *   ?type=1                    ✍ tap-to-type on the parts, measured (`type-lab.tsx`; with ?maker=1)
@@ -32,10 +32,13 @@ import { sanitizeHubElements } from '@/lib/element-style';
 import { HERO_DESIGNS, heroDesignLabel } from '@/lib/hero-design';
 import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { LAB_MARK_SVG } from './mark';
+import { coupleNameColumns } from '@/lib/typed-names';
 import { TypeLab } from './type-lab';
 
 const LONG = 'Maria Clara Concepcion & Juan Miguel de los Santos';
-const SHORT = 'Indalecio & Claire';
+/** 🔀 `?names=short` — the owner's own couple, in the order `?order=a` (Claire first) or the stored default here (Indalecio first). */
+const shortNames = (order: string | null) =>
+  coupleNameColumns({ first: 'Claire', last: '' }, { first: 'Indalecio', last: '' }, order === 'a' ? 'a-first' : 'b-first').display_name!;
 
 export default async function HeroLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -44,6 +47,7 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
   const theme = normalizeThemeId(one('theme')) ?? 'house';
   const photo = one('photo') === '1';
   const onday = one('onday') === '1';
+  const SHORT = shortNames(one('order'));
   const displayName = one('names') === 'short' ? SHORT : LONG;
   const elements = sanitizeHubElements({
     link: { word: one('link') },
@@ -62,7 +66,7 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
   const skin = theme === 'house' ? undefined : siteSkin(theme, { accent: INVITE_THEMES[theme].palette.accent });
   const qs = (patch: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const all = { theme, photo: photo ? '1' : null, onday: onday ? '1' : null, names: displayName === SHORT ? 'short' : null, ...patch };
+    const all = { theme, photo: photo ? '1' : null, onday: onday ? '1' : null, names: displayName === SHORT ? 'short' : null, order: one('order'), ...patch };
     for (const [k, v] of Object.entries(all)) if (v) p.set(k, v);
     const s = p.toString();
     return `/dev/hero-lab${s ? `?${s}` : ''}`;

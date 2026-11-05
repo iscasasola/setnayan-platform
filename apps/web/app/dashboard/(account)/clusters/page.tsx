@@ -23,7 +23,7 @@ import { CreateClusterForm } from './_components/create-cluster-form';
  * 2026-07-15 lock's own phrasing.
  */
 
-export const metadata = { title: 'Linked celebrations' };
+export const metadata = { title: 'Linked events' };
 
 export default async function ClustersPage() {
   const user = await getCurrentUser();
@@ -37,19 +37,19 @@ export default async function ClustersPage() {
 
   return (
     <div className="sn-col space-y-6">
-      <PageMasthead title="Linked celebrations" />
+      <PageMasthead title="Linked events" />
 
       <section className="sn-tile">
         <p className="sn-eye flex items-center gap-2">
           <Link2 size={14} strokeWidth={1.75} aria-hidden />
-          Linked celebrations
+          Linked events
         </p>
         <p className="mt-2 text-sm text-ink-soft">
-          An engagement party, a shower and the wedding are separate celebrations with their own
+          An engagement party, a shower and the wedding are separate events with their own
           dates and their own guests. Group them and they are shown beside each other on one
           timeline.{' '}
           <strong className="font-medium text-ink">
-            Grouping changes nothing about the celebrations themselves
+            Grouping changes nothing about the events themselves
           </strong>{' '}
           — each one keeps its own guest list, its own shots and its own money.
         </p>
@@ -65,7 +65,7 @@ export default async function ClustersPage() {
         <QuietStart
           Icon={CalendarRange}
           title="No groups yet"
-          blurb="Make one and add the celebrations that belong to the same run of events."
+          blurb="Make one and add the events that belong together."
         />
       ) : (
         <ul className="space-y-3">

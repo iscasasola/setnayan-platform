@@ -1,0 +1,454 @@
+/**
+ * 🧭 STUDIO ROUND 3 FOLLOWS THE OWNER (2026-10-08 — each item reported by the owner on the live
+ * preview; the contract is `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html` and his words):
+ *
+ *   1 · Love Story › "+ Add a moment" is the APP's form — white, ink, standard inputs (never the
+ *       event's `--ls-*` palette, whose placeholders were invisible), on the Schedule's shared
+ *       `Sheet` lifted above the Studio's sticky bar; When · This one is… · Added by are each ONE
+ *       PickMenu; ✕ Not now · ✓ Keep this moment (icon + word) in a glass row at the foot.
+ *   2 · Look › Background never shows a broken picture: every still is drawn over its own swatch
+ *       (the loop's two sampled colours) and is removed if it fails.
+ *   3 · No go-elsewhere links: Prints' "Set up E-Gifts" opens E-Gifts' own editor IN PLACE with
+ *       "✓ Done · back to Prints"; Look's "Same as the Event Hub" is a switch.
+ *   4 · E-Gifts "Your own words": the five starting points are ONE "Start from ▾" dropdown.
+ *   5 · Seat plan: the map gets the space — one compact head row, Auto arrange · Rules ▾ · View ▾
+ *       in the thumb zone, the people a pull-up sheet with the peek "N guests · N unseated", no
+ *       "Same layout in 3D ↗" card, the whole room fitted on open.
+ *
+ * Every floating row touched here is `sn-glass-row` (owner 2026-10-08, *"apply this to all glass
+ * row"*) — no opaque fill, no shadow of its own.
+ *
+ * 🛡 Sabotaged once each (2026-10-08), each red alone: When's dropdown renamed off
+ * `data-moment-when` → 1; the carousel's `<StillOverSwatch>` swapped back for a bare lazy `<img>` →
+ * 2; an `<a href={`${base}/pabuya`}>` back beside Set up E-Gifts → 3; the Studio branch of the
+ * E-Gifts words switched off (chips drawn) → 4; "Same layout in 3D ↗" put back in the thumb-zone
+ * tools → 5.
+ *
+ *   4b · (owner, on the preview 2026-10-08: *only the pills became "Start from ▾"; the rest of the
+ *       old editor is still there*) E-Gifts' thank-you words in the Studio: NO box, the help behind
+ *       ⓘ, NO Save / Saved — the words go to the draft as they are typed, a refusal is said and the
+ *       words stay. The E-Gifts page keeps its editor.
+ *   8 · (owner: *"i cannot see it is blank"*; *"maybe show what it could look like with boxes?"*)
+ *       an EMPTY Love Story draws the real card arrangement in sample shapes under the three
+ *       chapters a story is anchored by; the first real moment replaces it. The Add-a-moment
+ *       sheet's helper lines sit behind ⓘ.
+ *
+ * 🛡 Sabotaged once each (2026-10-08, builder S3b), each red alone: the Studio words wrapped in
+ * `sn-tile` → 4b; the help paragraph drawn under the label → 4b; a "Saved" button under the box →
+ * 4b; the refusal `<p role="alert">` removed → 4b; `isTrusted` typing no longer calling `draft` →
+ * 4b; `<SampleStory />` removed from the empty state → 8; the sample's photo box drawn 48 px
+ * (not the card's) → 8; the sample drawn beside a real moment → 8; a year typed into a sample card
+ * → 8; the sample's chapters cut to two (off the three anchors) → 8; the sheet's "When" paragraph
+ * put back in the Studio → 8.
+ *
+ * `globalThis.React` before the dynamic imports: tsx compiles JSX to the classic runtime here.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from './strip-comments';
+import { PABUYA_TEMPLATES } from './pabuya-message';
+import { hubMovingBackgroundIds } from './hub-canvas';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+
+const WEB = join(__dirname, '..');
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const D = 'app/dashboard/[eventId]';
+const L = `${D}/launch/_components`;
+const SEAT = `${D}/seating/_components`;
+
+async function html(el: React.ReactElement): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  return renderToStaticMarkup(el);
+}
+async function inStudio(el: React.ReactElement): Promise<string> {
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  return html(React.createElement(MakerContext.Provider, { value: { stagesStudio: true } as never }, el));
+}
+
+test('1 · Love Story › Add a moment: the app’s form on the Schedule’s sheet — three dropdowns, ✕ Not now · ✓ Keep this moment in glass', () => {
+  const src = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);
+  assert.match(src, /const studio = maker\?\.stagesStudio === true;/, 'the sheet does not know it is in the Studio');
+  /* The app's tokens, never the event's palette, for the fields and their words. */
+  const field = /const field = studio\s*\?\s*'([^']+)'/.exec(src)?.[1] ?? '';
+  assert.match(field, /bg-white/, 'the Studio’s fields are not white');
+  assert.match(field, /text-ink/, 'the Studio’s fields are not ink');
+  assert.match(field, /placeholder:text-ink\/45/, 'the Studio’s placeholders are not readable');
+  assert.doesNotMatch(field, /--ls-/, 'the Studio’s fields wear the event’s palette');
+  assert.doesNotMatch(/const eye = studio\s*\?\s*'([^']+)'/.exec(src)?.[1] ?? '--ls-', /--ls-/, 'the Studio’s labels wear the event’s palette');
+  /* ONE dropdown per set of choices. */
+  for (const [what, attr] of [['When', 'data-moment-when'], ['This one is…', 'data-moment-anchor'], ['Added by', 'data-moment-added-by-pick']] as const) {
+    assert.match(src, new RegExp(`studio \\?[\\s\\S]{0,900}?<PickMenu[\\s\\S]{0,200}?dataAttr="${attr}"`), `${what} is not one dropdown in the Studio`);
+  }
+  assert.match(src, /<input type="hidden" name="anchor" value=\{anchor\} \/>/, 'the anchor dropdown posts nothing');
+  assert.match(src, /<input type="hidden" name="added_by" value=\{addedBy\} \/>/, 'the Added by dropdown posts nothing');
+  const studioWhen = src.slice(src.indexOf('{studio ? (\n                  <div className="mt-2">'), src.indexOf(') : (\n                <div role="radiogroup"'));
+  assert.ok(studioWhen.length > 0 && !/role="radiogroup"|role="radio"/.test(studioWhen), 'the Studio draws the When pills');
+  /* The Schedule's sheet, portalled above the sticky bar. */
+  assert.match(src, /data-moment-studio-sheet="" className="relative z-\[90\]">\s*<Sheet open onClose=\{\(\) => setOpen\(false\)\} labelledById="moment-sheet-title" wide rise>/, 'not the Schedule’s shared Sheet, lifted above the Studio’s bars');
+  assert.match(src, /open && studio && typeof document !== 'undefined' \? createPortal\(/, 'the Studio’s sheet is not portalled to <body>');
+  /* ✕ Not now · ✓ Keep this moment, icon + word, in a glass row at the foot. */
+  const foot = src.slice(src.indexOf('data-moment-sheet-foot'), src.indexOf('Keep this moment\n'));
+  assert.match(foot, /^data-moment-sheet-foot="" className="sn-glass-row sticky bottom-0/, 'the foot is not a glass row pinned to the thumb zone');
+  assert.doesNotMatch(foot.slice(0, 120), /bg-cream|shadow-/, 'the glass row has an opaque fill or a shadow of its own');
+  assert.match(foot, /<X aria-hidden[^>]*\/>\s*Not now/, '✕ Not now has no icon');
+  assert.match(foot, /<Check aria-hidden[^>]*\/>\s*$/, '✓ Keep this moment has no icon');
+  /* ⚖ Budget: the Studio's sheet is its own file in the LAZY cards chunk; the first-load sheet is untouched. */
+  const shipped = read(`${D}/website/our-story/_components/moment-sheet.tsx`);
+  assert.doesNotMatch(shipped, /from '@\/app\/_components\/sheet'|<PickMenu|stagesStudio/, 'the first-load MomentSheet carries the Studio’s form (507 KB)');
+  assert.match(read(`${D}/website/our-story/_components/moment-order-cards.tsx`), /import \{ MomentSheetStudio \} from '\.\/moment-sheet-studio';/, 'the Studio’s cards do not open the Studio’s sheet');
+    /* No boxed card: the in-place box (ring + shadow) is the shipped Maker's only. */
+  assert.match(src, /inMaker && open && !studio \? 'w-full basis-full' : 'contents'/, 'the Studio still opens the boxed in-place card');
+});
+
+test('2 · Look › Background: a still is drawn over its swatch and never as a broken image', async () => {
+  const P = await import(`../${D}/website/editor/_components/main-background-panel`);
+  for (const id of hubMovingBackgroundIds()) {
+    assert.match(P.loopSwatch(id, '#fff'), /^linear-gradient\(160deg, #[0-9a-f]{6}, #[0-9a-f]{6}\)$/i, `${id} has no drawn swatch`);
+  }
+  const gone = await html(React.createElement(P.StillOverSwatch, { src: null, swatch: P.loopSwatch('galeriya', '#fff') }));
+  assert.match(gone, /data-still-over-swatch="loading"[^>]*style="background:linear-gradient/, 'a missing still leaves no swatch');
+  assert.doesNotMatch(gone, /<img/, 'a missing still still draws an <img>');
+  const drawn = await html(React.createElement(P.StillOverSwatch, { src: '/x.jpg', swatch: '#abc' }));
+  assert.match(drawn, /<img[^>]*class="[^"]*opacity-0/, 'a still shows before it has loaded (a broken glyph would show)');
+  const src = read(`${D}/website/editor/_components/main-background-panel.tsx`);
+  assert.match(src, /onError=\{\(\) => setState\('failed'\)\}/, 'a failed still is not removed');
+  /* The carousel became the Source ▾ cards (2026-10-08, the Look restudy row 2) — the SAME rule on them:
+     every picture is laid over a swatch, never a bare <img>. */
+  const cards = src.slice(src.indexOf('if (studio) {'), src.indexOf('<p className="text-[14px] font-semibold text-ink">Behind every scene</p>'));
+  assert.ok(cards.length > 2000, 'anti-vacuity: the Studio’s cards were not found');
+  assert.doesNotMatch(cards, /<img/, 'the cards draw a bare <img> again');
+  for (const still of ['l.stillUrl', 'b.src', 'hero.photoUrl', 'p.url']) {
+    assert.ok(cards.includes(`<StillOverSwatch src={${still}}`), `${still} is not drawn over a swatch`);
+  }
+});
+
+test('3 · in place, never a link out: Set up E-Gifts opens E-Gifts here; Look draws no "Same as the Event Hub" (it left 2026-10-08)', async () => {
+  const details = read(`${L}/maker-details.tsx`);
+  assert.doesNotMatch(details, /href=\{`\$\{base\}\/pabuya`\}/, 'Prints links out to the E-Gifts page again');
+  assert.match(details, /<OpenInPlace open="Set up E-Gifts" back="Prints" data="gifts">\s*<LateEditor from=\{late\} item="gifts" \/>\s*<\/OpenInPlace>/, 'Set up E-Gifts does not open E-Gifts’ own editor in place');
+  assert.match(details, /late\.gifts = editors\.gifts \?\? null;\s*if \(seatPlan\)/, 'the in-place editor is read before E-Gifts’ editor is finished');
+  const { OpenInPlace } = await import(`../${L}/open-in-place`);
+  const closed = await html(React.createElement(OpenInPlace, { open: 'Set up E-Gifts', back: 'Prints', data: 'gifts' }, React.createElement('i', { 'data-stub': 'gifts' })));
+  assert.match(closed, /<button[^>]*data-open-in-place-door="gifts"[^>]*>[\s\S]*<svg[\s\S]*Set up E-Gifts<\/button>/, 'Set up E-Gifts is not an icon + word button');
+  assert.doesNotMatch(closed, /data-stub/, 'the E-Gifts editor shows before it is asked for');
+  assert.match(read(`${L}/open-in-place.tsx`), /Done · back to \{back\}/, 'no ✓ Done · back to Prints');
+
+  /* 🎞 "Same as the Event Hub" was a switch here (round 3) — it LEFT Look with the 2026-10-08 restudy (the
+     Save the Date film's own background retires; `the-look-is-one-panel.test.ts` (1) holds that it is not
+     drawn). What stays true of round 3's rule: Look never draws it as a link out either. */
+  assert.ok(!existsSync(join(WEB, `${L}/film-follows-theme.tsx`)), 'the film line is back in Look’s folder');
+  assert.doesNotMatch(details, /Same as the Event Hub/, '"Same as the Event Hub" is drawn in Look again');
+});
+
+test('4 · E-Gifts "Your own words": the starting points are ONE "Start from ▾" dropdown in the Studio', async () => {
+  const { PabuyaMessageEditor } = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
+  const out = await inStudio(React.createElement(PabuyaMessageEditor, { eventId: 'e', initialMessage: null }));
+  assert.match(out, /data-pabuya-start-from=""/, 'no Start from ▾');
+  /* RE-AIMED 2026-10-09 (E-Gifts wears the Form row): "Start from" is the Form row's chosen answer — its name on the left, the house dropdown on the right —
+     not a dropdown that carries its own label. */
+  assert.match(out, /data-form-row-kind="chosen"[\s\S]*?Start from<\/span>[\s\S]*?<button[^>]*aria-haspopup="listbox"[^>]*data-pabuya-start-from=""/, 'Start from is not a dropdown');
+  for (const t of PABUYA_TEMPLATES) {
+    assert.doesNotMatch(out, new RegExp(`<button[^>]*>${t.name}</button>`), `“${t.name}” is still a chip`);
+  }
+  /* The E-Gifts page itself keeps its chips until it is redrawn. */
+  const page = await html(React.createElement(PabuyaMessageEditor, { eventId: 'e', initialMessage: null }));
+  assert.ok(PABUYA_TEMPLATES.every((t) => page.includes(`>${t.name}</button>`)), 'the E-Gifts page lost its starting points');
+});
+
+/** What a person can READ on the screen: the markup without what sits behind an ⓘ, as words. */
+function seen(markup: string): string {
+  return markup
+    .replace(/<span[^>]*role="tooltip"[^>]*><span[^>]*>[\s\S]*?<\/span><\/span>/g, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+test('4b · E-Gifts thank-you words in the Studio: no box, the help behind ⓘ, no Save — drafted when kept, a refusal said', async () => {
+  const mod = await import(`../${D}/pabuya/_components/pabuya-message-editor`);
+  const el = () => React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-1', initialMessage: 'Our own words.' });
+  const out = await inStudio(el());
+  const page = await html(el());
+
+  /* NO BOX — nothing in the Studio's editor is a tile, and its root draws no fill, edge or shadow. */
+  assert.doesNotMatch(out, /class="[^"]*\bsn-tile\b/, 'the Studio still draws the thank-you words in a tile');
+  const root = /^<div[^>]*class="([^"]*)"/.exec(out)?.[1] ?? 'missing';
+  assert.doesNotMatch(root, /\b(?:bg-|ring|shadow|border|rounded|p-\d|px-|py-)/, `the Studio’s thank-you editor is a box of its own (${root})`);
+  /* RE-AIMED 2026-10-09 (the Form row): the words are the Form row's typed answer (a pill with a pencil; its box opens under its name), not a bare textarea. */
+  assert.match(out, /data-form-row-kind="typed"[\s\S]*?data-form-row-pill="typed"/, 'the words are not a Form row');
+  assert.doesNotMatch(out, /<textarea/, 'a bare textarea is still drawn in the Studio');
+
+  /* THE HELP IS BEHIND ⓘ — what can be read is the label, the couple's words, the count and the dropdown; nothing else. */
+  assert.equal(seen(out), 'Your own words i Our own words. 586 characters left Start from Your own', 'the Studio shows more (or less) than the label · the words · the count · Start from');
+  const src = read(`${D}/pabuya/_components/pabuya-message-editor.tsx`);
+  const studio = src.slice(src.indexOf('function StudioThanks('), src.indexOf('function ShippedEditor('));
+  assert.ok(studio.length > 0, 'no Studio branch');
+  const tip = /about=\{\{ words: '([^']*)' \}\}/.exec(studio)?.[1] ?? '';
+  const pageHelp = [...page.matchAll(/<p class="(?:max-w-prose|mt-2 text-xs)[^"]*">([\s\S]*?)<\/p>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, '')).join(' ');
+  assert.ok(words(pageHelp) > 40, 'the E-Gifts page’s own help was not found to measure against');
+  assert.ok(words(tip) > 0 && words(tip) <= words(pageHelp) * 0.4, `the ⓘ is not at least 60% shorter than the help it replaces (${words(tip)} of ${words(pageHelp)} words)`);
+
+  /* NO SAVE, NO "SAVED" — every button is the ⓘ, the Form row's pill or the one dropdown. */
+  const buttons = [...out.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(buttons.length, 3, 'the Studio’s thank-you editor has a button that is not its ⓘ, its words or Start from ▾');
+  assert.ok(buttons.every((b) => /aria-haspopup="dialog"|data-form-row-pill="typed"|aria-haspopup="listbox"/.test(b)), 'a per-field button (Save / Saved?) is drawn in the Studio');
+  /* …and nothing says the words are live: they wait for ✓ Apply. */
+  assert.doesNotMatch(out, /data-hub-saves-immediately/, 'the drafted words still say “Guests see this right away”');
+
+  /* KEPT → THE DRAFT, on the Studio's own branch (RE-AIMED 2026-10-09: it was "as typed"; it is "when the box is left" — one write, never more). */
+  assert.match(studio, /onKeep=\{\(next\) => keep\(next, true\)\}/, 'keeping the words does not reach the draft');
+  assert.match(studio, /void keep\(t\.body, false\);/, 'a starting point picked is not drafted');
+  assert.match(studio, /makerLatestWrite\(THANKS_WRITE_KEY, \(\) => \{[\s\S]{0,260}fd\.set\(HUB_DRAFT_FIELD, '1'\);\s*return savePabuyaMessage\(fd\);/, 'the kept words are not sent into the DRAFT');
+  assert.match(studio, /if \(res\.ok\) \{\s*sayNotDrafted\(null\);\s*makerNeedsRender\(\);/, 'a drafted write does not move the ✓ Apply count');
+  assert.match(studio, /sayNotDrafted\(\{ eventId, why/, 'a refused write says nothing');
+  assert.doesNotMatch(studio, /onChange=\{\(e\)/, 'the thank-you words are typed in a hand-made box again');
+
+  /* A REFUSAL IS SAID, in this event's editor only — and the words stay. */
+  mod.sayNotDrafted({ eventId: 'ev-1', why: 'Could not save your message. Please try again.' });
+  try {
+    const refused = await inStudio(el());
+    assert.match(refused, /<p role="alert"[^>]*>These words are not in your draft yet\. Could not save your message\. Please try again\./, 'a refused draft write is not said');
+    assert.match(refused, /<span>Our own words\.<\/span>/, 'a refusal threw the couple’s words away');
+    const other = await inStudio(React.createElement(mod.PabuyaMessageEditor, { eventId: 'ev-2', initialMessage: null }));
+    assert.doesNotMatch(other, /role="alert"/, 'one event’s refusal is said on another event');
+  } finally {
+    mod.sayNotDrafted(null);
+  }
+
+  /* The E-Gifts page keeps its editor: its tile, its help, its Save. */
+  assert.match(page, /^<section class="sn-tile/, 'the E-Gifts page lost its tile');
+  assert.match(page, /<button[^>]*class="button-primary"[^>]*>Saved<\/button>/, 'the E-Gifts page lost its Save');
+});
+
+test('5 · Seat plan: the map gets the space — one head row, tools in the thumb zone, the people a pull-up sheet', async () => {
+  const P = await import(`../${SEAT}/seat-plan-phone`);
+  const head = await html(React.createElement(P.StudioSeatPlanHead, { countLabel: '6 tables', more: React.createElement('p', null, 'more') }));
+  assert.match(head, /data-seat-plan-studio-head=""[^>]*class="[^"]*\bh-11\b/, 'the head is not one compact row');
+  assert.match(head, /Seat plan[\s\S]*6 tables/);
+  assert.match(head, /data-seat-plan-more/, '⋯ is gone');
+  assert.doesNotMatch(head, /Auto arrange|Unseated|data-seat-plan-status/, 'the head still carries the tools or the status line');
+
+  const tools = await html(
+    React.createElement(P.StudioSeatPlanTools, {
+      onAutoArrange: () => {}, autoDisabled: false, autoBusy: false, rules: null, view: '2d', onView: () => {}, show3D: true, toast: null,
+    }),
+  );
+  assert.match(tools, /class="sn-glass-row[^"]*"/, 'the thumb-zone row is not glass');
+  for (const want of ['data-seat-plan-auto', 'data-seat-plan-rules', 'data-seat-plan-view']) assert.ok(tools.includes(want), `the thumb zone has no ${want}`);
+  assert.match(tools, /<svg[\s\S]*?Auto arrange/, 'Auto arrange has no icon');
+  assert.doesNotMatch(tools, /Same layout in 3D/, 'the 3D door card is back — View ▾ holds 3D');
+
+  const peek = await html(
+    React.createElement(P.PeopleSheet, { guests: 32, unseated: 0, open: false, onOpen: () => {}, onClose: () => {}, tools: 'TOOLS' }, React.createElement('i', { 'data-stub': 'people' })),
+  );
+  assert.match(peek, /data-seat-plan-people="peek"/);
+  assert.match(peek, /data-seat-plan-people-count="">32 guests · 0 unseated</, 'the peek does not read “32 guests · 0 unseated”');
+  assert.match(peek, /hidden=""[^>]*>[\s\S]*data-stub="people"/, 'the people list shows before the sheet is raised');
+
+  const ed = read(`${SEAT}/seating-editor.tsx`);
+  /* 🗂 R4: Guests › Seats draws the same phone seat plan (`host: 'guests'`) — the Studio's frames, now its home. */
+  /* 🗂 R4: Guests › Seats wears this chrome at every width; only a phone puts the people in a sheet (`peopleInSheet`). */
+  assert.match(ed, /const studioSeat = details !== null && \(\(isPhone && maker\?\.stagesStudio === true\) \|\| inGuests\);/);
+  assert.match(ed, /const peopleInSheet = studioSeat && isPhone;/);
+  assert.match(ed, /const phoneFoot =\s*isPhone && view === 'plan' && !in3d && !studioSeat \?/, 'the Studio still draws the 3D door card under the map');
+  // (Guests › Seats › 2D draws no guest list at all — `!roomOnly`, owner 2026-11-01 "SEATS 2D IS THE ROOM".)
+  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!peopleInSheet && !roomOnly\}>/, 'the Studio’s people are drawn in the lower third too');
+  assert.match(ed, /<PeopleSheet[\s\S]{0,900}?\{guestsNode\}\s*<\/PeopleSheet>/, 'the people sheet does not hold the editor’s own list');
+  assert.match(ed, /const openDetailsEditor = \(\) => \(peopleInSheet \? setPeopleOpen\(true\) : openDetailsEditorShipped\(\)\);/, 'a table tap / Rules / the people do not raise the sheet in the Studio');
+  // (…except a TABLE on Guests › Seats › 2D, whose verbs are the slim thumb bar — owner 2026-11-01 "SEATS 2D IS THE ROOM".)
+  assert.match(ed, /if \(peopleInSheet && seatPieceKey && !\(roomOnly && highlightId\)\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
+  assert.match(ed, /const ro = new ResizeObserver\(fit\);\s*ro\.observe\(region\);/, 'the room is not fitted to the map’s box on open');
+  // In Guests (2026-10-30 "ALWAYS FULL SCREEN") the stack sits just above the thumb row via --sn-thumb-room; elsewhere as before.
+  assert.match(ed, /\$\{(?:inGuests \? '' : )?studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');
+  /* Behaviour kept: the same handlers. */
+  assert.match(ed, /<StudioSeatPlanTools\s*onAutoArrange=\{askAutoArrange\}/);
+  assert.match(ed, /onView=\{onSelectView\}/);
+  const css = (await import('./studio-details')).studioFullScreenCss();
+  assert.ok(css.includes('[data-details-item="seating"]) [data-details-editor-panel]{display:none}'), 'the lower third still takes the map’s space');
+});
+
+test('6 · Look › Music has no Save: an upload or the switch drafts at once; "Play music" is a switch', async () => {
+  const src = read(`${D}/website/editor/_components/media-panels.tsx`);
+  const panel = src.slice(src.indexOf('export function SiteChromePanel('), src.indexOf('export function VisibilityPanel('));
+  /* No Save in EITHER Maker since the 2026-10-08 restudy ("no Save anywhere") — round 3 took it off the Studio only. */
+  assert.doesNotMatch(panel, /SaveButton/, 'a Save is drawn under Music');
+  assert.match(panel, /<HubDraftField \/>/, 'Music no longer writes into the draft');
+  /* RE-AIMED 2026-10-09: this counted three spellings of `onChange={draftNow}`, and went red when the song's upload
+     began to note "a file was uploaded" BEFORE drafting (the Our music port, 2026-10-08) — the upload still drafts at
+     once. The claim is per control: the song, the switch and the video each reach `draftNow` from their own change. */
+  for (const field of ['bg_music_url', 'bg_music_enabled', 'hero_video_url']) {
+    assert.match(
+      panel,
+      new RegExp(`name="${field}"[^>]*?onChange=\\{(?:draftNow\\}|\\([^)]*\\) => \\{[^}]*\\bdraftNow\\(\\);)`),
+      `${field} does not draft at once`,
+    );
+  }
+  assert.match(panel, /formRef\.current\?\.requestSubmit\(\)/, 'nothing posts the form when a change lands');
+  assert.match(panel, /type="checkbox"\s*role=\{studio \? 'switch' : undefined\}\s*name="bg_music_enabled"/, '“Play music on my Event Hub” is not a switch in the Studio (same field)');
+  assert.match((await import('./studio-details')).studioFullScreenCss(), /\[data-music-switch\] input\[role=switch\]:checked/, 'the Studio’s CSS does not draw the music switch');
+  const action = read(`${D}/website/site-chrome/actions.ts`);
+  /* RE-AIMED 2026-10-09: this measured the DISTANCE between the two names (≤ 400 characters), and went red when Our
+     music's pick was added between them (2026-10-08). The claim is that the draft branch writes both into the draft:
+     the branch is cut out whole — from its `if` to its own draft return — and must set each on `events`. */
+  const draftFrom = action.indexOf('if (isHubDraftWrite(formData)) {');
+  const draftTo = action.indexOf('return draftEventsAndReturn(', draftFrom);
+  assert.ok(draftFrom > 0 && draftTo > draftFrom, 'the song and the video no longer have a draft branch');
+  const draftBranch = action.slice(draftFrom, draftTo);
+  assert.doesNotMatch(draftBranch, /\n  \}\n/, 'the draft branch closes before it returns into the draft');
+  /* Each form field's OWN block sets its column (Our music's pick sets the song's too — that is not the upload's). */
+  for (const [field, column] of [['bg_music_url', 'site_bg_music_r2_key'], ['hero_video_url', 'landing_page_hero_video_r2_key']] as const) {
+    assert.match(draftBranch, new RegExp(`if \\(formData\\.has\\('${field}'\\)\\) \\{[^}]*\\bevents\\.${column} = `), `${field} is not a hub-draft field`);
+  }
+});
+
+test('7 · Mood Board: Palette · Attire · Do’s & Don’ts (Inspiration is IN Palette); the attire boards live in Attire beside their role', async () => {
+  const { STUDIO_INSPIRATION_SLOTS } = await import('./inspiration-slots');
+  const src = read(`${D}/studio/mood-board/_components/mood-board-studio.tsx`);
+  /* RE-AIMED 2026-10-19 (owner: "the inspirations here and the palette can be integrated together properly" → "make it look
+     like attire"): Inspiration's boards sit on their parts in Palette, so its section is gone. */
+  assert.match(src, /\['colours', 'Palette'\],\s*\['attire', 'Attire'\],\s*\['dos', 'Do’s & Don’ts'\],/, 'the tabs are not Palette · Attire · Do’s & Don’ts (keys kept)');
+  const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]);
+  /* 👗 Seven since 2026-10-08 (owner: "go" on the four's slots, migration 20271266380994); SIX since 2026-10-14 (owner:
+     "remove entourage"). `four-more-attire-boards.test.ts` draws them. */
+  assert.deepEqual(
+    attire,
+    [['bride', 'Bridal gown'], ['groom', 'Groom’s attire'], ['bridesmaids', 'Bridesmaids'], ['groomsmen', 'Groomsmen'], ['flower_girl', 'Flower girl'], ['ring_bearer', 'Ring bearer']],
+    'the attire boards are not Bridal gown · Groom’s attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer',
+  );
+  /* (`AWAITING_A_SLOT` — the list a board without a slot waited in — is gone with step ② of PLAN
+     admin_inspiration_groups_2026-10-25: a new board is one inspiration_parts row.) */
+  assert.match(src, /\{ROOM_LANE_PARTS\.map\(partBlock\)\}/, 'the room’s boards are not on their parts');
+  /* RE-AIMED 2026-10-14: in Attire a board is the role's compact photo row (`ideasRow`, the prototype's `ideasHTML`), inside the role's block. */
+  assert.match(src, /\{attireBoardsUnder\(row\.key\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}>\s*\{ideasRow\(slot,/, 'an attire board is not beside its role');
+  assert.match(src, /\{attireBoardsAfter\(props\.attire\.map\(\(r\) => r\.key\)\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}[^>]*>\s*\{ideasRow\(slot, true\)\}/, 'a board whose role is not on the list yet has no place');
+  const row = src.slice(src.indexOf('const ideasRow = '), src.indexOf('const bar = ('));
+  assert.match(row, /onClick=\{\(\) => openUpload\(slot\.slotKey\)\}/, 'an attire board cannot take the couple’s own photo');
+  assert.match(row, /setSheet\(\{ kind: 'browse', slot \}\)/, 'an attire board cannot search the suppliers’ photos');
+  /* Both sources on every board: its own upload (+) and the suppliers' photos (Search ideas ›) — a Palette part's board is
+     the same `ideasRow` (2026-10-19). */
+  assert.match(src.slice(src.indexOf('const partBlock = '), src.indexOf('const bar = (')), /ideasRow\(/, 'a Palette part’s board is not the Attire photos line');
+});
+
+test('8 · Love Story: an EMPTY story draws its real arrangement in sample shapes; the sheet’s help sits behind ⓘ', async () => {
+  const { MomentOrderCards } = await import(`../${D}/website/our-story/_components/moment-order-cards`);
+  const { LOVE_STORY_CHAPTER_LABEL, MOMENT_ANCHORS } = await import('./love-story-moments');
+  const action = async () => {};
+  const cards = (moments: readonly unknown[]) =>
+    inStudio(
+      React.createElement(MomentOrderCards as React.ComponentType<Record<string, unknown>>, {
+        action,
+        moments,
+        mediaUrls: {},
+        sheet: { action, moments, partners: ['Maria', 'Jose'], ownsPro: false, storeShell: false, proHref: '/p', proPrice: null, eventId: 'ev-1', mediaUrls: {} },
+        add: { can: true },
+      }),
+    );
+  const empty = await cards([]);
+  const one = await cards([{ id: 'u', chapter: 'met', date: { y: 2019 }, title: 'One umbrella', line: 'A rainy Tuesday.', order: 0, canvas: {} }]);
+
+  /* An empty story is not a blank page: one sample card under each chapter a story is anchored by. */
+  const sample = /<ol data-studio-story-sample=""[^>]*>[\s\S]*?<\/ol>/.exec(empty)?.[0] ?? '';
+  assert.ok(sample, 'an empty Love Story draws no sample layout (a blank page)');
+  assert.match(sample, /^<ol data-studio-story-sample="" aria-hidden="true" class="[^"]*pointer-events-none/, 'the sample is read out, or can be tapped');
+  assert.equal((sample.match(/<li data-studio-story-sample-card=/g) ?? []).length, MOMENT_ANCHORS.length, 'not one sample card per anchored chapter');
+  /* Unmistakably a sample: the only words are the three real chapter labels — no name, no year, no line of a moment. */
+  assert.equal(seen(sample), MOMENT_ANCHORS.map((a: keyof typeof LOVE_STORY_CHAPTER_LABEL) => LOVE_STORY_CHAPTER_LABEL[a]).join(' '), 'the sample carries words that are not the real chapter labels');
+  /* The REAL arrangement: the sample card's row, photo box and words column are the real card's own. */
+  const rowOf = (li: string) => /<div class="([^"]*)">/.exec(li)?.[1];
+  const realCard = /<li[^>]*data-moment-card="u"[\s\S]*?<\/li>/.exec(one)?.[0] ?? '';
+  const sampleCard = /<li data-studio-story-sample-card="met"[\s\S]*?<\/li>/.exec(sample)?.[0] ?? '';
+  assert.ok(rowOf(realCard) && rowOf(realCard) === rowOf(sampleCard), 'the sample card is not laid out as a real card');
+  const box = (markup: string) => /(relative flex h-\d+ w-\d+ shrink-0 items-center justify-center rounded-xl)\b/.exec(markup)?.[1];
+  assert.ok(box(realCard) && box(realCard) === box(sampleCard), `the sample’s photo is not the card’s photo box (${box(sampleCard)} vs ${box(realCard)})`);
+  /* The row's own three things (the owner's Timeline row, 2026-10-08): a when, a name, a picture square. */
+  for (const shape of ['when', 'name', 'photo']) assert.ok(sampleCard.includes(`data-sample-shape="${shape}"`), `the sample row has no ${shape} shape`);
+  /* A sample is STILL — loading shimmers, this never does (the three states must not look alike). */
+  assert.doesNotMatch(sample, /animate-/, 'the sample shimmers like a loading list');
+  /* …and it is gone the moment one real moment exists. */
+  assert.doesNotMatch(one, /data-studio-story-sample/, 'the sample stays beside a real moment');
+  assert.match(one, /data-moment-card="u"/);
+  /* + Add a moment is at the foot, with or without a moment. */
+  for (const out of [empty, one]) assert.match(out, /class="[^"]*sn-glass-row[^"]*"><button[^>]*data-studio-add-moment=""[^>]*>[\s\S]*?Add a moment/, 'the + Add a moment bar changed');
+
+  /* The Add-a-moment sheet, in the Studio: each helper line is behind an ⓘ beside its label — never a paragraph. */
+  const sheet = read(`${D}/website/our-story/_components/moment-sheet-studio.tsx`);
+  for (const label of ['When', 'This one is…']) {
+    assert.match(sheet, new RegExp(`\\{studio \\? \\(\\s*<legend>\\s*<InfoTip label="${label}" labelClassName=\\{eye\\}`), `“${label}” still draws its helper paragraph in the Studio`);
+  }
+  assert.match(sheet, /\{ownsPro && studio \? \(\s*<InfoTip label="Photos" labelClassName=\{eye\}/, 'Photos’ help is not behind an ⓘ in the Studio');
+  assert.match(sheet, /label=\{studio \? undefined : 'Photos'\}\s*help=\{studio \? undefined : /, 'the upload still draws its helper line in the Studio');
+  /* Every `quiet` helper paragraph left in the file is the shipped sheet's, or the chapter rule (a consequence, said). */
+  const studioBranches = [...sheet.matchAll(/\{studio \? \(([\s\S]*?)\) : \(/g)].map((m) => m[1]!).join('\n');
+  assert.doesNotMatch(studioBranches, /<p className=\{`mt-1 text-\[13px\] \$\{quiet\}`\}>/, 'a helper paragraph is drawn on a Studio branch of the sheet');
+  /* A field brought into view stops clear of the floating foot: 68 px of foot + the sheet's 16 px bottom padding = 84. */
+  const scrollMb = Number(/\bscroll-mb-(\d+)\b/.exec(/const field = studio\s*\?\s*'([^']+)'/.exec(sheet)?.[1] ?? '')?.[1] ?? 0) * 4;
+  assert.ok(scrollMb >= 84, `a focused field can stop under the foot (it keeps ${scrollMb} px clear of the sheet’s edge; the foot takes 84)`);
+});
+
+test('9 · Studio › RSVP: Reply by is CHANGED on its row — the label, the date pill, nothing else; drafted', async () => {
+  /* Owner on the preview 2026-10-08, verbatim: *"where it the reply by date?"* → *"date is not changeable on
+     studio."* The row printed the date read-only ("set on Guests › Setup or in Event Details"), so the new Maker
+     had no place to change it on a phone. His rule: no go-elsewhere — the control is right there; and "draft
+     1-3": Reply by is edited in the Maker and waits for ✓ Apply.
+     ⤷ Same day, the templates (`INTERACTION_RULES.md` § 9, the approved gallery's own "Reply by" row): the field is
+     the app's Form row with a date — a pill with a calendar mark that opens the one calendar — never a native date
+     input. The shared part keeps the value and the one writer and hands them to the Maker's row (`layout="frame"`).
+     🛡 Sabotaged once each, each red alone (2026-10-08, S3b; again on the frame the same night): the frame handed
+     the default instead of the couple's own date → not their date; `REPLY_BY_LINE` drawn by the frame layout →
+     more than the label; the Maker's mount without `draft` → the mount; `data-writes-live` put on the framed row's
+     marks → it says it is live; a native `<input type="date">` drawn by the frame layout → a second field. */
+  const { ReplyBy } = await import(`../${D}/_components/guest-setup/reply-by`);
+  const { DateRow } = await import('../app/_components/form-row-date');
+  const props = { eventId: 'e-1', own: '2027-01-14', pricingMode: 'final_only' as const, fallback: '2026-11-12', action: (async () => ({ ok: true })) as never };
+  type Row = { name: string; own: string; fallback: string | null; keep: (day: string) => unknown; attrs: Record<`data-${string}`, string> };
+  /* The Maker's own frame, as `maker-rsvp-ask.tsx` hands it in. */
+  const frame = (r: Row) => React.createElement(DateRow, { data: 'reply-by', name: r.name, value: r.own, shown: r.fallback, onKeep: r.keep as never, attrs: r.attrs });
+  const row = await html(React.createElement(ReplyBy, { ...props, layout: 'frame', draft: true, frame: frame as never }));
+  /* ONE row — the frame's, and nothing of the part's own around it (a row must stay a direct child of its list). */
+  assert.match(row, /^<div data-setup-row="reply-by" data-rsvp-setting="reply-by" data-reply-by-field="draft" data-form-row-kind="date"[^>]*data-form-row="reply-by"/, 'Reply by is not one Form row carrying the part’s marks');
+  /* A pill a finger can change — the couple's own date, in words — and NO native field. */
+  assert.equal((row.match(/data-form-row-pill="date"/g) ?? []).length, 1, 'the Studio’s Reply by row has no date pill (or more than one control)');
+  assert.match(row, /<button type="button" data-form-row-pill="date" aria-haspopup="dialog" aria-expanded="false" aria-label="Reply by: January 14, 2027\. Tap to change"/, 'the pill is not the couple’s date');
+  assert.match(row, /data-form-row-mark="calendar"/, 'the pill does not say "pick a date"');
+  assert.doesNotMatch(row, /<input\b|type="date"|disabled/i, 'a native date field is drawn, or the date cannot be changed');
+  /* Nothing else: the label and the date are the only words; no box, no "Saved", no "Guests see this right away". */
+  assert.equal(seen(row), 'Reply by January 14, 2027', 'the row says more than its label and its date');
+  assert.doesNotMatch(row, /sn-tile|data-hub-saves-immediately|data-writes-live|>\s*Saved/, 'the row carries a box, a "Saved" or a "live" mark');
+  /* The 30-day default is READ on the pill while the couple has no date of their own. */
+  assert.match(await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: frame as never })), /aria-label="Reply by: November 12, 2026\. Tap to change"/, 'the default date is not on the pill');
+  /* What the frame is handed is the PART's: its name, the couple's own date (never the default in its place), the
+     default beside it, the one writer, and its marks. */
+  let handed: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, own: null, layout: 'frame', draft: true, frame: ((r: Row) => ((handed = r), null)) as never }));
+  assert.deepEqual({ ...(handed as unknown as Row), keep: typeof (handed as unknown as Row).keep }, { name: 'Reply by', own: '', fallback: '2026-11-12', keep: 'function', attrs: { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'draft' } });
+  /* The other doors are as they were: Setup's row keeps its sentence and its live mark; Event Details' stack its default link. */
+  /* ⤷ 2026-10-09 (step 3): Guests › Setup draws the SAME frame, live — the part says so with its marks, and the sentence is Setup's frame's (behind its ⓘ). */
+  let live: Row | null = null;
+  await html(React.createElement(ReplyBy, { ...props, layout: 'frame', frame: ((r: Row) => ((live = r), null)) as never }));
+  assert.deepEqual((live as unknown as Row).attrs, { 'data-setup-row': 'reply-by', 'data-rsvp-setting': 'reply-by', 'data-reply-by-field': 'live', 'data-writes-live': '' }, 'Guests › Setup’s Reply by row is not marked live');
+  assert.match(await html(React.createElement(ReplyBy, { ...props, layout: 'stack', draft: true })), /January 14, 2027[\s\S]*· your date[\s\S]*Use the default/, 'Event Details’ Reply by field changed');
+  /* Mounted ONCE for the reply's rows — which Studio › RSVP and the stage's form both draw — drafted, with the writer. */
+  const ask = read(`${L}/maker-rsvp-ask.tsx`);
+  /* (Within ONE mount: `(?!\/>)` never lets the match run on into Event Details' own mount below.) */
+  assert.match(ask, /const replyByRow = replyByOwn \? \(\s*<ReplyBy\s+layout="frame"\s+frame=\{replyByFrame\}(?:(?!\/>)[\s\S])*?action=\{replyByAction\}\s+draft\s*\/>/, 'the Maker does not mount the editable row, drafted');
+  assert.match(ask, /const replyByFrame = \(row: ReplyByFrame\) => <DateRow data="reply-by" name=\{row\.name\} value=\{row\.own\} shown=\{row\.fallback\} onKeep=\{row\.keep\} attrs=\{row\.attrs\} \/>;/);
+  assert.match(ask, /<FormRows data="rsvp">\s*\{replyByRow\}/, 'Reply by is not the first of the reply’s rows');
+  const part = read(`${D}/_components/guest-setup/reply-by.tsx`);
+  assert.doesNotMatch(part, /layout === 'print'|'print'/, 'the read-only print layout is back');
+  /* The part itself carries no template: Guests › Setup's page does not download the Form row or the calendar. */
+  assert.doesNotMatch(part, /form-row|calendar/i, 'the shared part imports a template (Guests › Setup would carry it)');
+});

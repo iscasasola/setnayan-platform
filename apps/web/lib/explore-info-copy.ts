@@ -32,7 +32,7 @@
  * Update the line HERE — not in the components.
  */
 
-import { TILE_HINTS } from '@/lib/category-hints';
+import { TILE_HINTS, coversLine } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
 import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-actions';
@@ -41,17 +41,16 @@ import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-act
 export const EXPLORE_INFO_BUTTON_LABEL = 'About this page';
 
 /** Heading inside the page-level ⓘ panel. */
-export const EXPLORE_INFO_TITLE = 'How Explore works';
+export const EXPLORE_INFO_TITLE = 'How Suppliers works';
 
 /** §11.1 — what this page does. */
 export const EXPLORE_INFO_WHAT =
-  'Browse every service your event needs: open a folder, open a category, and its vendors appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
+  'Browse every service your event needs: open a folder, open a category, and its suppliers appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
 /**
- * §11.1 — what the Coverage Strip means. Names the strip "your event" to match
- * `ADD_TO_PLAN_HEADING` below: the chip pool adds INTO this strip, so the two
- * must call the container the same thing or the panel explains a noun the
- * button never uses.
+ * §11.1 — what the Coverage Strip means. Names the strip "your event", the
+ * same noun every add / remove string below uses for the container, so the
+ * panel never explains a noun the buttons do not.
  */
 export const EXPLORE_INFO_STRIP =
   'The strip at the top is your event, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
@@ -77,7 +76,15 @@ export const EXPLORE_INFO_STRIP =
  * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
  */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Booking this vendor tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
+  'Booking this supplier tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
+
+/**
+ * 📅 What the settled-date banner used to say under the header (owner 2026-10-26, *"Yes — build the new Suppliers
+ * header as shown."*): the date is already on the date · place line above, so a settled date draws no banner, and
+ * this line — "free that day" — lives in the ⓘ instead. A date CONFLICT still draws its banner.
+ */
+export const EXPLORE_INFO_DATE =
+  'Once your date is set, every card shows whether that supplier is free that day.';
 
 /**
  * §11.1 — the state-glyph legend, in journey order. Glyphs come from
@@ -92,7 +99,7 @@ export const EXPLORE_STATE_LEGEND: ReadonlyArray<{
   meaning: string;
 }> = [
   { state: 'empty', glyph: COVERAGE_GLYPH.empty, label: 'Not started', meaning: 'nothing shortlisted here yet' },
-  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors saved' },
+  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Saved', meaning: 'you have suppliers saved' },
   { state: 'picked', glyph: COVERAGE_GLYPH.picked, label: 'In your build', meaning: 'a candidate is pinned to your suppliers' },
   { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Booked', meaning: 'a booking is under way or done' },
   { state: 'covered', glyph: COVERAGE_GLYPH.covered, label: 'Covered', meaning: 'you told us you are done with this one' },
@@ -169,6 +176,36 @@ export function categoryHintForTile(tile: string): string | null {
   return null;
 }
 
+/**
+ * The ⓘ of a CATEGORY row — ALWAYS an answer (owner 2026-10-31: "I added a category shoes but there is not (i)").
+ * The owner's words from Admin › Categories (`service_categories.hint_en`) → the old hard-coded line
+ * (`categoryHintForTile`, kept only as the fallback) → "Shoes covers: <its services from Admin>". See
+ * lib/category-hints.ts for the order and why.
+ */
+export function categoryInfoText(args: {
+  tile: string;
+  label: string;
+  /** `service_categories.hint_en` for this category, as the snapshot carries it. */
+  written?: string | null;
+  /** The Admin names of the services filed under this category. */
+  serviceLabels?: readonly string[];
+}): string {
+  const own = (args.written ?? '').trim();
+  if (own) return own;
+  return categoryHintForTile(args.tile) ?? coversLine(args.label, args.serviceLabels ?? [], 'category');
+}
+
+/**
+ * True when some category has neither the owner's words nor an old line, so its ⓘ must be BUILT from its services —
+ * the only case that needs the service names read. Lets the page skip that read once every category is written.
+ */
+export function someCategoryNeedsItsServicesNamed(tax: {
+  tileOrder: readonly string[];
+  categoryHints?: Readonly<Record<string, string>>;
+}): boolean {
+  return tax.tileOrder.some((t) => !tax.categoryHints?.[t]?.trim() && !categoryHintForTile(t));
+}
+
 /** aria-label for the per-category ⓘ toggle (PR-C wires the button). */
 export function categoryHintButtonLabel(label: string): string {
   return `What does ${label} cover?`;
@@ -180,28 +217,54 @@ export function categoryHintButtonLabel(label: string): string {
    a one-file diff, so none of these strings may be inlined in JSX. */
 
 /**
- * Heading above a folder's "not in your event" chip pool. Says "event", not
- * "plan" — the couple thinks in terms of the event they are building, and
- * `EXPLORE_INFO_STRIP` above names the same container the same way.
- *
  * ⚠ "PLAN" IS A RESERVED WORD in this surface's copy
  * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §2, one word / one concept):
  * a **plan** is a saved, named alternative team you compare — never the set of
  * categories your event covers. Every string in this block therefore says
- * *event*, aria-labels included. The EXPORT NAMES keep `…PLAN…` on purpose:
- * they are also `explore-in-plan.ts`'s internal vocabulary (`notInPlan`,
- * `inPlanTiles`), which is a concept, not copy.
+ * *event* or *category*, aria-labels included. The EXPORT NAMES keep `…PLAN…`
+ * on purpose: they are also `explore-in-plan.ts`'s internal vocabulary
+ * (`notInPlan`, `inPlanTiles`), which is a concept, not copy.
+ *
+ * ＋ ADD A CATEGORY IS THE LIST'S LAST ROW (owner 2026-10-26, verbatim: *"yes. this will apply to the inspiration
+ * board as well"* — prototype `suppliers_add_category_row_2026-10-26`, DECISION_LOG "ADD A CATEGORY IS THE LIST'S
+ * LAST ROW"). It replaced "Need something else? ＋ Add to your event" (a sentence and a pill under the list): ONE
+ * row in the category rows' own shape — a ＋ in the icon disc, this title, and under it the first three categories
+ * the couple has NOT added (`addCategoryPreview`), so it is clear what the list behind it holds. The same grouped
+ * dropdown opens; picking one adds it and opens its row, unchanged.
  */
-export const ADD_TO_PLAN_HEADING = '＋ Add to your event';
+export const ADD_CATEGORY_TITLE = 'Add a category';
 
-/** aria-label on one pool chip. Mirrors the heading above — a screen reader must
- *  not say "plan" over a pool the eye reads as "event". */
+/** How many categories the row's second line names before it trails off. */
+export const ADD_CATEGORY_PREVIEW_COUNT = 3;
+
+/**
+ * The row's second line: the first three labels it would offer, in the list's own order — "Food trucks, photo
+ * booth, fireworks…". The first keeps its capital; each after it is lower-cased word by word, EXCEPT a word that is
+ * not simply Capitalised ("HMUA", "DJ", "LED wall") — lower-casing an acronym misspells it. "…" only when more
+ * categories wait behind the three; an empty list gives "" (the row is not drawn then).
+ */
+export function addCategoryPreview(labels: readonly string[]): string {
+  const shown = labels.slice(0, ADD_CATEGORY_PREVIEW_COUNT).map((label, i) =>
+    i === 0 ? label : label.replace(/\S+/g, (w) => (/^[A-Z][^A-Z]*$/.test(w) ? w.toLowerCase() : w)),
+  );
+  return `${shown.join(', ')}${labels.length > ADD_CATEGORY_PREVIEW_COUNT ? '…' : ''}`;
+}
+
+/** aria-label on one pool chip. Says "event" — a screen reader must not say
+ *  "plan" over a pool the eye reads as "event". */
 export function addToPlanChipLabel(label: string): string {
   return `Add ${label} to your event`;
 }
 
 /** The quiet per-category removal control. */
 export const REMOVE_FROM_PLAN_LABEL = 'Not needed? Remove';
+
+/** The same control on the one-screen Suppliers page — it names what it removes
+ *  (owner 2026-10-07, the prototype's "Not needed · Remove Catering"). */
+export function removeFromEventLabel(label: string): string {
+  return `Not needed · Remove ${label}`;
+}
+
 
 /**
  * What removal actually does, said out loud (owner 2026-09-06: *"archive …
@@ -251,7 +314,7 @@ export function removeFromPlanButtonLabel(label: string): string {
  * the server action when it refuses — one sentence, one home.
  */
 export const REMOVE_BLOCKED_LOCKED =
-  'This category has a booked vendor. Undo that booking first — removing a category never cancels a booking.';
+  'This category has a booked supplier. Undo that booking first — removing a category never cancels a booking.';
 
 /** A folder whose in-plan set is empty but whose pool is not. Visible copy, so
  *  it takes the same noun as the heading and the ⓘ panel. */
@@ -418,15 +481,23 @@ export function inlineMoreSaveLabel(label: string): string {
 /** The secondary action. Shortlists first, because a thread needs a pick. */
 export const INLINE_MORE_INQUIRE = 'Inquire';
 
-/** Confirmation on the card that was just saved, naming where it went. */
+/**
+ * Confirmation on the card that was just saved, naming where it went.
+ *
+ * It no longer says "it's in the row above" (2026-10-12): the save now answers
+ * in place, without re-rendering the page (owner: Save on a card must not
+ * refresh the whole page), so the supplier joins the cards above only on the
+ * bench's one owed refresh — when the couple leaves Find. Until then that
+ * clause would point at a row that does not hold them yet.
+ */
 export function inlineMoreSavedNote(label: string): string {
-  return `Saved to ${label} — it's in the row above.`;
+  return `Saved to ${label}.`;
 }
 
 /** The undo beside it. See `canUndoInlineSave` for when it may be offered. */
 export const INLINE_MORE_UNDO = 'Undo';
 
-export const INLINE_MORE_LOADING = 'Finding vendors…';
+export const INLINE_MORE_LOADING = 'Finding suppliers…';
 
 /** Empty state. A query that matched nothing is a different fact from a
  *  category with nobody in it, and saying so stops the row reading as broken. */
@@ -447,8 +518,11 @@ export function inlineMoreSunkNote(count: number): string {
 /* Row 2's failures. Each one names a DIFFERENT fact, because "nothing here" and
    "we could not look" must never wear the same words on a surface whose whole
    job is to show the couple more vendors. */
-export const INLINE_MORE_FAILED = "We couldn't load more vendors just now. Try again in a moment.";
-export const INLINE_MORE_SAVE_FAILED = "We couldn't save that vendor. Nothing was added.";
+export const INLINE_MORE_FAILED = "We couldn't load more suppliers just now. Try again in a moment.";
+/** A refused Save names WHO was not saved (batch-3 walk, 2026-10-13 — the same shape as a refused Add or Remove). */
+export function inlineMoreSaveFailed(name: string): string {
+  return `${name} could not be saved. Nothing was added.`;
+}
 /**
  * The refusal when the save was handed an event this account does not host.
  * Separate from the catch-all because it is the one cause a couple can act on —
@@ -459,7 +533,7 @@ export const INLINE_MORE_NOT_YOUR_EVENT =
   "That is not one of your events, so nothing was added. Open the event you are planning and try again.";
 export const INLINE_MORE_UNDO_FAILED = "We couldn't undo that. Check the row above.";
 export const INLINE_MORE_INQUIRE_FAILED = "We couldn't open the conversation. They're saved to your shortlist.";
-export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save vendors.';
+export const INLINE_MORE_SIGNED_OUT = 'Sign in again to save suppliers.';
 
 
 /* ── A CARD'S DATES (owner 2026-09-06) ──────────────────────────────────────
@@ -501,3 +575,28 @@ export function dateOutcomeLine(o: DateOutcome): string | null {
   if (o.kind === 'sets') return `Booking this sets your date to ${formatDayKeyLabel(o.day)}`;
   return `Leaves ${formatCount(o.count)} possible dates — your date is not set yet`;
 }
+
+/* ── "MORE TO COMPARE" (owner 2026-10-07 · Suppliers PR2) ────────────────────
+   The marketplace list under a category row is no longer something the couple
+   opens — it is always there, under their own cards, with a count. These are
+   its words; the decisions are still `lib/inline-more-row.ts`. */
+
+/** The list's heading. With none of their own yet there is nothing to compare
+ *  them WITH, so the word "More" would be untrue. */
+export function moreToCompareHeading(hasOwn: boolean): string {
+  return hasOwn ? 'More to compare' : 'To compare';
+}
+
+/** Nobody to show. A search that matched nobody and a category nobody has
+ *  joined yet are different facts — and only the first has a next step here. */
+export function moreToCompareEmpty(label: string, query: string): string {
+  const q = query.trim();
+  return q
+    ? `Nobody called “${q}” in ${label} yet — add them as your own.`
+    : `Nobody else to compare in ${label} yet.`;
+}
+
+/** The quiet second verb on a card in the list: keep them, ask later. */
+export const MORE_TO_COMPARE_SAVE = 'Save';
+/** The Save press while it waits (owner rule: a press shows what is loading). */
+export const MORE_TO_COMPARE_SAVING = 'Saving…';

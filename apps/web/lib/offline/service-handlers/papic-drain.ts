@@ -232,210 +232,21 @@ async function drainSeatCapture(item: OfflineItem): Promise<SyncResult> {
   return drainPapicCaptureWith(deps, parsed, await toBytes(parsed.bytes));
 }
 
-// ── Guest (per-guest disposable camera) path ───────────────────────────────
-// The PAPIC_GUEST surface uploads through a DIFFERENT contract than the seat:
-// a multipart POST to /api/papic/guest-capture (cookie-authed guest session,
-// server-side PUT + quota-enforcing papic_record_guest_capture RPC). So its
-// drain re-POSTs the same form rather than presign+recordSeatCapture. Both
-// share the one `papic` IndexedDB store, discriminated by payload.mode.
-
-/** Queue payload for a guest capture — written by `enqueuePapicGuestCapture`. */
-export interface PapicGuestQueuePayload {
-  mode: 'guest';
-  media_type: 'photo' | 'clip';
-  content_type: string;
-  filename: string;
-  duration_ms?: number;
-  share_publicly?: boolean;
-  /** Pre-computed face vectors (JSON string), photos only — same as the live form. */
-  face_vectors?: string;
-  bytes: Blob | ArrayBuffer;
-  poster_bytes?: Blob | ArrayBuffer | null;
-  poster_filename?: string;
-  captured_at_ms: number;
-}
-
-/** Guest server states that resolve a queued item WITHOUT a successful land AND
- *  with nothing to preserve — the guest was blocked from the event, or hasn't
- *  accepted the UGC terms, so the capture can never deliver and there is no shot
- *  worth keeping. The drain drops it (dequeue). Pool exhaustion is deliberately
- *  NOT here — see GUEST_POOL_EXHAUSTED_STATES. */
-const GUEST_RESOLVED_STATES: ReadonlySet<string> = new Set([
-  'blocked',
-  'terms_required',
-]);
-
-/** The guest-capture route signals an EXHAUSTED shared event pool with EITHER
- *  string: `camera_points_exhausted` (the pool pre-check + reserve gates, HTTP
- *  409) or `quota_exhausted` (the record RPC's per-guest gate, HTTP 409). Both
- *  mean "no points right now."
- *
- *  This used to live in GUEST_RESOLVED_STATES (only `quota_exhausted`, and the
- *  `camera_points_exhausted` string wasn't even recognized), so a drained
- *  capture that hit an exhausted pool was dequeued as ok:true — silently
- *  discarded while counted as a success. New policy: exhaustion is NOT a
- *  resolved success. We return ok:false so the item stays queued + visible
- *  (its `last_error` surfaces in the admin diagnostic / per-event "waiting to
- *  upload" surfaces). A pool CAN refill (a couple top-up), so a later drain can
- *  still land the shot; if it never refills, the sync daemon's 7-day TTL /
- *  retry cap evicts it rather than looping forever.
- *
- *  ── 🚨 `quota_exhausted` NOW ALSO CARRIES THE COUPLE'S PER-GUEST CEILING ────
- *  (migration 20271184624871, `reason: 'guest_spend_ceiling'`.) CLASSIFYING IT
- *  WAS A REQUIRED DECISION, NOT AN OVERSIGHT — the build spec's own words: a
- *  ceiling refusal "must never be a terminal drain error, and must never be
- *  unregistered either."
- *
- *    • Unregistered ⇒ it falls to the generic branch, the daemon retries ~50
- *      times, and the 7-day TTL evicts it in silence. That is the 2026-08-18
- *      defect quoted below: *"they finish the night believing they captured
- *      dozens of photos that do not exist."*
- *    • Terminal ⇒ the shot is thrown away. The guest WATCHED THEMSELVES take
- *      that photograph.
- *
- *  ⚖ SO IT SITS HERE, WITH THE POOL, FOR THE SAME REASON: A CEILING CAN BE
- *  LIFTED EXACTLY AS A POT CAN BE TOPPED UP. The couple raises the number,
- *  names that guest, or presses "open the rest to everyone", and the next drain
- *  lands the shot that was waiting. Until then the item stays queued and
- *  VISIBLE — neither destroyed nor reported as saved.
- *
- *  ⚠ WHAT WAS DELIBERATELY NOT BUILT, and it is the owner's call to reverse:
- *  the spec also asks that a drained capture be ADMITTED above the ceiling,
- *  since the shot already exists. Nothing on this side of the wire can prove a
- *  POST is a replay rather than a live capture — the only signal would be a
- *  field this client sets — and `papic_record_guest_capture` is callable by
- *  `anon`. Honouring such a field would put a "skip the ceiling" switch on the
- *  public surface, so the limit could be got around by sending one more form
- *  field. Waiting, visibly, is the failure this end chose. */
-const GUEST_POOL_EXHAUSTED_STATES: ReadonlySet<string> = new Set([
-  'camera_points_exhausted',
-  'quota_exhausted',
-]);
-
-function parseGuestPayload(payload: Record<string, unknown>): PapicGuestQueuePayload | null {
-  const mediaType = payload.media_type;
-  const contentType = payload.content_type;
-  const filename = payload.filename;
-  const bytes = payload.bytes;
-  if (
-    payload.mode !== 'guest' ||
-    (mediaType !== 'photo' && mediaType !== 'clip') ||
-    typeof contentType !== 'string' ||
-    typeof filename !== 'string' ||
-    !(bytes instanceof Blob || bytes instanceof ArrayBuffer)
-  ) {
-    return null;
-  }
-  const poster = payload.poster_bytes;
-  return {
-    mode: 'guest',
-    media_type: mediaType,
-    content_type: contentType,
-    filename,
-    duration_ms: typeof payload.duration_ms === 'number' ? payload.duration_ms : undefined,
-    share_publicly: payload.share_publicly === true,
-    face_vectors: typeof payload.face_vectors === 'string' ? payload.face_vectors : undefined,
-    bytes,
-    poster_bytes: poster instanceof Blob || poster instanceof ArrayBuffer ? poster : null,
-    poster_filename:
-      typeof payload.poster_filename === 'string' ? payload.poster_filename : undefined,
-    captured_at_ms:
-      typeof payload.captured_at_ms === 'number' ? payload.captured_at_ms : 0,
-  };
-}
-
-export interface GuestPostResult {
-  ok: boolean;
-  status: number;
-  body: { status?: string; error?: string } | null;
-}
-
-/** Core guest drain with an injected `post` — unit-testable without a browser. */
-export async function drainGuestCaptureWith(
-  post: (form: FormData) => Promise<GuestPostResult>,
-  parsed: PapicGuestQueuePayload,
-): Promise<SyncResult> {
-  const form = new FormData();
-  if (parsed.media_type === 'clip') form.append('media_type', 'clip');
-  const fileBlob =
-    parsed.bytes instanceof Blob
-      ? parsed.bytes
-      : new Blob([parsed.bytes], { type: parsed.content_type });
-  form.append('file', fileBlob, parsed.filename);
-  if (parsed.poster_bytes) {
-    const posterBlob =
-      parsed.poster_bytes instanceof Blob
-        ? parsed.poster_bytes
-        : new Blob([parsed.poster_bytes], { type: 'image/jpeg' });
-    form.append('poster', posterBlob, parsed.poster_filename ?? 'poster.jpg');
-  }
-  if (typeof parsed.duration_ms === 'number') {
-    form.append('duration_ms', String(parsed.duration_ms));
-  }
-  if (parsed.share_publicly) form.append('share_publicly', '1');
-  if (parsed.face_vectors) form.append('face_vectors', parsed.face_vectors);
-  // 🕐 THE SHUTTER — and this line is the queue's half of the whole defect.
-  // `captured_at_ms` has been written into the payload since the guest queue
-  // shipped and was never put back on the wire, so a shot that waited out a
-  // dead link was re-POSTed with no time at all and filed under the minute it
-  // finally drained. A guest whose phone found signal in the car park had their
-  // whole evening stack up on one bar.
-  if (parsed.captured_at_ms > 0) {
-    form.append('captured_at_ms', String(parsed.captured_at_ms));
-  }
-
-  let res: GuestPostResult;
-  try {
-    res = await post(form);
-  } catch {
-    return { ok: false, error: 'network' };
-  }
-
-  const state = res.body?.status;
-  if (res.ok && state === 'ok') return { ok: true };
-  // Pool exhausted (either status string) — NOT a resolved success. Keep the
-  // item queued + surfaced (last_error) instead of dequeuing it as ok:true
-  // (which silently discarded the shot). A top-up can still land it on a later
-  // drain; the daemon's TTL / retry cap terminalizes it if the pool never
-  // refills. Reported under one stable error string for the diagnostic.
-  if (state && GUEST_POOL_EXHAUSTED_STATES.has(state)) {
-    return { ok: false, error: 'camera_points_exhausted' };
-  }
-  // Terminal AND nothing to save (blocked / terms) — the capture can never land
-  // and there is no shot to preserve, so resolve the item (ok:true is the only
-  // dequeue signal SyncResult exposes) so the daemon drops it.
-  if (state && GUEST_RESOLVED_STATES.has(state)) return { ok: true };
-  // Anything else (5xx, transient) — keep the item; the daemon retries.
-  return { ok: false, error: res.body?.error ?? `http_${res.status}` };
-}
-
-/** Drain one queued GUEST capture. */
-async function drainGuestCapture(item: OfflineItem): Promise<SyncResult> {
-  const parsed = parseGuestPayload(item.payload);
-  if (!parsed) return { ok: false, error: 'invalid_payload' };
-  return drainGuestCaptureWith(async (form) => {
-    const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-    const body = (await res.json().catch(() => null)) as
-      | { status?: string; error?: string }
-      | null;
-    return { ok: res.ok, status: res.status, body };
-  }, parsed);
-}
+// ── Guest + supplier shots are no longer drained here (2026-10-23) ─────────
+// They used to be re-POSTed as multipart forms to /api/papic/guest-capture and
+// /api/vendor/papic-capture — the byte path Vercel cuts at 4.5 MB (measured:
+// 413 in production). Both cameras now save every shot first and send it in
+// pieces straight to storage through the page's ONE uploader
+// (lib/papic-upload/), which also adopts any old-format guest/vendor item left
+// in this store (lib/papic-upload/browser.ts adoptLegacy). The sync daemon
+// skips them (lib/offline/sync-daemon.ts) so two senders never race.
 
 /**
- * Browser entry the sync daemon calls for the `papic` queue. Dispatches on the
- * payload's `mode`: seat captures (default) replay presign+recordSeatCapture;
- * guest captures re-POST the multipart endpoint; VENDOR captures (the
- * on-the-day controller — see papic-vendor-drain.ts) re-POST theirs. The
- * vendor drain is dynamic-imported so the seat/guest capture bundles don't
- * carry it.
+ * Browser entry the sync daemon calls for the `papic` queue — SEAT captures
+ * only (presign + recordSeatCapture). Guest/supplier/save-first items never
+ * reach here: the daemon leaves them to lib/papic-upload/.
  */
 export async function drainPapicCapture(item: OfflineItem): Promise<SyncResult> {
-  if (item.payload.mode === 'guest') return drainGuestCapture(item);
-  if (item.payload.mode === 'vendor') {
-    const { drainVendorCapture } = await import('./papic-vendor-drain');
-    return drainVendorCapture(item);
-  }
   return drainSeatCapture(item);
 }
 
@@ -469,52 +280,6 @@ export async function enqueuePapicSeatCapture(input: {
     duration_ms: input.durationMs,
     bytes: input.blob,
     geo: input.geo,
-  };
-  try {
-    return await enqueueOfflineItem('papic', {
-      event_id: input.eventId,
-      payload: payload as unknown as Record<string, unknown>,
-      last_error: input.reason,
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Persist a GUEST capture that couldn't deliver live into the `papic` queue.
- * Called by the per-guest camera UI on an infrastructure failure. The drain
- * re-POSTs the same multipart form to /api/papic/guest-capture (the guest
- * session rides the cookie, present at foreground-drain time). Returns the item
- * id, or null when persistence isn't available / fails.
- */
-export async function enqueuePapicGuestCapture(input: {
-  eventId: string;
-  mediaType: 'photo' | 'clip';
-  contentType: string;
-  filename: string;
-  blob: Blob;
-  posterBlob?: Blob | null;
-  posterFilename?: string;
-  durationMs?: number;
-  sharePublicly?: boolean;
-  faceVectors?: string;
-  capturedAtMs?: number;
-  reason?: string;
-}): Promise<string | null> {
-  if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return null;
-  const payload: PapicGuestQueuePayload = {
-    mode: 'guest',
-    media_type: input.mediaType,
-    content_type: input.contentType,
-    filename: input.filename,
-    duration_ms: input.durationMs,
-    share_publicly: input.sharePublicly,
-    face_vectors: input.faceVectors,
-    bytes: input.blob,
-    poster_bytes: input.posterBlob ?? null,
-    poster_filename: input.posterFilename,
-    captured_at_ms: input.capturedAtMs ?? Date.now(),
   };
   try {
     return await enqueueOfflineItem('papic', {

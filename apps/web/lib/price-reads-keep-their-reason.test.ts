@@ -3,7 +3,7 @@
  * but never silently (S41, the MONEY tier of `result-dropped-silently`).
  *
  * These readers price things: a seat, a branch, the Setnayan Pay fee, an
- * application fee, a Papic pack, the mood-board render config. Each one falls
+ * application fee, a Papic pack. Each one falls
  * back to a constant (or to "no price") when the catalogue cannot be read —
  * that fallback is deliberate and stays. What was wrong is that a REFUSED read
  * and a MISSING row took the same branch and left nothing behind, so "the admin
@@ -55,14 +55,12 @@ let branches: typeof import('@/lib/vendor-branches');
 let payouts: typeof import('@/lib/payouts');
 let verification: typeof import('@/lib/vendor-verification');
 let papic: typeof import('@/lib/vendor-papic-grants');
-let moodboard: typeof import('@/lib/moodboard-render-credits');
 before(async () => {
   seats = await import('@/lib/vendor-seats');
   branches = await import('@/lib/vendor-branches');
   payouts = await import('@/lib/payouts');
   verification = await import('@/lib/vendor-verification');
   papic = await import('@/lib/vendor-papic-grants');
-  moodboard = await import('@/lib/moodboard-render-credits');
 });
 
 /** Minimal thenable query builder — every chained filter returns itself; rpc too. */
@@ -96,8 +94,6 @@ const READERS: { name: string; run: (c: SupabaseClient) => Promise<unknown>; fal
   { name: 'getSetnayanFeeBps', run: (c) => payouts.getSetnayanFeeBps(c), fallback: () => payouts.DEFAULT_SETNAYAN_FEE_BPS },
   { name: 'resolveApplicationFeeCentavos', run: (c) => verification.resolveApplicationFeeCentavos(c, 'initial'), fallback: () => 0 },
   { name: 'fetchVendorPapicPackPricePhp', run: (c) => papic.fetchVendorPapicPackPricePhp(c), fallback: () => null },
-  { name: 'readMoodboardRenderConfig', run: (c) => moodboard.readMoodboardRenderConfig(c), fallback: () => null },
-  { name: 'readMoodboardRenderBalance', run: (c) => moodboard.readMoodboardRenderBalance(c, 'ev_1'), fallback: () => null },
 ];
 
 for (const r of READERS) {

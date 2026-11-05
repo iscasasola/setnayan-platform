@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { Logo } from '@/app/_components/logo';
+import { rendererLooksAppleSilicon } from '@/lib/apple-silicon-renderer';
 import { useReveal, useLineReveal, useMagnetic } from '@/app/_components/marketing/_premium';
 
 /** Quiet staggered rise of [data-reveal-item] children. */
@@ -103,9 +104,11 @@ export function MagneticDownloadButton({
  * so platform alone cannot tell an M-series Mac from an actual Intel one either.
  * The one signal that still distinguishes them is the WebGL renderer string
  * (`Apple M1/M2/M3/M4` vs an Intel/AMD GPU name), a common client-side Apple
- * Silicon detection trick — so this errs toward showing the OBS-first nudge on
- * anything inconclusive rather than staying silent on a genuinely incompatible
- * machine. It never hides or disables the native download — a false positive
+ * Silicon detection trick. Safari masks it to "Apple GPU" on every Mac, and that
+ * now reads as Apple silicon (`rendererLooksAppleSilicon`, sweep B4 2026-10-19):
+ * telling every Safari visitor on an M-series Mac they "might be an older or
+ * Intel Mac" was wrong for the many to be right for the few. An empty or
+ * Intel/AMD answer still shows the nudge. It never hides or disables the native download — a false positive
  * here costs an extra sentence, not a blocked download.
  */
 export function PlatformCompatBanner() {
@@ -136,8 +139,8 @@ export function PlatformCompatBanner() {
         renderer = '';
       }
 
-      const looksAppleSilicon = /Apple M\d/i.test(renderer);
-      setFlag(looksAppleSilicon ? 'ok' : 'nudge');
+      // Safari masks the chip as "Apple GPU" — that counts (lib/apple-silicon-renderer.ts, sweep B4).
+      setFlag(rendererLooksAppleSilicon(renderer) ? 'ok' : 'nudge');
     } catch {
       setFlag('ok');
     }

@@ -77,24 +77,16 @@ export type PriceLiteral = {
 };
 
 export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
-  // ── app-store demo · the two that were found stale on 2026-07-31 ───────────
-  {
-    file: 'app/_components/app-store/studio-card-demo.tsx',
-    literal: '₱500',
-    sku: 'ANIMATED_MONOGRAM',
-    reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one.',
-  },
-  {
-    file: 'app/_components/app-store/studio-card-demo.tsx',
-    literal: '₱2,500',
-    sku: 'PAKANTA',
-    reason: 'Music Maker demo frame checkout button.',
-  },
+  // ── app-store demo ──────────────────────────────────────────────────────────
+  // ⚖ 2026-11-04 (owner, final price sheet: "make sure there is no record of the older prices"): the demo's
+  // two SKU figures — the Logo & QR part's ₱500 and Music Maker's checkout button — were DELETED from the frames
+  // rather than re-typed at the new prices. A demo frame does not need a figure, and every declared SKU literal
+  // is a promise somebody keeps in step by hand (see the header).
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
     literal: '₱85,000',
     sku: null,
-    reason: 'Illustrative vendor quote inside a mock gallery tile — not a Setnayan SKU.',
+    reason: 'Illustrative vendor quote inside a mock photo tile — not a Setnayan SKU.',
   },
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────
@@ -157,14 +149,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'pricing their OWN booth — never stored or shown as a value.',
   },
   {
-    file: 'app/vendor-dashboard/services/_components/canvas-maker.tsx',
-    literal: '₱25,000',
-    sku: null,
-    reason:
-      'Preview card illustrating the maker (a made-up supplier, "from ₱25,000 per ' +
-      'event") — that supplier\'s own price, not a Setnayan SKU.',
-  },
-  {
     file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
     literal: '₱48,000',
     sku: null,
@@ -181,6 +165,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     literal: '₱85,000',
     sku: null,
     reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
+  },
+  {
+    file: 'app/dev/supplier-lab/couple-photos-lab.tsx',
+    literal: '₱8,500',
+    sku: null,
+    reason:
+      'A made-up supplier’s own "from" price on the DEV-ONLY lab service card (404 in production) that shows an approved couple photo — not a Setnayan SKU.',
   },
 ];
 

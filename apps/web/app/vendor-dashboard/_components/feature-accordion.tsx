@@ -2,7 +2,8 @@
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 
 /**
  * FeatureAccordion — the one-page vendor-hub accordion (owner-locked
@@ -21,6 +22,12 @@ import type { ReactNode } from 'react';
  * Visual language: Atelier glass card + chevron affordance, identical to the
  * profile Manage tiles. No hyperlinks — a header is a <button> that toggles
  * the section in place.
+ *
+ * 🔭 REVEAL ON OPEN (owner 2026-11-04, app-wide): its look (glass card, icon
+ * tile) and its server-streamed body are its own, so it is not the shared
+ * `Fold` — it joins the one rule through `useRevealOnOpen`. A tap that opens a
+ * section glides its card's head to the pin line once the body (which arrives
+ * a round trip later) settles, when it runs past the bottom.
  */
 export type AccordionSection = {
   key: string;
@@ -29,13 +36,27 @@ export type AccordionSection = {
   icon?: ReactNode;
 };
 
+/**
+ * 🖥 THE ACCORDION SITS IN ITS PAGE'S COLUMN (supplier dashboard desktop, 2026-10-23 — prototype
+ * `desktop_layouts_2026-10-22.html` family 2: "one body width per tab"). From 701 it takes the SAME measure as the page
+ * above it — the reading column (48 rem) or the wide stage (64 rem) — instead of a 72-rem slab of its own. Literal class
+ * sets so Tailwind can read them; below 701 both are exactly what shipped.
+ */
+const MEASURE = {
+  reading: 'mx-auto w-full max-w-6xl tab:max-w-3xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8',
+  wide: 'mx-auto w-full max-w-6xl tab:max-w-5xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8',
+} as const;
+
 export function FeatureAccordion({
   sections,
   openKey,
+  measure,
   children,
 }: {
   sections: AccordionSection[];
   openKey: string | null;
+  /** The page's own column — 'reading' (48 rem) or 'wide' (64 rem) from 701. */
+  measure: keyof typeof MEASURE;
   children?: ReactNode;
 }) {
   const router = useRouter();
@@ -57,49 +78,60 @@ export function FeatureAccordion({
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
-      {sections.map((s) => {
-        const isOpen = openKey === s.key;
-        return (
-          <div
-            key={s.key}
-            className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70 shadow-sm backdrop-blur-sm"
-          >
-            <button
-              type="button"
-              onClick={() => toggle(s.key)}
-              aria-expanded={isOpen}
-              className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white"
-            >
-              {s.icon ? (
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-                  {s.icon}
-                </span>
-              ) : null}
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold text-ink">
-                  {s.label}
-                </span>
-                {s.sub ? (
-                  <span className="mt-0.5 block truncate text-[12.5px] text-ink/55">
-                    {s.sub}
-                  </span>
-                ) : null}
-              </span>
-              <ChevronDown
-                aria-hidden
-                className={`h-5 w-5 shrink-0 text-ink/40 transition-transform duration-200 ${
-                  isOpen ? 'rotate-180' : ''
-                }`}
-                strokeWidth={1.75}
-              />
-            </button>
-            {isOpen ? (
-              <div className="border-t border-ink/10 bg-cream/40">{children}</div>
-            ) : null}
-          </div>
-        );
-      })}
+    <div className={MEASURE[measure]}>
+      {sections.map((s) => (
+        <Section key={s.key} s={s} isOpen={openKey === s.key} onToggle={() => toggle(s.key)}>
+          {children}
+        </Section>
+      ))}
+    </div>
+  );
+}
+
+function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpen: boolean; onToggle: () => void; children?: ReactNode }) {
+  const card = useRef<HTMLDivElement>(null);
+  // The open is a soft navigation: the section opens when the server answers, so a press stays good for a while.
+  const intend = useRevealOnOpen(isOpen, () => ({ head: card.current }), { intentMs: 10000 });
+  return (
+    <div
+      ref={card}
+      className="overflow-hidden rounded-2xl border border-ink/10 bg-white/70 shadow-sm backdrop-blur-sm"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          intend();
+          onToggle();
+        }}
+        aria-expanded={isOpen}
+        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white"
+      >
+        {s.icon ? (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+            {s.icon}
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold text-ink">
+            {s.label}
+          </span>
+          {s.sub ? (
+            <span className="mt-0.5 block truncate text-[12.5px] text-ink/55">
+              {s.sub}
+            </span>
+          ) : null}
+        </span>
+        <ChevronDown
+          aria-hidden
+          className={`h-5 w-5 shrink-0 text-ink/40 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+          strokeWidth={1.75}
+        />
+      </button>
+      {isOpen ? (
+        <div className="border-t border-ink/10 bg-cream/40">{children}</div>
+      ) : null}
     </div>
   );
 }

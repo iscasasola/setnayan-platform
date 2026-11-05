@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { LivingHeroStudio } from './_components/living-hero-studio';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
 
 /**
  * Living Hero editor (iteration 0046). The couple picks a ≤5-second moment from
@@ -45,7 +46,7 @@ export default async function LivingHeroPage({
   // 2026-09-24, "A"). `saveLivingHero` refuses it for a free couple; the studio
   // is not offered either. One they already have stays on the page and is
   // removed from the hero-photo editor.
-  const ownsPro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
+  const ownsPro = await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'reveal').catch(() => true);
   if (!ownsPro) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
@@ -78,12 +79,12 @@ export default async function LivingHeroPage({
 
       <PageMasthead title="Living hero" />
 
-      {/* The 100 MB/event allowance (DECISION_LOG 2026-09-25) — shown where a
+      {/* The event's allowance (DECISION_LOG 2026-09-25; Pro = 500 MB, and this page is Pro-only) — shown where a
           couple is about to add to it. `couple_media_bytes` defaults to 0 for
           every event created before this column existed, which is exactly
           true: nothing was counted before this meter did. */}
       <div className="mb-6">
-        <MakerMediaMeter usedBytes={(event.couple_media_bytes as number | null) ?? 0} />
+        <MakerMediaMeter usedBytes={(event.couple_media_bytes as number | null) ?? 0} capBytes={coupleMediaCapBytes(true)} />
       </div>
 
       <LivingHeroStudio

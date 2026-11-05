@@ -47,7 +47,7 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
           We couldn&rsquo;t load your guests&rsquo; messages.
         </strong>{' '}
         This does not mean nobody has written one, and nothing has been shown on
-        the wall without you. Reload in a moment.
+        Memory lane without you. Reload in a moment.
       </p>
     );
   }
@@ -193,7 +193,7 @@ export async function KwentoQueue({ eventId }: { eventId: string }) {
       </h2>
       <p className="mt-1 text-sm text-ink/60">
         Messages your guests wrote on their photos. Approve to publish; one tap
-        sends a sweet one to the venue wall. Flagged messages stay hidden until
+        sends a sweet one to Memory lane. Flagged messages stay hidden until
         you decide.
       </p>
       <KwentoQueueControls eventId={eventId} rows={enriched} />

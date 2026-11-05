@@ -213,10 +213,12 @@ test('⭐ a supplier_gallery asset filed under a NON-SLOT is REFUSED', async () 
   const msg = await refused(() =>
     newGalleryAsset({ vendorProfileId: shop, slot: 'bouquets' }),
   );
-  assert.match(msg, /supplier_gallery_shape/);
+  // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the slot is held by the trigger
+  // moodboard_library_assets_subtype_is_a_part against inspiration_parts, no longer by an IN-list.
+  assert.match(msg, /names inspiration part bouquets, which does not exist/);
 });
 
-test('every one of the 20 real inspiration slots is accepted by the gallery CHECK', async () => {
+test('every one of the 29 real inspiration slots is accepted by the gallery CHECK', async () => {
   // The three gates (MOODBOARD_SLOT_KEYS · the board's slot CHECK · this one)
   // must agree. A slot missing from THIS one fails silently: the couple's own
   // upload works and the supplier gallery for that slot is empty forever.
@@ -228,15 +230,21 @@ test('every one of the 20 real inspiration slots is accepted by the gallery CHEC
     'groom', 'bride', 'principal_sponsor', 'entourage', 'parents', 'guests',
     // 💐 step 4c (2026-10-07): both gates widened in 20271265788160.
     'bridal_bouquet', 'centrepieces',
+    // 👗 the four attire boards (2026-10-08): both gates widened in 20271266380994.
+    'bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer',
+    // 🎨🖼 the Palette's five parts with photos (2026-10-19): both gates widened in 20271278232574.
+    'chairs', 'ribbons_candles', 'lights', 'entourage_bouquets', 'flower_accents',
   ];
   for (const slot of slots) {
     await newGalleryAsset({ vendorProfileId: shop, slot });
   }
-  const board = await db.query<{ n: number }>(
-    `SELECT count(*)::int AS n FROM pg_constraint
-      WHERE conname = 'event_inspiration_assets_slot_key_check_v3'`,
+  // 🧩 Step ②: the board's 29-key CHECK became an FK into inspiration_parts — the same keys, now one table.
+  const board = await db.query<{ check_n: number; fk_n: number }>(
+    `SELECT count(*) FILTER (WHERE conname = 'event_inspiration_assets_slot_key_check_v3')::int AS check_n,
+            count(*) FILTER (WHERE conname = 'event_inspiration_assets_slot_key_is_a_part' AND contype = 'f')::int AS fk_n
+       FROM pg_constraint`,
   );
-  assert.equal(board.rows[0]!.n, 1, 'the board-side slot CHECK must still be the v3 one');
+  assert.deepEqual(board.rows[0], { check_n: 0, fk_n: 1 }, 'the board-side slot gate is not the FK into inspiration_parts');
 });
 
 /* ── 3 · NO PUBLIC PHOTO WITHOUT A RIGHTS WARRANTY ───────────────────── */

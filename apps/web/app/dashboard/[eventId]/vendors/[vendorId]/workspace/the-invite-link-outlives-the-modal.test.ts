@@ -19,19 +19,16 @@
  *          (select count(*) from vendor_invites vi where vi.vendor_id = ev.vendor_id)
  *     from public.event_vendors ev where ev.archived_at is null;
  *
- * ── What this guard pins ──────────────────────────────────────────────────
- * That the `canOfferInvite` decision reads ONLY the two facts that bear on it
- * — is this supplier off platform, and is there already a live invite — and
- * never the booking's status again. `canInviteSupplier`'s own docblock says
- * the two axes are independent (owner, 2026-09-02); this stops the page
- * re-marrying them.
- *
- * ⚠ A SOURCE GUARD, so it is pinned to the ASSIGNMENT, not to the file. It
- * slices from `const canOfferInvite` to the first `;` and asserts on that
- * window alone — a `ev.status` anywhere else on this 2,900-line page is none
- * of its business, and a guard that reacted to one would be noise nobody
- * trusts. If the expression is ever refactored out of an assignment this test
- * FAILS LOUD (the anchor is asserted present) rather than passing vacuously.
+ * ── What this guard pins (re-pointed 2026-11-02) ──────────────────────────
+ * The claim link's door moved off this page to the supplier's row on
+ * Suppliers › Booked › Team (`ClaimDoor`, booked-row.tsx — corpus
+ * SCHEDULE_CHAPTERS_BUILD_PLAN "Sync: … Move its door to the Team row"). The
+ * same rule follows it there: whether the row offers the link reads ONLY
+ * whether the supplier is off platform (`canInviteSupplier`) — never the
+ * booking's status — and its Share asks the ONE idempotent link writer, so a
+ * link is there tomorrow whether or not one was made in the add modal.
+ * Pinned to the ASSIGNMENT (`invite:` in lib/booked-rows.ts) — if it is
+ * refactored away this FAILS LOUD (the anchor is asserted present).
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,59 +38,29 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PAGE = path.join(HERE, 'page.tsx');
-const ANCHOR = 'const canOfferInvite';
+const WEB = path.resolve(HERE, '..', '..', '..', '..', '..', '..');
+const ROWS = path.join(WEB, 'lib', 'booked-rows.ts');
+const ROW = path.join(WEB, 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'booked-row.tsx');
+const ANCHOR = 'invite: canInviteSupplier(';
 
 describe('the claim link outlives the add modal', () => {
-  const src = readFileSync(PAGE, 'utf8');
+  const src = readFileSync(ROWS, 'utf8');
 
-  it('still has exactly one canOfferInvite assignment to guard', () => {
+  it('still has exactly one invite assignment to guard', () => {
     const hits = src.split(ANCHOR).length - 1;
-    assert.equal(
-      hits,
-      1,
-      `expected one \`${ANCHOR}\` assignment in page.tsx, found ${hits}. ` +
-        'If it moved or was renamed, re-point this guard — do not delete it.',
-    );
+    assert.equal(hits, 1, `expected one \`${ANCHOR}\` in lib/booked-rows.ts, found ${hits}. Re-point this guard — do not delete it.`);
   });
 
   it('does not gate the invite on the booking status', () => {
     const start = src.indexOf(ANCHOR);
-    const end = src.indexOf(';', start);
-    assert.ok(end > start, 'could not find the end of the canOfferInvite expression');
-    const expr = src.slice(start, end);
-
-    assert.ok(
-      !/\bev\.status\b/.test(expr),
-      'canOfferInvite reads ev.status again. Being off platform and being ' +
-        'booked are independent axes (owner 2026-09-02) — a couple must be ' +
-        'able to re-open the claim QR for a supplier they have only just ' +
-        'added. See lib/supplier-invite-eligibility.ts.\nExpression was:\n' +
-        expr,
-    );
-    assert.ok(
-      !/'contracted'|'deposit_paid'|'delivered'|'complete'/.test(expr),
-      'canOfferInvite names a booking status. Same rule as above — the ' +
-        'status clause is what produced the dead end on 2026-09-20.\n' +
-        'Expression was:\n' +
-        expr,
-    );
+    const expr = src.slice(start, src.indexOf('\n', start));
+    assert.ok(!/\bstatus\b|'contracted'|'deposit_paid'|'delivered'|'complete'/.test(expr), `the Team row's invite reads a booking status again:\n${expr}`);
   });
 
-  it('still asks the shared eligibility predicate', () => {
-    const start = src.indexOf(ANCHOR);
-    const expr = src.slice(start, src.indexOf(';', start));
-    assert.ok(
-      /needsInvite/.test(expr),
-      'canOfferInvite no longer reads `needsInvite` (canInviteSupplier). ' +
-        'Dropping the status clause must not also drop the ONE eligibility ' +
-        'gate — that would offer a claim link to a supplier who already has ' +
-        'an account.',
-    );
-    assert.ok(
-      /autoShareInvite/.test(expr),
-      'canOfferInvite no longer checks for an existing invite, so the page ' +
-        'would offer to CREATE one beside a live one it is already showing.',
-    );
+  it('the door asks the one link writer, which makes a link when there is none', () => {
+    const row = readFileSync(ROW, 'utf8');
+    assert.match(row, /\{row\.invite \? <ClaimDoor\b/, 'the Team row no longer draws its claim door from `invite`');
+    assert.match(row, /function ClaimDoor[\s\S]{0,1400}?<SupplierShareButton\b/, 'the claim door no longer shares through the one link writer');
   });
 });
 

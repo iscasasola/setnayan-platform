@@ -57,6 +57,31 @@ export function stageOrderPatch(
 }
 
 /**
+ * ＋ ONE PRESS, ONE SAVE (owner 2026-10-11: *"pressed undo twice before it reversed that edit. not once"*).
+ * Bringing a part back to a stage is TWO facts — its place among the stage's scenes, and that it is shown there —
+ * and they were two saves (the move, then the eye), so the draft's Undo history grew by TWO for one press: his draft
+ * held `venue_map.stage_order.rsvp = 1`, then the same with `stage_show = { rsvp: null }`, and one ↺ took back only
+ * the showing — a scene placed and still hidden, nothing on screen to see undone.
+ *
+ * This is the one patch for it: the stage's whole order (`stageOrderPatch`, when the scene lands somewhere other than
+ * where it already stands — `order` null otherwise) with the scene's own shown-on-this-stage value beside its place.
+ * `show` is what the eye stores (`lib/stage-eye.ts` `stageEyeValue`: the wanted state, or `null` — the choice taken
+ * back — when the stage's own list already has it that way). Null: a row's type is unknown here.
+ */
+export function stageAddPatch(
+  order: readonly string[] | null,
+  typeOf: (id: string) => string | undefined,
+  stage: LifecyclePhase,
+  type: string,
+  show: boolean | null,
+): HubDraftPatch | null {
+  const placed = order ? stageOrderPatch(order, typeOf, stage) : ({ widgets: {} } as HubDraftPatch);
+  if (!placed) return null;
+  const widgets = (placed.widgets ?? {}) as Record<string, Record<string, unknown>>;
+  return { widgets: { ...widgets, [type]: { ...(widgets[type] ?? {}), stage_show: { [stage]: show } } } } as HubDraftPatch;
+}
+
+/**
  * The navigator's list with its SCENES in `order` — each scene tile moved into
  * the slots the scene tiles already take, fixed tiles and Post Event scenes
  * left where they are. The render the save brings replaces it.

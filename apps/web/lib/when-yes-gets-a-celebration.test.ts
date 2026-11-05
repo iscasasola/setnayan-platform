@@ -94,10 +94,11 @@ test('a free couple: the drafted effect is HELD at Apply, named, and counted onc
   assert.equal(sum.changeCount, 1);
   assert.equal(sum.proCount, 1, 'the Apply ◆');
   const lines = hubDraftChangeLines(draftOf({ celebration: 'confetti' }), live(null), false);
-  assert.deepEqual(lines, [{ place: 'RSVP', what: 'Celebration · Confetti', pro: true, held: true }]);
+  // 💎 + the part it needs (2026-10-22, part by part) — the celebration is Motion's.
+  assert.deepEqual(lines, [{ place: 'RSVP', what: 'When they say yes · Confetti', pro: true, held: true, parts: ['motion'] }]);
   const effects = hubDraftProEffects(draftOf({ celebration: 'confetti' }), live(null), false);
   assert.equal(effects.length, 1);
-  assert.equal(effects[0]!.what, 'Celebration · Confetti');
+  assert.equal(effects[0]!.what, 'When they say yes · Confetti');
 });
 
 test('a free couple: the words drafted BESIDE a held effect still go live — without the effect', () => {
@@ -111,7 +112,7 @@ test('a free couple: the words drafted BESIDE a held effect still go live — wi
   assert.deepEqual(plan.remaining.events.rsvp_ask_config, drafted, 'the whole drafted config is kept');
   const lines = hubDraftChangeLines(draftOf(drafted), live({ meal: false }), false);
   assert.equal(lines.length, 1, 'one change, not two — the free part is its twin');
-  assert.equal(lines[0]!.what, 'What you ask your guests, Celebration · Sparklers');
+  assert.equal(lines[0]!.what, 'What you ask your guests, When they say yes · Sparklers');
   assert.equal(lines[0]!.held, true);
   // "Remove" on the Pro sheet takes the effect off and KEEPS the words.
   const effect = hubDraftProEffects(draftOf(drafted), live({ meal: false }), false)[0]!;
@@ -245,15 +246,20 @@ test('the watchdog ends it even if frames stop (a hidden tab)', { timeout: 8_000
 
 /* ── 4 · the Maker ─────────────────────────────────────────────────────── */
 
-test('the Maker offers ONE Celebration ▾ PickMenu on When yes, drafted through the one-object save', () => {
+test('the Maker offers ONE Celebration ▾ dropdown on When yes, drafted through the one-object save', () => {
   const pick = code('app/dashboard/[eventId]/launch/_components/celebration-pick.tsx');
-  assert.match(pick, /<PickMenu\s+label=\{RSVP_CELEBRATION_LABEL\}/, 'one dropdown');
+  /* The ONE dropdown, in the app's Form row since 2026-10-08 (`ChosenRow` draws the house `PickMenu`; it was a
+     bare `PickMenu` with its label laid over the button). */
+  assert.match(pick, /<ChosenRow\s+data="celebration"[\s\S]*?name=\{RSVP_CELEBRATION_LABEL\}/, 'one dropdown');
+  assert.equal((pick.match(/<ChosenRow\b/g) ?? []).length, 1, 'one dropdown');
+  assert.doesNotMatch(pick, /<PickMenu\b/, 'a second, bare dropdown');
   assert.doesNotMatch(pick, /role="radiogroup"|aria-pressed/, 'never a pill row');
   assert.match(pick, /makerProUsable\(/, 'hidden in the store shell for a couple without Pro');
   assert.match(pick, /'◆ Pro'/);
   assert.match(pick, /'Free'/);
   const panel = code('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(panel, /scene === 'thanks' && celebration \? \(\s*<CelebrationPick/, 'When yes only');
+  assert.match(panel, /\{scene === 'thanks' \? celebrationRow\(\) : null\}/, 'When yes only');
+  assert.match(panel, /const celebrationRow = \(wrap\?: \(row: ReactNode\) => ReactNode\) =>\s*celebration \? \(\s*<CelebrationPick/);
   assert.match(panel, /save\(\{ celebration: next === 'none' \? undefined : next \}/, 'the pick is drafted like every other key');
   const stage = code('app/dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx');
   assert.match(stage, /frames\.current\.thanks\?\.contentWindow/, 'played on the When yes page');

@@ -5,10 +5,11 @@
  * means, and what a human is told when the channel refuses.
  *
  * ── WHY THIS IS ITS OWN MODULE ─────────────────────────────────────────────
- * `lib/panood-webrtc.ts` reaches `lib/webrtc-telemetry.ts` → the telemetry action →
- * `lib/analytics.ts`, which carries `import 'server-only'`. The repo's unit runner
- * (`tsx --test`) cannot resolve that, so anything exported from the transport is
- * untestable there. Same pure/server split as live-studio-readiness(.ts/-server.ts).
+ * `lib/panood-webrtc.ts` once reached a `server-only` module (its WebRTC telemetry,
+ * removed 2026-10-22 with optional analytics), which the repo's unit runner
+ * (`tsx --test`) cannot resolve — so anything exported from the transport was
+ * untestable there. The split stays (same pure/server split as
+ * live-studio-readiness(.ts/-server.ts)).
  *
  * ── THE DEFECT THESE EXIST FOR (measured 2026-09-01) ───────────────────────
  * The signalling channel is `private: true`, so Supabase evaluates RLS on

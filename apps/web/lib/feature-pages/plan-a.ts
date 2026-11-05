@@ -2,7 +2,16 @@ import type { FeaturePageEntry } from './types';
 
 /**
  * Plan it (1/2) — budget · guest list · seat plan · 3D Plan · schedule.
- * Facts reused from the already-traced product pages under app/(shell)/<x>/page.tsx.
+ *
+ * Refreshed 2026-10-18 against the shipped screens (not the product pages,
+ * which still carry some of the October copy):
+ *   · Budget — the B0–B2 redo (`app/dashboard/[eventId]/budget/_components/budget-screen.tsx`):
+ *     Target · Agreed · Paid · Owed, one Next line, three groups. The suggested
+ *     split, the three spending levels, the typical range and an overdue
+ *     call-out are NOT on the page any more (the split planner was removed in B2).
+ *   · Guest list — replies are Attending / Not coming (the third answer was
+ *     switched off 2026-09-30, `lib/rsvp-ask.ts`); plus-ones are a +1/+2 pick,
+ *     not a tick-box; import is a CSV file; Setup decides how guests get in.
  */
 export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
   {
@@ -10,88 +19,106 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
     group: 'plan',
     icon: 'budget',
     name: { en: 'Budget', tl: 'Budget' },
-    line: { en: 'Planned, agreed, paid and owed — in pesos.', tl: 'Planned, agreed, bayad at utang — sa piso.' },
-    title: { en: 'Free Event Budget Planner in Pesos', tl: 'Libreng Budget Planner sa Piso' },
+    line: { en: 'Target, agreed, paid and owed — in pesos, on one screen.', tl: 'Target, agreed, bayad at utang — sa piso, sa isang screen.' },
+    title: { en: 'Free Event Budget Tracker in Pesos', tl: 'Libreng Budget Tracker sa Piso' },
     description: {
-      en: 'Set your event budget in pesos, log every supplier payment, and see what is agreed, paid and still owed. Free with every Setnayan account.',
-      tl: 'I-set ang budget ng event mo sa piso, i-log ang bawat bayad sa supplier, at makita ang agreed, bayad at utang pa. Libre sa bawat Setnayan account.',
+      en: 'Set your event budget in pesos and see what is agreed, paid and still owed. Booked suppliers and your own expenses, in one list. Free.',
+      tl: 'I-set ang budget ng event mo sa piso at makita ang agreed, bayad at utang pa. Ang na-book na supplier at sarili mong gastos, sa iisang listahan. Libre.',
     },
     answer: {
-      en: 'Setnayan Budget is a free budget planner in Philippine pesos for any event. You set your total, then watch what is agreed, paid and still owed — for the whole event and category by category. Only suppliers you have actually booked count.',
-      tl: 'Ang Setnayan Budget ay libreng budget planner sa piso para sa kahit anong event. I-set ang total mo, tapos bantayan ang agreed, bayad at utang pa — para sa buong event at bawat category. Ang mga na-book mo lang na supplier ang binibilang.',
+      en: 'Setnayan Budget is a free budget tracker in Philippine pesos for any event. Type your target, and four numbers stay current: Target, Agreed, Paid and Owed. Your booked suppliers, what you bought on Setnayan and your own expenses sit in one list, with the next payment always on top.',
+      tl: 'Ang Setnayan Budget ay libreng budget tracker sa piso para sa kahit anong event. I-type ang target mo, at laging tama ang apat na numero: Target, Agreed, Paid at Owed. Nasa iisang listahan ang na-book mong supplier, ang binili mo sa Setnayan at ang sarili mong gastos, at laging nasa taas ang susunod na bayarin.',
     },
     forWho: {
-      en: 'Anyone planning a wedding, debut, birthday or other celebration who wants one honest number instead of a spreadsheet only they update.',
-      tl: 'Para sa sinumang nagpaplano ng kasal, debut, birthday o ibang handaan na gusto ng iisang tapat na numero imbes na spreadsheet na ikaw lang ang nag-a-update.',
+      en: 'Anyone planning a wedding, debut, birthday or any other event who wants one honest number instead of a spreadsheet only they update.',
+      tl: 'Para sa sinumang nagpaplano ng kasal, debut, birthday o kahit anong event na gusto ng iisang tapat na numero imbes na spreadsheet na ikaw lang ang nag-a-update.',
     },
     steps: {
       en: [
-        'Type your total budget in pesos and take a suggested split across categories. Change any amount, anytime.',
-        'Book a supplier and their line items appear. Log each payment as the money moves; add costs with no supplier too.',
-        'See target, agreed, paid and owed, with next payments and due dates listed and overdue ones called out.',
+        'Type your target in pesos. A meter shows paid and agreed against it, and how much is left.',
+        'Book a supplier and they join the list. Record each payment with the amount, date and how you paid; add expenses with no supplier too.',
+        'The Next line names the next payment and its date, with Pay beside it. Filter to what is owing or paid, search, and download or print the budget.',
       ],
       tl: [
-        'I-type ang total budget mo sa piso at kunin ang suggested split sa bawat category. Palitan ang kahit anong halaga, kahit kailan.',
-        'Mag-book ng supplier at lalabas ang line items nila. I-log ang bawat bayad habang gumagalaw ang pera; puwede ring magdagdag ng gastos na walang supplier.',
-        'Makikita ang target, agreed, bayad at utang pa, kasama ang susunod na bayarin at due dates — may tawag-pansin ang overdue.',
+        'I-type ang target mo sa piso. Ipinapakita ng meter ang bayad at agreed laban dito, at kung magkano pa ang natitira.',
+        'Mag-book ng supplier at papasok sila sa listahan. I-record ang bawat bayad kasama ang halaga, petsa at paraan; puwede ring magdagdag ng gastos na walang supplier.',
+        'Sinasabi ng Next line ang susunod na bayarin at petsa nito, may Pay sa tabi. I-filter ang may utang pa o bayad na, maghanap, at i-download o i-print ang budget.',
       ],
     },
     different: {
       en: [
-        'Only finalized bookings count, so a quote you are still weighing is never counted as spent.',
-        'The suggested split starts from typical Filipino event costs and says plainly when a figure is a rough estimate.',
-        'Setnayan records your budget only. You pay suppliers directly; it never holds or moves your money.',
-        'A supplier can see a rounded range for their own category only if you allow it. It is off by default.',
+        'Only suppliers you have booked count, so a quote you are still weighing is never counted as spent.',
+        'A figure that could not be read shows a dash, never a false zero.',
+        'You pay suppliers directly. Setnayan records your budget and never holds or moves that money.',
+        'Suppliers you talk to can see a range for their own category only if you switch it on. It is off by default.',
+        'Muslim and Chinese weddings get their own notes: the mahr, and ang pao with a lauriat table count.',
       ],
       tl: [
-        'Ang finalized bookings lang ang binibilang, kaya ang quote na pinag-iisipan mo pa ay hindi kailanman ituturing na gastos.',
-        'Ang suggested split ay galing sa karaniwang gastos sa mga Pinoy na event, at sinasabi kung tantiya lang ang isang halaga.',
-        'Ire-record lang ng Setnayan ang budget mo. Direkta kang magbabayad sa supplier; hindi nito hinahawakan o ginagalaw ang pera mo.',
-        'Makikita ng supplier ang rounded range ng sarili nilang category kung papayagan mo lang. Naka-off ito bilang default.',
+        'Ang mga supplier lang na na-book mo ang binibilang, kaya ang quote na pinag-iisipan mo pa ay hindi kailanman ituturing na gastos.',
+        'Ang numerong hindi mabasa ay lumalabas na guhit, hindi kailanman maling zero.',
+        'Direkta kang magbabayad sa supplier. Nire-record lang ng Setnayan ang budget mo at hindi nito hinahawakan o ginagalaw ang perang iyon.',
+        'Makikita ng supplier na kausap mo ang range ng sarili nilang category kung bubuksan mo lang ito. Naka-off ito bilang default.',
+        'May sariling notes ang kasal na Muslim at Chinese: ang mahr, at ang ang pao kasama ang bilang ng lauriat tables.',
       ],
     },
     worksWith: [
-      { slug: 'marketplace', how: { en: 'Book a supplier you found and their line items land in your budget.', tl: 'I-book ang supplier na nahanap mo at mapupunta sa budget mo ang line items nila.' } },
-      { slug: 'guest-list', how: { en: 'Guest numbers sit beside your costs, so catering is planned on the same count.', tl: 'Magkatabi ang bilang ng bisita at gastos, kaya iisang bilang ang gamit sa catering.' } },
-      { slug: 'setnayan-ai', how: { en: 'Setnayan AI watches your budget and flags what needs you.', tl: 'Binabantayan ng Setnayan AI ang budget mo at sinasabi kung ano ang kailangan ng atensyon.' } },
+      { slug: 'suppliers', how: { en: 'Book a supplier on your Suppliers page and they appear in your budget.', tl: 'Mag-book ng supplier sa Suppliers page mo at lalabas sila sa budget mo.' } },
+      { slug: 'guest-list', how: { en: 'Your headcount sits beside your costs.', tl: 'Magkatabi ang bilang ng bisita at ang gastos.' } },
+      { slug: 'setnayan-ai', how: { en: 'Setnayan AI flags a payment before it is due and warns you before you go over.', tl: 'Sinasabi ng Setnayan AI ang bayarin bago ito ma-due at nagbababala bago ka lumampas.' } },
     ],
     faq: {
       en: [
-        { q: 'Is there a free event budget planner in the Philippines?', a: 'Yes. Setnayan Budget is included with every account. Set your total in pesos, take a suggested split, and log payments. Nothing to buy and nothing that expires.' },
-        { q: 'Where do the suggested amounts come from?', a: 'From typical Filipino event costs, as a starting point. Each category shows a suggested amount and a typical range. Choose Save, Standard or Splurge, or type your own.' },
-        { q: 'Does a supplier quote show up in my budget?', a: 'Not until you book them. The budget shows finalized money only. Suppliers you are still comparing stay in the Marketplace.' },
-        { q: 'Does Setnayan handle my payments?', a: 'No. You pay suppliers directly and log each payment here. Setnayan records your budget and never holds or moves your money.' },
+        { q: 'Is there a free event budget tracker in the Philippines?', a: 'Yes. Setnayan Budget is included with every account. Set your target in pesos and record payments. Nothing to buy and nothing that expires.' },
+        { q: 'Does a supplier quote show up in my budget?', a: 'Not until you book them. The budget counts booked suppliers, what you bought on Setnayan and the expenses you add yourself.' },
+        { q: 'Does Setnayan handle my payments?', a: 'No. You pay suppliers directly and record each payment here. Setnayan never holds or moves that money.' },
+        { q: 'Can I export it?', a: 'Yes. Download the budget as a spreadsheet, print it, or download your upcoming payment dates as a calendar file to import.' },
+        { q: 'Can my coordinator see it?', a: 'Only if you allow it. Budget access is off for a coordinator by default, and you can give view access from Event access.' },
       ],
       tl: [
-        { q: 'May libreng budget planner ba sa Pilipinas para sa event?', a: 'Meron. Kasama ang Setnayan Budget sa bawat account. I-set ang total sa piso, kumuha ng suggested split, at i-log ang mga bayad. Walang bibilhin at walang expiry.' },
-        { q: 'Saan galing ang suggested amounts?', a: 'Galing sa karaniwang gastos sa mga Pinoy na event, bilang panimula. May suggested amount at typical range ang bawat category. Pumili ng Save, Standard o Splurge, o mag-type ng sarili mo.' },
-        { q: 'Lalabas ba sa budget ang quote ng supplier?', a: 'Hindi hangga’t hindi mo sila na-bo-book. Finalized na pera lang ang ipinapakita. Ang mga pinag-iisipan pa ay nasa Marketplace.' },
-        { q: 'Hinahawakan ba ng Setnayan ang bayad ko?', a: 'Hindi. Direkta kang nagbabayad sa supplier at nila-log mo dito. Nire-record lang ng Setnayan ang budget mo at hindi hinahawakan o ginagalaw ang pera.' },
+        { q: 'May libreng budget tracker ba sa Pilipinas para sa event?', a: 'Meron. Kasama ang Setnayan Budget sa bawat account. I-set ang target mo sa piso at i-record ang mga bayad. Walang bibilhin at walang expiry.' },
+        { q: 'Lalabas ba sa budget ang quote ng supplier?', a: 'Hindi hangga’t hindi mo sila na-bo-book. Binibilang ng budget ang na-book na supplier, ang binili mo sa Setnayan at ang mga gastos na idinagdag mo.' },
+        { q: 'Hinahawakan ba ng Setnayan ang bayad ko?', a: 'Hindi. Direkta kang nagbabayad sa supplier at nire-record mo dito ang bawat bayad. Hindi hinahawakan o ginagalaw ng Setnayan ang perang iyon.' },
+        { q: 'Puwede ko ba itong i-export?', a: 'Puwede. I-download ang budget bilang spreadsheet, i-print, o i-download ang mga susunod na petsa ng bayarin bilang calendar file na ii-import.' },
+        { q: 'Makikita ba ito ng coordinator ko?', a: 'Kung papayagan mo lang. Naka-off ang budget para sa coordinator bilang default, at puwede mo silang bigyan ng view access mula sa Event access.' },
       ],
     },
     keywords: {
-      en: ['event budget planner Philippines', 'wedding budget in pesos', 'free budget planner', 'track supplier payments', 'debut budget'],
-      tl: ['budget planner para sa event', 'budget ng kasal sa piso', 'libreng budget planner', 'bayad sa supplier'],
+      en: ['event budget tracker Philippines', 'wedding budget in pesos', 'free budget tracker', 'track supplier payments', 'debut budget'],
+      tl: ['budget tracker para sa event', 'budget ng kasal sa piso', 'libreng budget tracker', 'bayad sa supplier'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/budget-0.jpg',
+        alt: {
+          en: 'The Budget screen on a phone: Target, Agreed, Paid and Owed, a meter, the next payment, booked suppliers, your own expenses, and Add expense with the All filter and search',
+          tl: 'Ang Budget screen sa telepono: Target, Agreed, Paid at Owed, isang meter, ang susunod na bayarin, ang na-book na supplier, sariling gastos, at Add expense kasama ang All filter at search',
+        },
+      },
+    ],
     price: { kind: 'free' },
     moreHref: '/budget',
-    evidence: ['app/(shell)/budget/page.tsx', 'lib/budget.ts', 'lib/budget-ledger.ts', 'app/dashboard/[eventId]/budget/page.tsx'],
+    evidence: [
+      'app/(shell)/budget/page.tsx',
+      'app/dashboard/[eventId]/budget/page.tsx',
+      'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',
+      'lib/budget-page-view.ts',
+      'lib/budget-ledger.ts',
+    ],
   },
   {
     slug: 'guest-list',
     group: 'plan',
     icon: 'guests',
     name: { en: 'Guest list', tl: 'Guest list' },
-    line: { en: 'Every guest, one row — RSVP, plus-one, role, table and QR.', tl: 'Bawat bisita, isang row — RSVP, plus-one, role, table at QR.' },
+    line: { en: 'Every guest, one row — reply, role, table and ticket.', tl: 'Bawat bisita, isang row — sagot, role, table at ticket.' },
     title: { en: 'Free Guest List and RSVP Tracker', tl: 'Libreng Guest List at RSVP Tracker' },
     description: {
-      en: 'Keep every guest in one list with RSVP, plus-one, meal, role and table. Each guest gets a personal link and QR. Free with every Setnayan account.',
-      tl: 'Isang listahan ang lahat ng bisita, may RSVP, plus-one, pagkain, role at table. May personal link at QR ang bawat bisita. Libre sa bawat Setnayan account.',
+      en: 'Keep every guest in one list with their reply, role, group, meal and table. Each guest gets a ticket with a QR. Free with every Setnayan account.',
+      tl: 'Isang listahan ang lahat ng bisita, may sagot, role, group, pagkain at table. May ticket na may QR ang bawat bisita. Libre sa bawat Setnayan account.',
     },
     answer: {
-      en: 'Setnayan Guest list is a free guest list and RSVP tracker for any event. Each guest is one row with their RSVP, plus-one, meal, role and table, and a personal link and QR code. Guests reply in a tap and your list updates live.',
-      tl: 'Ang Setnayan Guest list ay libreng guest list at RSVP tracker para sa kahit anong event. Isang row ang bawat bisita, may RSVP, plus-one, pagkain, role at table, at personal na link at QR code. Sumasagot ang bisita sa isang tap at live ang update ng listahan.',
+      en: 'Setnayan Guest list is a free guest list and RSVP tracker for any event. Each guest is one row with their reply, role, group, meal and table, and their own ticket with a QR code. You choose how guests get in, and replies land in the list as they arrive.',
+      tl: 'Ang Setnayan Guest list ay libreng guest list at RSVP tracker para sa kahit anong event. Isang row ang bawat bisita, may sagot, role, group, pagkain at table, at sariling ticket na may QR code. Ikaw ang pipili kung paano papasok ang bisita, at pumapasok sa listahan ang mga sagot habang dumarating.',
     },
     forWho: {
       en: 'Hosts tired of a spreadsheet, a notes app and a group chat all holding different versions of who is coming.',
@@ -99,57 +126,77 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
     },
     steps: {
       en: [
-        'Type a name and press Enter, paste your spreadsheet, or pick from people already in your account. Give each guest a side, role and group.',
-        'Share each guest’s personal link or QR, or one join link for everyone. Guests tap Yes, No or Maybe and pick a meal.',
-        'Give each guest a table, and on the day check in who actually came. The list stays open afterwards for thank-yous.',
+        'Type a name and press Enter, import a CSV file, or pick from people already in your account. Give each guest a role and a group.',
+        'In Setup, choose how guests get in: only your list, your list plus requests, or anyone with your one link. Pick what to ask and a reply-by date.',
+        'Send each guest their ticket, watch replies arrive, then finalize the list. On the day, the check-in desk scans each QR.',
       ],
       tl: [
-        'Mag-type ng pangalan at pindutin ang Enter, i-paste ang spreadsheet, o pumili sa mga tao sa account mo. Bigyan ang bawat bisita ng side, role at group.',
-        'Ibahagi ang personal link o QR ng bawat bisita, o isang join link para sa lahat. Magta-tap ang bisita ng Yes, No o Maybe at pipili ng pagkain.',
-        'Bigyan ng table ang bawat bisita, at sa mismong araw i-check in kung sino ang dumating. Bukas pa rin ang listahan pagkatapos para sa thank-yous.',
+        'Mag-type ng pangalan at pindutin ang Enter, mag-import ng CSV file, o pumili sa mga tao sa account mo. Bigyan ang bawat bisita ng role at group.',
+        'Sa Setup, piliin kung paano papasok ang bisita: ang listahan mo lang, listahan mo kasama ang requests, o kahit sinong may iisang link mo. Piliin ang itatanong at ang reply-by date.',
+        'Ipadala sa bawat bisita ang ticket nila, panoorin ang pagdating ng sagot, tapos i-finalize ang listahan. Sa mismong araw, ini-scan ng check-in desk ang bawat QR.',
       ],
     },
     different: {
       en: [
-        'Guests need no app and no account. A personal link or a QR is enough to reply.',
-        'Filipino roles are built in: principal sponsors, ninong, ninang, bearers, maid of honor, best man and more.',
-        'Tick “Allow plus-one” and a linked second row appears with its own QR.',
+        'Guests need no app and no account. Their ticket or your link is enough to reply.',
+        'Filipino roles are built in: principal sponsors, ninong, ninang, candle, veil, cord and coin sponsors, bearers, flower girl, maid of honor, best man and more.',
+        'Plus-ones are a +1 or +2 pick, and each extra seat gets its own row and QR.',
+        'People who open your link can ask to join, and you keep them or match them to a name you already have.',
         'The same list feeds your seat plan, your Event Hub and the door, so nothing is typed twice.',
       ],
       tl: [
-        'Hindi kailangan ng app o account ng bisita. Sapat na ang personal link o QR para sumagot.',
-        'Kasama na ang mga Pinoy na role: principal sponsors, ninong, ninang, bearers, maid of honor, best man at iba pa.',
-        'I-tick ang “Allow plus-one” at may lalabas na ikalawang row na may sariling QR.',
+        'Hindi kailangan ng app o account ng bisita. Sapat na ang ticket nila o ang link mo para sumagot.',
+        'Kasama na ang mga Pinoy na role: principal sponsors, ninong, ninang, candle, veil, cord at coin sponsors, bearers, flower girl, maid of honor, best man at iba pa.',
+        'Ang plus-one ay pinipili bilang +1 o +2, at may sariling row at QR ang bawat dagdag na upuan.',
+        'Ang mga nagbukas ng link mo ay puwedeng humiling na sumali, at ikaw ang magpapasya kung itatabi sila o itutugma sa pangalang nasa listahan na.',
         'Iisang listahan ang pinagkukunan ng seat plan, Event Hub at pinto, kaya walang inuulit na pag-type.',
       ],
     },
     worksWith: [
-      { slug: 'seat-plan', how: { en: 'Every guest on the list is ready to drag into a seat.', tl: 'Handa nang i-drag sa upuan ang bawat bisita sa listahan.' } },
-      { slug: 'event-hub', how: { en: 'Guests RSVP on your Event Hub and your list updates.', tl: 'Sumasagot ang bisita sa Event Hub mo at nag-a-update ang listahan.' } },
+      { slug: 'seat-plan', how: { en: 'Every guest on the list is ready to seat.', tl: 'Handa nang paupuin ang bawat bisita sa listahan.' } },
+      { slug: 'event-hub', how: { en: 'Guests reply on your Event Hub and your list updates.', tl: 'Sumasagot ang bisita sa Event Hub mo at nag-a-update ang listahan.' } },
+      { slug: 'dress-code', how: { en: 'Each guest’s role tells them what to wear and when to arrive.', tl: 'Sinasabi ng role ng bawat bisita kung ano ang isusuot at kailan darating.' } },
       { slug: 'budget', how: { en: 'Your headcount sits beside your costs.', tl: 'Magkatabi ang bilang ng bisita at ang gastos.' } },
     ],
     faq: {
       en: [
-        { q: 'Is there a free guest list app in the Philippines?', a: 'Yes. Setnayan Guest list is free with every account. It tracks RSVP, plus-ones, meals, roles and tables for any event, with nothing to buy.' },
-        { q: 'How do guests RSVP?', a: 'Each guest opens their personal link or scans their QR, then taps Yes, No or Maybe. If you ask about meals they pick theirs there too, with a note for allergies.' },
-        { q: 'Can I import my existing list?', a: 'Yes. Tap + and choose Import a file, or type a name and press Enter. You can also pick from people already in your account.' },
-        { q: 'Does it know Filipino wedding roles?', a: 'Yes. Principal sponsors, candle, veil and cord sponsors, ninong, ninang, bearers, flower girl, maid of honor, best man and more are ready to assign.' },
+        { q: 'Is there a free guest list app in the Philippines?', a: 'Yes. Setnayan Guest list is free with every account. It tracks replies, plus-ones, meals, roles and tables for any event, with nothing to buy.' },
+        { q: 'How do guests reply?', a: 'They open their ticket or your event link and answer yes or no. If you ask about meals, dietary needs, a song request or a note, they answer those there too.' },
+        { q: 'Can I import my existing list?', a: 'Yes. Save your spreadsheet as a CSV file and import it; you see a preview before anything is added. You can also download your list as an Excel file.' },
+        { q: 'Can I stop replies after a date?', a: 'Yes. Set when replies open and close, and finalize the guest list when you are ready. You can reopen it any time.' },
       ],
       tl: [
-        { q: 'May libreng guest list app ba sa Pilipinas?', a: 'Meron. Libre ang Setnayan Guest list sa bawat account. Sinusubaybayan nito ang RSVP, plus-one, pagkain, role at table para sa kahit anong event, at walang bibilhin.' },
-        { q: 'Paano sumasagot ang mga bisita?', a: 'Bubuksan ng bisita ang personal link o i-scan ang QR, tapos mag-tap ng Yes, No o Maybe. Kung nagtatanong ka tungkol sa pagkain, doon na rin sila pipili, may note para sa allergy.' },
-        { q: 'Puwede ko bang i-import ang kasalukuyang listahan ko?', a: 'Puwede. I-tap ang + at piliin ang Import a file, o mag-type ng pangalan at pindutin ang Enter. Puwede ring pumili sa mga tao sa account mo.' },
-        { q: 'Alam ba nito ang mga Pinoy na role sa kasal?', a: 'Oo. Principal sponsors, candle, veil at cord sponsors, ninong, ninang, bearers, flower girl, maid of honor, best man at iba pa ay handang i-assign.' },
+        { q: 'May libreng guest list app ba sa Pilipinas?', a: 'Meron. Libre ang Setnayan Guest list sa bawat account. Sinusubaybayan nito ang sagot, plus-one, pagkain, role at table para sa kahit anong event, at walang bibilhin.' },
+        { q: 'Paano sumasagot ang mga bisita?', a: 'Bubuksan nila ang ticket nila o ang event link mo at sasagot ng oo o hindi. Kung nagtatanong ka tungkol sa pagkain, dietary needs, song request o note, doon na rin nila sasagutin.' },
+        { q: 'Puwede ko bang i-import ang kasalukuyang listahan ko?', a: 'Puwede. I-save ang spreadsheet mo bilang CSV file at i-import ito; may preview bago may maidagdag. Puwede mo ring i-download ang listahan bilang Excel file.' },
+        { q: 'Puwede ko bang ihinto ang pagsagot pagkatapos ng isang petsa?', a: 'Puwede. Itakda kung kailan bubukas at magsasara ang pagsagot, at i-finalize ang guest list kapag handa ka na. Puwede mo itong buksan ulit kahit kailan.' },
       ],
     },
     keywords: {
       en: ['free guest list app Philippines', 'RSVP tracker', 'wedding guest list', 'debut guest list', 'ninong ninang list'],
       tl: ['libreng guest list', 'RSVP tracker', 'listahan ng bisita', 'guest list ng kasal'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/guest-list-0.jpg',
+        alt: {
+          en: 'The Guest list on a phone: List, Map and Setup, the reply counts, requests to join, and guests grouped by role',
+          tl: 'Ang Guest list sa telepono: List, Map at Setup, ang bilang ng sagot, mga humihiling sumali, at mga bisitang naka-grupo ayon sa role',
+        },
+      },
+    ],
     price: { kind: 'free' },
     moreHref: '/guest-list',
-    evidence: ['app/(shell)/guest-list/page.tsx', 'lib/guests.ts', 'lib/guest-parse.ts', 'app/dashboard/[eventId]/guests/page.tsx'],
+    evidence: [
+      'app/(shell)/guest-list/page.tsx',
+      'lib/guests.ts',
+      'lib/rsvp-ask.ts',
+      'lib/who-can-reply.ts',
+      'lib/reply-window.ts',
+      'lib/extra-seats-sync.ts',
+      'app/dashboard/[eventId]/guests/page.tsx',
+      'app/dashboard/[eventId]/guests/export/route.ts',
+    ],
   },
   {
     slug: 'seat-plan',
@@ -159,70 +206,78 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Lay out your tables and seat every guest — free.', tl: 'I-layout ang mga table at paupuin ang bawat bisita — libre.' },
     title: { en: 'Free Seating Chart Maker', tl: 'Libreng Seating Chart Maker' },
     description: {
-      en: 'Draw your room, drag guests into chairs or let Auto Arrange seat them, keep people apart, and print table signs and place cards. Free.',
+      en: 'Draw your room, drag guests into seats or let Auto Arrange seat them, keep people apart, and print table signs and place cards. Free.',
       tl: 'Iguhit ang venue, i-drag ang bisita sa upuan o hayaang i-seat ng Auto Arrange, paghiwalayin ang dapat, at i-print ang table signs at place cards. Libre.',
     },
     answer: {
-      en: 'Setnayan Seat plan is a free seating chart maker. You draw your tables, stage, entrance and dance floor, then drag each guest into a chair or let Auto Arrange seat everyone who has not declined.',
-      tl: 'Ang Setnayan Seat plan ay libreng seating chart maker. Iguguhit mo ang mga table, stage, entrance at dance floor, tapos i-drag ang bawat bisita sa upuan o hayaang i-seat ng Auto Arrange ang lahat ng hindi tumanggi.',
+      en: 'Setnayan Seat plan is a free seating chart maker. You lay out your tables, entrance and dance floor, then drag each guest into a seat or let Auto Arrange seat everyone who has not declined, with the people who matter most nearest the stage.',
+      tl: 'Ang Setnayan Seat plan ay libreng seating chart maker. Ilalatag mo ang mga table, entrance at dance floor, tapos i-drag ang bawat bisita sa upuan o hayaang i-seat ng Auto Arrange ang lahat ng hindi tumanggi, at ang pinakamahalaga ay pinakamalapit sa stage.',
     },
     forWho: {
-      en: 'Hosts and coordinators who need every guest in a chair they can see, and a chart that survives late confirmations.',
-      tl: 'Para sa mga host at coordinator na kailangang makita ang bawat bisita sa upuan, at chart na hindi masisira ng late na kumpirmasyon.',
+      en: 'Hosts and coordinators who need every guest in a seat they can see, and a chart that survives late replies.',
+      tl: 'Para sa mga host at coordinator na kailangang makita ang bawat bisita sa upuan, at chart na hindi masisira ng late na sagot.',
     },
     steps: {
       en: [
-        'Pick a room size, or take the one your booked venue gave, then add tables, the stage, the entrance and the dance floor.',
+        'Set the room size, or start from the size your booked venue gave. Build a seating draft in one tap, or add tables, the entrance and the dance floor yourself.',
         'Drag a guest onto a table, or let Auto Arrange do it. Keep some guests apart, keep groups together, and choose who sits nearest the stage.',
-        'Print the chart as a PDF with table signs and place cards, and hand your caterer the meal counts.',
+        'Print table signs with a QR and place cards as a PDF, and give your caterer the meal counts per table.',
       ],
       tl: [
-        'Pumili ng laki ng kuwarto, o gamitin ang bigay ng na-book mong venue, tapos idagdag ang mga table, stage, entrance at dance floor.',
+        'I-set ang laki ng kuwarto, o magsimula sa laking bigay ng na-book mong venue. Gumawa ng seating draft sa isang tap, o idagdag mo mismo ang mga table, entrance at dance floor.',
         'I-drag ang bisita sa table, o hayaang gawin ng Auto Arrange. Paghiwalayin ang dapat, pagsamahin ang mga grupo, at piliin kung sino ang pinakamalapit sa stage.',
-        'I-print ang chart bilang PDF na may table signs at place cards, at ibigay sa caterer ang meal counts.',
+        'I-print bilang PDF ang table signs na may QR at ang place cards, at ibigay sa caterer ang meal counts kada table.',
       ],
     },
     different: {
       en: [
         'It is complete and free. You can run your whole event on it.',
-        'A keep-apart rule is only visible to you and is honored, including for whole groups.',
-        'New guests get a provisional seat as they confirm, so the chart is not redrawn by hand.',
-        'Your coordinator can re-arrange right up until the day, one editor at a time.',
+        'A keep-apart rule is visible only to you and is honored for whole groups too.',
+        'New guests get a provisional seat, so the chart is not redrawn by hand.',
+        'One person edits at a time, so two people never undo each other’s work. Your coordinator can arrange it; publishing stays with you.',
       ],
       tl: [
         'Kumpleto at libre ito. Puwede mong patakbuhin ang buong event dito.',
-        'Ang keep-apart rule ay ikaw lang ang nakakakita at sinusunod, pati ng buong grupo.',
-        'May pansamantalang upuan ang bagong confirm na bisita, kaya hindi mo na guguhitin ulit ang chart.',
-        'Puwedeng mag-ayos ang coordinator mo hanggang mismong araw, isang editor kada oras.',
+        'Ang keep-apart rule ay ikaw lang ang nakakakita at sinusunod pati ng buong grupo.',
+        'May pansamantalang upuan ang bagong bisita, kaya hindi mo na guguhitin ulit ang chart.',
+        'Isang tao lang ang nag-e-edit sa isang pagkakataon, kaya hindi nabubura ng isa ang gawa ng iba. Puwedeng mag-ayos ang coordinator mo; ikaw pa rin ang magpa-publish.',
       ],
     },
     worksWith: [
       { slug: 'guest-list', how: { en: 'It seats the guests already on your list, with their roles and groups.', tl: 'Pinauupo nito ang mga bisitang nasa listahan mo, kasama ang role at group nila.' } },
       { slug: '3d-plan', how: { en: 'Your seat plan stands up into a 3D room you can walk.', tl: 'Ang seat plan mo ay nagiging 3D na kuwartong malalakad mo.' } },
-      { slug: 'schedule', how: { en: 'The same event, planned as a floor and as a timeline.', tl: 'Iisang event, planado bilang floor at bilang timeline.' } },
+      { slug: 'prints', how: { en: 'The seat plan, entrance chart and place cards are among your prints.', tl: 'Kasama sa prints mo ang seat plan, entrance chart at place cards.' } },
     ],
     faq: {
       en: [
-        { q: 'Is there a free seating chart maker?', a: 'Yes. Setnayan Seat plan is included with every account. It is free and complete, with no seat limit that blocks you.' },
-        { q: 'Do I have to seat everyone by hand?', a: 'No. Build a seating draft to lay out the floor in one tap, then Auto Arrange seats everyone who has not declined. Drag anyone you want to move.' },
-        { q: 'How do I keep two people apart?', a: 'Tell the plan to keep two guests apart and it seats them, and their whole groups, at different tables. Only you see that rule.' },
-        { q: 'What can I print?', a: 'A PDF of the floor and tables, printable table signs and place cards, and a meal count per table for your caterer with dietary notes.' },
+        { q: 'Is there a free seating chart maker?', a: 'Yes. Setnayan Seat plan is included with every account, free and complete.' },
+        { q: 'Do I have to seat everyone by hand?', a: 'No. Auto Arrange seats everyone who has not declined, by priority, and leaves anyone you placed yourself where they are. Drag anyone you want to move.' },
+        { q: 'How do I keep two people apart?', a: 'Tell the plan to keep two guests apart and Auto Arrange seats them, and their whole groups, at different tables. Only you see that rule.' },
+        { q: 'What can I print?', a: 'Table signs with a QR, place cards eight to a page, and a meal count per table with dietary notes for your caterer, as a print or a CSV file.' },
       ],
       tl: [
-        { q: 'May libreng seating chart maker ba?', a: 'Meron. Kasama ang Setnayan Seat plan sa bawat account. Libre at kumpleto ito, walang limitasyon sa upuan na hahadlang sa iyo.' },
-        { q: 'Kailangan ko bang i-seat nang mano-mano ang lahat?', a: 'Hindi. Gumawa ng seating draft para ma-layout ang floor sa isang tap, tapos i-seat ng Auto Arrange ang lahat ng hindi tumanggi. I-drag ang gusto mong ilipat.' },
-        { q: 'Paano ko paghihiwalayin ang dalawang tao?', a: 'Sabihin sa plan na paghiwalayin ang dalawang bisita at ilalagay sila, pati ang buong grupo nila, sa magkaibang table. Ikaw lang ang nakakakita ng rule na iyon.' },
-        { q: 'Ano ang puwede kong i-print?', a: 'PDF ng floor at mga table, printable na table signs at place cards, at meal count kada table para sa caterer na may dietary notes.' },
+        { q: 'May libreng seating chart maker ba?', a: 'Meron. Kasama ang Setnayan Seat plan sa bawat account, libre at kumpleto.' },
+        { q: 'Kailangan ko bang i-seat nang mano-mano ang lahat?', a: 'Hindi. Ini-seat ng Auto Arrange ang lahat ng hindi tumanggi, ayon sa priority, at hindi ginagalaw ang mga ikaw mismo ang naglagay. I-drag ang gusto mong ilipat.' },
+        { q: 'Paano ko paghihiwalayin ang dalawang tao?', a: 'Sabihin sa plan na paghiwalayin ang dalawang bisita at ilalagay sila ng Auto Arrange, pati ang buong grupo nila, sa magkaibang table. Ikaw lang ang nakakakita ng rule na iyon.' },
+        { q: 'Ano ang puwede kong i-print?', a: 'Table signs na may QR, place cards na walo bawat pahina, at meal count kada table na may dietary notes para sa caterer, bilang print o CSV file.' },
       ],
     },
     keywords: {
       en: ['free seating chart maker', 'wedding seating plan', 'table assignment', 'reception seating Philippines', 'place cards'],
       tl: ['libreng seating chart', 'seat plan ng kasal', 'upuan ng bisita', 'table assignment'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/seat-plan-0.jpg',
+        alt: {
+          en: 'A table in the Seat plan on a phone: Table 10 with six of eight seats taken, and its name, shape and seat count',
+          tl: 'Isang table sa Seat plan sa telepono: Table 10 na anim sa walong upuan ang may nakaupo, kasama ang pangalan, hugis at bilang ng upuan',
+        },
+      },
+    ],
     price: { kind: 'free' },
     moreHref: '/seat-plan',
-    evidence: ['app/(shell)/seat-plan/page.tsx', 'lib/seating.ts', 'lib/seating-pdf.ts', 'lib/seat-suggest.ts'],
+    evidence: ['app/(shell)/seat-plan/page.tsx', 'lib/seating.ts', 'lib/seating-pdf.ts', 'lib/seat-suggest.ts', 'lib/print-seating-pack.ts'],
   },
   {
     slug: '3d-plan',
@@ -244,26 +299,26 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Para sa mga host, coordinator at stylist na gustong iisa ang larawan ng lahat sa kuwarto bago pa ito umiral.',
     },
     steps: {
-      en: ['Lay out your tables in the free seat plan.', 'Switch to the 3D view and your flat plan stands up into a room you can walk.', 'Fix the tight aisle or blocked view while there is still time, and show others the exact room.'],
-      tl: ['I-layout ang mga table sa libreng seat plan.', 'Lumipat sa 3D view at ang flat plan mo ay tatayo bilang kuwartong malalakad.', 'Ayusin ang masikip na aisle o nakaharang na view habang may oras pa, at ipakita sa iba ang eksaktong kuwarto.'],
+      en: ['Lay out your tables in the free seat plan.', 'Open the 3D view and your flat plan stands up into a room you can walk. Changes to the plan flow straight in.', 'Fix the tight aisle or blocked view while there is still time, and show others the exact room.'],
+      tl: ['I-layout ang mga table sa libreng seat plan.', 'Buksan ang 3D view at ang flat plan mo ay tatayo bilang kuwartong malalakad. Pumapasok agad ang mga pagbabago sa plan.', 'Ayusin ang masikip na aisle o nakaharang na view habang may oras pa, at ipakita sa iba ang eksaktong kuwarto.'],
     },
     different: {
-      en: ['It builds on your seat plan, so there is no room to rebuild from scratch.', 'It runs in the browser with nothing to install.', 'You can walk your coordinator, family or stylist through the exact room.'],
-      tl: ['Nakabase ito sa seat plan mo, kaya hindi mo kailangang buuin ang kuwarto mula sa simula.', 'Tumatakbo ito sa browser at walang ii-install.', 'Maaari mong ilibot ang coordinator, pamilya o stylist sa eksaktong kuwarto.'],
+      en: ['It builds on your seat plan, so there is no room to rebuild from scratch.', 'It runs in the browser with nothing to install.', 'The wedding party wears the colours you set for their role on your Mood Board.'],
+      tl: ['Nakabase ito sa seat plan mo, kaya hindi mo kailangang buuin ang kuwarto mula sa simula.', 'Tumatakbo ito sa browser at walang ii-install.', 'Suot ng wedding party ang kulay na itinakda mo para sa role nila sa Mood Board mo.'],
     },
     worksWith: [
       { slug: 'seat-plan', how: { en: 'It reads your tables and dance floor straight from the seat plan.', tl: 'Binabasa nito ang mga table at dance floor mula mismo sa seat plan.' } },
-      { slug: 'mood-board', how: { en: 'People in the room wear the colors you set for their role.', tl: 'Ang mga tao sa kuwarto ay suot ang kulay na itinakda mo para sa role nila.' } },
+      { slug: 'mood-board', how: { en: 'The wedding party wears the role colours you set.', tl: 'Suot ng wedding party ang role colors na itinakda mo.' } },
     ],
     faq: {
       en: [
-        { q: 'Do I build the 3D room from scratch?', a: 'No. It builds on the seat plan you already make. Switch to the 3D view and your plan stands up into a room.' },
+        { q: 'Do I build the 3D room from scratch?', a: 'No. It builds on the seat plan you already make. Open the 3D view and your plan stands up into a room.' },
         { q: 'Is 3D Plan free?', a: 'Yes. The seat plan and 3D Plan are both free.' },
         { q: 'What can I catch with it?', a: 'What a flat chart hides: a view blocked by a pillar, a path too tight for a gown, a head table that looks smaller than you pictured.' },
         { q: 'Does it need a special device?', a: 'No. It runs in the browser on the phone or laptop you already use.' },
       ],
       tl: [
-        { q: 'Kailangan ko bang buuin ang 3D na kuwarto mula sa simula?', a: 'Hindi. Nakabase ito sa seat plan na ginagawa mo na. Lumipat sa 3D view at tatayo ang plan mo bilang kuwarto.' },
+        { q: 'Kailangan ko bang buuin ang 3D na kuwarto mula sa simula?', a: 'Hindi. Nakabase ito sa seat plan na ginagawa mo na. Buksan ang 3D view at tatayo ang plan mo bilang kuwarto.' },
         { q: 'Libre ba ang 3D Plan?', a: 'Oo. Libre ang seat plan at ang 3D Plan.' },
         { q: 'Ano ang makikita ko dito?', a: 'Ang itinatago ng flat na chart: view na nakaharang ang haligi, daanang masikip para sa gown, head table na mukhang mas maliit kaysa inakala mo.' },
         { q: 'Kailangan ba ng espesyal na device?', a: 'Hindi. Tumatakbo ito sa browser ng telepono o laptop na gamit mo na.' },
@@ -273,65 +328,138 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       en: ['3D venue layout', 'virtual reception layout', 'wedding 3D seating plan', 'walkthrough your venue'],
       tl: ['3D na layout ng venue', '3D seat plan', 'libreng 3D plan'],
     },
-    shots: [],
+    shots: [
+      {
+        src: '/feature-shots/3d-plan-0.jpg',
+        alt: {
+          en: 'The 3D Plan on a phone: a sample reception seen from above — round tables with seated guests, the stage and the dance floor — with Walk around and the role colours switched on',
+          tl: 'Ang 3D Plan sa telepono: isang sample na reception na tanaw mula sa itaas — mga bilog na table na may nakaupong bisita, ang stage at ang dance floor — kasama ang Walk around at nakabukas ang role colors',
+        },
+      },
+    ],
     price: { kind: 'free' },
     tryHref: '/pa3d/try',
     moreHref: '/pa3d',
-    evidence: ['app/(shell)/pa3d/page.tsx', 'app/(shell)/pa3d/try/page.tsx', 'lib/seating-3d.ts'],
+    evidence: ['app/(shell)/pa3d/page.tsx', 'app/(shell)/pa3d/try/page.tsx', 'lib/seating-3d.ts', 'app/dashboard/[eventId]/plan3d/page.tsx'],
   },
   {
     slug: 'schedule',
     group: 'plan',
     icon: 'schedule',
     name: { en: 'Schedule', tl: 'Schedule' },
-    line: { en: 'Your day, block by block, live for guests and suppliers.', tl: 'Ang araw mo, block por block, live para sa bisita at supplier.' },
+    line: { en: 'Your day, moment by moment, live for guests and suppliers.', tl: 'Ang araw mo, bawat sandali, live para sa bisita at supplier.' },
     title: { en: 'Event Day Schedule and Run-of-Show', tl: 'Schedule at Run-of-Show ng Event' },
     description: {
-      en: 'Build your day-of timeline with times, places and who is responsible. Show blocks to guests, shift everything when you run late. Free.',
-      tl: 'Buuin ang timeline ng araw mo na may oras, lugar at responsable. Ipakita ang blocks sa bisita, at ilipat lahat kapag na-late. Libre.',
+      en: 'Build your day-of timeline with times, places and who is responsible. Show moments to guests, shift everything when you run late. Free.',
+      tl: 'Buuin ang timeline ng araw mo na may oras, lugar at responsable. Ipakita ang mga sandali sa bisita, at ilipat lahat kapag na-late. Libre.',
     },
     answer: {
-      en: 'Setnayan Schedule is the run-of-show for your event, free with every account. You add blocks like ceremony, cocktails and dinner, each with a time, a place and who is responsible. Blocks you choose show on your guests’ invitation site with a live “happening now”.',
-      tl: 'Ang Setnayan Schedule ang run-of-show ng event mo, libre sa bawat account. Nagdadagdag ka ng blocks gaya ng ceremony, cocktails at dinner, bawat isa may oras, lugar at responsable. Ang blocks na pipiliin mo ay lalabas sa invitation site ng bisita na may live na “happening now”.',
+      en: 'Setnayan Schedule is the run-of-show for your event, free with every account. You add moments like the ceremony, cocktails and dinner, each with a start, an end, a place and who is responsible. Moments you make visible show on your Event Hub with a live “happening now” on the day.',
+      tl: 'Ang Setnayan Schedule ang run-of-show ng event mo, libre sa bawat account. Nagdadagdag ka ng mga sandali gaya ng ceremony, cocktails at dinner, bawat isa may simula, tapos, lugar at responsable. Ang mga sandaling gagawin mong visible ay lalabas sa Event Hub mo na may live na “happening now” sa mismong araw.',
     },
     forWho: {
       en: 'Hosts and coordinators who want one timeline that guests, suppliers and the emcee all read from.',
       tl: 'Para sa mga host at coordinator na gustong iisang timeline ang binabasa ng bisita, supplier at emcee.',
     },
     steps: {
-      en: ['Add blocks, or load a run-of-show template. Give each a time, place and notes.', 'Name who is responsible and tag booked suppliers. Switch on Show to guests for blocks that belong on the invitation site.', 'On the day, start the next block. Running late? Shift a block and everything after it, durations kept.'],
-      tl: ['Magdagdag ng blocks, o mag-load ng run-of-show template. Bigyan ang bawat isa ng oras, lugar at notes.', 'Ilagay kung sino ang responsable at i-tag ang na-book na supplier. I-on ang Show to guests para sa blocks na dapat nasa invitation site.', 'Sa mismong araw, simulan ang susunod na block. Na-late? Ilipat ang isang block at lahat ng kasunod, buo ang haba.'],
+      en: ['Add moments, or start from a template such as a classic wedding day or a reception program. Give each a time, a place and notes.', 'Tag the supplier responsible, and mark which moments are visible to guests.', 'On the day, start the next moment. Running late? Shift everything after it and every length is kept.'],
+      tl: ['Magdagdag ng mga sandali, o magsimula sa template gaya ng classic wedding day o reception program. Bigyan ang bawat isa ng oras, lugar at notes.', 'I-tag ang supplier na responsable, at markahan kung aling mga sandali ang visible sa bisita.', 'Sa mismong araw, simulan ang susunod na sandali. Na-late? Ilipat ang lahat ng kasunod at buo ang bawat haba.'],
     },
     different: {
-      en: ['Guests see only the blocks you choose to show, with a live “happening now” highlight.', 'Shift one block and everything after it moves, with every duration kept.', 'Suppliers can suggest changes but never edit your timeline; you accept or decline.', 'The same program compiles into a ready-to-read emcee script.'],
-      tl: ['Ang bisita ay makikita lang ang blocks na pinili mong ipakita, na may live na “happening now”.', 'Ilipat ang isang block at gumagalaw ang lahat ng kasunod, buo ang bawat haba.', 'Puwedeng magmungkahi ang supplier pero hindi nila mababago ang timeline mo; ikaw ang tatanggap o tatanggi.', 'Ang parehong programa ay nagiging handang basahing script para sa emcee.'],
+      en: ['Guests see only the moments you make visible, with a live “happening now” on the day.', 'Shift one moment and everything after it moves, with every length kept. The header says how far ahead or behind you are.', 'Suppliers can ask to change, add or remove a moment but never edit your timeline; you approve or decline.', 'The same program becomes an emcee script you can download.'],
+      tl: ['Ang bisita ay makikita lang ang mga sandaling ginawa mong visible, na may live na “happening now” sa mismong araw.', 'Ilipat ang isang sandali at gumagalaw ang lahat ng kasunod, buo ang bawat haba. Sinasabi ng header kung gaano ka kaaga o ka-late.', 'Puwedeng humiling ang supplier na baguhin, idagdag o tanggalin ang isang sandali pero hindi nila mababago ang timeline mo; ikaw ang mag-a-approve o tatanggi.', 'Ang parehong programa ay nagiging emcee script na puwedeng i-download.'],
     },
     worksWith: [
-      { slug: 'event-hub', how: { en: 'Public blocks appear on your Event Hub.', tl: 'Lumalabas sa Event Hub mo ang public na blocks.' } },
-      { slug: 'marketplace', how: { en: 'Tag a booked supplier on a block and it shows in their own run-of-show.', tl: 'I-tag ang na-book na supplier sa block at lalabas ito sa sarili nilang run-of-show.' } },
-      { slug: 'seat-plan', how: { en: 'The floor and the timeline describe the same event.', tl: 'Iisang event ang inilalarawan ng floor at ng timeline.' } },
+      { slug: 'event-hub', how: { en: 'Visible moments appear on your Event Hub.', tl: 'Lumalabas sa Event Hub mo ang mga visible na sandali.' } },
+      { slug: 'suppliers', how: { en: 'Tag a booked supplier on a moment and it shows in their own run-of-show.', tl: 'I-tag ang na-book na supplier sa isang sandali at lalabas ito sa sarili nilang run-of-show.' } },
+      { slug: 'dress-code', how: { en: 'Call times tell each role when to arrive.', tl: 'Sinasabi ng call time sa bawat role kung kailan darating.' } },
     ],
     faq: {
       en: [
-        { q: 'What is a run-of-show?', a: 'It is the day-of timeline. Setnayan Schedule lets you build it block by block with times, places and who is responsible.' },
+        { q: 'What is a run-of-show?', a: 'It is the day-of timeline. Setnayan Schedule lets you build it moment by moment with times, places and who is responsible.' },
         { q: 'Is the schedule free?', a: 'Yes. It is included with every Setnayan account.' },
-        { q: 'Who can see my schedule?', a: 'Only what you choose. Each block has a Show to guests switch. Hidden blocks stay private.' },
-        { q: 'What if the day runs late?', a: 'Shift a block and everything after it moves by the same amount with durations kept. The header shows whether you are ahead, behind or on time.' },
+        { q: 'Who can see my schedule?', a: 'Only what you choose. Each moment can be made visible to guests; hidden moments stay private.' },
+        { q: 'What if the day runs late?', a: 'Shift a moment and everything after it moves by the same amount with lengths kept. The header shows whether you are ahead, behind or on time.' },
       ],
       tl: [
-        { q: 'Ano ang run-of-show?', a: 'Ito ang timeline ng mismong araw. Sa Setnayan Schedule, bubuuin mo ito block por block na may oras, lugar at responsable.' },
+        { q: 'Ano ang run-of-show?', a: 'Ito ang timeline ng mismong araw. Sa Setnayan Schedule, bubuuin mo ito bawat sandali na may oras, lugar at responsable.' },
         { q: 'Libre ba ang schedule?', a: 'Oo. Kasama ito sa bawat Setnayan account.' },
-        { q: 'Sino ang nakakakita ng schedule ko?', a: 'Ang pinili mo lang. May Show to guests na switch ang bawat block. Pribado ang mga nakatagong block.' },
-        { q: 'Paano kung ma-late ang araw?', a: 'Ilipat ang isang block at lahat ng kasunod ay susunod sa parehong dami, buo ang haba. Ipinapakita ng header kung advance, late o on time ka.' },
+        { q: 'Sino ang nakakakita ng schedule ko?', a: 'Ang pinili mo lang. Puwedeng gawing visible sa bisita ang bawat sandali; pribado ang mga nakatago.' },
+        { q: 'Paano kung ma-late ang araw?', a: 'Ilipat ang isang sandali at lahat ng kasunod ay susunod sa parehong dami, buo ang haba. Ipinapakita ng header kung advance, late o on time ka.' },
       ],
     },
     keywords: {
       en: ['run of show template', 'wedding day timeline', 'event schedule maker', 'program of events Philippines'],
       tl: ['run of show', 'timeline ng kasal', 'schedule ng event'],
     },
-    shots: [{ src: '/demo/maria-jose/ceremony.webp', alt: { en: 'A bride and groom kneeling before the altar of a candlelit stone church', tl: 'Ikinasal na magkasintahang nakaluhod sa harap ng altar ng kandilang-ilaw na batong simbahan' } }],
+    shots: [
+      { src: '/demo/maria-jose/ceremony.webp', alt: { en: 'A bride and groom kneeling before the altar of a candlelit stone church', tl: 'Ikinasal na magkasintahang nakaluhod sa harap ng altar ng kandilang-ilaw na batong simbahan' } },
+      {
+        src: '/feature-shots/schedule-0.jpg',
+        alt: {
+          en: 'The Schedule on a phone: the day’s moments on a timeline, which ones guests see, and two supplier requests waiting',
+          tl: 'Ang Schedule sa telepono: ang mga sandali ng araw sa isang timeline, alin ang nakikita ng bisita, at dalawang request ng supplier na naghihintay',
+        },
+      },
+    ],
     price: { kind: 'free' },
     moreHref: '/schedule',
-    evidence: ['app/(shell)/schedule/page.tsx', 'lib/schedule.ts', 'lib/schedule-run-of-show.ts', 'app/dashboard/[eventId]/schedule/page.tsx'],
+    evidence: ['app/(shell)/schedule/page.tsx', 'lib/schedule.ts', 'lib/schedule-run-of-show.ts', 'lib/schedule-ros.ts', 'app/dashboard/[eventId]/schedule/page.tsx'],
+  },
+  {
+    /*
+      ADDED 2026-10-23 — owner 2026-10-01 ("SIDEBAR COLLAPSE + FEATURES PAGE — OWNER
+      ANSWERS": /features "ALSO lists Date picker"), built with the rail's tool lists
+      leaving the menu. In-app only (no public try page), so no Try it.
+    */
+    slug: 'date-picker',
+    group: 'plan',
+    icon: 'date',
+    name: { en: 'Date picker', tl: 'Date picker' },
+    line: { en: 'Set your date, or let your suppliers’ calendars help you choose.', tl: 'I-set ang petsa mo, o hayaang tumulong ang kalendaryo ng supplier.' },
+    title: { en: 'Choose Your Event Date', tl: 'Pumili ng Petsa ng Event' },
+    description: {
+      en: 'Set your event date, or compare dates by which of your saved suppliers are free and which fall on a long weekend. Free.',
+      tl: 'I-set ang petsa ng event mo, o ikumpara ang mga petsa ayon sa kung aling na-save na supplier ang libre at alin ang long weekend. Libre.',
+    },
+    answer: {
+      en: 'The Setnayan date picker sets your event’s date or helps you choose one. Pick a date you already have in mind, or ask for help choosing: it ranks your candidate dates by how many of your shortlisted suppliers are free, and notes a date next to a holiday long weekend. Not ready yet is an answer too.',
+      tl: 'Ang Setnayan date picker ang nagse-set ng petsa ng event mo o tumutulong pumili nito. Piliin ang petsang nasa isip mo na, o humingi ng tulong sa pagpili: inaayos nito ang mga kandidatong petsa ayon sa dami ng supplier sa shortlist mo na libre, at sinasabi kung katabi ng holiday long weekend ang petsa. Puwede ring sabihing hindi ka pa handa.',
+    },
+    forWho: {
+      en: 'Hosts who have not set a date yet, or who want the date their suppliers can actually do.',
+      tl: 'Para sa mga host na wala pang petsa, o gustong petsang kaya talaga ng mga supplier nila.',
+    },
+    steps: {
+      en: ['Open your event’s date.', 'Pick the date you have in mind, or ask for help choosing.', 'Compare the dates side by side and keep the one that works.'],
+      tl: ['Buksan ang petsa ng event mo.', 'Piliin ang petsang nasa isip mo, o humingi ng tulong sa pagpili.', 'Ikumpara ang mga petsa nang magkatabi at piliin ang bagay.'],
+    },
+    different: {
+      en: ['Dates are ranked by your shortlisted suppliers’ own calendars, not by a guess.', 'A date next to a holiday is marked as a long weekend, so guests can travel.', '“Not ready yet” is a real answer — the rest of your planning keeps going.'],
+      tl: ['Inaayos ang mga petsa ayon sa sariling kalendaryo ng mga supplier sa shortlist mo, hindi hula.', 'Minamarkahan bilang long weekend ang petsang katabi ng holiday, para makabiyahe ang bisita.', 'Totoong sagot ang “hindi pa handa” — tuloy ang iba mong pagpaplano.'],
+    },
+    worksWith: [
+      { slug: 'marketplace', how: { en: 'Suppliers you save are the ones whose calendars rank your dates.', tl: 'Ang mga supplier na na-save mo ang kalendaryong nag-aayos ng mga petsa mo.' } },
+      { slug: 'suppliers', how: { en: 'Your Suppliers page shows who is free on the date you keep.', tl: 'Ipinapakita ng Suppliers page mo kung sino ang libre sa petsang pinili mo.' } },
+    ],
+    faq: {
+      en: [
+        { q: 'How do I choose a date?', a: 'Open your event’s date and ask for help choosing. Your candidate dates are ranked by how many of your shortlisted suppliers are free.' },
+        { q: 'What if I have no date yet?', a: 'Choose “I’m not ready yet”. You can plan everything else and come back to the date later.' },
+        { q: 'Is the date picker free?', a: 'Yes. It is included with every Setnayan account.' },
+      ],
+      tl: [
+        { q: 'Paano ako pipili ng petsa?', a: 'Buksan ang petsa ng event mo at humingi ng tulong sa pagpili. Inaayos ang mga kandidatong petsa ayon sa dami ng supplier sa shortlist mo na libre.' },
+        { q: 'Paano kung wala pa akong petsa?', a: 'Piliin ang “I’m not ready yet”. Maplano mo ang iba at balikan ang petsa mamaya.' },
+        { q: 'Libre ba ang date picker?', a: 'Oo. Kasama ito sa bawat Setnayan account.' },
+      ],
+    },
+    keywords: {
+      en: ['choose a wedding date', 'wedding date picker', 'best date for my event'],
+      tl: ['pumili ng petsa ng kasal', 'petsa ng event'],
+    },
+    shots: [],
+    price: { kind: 'free' },
+    evidence: ['app/dashboard/[eventId]/date-selection/page.tsx', 'app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx'],
   },
 ];

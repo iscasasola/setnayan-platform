@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Activity, Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
+import { Activity, Home, Info, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users, Heart } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
-import { HUB_TAB_PARAM, activeHubTab, cameraHrefWithBack, inPageTabs } from '../_lib/hub-tabs';
+import {
+  HUB_TAB_PARAM,
+  SCROLL_PAGE,
+  activeHubTab,
+  cameraHrefWithBack,
+  filingTabs,
+  hubPagesOf,
+  inPageTabs,
+  isJumpMarkHref,
+} from '../_lib/hub-tabs';
+import { LIT_LINE, litJumpMark, markForInPageHref } from '../_lib/jump-marks';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -91,7 +101,8 @@ const ICONS: Record<NavSlot['key'], typeof Home> = {
   home: Home,
   details: Info,
   schedule: CalendarClock,
-  story: BookOpen,
+  // ❤️ owner 2026-10-14, "(heart) Story?" — the love story's tab wears a heart.
+  story: Heart,
   // 📖 After the day (owner 2026-09-25, E1): the replay and films, and the team.
   film: Film,
   suppliers: Users,
@@ -102,21 +113,99 @@ const ICONS: Record<NavSlot['key'], typeof Home> = {
 };
 
 /** One slot's chrome. `min-w-0` + nowrap + ellipsis because a label that wraps
- *  grows its slot and tilts the whole bar. */
+ *  grows its slot and tilts the whole bar. The label is its OWN block (2026-10-14):
+ *  as a bare text node in a centred flex column it could not take an ellipsis, so
+ *  "Our Love Story" in a five-tab bar was clipped at BOTH ends ("Dur Love Story"). */
 const SLOT =
   'flex h-full flex-col items-center justify-center gap-1 px-0.5 text-center ' +
   'text-xs font-semibold leading-none tracking-tight ' +
   'whitespace-nowrap overflow-hidden text-ellipsis transition-colors';
 
-export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
+export function SiteMenuBar({ slots, onePage = false }: { slots: readonly NavSlot[]; onePage?: boolean }) {
   /* 📱 WHICH TAB YOU ARE ON — when each tab is its own page (owner 2026-09-30,
      `hub-tabs.ts`), the bar marks the page showing: `aria-current="page"`, full
      ink. Read from the address, the ONE state the hub shell's page frame keeps
      (`hub/hub-shell.tsx`), so the mark and the page cannot disagree. On a page
      that is one scroll no tab is "the page" and none is marked — as before. */
   const params = useSearchParams();
-  const tabKeys = inPageTabs(slots);
-  const activeKey = tabKeys.length > 0 ? activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, tabKeys) : null;
+  /* 📜 THE ONE PAGE (owner 2026-10-15 — the Invitation, Save the Date): its pages are the one page and Me; on the
+     one page the lit item is the section scrolled to (`spied`), from ONE IntersectionObserver on the bar's own
+     marks — the last one crossed is lit (`litJumpMark`). Me, opened, is lit as its page. */
+  const tabKeys = onePage ? hubPagesOf(filingTabs(slots, true), true) : inPageTabs(slots);
+  const page = tabKeys.length > 0 ? activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, tabKeys) : null;
+  const marks = onePage ? slots.filter((s) => s.state === 'live' && isJumpMarkHref(s.href)) : [];
+  const markKey = marks.map((m) => `${m.key}=${m.href}`).join('|');
+  const [spied, setSpied] = useState<string | null>(marks[0]?.key ?? null);
+  const endRef = useRef<HTMLDivElement>(null);
+  /** 👆 A TAPPED MARK STAYS LIT UNTIL THE GUEST MOVES THE PAGE (Batch 9 walk W1). On a page too short to bring a mark
+   *  to the line (a Save the Date), the jump cannot scroll far enough for the spy to see it; the tapped item is the
+   *  place the guest asked for, so it is lit until their own next touch, wheel or key moves the page. */
+  const pinnedRef = useRef<string | null>(null);
+  const pinMark = (key: string) => {
+    if (!marks.some((m) => m.key === key)) return;
+    pinnedRef.current = key;
+    setSpied(key);
+  };
+  useEffect(() => {
+    if (!onePage || page !== SCROLL_PAGE) return;
+    const pairs = markKey.split('|').filter(Boolean).map((p) => p.split('=') as [string, string]);
+    const targets = pairs.map(([key, href]) => ({ key, el: document.getElementById(href.slice(1)) }));
+    const seen = targets.filter((t): t is { key: string; el: HTMLElement } => t.el !== null);
+    if (seen.length === 0 || typeof IntersectionObserver === 'undefined') return;
+    /** Is the page's END on screen? Then the last section can rise no further — the last one on screen is lit
+     *  (walked 2026-10-15: a short Story at the foot never reached the line, so a tap on Story left Details lit). */
+    let atEnd = false;
+    const spy = () =>
+      setSpied(pinnedRef.current ?? litJumpMark(seen.map((t) => ({ key: t.key, top: t.el.getBoundingClientRect().top })), window.innerHeight, atEnd) ?? pairs[0]?.[0] ?? null);
+    /* The top quarter of the screen (`LIT_LINE`) is where a section "is": a mark crossing into it, or out of it at
+       either edge, is the only moment the lit item can change — so ONE observer on the marks, no scroll handler. */
+    const io = new IntersectionObserver(spy, { rootMargin: `0px 0px -${Math.round((1 - LIT_LINE) * 100)}% 0px`, threshold: [0, 1] });
+    for (const t of seen) io.observe(t.el);
+    /* …and one on the page's foot — the bar's own spacer, the last thing in the page's flow. */
+    const end = endRef.current;
+    const foot = end
+      ? new IntersectionObserver((entries) => {
+          /* (A page shorter than two screens shows its foot at once: unscrolled, the top section is still Home.) */
+          atEnd = entries.some((e) => e.isIntersecting) && window.scrollY > 0;
+          spy();
+        })
+      : null;
+    if (end && foot) foot.observe(end);
+    /* The guest's own gesture (not the jump's smooth scroll) hands the lit item back to the spy. A tap's touchstart
+       comes before its click, so tapping a mark unpins and then pins it. */
+    const unpin = () => {
+      if (pinnedRef.current === null) return;
+      pinnedRef.current = null;
+      spy();
+    };
+    const GESTURES = ['wheel', 'touchstart', 'keydown'] as const;
+    for (const g of GESTURES) window.addEventListener(g, unpin, { passive: true });
+    /* 👆 ANY LINK TO A MARK PINS IT, NOT ONLY THE BAR'S OWN (live walk 2026-11-01). The cover's "the day, the
+       details ↓" is a plain `<a href="#site-details">`; its jump can stop short of the line Home must pass, so the
+       spy alone left Home lit over Details until the next scroll. Same pin as a bar tap (`markForInPageHref`), and
+       the same release: the guest's next touch, wheel or key. One listener on the document, in the bubble phase,
+       after the link's own touchstart has unpinned. */
+    const marksByHref = pairs.map(([key, href]) => ({ key, href }));
+    const onLinkClick = (e: MouseEvent) => {
+      const link = e.target instanceof Element ? e.target.closest('a[href^="#"]') : null;
+      const key = markForInPageHref(link?.getAttribute('href'), marksByHref);
+      if (key === null) return;
+      pinnedRef.current = key;
+      setSpied(key);
+    };
+    document.addEventListener('click', onLinkClick);
+    spy();
+    return () => {
+      io.disconnect();
+      foot?.disconnect();
+      for (const g of GESTURES) window.removeEventListener(g, unpin);
+      document.removeEventListener('click', onLinkClick);
+    };
+  }, [onePage, page, markKey]);
+  const activeKey = onePage ? (page === SCROLL_PAGE ? spied : page) : page;
+  /** 📜 A lit jump mark is "the place you are on this page" (`true`); a lit page is the page (`page`). */
+  const currentOf = (key: string): 'page' | 'true' | undefined =>
+    key !== activeKey ? undefined : onePage && marks.some((m) => m.key === key) ? 'true' : 'page';
   // 🔴 A LOCKED TAB'S REASON WAS IN A `title=`, WHICH A PHONE CANNOT SHOW.
   //
   // This file's own comment says "a padlock with its reason says the truth" —
@@ -150,7 +239,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             aria-disabled="true"
             aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
             onClick={() => setOpenReason(slot.lockedReason ?? null)}
-            className={`${SLOT} w-full text-ink/35`}
+            className={`${SLOT} w-full text-ink/70`}
           >
             <span className="relative inline-flex">
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -160,16 +249,17 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
                 strokeWidth={2.5}
               />
             </span>
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </button>
         ) : (
           <a
             href={slot.href}
-            aria-current={slot.key === activeKey ? 'page' : undefined}
+            aria-current={currentOf(slot.key)}
+            onClick={() => pinMark(slot.key)}
             className={`${SLOT} ${slot.key === activeKey ? 'text-ink' : 'text-ink/65 hover:text-ink'}`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={slot.key === activeKey ? 2.25 : 1.75} />
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </a>
         )}
       </li>
@@ -186,7 +276,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
           aria-disabled="true"
           aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
           onClick={() => setOpenReason(slot.lockedReason ?? null)}
-          className={`${SLOT} w-full text-ink/35`}
+          className={`${SLOT} w-full text-ink/70`}
         >
           <span className="relative inline-flex">
             <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
@@ -196,13 +286,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
               strokeWidth={2.5}
             />
           </span>
-          {slot.label}
+          <span className="block max-w-full truncate">{slot.label}</span>
         </button>
       ) : (
         /* 📸 It carries the tab it was tapped on, so the camera's × comes back here. */
         <a href={cameraHrefWithBack(slot.href, activeKey)} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
           <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
-          {slot.label}
+          <span className="block max-w-full truncate">{slot.label}</span>
         </a>
       )}
     </li>
@@ -229,7 +319,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             aria-disabled="true"
             aria-label={`${slot.label} — ${slot.lockedReason ?? 'not available yet'}`}
             onClick={() => setOpenReason(slot.lockedReason ?? null)}
-            className={`${RAIL_SLOT} text-ink/35`}
+            className={`${RAIL_SLOT} text-ink/70`}
           >
             <span className="relative inline-flex shrink-0">
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -239,12 +329,13 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
                 strokeWidth={2.5}
               />
             </span>
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </button>
         ) : (
           <a
             href={isCamera ? cameraHrefWithBack(slot.href, activeKey) : slot.href}
-            aria-current={slot.key === activeKey ? 'page' : undefined}
+            aria-current={currentOf(slot.key)}
+            onClick={isCamera ? undefined : () => pinMark(slot.key)}
             className={`${RAIL_SLOT} ${
               isCamera
                 ? 'text-mulberry hover:text-mulberry-600'
@@ -254,7 +345,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
             }`}
           >
             <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-            {slot.label}
+            <span className="block max-w-full truncate">{slot.label}</span>
           </a>
         )}
       </li>
@@ -283,12 +374,12 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         attribute order as a single string; splitting it across lines for
         readability broke that guard in CI. The guard is right and the
         formatting was mine, so the formatting gives way. */}
-    <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
+    <div ref={endRef} aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] print:hidden xl:hidden" />
     {/* The reason, said out loud. Sits ABOVE the bar so it is never the thing
         the bar is covering, and dismisses on its own tap — no click-away layer
         to fight the tabs underneath it. */}
     {openReason ? (
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center px-4 pb-2">
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex justify-center pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-2">
         <button
           type="button"
           onClick={() => setOpenReason(null)}
@@ -340,7 +431,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
         rather than trusted. */}
     <nav
       aria-label="Site sections"
-      className="fixed left-[max(0.75rem,calc(50%-46.5rem))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
+      className="fixed left-[max(0.75rem,calc(50%-46.5rem),var(--sn-safe-l))] top-1/2 z-30 hidden -translate-y-1/2 xl:block print:hidden"
     >
       <ul className="flex w-[7rem] flex-col gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 p-2 shadow-sm backdrop-blur">
         {slots.map(renderRailSlot)}
@@ -349,6 +440,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
     <nav
       aria-label="Site sections"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-cream/95 backdrop-blur xl:hidden"
+      data-safe-x=""
     >
       <ul className="mx-auto flex h-[3.5rem] max-w-md items-stretch justify-around px-1">
         {before.map(renderSlot)}

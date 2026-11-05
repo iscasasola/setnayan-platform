@@ -32,7 +32,8 @@ import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PICKER = readFileSync(join(PAPIC, '_components/add-to-library.tsx'), 'utf8');
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+const SENDER = readFileSync(join(PAPIC, '..', '..', '..', '..', '..', 'lib', 'upload-send.ts'), 'utf8');
+const MEMORIES = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
 
 test('the picker still exists and still uploads — or every rule below is vacuous', () => {
   assert.ok(/export function AddToLibrary/.test(PICKER), 'the picker is gone');
@@ -40,9 +41,16 @@ test('the picker still exists and still uploads — or every rule below is vacuo
 });
 
 test('🚨 it uses the SHARED presign route, not a new one', () => {
+  // 2026-10-25: the bytes go through the shared sender (`lib/upload-send.ts` — the signer, the stall watchdog and the
+  // progress `<FileUpload>` uses), which presigns at /api/upload; the seat token rides along, so the server still
+  // decides where the bytes land and whether the camera may shoot.
   assert.ok(
-    /fetch\('\/api\/upload'/.test(PICKER),
-    'the picker no longer presigns through /api/upload. A new route means a second place that decides where bytes land and whether a camera may shoot — the server derives both from the seat token today.',
+    /import\('@\/lib\/upload-send'\)/.test(PICKER) && /sendToStorage\(/.test(PICKER),
+    'the picker no longer sends through the shared sender — a hand-rolled PUT has no stall clock, so a dead upload spins for ever',
+  );
+  assert.ok(
+    /doFetch\('\/api\/upload'/.test(SENDER),
+    'the shared sender no longer presigns through /api/upload. A new route means a second place that decides where bytes land and whether a camera may shoot — the server derives both from the seat token today.',
   );
   assert.ok(
     /papicSeatToken: token/.test(PICKER),
@@ -74,15 +82,16 @@ test('🚨 a clip is MEASURED and REFUSED, never passed through unmeasured', () 
 });
 
 test('🚨 a clip always carries a poster, or it is refused', () => {
-  const clip = /if \(isVideo\) \{[\s\S]*?\} else \{/.exec(PICKER)?.[0] ?? '';
+  const clip = /if \(r\.probe\) \{[\s\S]*?\} else \{/.exec(PICKER)?.[0] ?? '';
   assert.ok(clip, 'the clip branch was restructured beyond recognition');
   assert.ok(
-    /posterRef = await put\(probe\.poster/.test(clip),
+    /poster = await send\(r\.probe\.poster/.test(clip),
     'a clip no longer uploads a poster. The safety screen reads a clip THROUGH its poster; a posterless clip stays unscreened forever and is excluded from every guest surface silently.',
   );
-  const posterAt = clip.indexOf('posterRef');
-  const clipAt = clip.indexOf('clipRef = await put(file');
+  const posterAt = clip.indexOf('poster = await send');
+  const clipAt = clip.indexOf('clip = await send(r.file');
   assert.ok(posterAt > 0 && clipAt > posterAt, 'the clip is uploaded before its poster — a failed poster then leaves a stored clip that can never be screened');
+  assert.ok(/if \(!poster\.ok\) \{[\s\S]{0,80}continue;/.test(clip), 'a failed poster no longer stops its clip');
 });
 
 test('🚨 refusals name something a person can actually do', () => {
@@ -90,20 +99,30 @@ test('🚨 refusals name something a person can actually do', () => {
   // them to the ladder two cards down. A refusal that misdescribes itself sends
   // people to fix the thing that was never the problem.
   assert.ok(/function readable\(/.test(PICKER), 'the refusal translator is gone');
-  for (const code of ['out_of_points', 'capture_window_closed', 'clip_too_long']) {
+  // `camera_points_exhausted` is the code BOTH seams actually send for an empty pot (2026-10-25) — the two older
+  // names were the only ones listed, so an out-of-credits couple was told to "try again in a moment".
+  for (const code of ['camera_points_exhausted', 'out_of_points', 'capture_window_closed', 'clip_too_long', 'uploads_closed', 'awaiting_payment']) {
     assert.ok(PICKER.includes(`'${code}'`), `${code} no longer has words a person can read`);
   }
   const fn = /function readable\([\s\S]*?\n}/.exec(PICKER)?.[0] ?? '';
   assert.ok(!/return code/.test(fn), 'a raw error code is handed straight to a person');
 });
 
-test('the picker only renders for a camera this couple actually holds', () => {
+test('the picker is handed a token only for a camera this couple actually holds — else it claims on the pick', () => {
+  // 📍 + Add photos lives in Memories now (2026-10-23). Since 2026-10-26 (owner: "the turn on is not working as well
+  // fix it") an unclaimed camera gets the picker too, with NO token: the first pick claims it (`startAddingPhotos`)
+  // and only then holds one. What must still hold: a token reaches the browser only when it is this person's.
   assert.ok(
-    /uploadsToken \? \(\s*<AddToLibrary/.test(PAGE),
-    'the picker renders without a resolved token — every upload would be refused by the presign with no explanation',
+    // Since 2026-10-31 every host has their own camera (#7111): the token is THIS host's seat, checked by its claimer.
+    /const token = mineSeat && mineSeat\.claimer_user_id === user\.id \?/.test(MEMORIES),
+    'Memories no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
   );
   assert.ok(
-    /uploadsClaimed = !!up\.claimer_user_id && up\.claimer_user_id === user\.id/.test(PAGE),
-    'the studio no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
+    /<AddToLibrary token=\{token\} eventId=\{eventId\}/.test(MEMORIES),
+    'the picker no longer gets the resolved token (or the event to claim with when it is null) — every upload would be refused by the presign with no explanation',
+  );
+  assert.ok(
+    /if \(!tokenRef\.current\)[\s\S]{0,400}startAddingPhotos\(eventId\)/.test(PICKER),
+    'the picker sends without a token instead of claiming the camera first',
   );
 });

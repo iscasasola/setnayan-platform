@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { GuestNick } from '@/app/_components/guest-nick';
 import { composeFormalName } from '@/lib/formal-name';
-import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS } from '@/lib/extra-seats';
+import { seatWhyWords } from '@/lib/seat-why';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
-  guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
   guestRoleLabel,
@@ -14,21 +15,27 @@ import {
   SINGLETON_GUEST_ROLES,
   REQUEST_ENTRY_SOURCE,
   type GuestGroupCategory,
+  type GuestRole,
+  type InvitedToBlock,
   type GuestSide,
-  type GuestAttire,
   type MealPreference,
   type RsvpStatus,
   RSVP_ROW_WORDS,
+  replyMarkedByHost,
   PLUS_ONE_CHOICES,
+  A_PLUS_ONE_BRINGS_NO_ONE,
+  isAPlusOne,
   plusOneSeats,
-  guestFullName,
+  guestNameAsGiven,
+  guestNameWithNick,
   guestHasTicket,
 } from '@/lib/guests';
-import { prefixChoicesFor } from '@/lib/formal-name';
-import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
+import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
-import { FormPick } from './card-fields';
+import { FormPick, FormSplitPick } from './card-fields';
+import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
+import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 /* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
    by the pages that draw them (the Guest list, the standalone card). The Maker's
    parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
@@ -36,7 +43,14 @@ import { FormPick } from './card-fields';
    (`check-maker-js-budget.mjs`). Not a lazy import either: an async chunk adds
    an entry to the every-page webpack runtime, measured +58 B against a shared
    bundle with 20 B to spare. */
-import type { GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
+import type { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
+/* ⚡ TYPE ONLY, the same seam: "Their camera ▾" is handed in by the Guests pages (the Maker's cards hand none). */
+import type { GuestPapicCamera } from './guest-papic-camera';
+import type { GuestAccessPick } from './guest-access-pick';
+/* ⚡ TYPE ONLY, the same seam: "Proxy ▾" is handed in by `GuestCard` (the Maker's first load never carries it). */
+import type { GuestProxyRow } from './guest-proxy-row';
+import { proxyForWords, representedByWords } from '@/lib/guest-proxy';
+import { guestCameraSummary, type GuestPapicState } from '@/lib/papic-guest-camera';
 /* ⚡ TYPE ONLY. The Invite pair is handed in by the page that draws it
    (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
    whose parent cards never show it — passes nothing, so its code stays out of
@@ -46,15 +60,25 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
+import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
+import type { CardBoxProps, CardDoorProps, CardFactProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
-import { AutosaveForm, AutosaveState } from './guest-card-autosave';
+import { AutosaveForm } from './guest-card-autosave';
+import { TEMPLATE_KIT } from './guest-card-template-kit';
 import { GuestAccessControl } from './guest-access-control';
-import { accessTag, accessWordFor } from '@/lib/guest-access';
+import { GuestSeatDoors } from './guest-seat-doors';
+import { FormRow } from '@/app/_components/form-row';
+import { accessWordFor, cardAccessView } from '@/lib/guest-access';
 import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
+import { GuestSeatPreview } from './guest-seat-preview';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { COUNTED_FOR_ALL, NOT_COUNTED_ABOUT, NOT_COUNTED_FIELD, NOT_COUNTED_POSTED } from '@/lib/guest-not-counted';
+import { serviceHint } from '@/lib/supplier-count';
+import { NotCountedResult } from './not-counted-result';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -78,12 +102,18 @@ import { tableWords } from '@/lib/table-words';
  *          Invite · ⋯ (Write to NFC · New QR · Unlink account) · the status
  *          line (Not sent · Not linked / ✓ Sent Sep 30 · Linked). The QR's look
  *          left the card — it is the whole event's (Maker › Details › Look).
- *   NAME   open and writable: Prefix (dropdown) · First · Middle · Last · Suffix
- *          · Shown as.
- *   then seven rows, CLOSED, each with a one-line summary — Details · RSVP ·
- *   Seat · Photos · Private note · Access · Tags. One open at a time (a native
- *   exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
- *   choice = one dropdown, several = a dropdown with checkmarks.
+ *   then the groups, CLOSED, each ONE row (label · one-line summary · ⌄), a divider between them and no box around
+ *   any — in the OWNER'S ORDER (2026-10-23, `Setnayan-specs/prototypes/guest_card_groups_and_papic_2026-10-23.html`):
+ *     1 Basic Info (the name + mobile; the mobile is in its summary)  · 2 Details (side, group, role)
+ *     3 Additional Guests (extra seats + one line per +1)              · 4 RSVP Status (reply, to what, meal +
+ *       dietary, and the guest's own note — it opens by itself when there is one)
+ *     5 Papic (their camera + the three face switches, ALWAYS; while the event's is off the camera alone becomes ONE line
+ *       "Papic is off · Turn on ›")
+ *     6 Seat Plan (table + attire)  · 7 Note for them · Private note  · 8 Access  · 8b Not counted for ▾ (2026-11-02)
+ *     · 9 Passed Away  · 10 Delete.
+ *   One open at a time (a native exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
+ *   choice = one dropdown, several = a dropdown with checkmarks. TAGS ARE GONE: their words were the eyebrow and the
+ *   summaries again. Delete left the ⋯ for its own group.
  *
  * ✉ No email anywhere: the guest's address is CARRIED (hidden), never shown or
  * offered — Setnayan sends guests nothing. 🚶 "Walks with" is not on the card:
@@ -98,8 +128,9 @@ import { tableWords } from '@/lib/table-words';
  * prints it beside each elder. It simply can no longer be corrected here.
  *
  * ⚠ Nothing was dropped to shorten the card. Twelve sections became eight by
- * merging ("Invited to" is part of the RSVP question; extra seats are part of
- * the seat), not by deleting controls.
+ * merging ("Invited to" is part of the RSVP question), not by deleting controls —
+ * and the 2026-10-23 regroup MOVED every control (the PR lists each one's old →
+ * new group); the read-only Tags line is the one thing removed, on the owner's yes.
  */
 
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
@@ -113,41 +144,21 @@ const MEAL_OPTIONS: MealPreference[] = [
   'kids',
 ];
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined'];
-// 3D seat-plan attire. 'neutral' is the default: the avatar auto-dresses from a
-// gendered wedding-party role, else stays a plain token.
-const ATTIRE_OPTIONS: GuestAttire[] = ['neutral', 'gown', 'suit'];
-const ATTIRE_LABELS: Record<GuestAttire, string> = {
-  neutral: 'Neutral / auto',
-  gown: 'Gown',
-  suit: 'Suit',
-};
 
 /** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
 const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
 
 
-/**
- * The card's identity line and its reply, as words — ONE source for the body
- * (the standalone page) and the sticky header over the panel (owner 2026-10-02:
- * "maybe we can leave this part persistent?"), so they are drawn once each.
- */
-export function guestCardEyebrow(
-  guest: Pick<GuestCardData['guest'], 'role' | 'side'>,
-  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames'] },
-): string {
-  const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : 'Guest', opts.hasSides && !isCouple ? SIDE_LABELS[guest.side] : null]
-    .filter(Boolean)
-    .join(' · ');
-}
-export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>): string {
-  if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
-  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
-}
-
+/* 🪪 The card's head — eyebrow · name · reply and the face — lives in its own small module (`guest-card-head.tsx`) so the
+   Guest list can draw it AT THE TAP from the row already on screen, without carrying this whole body into the list's
+   first load (guest card opens fast, 2026-10-28). Re-exported here: every surface still reads them from the card. */
+export { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
+  // ✉ "Invited to ▾" (owner 2026-11-02) — a guest is on at least one part of the day.
+  invited_to_none: 'Keep at least one part of the day ticked — to take them off the list, use Delete.',
+  invited_to_failed: 'Which parts they are invited to could not be saved just now — the rest was saved. Please try again.',
   missing_side: 'Choose which side this guest is on.',
   missing_group: 'Choose a group category for this guest.',
   invalid_role: 'Invalid role selection.',
@@ -173,6 +184,18 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   ...THIS_IS_ME_REFUSAL_COPY,
 };
 
+/**
+ * The three writes the card's own forms post — the SHIPPED server actions, bound to this guest, unless a page hands others in.
+ * Only the dev lab does (its stand-ins write nothing, so its card can be pressed); every real page leaves it out. A prop,
+ * not an import of the lab's: this file is drawn inside the Maker's first load and must not learn about it.
+ */
+export type GuestCardActions = {
+  /** A QUIET save (the autosave's) RETURNS `{ refused }` for a refusal; every other post redirects, as before. */
+  update: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
+  release: (formData: FormData) => void | Promise<void>;
+  partnerLink: () => void | Promise<void>;
+};
+
 export function GuestCardBody({
   eventId,
   data,
@@ -187,7 +210,15 @@ export function GuestCardBody({
   SendInvite,
   TicketThumb,
   MoreMenu,
+  DeleteControl,
+  papic,
+  PapicCamera,
+  AccessPick,
+  ProxyRow,
+  storeShell = false,
   helperAccess,
+  actions,
+  ticketVersion,
 }: {
   eventId: string;
   data: GuestCardData;
@@ -220,14 +251,40 @@ export function GuestCardBody({
   SendInvite?: typeof GuestInviteCell;
   /** Their ticket, small (tap → full view + Save ticket). Absent (the Maker) → a plain ticket image. */
   TicketThumb?: ComponentType<Parameters<typeof GuestTicketThumb>[0]>;
+  /**
+   * 🎟 The ticket's version (`passCardTicketVersion`), handed in as a PROMISE so the card never waits for it:
+   * it streams in after the card, and the ticket is then asked for at its year-long cached address — once
+   * per version, never again on a later open (owner 2026-10-16).
+   */
+  ticketVersion?: Promise<string | null> | null;
   /** The ⋯ (Write to NFC · New QR · Unlink). Absent (the Maker) → none; the Guest list has it. */
   MoreMenu?: ComponentType<Parameters<typeof GuestMoreMenu>[0]>;
+  /** 🗑 The card's own Delete (out of the ⋯, owner 2026-10-23). Absent (the Maker) → no Delete group, as before. */
+  DeleteControl?: ComponentType<Parameters<typeof GuestDeleteControl>[0]>;
+  /**
+   * 📸 The event's Papic and this guest's camera, read by the page (`guest-papic-read.ts`). Absent (the Maker) → the Papic
+   * group holds the three face switches only, as the Photos row did.
+   */
+  papic?: GuestPapicState | null;
+  /** "Their camera ▾" (`guest-papic-camera.tsx`) — handed in with `papic` by the Guests pages. */
+  PapicCamera?: ComponentType<Parameters<typeof GuestPapicCamera>[0]>;
+  /** "Access ▾" for a linked guest (`guest-access-pick.tsx`, owner 24 Oct) — handed in by the Guests pages; the Maker hands none. */
+  AccessPick?: ComponentType<Parameters<typeof GuestAccessPick>[0]>;
+  /** 🧍 "Proxy ▾" on a role holder's card (`guest-proxy-row.tsx`) — handed in by `GuestCard`; the Maker hands none. */
+  ProxyRow?: ComponentType<Parameters<typeof GuestProxyRow>[0]>;
+  /**
+   * 🍎 Drawn in the iPhone / Android app (`isStoreShellRequest`). Papic is a paid service the app never names
+   * (`lib/the-app-names-no-paid-service.test.ts`), so there the group stays the shipped "Photos" row — the three face switches.
+   */
+  storeShell?: boolean;
   /**
    * A limited helper's grants, colour domains and activity — the Hosts pieces
    * that moved under the Access line (build F2, `guest-helper-access.tsx`).
    * Rendered by the Guest list's card screens; absent (the Maker) → none.
    */
   helperAccess?: React.ReactNode;
+  /** Other writes for the card's forms — the dev lab's stand-ins. Absent = the shipped actions. */
+  actions?: GuestCardActions;
 }) {
   const {
     guest,
@@ -237,8 +294,10 @@ export function GuestCardBody({
     groupOptions,
     isIncWedding,
     showTeaCeremony,
-    plusOneStateLabel,
+    plusOneLines,
+    plusOnePeople,
     initialInvited,
+    inviteChapters,
     seatedAt,
     customGroups,
     recordedAt,
@@ -252,7 +311,14 @@ export function GuestCardBody({
     tables,
     seatTableId,
     groupChoices,
+    outfit,
+    proxy = null,
+    notCounted = null,
   } = data;
+  /* 🧍‍♀️➡️🧍 THE PROXY, BOTH WAYS (owner 2026-10-27). `representedBy` — this ROLE HOLDER sends someone in their place;
+     `standingInFor` — THIS guest is that someone, and wears the role they stand in for (read-only here). */
+  const representedBy = proxy?.representedBy ?? null;
+  const standingInFor = proxy?.standingInFor ?? null;
   /* 👤 Whose words the name is (owner 2026-09-30): a linked account's profile
      name is fixed here — "From their account" for the couple, a way to the
      profile for the person themself. A plus-one's link keeps its own words. */
@@ -260,18 +326,33 @@ export function GuestCardBody({
   const nameLocked = Boolean(profileName) || nameLinked;
   // The five parts as one line — the same formal name the list prints.
   const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
-  const accessTagLabel = access ? accessTag(access) : null;
+  // 🪪 The Title's stored pick, and its words while it is not an entry ("Atty." · "Atty. — Woman or Man?").
+  const titleNow = titleKey(guest.name_prefix, guest.gender);
+  const needsTitle = needsWomanOrMan(guest);
+  const titleText = titleButtonText(guest.name_prefix, guest.gender, needsTitle);
 
-  const updateAction = updateGuest.bind(null, eventId, guest.guest_id);
-  const releaseAction = releaseGuestClaim.bind(null, eventId, guest.guest_id);
-  const partnerLinkAction = inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
+  /* 🪪 ONE CARD, ONE KIT (owner 2026-10-24): the leaves are the app's templates everywhere — the Maker's hand-drawn kit,
+     which drew the Wedding March's and the parents' cards as a second-looking card, is gone. */
+  const K: CardKit = TEMPLATE_KIT;
+  const updateAction = actions?.update ?? updateGuest.bind(null, eventId, guest.guest_id);
+  const releaseAction = actions?.release ?? releaseGuestClaim.bind(null, eventId, guest.guest_id);
+  const partnerLinkAction = actions?.partnerLink ?? inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
 
   const name = guestDisplayName(guest);
+  /* 🪪 AN UNNAMED +1 HAS NO NAME YET (owner 2026-10-21: "Why is the +1 listed as the +1's last name? when there is no last
+     name yet until we type on it or it is filled up by the guest via RSVP"). Their name boxes draw EMPTY — "Add" — never
+     the stored stand-ins "TBA" · "+1" · "+1 · TBA"; the card's title keeps "dally BIR’s +1 · TBA" (the seat's label,
+     ruled 2026-09-29). Their sentences speak of them as their guest's +1. 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
+  const typedName = seatNameAsTyped(guest);
+  const isSeat = Boolean(guest.plus_one_of_guest_id);
+  const callName = typedName.first_name || (data.plusOneOf ? `${data.plusOneOf.hostName}’s ${data.plusOneOf.mark}` : isSeat ? 'Their +1' : guest.first_name);
   const inviteUrl = invitationBase && guest.qr_token ? invitationLinkOn(invitationBase, guest.qr_token) : null;
   // Linked is known only to the couple (it reads another account); anyone else is told nothing either way.
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
   const hasTicket = guestHasTicket(guest);
   const seats = plusOneSeats(guest);
+  /** This guest IS a +1 — they bring nobody (`isAPlusOne`, owner 2026-10-21). */
+  const plusOne = isAPlusOne(guest);
   // The creator is the Host; a couple row someone chose is a Co-host (owner 2026-10-04).
   const hostWord = access?.level === 'co_host' ? accessWordFor(access) : 'Host';
 
@@ -283,67 +364,114 @@ export function GuestCardBody({
       nfcUrl={inviteUrl}
       linked={Boolean(linkedAccount)}
       returnTo={returnTo}
-      deletable={!isCouple}
     />
   ) : null;
 
   // ── the one-line summaries of the closed rows ──
   const roleWord = guestRoleLabel(guest.role, roleNames);
+  // 🎭 Their extra roles — offered roles only, never the main one twice, never plain "Guest" nor a one-per-event role
+  // (the same set "Also serves as" offered; `updateGuest` keeps that rule). With the main one they are ONE dropdown now.
+  const extraRolesNow = isCouple
+    ? []
+    : (guest.extra_roles ?? []).filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r) && availableRoles.includes(r));
+  const rolesWords = [roleWord, ...extraRolesNow.map((r) => guestRoleLabel(r, roleNames))].map(rolePillWord).join(' · ');
+  /* 📱 BASIC INFO IS CLOSED, AND STILL SAYS HOW TO REACH THEM (owner, live iPhone test 2026-10-02: "the guest's mobile number
+     is hard to find on the guest card"): the mobile is the row's own summary, beside their title. */
+  const basicSummary = [guest.name_prefix?.trim() ? titleText : null, guest.mobile?.trim() || null].filter(Boolean).join(' · ') || null;
   const detailsSummary = [
     hasSides ? SIDE_LABELS[guest.side] : null,
-    GROUP_CATEGORY_LABELS[guest.group_category],
-    isCouple ? `${roleWord} · locked` : roleWord,
+    [GROUP_CATEGORY_LABELS[guest.group_category], ...customGroups.map((g) => g.label)].join(' · '),
+    isCouple ? `${roleWord} · locked` : rolesWords,
   ]
     .filter(Boolean)
     .join(' · ');
+  // 🪑 Their extra seats and who fills them — a refused read says only the number it knows, never "no +1".
+  const extraSummary =
+    seats > 0
+      ? [`+${seats}`, plusOneLines && plusOneLines.length > 0 ? plusOneLines.join(', ') : null].filter(Boolean).join(' · ')
+      : plusOne
+        ? 'None · a +1 brings no one'
+        : 'None';
   const rsvpSummary = isCouple
     ? 'Attending · always'
-    : [
+    : representedBy
+      ? representedByWords(representedBy.name)
+      : [
         CARD_RSVP_WORDS[guest.rsvp_status],
+        // 🖐 A reply the host set says so — "Attending · Marked by you" (owner 2026-10-21).
+        replyMarkedByHost(guest) ? 'Marked by you' : null,
+        // ✉ A partial invite says so in the row's own words ("After party only", owner 2026-11-02).
+        inviteChapters?.tag ?? null,
         guest.meal_preference && guest.meal_preference !== 'no_preference' ? MEAL_LABELS[guest.meal_preference] : null,
-        seats > 0 ? `+${seats}` : null,
         guest.guest_note?.trim() ? 'a note from them' : null,
       ]
         .filter(Boolean)
         .join(' · ');
-  const seatSummary = seatedAt ? tableWords(seatedAt) : guest.rsvp_status === 'declined' ? 'Not coming' : 'Not seated';
-  const photosSummary = `Tagging ${guest.photo_consent ? 'on' : 'off'}${guest.faceblock_enabled ? ' · Blurred' : ''}`;
+  /* 📸 PAPIC, ONE GUEST AT A TIME (owner 2026-10-23: "set papic setting per guest on each guest card"). Their camera's words
+     when the page read it; a check or a read that did not answer SAYS so — never a camera worked out from a failure. */
+  const faceWords = `Tagging ${guest.photo_consent ? 'on' : 'off'}${guest.faceblock_enabled ? ' · Blurred' : ''}`;
+  /* 🍎 The app never names Papic, and the Maker's cards hand no `papic`: in both the group is the shipped "Photos" row. */
+  const papicRow = papic && !storeShell ? papic : null;
+  const cameraUnread = papicRow?.access === 'on' && papicRow.ceiling === undefined && canManageAccess;
+  const papicSummary = storeShell || !papicRow
+    ? faceWords
+    : papicRow.access === 'off'
+      ? `Papic is off · ${faceWords}`
+      : papicRow.access === 'unknown'
+      ? 'Couldn’t check Papic'
+      : cameraUnread
+        ? 'Couldn’t read their camera'
+        : papicRow.ceiling === undefined
+          ? faceWords
+          : [guestCameraSummary(papicRow.ceiling), guest.faceblock_enabled ? 'Blurred' : null].filter(Boolean).join(' · ');
+  const seatSummary = representedBy
+    ? `${representedBy.name} sits in their seat`
+    : seatedAt
+      ? tableWords(seatedAt)
+      : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
+        ? 'Not coming'
+        : 'Not seated';
+  const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
-    access ? accessWordFor(access) : null,
+    access && cardAccessView(access, linked, canManageAccess) !== 'none' ? accessWordFor(access) : null,
   ]
     .filter(Boolean)
     .join(' · ');
-  const tagWords = [
-    hasSides ? SIDE_LABELS[guest.side] : null,
-    GROUP_CATEGORY_LABELS[guest.group_category],
-    roleWord,
-    seatedAt ? tableWords(seatedAt) : null,
-    accessTagLabel ? `+${accessTagLabel}` : null,
-    ...customGroups.map((g) => g.label),
-  ].filter((t): t is string => Boolean(t));
+  /** 🕯 Passed Away sits below Access, whose own small forms cannot nest in the autosave form — so it posts with it by `form=`. */
+  const formId = `guest-card-${guest.guest_id}`;
+  /* 🕯 A GUEST WHO PASSED AWAY: THE CARD SHOWS ONLY WHAT STILL APPLIES (owner 2026-11-04: "if passed away, there are parts in
+     the guest card that doesn't need to show. Additional Guest, RSVP, Photos, Seat Plan, Note, Access and QR"). Kept: the name,
+     the status line, Basic Info, Details, the Passed Away switch (so it can be switched off) and Delete. NOTHING IS DELETED —
+     the hidden parts' saved values ride as hidden inputs (`AwayCarriers`), because the autosave compares each save with the
+     card it last SENT: a part that stopped posting would read as cleared and be written as cleared. Never the couple.
+     🔒 a-guest-who-passed-away-shows-only-what-applies.test.ts */
+  const away = guest.passed_away === true && !isCouple;
+  const seatWithNoName = plusOneHasNoName(guest);
+  /* 🔄 Reset is offered on a guest's own card (owner 2026-10-26) — never the couple (always attending), never a +1 seat
+     (it answers through its guest), and only where the card hands a Delete (the Maker's cards hand none). */
+  const canReset = !isCouple && !guest.plus_one_of_guest_id;
 
-  // "Also serves as" — every offered role but the one they hold, the one-per-event
-  // roles and plain "Guest", under the Role picker's own headings in the couple's words.
-  const extraRoleOptions = availableRoles
-    .filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r))
-    .map((r) => {
-      const g = roleGroupOf(r);
-      return {
-        key: r,
-        label: guestRoleLabel(r, roleNames),
-        group: g === 'guest' ? 'Other roles' : roleGroupLabel(g, roleNames),
-      };
-    })
-    .sort((a, b) => a.group.localeCompare(b.group));
-  const extraRolesNow = (guest.extra_roles ?? []).filter((r) => extraRoleOptions.some((o) => o.key === r));
+  /* 🎭 ONE Role dropdown (owner 2026-10-20: "Roles doesn't need also serves as… they can have multiple row in that Role in
+     Wedding"): the Role picker's own list — each either-or pair under ONE heading (owner 2026-09-30) — with several ticked.
+     Their own role is always on it, so the first tick can never be a role the list cannot draw. */
+  const roleChoices = availableRoles.includes(guest.role) ? availableRoles : [guest.role, ...availableRoles];
+  const roleOptions = pickItems(roleChoices).flatMap((it) =>
+    it.kind === 'pair'
+      ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+      : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+  );
+  /* 👥 ONE Group dropdown (owner 2026-10-20: "there are 2 groups."): the standard groups, then the couple's own — their
+     memberships in the list's order, so the posted value never depends on what the database read first. */
+  const ownGroups = groupChoices ? groupChoices.options : null;
+  const ownPicked = groupChoices ? groupChoices.options.map((g) => g.groupId).filter((id) => groupChoices.memberIds.includes(id)) : [];
 
   return (
     <div className="space-y-4">
       {errorMessage ? (
         <p
           role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700"
+          className="text-sm font-semibold text-danger-700"
         >
           {errorMessage}
         </p>
@@ -354,25 +482,20 @@ export function GuestCardBody({
           className={
             inviteFlash.ok
               ? 'rounded-md border border-success-300/60 bg-success-50 px-4 py-2.5 text-sm text-success-800'
-              : 'rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-2.5 text-sm text-terracotta-700'
+              : 'text-sm font-semibold text-danger-700'
           }
         >
           {inviteFlash.msg}
         </p>
       ) : null}
 
-      {/* Identity — who, whose side, and the answer at a glance. */}
+      {/* ══ 1 · PROFILE · QR · BASIC INFO ═══════════════════════════════════════════════════════════════════════════════
+          Identity — who, whose side, and the answer at a glance. */}
       <div className="flex items-center gap-3">
-        {photoDisplayUrl ? (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/10">
-            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
-            <img src={photoDisplayUrl} alt="" className="h-full w-full object-cover" />
-          </span>
-        ) : (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-sm font-semibold text-terracotta-700">
-            {guestInitials(guest)}
-          </span>
-        )}
+        {/* 👤 Over the Guest list the face is in the sticky header, LEFT of the name (owner 2026-10-26: "Move profile photo
+            beside the name on the top? Left side") — `GuestCard` hands it to `InspectorColumn`'s `lead`. The standalone page
+            has no header, so it keeps it here. */}
+        {headerShown ? null : <GuestCardAvatar guest={guest} photoDisplayUrl={photoDisplayUrl} />}
         <div className="min-w-0 flex-1">
           {/* Over the Guest list the eyebrow, the name and the reply live in
               the panel's STICKY header (`headerShown`, InspectorColumn) — drawn
@@ -380,22 +503,36 @@ export function GuestCardBody({
               cards have no such header, so they draw them here. */}
           {headerShown ? null : (
             <p className="sn-eye">
-              {guestCardEyebrow(guest, { hasSides, roleNames })}
+              {guestCardEyebrow(guest, { hasSides, roleNames, plusOneOf: data.plusOneOf })}
             </p>
           )}
           {variant === 'page' ? (
-            <h1 className="truncate font-display text-2xl tracking-tight text-ink">{name}</h1>
+            /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
+            <h1 className="font-display text-2xl tracking-tight text-ink [overflow-wrap:anywhere]">{guestCardTitle(guest, data.plusOneOf)}<GuestNick nick={guestCardNick(guest, data.plusOneOf)} /></h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (
               <span className="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-800 ring-1 ring-success-200">
-                {guestCardReply(guest)}
+                {guestCardReply(guest, proxy)}
               </span>
             ) : null}
             {seats > 0 && !isCouple ? (
               <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">+{seats}</span>
             ) : null}
             {isCouple ? <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">Host</span> : null}
+            {/* 🧍 "Proxy for Mrs. Ma. Theresa Sacdalan-Tria ›" — tap opens the role holder's card. */}
+            {standingInFor ? (
+              <Link
+                href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${standingInFor.guestId}` : `/dashboard/${eventId}/guests/${standingInFor.guestId}`}
+                className="sn-press rounded-full bg-sn-accent/10 px-2 py-0.5 font-medium text-sn-accent ring-1 ring-sn-accent/25"
+                data-guest-proxy-for={standingInFor.guestId}
+              >
+                {proxyForWords(standingInFor.name)} ›
+              </Link>
+            ) : null}
+            {/* ✓ Saved, at the right of the reply (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the
+                autosave form's own save line is drawn HERE (`CardSaveState` portals into this slot; the form sits below). */}
+            <span id={`${formId}-saved`} className="ml-auto" data-guest-card-save-slot="" />
           </p>
         </div>
       </div>
@@ -405,9 +542,10 @@ export function GuestCardBody({
           `data-menus-open-below` (lib/menu-place.ts): the Invite and ⋯ lists
           open UNDER this row and inside the card's edges, so neither covers
           the ticket, "Tap to view" or the status line (owner 2026-10-04). */}
-      <section className="flex items-start gap-3.5 border-b border-ink/10 pb-4" data-guest-card-top="" data-menus-open-below="">
-        {TicketThumb ? (
-          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
+      <section className="flex items-start gap-3.5 pb-1" data-guest-card-top="" data-menus-open-below="">
+        {/* 🕯 No ticket, no Invite, no ⋯ (Write to NFC · New QR) for a guest who passed away — the status line stays. */}
+        {away ? null : TicketThumb ? (
+          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} version={ticketVersion ?? undefined} />
         ) : hasTicket ? (
           // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
           <img
@@ -420,16 +558,19 @@ export function GuestCardBody({
           />
         ) : null}
         <div className="min-w-0 flex-1 space-y-2">
+          {away ? null : (
           <div>
             {/* ⚖ ONE LABEL STYLE ON THE CARD (owner 2026-10-04): every section
                 label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
                 the guest's own tab on the Event Hub — a host reading this card
                 does not know that name, so it says where they see it. */}
-            <p className="sn-eye">Their ticket</p>
-            <p className="mt-1 text-[13px] leading-snug text-ink/65">
+            {/* 🎟 "What they see on their phone" lives in the ⓘ beside the eyebrow now (owner 2026-10-27, prototype
+                `send_run_simple_2026-10-27` frame card) — the row under it is Share · NFC · New QR · ⋯. */}
+            <InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye" align="start">
               {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
-            </p>
+            </InfoTip>
           </div>
+          )}
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
               do not invite themselves. */}
           {inviteSetup && SendInvite && !guest.passed_away && !isCouple ? (
@@ -440,19 +581,20 @@ export function GuestCardBody({
               linked={linked}
               guest={{
                 guestId: guest.guest_id,
-                formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
-                firstName: guest.first_name,
+                formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
+                firstName: typedName.first_name,
                 fullName: name,
                 inviteUrl,
                 sentAt: guest.invitation_sent_at,
                 hasTicket,
+                ticketVersion: ticketVersion ?? undefined,
               }}
               facts={inviteSetup.facts}
               template={inviteSetup.template}
             />
           ) : (
             <div className="space-y-1">
-              {more}
+              {away ? null : more}
               <p className="text-xs text-ink/60" data-guest-invite-status="">
                 {[
                   linked === null ? null : linked ? '✓ Linked' : 'Not linked',
@@ -468,12 +610,7 @@ export function GuestCardBody({
                 <form action={releaseAction} data-this-is-me="">
                   <input type="hidden" name="this_is_me" value="1" />
                   <input type="hidden" name="return_to" value={returnTo} />
-                  <SubmitButton
-                    className="mt-1 block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                    pendingLabel="Saving…"
-                  >
-                    This is me
-                  </SubmitButton>
+                  <K.Submit pendingLabel="Saving…">This is me</K.Submit>
                 </form>
               ) : null}
             </div>
@@ -481,157 +618,153 @@ export function GuestCardBody({
         </div>
       </section>
 
-      <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-4">
-        {/* ── NAME · open, and saves itself (no caption — owner 2026-10-03) ── */}
-        <section className="space-y-2.5" data-guest-card-name="">
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="sn-eye">Name · mobile</h2>
-            <span className="flex items-center gap-2 text-xs text-ink/45">
-              <AutosaveState />
-            </span>
-          </div>
-          {/* 🔒 A linked person keeps their own name — a plus-one who linked
-              (owner 2026-09-29, OWNER ANSWERS (10)) or any row whose account's
-              profile holds a formal name (owner 2026-09-30): read-only here, and
-              `updateGuest` leaves the name out of its write. The stored parts
-              still post, so the form's own checks are satisfied. */}
-          {nameLocked ? (
-            <div data-guest-name-linked="">
-              <p className="text-sm text-ink">
-                <span className="font-medium">{lockedName}</span>
-                {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
-                {profileName?.isYou ? (
-                  <>
-                    {' · '}
-                    <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
-                      Edit on your profile ›
-                    </Link>
-                  </>
+      {/* ══ THE GROUPS — ONE list, a divider between them, no box around any (owner's order, 2026-10-23) ════════════════
+          1–7 save themselves (the autosave form); 8 Access and 10 Delete bring their own actions, so they sit OUTSIDE it (a
+          nested <form> is invalid HTML), and 9 Passed Away — between them — posts with the form by `form=`. */}
+      <div className="border-b border-ink/10" data-guest-card-groups="">
+      <AutosaveForm action={updateAction} returnTo={returnTo} id={formId}>
+        {/* The save line — Saving… · Saved · Couldn’t save, Try again (no caption — owner 2026-10-03). */}
+        <div className="flex justify-end" data-guest-card-save="">
+          <K.SaveState copy={GUEST_CARD_ERROR_COPY} />
+        </div>
+        {/* 🪑 The couple has no extra seats to pick — their number is carried, so a save never clears it. */}
+        {isCouple ? <input type="hidden" name="plus_one_count" value={String(seats)} /> : null}
+        <div className="border-t border-ink/10">
+          {/* ── BASIC INFO — the name and the mobile, CLOSED (owner 2026-10-23); the mobile is its summary ──────── */}
+          <K.Fold summary="Basic Info" value={basicSummary} emptyValue="Add a mobile">
+            {/* 🪪 A +1 seat's name boxes may post empty — `updateGuest` then asks the row (`plusOneNameSave`). */}
+            {isSeat ? <input type="hidden" name="plus_one_seat" value="1" /> : null}
+            {/* 🔒 A linked person keeps their own name — a plus-one who linked
+                (owner 2026-09-29, OWNER ANSWERS (10)) or any row whose account's
+                profile holds a formal name (owner 2026-09-30): read-only here, and
+                `updateGuest` leaves the name out of its write. The stored parts
+                still post, so the form's own checks are satisfied. */}
+            <div data-guest-card-name="">
+            <K.List>
+            {nameLocked ? (
+              <div data-guest-name-linked="">
+                <p className="text-sm text-ink">
+                  <span className="font-medium">{lockedName}</span>
+                  {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
+                  {profileName?.isYou ? (
+                    <>
+                      {' · '}
+                      <Link href="/dashboard/profile" className="text-sn-accent underline-offset-2 hover:underline">
+                        Edit on your profile ›
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+                <input type="hidden" name="first_name" value={guest.first_name} />
+                <input type="hidden" name="last_name" value={guest.last_name} />
+                <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
+                <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
+                <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
+                <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+                {/* 🪪 Their name is theirs, but whether "Atty." is a woman or a man is still the host's to say — the
+                    same Title pick, narrowed to their own title's entries; `updateGuest` writes only the gender. */}
+                {needsTitle || (guest.gender && !genderOfTitle(guest.name_prefix)) ? (
+                  <div className="mt-2 max-w-[12rem]">
+                    <K.Title label="Title" value={titleNow} current={guest.name_prefix} options={choicesOfTitle(guest.name_prefix ?? '')} unlisted={{ key: titleNow, text: titleText }} narrow />
+                  </div>
                 ) : null}
-              </p>
-              <input type="hidden" name="first_name" value={guest.first_name} />
-              <input type="hidden" name="last_name" value={guest.last_name} />
-              <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
-              <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
-              <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
-              <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
-                <FormPick
-                  name="name_prefix"
-                  label="Prefix"
-                  value={guest.name_prefix ?? ''}
-                  options={[{ key: '', label: '—' }, ...prefixChoicesFor(guest.name_prefix).map((p) => ({ key: p, label: p }))]}
-                />
-                <Field id="first_name" label="First" required defaultValue={guest.first_name} />
-                <Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
-              </div>
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
-                <Field id="last_name" label="Last" required defaultValue={guest.last_name} />
-                <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
-              </div>
-              <Field
-                id="display_name"
-                label="Shown as (optional)"
-                defaultValue={guest.display_name ?? ''}
-                placeholder="e.g. Tito Boy & Tita Cora"
-              />
-            </>
-          )}
-          {/* 📱 THEIR MOBILE, UP FRONT (owner, live iPhone test 2026-10-02: "the
-              guest's mobile number is hard to find on the guest card"). It sat
-              inside the closed Details row; the first section is the one a
-              phone opens on, so the way to reach them is here, under the name. */}
-          <Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
-        </section>
-
-        <div className="border-y border-ink/10">
-          {/* ── DETAILS — side, group, role, extra roles, groups ───────────── */}
-          <Fold summary="Details" value={detailsSummary}>
-            <div className="grid grid-cols-2 gap-2.5">
-              {hasSides ? (
-                <FormPick
-                  name="side"
-                  label="Side"
-                  value={guest.side}
-                  options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
-                />
-              ) : null}
-              <FormPick
-                name="group_category"
-                label="Group"
-                value={guest.group_category}
-                options={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
-              />
-            </div>
-            {isCouple ? (
-              <div className="space-y-1">
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
-                  {hasSides ? 'Role in wedding' : 'Role'}
-                </span>
-                <div className="flex min-h-10 items-center justify-between rounded-full border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-                  <span className="font-medium text-ink">{roleWord}</span>
-                  <span className="text-xs text-ink/45">Foundation · locked</span>
-                </div>
-                <input type="hidden" name="role" value={guest.role} />
               </div>
             ) : (
-              <div className="space-y-1">
-                <FormPick
-                  name="role"
-                  label={hasSides ? 'Role in wedding' : 'Role'}
-                  value={guest.role}
-                  /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
-                     matron of honour — each pair sits under ONE heading so
-                     the two words read as the alternatives they are. */
-                  options={pickItems(availableRoles).flatMap((it) =>
-                    it.kind === 'pair'
-                      ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
-                      : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
-                  )}
-                />
-                {isIncWedding ? (
-                  <p className="text-xs text-ink/55">
-                    INC note: non-member principal sponsors (Ninong/Ninang) are
-                    limited to one pair. Member sponsors aren&rsquo;t capped.
-                  </p>
-                ) : null}
-              </div>
-            )}
-            {/* ✓ Checkmark dropdowns (owner 2026-09-30 "yes"): extra roles and
-                the couple's own groups, editable right here. */}
-            {isCouple ? null : (
               <>
-                <input type="hidden" name="extra_roles_posted" value="1" />
-                <FormPick
-                  name="extra_roles"
-                  label="Also serves as"
-                  value={extraRolesNow.join(',')}
-                  options={extraRoleOptions}
-                  multi
+                {/* 🪪 THE TITLE CARRIES WOMAN OR MAN (owner 2026-10-17: "let them choose Atty (Female) or Atty (Male)"
+                    → "so no need to choose"). One dropdown — "Atty. (Woman)" · "Atty. (Man)" — posting `name_title`;
+                    `updateGuest` stores the title that prints and the gender that never does. A stored neutral title
+                    whose printed word waits on it reads "Atty. — Woman or Man?" until it is picked again here.
+                    Wider than the old Prefix box so "Atty. (Woman)" reads whole at 375; Middle moves down a row. */}
+                <K.Cols className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)] gap-2">
+                  <K.Title label="Title" value={titleNow} current={guest.name_prefix} options={titleChoices({ current: guest.name_prefix })} unlisted={{ key: titleNow, text: titleText }} />
+                  <K.Field id="first_name" label="First" required={!isSeat} defaultValue={typedName.first_name} />
+                </K.Cols>
+                <K.Cols className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,4.5rem)] gap-2">
+                  <K.Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
+                  <K.Field id="last_name" label="Last" required={!isSeat} defaultValue={typedName.last_name} />
+                  <K.Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
+                </K.Cols>
+                <K.Field
+                  id="display_name"
+                  label="Shown as (optional)"
+                  defaultValue={typedName.display_name}
+                  placeholder="e.g. Tito Boy & Tita Cora"
                 />
               </>
             )}
+            {/* 📱 THEIR MOBILE (owner, live iPhone test 2026-10-02: "the guest's mobile number is hard to find on the guest
+                card") — the row's closed summary says it, and it is the first thing in the row. */}
+            <K.Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
+            </K.List>
+            </div>
+          </K.Fold>
+
+          {/* ══ 2 · DETAILS — side, ONE group dropdown, ONE role dropdown ═════════════════════════════════════════ */}
+          <K.Fold summary="Details" value={detailsSummary}>
+            {hasSides ? (
+              <K.Pick
+                name="side"
+                label="Side"
+                value={guest.side}
+                options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
+              />
+            ) : null}
+            {/* 👥 ONE Group dropdown, several ticked (owner 2026-10-20): Standard · one of these (`group_category`) → Your
+                groups · as many as apply (memberships, `group_ids`) → ＋ New group… — the "Groups" row is gone. */}
+            <K.Group
+              eventId={eventId}
+              label="Group"
+              std={guest.group_category}
+              standard={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+              own={ownGroups}
+              ownPicked={ownPicked}
+              side={hasSides ? guest.side : undefined}
+            />
+            {/* The memberships post only while they could be READ — a refusal can never unTick them (`*_posted`). */}
             {groupChoices ? (
-              groupChoices.options.length > 0 ? (
-                <>
-                  <input type="hidden" name="groups_posted" value="1" />
-                  <FormPick
-                    name="group_ids"
-                    label="Groups"
-                    value={groupChoices.memberIds.join(',')}
-                    options={groupChoices.options.map((g) => ({ key: g.groupId, label: g.label }))}
-                    multi
-                  />
-                </>
-              ) : (
-                <p className="text-xs text-ink/55">No groups yet — make one from the Guest list&rsquo;s Group dropdown.</p>
-              )
+              <input type="hidden" name="groups_posted" value="1" />
             ) : customGroups.length > 0 ? (
               <p className="text-sm text-ink/70">Groups: {customGroups.map((g) => g.label).join(', ')}</p>
             ) : null}
+            {isCouple ? (
+              <>
+                <K.Locked label={hasSides ? 'Role in wedding' : 'Role'} value={roleWord} note="Foundation · locked" />
+                <input type="hidden" name="role" value={guest.role} />
+              </>
+            ) : standingInFor ? (
+              /* 🧍 A PROXY WEARS THE ROLE THEY STAND IN FOR — shown as inherited, read-only on this card (controller's design:
+                 "role, dress code and call time shown as inherited, from <role holder>'s role"). Their own stored role is
+                 carried, never rewritten; the extras are not posted, so `updateGuest` leaves them as they are. */
+              <>
+                <K.Locked
+                  label={hasSides ? 'Role in wedding' : 'Role'}
+                  value={standingInFor.roleWord}
+                  note={`Standing in · from ${standingInFor.name}’s role`}
+                />
+                <input type="hidden" name="role" value={guest.role} />
+              </>
+            ) : (
+              <K.Cols className="space-y-1">
+                {/* 🎭 ONE Role dropdown, several ticked (owner 2026-10-20): the first is `role` (main — it decides the
+                    section), the rest `extra_roles` — "Also serves as" is gone. */}
+                <input type="hidden" name="extra_roles_posted" value="1" />
+                <K.Roles
+                  label={hasSides ? 'Role in wedding' : 'Role'}
+                  about={isIncWedding ? 'INC note: non-member principal sponsors (Ninong/Ninang) are limited to one pair. Member sponsors aren’t capped.' : undefined}
+                  value={[guest.role, ...extraRolesNow].join(',')}
+                  options={roleOptions}
+                  solo={SINGLETON_GUEST_ROLES}
+                />
+                {/* 🏷 The role's and the section's own words are renamed on the List's selected header now (R4 slice 4,
+                    owner 2026-10-29: "the renaming of that group will be removed since it will be set on when the
+                    highlighted group/role is pressed") — `section-head-toolbar.tsx`. The card keeps the role PICK. */}
+                {/* 🧍 "Proxy ▾" — only for a guest who HOLDS A ROLE (owner: "this only works if they have role and not guest"). */}
+                {ProxyRow && proxy && (proxy.offer || representedBy || proxy.unread) ? (
+                  <ProxyRow eventId={eventId} guestId={guest.guest_id} firstName={callName} proxy={proxy} variant={variant} />
+                ) : null}
+              </K.Cols>
+            )}
             {/* ✉ Carried, never shown: no email to guests (owner 2026-09-30).
                 `updateGuest` writes every column it reads, so a dropped input
                 would erase the address a guest's own account linked with. */}
@@ -639,7 +772,7 @@ export function GuestCardBody({
             {/* Chinese / Tsinoy rites only. Fails CLOSED: a refused ceremony read
                 degrades to null and this hides. */}
             {showTeaCeremony ? (
-              <Field
+              <K.Field
                 id="seniority_rank"
                 label="Tea-ceremony order"
                 type="number"
@@ -658,21 +791,86 @@ export function GuestCardBody({
             {/* 🚨 RELATION IS CARRIED, NOT EDITED (owner 2026-09-22) — the
                 tea-ceremony page still reads it; see the-card-posts-every-column. */}
             <input type="hidden" name="relation" value={guest.relation ?? ''} />
-            {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25). Never
-                offered for the couple — `updateGuest` refuses it for them too. */}
-            {isCouple ? null : (
-              <Toggle
-                name="passed_away"
-                defaultChecked={guest.passed_away === true}
-                label="Passed away"
-                note="Kept on the list as “the late …”. Not counted, seated or sent an invitation."
-                soft
-              />
-            )}
-          </Fold>
+          </K.Fold>
 
-          {/* ── RSVP — the answer, to what, and what they eat ─────────────── */}
-          <Fold summary="RSVP" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
+          {/* 🕯 3–7 are not drawn for a guest who passed away — what they post is carried, unchanged (`AwayCarriers`). */}
+          {away ? (
+            <AwayCarriers
+              guest={guest}
+              plusOneCount={plusOne ? '0' : String(seats)}
+              initialInvited={initialInvited}
+              chapters={inviteChapters && inviteChapters.chapters.length > 0 ? inviteChapters : null}
+            />
+          ) : (
+          <>
+          {/* ══ 3 · ADDITIONAL GUESTS — their extra seats and who fills them (out of RSVP, owner 2026-10-23) ══════════ */}
+          {isCouple ? null : (
+            <K.Fold summary="Additional Guests" value={extraSummary}>
+              {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
+              {plusOne ? (
+                /* 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — no Extra seats pick, one quiet line, and 0 is
+                   posted (the server refuses more: `checkExtraSeats`). lib/a-plus-one-brings-no-plus-one.test.ts */
+                <>
+                  <input type="hidden" name="plus_one_count" value="0" />
+                  <K.Fact field="plus_one_count" label="Extra seats" value="None" where={A_PLUS_ONE_BRINGS_NO_ONE} />
+                </>
+              ) : (
+                <K.Pick
+                  name="plus_one_count"
+                  label="Extra seats"
+                  value={String(seats)}
+                  options={PLUS_ONE_CHOICES.map((n) => ({ key: String(n), label: n === 0 ? 'None' : `+${n}` }))}
+                />
+              )}
+              {/* 🪑 EVERY SEAT IS A LINE (2026-10-22: a guest with two +1s read "no +1 added yet"), numbered by seat; a
+                  refused read says so — a failure is never drawn as the empty state (`plusOneLines`, guest-card-data.ts). */}
+              {plusOne ? null : plusOneLines === null ? (
+                <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Couldn’t read this guest’s +1s — refresh to see them.</p>
+              ) : plusOnePeople && plusOnePeople.length > 0 ? (
+                /* 🪪 ONE CARD PER +1 (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): their initials, their
+                   name — or that it is still to come — "+1 of <their guest> · <their reply>", and a tap opens THEIR card. */
+                <ul className="divide-y divide-ink/10" data-guest-plus-ones="">
+                  {plusOnePeople.map((seat) => (
+                    <li key={seat.guestId}>
+                      <Link
+                        href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${seat.guestId}` : `/dashboard/${eventId}/guests/${seat.guestId}`}
+                        className="sn-press flex min-h-[52px] items-center gap-2.5 py-2"
+                        data-guest-plus-one={seat.guestId}
+                      >
+                        <span aria-hidden className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-xs font-semibold text-sn-accent">
+                          {seat.name ? seatInitials(seat.name) : '+1'}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">{seat.name ?? 'Name to come'}</span>
+                          <span className="block truncate text-xs text-ink/55">
+                            +1 of {callName} · {CARD_RSVP_WORDS[seat.status]}
+                          </span>
+                        </span>
+                        <span aria-hidden className="text-ink/40">
+                          ›
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : plusOneLines.length > 0 ? (
+                <div className="space-y-0.5 rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">
+                  {plusOneLines.map((line, i) => (
+                    <p key={i}>
+                      +{i + 1}: {line}
+                    </p>
+                  ))}
+                </div>
+              ) : guest.plus_one_allowed ? (
+                <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>
+              ) : null}
+            </K.Fold>
+          )}
+
+          {/* ══ 4 · RSVP STATUS — the answer, to what, what they eat, and what they wrote ══════════════════════════════
+              🔴 It OPENS BY ITSELF when the guest wrote a note, so a host never has to guess to open it (owner 2026-10-23:
+              the note left its block outside the rows for this one; the promise is the same). */}
+          <K.Fold summary="RSVP Status" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
             {isCouple ? (
               <>
                 <p className="text-sm font-medium text-success-800">Attending · always</p>
@@ -681,11 +879,29 @@ export function GuestCardBody({
                     groom to attending, so their stamp only says when a host saved. */}
                 <input type="hidden" name="rsvp_status" value="attending" />
               </>
+            ) : representedBy ? (
+              /* 🧍 THE PAIR'S ANSWER IS THE PROXY'S — "Represented by <proxy> ›" (tap opens their card). The holder's own stored
+                 answer is carried unchanged, so removing the proxy restores it exactly. */
+              <>
+                <div className="flex min-h-[52px] items-center gap-2.5" data-guest-represented-by={representedBy.guestId}>
+                  <span className="text-sm text-ink/70">Reply</span>
+                  <Link
+                    href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${representedBy.guestId}` : `/dashboard/${eventId}/guests/${representedBy.guestId}`}
+                    className="sn-press ml-auto min-w-0 truncate text-sm font-medium text-sn-accent"
+                  >
+                    {representedByWords(representedBy.name)} ›
+                  </Link>
+                </div>
+                <p className="text-xs text-ink/50">
+                  Counted once, as {representedBy.name} · {CARD_RSVP_WORDS[representedBy.rsvp]}
+                </p>
+                <input type="hidden" name="rsvp_status" value={guest.rsvp_status} />
+              </>
             ) : (
               /* Attending · No reply · Not coming (owner 2026-09-30 — no Maybe).
                  A guest who already answered Maybe keeps it listed, so opening
                  the card never rewrites their answer. */
-              <FormPick
+              <K.Pick
                 name="rsvp_status"
                 label="Reply"
                 value={guest.rsvp_status}
@@ -698,56 +914,137 @@ export function GuestCardBody({
             {/* "Recorded", not "replied" — three of the column's four writers are
                 host-side. Only when there IS one, and 🔴 never for the couple. */}
             {!isCouple && recordedAt ? (
-              <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+              <p className="text-xs text-ink/50" data-reply-set-by={guest.rsvp_set_by ?? ''}>
+                Answer recorded {recordedAt}
+                {replyMarkedByHost(guest) ? ' · Marked by you' : ''}
+              </p>
             ) : null}
 
-            <div className="space-y-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Invited to</span>
-              {/* Smart defaults by role · locked 2026-05-23 PM — changing the
-                  Role snaps these to that role's usual set. */}
-              <InvitedToChips roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} look="toggles" />
-            </div>
+            {inviteChapters === undefined || (inviteChapters && inviteChapters.chapters.length === 0) ? (
+              /* Smart defaults by role · locked 2026-05-23 PM — changing the
+                 Role snaps these to that role's usual set. An event with no chapter on its invitation (and the Maker's
+                 cards, which read none) keeps the five fixed chips. */
+              <K.InvitedTo roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} />
+            ) : (
+              <>
+                {/* ✉ INVITED TO ▾ — THE EVENT'S CHAPTERS (owner 2026-11-02, DECISION_LOG "PER-GUEST "INVITED TO" CHAPTERS").
+                    Ticked = on their invitation; default all, so a guest nobody touched keeps all. The five fixed chips are
+                    not chapters: carried unchanged, so a save never clears them. */}
+                {initialInvited.map((b) => (
+                  <input key={b} type="hidden" name={`invited_${b}`} value="on" />
+                ))}
+                {inviteChapters ? (
+                  <>
+                    <input type="hidden" name="invited_chapters_posted" value="1" />
+                    <K.Pick
+                      name="invited_chapters"
+                      label="Invited to"
+                      multi
+                      value={inviteChapters.chapters
+                        .filter((c) => !inviteChapters.notInvited.includes(c.block_id))
+                        .map((c) => c.block_id)
+                        .join(',')}
+                      options={inviteChapters.chapters.map((c) => ({ key: c.block_id, label: c.label }))}
+                      emptyText="Pick a part"
+                      about="The parts of the day on their invitation. They reply to, see and are counted for only the parts ticked — untick one they are not coming to (e.g. after party only)."
+                    />
+                  </>
+                ) : (
+                  <K.Fact field="invited_chapters" label="Invited to" value="Couldn’t read" where="Refresh to change which parts they are invited to." />
+                )}
+              </>
+            )}
 
-            <span className="block pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Seats and food</span>
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
-              {isCouple ? (
-                <input type="hidden" name="plus_one_count" value={String(seats)} />
-              ) : (
-                <FormPick
-                  name="plus_one_count"
-                  label="Extra seats"
-                  value={String(seats)}
-                  options={PLUS_ONE_CHOICES.map((n) => ({ key: String(n), label: n === 0 ? 'None' : `+${n}` }))}
-                />
-              )}
-              {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. */}
-              <FormPick
+            {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. */}
+            <K.Cols className="grid grid-cols-2 gap-2.5">
+              <K.Pick
                 name="meal_preference"
                 label="Meal"
                 value={guest.meal_preference ?? 'no_preference'}
                 options={MEAL_OPTIONS.map((v) => ({ key: v, label: MEAL_LABELS[v] }))}
               />
-            </div>
-            {isCouple ? null : plusOneStateLabel ? (
-              <p className="rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">+1: {plusOneStateLabel}</p>
-            ) : guest.plus_one_allowed ? (
-              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>
-            ) : null}
-            <Field
-              id="dietary_restrictions"
-              label="Dietary"
-              defaultValue={guest.dietary_restrictions ?? ''}
-              placeholder="halal · nut allergy · …"
-            />
-          </Fold>
+              <K.Field
+                id="dietary_restrictions"
+                label="Dietary"
+                defaultValue={guest.dietary_restrictions ?? ''}
+                placeholder="halal · nut allergy · …"
+              />
+            </K.Cols>
 
-          {/* ── SEAT — the table, in place (never "go edit elsewhere") ──────── */}
-          <Fold summary="Seat" value={seatSummary}>
-            {tables && !guest.passed_away && guest.rsvp_status !== 'declined' ? (
+            {/* 🔴 The guest's own message. Read-only: it is theirs, not yours to edit — and the row it is in opens by itself. */}
+            {guest.guest_note?.trim() ? (
+              <div className="space-y-1.5 border-l-2 border-ink/15 pl-3" data-guest-own-note="">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+                  A note from {callName}
+                </span>
+                <p className="whitespace-pre-wrap font-display text-[15px] italic text-ink/80">“{guest.guest_note}”</p>
+                <p className="text-xs text-ink/50">They wrote this when they replied. Only they can change it.</p>
+              </div>
+            ) : null}
+          </K.Fold>
+
+          {/* ══ 5 · PAPIC — their camera and their face (owner 2026-10-23; today's "Photos" folds in here) ════════════════
+              🔒 THE THREE FACE SWITCHES ALWAYS SHOW AND ALWAYS SAVE (owner 2026-10-23, "Always show them"). They are not
+              Papic's: they also govern the public story and recap (`consent-veto.ts`) and the withdrawal blur
+              (`face-blur.ts`), and `updateGuest` is the ONLY writer of `photo_consent = false` in the product. The event's
+              Papic OFF replaces ONLY "Their camera ▾" — with one line, "Papic is off · Turn on ›", whose door lands on the
+              switch (`papicSwitchHref`) and is drawn only for a viewer who can press it (`forTheCouple`). */}
+          <K.Fold summary={papicRow ? 'Papic' : 'Photos'} value={papicSummary}>
+            {!storeShell && papicRow?.access === 'off' ? (
+              <K.Door label="Their camera" value="Papic is off" href={papicRow.door ?? null} action="Turn on" data="card-papic-off" />
+            ) : !storeShell && papicRow?.access === 'unknown' ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-unknown="">
+                Couldn’t check whether Papic is on — refresh to see their camera.
+              </p>
+            ) : cameraUnread ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900" data-papic-camera-unread="">
+                Couldn’t read their camera — refresh to set it.
+              </p>
+            ) : papicRow?.access === 'on' && papicRow.ceiling !== undefined && PapicCamera ? (
+              /* "Their camera ▾" — Shares with everyone · A set number · No camera (`papic_set_guest_spend_ceiling`). */
+              <PapicCamera eventId={eventId} guestId={guest.guest_id} ceiling={papicRow.ceiling} />
+            ) : null}
+            {/* 📐 THE PROTOTYPE'S ORDER (`guest_card_groups_and_papic_2026-10-23.html`, frame 3): Blur · Tag · Keep out — the
+                guest's own wishes, said as theirs (owner review 2026-10-23: "Wants to be tagged in photos", not "Tag them").
+                Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
+                server-baked blur on EVERY projected photo, fail-closed.
+                🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
+                iPhone app does not offer (its page is refused there), so the app
+                does not name it. The switch stays in the form, so its saved
+                answer still posts. Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+            <div data-web-only="">
+              <K.Toggle
+                name="faceblock_enabled"
+                defaultChecked={guest.faceblock_enabled}
+                label="Wants their face blurred on Memory lane"
+                note="FaceBlock — blurs every face in the shot"
+              />
+            </div>
+            <K.Toggle
+              name="photo_consent"
+              defaultChecked={guest.photo_consent}
+              label="Wants to be tagged in photos"
+              note="Their consent (RA 10173)"
+            />
+            {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
+            <K.Toggle
+              name="face_recognition_excluded"
+              defaultChecked={guest.face_recognition_excluded}
+              label="Stays out of face recognition"
+              note="e.g. a minor"
+            />
+          </K.Fold>
+
+          {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
+          <K.Fold summary="Seat Plan" value={seatSummary}>
+            {representedBy ? (
+              /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
+              <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">
+                {representedBy.name} sits in this seat — change it on their card.
+              </p>
+            ) : tables && !guest.passed_away && (guest.rsvp_status !== 'declined' || proxy?.namedByGuest) ? (
               <>
-                <input type="hidden" name="table_posted" value="1" />
-                <FormPick
+                <K.Pick
                   name="table_id"
                   label="Table"
                   value={seatTableId ?? ''}
@@ -756,177 +1053,214 @@ export function GuestCardBody({
                     ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) })),
                   ]}
                 />
+                <input type="hidden" name="table_posted" value="1" />
+                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
+                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
+                {seatTableId && data.seatPlaced ? (
+                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
+                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
+                  </p>
+                ) : null}
+                {/* 🪑 Their seat, the way THEY will see it (owner 2026-11-01): the couple's 2D · 3D · Both, their table lit, tap for
+                    full screen — read when drawn, never with the card. */}
+                {seatTableId ? <GuestSeatPreview eventId={eventId} guestId={guest.guest_id} firstName={typedName.first_name || 'They'} /> : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>
             )}
-            <FormPick
-              name="attire"
-              label="Attire · 3D seat plan"
-              value={guest.attire}
-              options={ATTIRE_OPTIONS.map((v) => ({ key: v, label: ATTIRE_LABELS[v] }))}
-            />
-            <p className="text-xs text-ink/55">
-              Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
-            </p>
-          </Fold>
+            {/* 👗 NO ATTIRE PICK (owner 2026-10-20: "the attire depends on the dress code of their role"). What they wear
+                in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
+                plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
+            {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
+            {/* 🧍 A proxy arrives at the role's call time — said where it comes from. */}
+            {standingInFor?.callTime ? (
+              <K.Fact field="call_time" label="Call time" value={standingInFor.callTime} where={`From ${standingInFor.name}’s role`} />
+            ) : null}
+          </K.Fold>
 
-          {/* ── PHOTOS — three yes/no answers ───────────────────────────────── */}
-          <Fold summary="Photos" value={photosSummary}>
-            <Toggle
-              name="photo_consent"
-              defaultChecked={guest.photo_consent}
-              label="Wants to be tagged in photos"
-              note="Their consent (RA 10173)"
+          {/* ══ 7 · NOTE FOR THEM · PRIVATE NOTE — one group, two fields, as the owner wrote it ═══════════════════════════
+              💌 The note FOR them (owner 2026-10-20, DECISION_LOG "A NOTE FOR ONE GUEST"): shown on their own Me, under Your
+              role — to them and nobody else (`lib/guest-host-note.ts`). Beside it the couple's own, said plainly which one the
+              guest reads. */}
+          <K.Fold summary="Note for them · Private note" value={notesSummary} emptyValue="None">
+            <K.Field
+              id="host_note_for_guest"
+              long
+              maxLength={HOST_NOTE_MAX}
+              label="Note for them · they see it"
+              defaultValue={guest.host_note_for_guest ?? ''}
+              placeholder="e.g. We saved you a seat beside Lola — she can’t wait to see you."
+              about={`${callName} sees this on their invitation, under their role. No other guest does.`}
             />
-            {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
-                server-baked blur on EVERY projected photo, fail-closed. */}
-            <Toggle
-              name="faceblock_enabled"
-              defaultChecked={guest.faceblock_enabled}
-              label="Blur their face on the Live Wall"
-              note="FaceBlock — blurs every face in the shot"
-            />
-            {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
-            <Toggle
-              name="face_recognition_excluded"
-              defaultChecked={guest.face_recognition_excluded}
-              label="Keep out of face recognition"
-              note="e.g. a minor"
-            />
-          </Fold>
-
-          {/* ── PRIVATE NOTE — the couple's own, never the guest's ─────────── */}
-          <Fold summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
-            <textarea
+            <K.Field
               id="notes"
-              name="notes"
-              rows={3}
-              aria-label="Private note"
+              long
+              label="Private note · only you"
               defaultValue={guest.notes ?? ''}
               placeholder="e.g. Tito’s driver drops him at the side gate"
-              className="input-field min-h-[88px] resize-y py-2"
+              about={`Only you and your co-hosts see this. ${callName} never sees it.`}
             />
-            {/* Said out loud, because until 2026-08-06 it was the opposite of true. */}
-            <p className="text-xs text-ink/50">
-              Only you and your co-hosts see this. {guest.first_name} never sees it.
-            </p>
-          </Fold>
+            {/* Said out loud (behind the row's ⓘ), because until 2026-08-06 it was the opposite of true. */}
+          </K.Fold>
+          </>
+          )}
         </div>
-
-        {/* 🔴 The guest's own message. Read-only: it is theirs, not yours to
-            edit, and it stays OUT of every drawer — a host must never have to
-            guess to open one to read what a guest wrote. */}
-        {guest.guest_note?.trim() ? (
-          <div className="space-y-1.5 border-l-2 border-ink/15 pl-3">
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
-              A note from {guest.first_name}
-            </span>
-            <p className="whitespace-pre-wrap font-display text-[15px] italic text-ink/80">“{guest.guest_note}”</p>
-            <p className="text-xs text-ink/50">They wrote this when they replied. Only they can change it.</p>
-          </div>
-        ) : null}
       </AutosaveForm>
 
-      {/* ── ACCESS — its own actions, so OUTSIDE the autosave form (a nested
-          <form> is invalid HTML). Same accordion as the rows above. */}
-      <div className="border-y border-ink/10">
-        <Fold summary="Access" value={accessSummary || null} emptyValue="—">
+        {/* ══ 8 · ACCESS — its own actions, so OUTSIDE the autosave form (a nested <form> is invalid HTML). ══════════
+            🕯 Not drawn for a guest who passed away — the Account row and the Give / Take back doors with it. It posts nothing
+            with the card, so nothing needs carrying. */}
+        {away ? null : (
+        <K.Fold summary="Access" value={accessSummary || null} emptyValue="—">
           {/* A refused read (access === null) shows nothing, never "Guest only". */}
           {access ? (
             <GuestAccessControl
               eventId={eventId}
               guestId={guest.guest_id}
-              firstName={guest.first_name}
+              firstName={callName}
               initial={access}
               canManage={canManageAccess}
+              linked={linked}
+              Pick={AccessPick}
             />
           ) : null}
           {helperAccess ?? null}
+          {/* 🔑 ACCOUNT, ONE LINE (owner 2026-11-02) — what it means is the ⓘ. */}
           {linked === null ? null : (
-            <div className="space-y-0.5 pt-1" data-unlink-account="">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Account</span>
-              <p className="text-sm text-ink">
+            <FormRow
+              name="Account"
+              about={{ words: linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link their Setnayan account, it shows here — and Access opens on this card.' }}
+              data="card-account"
+              attrs={{ 'data-unlink-account': '' }}
+            >
+              <span className="min-w-0 truncate text-[14px] text-ink/70">
                 {linked ? `Linked${linkedAccount?.email ? ` — ${linkedAccount.email}` : ''}` : 'Not linked'}
-              </p>
-              <p className="text-xs text-ink/50">
-                {linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link, it shows here.'}
-              </p>
-            </div>
+              </span>
+            </FormRow>
           )}
 
           {/* ── The careful actions — explicit, never autosaved, each its own
               <form>. THE SECOND TAP IS THE GUARD on Remove. */}
           {isCouple ? (
-            <div className="space-y-2 border-t border-ink/10 pt-3">
-              {/* ✉ THE ONE EMAIL LEFT, AND ONLY HERE — a couple row (owner
-                  2026-09-30: no email to GUESTS). It is the only way the
-                  partner's own bride / groom row can be claimed by their
-                  account (a couple seat refuses every other link;
-                  lib/seat-link-approval.ts). Never offered while linked. */}
-              {canManageAccess && !linkedAccount && guest.email ? (
+            /* ✉ THE ONE EMAIL LEFT, AND ONLY HERE — a couple row (owner
+               2026-09-30: no email to GUESTS). It is the only way the
+               partner's own bride / groom row can be claimed by their
+               account (a couple seat refuses every other link;
+               lib/seat-link-approval.ts). Never offered while linked. */
+            canManageAccess && !linkedAccount && guest.email ? (
+              <div className="space-y-2 border-t border-ink/10 pt-3">
                 <form action={partnerLinkAction} data-partner-sign-in="">
-                  <SubmitButton
-                    className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                    pendingLabel="Sending…"
-                  >
-                    Send {guest.first_name} their sign-in link
-                  </SubmitButton>
+                  <K.Submit pendingLabel="Sending…">{`Send ${guest.first_name} their sign-in link`}</K.Submit>
                 </form>
-              ) : null}
-              <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
-            </div>
+              </div>
+            ) : null
           ) : (
-            <div className="space-y-2 border-t border-ink/10 pt-3">
-              {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
-                  guest who has NOT replied. Rides the release door (`swap_name`). */}
-              {guest.rsvp_status === 'pending' ? (
-                <form action={releaseAction} className="space-y-2" data-give-spot="">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                    <InfoTip label="Give this spot to someone else" align="start">
-                      The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
-                      {name}&rsquo;s link and QR stop working; they are not notified. Guests who
-                      already replied cannot be swapped.
-                    </InfoTip>
-                  </p>
-                  <label className="block">
-                    <span className="text-xs font-medium text-ink/60">Who takes it?</span>
-                    <input
-                      name="swap_name"
-                      required
-                      autoComplete="off"
-                      placeholder="First and last name"
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  <SubmitButton className="button-primary w-full" pendingLabel="Giving the spot…">
-                    Give the spot
-                  </SubmitButton>
-                </form>
-              ) : null}
-              {/* Owner ruling 2026-08-06: "the couple has full control of their
-                  guests." Rotation FIRST, then the claim is let go. */}
-              <form action={releaseAction}>
-                <SubmitButton
-                  className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-                  aria-label={`Take back ${name}'s seat — new QR and unlink their account`}
-                  pendingLabel="Taking back…"
-                >
-                  Take this seat back
-                </SubmitButton>
-              </form>
-              <p className="text-xs text-ink/50">
-                Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
-              </p>
-            </div>
+            /* 🔁 GIVE THIS SPOT (owner 2026-09-26) and TAKE THIS SEAT BACK (owner ruling 2026-08-06: "the couple has full
+               control of their guests") — one line, side by side, Give opening on a tap and only while they have not
+               replied (owner 2026-11-02). Both ride the release door (`swap_name` = give the spot). */
+            <GuestSeatDoors name={name} canGive={guest.rsvp_status === 'pending'} releaseAction={releaseAction} />
           )}
-        </Fold>
+        </K.Fold>
+        )}
 
-        {/* ── TAGS — read-only, made from the fields above; never opens ───── */}
-        <div className="flex items-start gap-3 border-t border-ink/[0.06] px-3.5 py-3 text-sm" data-guest-card-tags="">
-          <span className="font-medium text-ink">Tags</span>
-          <span className="ml-auto min-w-0 text-right text-ink/55">{tagWords.join(' · ')}</span>
-        </div>
+        {/* ══ 8b · NOT COUNTED FOR ▾ — a guest who COMES but is left out of one booked service's headcount (owner 2026-11-02:
+            "a dropdown above passed away … it will list all booked services to pick if they are not counted"). Directly ABOVE
+            Passed Away and, like it, outside the autosave form, posting with it by `form=`. Ticks keep the list open; Done
+            closes it (the shared PickMenu). Never for the couple, nor a guest already not counted at all (passed away);
+            not drawn while nothing is booked, nor when the read was refused — no marker then, so nothing is changed. ═══ */}
+        {isCouple || guest.passed_away || !notCounted || notCounted.services.length === 0 ? null : (
+          <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
+            {/* 📏 The row FIRST, its marker after it (owner 2026-11-04: "i see a double line in between access and not counted
+                for"): a Form row drops its own top rule only as its box's first child (`first:border-t-0`). Behind the hidden
+                marker it was not first, so its rule drew under Access's — two hairlines. The Pick is the first child of the
+                result's own box, and the marker follows that box. */}
+            {/* 🧮 Every supplier on the event priced per head, booked or not (owner 2026-11-04) — the hint says which: "<shop> ·
+                Booked" · "<shop> · Quoted · applies once booked". The line under it is the count the tick makes. */}
+            <NotCountedResult
+              services={notCounted.services}
+              saved={notCounted.picked}
+              field={NOT_COUNTED_FIELD}
+              self={{
+                attending: guest.rsvp_status === 'attending' && !guest.represented_by_guest_id, // passed_away is already ruled out above
+                roles: [guest.role, ...(guest.extra_roles ?? [])],
+                groupIds: ownPicked,
+                firstName: guest.first_name?.trim() || name,
+              }}
+            >
+              <K.Pick
+                name={NOT_COUNTED_FIELD}
+                label="Not counted for"
+                multi
+                form={formId}
+                value={notCounted.picked.join(',')}
+                options={notCounted.services.map((s) => ({ key: s.id, label: s.label, hint: serviceHint(s) }))}
+                emptyText={COUNTED_FOR_ALL}
+                about={NOT_COUNTED_ABOUT}
+              />
+            </NotCountedResult>
+            <input type="hidden" name={NOT_COUNTED_POSTED} value="1" form={formId} />
+          </div>
+        )}
+
+        {/* ══ 9 · PASSED AWAY — listed, never counted (owner 2026-09-25; out of Details, 2026-10-23). Never offered for the
+            couple — `updateGuest` refuses it for them too. It posts with the autosave form (`form={formId}`). ═════════ */}
+        {isCouple ? null : (
+          /* 📐 THE SWITCH IS THE ROW (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): no fold to open —
+             one yes / no, drawn where the row is, a hairline under it like every group — but only while a group follows: the
+             Maker's cards hand no Delete, and there the card's own bottom rule is the line (two would touch). */
+          <div className={`${DeleteControl ? 'border-b border-ink/10 ' : ''}px-0.5`} data-card-passed-away="">
+            <K.Toggle
+              name="passed_away"
+              form={formId}
+              defaultChecked={guest.passed_away === true}
+              label="Passed Away"
+              note="Kept on the list as “the late …”. Not counted, seated or sent an invitation."
+              soft
+            />
+          </div>
+        )}
+
+        {/* ══ 10 · DELETE — its own group at the bottom (out of the ⋯, owner 2026-10-23): the shipped warning, its button the
+            second tap, and Undo. The couple's rows say why they stay. The Maker's cards hand no Delete and draw none. ══ */}
+        {isCouple ? (
+          <K.Fold summary="Delete" value="Can’t be removed" last danger>
+            <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
+          </K.Fold>
+        ) : DeleteControl ? (
+          /* 🔄 RESET · DELETE (owner 2026-10-26: "So at the bottom, have (RESET) (DELETE)") — one bottom group, the two
+             buttons side by side. A +1 seat answers through its guest, so its card keeps Delete / Release alone. */
+          <K.Fold
+            summary={canReset ? 'Reset · Delete' : 'Delete'}
+            /* "Can be undone" with Reset beside Delete — one line at 375 and 390; that both ask first is in the ⓘ. */
+            value={seatWithNoName ? 'Release this +1 seat' : canReset ? 'Can be undone' : seats > 0 ? 'Removes them and their +1' : 'Asks first · can be undone'}
+            last
+            danger
+            /* ⓘ Title + one short line visible, what each does inside the ⓘ (house rule, coordinator review of #6937). */
+            tip={
+              seatWithNoName ? undefined : (
+                <span className="block space-y-1.5" data-card-delete-says="">
+                  {canReset ? <span className="block">Both ask first, and both can be undone right after.</span> : null}
+                  {canReset ? (
+                    <span className="block" data-card-reset-says="">
+                      Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
+                    </span>
+                  ) : null}
+                  <span className="block">
+                    {canReset ? 'Delete: ' : null}
+                    {seats > 0
+                      ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
+                      : 'Their QR and link stop working. You can undo it right after.'}
+                  </span>
+                </span>
+              )
+            }
+          >
+            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), now inside the ⓘ — all but its last
+                clause: the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX
+                SECONDS (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
+            <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} resettable={canReset} />
+          </K.Fold>
+        ) : null}
       </div>
     </div>
   );
@@ -935,102 +1269,57 @@ export function GuestCardBody({
 // ── local pieces ────────────────────────────────────────────────────────────
 
 /**
- * ONE ROW OF THE CARD — closed, with a one-line summary; open, its fields.
- * A native details element in ONE exclusive group (`name="guest-card-row"`), so
- * opening a row closes the one that was open — the card never grows long, and
- * there is no script to load (the card is in the Maker's first load too).
+ * 🕯 WHAT THE HIDDEN PARTS POST, CARRIED (a guest who passed away — `away` above). The very names and values their controls
+ * post when drawn, so the card's form is the same form either way: a save while they are hidden, and the save that switches
+ * Passed Away back off, write nothing over what is stored. Not carried: the Table (never drawn for them —
+ * `updateGuest` will not seat them either) and Papic's camera (its own action, never the form).
  */
-function Fold({
-  summary,
-  value,
-  emptyValue,
-  open = false,
-  last = false,
-  children,
+function AwayCarriers({
+  guest,
+  plusOneCount,
+  initialInvited,
+  chapters,
 }: {
-  summary: string;
-  value: string | null;
-  emptyValue?: string;
-  /** Opens on arrival — the RSVP row when the guest left a note. */
-  open?: boolean;
-  last?: boolean;
-  children: React.ReactNode;
+  guest: GuestCardData['guest'];
+  plusOneCount: string;
+  initialInvited: readonly string[];
+  chapters: { chapters: { block_id: string }[]; notInvited: string[] } | null;
 }) {
   return (
-    <details name="guest-card-row" open={open || undefined} className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
-      <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-3 px-3.5 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
-        <span className="font-medium">{summary}</span>
-        <span className="ml-auto min-w-0 truncate text-ink/55">
-          {value ?? <span className="italic text-ink/40">{emptyValue ?? '—'}</span>}
-        </span>
-        <span aria-hidden className="text-ink/40 transition-transform group-open:rotate-90">
-          ›
-        </span>
-      </summary>
-      <div className="gl-disc space-y-3 border-t border-ink/[0.06] bg-ink/[0.02] px-3.5 py-3.5">{children}</div>
-    </details>
-  );
-}
-
-/** A yes/no answer, as a switch. A real checkbox underneath (posts `on`). */
-function Toggle({
-  name,
-  defaultChecked,
-  label,
-  note,
-  soft = false,
-}: {
-  name: string;
-  defaultChecked: boolean;
-  label: string;
-  note: string;
-  /** Drawn quietly — the careful one (Passed away). */
-  soft?: boolean;
-}) {
-  return (
-    <label
-      className={`flex min-h-[48px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm ${
-        soft ? 'bg-ink/[0.03] text-ink/75' : 'border border-ink/10 bg-white/70 text-ink'
-      }`}
-    >
-      <span className="min-w-0">
-        <span className="block font-medium">{label}</span>
-        <span className="block text-xs text-ink/55">{note}</span>
-      </span>
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="sn-switch" />
-    </label>
-  );
-}
-
-function Field({
-  id,
-  label,
-  required = false,
-  type = 'text',
-  defaultValue,
-  placeholder,
-}: {
-  id: string;
-  label: string;
-  required?: boolean;
-  type?: string;
-  defaultValue: string;
-  placeholder?: string;
-}) {
-  return (
-    <div className="min-w-0 space-y-1">
-      <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        className="input-field"
-      />
+    <div hidden data-guest-card-away-carriers="">
+      <input type="hidden" name="plus_one_count" value={plusOneCount} />
+      <input type="hidden" name="rsvp_status" value={guest.rsvp_status} />
+      {initialInvited.map((b) => (
+        <input key={b} type="hidden" name={`invited_${b}`} value="on" />
+      ))}
+      {chapters ? (
+        <>
+          <input type="hidden" name="invited_chapters_posted" value="1" />
+          <input
+            type="hidden"
+            name="invited_chapters"
+            value={chapters.chapters
+              .filter((c) => !chapters.notInvited.includes(c.block_id))
+              .map((c) => c.block_id)
+              .join(',')}
+          />
+        </>
+      ) : null}
+      <input type="hidden" name="meal_preference" value={guest.meal_preference ?? 'no_preference'} />
+      <input type="hidden" name="dietary_restrictions" value={guest.dietary_restrictions ?? ''} />
+      {guest.faceblock_enabled ? <input type="hidden" name="faceblock_enabled" value="on" /> : null}
+      {guest.photo_consent ? <input type="hidden" name="photo_consent" value="on" /> : null}
+      {guest.face_recognition_excluded ? <input type="hidden" name="face_recognition_excluded" value="on" /> : null}
+      <input type="hidden" name="host_note_for_guest" value={guest.host_note_for_guest ?? ''} />
+      <input type="hidden" name="notes" value={guest.notes ?? ''} />
     </div>
   );
+}
+
+/** A +1's initials for their card's avatar — the first letter of the first and the last word ("Ana Cruz" → "AC"). */
+function seatInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const first = words[0]?.[0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : '';
+  return `${first}${last}`.toUpperCase() || '+1';
 }

@@ -249,9 +249,11 @@ function makeOwnedSupabase(
 // gone on passing while testing NOTHING, which is worse than failing. Repointed
 // at PAPIC_ADDON_THANK_YOU, a genuinely paid, active à-la-carte SKU, so they keep
 // testing the MECHANISM (order → ownership) they were written for.
-test('eventOwnsSku: direct à-la-carte order confers ownership (PAPIC_ADDON_THANK_YOU)', async () => {
-  const supabase = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']));
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
+// ⚠ AND AGAIN 2026-10-26: the Thank-You Video went free too (owner, "make it free
+// for now") — repointed once more, at PAKANTA (Music Maker), still paid and active.
+test('eventOwnsSku: direct à-la-carte order confers ownership (PAKANTA)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['PAKANTA']));
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAKANTA'), true);
 });
 
 test('eventOwnsSku: MEDIA_PACK bundle grants a media child (PANOOD_SYSTEM)', async () => {
@@ -302,7 +304,7 @@ test('eventOwnsSku: GUIDED_PACK bundle grants its member but NOT a media-only ch
 test('eventOwnsSku: no direct order and no owned bundle → not owned', async () => {
   const supabase = makeOwnedSupabase(new Set()); // owns nothing
   // NOT LIVE_WALL — that is free for everyone now and would answer true here.
-  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), false);
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'PAKANTA'), false);
 });
 
 test('eventOwnsSku: a non-bundleable SKU with no direct order → not owned (no bundle fallback)', async () => {
@@ -495,17 +497,17 @@ test('checkOrderActive: any other DB error throws', async () => {
 });
 
 test('eventSkuActive: a paid direct order is active', async () => {
-  const supabase = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'paid');
-  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
+  const supabase = makeOwnedSupabase(new Set(['PAKANTA']), 'paid');
+  assert.equal(await eventSkuActive(supabase, 'evt_1', 'PAKANTA'), true);
 });
 
 test('eventSkuActive: a SUBMITTED direct order is NOT active (the gate), but IS a live order (no double-buy)', async () => {
   // NOT LIVE_WALL — free-for-all short-circuits both predicates, so the payment
   // handshake this test exists to prove would be invisible.
-  const a = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'submitted');
-  assert.equal(await eventSkuActive(a, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), false);
-  const b = makeOwnedSupabase(new Set(['PAPIC_ADDON_THANK_YOU']), 'submitted');
-  assert.equal(await eventOwnsSku(b, 'evt_1', 'PAPIC_ADDON_THANK_YOU'), true);
+  const a = makeOwnedSupabase(new Set(['PAKANTA']), 'submitted');
+  assert.equal(await eventSkuActive(a, 'evt_1', 'PAKANTA'), false);
+  const b = makeOwnedSupabase(new Set(['PAKANTA']), 'submitted');
+  assert.equal(await eventOwnsSku(b, 'evt_1', 'PAKANTA'), true);
 });
 
 test('eventSkuActive: a PAID MEDIA_PACK bundle activates a child (PANOOD_SYSTEM)', async () => {
@@ -789,15 +791,19 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
   // 2026-08-11: LIVE_BACKGROUND ← ANIMATED_MONOGRAM is GONE with the LED wall
   // backdrop it unlocked (owner: "remove wall backdrop").
   // 2026-09-24 (owner, "A then"): ANIMATED_MONOGRAM via Event Hub Pro.
+  // 2026-10-22 (owner, "Event Hub Pro, part by part", Q2 "yes"): the retired ANIMATED_MONOGRAM and the Logo & QR part
+  // are one thing — each confers the other.
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'ANIMATED_MONOGRAM',
+    'COUPLE_HUB_PART_LOGO_QR',
     'EDITORIAL_PRO',
     'LIVE_STUDIO',
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR, ['ANIMATED_MONOGRAM']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
     'PANOOD_SYSTEM',
     'PANOOD_SYSTEM_MOBILE',

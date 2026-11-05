@@ -32,7 +32,8 @@ const FILES = [PANELS, `${DIR}/maker-reveal.tsx`, `${DIR}/maker-logo.tsx`];
 
 test('every form in the made-once panels posts to the draft', () => {
   const src = read(PANELS);
-  const forms = src.split(/<form\b/).slice(1);
+  /* `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings. */
+  const forms = src.split(/<(?:form|SafeForm)\b/).slice(1);
   console.log(`[made-once] forms in ${PANELS}: ${forms.length}`);
   assert.ok(forms.length >= 2, 'anti-vacuity: the hero upload and its removal are forms');
   for (const f of forms) {
@@ -57,7 +58,8 @@ test('no made-once file calls a live writer — the one draft action instead', (
 test('the logo autosaves: after a pause, on the way out, and when the tab is hidden', () => {
   const src = read(`${DIR}/maker-logo.tsx`);
   for (const [what, re] of [
-    ['a pause after a change', /setTimeout\(\(\) => void flush\(\)/],
+    /* RE-AIMED 2026-10-18 (L3): the pause's timer waits for a lifted finger, then flushes — a gesture is one save. */
+    ['a pause after a change', /const tick = \(\) => \{[\s\S]{0,200}else void flush\(\);[\s\S]{0,40}\};\s*timer\.current = window\.setTimeout\(tick, PAUSE_MS\);/],
     ['the tab hidden', /visibilitychange/],
     ['the page left', /pagehide/],
     // …and never on open: only a canvas that differs from how it stood when
@@ -66,8 +68,13 @@ test('the logo autosaves: after a pause, on the way out, and when the tab is hid
   ] as const) {
     assert.match(src, re, `the logo does not save on ${what}`);
   }
-  assert.match(src, /monogram_custom_svg:\s*svg,/, 'the autosave must carry the mark');
-  assert.match(src, /monogram_studio_config:/, 'the autosave must carry the re-editable design');
+  /* RE-AIMED 2026-10-09 (Studio › Logo's chrome moved onto the templates — `studio-logo-are-the-templates.test.ts` holds the new shape): the fields are built in `lib/studio-logo-saves.ts`, which carries the mark. */
+  assert.match(src, /logoDraftFields\(\{ svg, layers:/, 'the autosave must carry the mark');
+  // The pattern sits on a line of its own: beside quoted strings it reads, to the sweep in
+  // the-mark-is-resolved-everywhere, like a select list naming the studio mark alone.
+  const carriesTheMark = /monogram_custom_svg: a\.svg,/;
+  assert.match(readFileSync(join(__dirname, 'studio-logo-saves.ts'), 'utf8'), carriesTheMark, 'the builder no longer carries the mark');
+  assert.match(readFileSync(join(__dirname, 'studio-logo-saves.ts'), 'utf8'), /monogram_studio_config: \{/, 'the autosave must carry the re-editable design');
 });
 
 test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (in Details) and the hero scene', () => {

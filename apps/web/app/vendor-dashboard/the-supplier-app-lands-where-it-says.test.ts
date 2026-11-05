@@ -33,6 +33,7 @@ import {
   customerLandingHref,
   type CustomerLanding,
 } from './customers/anchors';
+import { customersSegmentOf } from './customers/segments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -57,7 +58,8 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
   const hub = read('app/vendor-dashboard/customers/page.tsx');
   assert.ok(hub.length > 5000, 'read the real hub (an empty read is a green lie)');
   const folds = new Set([...hub.matchAll(/\bkey: '(\w+)',\s*\n\s*label:/g)].map((m) => m[1]));
-  assert.ok(folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not found: ${[...folds]}`);
+  // 2026-10-28: Messages is not a fold — the event list IS the messages; its landing is People's own `#customers`.
+  assert.ok(!folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not as expected: ${[...folds]}`);
   for (const key of LANDINGS) {
     const { fold, anchor } = CUSTOMER_LANDINGS[key];
     const href = customerLandingHref(key);
@@ -67,26 +69,28 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     assert.equal(n, 1, `${key}: the hub must render id="${anchor.slice(1)}" once — found ${n}`);
     if (fold) {
       assert.ok(folds.has(fold), `${key}: "${fold}" is not a fold on the hub`);
-      assert.ok(href.includes(`?open=${fold}`), `${key}: ${href} does not open the fold`);
+      assert.ok(href.includes(`&open=${fold}`), `${key}: ${href} does not open the fold`);
     } else {
       assert.equal(href.includes('open='), false, `${key}: payday is always on the page, not a fold`);
     }
+    // S-PR2: Customers is three segments and a fragment never reaches the server — the landing names its segment,
+    // and that segment is the one the page draws for it (`customersSegmentOf`).
+    const seg = new URL(href, 'https://x').searchParams;
+    assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
   // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?open=messages#customer-tools');
-  assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?open=proposals#customer-tools');
-  assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?open=contracts#customer-tools');
-  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers#payday');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=events#customers'); // People → Events 2026-10-30
+  assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
+  assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
+  assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
 });
 
-test('1b · every More row lands on its section — none is a bare stub', async () => {
-  const { VENDOR_MORE_ROWS } = await import('@/lib/vendor-more-rows');
-  const by = Object.fromEntries(VENDOR_MORE_ROWS.map((r) => [r.key, r.href]));
-  assert.equal(by.messages, customerLandingHref('messages'));
-  assert.equal(by.payday, customerLandingHref('payday'));
-  for (const r of VENDOR_MORE_ROWS) {
-    assert.doesNotMatch(r.href, BARE_STUB, `More row "${r.label}" links a bare stub (${r.href}) and lands on the roster`);
-  }
+test('1b · Messages lands on its section from the envelope — More, which had a row for it, is gone', () => {
+  // More left the bar (owner "Yes to all", 2026-10-21 — Today · Customers · Shop · Hub). Its Messages row was a second
+  // door to what the top bar's envelope already opened; the envelope must still land on the section, not a bare stub.
+  const layout = readFileSync(join(import.meta.dirname, 'layout.tsx'), 'utf8');
+  assert.match(layout, /<UnreadMessagesBadge[\s\S]*?href=\{customerLandingHref\('messages'\)\}/, 'the envelope no longer lands on Messages');
+  assert.doesNotMatch(customerLandingHref('messages'), BARE_STUB);
 });
 
 async function renderToday(target: unknown, action = 'Go'): Promise<string> {
@@ -94,10 +98,14 @@ async function renderToday(target: unknown, action = 'Go'): Promise<string> {
   const { SupplierTodayFirstScreen } = await import('./_components/supplier-today-first-screen');
   return renderToStaticMarkup(
     React.createElement(SupplierTodayFirstScreen, {
-      cover: { eyebrow: 'Photo & video · Live', name: 'Shop' },
       next: { kind: 'answer', title: 'T', body: 'B', action, target } as never,
-      numbers: { inquiries: '1', thisWeek: '2', owed: '3' },
+      look: { tone: 'brand', icon: 'forward' },
+      second: null,
+      counter: null,
+      meta: null,
+      numbers: { waiting: '1', waitingNow: true, thisWeek: '2', toComeIn: '3' },
       comingUp: [],
+      shop: { name: 'Shop', line: 'Photo & video · couples can find you', pill: 'Live' },
     }),
   );
 }
@@ -113,12 +121,17 @@ test('1c · the Next card’s Send quote / Send contract / Payday buttons land o
   }
 });
 
-test('1d · the "owed to you" tile lands on payday, in view', async () => {
+test('1d · the "to come in" number lands on payday, in view', async () => {
+  // 📌 2026-10-28 (owner: the counts FILTER the list in place): the number is a filter now — it shows who still owes
+  // what, right under the row — and that list ends with the door to Payday, the same landing it used to be.
   const html = await renderToday({ to: 'today' });
   const tiles = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
-  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*owed to you/s);
-  assert.ok(owed, 'the owed-to-you tile did not render as a link');
-  assert.equal(owed[1], customerLandingHref('payday'));
+  assert.match(tiles, /<button[^>]*data-today-number="money"[^>]*>(?:(?!<\/button>).)*to come in/s, 'the to-come-in number is not its filter');
+  const list = tiles.slice(tiles.indexOf('data-today-list="money"'));
+  assert.ok(list.length > 0, 'the money list is not drawn');
+  const door = list.match(/data-today-list-door=""[^>]*>\s*<a [^>]*href="([^"]+)"/);
+  assert.ok(door, 'the money list has no door to Payday');
+  assert.equal(door[1]!.replace(/&amp;/g, '&'), customerLandingHref('payday'));
 });
 
 test('1e · the redirect stubs name their fold too (old links, emails, notifications)', async () => {
@@ -133,6 +146,9 @@ test('1e · the redirect stubs name their fold too (old links, emails, notificat
     }
     assert.match(url, /^\/vendor-dashboard\/customers\?tab=/, `${key} stub did not redirect to the hub: ${url}`);
     assert.ok(url.endsWith(CUSTOMER_LANDINGS[key].anchor), `${key} stub drops the user at the top of the roster: ${url}`);
+    // …and its `?tab=` opens the segment that fragment is drawn in (S-PR2).
+    const params = Object.fromEntries(new URL(url, 'https://x').searchParams);
+    assert.equal(customersSegmentOf(params), CUSTOMER_LANDINGS[key].seg, `${key} stub opens the wrong segment: ${url}`);
   }
 });
 
@@ -193,10 +209,9 @@ function visibleProse(src: string): string[] {
 }
 const VISIBLE_FILES = [
   'app/vendor-dashboard/page.tsx',
-  'app/vendor-dashboard/more/page.tsx',
   'app/vendor-dashboard/customers/page.tsx',
   'app/vendor-dashboard/shop/page.tsx',
-  'lib/vendor-more-rows.ts',
+  'app/vendor-dashboard/on-the-day/page.tsx',
   'lib/supplier-today.ts',
   'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'app/vendor-dashboard/customers/_components/customers-roster.tsx',
@@ -216,7 +231,6 @@ test('4b · the tab titles are the bar’s words (the root template adds · Setn
     'app/vendor-dashboard/page.tsx': 'Today',
     'app/vendor-dashboard/customers/page.tsx': 'Customers',
     'app/vendor-dashboard/shop/page.tsx': 'Shop',
-    'app/vendor-dashboard/more/page.tsx': 'More',
   };
   for (const [f, title] of Object.entries(want)) {
     assert.match(read(f), new RegExp(`metadata = \\{ title: '${title}' \\}`), `${f} title is not "${title}"`);

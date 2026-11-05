@@ -1,7 +1,10 @@
+import type { ReactNode } from 'react';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine, type PassCardEligibility } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
+import type { AppleWalletLink } from '@/lib/wallet-pass';
+import { AppleWalletButton } from './apple-wallet-button';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { TicketPicture } from './ticket-picture';
 
@@ -42,6 +45,9 @@ export function GuestTicket({
   invitationUrl,
   src = PASS_CARD_ROUTE,
   replyHref = null,
+  mark = null,
+  appleWallet = null,
+  keep = null,
 }: {
   state: PassCardEligibility;
   name: string;
@@ -55,11 +61,29 @@ export function GuestTicket({
    */
   replyHref?: string | null;
   /**
+   * 🧱 The pass's own look (`lib/block-looks.ts`): the block's hidden mark, handed in by the page, put right BEFORE
+   * the ticket's root — and only when a TICKET is drawn (the reply button and the cannot-come line are not a pass).
+   * Null for every guest whose event keeps no look for the pass: their page is the same bytes as before.
+   */
+  mark?: ReactNode;
+  /**
    * 👁 SEE AS (PR-10): the Maker's sample guest has no session for the guest
    * ticket route, so its picture is the host's own ticket preview
    * (`sampleTicketSrc`, lib/simulated-guest-preview.ts). Every real guest: the default.
    */
   src?: string;
+  /**
+   * 🍎 "Add to Apple Wallet" (lib/wallet-pass.ts `appleWalletLink`) — drawn only
+   * beside a REAL ticket (`pass`), never on the pending one, the reply button or
+   * the declined line. Null for every guest the page did not offer it to.
+   */
+  appleWallet?: AppleWalletLink | null;
+  /**
+   * 🪪 KEEP IT ON EVERY PHONE — the save offer (`MeKeepInvitation`), drawn DIRECTLY UNDER Save · Wallet, as one group
+   * with the ticket's other keep actions (owner 2026-10-25, verbatim: "but we are supposed to have that with the
+   * save to wallet, correct?"). Only under a REAL ticket (`pass`); the page draws it elsewhere when there is none.
+   */
+  keep?: ReactNode;
 }) {
   if (state === 'none') return null;
   if (state === 'pass' && replyHref) {
@@ -68,6 +92,7 @@ export function GuestTicket({
         <a href={replyHref} data-me-reply="" className="button-primary flex w-full">
           {LANDING_WORDS.reply}
         </a>
+        {keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
       </section>
     );
   }
@@ -80,6 +105,8 @@ export function GuestTicket({
   }
   const pending = state === 'awaiting';
   return (
+    <>
+    {mark}
     <section
       id={PASS_ANCHOR}
       data-motion="pass"
@@ -112,10 +139,14 @@ export function GuestTicket({
           </div>
         }
       />
-      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
+      <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
+      {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
+      {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
+      {state === 'pass' && keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
     </section>
+    </>
   );
 }

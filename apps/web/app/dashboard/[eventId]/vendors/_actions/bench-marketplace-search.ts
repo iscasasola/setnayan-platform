@@ -13,14 +13,15 @@
  *   • Published scope: the market read goes through the couple's RLS client, so
  *     `vendor_market_stats`'s public-read policy (is_published = TRUE) filters to
  *     published vendors automatically — no hand-rolled published filter.
- *   • Demo exclusion: `fetchDemoVendorIds` (real couples never see is_demo rows).
+ *   • Demo exclusion: `demoVendorIdsHiddenFrom` — real couples never see is_demo rows; an admin in
+ *     demo mode does, exactly as in the category search (one rule, `lib/demo-vendor-exclusion.ts`).
  *   • Hybrid anonymity: `resolveVendorDisplayName` / `isVendorNameRevealed` — a
  *     Free/Verified vendor's real name + logo stay hidden until first reply.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchDemoVendorIds } from '@/lib/demo-vendors';
+import { demoVendorIdsHiddenFrom } from '@/lib/demo-vendor-exclusion';
 import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 
@@ -36,6 +37,9 @@ export type BenchMarketResult = {
   slug: string | null;
 };
 
+/** 🔌 `unreadable` — the shops could not be read; the page says so instead of drawing no shops. */
+export type BenchMarketSearch = { results: BenchMarketResult[]; unreadable: boolean };
+
 type StatsRow = {
   vendor_profile_id: string;
   business_name: string | null;
@@ -49,21 +53,21 @@ type StatsRow = {
 
 const MAX_RESULTS = 8;
 
-export async function searchMarketplaceForBench(rawQuery: string): Promise<BenchMarketResult[]> {
+export async function searchMarketplaceForBench(rawQuery: string): Promise<BenchMarketSearch> {
   const tokens = (rawQuery ?? '')
     .toLowerCase()
     .split(/\s+/)
     .map((t) => t.replace(/[^a-z0-9]/g, ''))
     .filter((t) => t.length >= 2)
     .slice(0, 4);
-  if (tokens.length === 0) return [];
+  if (tokens.length === 0) return { results: [], unreadable: false };
 
   // Couple-only + RLS-scoped market read → published vendors only.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return [];
+  if (!user) return { results: [], unreadable: false };
 
   let q = supabase
     .from('vendor_market_stats')
@@ -77,14 +81,15 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
     q = q.or(`business_name.ilike.%${token}%,tagline.ilike.%${token}%,location_city.ilike.%${token}%`);
   }
   const { data: rows, error } = await q;
-  if (error) return [];
+  // 🔌 A refused read is not "no shop by that name" (reads-are-honest, 2026-11-02 audit #22).
+  if (error) return { results: [], unreadable: true };
 
   const admin = createAdminClient();
-  const demoIds = new Set(await fetchDemoVendorIds(admin));
+  const demoIds = new Set(await demoVendorIdsHiddenFrom(supabase, admin, user.id));
   const stats = ((rows as StatsRow[] | null) ?? [])
     .filter((r) => !demoIds.has(r.vendor_profile_id))
     .slice(0, MAX_RESULTS);
-  if (stats.length === 0) return [];
+  if (stats.length === 0) return { results: [], unreadable: false };
 
   const ids = stats.map((r) => r.vendor_profile_id);
   const { data: profRows } = await admin
@@ -115,7 +120,7 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
     });
   }
 
-  return stats.map((r) => {
+  const results = stats.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
     const isPaidTier = isTrueNameTier(prof?.tier_state ?? null);
     // Open-it-up lock: a VERIFIED vendor's name is never gated. Keyed on
@@ -152,4 +157,5 @@ export async function searchMarketplaceForBench(rawQuery: string): Promise<Bench
       slug: r.business_slug ?? null,
     };
   });
+  return { results, unreadable: false };
 }

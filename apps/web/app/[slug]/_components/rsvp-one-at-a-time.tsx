@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCount } from '@/lib/format-number';
+import { RSVP_FORM_WORD_DEFAULT } from '@/lib/rsvp-form-words';
 
 /**
  * "ASK ONE QUESTION AT A TIME" — the RSVP scene's ONE switch (owner 2026-09-27:
@@ -11,7 +12,8 @@ import { formatCount } from '@/lib/format-number';
  *
  * 🔑 IT ARRANGES THE FORM THE SERVER ALREADY DREW; IT OWNS NO FIELD. Every
  * question on the card carries `data-rsvp-step`, and this component shows one
- * of them at a time, with "2 of 5", Back, and Next. Without script — or before
+ * of them at a time, with progress dots, Back, and Next (no "2 of 5" —
+ * the total is not known until the first answer: see `RsvpStepProgress`). Without script — or before
  * hydration — nothing is hidden and the page is the one scrolling form it
  * always was, so the switch can never make a reply impossible.
  *
@@ -33,11 +35,11 @@ import { formatCount } from '@/lib/format-number';
  * field label already IS the title"*. So, top to bottom:
  *
  *   1 · the couple's mark (the door's crest) — the header;
- *   2 · PROGRESS, as ONE unit: Back on its left, the filling bar and "2 of 8"
- *       together in the middle — directly under the mark, ABOVE everything the
- *       guest reads. It was mid-card under the invitation's facts, with "1 of 8"
- *       at one edge and the dots at the other: two halves of one fact a whole
- *       row apart;
+ *   2 · PROGRESS, as ONE unit: Back on its left, the dots in the middle —
+ *       directly under the mark, ABOVE everything the guest reads. It was
+ *       mid-card under the invitation's facts, with "1 of 8" at one edge and the
+ *       dots at the other: two halves of one fact a whole row apart (and since
+ *       2026-10-12 there is no "N of M" at all — `RsvpStepProgress`);
  *   3 · the invitation's facts (names · date · who is replying · reply-by) —
  *       on the FIRST screen only; later screens fold them to one line
  *       (`data-rsvp-context` / `data-rsvp-context-line`);
@@ -52,7 +54,7 @@ import { formatCount } from '@/lib/format-number';
  * `[data-rsvp-scope]` — otherwise right here, at the top of the form (the
  * Event Hub's reply sheet, whose own heading is the header).
  */
-export function RsvpOneAtATime() {
+export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint under the answers; none = the card's. */ hint?: string | null } = {}) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const scopeRef = useRef<HTMLElement | null>(null);
   const [form, setForm] = useState<HTMLFormElement | null>(null);
@@ -134,12 +136,17 @@ export function RsvpOneAtATime() {
       const steps = visibleSteps(form);
       const current = steps[index];
       if (delta > 0 && current) {
-        for (const input of Array.from(current.querySelectorAll<HTMLInputElement>('input,select,textarea'))) {
-          if (!input.checkValidity()) {
-            show(form, index);
-            input.reportValidity();
-            return;
-          }
+        /* 🛑 NEXT NEVER PASSES A REQUIRED ITEM (owner 2026-10-25: *"do not allow to go to next page if there is
+           required that is not yet filled up"*). Every box on the screen is asked; each one that fails fires its
+           `invalid`, which the form's listener turns into the calm line at that field (`markNeeded`) — never the
+           browser's bubble, never a greyed Next that cannot say why. Focus goes to the first. */
+        const boxes = Array.from(current.querySelectorAll<HTMLInputElement>('input,select,textarea'));
+        const failing = boxes.filter((input) => !input.checkValidity());
+        if (failing.length > 0) {
+          show(form, index);
+          failing[0]!.focus({ preventScroll: true });
+          failing[0]!.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          return;
         }
       }
       show(form, index + delta);
@@ -169,11 +176,33 @@ export function RsvpOneAtATime() {
         go(1);
       }
     };
+    // 🛑 A refused box says so AT the box (Next's check and Send's both fire `invalid`), and the line goes the
+    // moment it is answered — read after React has re-drawn what the answer changes (a cleared name un-requires
+    // its tick).
+    // Cancelling `invalid` also cancels the browser's own focus move on Send, so the first refused box of a press
+    // takes focus here (Next focuses its own first one in `go`).
+    let focusing = false;
+    const onInvalid = (e: Event) => {
+      e.preventDefault();
+      markNeeded(e.target as HTMLInputElement);
+      if (focusing) return;
+      focusing = true;
+      (e.target as HTMLElement).focus({ preventScroll: true });
+      (e.target as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      window.setTimeout(() => (focusing = false), 0);
+    };
+    const onEdit = () => window.requestAnimationFrame(() => clearAnswered(form));
     form.addEventListener('change', onChange);
     form.addEventListener('keydown', onKey);
+    form.addEventListener('invalid', onInvalid, true);
+    form.addEventListener('input', onEdit);
+    form.addEventListener('change', onEdit);
     return () => {
       form.removeEventListener('change', onChange);
       form.removeEventListener('keydown', onKey);
+      form.removeEventListener('invalid', onInvalid, true);
+      form.removeEventListener('input', onEdit);
+      form.removeEventListener('change', onEdit);
     };
   }, [form, go, index, total]);
 
@@ -182,17 +211,57 @@ export function RsvpOneAtATime() {
   useEffect(() => {
     if (slot) slot.hidden = !(total > 1) || last;
   }, [slot, total, last]);
+  /* 👆 The answer screen's foot holds only the hint ("Tap one to continue"), never an action — marked, so the
+     stylesheet can keep it off the answers it would otherwise sit on (`ONE_AT_A_TIME_CSS`). */
+  useEffect(() => {
+    if (slot) slot.toggleAttribute('data-rsvp-tap', awaitingTap);
+  }, [slot, awaitingTap]);
   const progress = total > 1 ? <RsvpStepProgress index={index} total={total} onBack={() => go(-1)} /> : null;
   return (
     <>
       <style>{ONE_AT_A_TIME_CSS}</style>
       <span ref={anchorRef} aria-hidden className="block scroll-mt-6" />
+      <span data-rsvp-needed-say="" role="status" aria-live="polite" className="sr-only" />
       {lead ? (progress ? createPortal(progress, lead) : null) : progress}
       {slot && !last && total > 1
-        ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} />, slot)
+        ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} hint={hint} />, slot)
         : null}
     </>
   );
+}
+
+/** The calm line a required box shows when Next (or Send) is pressed without it. */
+export const RSVP_NEEDED_WORDS = 'Needed to continue';
+
+/**
+ * Where a refused box's line goes: the nearest `[data-needed-at]` (a field that names its own place — the +1 row's
+ * tick, its name boxes), else the radio group's fieldset, else the box's own field. Its words: the box's
+ * `data-needed-words`, else the place's, else "Needed to continue".
+ */
+export function markNeeded(box: HTMLElement): void {
+  const host =
+    box.closest<HTMLElement>('[data-needed-at]') ??
+    box.closest<HTMLElement>('fieldset') ??
+    box.closest('label')?.parentElement ??
+    box.parentElement;
+  if (!host) return;
+  const words = box.dataset.neededWords ?? host.dataset.neededWords ?? RSVP_NEEDED_WORDS;
+  host.setAttribute('data-rsvp-needed', words);
+  box.setAttribute('aria-invalid', 'true');
+  // Said once for a screen reader, too — a pseudo-element's words are not reliably read.
+  const say = host.closest('form')?.querySelector<HTMLElement>('[data-rsvp-needed-say]');
+  if (say) say.textContent = words;
+}
+
+/** Every line whose boxes are all answered now goes away. */
+export function clearAnswered(form: HTMLFormElement): void {
+  for (const host of Array.from(form.querySelectorAll<HTMLElement>('[data-rsvp-needed]'))) {
+    const boxes = Array.from(host.querySelectorAll<HTMLInputElement>('input,select,textarea'));
+    if (boxes.every((b) => b.validity.valid)) {
+      host.removeAttribute('data-rsvp-needed');
+      for (const b of boxes) b.removeAttribute('aria-invalid');
+    }
+  }
 }
 
 /**
@@ -209,15 +278,45 @@ export const ONE_AT_A_TIME_CSS = [
   // screen. Not on the last one — there the Send is inside the step itself.
   '[data-one-at-a-time]:not([data-rsvp-last]) [data-rsvp-here]{min-height:min(18rem,42dvh)}',
   '[data-rsvp-next-slot]{position:sticky;bottom:0;z-index:1;padding-top:.75rem;padding-bottom:max(.75rem,env(safe-area-inset-bottom))}',
+  /* 👆 THE HINT IS NOT AN ACTION, SO IT NEVER STANDS ON AN ANSWER (controller walk 2026-10-14, 320 × 568: the sticky
+     "Tap one to continue" covered most of "Joyfully accepts", and a tap there did nothing until the guest scrolled).
+     Taps go THROUGH it everywhere. */
+  '[data-rsvp-next-slot][data-rsvp-tap]{pointer-events:none}',
+  /* 📏 ON A SHORT SCREEN THE FOOT NEVER STICKS — hint OR Next (re-check R1, 2026-10-14, 320 × 568: after Yes → ‹ Back
+     the slot holds Next, sticky at 496–568, over "Joyfully accepts" and the top of "Sadly can't make it"; in WebKit a
+     tap on that strip of No pressed NEXT and went on with Yes kept). Under 600 px tall (a 320 × 568 phone, a phone on
+     its side) there is no room for a foot that floats over the answers, so it stays where the card puts it — after
+     the answers, one scroll away. 375 × 667 and taller: unchanged, Next keeps its sticky foot. */
+  '@media (max-height:599.98px){[data-rsvp-next-slot]{position:static}}',
+  /* 🛑 THE CALM LINE AT A REFUSED BOX (owner 2026-10-25) — the field's own ink, a little softer; no red, no shake. */
+  '[data-rsvp-needed]::after{content:attr(data-rsvp-needed);display:block;margin-top:.375rem;font-size:.875rem;line-height:1.25rem;font-weight:500;color:rgb(var(--color-ink) / .8)}',
 ].join('');
 
 /**
  * PROGRESS, AS ONE UNIT. Back on the left (kept, invisible, on the first
- * screen so nothing shifts), the filling bar and its "2 of 8" together in the
- * middle, an equal spacer on the right so the unit stays centred under the
- * couple's mark. The bar is the open-shop wizard's own shape (segments that
- * fill, `role="progressbar"`); the count stays in words because this switch is
- * for elders.
+ * screen so nothing shifts), the dots in the middle, an equal spacer on the
+ * right so the unit stays centred under the couple's mark. `role="progressbar"`.
+ *
+ * 🔵 DOTS ONLY — NO "N OF M" (owner's live walk of 2026-10-12 on his own
+ * invitation: screen 1 read "1 of 3", and after "Joyfully accepts" screen 2 read
+ * "2 of 4"). The number of questions is not known until the guest answers the
+ * first one: a yes opens the questions only somebody who is coming is asked
+ * (the tagging question, their plus-ones, a meal…), so any total said on screen
+ * 1 is a guess, and a total that changes mid-way reads as the form moving the
+ * goalposts. So the count is never said in words, and:
+ *
+ *   · ONE DOT PER STEP KNOWN SO FAR — the steps the answers given so far ask
+ *     for, so a yes adds its dots quietly at the end of the row;
+ *   · EVERY DOT KEEPS ITS SIZE — a fixed dot, never a share of a fixed bar, so a
+ *     dot added at the end can never shrink the ones already filled (with
+ *     `flex-1` segments, 1 of 2 → 2 of 6 drew LESS bar filled after going
+ *     forward: progress that reads as going backwards);
+ *   · the filled dots are the screens behind the guest and the one they are on,
+ *     so going forward always fills one more.
+ *
+ * The screen reader is told which question it is ("Question 2"), never a total
+ * that may still change. (Controller's call, 2026-10-12, under the 2026-10-11
+ * "OK ALL" delegation.)
  */
 export function RsvpStepProgress({
   index,
@@ -228,7 +327,7 @@ export function RsvpStepProgress({
   total: number;
   onBack: () => void;
 }) {
-  const label = `Question ${formatCount(index + 1)} of ${formatCount(total)}`;
+  const label = `Question ${formatCount(index + 1)}`;
   return (
     <div className="mb-5 grid grid-cols-[4rem_1fr_4rem] items-center" data-rsvp-progress="">
       <button
@@ -241,39 +340,45 @@ export function RsvpStepProgress({
       >
         ‹ Back
       </button>
-      <div className="flex flex-col items-center gap-1.5" data-rsvp-progress-unit="">
+      <div className="flex flex-col items-center" data-rsvp-progress-unit="">
         <div
           role="progressbar"
           aria-valuemin={1}
-          aria-valuemax={total}
           aria-valuenow={index + 1}
+          aria-valuetext={label}
           aria-label={label}
-          className="flex w-full max-w-[12rem] gap-1"
+          className="flex flex-wrap items-center justify-center gap-1.5"
         >
           {Array.from({ length: total }, (_, i) => (
             <span
               key={i}
               aria-hidden
-              className={`h-1 flex-1 rounded-full ${i <= index ? 'bg-ink' : 'bg-ink/15'}`}
+              data-rsvp-dot={i <= index ? 'done' : ''}
+              className={`${RSVP_PROGRESS_DOT} ${i <= index ? 'bg-ink' : 'bg-ink/15'}`}
             />
           ))}
         </div>
-        <p className="text-xs tabular-nums text-ink/70" aria-live="polite">
-          {formatCount(index + 1)} of {formatCount(total)}
-        </p>
       </div>
       <span aria-hidden />
     </div>
   );
 }
 
+/** One progress dot — a FIXED size, so a dot added for a later question never shrinks the ones before it. */
+export const RSVP_PROGRESS_DOT = 'h-2 w-2 shrink-0 rounded-full';
+
 /**
  * The one action at the foot of a screen. On the answer screen there is none —
  * the tap is the answer (the approved drawing's "Tap one to continue").
  */
-export function RsvpStepNext({ awaitingTap, onNext }: { awaitingTap: boolean; onNext: () => void }) {
+export function RsvpStepNext({ awaitingTap, onNext, hint = null }: { awaitingTap: boolean; onNext: () => void; hint?: string | null }) {
   if (awaitingTap) {
-    return <p className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">Tap one to continue</p>;
+    const own = RSVP_FORM_WORD_DEFAULT.hint.celebrate;
+    return (
+      <p data-rsvp-line="hint" data-rsvp-word="rsvp:hint" data-rsvp-default={own} className="flex min-h-[48px] items-center justify-center text-sm text-ink/70">
+        {hint || own}
+      </p>
+    );
   }
   return (
     <button type="button" onClick={onNext} className="button-primary min-h-[48px] w-full">

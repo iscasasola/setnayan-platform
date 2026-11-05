@@ -2,7 +2,7 @@
 
 import { SwitchCamera } from 'lucide-react';
 import type { LensFactor } from '@/lib/use-papic-camera';
-import { cameraInkOn } from '@/lib/camera-look';
+import { cameraInkOn } from '@/lib/camera-dress';
 
 // Papic · on-viewfinder camera controls (shared by seat + guest capture)
 //
@@ -30,7 +30,7 @@ type Props = {
 };
 
 function lensLabel(factor: LensFactor): string {
-  return factor === 0.5 ? '.5' : '1';
+  return factor === 0.5 ? '.5' : String(factor);
 }
 
 export function PapicCameraControls({

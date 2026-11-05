@@ -46,25 +46,40 @@ export const GUESTS_GET_IN_LABEL = 'How guests get in';
  * dropdown lists each under its `group` heading, in this order, so consecutive
  * choices share one heading. `label` is the choice WITHIN its group; the closed
  * button and every read-only display say `guestsGetInLabel` — heading and choice
- * together ("List only · Guests reply"). Same five values, same stored keys.
+ * together ("Only my list · They reply"). Same five values, same stored keys.
  */
 export const GUESTS_GET_IN_CHOICES: ReadonlyArray<{ value: GuestsGetIn; group: string; label: string; hint: string }> = [
-  { value: 'list', group: GUEST_ENTRY_RULE.list, label: 'Guests reply', hint: 'They reply to the invitation. Each gets their own QR.' },
-  { value: 'personal', group: GUEST_ENTRY_RULE.list, label: 'No reply, each gets their own QR', hint: 'Their own QR opens the Event Hub straight away.' },
-  { value: 'requests', group: GUEST_ENTRY_RULE.accept, label: 'Guests reply', hint: 'They reply. Anyone with the link can ask to join — you say yes or no.' },
+  /* 📝 THE PLAIN NAMES (owner 2026-10-07, HOME_AND_GUESTS_CHECK G25: *"name it as
+     simple as possible and have the correct description as simple as
+     possible"*). A COPY change on the same five values — every door (Guests ›
+     Setup, the Maker's Studio › RSVP, Event Details, onboarding) reads these
+     words from here. Held by `get-in-choices-are-named-plainly.test.ts`. */
+  { value: 'list', group: GUEST_ENTRY_RULE.list, label: 'They reply', hint: 'You list every guest. They answer yes or no.' },
+  { value: 'personal', group: GUEST_ENTRY_RULE.list, label: 'No reply', hint: 'You list every guest. Their QR is their ticket.' },
+  {
+    value: 'requests',
+    group: GUEST_ENTRY_RULE.accept,
+    label: 'They reply',
+    hint: 'Anyone with the link can ask to join. You say yes. Guests answer yes or no.',
+  },
   {
     value: 'one_qr_approve',
     group: GUEST_ENTRY_RULE.accept,
-    label: 'No reply, one QR, I approve each',
-    hint: 'Anyone who scans it can ask to join. They wait until you say yes.',
+    label: 'No reply',
+    hint: 'Anyone with the link can ask to join. You say yes. No yes-or-no step.',
   },
-  {
-    value: 'one_qr',
-    group: GUEST_ENTRY_RULE.open,
-    label: 'One QR for everyone',
-    hint: 'Anyone who scans it and signs in is added as a guest. Guests you list keep their own QR too.',
-  },
+  { value: 'one_qr', group: GUEST_ENTRY_RULE.open, label: 'Anyone with the link', hint: 'Whoever opens the link is in.' },
 ];
+
+/** The choices where guests answer yes or no — the RSVP asks and Reply by show only for these. */
+export function guestsGetInReplies(choice: GuestsGetIn): boolean {
+  return choice === 'list' || choice === 'requests';
+}
+
+/** The choices where each listed guest is invited personally (their own link and Digital Pass). */
+export function guestsGetInPersonal(choice: GuestsGetIn): boolean {
+  return choice !== 'one_qr';
+}
 
 /** The choice the stored config holds — read through the shipped readers only. */
 export function readGuestsGetIn(raw: unknown): GuestsGetIn {
@@ -74,7 +89,7 @@ export function readGuestsGetIn(raw: unknown): GuestsGetIn {
   return oneQrLetsYouIn(raw) ? 'one_qr' : 'one_qr_approve';
 }
 
-/** Heading and choice, the one phrase every place shows — "Accept · Guests reply". */
+/** Heading and choice, the one phrase every place shows — "My list + requests · They reply". */
 export function guestsGetInLabel(choice: GuestsGetIn): string {
   const c = GUESTS_GET_IN_CHOICES.find((x) => x.value === choice)!;
   return `${c.group} · ${c.label}`;

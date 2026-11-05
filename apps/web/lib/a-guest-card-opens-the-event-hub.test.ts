@@ -103,7 +103,8 @@ test('🔒 every field the guest fills on the reply is read AND written by submi
   // form name → the variable it is read into → the column it is written to
   const pairs: Array<[string, RegExp]> = [
     ["formData.get('rsvp_status')", /rsvp_status: status,/],
-    ["formData.get('guest_note')", /guest_note: guestNoteToWrite,/],
+    // ✍ via `withNameCorrection` (2026-10-25, "Wrong name? Tell the couple" adds one line to the same note).
+    ["formData.get('guest_note')", /guest_note: guestNoteWritten,/],
     ["formData.get('contact_mobile')", /mobile: mobileToWrite,/],
     ["formData.get('contact_display_name')", /display_name: contactName,/],
     ["formData.get('meal_preference')", /meal_preference: mealToWrite,/],

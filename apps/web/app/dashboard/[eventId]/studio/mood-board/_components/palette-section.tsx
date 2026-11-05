@@ -69,7 +69,7 @@ type Props = {
   /** The reception venue's display label ("Beach", "Garden Estate", …),
    *  already resolved by the caller (`VENUE_SETTING_LABEL`, MB6). Shown
    *  READ-ONLY in the Venue group — the Reception designer (Seat Plan lab)
-   *  and 04's "Make it real" already read this same fact; 02 only reflects
+   *  already reads this same fact; 02 only reflects
    *  it, never re-asks it. Undefined when it can't be honestly asserted
    *  (unrecognised or never-chosen `venue_setting`). */
   venueLabel?: string;

@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
+import { GUEST_PASS_BOOK_COOKIE_NAME, GUEST_SESSION_COOKIE_NAME, readEveryGuestPass } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/face-selfie-erase';
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
+import { HOST_PREVIEW_PASS_COOKIE_NAME } from '@/lib/pass-account-rule';
+import { ACTIVE_SHOP_COOKIE } from '@/lib/active-shop';
+import { ACCOUNTS_LIST_COOKIE, accountCookiesOnSignOut } from '@/lib/account-jars';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -17,11 +20,14 @@ export async function POST(request: NextRequest) {
   const {
     data: { user: leaving },
   } = await supabase.auth.getUser();
-  const pass = await readGuestSession().catch(() => null);
+  // EVERY pass this browser holds — one per event since 2026-10-12 (lib/guest-pass-book.ts).
+  const passes = await readEveryGuestPass().catch(() => []);
   const admin = createAdminClient();
   if (leaving) await eraseFaceTaggingSelfiesForUser(admin, leaving.id).catch(() => 0);
-  if (pass?.event_id && pass.guest_id) {
-    await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
+  for (const pass of passes) {
+    if (pass.event_id && pass.guest_id) {
+      await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
+    }
   }
 
   await supabase.auth.signOut();
@@ -55,7 +61,9 @@ export async function POST(request: NextRequest) {
   // holding nothing of the last person's. Held by
   // seat-links-only-on-purpose.test.ts. The Terms tick a guest carried from the
   // RSVP page goes too — it was that person's agreement, not the next one's.
-  for (const name of [GUEST_SESSION_COOKIE_NAME, RSVP_TERMS_COOKIE]) {
+  // "Sign out everywhere": the active pass AND the pass book (every event's pass).
+  // The chosen shop (`sn_shop`, the avatar sheet's shop switch) goes too — it named one of THIS login's shops.
+  for (const name of [GUEST_SESSION_COOKIE_NAME, GUEST_PASS_BOOK_COOKIE_NAME, RSVP_TERMS_COOKIE, HOST_PREVIEW_PASS_COOKIE_NAME, ACTIVE_SHOP_COOKIE]) {
     response.cookies.set(name, '', {
       maxAge: 0,
       path: '/',
@@ -63,6 +71,16 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
     });
+  }
+
+  // 🔁 OTHER ACCOUNTS ON THIS PHONE: signing out of the account you are on REMOVES it from the phone (owner's
+  // Question 1 recommendation, Facebook's "Log out of Claire") — its row leaves the list and any jar it had is
+  // expired (by name: the jar lives at /auth/accounts, so it is not sent here, but it can still be expired here).
+  // The OTHER parked accounts stay; "Sign out of all accounts" is the one that clears them.
+  // 🔒 One login on this phone (no accounts list) → `accountCookiesOnSignOut` answers nothing: the response is the
+  // sign-out it always was. Held by lib/accounts-on-this-phone.test.ts.
+  for (const c of accountCookiesOnSignOut(request.cookies.get(ACCOUNTS_LIST_COOKIE)?.value, leaving?.id, process.env.NODE_ENV === 'production')) {
+    response.cookies.set(c.name, c.value, c.options);
   }
 
   return response;

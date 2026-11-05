@@ -1,13 +1,19 @@
 import type { ReactNode } from 'react';
 import type { EventWords } from '../_lib/event-words';
 import type { EventRow } from '../_lib/types';
-import type { GuestRole } from '@/lib/guests';
+import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { WelcomePart } from '@/lib/invitation-welcome';
 import type { PaletteLookId } from '@/lib/palette-looks';
+import type { DosLookId } from '@/lib/dress-code-looks';
 import { DressCodeWidget } from './dress-code-widget';
 import { WelcomeGifts } from './guest-doorway-strip';
+import { WelcomeGiftsContent } from './welcome-gifts-content';
+import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
 import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
+import type { GuestNameParts } from '@/lib/attire-rows';
 
 /**
  * 🏠 THE INVITATION'S WELCOME PAGE — the guest's own (owner 2026-09-30:
@@ -32,7 +38,9 @@ import { MakerWelcomeGiftsEmpty, MakerWelcomeLook } from './maker-guest-scenes';
  *   · `reminders` — the couple's Reminders scene, drawn by the caller in the
  *                   couple's own scene look (background, font — the scene
  *                   frame belongs to the dispatcher that owns it).
- *   · `giftHref`  — the E-Gifts door (`resolveGuestDoorways(...).pabuya`).
+ *   · `giftHref`  — may this reader open E-Gifts (`resolveGuestDoorways(...).pabuya`)? Null: no E-Gifts.
+ *   · `giftContent` — E-Gifts itself (owner 2026-10-14: the content on Welcome, not a door) — the gift page's
+ *                   own read (`loadGiftPage`), started by the caller only when `giftHref` is set. Absent: the door.
  *
  * `mark` is the Maker canvas's navigator handle (`site-body.tsx` `makerMark`):
  * it stands immediately before each part so a tap selects it. Guests get null.
@@ -46,10 +54,16 @@ export type WelcomeLook = {
   ceremonyType: string | null;
   genderSeparation: string | null;
   guestRole: GuestRole | null;
+  /** 👗 `guests.attire` — which of a two-pick role's picks is theirs (`DressCodeWidget` `guestAttire`). */
+  guestAttire?: GuestAttire | null;
+  /** 👪 Title · shown name · the "Atty. (Woman)" pick (`guestNamePartsOf`) — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+  guestNameParts?: GuestNameParts | null;
   march: MarchPlace | null;
   rolePalette: unknown;
   /** 🎨 The Dress code scene's palette look (`paletteLookOfRow`) — the reader's own colours follow it here too. Absent = Tags. */
   paletteLook?: PaletteLookId | null;
+  /** 🧾 The Dress code scene's Do's & Don'ts look (`dosLookOfRow`) — the reader's own panel follows it too. Absent = the shipped notes. */
+  dosLook?: DosLookId | null;
 };
 
 export function GuestWelcome({
@@ -60,9 +74,24 @@ export function GuestWelcome({
   march = null,
   venue = null,
   giftHref,
+  giftWishes = 0,
+  giftContent = null,
   mark = () => null,
   maker = false,
+  partLooks = null,
+  lookMark = null,
+  artKit = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`, owner 2026-10-16): the divider above
+   * E-Gifts and the spray + abaniko on its card. Null → E-Gifts byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
+  /** 🧱 What to wear's own look (`lib/block-looks.ts`): its hidden mark, handed on to the reader's panel, which draws
+   *  it right before its root only when it draws (`DressCodeWidget` `mark`). */
+  lookMark?: ReactNode;
+  /** 🎨 E-Gifts' and the guest's look's own styles (`lib/scene-styles-parts.ts`) — null: the shipped look. */
+  partLooks?: { gifts?: string | null; wear?: string | null } | null;
   parts: readonly WelcomePart[];
   words: EventWords;
   look: WelcomeLook | null;
@@ -72,6 +101,11 @@ export function GuestWelcome({
   /** 🗺 The day's ONE venue with directions (`lib/day-venue-now.ts`), drawn by the caller. */
   venue?: ReactNode;
   giftHref: string | null;
+  /** 🎁 Open wishes behind the gift door (`resolveGuestDoorways(...).wishes`) — its one extra line. */
+  giftWishes?: number;
+  /** 🎁 E-Gifts' content, read by the gift page's own reader (`loadGiftPage`) — never rejects (a failed read is null:
+   *  the door stands). Absent: the door, as before. */
+  giftContent?: Promise<GiftPageContent | null> | null;
   mark?: (key: string) => ReactNode;
   maker?: boolean;
 }) {
@@ -82,6 +116,7 @@ export function GuestWelcome({
         if (part === 'look') {
           if (look) {
             return (
+              <PartLook key="look" look={partLooks?.wear ?? null}>
               <DressCodeWidget
                 key="look"
                 part="you"
@@ -90,17 +125,22 @@ export function GuestWelcome({
                 ceremonyType={look.ceremonyType}
                 genderSeparation={look.genderSeparation}
                 guestRole={look.guestRole}
+                guestAttire={look.guestAttire ?? null}
+                guestNameParts={look.guestNameParts ?? null}
                 march={look.march}
                 rolePalette={look.rolePalette}
                 paletteLook={look.paletteLook ?? null}
+                dosLook={look.dosLook ?? null}
                 hideWhenEmpty
+                mark={lookMark}
               />
+              </PartLook>
             );
           }
           return maker ? (
             <WelcomeSlot key="look">
               {mark('f:look')}
-              <MakerWelcomeLook />
+              <MakerWelcomeLook look={partLooks?.wear ?? null} />
             </WelcomeSlot>
           ) : null;
         }
@@ -118,15 +158,30 @@ export function GuestWelcome({
         if (giftHref) {
           return (
             <WelcomeSlot key="gifts">
+              {/* 🕯 The kit's divider stands before the block's own mark — the mark sits right before the block root. */}
+              {artKit ? <KitSlot kit={artKit} slot="gifts-divider" /> : null}
               {mark('f:gifts')}
-              <WelcomeGifts href={giftHref} words={words} />
+              <WelcomeGifts href={giftHref} words={words} look={partLooks?.gifts ?? null} wishes={giftWishes}>
+                {giftContent ? (
+                  <WelcomeGiftsContent
+                    content={giftContent}
+                    href={giftHref}
+                    words={words}
+                    wishes={giftWishes}
+                    kit={artKit ? <KitSlot kit={artKit} slot="gifts-card" /> : null}
+                  />
+                ) : null}
+              </WelcomeGifts>
             </WelcomeSlot>
           );
         }
+        /* 🕯 The Maker's empty E-Gifts wears the picked accent too (owner 2026-10-18) — the divider and the card's spray
+           and abaniko, the same `KitSlot`s a real way to give gets. Guests: no way to give = no card, unchanged. */
         return maker ? (
           <WelcomeSlot key="gifts">
+            {artKit ? <KitSlot kit={artKit} slot="gifts-divider" /> : null}
             {mark('f:gifts')}
-            <MakerWelcomeGiftsEmpty />
+            <MakerWelcomeGiftsEmpty look={partLooks?.gifts ?? null} kit={artKit ? <KitSlot kit={artKit} slot="gifts-card" /> : null} />
           </WelcomeSlot>
         ) : null;
       })}
@@ -137,4 +192,15 @@ export function GuestWelcome({
 /** One part's box — its Maker marker and the part as siblings, so the canvas finds the part right after its marker. */
 function WelcomeSlot({ children }: { children: ReactNode }) {
   return <div data-welcome-part="">{children}</div>;
+}
+
+/** 🎨 A part in its own style (`data-part-look`, `globals.css`) — no wrapper at all for the shipped look. */
+function PartLook({ look, children }: { look: string | null; children: ReactNode }) {
+  return look ? (
+    <div data-part-look={look} className="empty:hidden">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
 }

@@ -145,7 +145,7 @@ export function CoordinatorColourDomains({
                       onChange={() =>
                         run(key, () => setDomainAction(p.userId, domain, !on), {
                           not_a_coordinator:
-                            'That person isn’t an accepted host on this celebration any more.',
+                            'That person isn’t an accepted host on this event any more.',
                         })
                       }
                       className="mt-0.5 h-5 w-5 flex-none cursor-pointer rounded-md border-[1.5px] border-ink/20 text-success-600 accent-success-600 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"

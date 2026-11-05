@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { OneCodeUnderGetIn } from '@/app/dashboard/[eventId]/studio/papic/_components/one-code';
+import { coupleNamesLine } from '@/lib/typed-names';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
 import type { ReactNode } from 'react';
@@ -32,9 +34,9 @@ import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu'
 import { CEREMONY_VENUE_SETTING_SHORT_LABEL } from '@/lib/venue-settings';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
+import { guestsArriveFrom, guestsArriveSource } from '@/lib/guests-arrive';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
-import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
-import { computeGuestStats, fetchGuestsByEventMeasured, type GuestRole } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEventMeasured, seatsNotYetOnTheList } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney } from '@/lib/budget-truth';
 import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
@@ -45,19 +47,15 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { formatPhp, formatPhpRounded } from '@/lib/php';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { formatCount } from '@/lib/format-number';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { HUB_BUTTON_FILL_LABEL, HUB_BUTTON_SHAPE_LABEL, parseHubButtonStyle } from '@/lib/hub-buttons';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
-import { roleLabel } from '@/lib/entourage';
 import { resolveMoments } from '@/lib/love-story-moments';
-import { readGuestsReply, resolveReplyBy } from '@/lib/rsvp-ask';
 import { studioHubHref } from '@/lib/studio-hub';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -68,8 +66,6 @@ import {
   HIDDEN_BY_THE_COUPLE,
   NOT_SET_YET,
   describeEventDate,
-  howGuestsGetIn,
-  rsvpQuestions,
   sectionTitle,
   sheetDate,
   type EventDetailsSectionKey,
@@ -88,19 +84,14 @@ import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
 import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
+import { SupplierChangesRow } from './_components/supplier-changes-row';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
-import { accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
+import { eventSettingsHref } from '@/lib/people-with-access-href';
+import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
+import { accessFlashFrom, accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
-
-/** The words `removeHost` can bring back here — anything else in the address is
- *  not ours, so a hand-edited link cannot print its own message on the sheet. */
-const REMOVE_REFUSALS = new Set([
-  'You cannot remove yourself.',
-  'A celebrant stays a co-host. A celebrant can change their role first.',
-  'Could not remove them. Try again.',
-]);
 
 export const metadata = { title: 'Event Details' };
 
@@ -200,6 +191,22 @@ export default async function EventDetailsPage({
     fetchEventViewer(supabase, eventId, user.id),
     resolveBudgetVisibility(supabase, eventId, user.id),
   ]);
+  /*
+    ⚙ THE COUPLE'S EVENT DETAILS IS HOME'S ⚙ EVENT SETTINGS NOW (owner 2026-10-30, verbatim: *"no. that shoud be
+    inside home settings"* → *"move them all in the event settings"* → *"it was already supposed to be gone because the
+    were suppose to combine the event details and event settings together on the event settings"* — completing
+    DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (2) · "EACH MENU HAS ITS OWN SETTINGS" (2) · "ACCESS LIVES IN HOME ›
+    EVENT SETTINGS ONLY"). Every part this record EDITS for the couple is in that sheet, the same component moved
+    (`event-settings-rows.tsx`); what it only SHOWED lives on its own menu. So an old link, a bookmark or an email lands
+    the couple on Home with the sheet open — never on a second copy. A helper (who has no ⚙) still reads this page,
+    read-only, with their own access.
+  */
+  if (viewer.isCouple) {
+    const keep = Object.fromEntries(
+      (['host_removed', 'invite_error'] as const).flatMap((k) => (typeof flashParams[k] === 'string' ? [[k, flashParams[k]!]] : [])),
+    );
+    redirect(eventSettingsHref(eventId, keep.host_removed || keep.invite_error ? 'access' : undefined, keep));
+  }
   const words = eventWordsFromProfile(profile);
   const setupOfType = profileSetup(profile);
   const eventWord = words.eventWord;
@@ -219,14 +226,28 @@ export default async function EventDetailsPage({
   // 👥 People with access (owner 2026-10-03) — the ONE place a host sets who
   // can do what. A host sees every person and sets each area; a delegate sees
   // their own access, as words; anyone else, nothing.
+  // 🤝 Auto-agree for supplier changes (Step 4b) — its own small read, so a failure says "not read" on its row and
+  // never takes the page down.
+  const autoAgreeRead: Promise<boolean | null> | null = viewer.isCouple
+    ? Promise.resolve(
+        supabase.from('events').select('supplier_requests_auto_agree').eq('event_id', eventId).maybeSingle(),
+      ).then(
+        (r) => (r.error || !r.data ? null : (r.data as { supplier_requests_auto_agree: boolean | null }).supplier_requests_auto_agree === true),
+        () => null,
+      )
+    : null;
   const accessRead = viewer.isCouple
     ? loadPeopleWithAccess(eventId, user.id).catch((err: unknown) => {
         console.error('[event-details] people with access failed', err);
         return { measured: false as const };
       })
     : null;
+  // 🤝 Suppliers who joined from the couple's link, waiting for Approve (owner
+  // 2026-10-20) — the approval card at the top of Event access.
+  const claimsRead = viewer.isCouple ? readClaimAccessAsks(supabase, eventId) : null;
+  // 📷 The suppliers who shot here — their rows carry the whole-delivery switch for Memories (owner 2026-10-23).
 
-  const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
+  const [vendorsRead, scheduleRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
       settle(
         (async () => {
@@ -243,20 +264,6 @@ export default async function EventDetailsPage({
         })(),
       ),
       settle(fetchScheduleBlocks(supabase, eventId)),
-      suppliersHidden
-        ? Promise.resolve(null)
-        : settle(
-            fetchUpcomingItems({
-              supabase,
-              eventId,
-              eventDate: str('event_date'),
-              ceremonyType: str('ceremony_type'),
-              now,
-              remindersEnabled: false,
-              statutory: false,
-              limit: 50,
-            }),
-          ),
       mayReadGuests ? settle(fetchGuestsByEventMeasured(supabase, eventId)) : Promise.resolve(null),
       moneyHidden ? Promise.resolve(null) : settle(fetchOrdersForEvent(supabase, eventId)),
       moneyHidden ? Promise.resolve(null) : settle(getEffectiveVatRatePct(supabase)),
@@ -275,7 +282,7 @@ export default async function EventDetailsPage({
           ),
       moneyHidden || !budgetTruth ? Promise.resolve(null) : settle(resolveEventMoney(supabase, eventId)),
       moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
-      settle(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
+      settle(eventHubOwnership(await eventEntitlementClient(eventId), eventId)),
       readEventPoolStatus(admin, eventId),
       /* 💾 The Event Hub draft — what the couple changed and has not applied.
          A draft that cannot be read shows the live values (no "waiting" marks). */
@@ -308,8 +315,10 @@ export default async function EventDetailsPage({
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
   // ── The look (as drafted) ─────────────────────────────────────────────────
-  const ownsPro = proRead.ok && proRead.v === true;
-  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsPro || (canEditHub && !storeShell) })];
+  // 💎 Part by part (owner 2026-10-22): "Event Hub Pro · Active" is everything; a Pro theme is the Style part's (13).
+  const ownsPro = proRead.ok && proRead.v.full;
+  const ownsStyle = proRead.ok && (proRead.v.full || proRead.v.parts.has('style'));
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsStyle || (canEditHub && !storeShell) })];
   const headingFontKey = sanitizeHubFontKey(shown.site_font_key);
   const headingFont = headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading;
   const storedPalette = sanitizeRolePalette(e.role_palette);
@@ -325,22 +334,18 @@ export default async function EventDetailsPage({
     .filter(Boolean)
     .join(' · ');
   const dress = dressCodeForEveryone({
+    config: e.dress_code_config,
     stored: storedPalette,
     board,
-    roles: sanitizeRoleAttire((e.dress_code_config as { roles?: unknown } | null)?.roles, (v) => roleLabel(v as GuestRole) !== null),
-    groups: sanitizeGroupAttire((e.dress_code_config as { groups?: unknown } | null)?.groups),
     ceremonyType: str('ceremony_type'),
   });
   const moments = resolveMoments(shown.love_story).filter((m) => !m.hidden);
-  const getIn = howGuestsGetIn(shown.rsvp_ask_config);
-  const questions = rsvpQuestions(shown.rsvp_ask_config);
-  const guestsReply = readGuestsReply(shown.rsvp_ask_config);
-  const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: shownStr('event_date') });
 
   // ── Names (as drafted) ────────────────────────────────────────────────────
-  const personA = shownStr('bride_name');
-  const personB = shownStr('groom_name');
-  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? shownStr('display_name'));
+  // 🔀 Both people in full, in the ORDER the event's name keeps (`coupleNamesLine`, owner 2026-10-21) — never re-set here.
+  const names =
+    coupleNamesLine({ display_name: shownStr('display_name'), bride_name: shownStr('bride_name'), groom_name: shownStr('groom_name') }) ||
+    shownStr('display_name');
   const kind =
     eventWord === 'wedding'
       ? (() => {
@@ -353,15 +358,12 @@ export default async function EventDetailsPage({
       : titleCase(eventWord);
 
   // ── Key dates, soonest first ──────────────────────────────────────────────
-  const payments: UpcomingItem[] =
-    upcomingRead && upcomingRead.ok ? upcomingRead.v.items.filter((i) => i.source === 'vendor_payment').slice(0, 2) : [];
-  const paymentsFailed =
-    !!upcomingRead && (!upcomingRead.ok || upcomingRead.v.unreadableSources.includes('vendor_payment'));
   const blocks = scheduleRead.ok ? scheduleRead.v : [];
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');
-  const firstPublic = blocks.find((b) => b.is_public && !b.parent_block_id && b.start_at) ?? null;
-  const arrive = firstPublic && firstPublic !== ceremony && firstPublic !== reception ? firstPublic : null;
+  /* ⏰ "Guests arrive" — THE one guests' time (`lib/guests-arrive.ts`): the invitation's first moment, which the dress
+     code's Guests row reads as its CALL TIME (owner 2026-10-19) — said "· from Ceremony" when it is borrowed. */
+  const arrive = guestsArriveSource(blocks);
   /* 🕒 The ceremony time as drafted under the Date (`ceremony_time`, HH:MM on
      the venue's wall clock) — else the Ceremony block's own. */
   const draftedCeremonyTime = typeof draftEvents.ceremony_time === 'string' ? draftEvents.ceremony_time : null;
@@ -407,6 +409,8 @@ export default async function EventDetailsPage({
 
   // ── Guests ────────────────────────────────────────────────────────────────
   const stats = guestsRead && guestsRead.ok && guestsRead.v.measured ? computeGuestStats(guestsRead.v.rows) : null;
+  // 🪑 The +1 rows are already on the list (`total`) — only seats with no row yet are added (`seatsNotYetOnTheList`).
+  const seatsWithoutARow = stats && guestsRead && guestsRead.ok ? seatsNotYetOnTheList(guestsRead.v.rows) : 0;
   const estimate = num('estimated_pax');
 
   // ── Venues: LOCKED first (the Event Hub reads the same), else the typed name as drafted ──
@@ -458,6 +462,11 @@ export default async function EventDetailsPage({
   const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
+  const autoAgree = autoAgreeRead ? await autoAgreeRead : null;
+  const claims = claimsRead ? await claimsRead : null;
+  // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
+  const claimsWaitingNote =
+    claims?.measured && claims.asks.length > 0 ? ` · ${formatCount(claims.asks.length)} waiting for you` : '';
   const ownAccess: PersonRow | null =
     !viewer.isCouple && viewer.delegatePermissions
       ? {
@@ -477,12 +486,7 @@ export default async function EventDetailsPage({
           vendorId: null,
         }
       : null;
-  const accessFlash =
-    flashParams.host_removed === '1'
-      ? 'Removed — their access ended immediately.'
-      : flashParams.invite_error && REMOVE_REFUSALS.has(flashParams.invite_error)
-        ? flashParams.invite_error
-        : null;
+  const accessFlash = accessFlashFrom(flashParams);
 
   // 💾 A read that failed shows "Could not load…" — never kept as last-seen
   // data. (Money reads are left out: money is never kept at all.)
@@ -497,10 +501,11 @@ export default async function EventDetailsPage({
   /* 📁 Each fold's one line on the phone — built from its own rows' values. */
   const summary: Record<RecordGroupKey, string> = {
     looks: foldSummary([headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
+    // ⚙ How guests get in · What to ask · Reply by left for Guests ⚙ (settings per menu B) — the fold's line is its answers now.
     works: foldSummary([
-      getIn.value,
-      guestsReply ? (questions.length > 1 ? questions.slice(1).join(', ') : null) : null,
-      guestsReply && replyBy ? `Reply by ${sheetDate(replyBy.date, false)}` : null,
+      setupOfType.cameraDefault !== 'off' ? answerSub(papicChoices(), answerKeyOf('papic_on', shown.papic_on)) || null : null,
+      setupOfType.giftsMode !== 'none' ? answerSub(giftsChoices(), answerKeyOf('gifts_on', shown.gifts_on)) || null : null,
+      answerSub(logoChoices(words.twoPeople), answerKeyOf('logo_wanted', shown.logo_wanted)) || null,
     ]),
     event: foldSummary([
       eventDateShown,
@@ -514,7 +519,7 @@ export default async function EventDetailsPage({
       lockedSuppliers.length > 0 ? `${formatCount(lockedSuppliers.length)} booked` : null,
     ]),
     // Counted from the rows the fold draws; a failed read says so — never "0".
-    access: people ? accessFoldSummary(people.measured ? people.rows : null) : 'Your access',
+    access: people ? accessFoldSummary(people.measured ? people.rows : null) + claimsWaitingNote : 'Your access',
   };
   const groupTitle = (k: RecordGroupKey) => RECORD_GROUPS.find((g) => g.key === k)!.title;
 
@@ -623,38 +628,21 @@ export default async function EventDetailsPage({
         {/* ══ HOW IT WORKS ══ */}
         <RecordFold group="works" title={groupTitle('works')} summary={summary.works} recordHref={record}>
           <Section k="rsvp">
-            {/* "RSVP or not" is NOT a second switch — the "No reply" choices are it (study § 1b). */}
-            <Row
-              row="guests-get-in"
-              fact="guests-get-in"
-              label="How guests get in"
-              value={getIn.value}
-              hint={getIn.chosen ? null : 'The default — not chosen yet'}
-              open={opens('guests-get-in')}
-              record={record}
-              waiting={waiting('rsvp_ask_config')}
-            />
-            {guestsReply ? (
-              <>
-                <Row
-                  row="rsvp-questions"
-                  fact="rsvp-questions"
-                  label="What to ask"
-                  value={questions.length > 0 ? `${questions.length} · ${questions.join(' · ')}` : null}
-                  open={opens('rsvp-questions')}
-                  record={record}
-                  waiting={waiting('rsvp_ask_config')}
-                />
-                <Row
-                  row="reply-by"
-                  fact="reply-by"
-                  label="Guests reply by"
-                  value={replyBy ? sheetDate(replyBy.date) : null}
-                  hint={replyBy?.isDefault ? 'Suggested — 30 days before the day. The guest list closes the same day.' : replyBy ? 'The guest list closes the same day.' : null}
-                  open={opens('reply-by')}
-                  record={record}
-                />
-              </>
+            {/* ⚙ How guests get in · What to ask · Guests reply by moved to Guests ⚙ (owner 2026-10-27, settings per menu:
+                "guest settings only on Guests"; PLAN § 3 row B). Their old field addresses forward there
+                (`DETAILS_ROWS_MOVED_TO_GUESTS`, `lib/legacy-redirects.ts`). */}
+            {/* 📷 THE ONE CODE (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
+                for everyone and every guest's own QR, under this ONE row — moved here from the Papic page. */}
+            {setupOfType.cameraDefault !== 'off' ? (
+              viewer.isCouple ? (
+                <OneCodeUnderGetIn eventId={eventId} />
+              ) : (
+                /* 🔒 The one code is a door into the couple's Papic credits — the couple's to hand out. A delegate is
+                   told so plainly, never shown an empty space that reads as "there is no code" (review 2026-10-24). */
+                <p className="pb-3 text-[13px] text-ink/60" data-one-code="not-yours">
+                  The couple holds the one code for guests&rsquo; cameras.
+                </p>
+              )
             ) : null}
           </Section>
           <Section k="hub">
@@ -733,27 +721,13 @@ export default async function EventDetailsPage({
             {scheduleRead.ok ? (
               <>
                 <Row row="ceremony-time" label="Ceremony" value={ceremonyTime} open={opens('ceremony-time')} record={record} waiting={draftedCeremonyTime !== null} />
-                <Row row="arrive" fact="arrive" label="Guests arrive" value={arrive ? blockTime(arrive) : null} tool={`${base}/schedule`} />
+                <Row row="arrive" fact="arrive" label="Guests arrive" value={arrive ? `${blockTime(arrive.moment) ?? ''}${arrive.own ? '' : ` · from ${guestsArriveFrom(blocks)}`}` : null} tool={`${base}/schedule`} />
                 <Row row="reception-time" label="Reception" value={reception ? blockTime(reception) : null} tool={`${base}/schedule`} />
               </>
             ) : (
               <Row fact="arrive" label="Times on the day" value={COULD_NOT_LOAD} />
             )}
-            {paymentsFailed ? (
-              <Row money label="Supplier payments" value={COULD_NOT_LOAD} />
-            ) : suppliersHidden ? (
-              <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
-            ) : (
-              payments.map((p) => (
-                <Row
-                  money
-                  key={p.id}
-                  label={sheetDate(p.date.toISOString(), false) ?? '—'}
-                  value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
-                  hint="Supplier payment"
-                />
-              ))
-            )}
+            {/* ⚙ "Supplier payments" left for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"). */}
           </Section>
 
           {/* ── Venues — a booked one is fixed; otherwise the venue is typed here ── */}
@@ -822,7 +796,7 @@ export default async function EventDetailsPage({
                   tool={`${base}/studio/mood-board`}
                   value={
                     r.lines.length > 0
-                      ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
+                      ? r.lines.map((l) => (l.label !== r.label ? `${l.label}: ${l.styleLabel}` : l.styleLabel)).join(' · ')
                       : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
                   }
                 />
@@ -854,16 +828,9 @@ export default async function EventDetailsPage({
                     ? `${formatCount(stats.total)} on your list`
                     : COULD_NOT_LOAD
               }
-              hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
+              hint={stats && seatsWithoutARow > 0 ? `${formatCount(stats.total + seatsWithoutARow)} expected with their plus-ones` : null}
             />
-            <Row row="list-closes" label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} open={opens('list-closes')} record={record} />
-            <Row
-              row="costs-view"
-              label="How you see costs"
-              value={str('adaptive_pricing_mode') === 'final_only' ? 'Final only' : 'Realtime'}
-              open={opens('costs-view')}
-              record={record}
-            />
+            {/* ⚙ "How you see costs" left for Suppliers ⚙ (owner 2026-10-27) — its old address forwards there. */}
           </Section>
 
           {/* ── Budget — the Budget page's own four numbers ── */}
@@ -904,27 +871,41 @@ export default async function EventDetailsPage({
             )}
           </Section>
 
-          {/* ── Services ── */}
-          <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
-            <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
-            <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+          {/* ── Services ──
+              🍎 THE APP NAMES NO PAID SERVICE (App Review 3.1.1 / 3.1.3(b); the
+              review notes say the digital extras are "not offered, priced, or
+              advertised in the app", and a web extra unlocks nothing there).
+              In the store shell this section keeps only Plan it myself — no
+              Event Hub Pro / Setnayan AI / Papic row, owned or not (an "Active"
+              row would claim an unlock the app does not honour), and no "Open
+              Services" link (the More menu it opens is not in the app). Held by
+              `app/the-app-names-no-paid-service.test.ts`. */}
+          <Section k="services" open={storeShell ? null : { href: studioHubHref(eventId), label: 'Open Services' }}>
+            {storeShell ? null : (
+              <>
+                <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+                <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+              </>
+            )}
             {/* 🙋 PLAN IT MYSELF lives here, in the event's settings (owner 2026-10-06,
                 DECISION_LOG "EVENT DETAILS IS REBUILT": it left the Maker). The SAME
                 switch and the same one store (`events.planning_mode`, `setPlanningMode`). */}
             <div className="py-2" data-details-plan-myself="">
               <PlanMyselfSwitch eventId={eventId} on={planMyselfOn(typeof e.planning_mode === 'string' ? e.planning_mode : null)} />
             </div>
-            <Row
-              money
-              label="Papic"
-              value={
-                !poolRead.ok
-                  ? COULD_NOT_LOAD
-                  : pool.applies
-                    ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
-                    : 'Not added'
-              }
-            />
+            {storeShell ? null : (
+              <Row
+                money
+                label="Papic"
+                value={
+                  !poolRead.ok
+                    ? COULD_NOT_LOAD
+                    : pool.applies
+                      ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
+                      : 'Not added'
+                }
+              />
+            )}
           </Section>
 
           {/* ── Purchases — the shipped orders, with their status ── */}
@@ -965,7 +946,9 @@ export default async function EventDetailsPage({
               readOnly={!people}
               failed={Boolean(people && !people.measured)}
               flash={accessFlash}
+              claims={claims}
             />
+            {viewer.isCouple ? <SupplierChangesRow eventId={eventId} autoAgree={autoAgree} /> : null}
           </RecordFold>
         ) : null}
       </div>

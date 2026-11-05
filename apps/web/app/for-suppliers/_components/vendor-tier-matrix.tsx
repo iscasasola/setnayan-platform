@@ -28,7 +28,7 @@ import {
   VENDOR_TIER_SECTIONS,
   customTierDialLabels,
 } from '@/app/_components/home/vendor-benefits';
-import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 
 /*
  * ⚠ CUSTOM'S "FROM" PRICE IS NOW A PROP, AND THE REGEX THAT USED TO FIND IT IS
@@ -52,6 +52,7 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 // rows (extra branches, nationwide reach, negotiated ceilings, domain).
 import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
 import { supplierCommissionPromise } from '@/lib/commission-promise';
+import type { BookingFeeSchedule } from '@/lib/booking-fee';
 
 type Col = 'verified' | 'solo' | 'pro' | 'enterprise' | 'custom';
 const ALL_COLS: Col[] = ['verified', 'solo', 'pro', 'enterprise', 'custom'];
@@ -145,7 +146,7 @@ function buildFeatureGroups(): Group[] {
 
 /** Numeric "Plans & limits" rows straight from TIER_CAPS. Infinity → "All" /
  *  "Unlimited"; 0 → —. */
-function buildLimitsGroup(): Group {
+function buildLimitsGroup(branchPrice: string | null): Group {
   const cap = (col: Col) => TIER_CAPS[col];
   const km = (n: number) => (n === Infinity ? 'Nationwide' : n === 0 ? NO.kind : `${n} km`);
   const num = (n: number, unit = '') =>
@@ -183,19 +184,24 @@ function buildLimitsGroup(): Group {
       row('Team seats', (c, col) =>
         col === 'custom' ? CUSTOM : c.agentAccounts === 0 ? NO : val(num(c.agentAccounts)),
       ),
-      row('Bookable slots / day', (c, col) =>
-        col === 'custom' ? CUSTOM : c.slotsPerDay === 0 ? NO : val(num(c.slotsPerDay)),
+      // 🏬 Branches beyond the main shop (owner 2026-11-04, "BRANCHES PER PLAN": "branches 0,0,3,10") and who may buy
+      // more (Ultra only) — both read from TIER_CAPS / canBuyExtraBranches; the fee is the live catalogue price.
+      row('Branches included', (c) => (c.branchesIncluded === 0 ? NO : val(num(c.branchesIncluded)))),
+      row('Extra branches', (_c, col) =>
+        canBuyExtraBranches(col) ? val(branchPrice ? `${branchPrice} each` : 'Yes') : NO,
       ),
-      row('Portfolio photos', (c, col) =>
-        col === 'custom' ? CUSTOM : val(num(c.portfolioPhotos)),
-      ),
-      row('Answer matched couples / week', (c) =>
-        c.inAppCustomersPerWeek === Infinity
-          ? val('Unlimited')
-          : c.inAppCustomersPerWeek === 0
-            ? NO
-            : val(`${c.inAppCustomersPerWeek}`),
-      ),
+      // ⏳ Waiting list — couples a shop may take off it for one booked-out date (owner 2026-11-04: 0 · 0 · 1 · 5).
+      row('Waiting list / date', (c) => (c.waitlistAcceptances === 0 ? NO : val(num(c.waitlistAcceptances)))),
+      // 🌐 The shop's own web address → its page (Solo and up since owner 2026-11-04).
+      row('Your own web address', (c) => (c.customWebsiteName ? YES : NO)),
+      // ⛔ "Bookable slots / day", "Portfolio photos" and "Answer matched couples /
+      // week" were rows here until 2026-10-23. The owner ruled that plans price
+      // REACH, never the things that earn a booking fee ("We want everybody to be
+      // able to give us booking fee"): every plan now takes as many bookings a day
+      // as the supplier sets, answers every couple, and gets the same free photo
+      // base. Three columns of identical cells are not a comparison — the same
+      // treatment as the reviews row below. They are said once, on Free, in
+      // vendor-benefits.ts and the "What each plan adds" deltas. Do not re-add them.
       // ⛔ "Full written reviews shown" was a row here until 2026-08-09. It
       // advertised a vendor's own reviews as something they could BUY, which is
       // the opposite of the merit-first ranking lock. Reviews are now shown on
@@ -288,11 +294,18 @@ export function tierTag(price: string | null, unit: string): { price: string; un
   return price === null ? { price: '—', unit: 'price unavailable' } : { price, unit };
 }
 
-export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
+export function VendorTierMatrix({
+  prices,
+  feeSchedule,
+}: {
+  prices: VendorTierMatrixPrices;
+  /** The LIVE booking-fee schedule the server page read; NULL names the fee, no rate. */
+  feeSchedule: BookingFeeSchedule | null;
+}) {
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
     () => [
-      buildLimitsGroup(),
+      buildLimitsGroup(prices.branch),
       ...buildFeatureGroups(),
       // "Custom adds" is a block of rows that are YES on Custom and — on every
       // other column. With the column hidden it would be a block of dashes
@@ -306,7 +319,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
     verified: { name: 'Free · Verified', price: '₱0', unit: 'forever' },
     solo: { name: 'Solo', ...tierTag(prices.soloMonthly, '/ 28d') },
     pro: { name: 'Pro', ...tierTag(prices.proMonthly, '/ 28d') },
-    enterprise: { name: 'Enterprise', ...tierTag(prices.enterpriseMonthly, '/ 28d') },
+    enterprise: { name: TIER_LABEL.enterprise, ...tierTag(prices.enterpriseMonthly, '/ 28d') },
     custom: {
       name: 'Custom',
       price: prices.customFrom ?? 'Custom',
@@ -339,7 +352,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
           Every benefit as a row, every plan as a column. Free · Verified is the
           whole ops spine; each paid tier adds more and includes everything
           before it — and <strong style={{ color: 'var(--m-ink)' }}>Custom</strong>{' '}
-          is built for franchises and chains that need more than Enterprise. Tap a
+          is built for franchises and chains that need more than Ultra. Tap a
           plan to highlight its column.
         </p>
 
@@ -530,12 +543,12 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
         <p className="m-mono" style={{ fontSize: 10.5, color: 'var(--m-slate-3)', marginTop: 14, lineHeight: 1.5, maxWidth: 760 }}>
           Every benefit, every tier &mdash; ~90 in all.{' '}
           &ldquo;Soon&rdquo; = in active build. Prices read the live catalog and
-          are billed per 28-day cycle. Enterprise is a bounded plan; franchises &amp;
+          are billed per 28-day cycle. Ultra is a bounded plan; franchises &amp;
           multi-location go Custom.{' '}
           {/* 🔴 "0% commission while we launch" plus a HAND-TYPED schedule:
               two ways to go stale in one sentence, and the launch half was
               already false. Both now derive from the bill. */}
-          {supplierCommissionPromise()}
+          {supplierCommissionPromise(feeSchedule)}
         </p>
 
         {/* The dark "Custom · beyond Enterprise" band lived here. Hidden
@@ -572,7 +585,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
               }}
             >
               <span aria-hidden style={{ width: 24, height: 1, background: 'var(--m-orange)' }} />
-              Custom · beyond Enterprise
+              Custom · beyond Ultra
               {prices.customFrom ? <> &middot; {prices.customFrom}</> : null}
             </span>
             <h3 className="m-serif" style={{ fontSize: 28, fontWeight: 600, margin: '14px 0 8px', color: '#fff' }}>
@@ -580,7 +593,7 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
             </h3>
             <p style={{ fontSize: 14, color: '#c7bca4', margin: 0, maxWidth: '46ch', lineHeight: 1.55 }}>
               Franchises, chains and multi-location houses compose their own plan
-              &mdash; Enterprise as the base, then only the units they need, with a
+              &mdash; Ultra as the base, then only the units they need, with a
               dedicated account team.
             </p>
           </div>

@@ -97,7 +97,7 @@ test('META · the sources loaded and comment-stripping did not gut them', () => 
  * `ownerCapability !== null && ownerCapability.ownerEventId === event.event_id`.
  * Within hours that was extracted, unchanged, into a shared
  * `viewerIsEventHost()` in `_lib/site-identity.ts` — a strict improvement, since
- * `lib/owner-ribbon.ts` now asks the same question through the same function
+ * `lib/owner-ribbon.ts` (removed 2026-10-15) asked the same question through the same function
  * instead of restating it. Behaviour identical; my guard went red.
  *
  * Worse, it went red ON MAIN rather than on the PR: the PR was cut before the

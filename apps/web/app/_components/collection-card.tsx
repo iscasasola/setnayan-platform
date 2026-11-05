@@ -438,10 +438,13 @@ export function NewThingTile({
   label,
   delay = 0,
   layout = 'card',
+  tour,
 }: {
   href: string;
   /** "New event" — the whole visible label. */
   label: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
   delay?: number;
   /** `'poster'`: the dashed 3:4 ghost of a poster, at every width. */
   layout?: 'card' | 'poster';
@@ -452,6 +455,7 @@ export function NewThingTile({
         href={href}
         className="sn-press sn-reveal group grid aspect-[3/4] place-items-center rounded-2xl border-[1.5px] border-dashed border-ink/15 text-[13px] text-[color:var(--sn-ink-500)] transition-[color,background-color,border-color,transform] duration-300 hover:border-[color:var(--sn-gold-500)] hover:bg-white/40 hover:text-[color:var(--sn-gold-700)]"
         style={{ animationDelay: `${delay}s` }}
+        data-tour={tour}
       >
         <span className="flex flex-col items-center gap-1 text-center">
           <Plus aria-hidden className="h-6 w-6" strokeWidth={1.5} />
@@ -465,6 +469,7 @@ export function NewThingTile({
       href={href}
       className="sn-press sn-reveal group flex flex-row items-center justify-center gap-2 rounded-xl border border-dashed border-ink/20 bg-white/[0.35] px-4 py-3.5 text-[13px] font-bold text-[color:var(--sn-ink-500)] transition-[color,background-color,border-color,transform] duration-200 hover:-translate-y-[3px] hover:border-terracotta hover:bg-white/50 hover:text-[color:var(--sn-gold-700)] sm:min-h-[196px] sm:flex-col sm:rounded-2xl sm:p-4" // no-card-ok: a pressable Link — radius stays on what you can press (DESIGN-LANGUAGE-AMENDMENT)
       style={{ animationDelay: `${delay}s` }}
+      data-tour={tour}
     >
       <Plus aria-hidden className="h-[22px] w-[22px] text-[color:var(--sn-gold-600)]" />
       {label}

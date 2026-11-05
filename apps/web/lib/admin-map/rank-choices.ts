@@ -62,11 +62,24 @@ import { jobPrefillIsRead } from './prefill-consumers';
  * exactly how the previous guard in this feature came to pass while the thing
  * it guarded was broken.
  */
-export const MODEL_CHOICE_CAP = 142;
+// 144 since 2026-10-12: /admin/launch-offer is a new admin page (owner 2026-10-08
+// "ONE admin page" for the launch offer) — the rule above, raised by one.
+// 145 since 2026-10-22: Admin › App Performance › Visits joins the menu (owner
+// 2026-10-22, site traffic in our own admin) — the rule above, raised by one.
+// 146 since 2026-10-26: Admin › Event types gains "Who it's for" (`updateEventTypeForWhom`, owner 2026-10-26 —
+// the create grid's "For ▾" rule), a job that shares a word with the flagship sentence — one more scoring job, so
+// the last zero-hit page fell off at 145. The rule above, raised by one.
+// 147 since 2026-11-05: Admin › a supplier gains `moderateServiceCard` (take down a service card · put it back ·
+// remove a photo — the 7 Nov supplier registration minimum), a job that shares a word with the flagship sentence —
+// one more scoring job, so the last zero-hit page fell off at 146. The rule above, raised by one.
+export const MODEL_CHOICE_CAP = 147;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on
 // /admin/categories (54 jobs share a word with the flagship). 88 + 54 = 142.
+// 142 → 143 on 2026-10-08: /admin/hub-music (Event Hub music) is the 89th page.
+// Measured the same way — at 142 "every admin page still reaches the model"
+// went red with 88 of 89 pages kept. 89 + 54 = 143.
 
 export type ModelChoice = { label: string; href: string };
 

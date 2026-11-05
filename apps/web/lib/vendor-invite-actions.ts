@@ -296,15 +296,66 @@ export async function declineVendorInviteByToken(formData: FormData): Promise<vo
   const token = String(formData.get('claim_token') ?? '').trim();
   if (!token) return;
   const admin = createAdminClient();
-  const { error } = await admin
+  // The row back, so a zero-row update (already declined, claimed, run out)
+  // never tells anybody anything.
+  const { data: declined, error } = await admin
     .from('vendor_invites')
     .update({ status: 'declined', declined_at: new Date().toISOString() })
     .eq('claim_token', token)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('vendor_id, business_name');
   if (error) {
     console.error('[vendor-invite-actions] decline failed:', error);
   }
+  const row = (declined ?? [])[0] as { vendor_id: string | null; business_name: string | null } | undefined;
+  if (row?.vendor_id) await tellCoupleTheirLinkWasDeclined(admin, row.vendor_id, row.business_name);
   redirect(`/vendor/claim/${token}`);
+}
+
+/**
+ * THE COUPLE IS TOLD WHEN THE SUPPLIER DECLINES THEIR LINK (owner 2026-10-10,
+ * "4-6 do as you recommend": the couple IS told when the supplier declines or
+ * never opens the link). In the app only — the type is not on the email
+ * allowlist (owner 2026-10-11: no new emails). Every couple member of the
+ * event, the way `vendor_joined` is fanned out. Fail-soft: the decline itself
+ * already stands; the couple's row also says it on every visit
+ * (`lib/supplier-invite-status.ts`).
+ */
+async function tellCoupleTheirLinkWasDeclined(
+  admin: ReturnType<typeof createAdminClient>,
+  eventVendorId: string,
+  businessName: string | null,
+): Promise<void> {
+  try {
+    const { data: ev } = await admin
+      .from('event_vendors')
+      .select('event_id, vendor_name')
+      .eq('vendor_id', eventVendorId)
+      .maybeSingle();
+    const eventId = (ev?.event_id as string | null) ?? null;
+    if (!eventId) return;
+    const name = ((ev?.vendor_name as string | null) ?? businessName ?? '').trim() || 'Your supplier';
+    const { data: members } = await admin
+      .from('event_members')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple');
+    const coupleUserIds = (members ?? []).map((m) => m.user_id as string).filter(Boolean);
+    await Promise.all(
+      coupleUserIds.map((uid) =>
+        emitNotification({
+          userId: uid,
+          type: 'vendor_invite_declined',
+          title: `${name} declined your link`,
+          body: 'They said they are not this supplier. Their record is still yours.',
+          relatedUrl: `/dashboard/${eventId}/vendors`,
+          eventId,
+        }),
+      ),
+    );
+  } catch (e) {
+    console.warn('[claim] vendor_invite_declined notify skipped:', e);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -320,7 +371,7 @@ export async function applyClaimAutoLink(args: {
   claimedByUserId: string;
   claimedVendorProfileId: string;
 }): Promise<
-  | { ok: true; vendorId: string; coupleUserIds: string[] }
+  | { ok: true; vendorId: string; coupleUserIds: string[]; accessRequestId: string | null }
   | { ok: false; code: string; message: string }
 > {
   const admin = createAdminClient();
@@ -328,7 +379,7 @@ export async function applyClaimAutoLink(args: {
   // 1. Look up the invite.
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
-    .select('invite_id,vendor_id,invited_by_user_id,status,expires_at')
+    .select('invite_id,vendor_id,invited_by_user_id,status,expires_at,business_name')
     .eq('claim_token', args.claimToken)
     .maybeSingle();
   if (invErr || !invite) {
@@ -353,44 +404,27 @@ export async function applyClaimAutoLink(args: {
     return { ok: false, code: 'INVITE_EXPIRED', message: 'This invite link has expired.' };
   }
 
-  // 2. Write marketplace_vendor_id on the parent event_vendors row.
-  //    CONDITIONAL re-point guard: this multi-step sequence is non-transactional,
-  //    so if a later step fails the invite stays 'pending' and a DIFFERENT second
-  //    claimer could otherwise overwrite the couple's marketplace_vendor_id and
-  //    re-point their vendor. Only set the bond when it's currently unset (null)
-  //    or already this same profile (idempotent retry) — a re-claim by a
-  //    different profile matches 0 rows and is refused. The legitimate FIRST
-  //    claim has marketplace_vendor_id = null → the .or() admits it. A same-
-  //    profile retry matches via the second predicate → still succeeds.
-  const { error: linkErr } = await admin
-    .from('event_vendors')
-    .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-    .eq('vendor_id', invite.vendor_id)
-    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
-  if (linkErr) return { ok: false, code: 'LINK_FAILED', message: linkErr.message };
-
-  // 2b. Reconcile SIBLING category rows for the same manually-added vendor.
-  //     A couple who added this vendor under multiple categories has N distinct
-  //     event_vendors rows (own vendor_id, shared manual_vendor_id); the claim
-  //     binds to only ONE. Upgrade the siblings too so the couple doesn't end up
-  //     with one real linked account + leftover unclaimed manual contacts for a
-  //     single real vendor. Best-effort (never fails the claim), scoped to the
-  //     couple's OWN event, same null-or-same-profile re-point guard as step 2,
-  //     and skipped cleanly when the row has no manual_vendor_id (admin-source).
-  const { data: parentRow } = await admin
-    .from('event_vendors')
-    .select('manual_vendor_id,event_id')
-    .eq('vendor_id', invite.vendor_id)
-    .maybeSingle();
-  if (parentRow?.manual_vendor_id && parentRow.event_id) {
-    await admin
-      .from('event_vendors')
-      .update({ marketplace_vendor_id: args.claimedVendorProfileId })
-      .eq('manual_vendor_id', parentRow.manual_vendor_id)
-      .eq('event_id', parentRow.event_id)
-      .neq('vendor_id', invite.vendor_id)
-      .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${args.claimedVendorProfileId}`);
-  }
+  // 2. ASK FOR ACCESS — never take it (owner 2026-10-20, DECISION_LOG "A
+  //    CLAIMED SUPPLIER ARRIVES BOOKED IF PAID, ASKS FOR ACCESS ON ITS OWN…":
+  //    *"access to the event is automatic but has an approval"*).
+  //
+  //    🔒 THE CLAIM NO LONGER BONDS THE COUPLE'S RECORD TO THE SHOP. Every
+  //    supplier-side read of the event finds the supplier through
+  //    `event_vendors.marketplace_vendor_id`; writing it here handed a record the
+  //    couple had marked booked its category's access before anyone approved.
+  //    The claim raises ONE pending ask (`claim_ask_for_access`, migration
+  //    20271280900282); the couple's Approve runs the bond — the merge-aware
+  //    `claim_link_record_to_shop`, the sibling pass, a coordinator's host-level
+  //    seat — inside `answer_claim_access_request`. Nothing before that.
+  //    The ask refuses a record already bonded to a DIFFERENT shop (the shipped
+  //    re-point guard), so a second claimer is still turned away here.
+  const { data: askId, error: askErr } = await admin.rpc('claim_ask_for_access', {
+    p_record_vendor_id: invite.vendor_id,
+    p_vendor_profile_id: args.claimedVendorProfileId,
+    p_user_id: args.claimedByUserId,
+  });
+  if (askErr) return { ok: false, code: 'ASK_FAILED', message: askErr.message };
+  const accessRequestId = typeof askId === 'string' && askId ? askId : null;
 
   // 3. Mark the invite claimed.
   const { error: inviteErr } = await admin
@@ -437,6 +471,29 @@ export async function applyClaimAutoLink(args: {
         });
     }
 
+    // 4b. Tell the couple there is something to approve — IN THE APP, never an
+    // email (owner 2026-10-11, "we can manage without emails?"; `vendor_joined`
+    // is app-only in lib/couple-supplier-notices.ts). It opens the approval.
+    if (accessRequestId && coupleUserIds.length > 0) {
+      const name = ((invite.business_name as string | null) ?? '').trim() || 'Your supplier';
+      try {
+        await Promise.all(
+          coupleUserIds.map((uid) =>
+            emitNotification({
+              userId: uid,
+              type: 'vendor_joined',
+              title: `${name} joined from your link`,
+              body: 'Approve to let them into your event.',
+              relatedUrl: `/dashboard/${parent.event_id as string}/access-requests`,
+              eventId: parent.event_id as string,
+            }),
+          ),
+        );
+      } catch (e) {
+        console.warn('[claim] vendor_joined (approval) notify skipped:', e);
+      }
+    }
+
     // 5. Upsert a chat_thread so the vendor's /vendor-dashboard/bookings
     // surface shows the event immediately on first login. The
     // chat_threads UNIQUE (event_id, vendor_profile_id) lets us safely
@@ -468,31 +525,14 @@ export async function applyClaimAutoLink(args: {
         { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
       );
 
-    // 6. Flat 1-token claim burn (owner 2026-06-09 · "adding customer will cost
-    // 1 ticket to sync"). BEST-EFFORT + idempotent: the RPC shares
-    // vendor_event_unlocks with burn-on-answer, so a vendor that already
-    // unlocked this event syncs free. If the vendor can't afford the token the
-    // RPC raises INSUFFICIENT_WALLET_BALANCES and rolls its own tx back (no
-    // phantom unlock) — we SWALLOW it here so the couple's manual add is never
-    // blocked by the vendor's wallet (the link above already committed). When
-    // the RPC is absent (migration not yet applied) the .rpc call errors and is
-    // likewise swallowed — the link still stands. Couple-source only (admin-
-    // source invites have no event, handled in the outer `if (parent?.event_id)`).
-    try {
-      const { error: burnErr } = await admin.rpc('claim_unlock_vendor_event', {
-        p_vendor_profile_id: args.claimedVendorProfileId,
-        p_event_id: parent.event_id as string,
-      });
-      if (burnErr) {
-        // Insufficient balance / missing RPC / any DB error → link stands.
-        console.warn('[claim] flat token burn skipped:', burnErr.message);
-      }
-    } catch (e) {
-      console.warn('[claim] flat token burn threw (link kept):', e);
-    }
+    // (6. The flat 1-token claim burn — `claim_unlock_vendor_event` — is gone,
+    // 2026-11-05: the token wallet is RETIRED (2026-05-11), so it could only
+    // fail or spend a leftover retired token. The supplier's unlock row is
+    // written for free right after this returns, by finalize's
+    // `seatClaimedCoupleAsCustomer` → `unlock_vendor_event_free`.)
   }
 
-  return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds };
+  return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds, accessRequestId };
 }
 
 // ---------------------------------------------------------------------------
@@ -687,7 +727,12 @@ export async function registerClaimedServiceToCouple(args: {
     .maybeSingle();
   if (parentErr) return { ok: false, code: 'PARENT_LOOKUP_FAILED', message: parentErr.message };
   if (!parent) return { ok: false, code: 'PARENT_NOT_FOUND', message: 'Couple row not found.' };
-  if (parent.marketplace_vendor_id !== vendorProfileId) {
+  // Since 2026-10-20 the claim leaves the record UNBONDED until the couple
+  // approves the supplier's access (`applyClaimAutoLink` step 2), so a fresh
+  // claimant's record still reads null here. The invite checks above (claimed BY
+  // this user, TO this shop) are the proof the couple invited them; a record
+  // bonded to a DIFFERENT shop is still refused.
+  if (parent.marketplace_vendor_id != null && parent.marketplace_vendor_id !== vendorProfileId) {
     return {
       ok: false,
       code: 'LINK_MISMATCH',
@@ -709,7 +754,7 @@ export async function registerClaimedServiceToCouple(args: {
     .from('event_vendors')
     .update({ service_id: args.vendorServiceId })
     .eq('vendor_id', eventVendorId)
-    .eq('marketplace_vendor_id', vendorProfileId)
+    .or(`marketplace_vendor_id.is.null,marketplace_vendor_id.eq.${vendorProfileId}`)
     .is('service_id', null)
     .select('vendor_id')
     .maybeSingle();
@@ -737,9 +782,11 @@ export async function registerClaimedServiceToCouple(args: {
     // Notify the couple that their vendor joined + linked a service. Uses the
     // existing `vendor_joined` type ("couple: an invited vendor claimed their
     // profile" — notifications.ts §NotificationType) via emitNotification, which
-    // fails soft and is NOT on the email allowlist, so this is an in-app/push
-    // nudge only. Fan out to every couple member of the event (both partners),
-    // mirroring the auto-follow fan-out in applyClaimAutoLink.
+    // fails soft and is NOT on the email allowlist, so this is an in-app
+    // notice only (never a push either — this comment used to say
+    // "in-app/push"). Owner 2026-10-11: we manage without new emails. Fan out
+    // to every couple member of the event (both partners), mirroring the
+    // auto-follow fan-out in applyClaimAutoLink.
     try {
       const { data: members } = await admin
         .from('event_members')
@@ -757,6 +804,9 @@ export async function registerClaimedServiceToCouple(args: {
             title: 'Your supplier joined Setnayan',
             body: 'A supplier you added has linked their service to your plan.',
             relatedUrl: `/dashboard/${eventId}/vendors`,
+            // Named, not left to be worked out of the URL: the notice belongs
+            // to this event, and its email states the event and the date.
+            eventId,
           }),
         ),
       );

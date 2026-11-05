@@ -37,29 +37,46 @@ const src = () =>
 function numbersBlock(): string {
   const s = src();
   const a = s.indexOf('data-today-numbers');
-  const b = s.indexOf('data-today-coming-up');
+  // v13: Coming up now rides in the left column's tail (declared above the render), so the block ends at the first
+  // helper after the render instead.
+  const b = s.indexOf('function OpenedRow(', a);
   assert.ok(a > 0 && b > a, 'the three-numbers block could not be found — the scan has gone blind');
   return s.slice(a, b);
 }
 
 test('every headline count on Today has a destination', () => {
   const block = numbersBlock();
-  // Every number sits in its own <Link>; a <span>/<div> number would be a count
-  // that goes nowhere.
-  const links = block.match(/<Link\b[^>]*>/g) ?? [];
-  assert.equal(links.length, 3, `${links.length} of the three numbers are links`);
-  // A literal door, or one of the Customers hub's named landings (the anchors module).
+  // 📌 2026-10-28 (owner: "the counts … are the pinned row and they FILTER the list in place"): on a normal day the
+  // three counts are FILTER buttons (`TodayCounts`) — pressing one shows ITS list right under the row — and each list
+  // ends with the door to the whole of it. So a count still goes somewhere twice over: to its list, and through it.
+  const counts = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-counts.tsx'), 'utf8'));
+  assert.equal((counts.match(/on=\{on === key\}/g) ?? []).length, 1, 'a count is no longer a filter (aria-pressed via PinDoor)');
+  for (const word of ["'waiting'", "'this week'", "'to come in'"]) assert.ok(counts.includes(word), `the ${word} count is gone`);
+  // Each filtered list ends with its door: the week → Dates, the money → Money in · Payday (here), waiting → Customers (below).
+  assert.match(block, /<ListDoor label="All dates" href="\/vendor-dashboard\/customers\?seg=dates" \/>/, 'the week list lost its door');
+  assert.match(block, /<ListDoor label="Money in" href=\{customerLandingHref\('payday'\)\} \/>/, 'the money list lost its door');
+  assert.match(src(), /<ListDoor label="All customers" href="\/vendor-dashboard\/customers\?lane=waiting#customers" \/>/, 'the waiting list lost its door');
+  // 🌑 On an event day the row is the day's own: waiting · next moment · checked in — each a link, as before.
+  // 📌 2026-10-31: each is the shared door as a link (`<PinDoor … href=…>`, ONE SELECTOR Q3).
+  const links = block.match(/<PinDoor\b[\s\S]*?'data-today-number'/g) ?? [];
+  assert.equal(links.filter((l) => /\bhref=/.test(l)).length, 3, `${links.length} of the event day's three numbers are links`);
   for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
-  for (const word of ['new inquiries', 'events this week', 'owed to you']) {
+  for (const word of ['waiting on you', 'next moment', 'checked in']) {
     assert.ok(block.includes(word), `the "${word}" number is gone`);
   }
+  // A number that could not be read says so IN PLACE — "couldn't load", never a dead 0 (the day row's own <Unread />;
+  // the pinned counts' own line in `today-counts.tsx`).
+  assert.match(block, /value=\{numbers\.waiting === null \? null :/, 'the event day\'s waiting number no longer says when it could not read');
+  assert.match(counts, /value=\{value === null \? null :/, 'a pinned count that could not read no longer hands the null to the door');
+  assert.match(stripComments(readFileSync(join(WEB, 'app/_components/pinned-row/pin-door.tsx'), 'utf8')), /value === null \?[\s\S]{0,400}couldn&rsquo;t load/, 'the shared door that could not read no longer says so');
 });
 
 test('the destinations exist as routes', () => {
   const hrefs = [...numbersBlock().matchAll(/href=(?:"([^"]+)"|\{customerLandingHref\('(\w+)'\)\})/g)].map((m) =>
     m[1] ?? customerLandingHref(m[2] as Parameters<typeof customerLandingHref>[0]),
   );
-  assert.equal(hrefs.length, 3, `found ${hrefs.length} number hrefs`);
+  // The event day's three links + the week's and the money's list doors (2026-10-28).
+  assert.equal(hrefs.length, 5, `found ${hrefs.length} number hrefs`);
   for (const h of hrefs) {
     const rel = h.replace(/^\//, '').split(/[?#]/)[0]!;
     const page = join(WEB, 'app', rel, 'page.tsx');
@@ -78,5 +95,13 @@ test('the money number goes to the money — Payday', () => {
 test('each Coming-up row opens its customer — the list under the numbers links too', () => {
   const s = src();
   const coming = s.slice(s.indexOf('data-today-coming-up'));
-  assert.match(coming, /<Link href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
+  // The row is the shared hairline row now (`TodayRow`, one <Link>).
+  assert.match(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
+  const rowFn = s.slice(s.indexOf('export function TodayRow('));
+  assert.match(rowFn, /<Link href=\{href\} className=\{`home-row[^`]*`\}/, 'the shared row is not a link');
+  // …and every Coming-up row the assembly builds carries its door: a Setnayan booking its customer card, a booking
+  // from outside its day (simpler Today 2026-10-14).
+  const view = stripComments(readFileSync(join(WEB, 'lib/supplier-today-view.ts'), 'utf8'));
+  assert.match(view, /href: r\.href,/, 'a Setnayan booking row lost its customer card');
+  assert.match(view, /href: daySheetHref\(o\.date\),/, 'a booking from outside goes nowhere');
 });

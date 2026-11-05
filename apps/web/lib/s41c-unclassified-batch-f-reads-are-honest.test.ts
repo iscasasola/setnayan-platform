@@ -173,6 +173,7 @@ test('resolveHonoreeDependentId: a refused read logs and still drops the link (r
       userId: 'user_1',
       dependentId: '11111111-2222-3333-4444-555555555555',
       honoreeLabel: 'Lola Nena',
+      eventType: 'birthday',
     });
   });
   assert.equal(out, null);
@@ -208,17 +209,22 @@ test('the remaining 9 shape-1 sites each carry at least one [supabase-error] log
       file: 'app/[slug]/_components/editorial/data.ts',
       needle: '[supabase-error] app/[slug]/_components/editorial/data.ts · from:panood_broadcasts.select',
     },
+    // 📣 `app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select` (loadDayOfBroadcast) is GONE, not unlogged
+    // (EV1, 2026-10-28): the layout no longer reads the announcement — the card asks /{slug}/announcement, which reads
+    // through `fetchLatestBroadcasts`, whose failure is logged there (`logQueryError`) and answered 503, never "none".
     {
-      file: 'app/[slug]/_lib/loaders.ts',
-      needle: '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
+      file: 'lib/coordinator-broadcasts-server.ts',
+      needle: "logQueryError('lib/coordinator-broadcasts-server.ts: fetchLatestBroadcasts', error",
     },
     {
       file: 'app/auth/callback/route.ts',
       needle: '[supabase-error] app/auth/callback/route.ts · from:users.update',
     },
     {
-      file: 'app/open-shop/actions.ts',
-      needle: '[supabase-error] app/open-shop/actions.ts · from:dependents.select',
+      // The open-shop alaga read moved into the one writer every shop door
+      // calls (2026-10-22) — the log line moved with it.
+      file: 'lib/business-alaga-ensure.ts',
+      needle: '[supabase-error] lib/business-alaga-ensure.ts · from:dependents.select',
     },
     {
       file: 'app/panood/actions.ts',

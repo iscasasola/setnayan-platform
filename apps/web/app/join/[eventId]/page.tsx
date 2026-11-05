@@ -53,7 +53,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
   // `token` is still carried through so a sign-in comes back to the same URL.
   const admin = createAdminClient();
 
-  const { data: event } = await admin
+  const { data: event, error: eventError } = await admin
     .from('events')
     .select(
       // `event_date_precision` travels WITH `event_date` everywhere it is shown.
@@ -64,6 +64,11 @@ export default async function JoinPage({ params, searchParams }: Props) {
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // 🔌 A refused read is not a bad link (reads-are-honest, 2026-11-02 audit #13) — the error page says "try again";
+  // "This link isn't valid" is only for an event that is really not there.
+  if (eventError) {
+    throw new Error(`join: could not read event ${eventId}: ${eventError.message}`);
+  }
   if (!event) {
     return <InvalidTokenScreen />;
   }
@@ -99,7 +104,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
       <DoorShell
         tone="dead_end"
         eyebrow="Guest list"
-        title={event.display_name ?? 'This celebration'}
+        title={event.display_name ?? 'This event'}
         sub={INVITATION_ONLY_LINE}
       />
     );

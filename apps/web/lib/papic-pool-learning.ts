@@ -151,7 +151,7 @@ export function learnPointsPerGuest(
     censoredFloor,
     reason:
       floor > Math.ceil(mean)
-        ? `raised by ${censored.length} exhausted celebration(s) — they wanted at least ${floor} a head`
-        : `mean of ${uncensored.length} celebration(s) that finished with credits to spare`,
+        ? `raised by ${censored.length} exhausted event(s) — they wanted at least ${floor} a head`
+        : `mean of ${uncensored.length} event(s) that finished with credits to spare`,
   };
 }

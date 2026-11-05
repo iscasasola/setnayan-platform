@@ -140,7 +140,11 @@ export function sceneTypeWrite(
   if (!CUSTOM_TYPE.test(widgetType)) return { ok: false, reason: `${label}: this scene's words are not typed here.` };
   const base = own ?? { title: '', body: '' };
   const custom = field === 'title' ? { title: words, body: base.body } : { title: base.title, body: words };
-  if (!custom.body) return { ok: false, reason: 'Words cannot be left empty — to take the words off the page, tap Hide.' };
+  /* ✍ A HEADING ON A SCENE WITH NO WORDS YET IS ITS FIRST WRITE, NOT AN EMPTYING (owner 2026-10-17, a "Your own
+     section" just added: *"i cannot edit this"*). This refused every heading of a scene that had no words — so a scene
+     just added could not take its heading at all. Refused only where words WERE there and this write takes them away;
+     a guest still sees a plain scene only once it has words (`customSectionHasContent`). */
+  if (!custom.body && base.body) return { ok: false, reason: 'Words cannot be left empty — to take the words off the page, tap Hide.' };
   return {
     ok: true,
     writeKey: `custom:${widgetType}`,

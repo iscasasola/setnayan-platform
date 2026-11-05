@@ -11,7 +11,8 @@ import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { companionNames } from '@/lib/extra-seats';
 
 export const metadata = { title: 'Souvenir table' };
 
@@ -28,6 +29,10 @@ type GuestRow = {
   photo_url: string | null;
   plus_one_name: string | null;
   qr_token: string;
+  plus_one_allowed: boolean | null;
+  plus_one_of_guest_id: string | null;
+  plus_one_name_confirmed_at: string | null;
+  created_at: string | null;
 };
 
 export default async function SouvenirTablePage({ params }: Props) {
@@ -69,12 +74,13 @@ export default async function SouvenirTablePage({ params }: Props) {
     supabase
       .from('guests')
       .select(
-        'guest_id, first_name, last_name, display_name, side, role, rsvp_status, photo_url, plus_one_name, qr_token',
+        // 🪑 The +1 columns: who each guest brings is read off their seat rows in this same list (`companionNames`).
+        'guest_id, first_name, last_name, display_name, side, role, rsvp_status, photo_url, plus_one_name, qr_token, plus_one_allowed, plus_one_of_guest_id, plus_one_name_confirmed_at, created_at',
       )
       .eq('event_id', eventId)
       .is('deleted_at', null)
       // 🛂 A request is not inside until Keep or Link.
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
       .order('last_name'),
     supabase
       .from('event_seat_assignments')
@@ -126,11 +132,13 @@ export default async function SouvenirTablePage({ params }: Props) {
     (guestsRaw ?? []) as GuestRow[],
   );
 
-  const guests: DeskGuest[] = ((guestsRaw ?? []) as GuestRow[]).map((g) => ({
+  const roster = (guestsRaw ?? []) as GuestRow[];
+  const guests: DeskGuest[] = roster.map((g) => ({
     guestId: g.guest_id,
     name: guestDisplayName(g),
     photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
-    plusOneName: g.plus_one_name,
+    // 🪑 Every named seat, from the rows — never the one-name mirror alone (lib/extra-seats.ts `companionNames`).
+    plusOneNames: companionNames(g, roster),
     qrToken: g.qr_token,
     tableLabel: tableByGuestId.get(g.guest_id) ?? null,
   }));

@@ -28,7 +28,7 @@ import { join } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 import { rsvpGate, saveMethodFor, isInAppWebview } from '@/lib/guest-one-path';
-import { rsvpTermsCarried, TERMS_VERSION } from '@/lib/terms-agreement';
+import { carriedTermsAgreement, rsvpTermsCarried, TERMS_VERSION } from '@/lib/terms-agreement';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { dayOrdinal, thankYouHeadline, replySummary } from './thank-you-words';
 
@@ -93,23 +93,13 @@ test('1 · after the final-count lock the gate never closes — an unreplied gue
   assert.deepEqual(replied, { kind: 'inside', didntReply: false });
 });
 
-test('1 · WIRING: the event page redirects a key with missing answers to the RSVP page, on the SERVER, before anything renders', () => {
+test('1 · WIRING: the event page NEVER sends a key to the RSVP page — the cover’s Reply button does (owner 2026-10-19)', () => {
+  // 💌 Owner 2026-10-19: "so their QR code should not directly go to RSVP. they only go there when they click to
+  // the button on the cover" — the 2026-09-26 redirect is retired (app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts).
+  // The rule itself still decides the "Didn't reply" mark, and the RSVP page asks it for which questions to show.
   const gate = PAGE.indexOf('const keyGate = rsvpGate(');
-  const redirectAt = PAGE.indexOf('redirect(inviteReplyPath(event.slug ?? slug))');
-  const firstGuestRender = PAGE.indexOf('identity={guestIdentity(');
   assert.ok(gate > -1, 'the event page no longer asks rsvpGate');
-  assert.ok(redirectAt > gate, 'the event page no longer sends a gated guest to the RSVP page');
-  assert.ok(redirectAt < firstGuestRender, 'the redirect now comes AFTER the guest page is built');
-  assert.match(
-    PAGE,
-    // A plus-one is gated by `plusOneGate` instead — their own door, the
-    // minimum four (owner 2026-09-29) — never the full reply.
-    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding\) \{\s*redirect\(inviteReplyPath/,
-    'the gate must spare only the Maker canvas, the event’s own host, a plus-one (who has their own door), and the landing page’s "Open the invitation"',
-  );
-  // 🚪 The one exemption is the landing page's own link (owner 2026-09-30,
-  // frame 1) — an exact value, never "any `from`".
-  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
+  assert.doesNotMatch(PAGE, /redirect\(inviteReplyPath\(/, 'the event page sends a key to the RSVP page again');
   assert.match(PAGE, /didntReply: keyGate\.kind === 'inside' && keyGate\.didntReply/, 'the "Didn\'t reply" mark no longer reaches the page');
   assert.match(BODY, /\{g\.didntReply \? \(/, 'the "Didn\'t reply · you\'re in" chip is not drawn');
 });
@@ -122,7 +112,8 @@ test('1 · WIRING: the RSVP page asks the SAME rule for which answers are missin
   );
   assert.match(REPLY, /gate=\{gate\.kind === 'ask' \? \{ missing: gate\.missing, coupleMarked: gate\.coupleMarked \} : null\}/);
   // Both the event page and the RSVP page recognise the SAME key.
-  assert.match(REPLY, /readGuestSessionForEvent\(event\.event_id as string\)/);
+  // (2026-10-24: the reply's ONE identity — the same pass or seat, plus a signed-in host's own row.)
+  assert.match(REPLY, /readReplyIdentityForEvent\(event\.event_id as string\)/);
 });
 
 // ═══ 2 · THE RSVP PAGE ════════════════════════════════════════════════════
@@ -266,11 +257,13 @@ test('3 · the method is chosen by the DEVICE, never shown as a choice', () => {
 test('3 · WIRING: the landing page keeps the ticket and ONE way into the invitation; guests and Save are Me’s', () => {
   // 2026-10-03 (owner, on the live hub: "too many buttons" — each control in
   // ONE place): "Your guests · Send their invite" and "Save to my account" are
-  // on Me. The landing draws Save only to finish a press that came back for the
-  // Terms tick (`?keep=terms`), or the "Saved ✓" line once it is kept.
+  // on Me. 🔁 RE-AIMED 2026-10-25 (owner: "create a proper widget to link this event to your account" · "we are
+  // supposed to have that with the save to wallet"): the landing draws its ONE save widget after a Yes, under
+  // Save · Wallet — and still to finish a press that came back for the Terms tick (`?keep=terms`).
   assert.doesNotMatch(ENTER, /<YourGuests\b/, 'the landing hands out plus-one invites again — a second home beside Me');
   assert.doesNotMatch(ENTER, /<CopyMyLink\b/, 'the landing has its own "Copy my link" again — Me’s ticket carries it');
-  assert.match(ENTER, /\) : search\.keep === 'terms' \? \(\s*<SaveToAccount\b/, 'the Terms refusal no longer finishes here');
+  assert.match(ENTER, /search\.keep === 'terms' \|\| status === 'attending'/, 'the Terms refusal (or a Yes) no longer brings the save widget');
+  assert.match(ENTER, /const saveNode = saveShows \? \(\s*<SaveToAccount\b/, 'the thank-you’s one save widget is gone');
   assert.match(read('[slug]/_components/guest-me.tsx'), /<YourGuests\b[\s\S]*<SaveToAccount\b/, 'Me lost its guests or its Save');
   // 2026-09-30: "Open the invitation" (the phase's own words) replaced the
   // thank-you's "Not now" — the landing page has one way in, not two.
@@ -282,12 +275,20 @@ test('3 · 🔒 the Terms ticked on the RSVP page reach a Google/Apple account �
   assert.equal(rsvpTermsCarried(TERMS_VERSION), true);
   assert.equal(rsvpTermsCarried('2020-01-01'), false, 'an older version is not an agreement to this one');
   assert.equal(rsvpTermsCarried(undefined), false);
-  const at = CALLBACK.indexOf('rsvpTermsCarried(request.cookies.get(RSVP_TERMS_COOKIE)?.value)');
+  // Since 2026-10-22 the callback reads the RSVP tick through `carriedTermsAgreement`, beside the sign-up card's
+  // one tick (Host 1) — the same write, the same scope, executed here rather than grepped.
+  assert.equal(carriedTermsAgreement({ eventConnect: true, rsvpCookie: TERMS_VERSION, signupCookie: undefined }), true);
+  assert.equal(
+    carriedTermsAgreement({ eventConnect: false, rsvpCookie: TERMS_VERSION, signupCookie: undefined }),
+    false,
+    'the RSVP-page write is no longer scoped to "Save to my account"',
+  );
+  const at = CALLBACK.indexOf('rsvpCookie: request.cookies.get(RSVP_TERMS_COOKIE)?.value');
   assert.ok(at > -1, 'the OAuth callback no longer records the RSVP-page agreement');
   const block = CALLBACK.slice(at, at + 700);
   assert.match(block, /terms_accepted_at: new Date\(\)\.toISOString\(\), terms_version: TERMS_VERSION/);
   assert.match(block, /\.is\('terms_accepted_at', null\)/, 'an existing agreement would be rewritten');
-  assert.match(CALLBACK, /isEventConnectNext\(fallbackNext\) && rsvpTermsCarried/, 'the write is no longer scoped to "Save to my account"');
+  assert.match(CALLBACK, /eventConnect: isEventConnectNext\(fallbackNext\),/, 'the write is no longer scoped to "Save to my account"');
 });
 
 test('3 · the thank-you says the right thing, and reads the date as text', () => {
@@ -332,16 +333,16 @@ test('3 · "Your guests": Send their invite for a named plus-one, Add their name
 
 // ═══ 5 · THE STRANGER ═════════════════════════════════════════════════════
 
-test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non-guest gets "Ask to join"', async () => {
+test('5 · the stranger gets ONE button — "Open your invitation" (it read "Confirm your Booking" until 2026-11-03) — and a signed-in non-guest gets "Ask to join"', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GetInside } = await import('../_components/get-inside');
   const door = renderToStaticMarkup(
     React.createElement(GetInside, { slug: 'ana', eventId: 'e-1', signedInNotListed: false, theOrganizer: 'the couple' }),
   );
-  assert.match(door, /Get inside/);
-  // It names only what opens underneath — no "Scan", no "Tap NFC" (audit 2026-09-30).
-  assert.match(door, /Upload your QR · Sign in/);
-  assert.doesNotMatch(door, /Tap NFC|Scan your QR/);
+  assert.match(door, />Open your invitation</, 'the door does not read "Open your invitation" (owner 2026-11-03)');
+  assert.doesNotMatch(door, /Get inside|Confirm your Booking/, 'the door still reads its old words');
+  // No subtitle under it, and nothing promised that is not behind it (audit 2026-09-30).
+  assert.doesNotMatch(door, /Upload your QR · Sign in|Tap NFC/);
   assert.match(door, /href="\/login\?next=%2Fana"/);
   // "Ask to join" only on "Anyone, I approve" (owner 2026-09-27) — the closed
   // list is pinned in the-poster-qr-opens-the-event.test.ts.
@@ -356,10 +357,10 @@ test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non
   );
   assert.match(ask, /You’re not on the guest list for this event yet/);
   assert.match(ask, /href="\/join\/e-1"[^>]*>Ask to join/);
-  assert.doesNotMatch(ask, /Get inside/, 'two buttons on one screen');
+  assert.doesNotMatch(ask, /Open your invitation/, 'two buttons on one screen');
   assert.match(
     PAGE,
-    /signedInNotListed:\s*Boolean\(viewerAccount\?\.id\) && !viewerHoldsASeat && !ownerCapability && !vendorCapability/,
+    /signedInNotListed:\s*Boolean\(viewerAccount\?\.id\) && !viewerSeatUnread && !viewerHoldsASeat && !ownerCapability && !vendorCapability/,
   );
 });
 
@@ -393,7 +394,8 @@ test('5 · "Not you? Switch" clears the guest pass with a POST, never a prefetch
   assert.match(form, /action="\/ana\/sign-out"/);
   assert.match(form, /method="post"/);
   assert.match(html, /Switch/);
-  assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\);/);
+  // One pass per event (2026-10-12): the switch clears THIS event's pass — never another event's.
+  assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\{ slug, eventId \}\);/);
   assert.match(REPLY, /<NotYouSwitch slug=\{home\} erasesSelfie=\{guest\.photo_source === 'selfie'\} \/>/);
 });
 

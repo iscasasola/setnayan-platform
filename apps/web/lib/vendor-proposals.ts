@@ -93,6 +93,24 @@ export const PROPOSAL_STATUS_LABEL: Record<ProposalStatus, string> = {
   superseded: 'Superseded',
 };
 
+/**
+ * The line a PRINTED quote carries when it is not a live offer. The status badge sits in the bar that print hides, so
+ * a declined, expired or superseded quote printed exactly like a live one (coordinator walk, 2026-10-23). A live quote
+ * (sent · viewed) and an accepted one (its "Accepted on …" line prints) carry none.
+ */
+export function proposalPaperStatus(status: ProposalStatus): string | null {
+  switch (status) {
+    case 'draft':
+      return 'Draft — not sent yet';
+    case 'declined':
+    case 'expired':
+    case 'superseded':
+      return `${PROPOSAL_STATUS_LABEL[status]} — this quote no longer stands`;
+    default:
+      return null;
+  }
+}
+
 export const PROPOSAL_STATUS_TONE: Record<ProposalStatus, string> = {
   draft: 'bg-ink/5 text-ink/60',
   sent: 'bg-warn-100 text-warn-900',

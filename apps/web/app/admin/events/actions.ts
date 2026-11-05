@@ -19,6 +19,7 @@ import {
   guestListReopenPatch,
   reopenLanded,
 } from '@/lib/admin-reopen-guest-list';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -105,6 +106,8 @@ export async function deleteEvent(formData: FormData) {
   const mediaRefs = await collectEventMediaRefs(eventId);
 
   const { error } = await admin.from('events').delete().eq('event_id', eventId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('events');
   if (error) throw new Error(error.message);
 
   let media = { collected: mediaRefs?.length ?? 0, swept: 0, failed: 0 };

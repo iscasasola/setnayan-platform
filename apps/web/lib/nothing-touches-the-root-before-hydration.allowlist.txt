@@ -1,0 +1,6 @@
+# <file> <root.attr> — inline scripts that changed a React-rendered root attribute BEFORE this guard (2026-10-15).
+# Each is the same class of fault as Batch 8 W1 (a class on <html> React renders). Not measured as a warning on the
+# Batch 8 lab walk; each should move to a <style data-…> in <head> or a data attribute. Delete the row when fixed.
+# rsvp-sheet.tsx (`.sn-sheet-js`) moved to `[data-sn-sheet]` on 2026-10-15 (stability sweep).
+app/[slug]/_components/pahina-motion.tsx html.class        # `.pahina-js` scroll-choreography flag (fail-visible; removed after 2 s if unarmed). Kept 2026-10-15 (stability sweep): 16 globals.css rules, the Maker tile previews and six guards read it, and the Animate test is mid-walk on this exact machinery — move it in its own PR
+app/_components/theme-bootstrap-script.ts html.class       # removes a stale `.dark` from a cached shell; a no-op on a fresh render (React never renders `dark`). Kept 2026-10-15: the dark-mode PRs #6502 #6522 #6532 each rewrite this file

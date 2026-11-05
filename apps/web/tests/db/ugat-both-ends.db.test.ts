@@ -40,6 +40,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createReplayedDb, MIGRATIONS_DIR } from './replay-migrations';
+import { typesAtLevel } from '../../lib/push-levels';
 import {
   diffBaseline,
   findComponentOrphans,
@@ -92,7 +93,13 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
  * Bump this in the SAME COMMIT as any edit to ugat-both-ends.baseline.txt:
  * up when a newly-accepted orphan is ranked in, down when a row is paid down.
  */
-const EXPECTED_BASELINE_ROWS = 43;
+// 43 → 45 on 2026-10-08: the E-Gifts wish list's two tables land one PR ahead of
+// their writers (event_wish_items → wish list 2/5, event_gift_records → wish list
+// 4/5). Each of those PRs takes its row out and brings this back down by one.
+// 45 → 44: wish list 2/5 ships event_wish_items' writers. One to go (4/5).
+// 51 → 41 on 2026-10-26: the retired Mood Board render schema is DROPPED (migration 20271289858095), paying
+// down the 10 render rpc-no-caller rows rd/retire-mood-board-renders added.
+const EXPECTED_BASELINE_ROWS = 41;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {
@@ -191,7 +198,8 @@ function sweep(catalog: Catalog & { enumLabels: string[] }, sources: SourceFile[
     {
       union: parseNotificationUnion(byPath.get('lib/notifications.ts') ?? ''),
       emailAllowlist: parseAllowlist(byPath.get('lib/notification-emit.ts') ?? '', 'EMAIL_ENABLED_TYPES'),
-      pushAllowlist: parseAllowlist(byPath.get('lib/notification-emit.ts') ?? '', 'PUSH_ENABLED_TYPES'),
+      // Since 2026-10-31 a push is a level (lib/push-levels.ts): what can buzz is Urgent + Normal.
+      pushAllowlist: new Set([...typesAtLevel('urgent'), ...typesAtLevel('normal')]),
       enumLabels: catalog.enumLabels,
       registryPaths: REGISTRY,
     },

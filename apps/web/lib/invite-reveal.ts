@@ -33,6 +33,8 @@ export function inviteRevealPlays(input: {
   eventEndDate: string | null;
   /** `eventTimezoneFromCoords(venue_latitude, venue_longitude)` — as the Event Hub page. */
   venueTz: string;
+  /** `events.std_invitation_launch_date` — the ONE date the Invitation opens (owner 2026-10-14). */
+  invitationLaunchDate: string | null;
   nowMs?: number;
   /** `events.reveal_stages` — where the couple has it play (2026-09-25). Absent = the Save the Date only. */
   revealStages?: unknown;
@@ -41,7 +43,7 @@ export function inviteRevealPlays(input: {
   return cinematicRevealPlays({
     phasesEnabled: isWebsitePhasesEnabled() || surfaceEnabled(profile, 'website'),
     lifecyclePhase: solemnAdjustedPhase(
-      getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs),
+      getLifecyclePhase(input.eventDate, input.venueTz, input.eventEndDate, input.nowMs, input.invitationLaunchDate),
       profile.terminology.register === 'solemn',
     ),
     weddingOnlyParts: resolveWeddingOnlyParts(profile),

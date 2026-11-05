@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useTransition, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { useEffect, useState, useTransition } from 'react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { parseGuestInput } from '@/lib/guest-parse';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { addSingleGuest } from '../../guests/inline-actions';
+import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 
 /**
  * THE PARENTS ON THE INVITATION — each one tappable, opening THEIR OWN guest
@@ -15,12 +16,16 @@ import { addSingleGuest } from '../../guests/inline-actions';
  * on the right; +0 server actions"*; DECISION_LOG "NO 'GO EDIT IT OVER THERE'
  * LINKS — EDIT IT WHERE YOU ARE").
  *
+ * 🪪 THE ONE GUEST CARD (owner 2026-10-24: *"the guest card on wedding march is not same with the guest card."*): a
+ * tapped parent opens `GuestCard` — the Guest list's own card — in its sheet (`GuestCardSheet`), read at the tap by the one
+ * action (`openGuestCard`). Never a card of the Maker's own drawing.
+ *
  * 🔑 THE CARD, NEVER A NAME BOX. The only guest writer is `updateGuest`, a
  * full-row write that stores NULL for any column it is not sent
  * (`the-card-posts-every-column.test.ts`). A names-only field here would erase a
  * parent's side, role, RSVP and contact on the first keystroke. The shipped
  * card posts every column, so it is what opens — loaded on the server by the
- * one loader the Guest list uses (`loadGuestCard`).
+ * one reader the Guest list's card uses (`readGuestCard`).
  *
  * ＋ ADDING A PARENT IS DONE HERE TOO (owner's rule, via the controller: no
  * "go edit it over there" links). The Guest list's own single-guest add
@@ -34,7 +39,7 @@ export function ParentCards({
   parents,
 }: {
   eventId: string;
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
+  parents: Array<{ guestId: string | null; name: string }>;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -45,7 +50,7 @@ export function ParentCards({
   const [pending, start] = useTransition();
   /* The new parent's card opens once the refreshed list carries it. */
   useEffect(() => {
-    if (pendingOpen && parents.some((p) => p.guestId === pendingOpen && p.card)) {
+    if (pendingOpen && parents.some((p) => p.guestId === pendingOpen)) {
       setOpen(pendingOpen);
       setPendingOpen(null);
     }
@@ -72,27 +77,11 @@ export function ParentCards({
     });
   };
   const openParent = parents.find((p) => p.guestId && p.guestId === open) ?? null;
-  if (openParent) {
-    return (
-      <div data-parent-card={openParent.guestId} className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => setOpen(null)}
-          className="sn-press inline-flex min-h-11 w-fit items-center gap-1 rounded-full px-2 text-sm font-semibold text-ink/75 hover:bg-ink/5"
-        >
-          <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Parents
-        </button>
-        <HubSavesImmediately />
-        {openParent.card}
-      </div>
-    );
-  }
   return (
     <div data-parent-list="" className="flex flex-col gap-1.5">
       {parents.length ? (
         parents.map((p, i) =>
-          p.guestId && p.card ? (
+          p.guestId ? (
             <button
               key={p.guestId}
               type="button"
@@ -165,6 +154,14 @@ export function ParentCards({
         <p role="alert" className="text-xs text-danger-800">
           {error}
         </p>
+      ) : null}
+      {openParent?.guestId ? (
+        <GuestCardSheet
+          eventId={eventId}
+          person={{ id: openParent.guestId, name: openParent.name }}
+          open={SHIPPED_GUEST_CARD.invitation}
+          onClose={() => setOpen(null)}
+        />
       ) : null}
     </div>
   );

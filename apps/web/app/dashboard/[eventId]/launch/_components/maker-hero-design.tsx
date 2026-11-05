@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { makerSave } from '@/lib/maker-refresh';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import { forgetCanvasSent, sendCanvasBase } from '@/lib/maker-draft-store';
 import { HERO_DESIGNS, HERO_DESIGN_LABEL, heroDesignLabel, heroDesignOf, withHeroDesign } from '@/lib/hero-design';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
@@ -46,6 +47,7 @@ export function MakerHeroDesignPicker({
   const pick = (key: string) => {
     const design = HERO_DESIGNS.find((d) => d === key);
     if (!design || design === shown) return;
+    const built = latest.current;
     const next = withHeroDesign(latest.current, design);
     latest.current = next;
     setShown(design);
@@ -55,8 +57,14 @@ export function MakerHeroDesignPicker({
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ widgets: { hero: { canvas: next } } }));
+        // 👥 …with the canvas this pick was built on: another host's pick on the hero meanwhile is kept.
+        sendCanvasBase(fd, 'hero', canvas, next, built);
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
-        if (!r.ok) setError(r.error);
+        if (!r.ok) {
+          forgetCanvasSent('hero');
+          setError(r.error);
+        }
       } catch {
         setError('Your design could not be saved. Please try again.');
       }

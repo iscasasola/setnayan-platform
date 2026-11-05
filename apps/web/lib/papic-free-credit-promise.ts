@@ -20,7 +20,9 @@
  *
  * A row existing is not a grant. A stranger deciding whether to sign up reads
  * "free credits on every celebration" as the second thing, so the page names
- * the condition now: **"{N} free credits on your first celebration"**.
+ * the condition now: **"{N} free credits on your first event"** (worded "first
+ * celebration" until 2026-10-19, when the house word "event" replaced it —
+ * same meaning: the account's FIRST event, never each one).
  *
  * ⛔ AND THE FLOOR IS NOT A FEATURE. Nothing here may ever grow a sentence like
  * "and 1 credit on every celebration after". That would be a second materially
@@ -63,14 +65,14 @@ import { PAPIC_FREE_GRANT_POINTS_FALLBACK, type PapicFreeGrantRead } from './pap
  * hero, the bullet, the dial, the closing line and the structured data cannot
  * drift into saying different things about the same mechanism.
  */
-export const PAPIC_FREE_CREDIT_CONDITION = 'on your first celebration' as const;
+export const PAPIC_FREE_CREDIT_CONDITION = 'on your first event' as const;
 
 export type PapicFreeCreditPromise = {
   /** The figure, localised: `"50"`. Rendered on its own so JSX can style it. */
   count: string;
-  /** What follows the figure: `"free credits on your first celebration"`. */
+  /** What follows the figure: `"free credits on your first event"`. */
   rest: string;
-  /** The whole sentence: `"50 free credits on your first celebration"`. */
+  /** The whole sentence: `"50 free credits on your first event"`. */
   sentence: string;
   /**
    * The figure and its unit with NO frequency claim at all: `"50 free credits"`.

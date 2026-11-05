@@ -15,6 +15,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '../../lib/vendor-tier-caps';
+
+/** The customers-per-date ceiling — 5 on every plan since 2026-10-23 (was 1 on Free, which this file was written for). */
+const WL = WHITELIST_PER_DATE_ALL_PLANS;
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -82,6 +86,16 @@ async function thread(vendorProfileId: string, eventId: string): Promise<string>
   return t.rows[0]!.thread_id;
 }
 
+/**
+ * Bring the 1st to ONE BELOW the ceiling with real day couples, so every scenario below reads exactly as it did when
+ * the Free ceiling was 1: the next real day couple takes the last place, the one after is refused.
+ */
+async function fillToOneBelow(vendorProfileId: string): Promise<void> {
+  for (let i = 0; i < WL - 1; i++) {
+    assert.equal(await accept(await thread(vendorProfileId, await couple('day'))), null, `fill ${i + 1} of ${WL - 1}`);
+  }
+}
+
 /** The shop accepts a couple's inquiry. Returns the refusal, or null. */
 async function accept(threadId: string): Promise<string | null> {
   try {
@@ -104,6 +118,7 @@ test('the migration applied on top of the full corpus (not skipped)', () => {
 
 test('THE BUG · a month-only March couple being chased does NOT make a Free shop refuse a real 1 March couple', async () => {
   const shop = await newFreeShop();
+  await fillToOneBelow(shop.vendorProfileId);
   assert.equal(await accept(await thread(shop.vendorProfileId, await couple('month'))), null);
   assert.equal(
     await accept(await thread(shop.vendorProfileId, await couple('day'))),
@@ -112,8 +127,9 @@ test('THE BUG · a month-only March couple being chased does NOT make a Free sho
   );
 });
 
-test('POSITIVE CONTROL · two real 1 March couples still hit the Free ceiling of 1', async () => {
+test('POSITIVE CONTROL · real 1 March couples still hit the ceiling', async () => {
   const shop = await newFreeShop();
+  await fillToOneBelow(shop.vendorProfileId);
   assert.equal(await accept(await thread(shop.vendorProfileId, await couple('day'))), null);
   assert.match(
     (await accept(await thread(shop.vendorProfileId, await couple('day')))) ?? '',
@@ -124,6 +140,7 @@ test('POSITIVE CONTROL · two real 1 March couples still hit the Free ceiling of
 
 test('a month-only couple\'s own accept is never capped on its placeholder 1st', async () => {
   const shop = await newFreeShop();
+  await fillToOneBelow(shop.vendorProfileId);
   assert.equal(await accept(await thread(shop.vendorProfileId, await couple('day'))), null, 'the 1st is now full');
   assert.equal(
     await accept(await thread(shop.vendorProfileId, await couple('month'))),
@@ -134,6 +151,7 @@ test('a month-only couple\'s own accept is never capped on its placeholder 1st',
 
 test('the screen agrees with the trigger — no cap shown on a month-only thread, the real count on a day', async () => {
   const shop = await newFreeShop();
+  await fillToOneBelow(shop.vendorProfileId);
   const monthThread = await thread(shop.vendorProfileId, await couple('month'));
   await accept(monthThread);
   const dayThread = await thread(shop.vendorProfileId, await couple('day'));
@@ -152,7 +170,7 @@ test('the screen agrees with the trigger — no cap shown on a month-only thread
     );
     assert.deepEqual(
       { used: Number(day.rows[0]!.used), cap: Number(day.rows[0]!.cap) },
-      { used: 1, cap: 1 },
+      { used: WL, cap: WL },
       'the month-only couple is not in the count; the real 1 March couple is',
     );
   } finally {
@@ -163,6 +181,7 @@ test('the screen agrees with the trigger — no cap shown on a month-only thread
 
 test('NEUTRALISATION · put the old count back and the real 1 March couple is refused again', async () => {
   const shop = await newFreeShop();
+  await fillToOneBelow(shop.vendorProfileId);
   assert.equal(await accept(await thread(shop.vendorProfileId, await couple('month'))), null);
   const def = (
     await db.query<{ d: string }>(

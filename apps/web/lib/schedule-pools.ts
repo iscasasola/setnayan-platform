@@ -49,7 +49,8 @@ export function namedCalendarsEnabled(): boolean {
 }
 
 /**
- * Resolve every pool a booked service spans: its own leaf category plus
+ * Resolve every pool a booked service spans: its halls (all of them — a joined hall locks each), or else its own
+ * schedule / leaf category, plus
  * each linked "comes with" category (bundles lock both schedules — owner
  * verbatim 2026-06-12). Merged categories resolve to the same pool_id, so
  * the result is deduped. Degrades to [] on any missing data (unpublished
@@ -71,12 +72,16 @@ export async function resolvePoolIdsForService(
 
   const poolIds = new Set<string>();
 
-  const { data: svc } = await supabase
-    .from('vendor_services')
-    .select('category')
-    .eq('vendor_service_id', serviceId)
-    .maybeSingle();
+  // Read side by side: the card's category, and its HALLS (owner 2026-10-14 🏛 — a venue card may use one or more
+  // halls; this LIFTS the 2026-06-20 one-card-one-schedule lock for halls). A card on halls is on EXACTLY its halls:
+  // never also its named schedule or category pool, or two cards on different halls would collide on that pool.
+  const [{ data: svc }, { data: hallRows, error: hallErr }] = await Promise.all([
+    supabase.from('vendor_services').select('category').eq('vendor_service_id', serviceId).maybeSingle(),
+    supabase.from('vendor_service_halls').select('pool_id').eq('vendor_service_id', serviceId),
+  ]);
+  if (hallErr) console.error('[supabase-error] lib/schedule-pools.ts · from:vendor_service_halls.select', hallErr);
   const primary = (svc as { category?: string | null } | null)?.category ?? null;
+  const halls = ((hallRows ?? []) as { pool_id: string | null }[]).map((r) => r.pool_id).filter((p): p is string => Boolean(p));
 
   const resolveCategory = async (categoryKey: string) => {
     const { data } = await supabase.rpc('resolve_schedule_pool', {
@@ -88,8 +93,10 @@ export async function resolvePoolIdsForService(
     if (typeof data === 'string' && data.length > 0) poolIds.add(data);
   };
 
-  // ── The service's OWN pool ──────────────────────────────────────────────
-  if (namedCalendars) {
+  // ── The service's OWN pool(s) ───────────────────────────────────────────
+  if (halls.length > 0) {
+    for (const h of halls) poolIds.add(h);
+  } else if (namedCalendars) {
     const { data: membership } = await supabase
       .from('vendor_schedule_calendar_services')
       .select('pool_id')

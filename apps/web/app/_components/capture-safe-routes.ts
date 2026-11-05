@@ -2,23 +2,21 @@
  * Which routes globally-mounted chrome must NOT draw on — pure, unit-tested.
  *
  * WHY THIS EXISTS: the root layout mounts a handful of components on EVERY
- * route (cookie banner, demo/pilot banners, nav progress, toasts). One of those
- * routes is `/panood/program/[eventId]`, the chrome-less Live Studio PROGRAM
- * OUTPUT window that a couple's OBS **window-captures** and streams to their
- * YouTube. That page's own header states the rule it exists to keep: OBS
- * captures the WINDOW, so any chrome in the tree is one layout change away from
- * leaking into the couple's broadcast. Anything a global component paints there
- * goes out on air, on a day that cannot be re-run.
- *
- * <CookieConsentBanner> had no route gate at all (its only early return was
- * `!mounted || decided`), so a consent card pinned to the bottom-right corner
- * was one un-decided visitor away from being broadcast. This module is the gate.
+ * route (demo banner, nav progress, toasts). One of those routes is
+ * `/panood/program/[eventId]`, the chrome-less Live Studio PROGRAM OUTPUT window
+ * that a couple's OBS **window-captures** and streams to their YouTube. That
+ * page's own header states the rule it exists to keep: OBS captures the WINDOW,
+ * so any chrome in the tree is one layout change away from leaking into the
+ * couple's broadcast. Anything a global component paints there goes out on air,
+ * on a day that cannot be re-run.
  *
  * Two predicates, because the two exclusions are made for DIFFERENT reasons and
  * a future reader must not collapse them:
  *   · `isBroadcastCaptureRoute` — "an encoder is capturing these pixels."
- *   · `isConsentSuppressedRoute` — the above, PLUS the host's own full-screen
- *     controller, where the banner is an operating hazard rather than a leak.
+ *   · `isRoomDisplayRoute`      — "a ROOM is watching these pixels."
+ *
+ * (A third, `isConsentSuppressedRoute`, gated the cookie banner. The banner was
+ * removed on 2026-10-22 — essential cookies only — and the predicate with it.)
  */
 
 /**
@@ -30,28 +28,13 @@
 const BROADCAST_CAPTURE_PREFIXES = ['/panood/program/'] as const;
 
 /**
- * Additionally suppressed for the CONSENT banner only — the authenticated
- * host's full-screen Live Studio controller (Wave 8: `fixed inset-0` at 100dvh,
- * `overflow-hidden`, never scrolls). Not captured, so this is not a leak; it is
- * an operating hazard. The banner is `fixed` bottom-right at `z-[70]` while the
- * control shell is `z-0`, so it lands squarely on the unlock-to-broadcast pill
- * and the bottom control row, mid-broadcast, on a surface that cannot be
- * scrolled to move it out of the way.
- */
-const CONSENT_ONLY_PREFIXES = ['/panood/control/'] as const;
-
-/**
  * DAY-12 (2026-09-20) — a VENUE SCREEN: a TV / projector / LED wall in the room
  * showing `/live/screen`. Not encoder-captured, but the same consequence: every
  * pixel is watched by a roomful of guests, and nobody is at the TV to dismiss
- * anything. A consent card or demo banner there would sit on the couple's
- * monogram all night.
+ * anything. A demo banner there would sit on the couple's monogram all night.
  *
  * EXACT path, not a prefix: `/live` itself (where a person types the pairing
- * code) keeps the banner — a human is there and can answer it. Suppressing the
- * ask on `/live/screen` costs nobody a choice: the device is not a person, and
- * while undecided, analytics never initialise (`analyticsAllowed()` is false),
- * so nothing is collected in place of the question.
+ * code) is an ordinary page — a human is there.
  */
 const ROOM_DISPLAY_PATHS: ReadonlySet<string> = new Set(['/live/screen']);
 
@@ -74,46 +57,4 @@ export function isBroadcastCaptureRoute(
 ): boolean {
   if (!pathname) return false;
   return matchesPrefix(pathname, BROADCAST_CAPTURE_PREFIXES);
-}
-
-/**
- * True when the cookie-consent banner must NOT render on `pathname`.
- *
- * ⚠ RA 10173 — THIS GATE MUST STAY TINY. The banner is how Setnayan asks for
- * consent to non-essential (analytics) cookies, so every route taken off it is a
- * person we might never ask. A route only qualifies when suppressing the ask
- * costs nobody their choice, which is true of both entries here for the same
- * reason: each is reachable ONLY by a signed-in control-room member, who
- * necessarily passed through /login and the dashboard first — routes where the
- * banner IS shown. No consent opportunity is lost.
- *   · `/panood/program/` — a MACHINE-captured output surface with no controls
- *     and no human interacting; it exists purely for an encoder to capture.
- *   · `/panood/control/` — the host's own tool; see CONSENT_ONLY_PREFIXES.
- *
- * DELIBERATELY *NOT* HERE — `/panood/cam/[token]`, the camera-join page a helper
- * opens on their phone. It is not a capture surface (the published media is a
- * `getUserMedia` camera track; DOM chrome never enters the WebRTC stream), and
- * it is very often the ONLY Setnayan page that person will ever open.
- * Suppressing the banner there would mean never asking them at all — while the
- * globally mounted PostHog provider still captures `$pageview` on that route for
- * anyone who consented earlier. That is a consent gap, not a UX tidy-up. The
- * banner stays.
- *
- * Both lists are the narrowest workable form on purpose: the bare
- * `/panood/program` and `/panood/control` paths are 404s, not capture surfaces,
- * and deliberately keep their banner rather than widening this gate.
- *
- * `pathname` is whatever `usePathname()` hands back — `null` before hydration,
- * which reads as "not suppressed" so the banner's own `mounted` gate stays the
- * single thing deciding first paint.
- */
-export function isConsentSuppressedRoute(
-  pathname: string | null | undefined,
-): boolean {
-  if (!pathname) return false;
-  return (
-    matchesPrefix(pathname, BROADCAST_CAPTURE_PREFIXES) ||
-    matchesPrefix(pathname, CONSENT_ONLY_PREFIXES) ||
-    isRoomDisplayRoute(pathname)
-  );
 }

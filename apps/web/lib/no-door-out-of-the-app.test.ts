@@ -119,6 +119,20 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
   { prefix: 'app/open-shop/', why: 'A shop setting itself up, typing its own contact details.' },
   { prefix: 'app/api/', why: 'Machine endpoints, not rendered pages (see header).' },
   {
+    prefix: 'app/dev/supplier-lab/',
+    why:
+      "The supplier dashboard's dev lab — it draws the shop's OWN dashboard screens (Your details, Your " +
+      'collections) from fixtures and refuses to render in production (`notFound()`, pinned by ' +
+      'app/dev/supplier-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
+    prefix: 'app/dev/spotlight-lab/',
+    why:
+      "The spotlight tours' dev lab — it draws the supplier's OWN Today and Customers through " +
+      '`/dev/supplier-lab` (above) and refuses to render in production (`notFound()`, pinned by ' +
+      'app/dev/spotlight-lab/the-lab-never-ships.test.ts). Never a couple\'s or the public\'s page.',
+  },
+  {
     prefix: 'app/vendor/claim/',
     why: 'A shop CLAIMING its own profile — the form is pre-filled with its own email and phone.',
   },
@@ -162,6 +176,17 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
       // The reason claims the gate — so the bill proves it. A lock copies the SHOP's
       // email and phone into this row; without the gate the cell prints them.
       gate: /\{isOffPlatformSupplier\(ev\) && \(ev\.contact_email \|\| ev\.contact_phone\) \?/,
+    },
+  ],
+  [
+    'app/vendor/claim/[token]/_components/claim-parts.tsx',
+    {
+      count: 1,
+      why:
+        "The phone the COUPLE typed for this supplier, shown back to THAT supplier on their own claim door " +
+        "(the couple's own link) so they can see it is them — the same field page.tsx always showed here, moved " +
+        'with the door into its own component (2026-10-12). It is the shop\'s own number, not a door out.',
+      gate: /\{contactPhone \? \(\s*<SnapshotField\s+label="Phone"/,
     },
   ],
 ]);
@@ -211,17 +236,24 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
 // ⤷ 2026-09-30: the approved Fable rows dropped the roster's call + email icons
 // ("no email to guests"); the same day the owner's full-width list brought
 // Contact back as a column a header can PICK — the mobile only, one tel:.
+// ⤷ 2026-10-09: this bill held ONE entry, the old roster's Contact column
+// (`guest-list-multiselect.tsx`, one tel: for a guest of the event). That file
+// was deleted with the retired GuestListMultiselect, and the live list
+// (`guests-screen.tsx`) computes no tel: at all — so the bill is now EMPTY and
+// "a new file fails" holds for every file.
+// ⤷ 2026-10-26 (owner, verbatim: "Viber/Whatsapp invite buttons. we need to allow the invite to work seamlessly
+// with messaging apps"): ONE entry — the guest-invite app links. They carry NO recipient at all (no phone, no
+// handle): the host picks the chat inside their own app. Reached only from the couple's guest card, the one-by-one
+// send run and the accepted-request card — all gated to the couple / a coordinator with guest_list access.
 const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
-    'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx',
+    'lib/invite-app-links.ts',
     {
-      count: 1,
+      count: 2,
       why:
-        'The roster Contact column (owner 2026-09-30, a column any header can pick): one ' +
-        'tel: for a GUEST of this event, not a shop — never a mailto:, no email to guests. ' +
-        'Owner 2026-09-14 scoped Rule 1 to allow it "only for the couple and if coordinator ' +
-        'is given access" — and this file renders only inside /dashboard/[eventId]/guests, ' +
-        'which is already gated by guest_list access.',
+        'The couple sends a GUEST their own invitation from their own WhatsApp (wa.me/?text=) or Viber ' +
+        '(viber://forward?text=). Neither link names a recipient — the host picks the chat in their app — and the ' +
+        'text is the shipped invite message the share sheet already hands over. No shop, no contact field.',
     },
   ],
 ]);

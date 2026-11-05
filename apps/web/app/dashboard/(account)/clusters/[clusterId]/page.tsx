@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props) {
   const { clusterId } = await params;
   const supabase = await createClient();
   const cluster = await fetchCluster(supabase, clusterId);
-  return { title: cluster?.display_name ?? 'Linked celebrations' };
+  return { title: cluster?.display_name ?? 'Linked events' };
 }
 
 export default async function ClusterTimelinePage({ params }: Props) {
@@ -148,7 +148,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
         </p>
         <p className="mt-1 text-sm text-ink-soft">
           {timeline.measured
-            ? `${timeline.rows.length} ${timeline.rows.length === 1 ? 'celebration' : 'celebrations'}`
+            ? `${timeline.rows.length} ${timeline.rows.length === 1 ? 'event' : 'events'}`
             : 'We could not load this group just now'}
           {' · '}
           Each one keeps its own guests, its own shots and its own money.
@@ -171,7 +171,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
 
         {!budgets ? (
           <p className="mt-2 text-sm text-ink-soft" role="status">
-            We could not read the celebrations in this group, so there is no total to show.
+            We could not read the events in this group, so there is no total to show.
           </p>
         ) : budgets.totalPhp === null ? (
           <>
@@ -186,7 +186,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
             </p>
             <p className="mt-1 text-sm text-ink-soft">
               {budgets.notCounted === 0
-                ? 'Set a budget on a celebration and it is added here.'
+                ? 'Set a budget on an event and it is added here.'
                 : makeUpOfLine(budgets)}
             </p>
           </>
@@ -201,9 +201,9 @@ export default async function ClusterTimelinePage({ params }: Props) {
               */}
               {budgets.countedIn === budgets.rows.length
                 ? `Across all ${budgets.countedIn} ${
-                    budgets.countedIn === 1 ? 'celebration' : 'celebrations'
+                    budgets.countedIn === 1 ? 'event' : 'events'
                   }`
-                : `Across ${formatCount(budgets.countedIn)} of ${formatCount(budgets.rows.length)} celebrations · ${makeUpOfLine(
+                : `Across ${formatCount(budgets.countedIn)} of ${formatCount(budgets.rows.length)} events · ${makeUpOfLine(
                     budgets,
                   )}`}
             </p>
@@ -211,7 +211,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
         )}
 
         <p className="mt-2 text-xs text-ink-soft/80">
-          Budgets only. Papic shots stay with the celebration that bought them and are never
+          Budgets only. Papic shots stay with the event that bought them and are never
           pooled.
         </p>
       </section>
@@ -223,12 +223,12 @@ export default async function ClusterTimelinePage({ params }: Props) {
       */}
       {!timeline.measured ? (
         <p className="sn-tile text-sm text-ink-soft" role="status">
-          We could not load the celebrations in this group. Nothing has changed — refresh to try
+          We could not load the events in this group. Nothing has changed — refresh to try
           again.
         </p>
       ) : timeline.rows.length === 0 ? (
         <p className="sn-tile text-sm text-ink-soft">
-          Nothing in this group yet. Add one of your celebrations below.
+          Nothing in this group yet. Add one of your events below.
         </p>
       ) : (
         <ol className="space-y-3">
@@ -242,7 +242,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
                   {row.is_anchor ? (
                     <p className="sn-eye flex items-center gap-1.5">
                       <Anchor size={14} strokeWidth={1.75} aria-hidden />
-                      The main celebration
+                      The main event
                     </p>
                   ) : null}
                   <p className="truncate font-medium text-ink">
@@ -308,7 +308,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
             </p>
           ) : people.length === 0 ? (
             <p className="mt-2 text-sm text-ink-soft">
-              No guests on these celebrations yet. Add them inside each celebration.
+              No guests on these events yet. Add them inside each event.
             </p>
           ) : (
             <>
@@ -336,7 +336,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
                             key={c.guest_id}
                             className="rounded-sm bg-ink/5 px-2 py-0.5 text-xs text-ink-soft"
                           >
-                            {celebrationName.get(c.event_id) ?? 'A celebration'} ·{' '}
+                            {celebrationName.get(c.event_id) ?? 'An event'} ·{' '}
                             {RSVP_LABELS[c.rsvp_status as RsvpStatus] ?? 'RSVP unknown'}
                           </span>
                         ))}
@@ -349,7 +349,7 @@ export default async function ClusterTimelinePage({ params }: Props) {
           )}
 
           <p className="mt-2 text-xs text-ink-soft/80">
-            Each celebration still keeps its own guest list. This only shows who is on more than
+            Each event still keeps its own guest list. This only shows who is on more than
             one.
           </p>
         </section>

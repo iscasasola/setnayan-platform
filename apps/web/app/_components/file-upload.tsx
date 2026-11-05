@@ -1,18 +1,22 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { unsavedTail } from '@/lib/upload-unsaved-line';
 import {
   AlertCircle,
   CheckCircle2,
   FileText,
+  Camera,
   Loader2,
   UploadCloud,
   X,
 } from 'lucide-react';
 import { trackFailure } from '@/lib/telemetry/track-error';
-import { createStallWatchdog } from '@/lib/stall-watchdog';
+import type { UploadOutcome, UploadSend } from '@/lib/upload-send';
 import { formatCount } from '@/lib/format-number';
+import { uploadTypeOf } from '@/lib/upload-type-names';
+import { ownerFormOf } from '@/lib/portaled-fields-join-their-form';
 
 /**
  * Reusable file-upload widget that targets Cloudflare R2 via the
@@ -58,6 +62,11 @@ type FileUploadBaseProps = {
   multiple?: boolean;
   /** Hard upper bound on number of files when `multiple` is true. */
   maxFiles?: number;
+  /**
+   * What to say when a pick would go past `maxFiles` — in place of the generic "N-file limit" line. For a limit that
+   * is a policy with its own words (the portfolio's free base, owner 2026-10-23).
+   */
+  limitMessage?: string;
   /** Per-file size cap in megabytes. Defaults to 5 MB. */
   maxSizeMB?: number;
   /**
@@ -100,6 +109,43 @@ type FileUploadBaseProps = {
    * existing callers are unaffected.
    */
   onFilePicked?: (file: File) => void;
+  /**
+   * 🥧 The figure this component already prints for the upload in flight (0–100, from `xhr.upload` progress), handed
+   * up as is — null when nothing is in flight. For a parent that draws the same number elsewhere (the Maker's style
+   * card pie, owner 2026-10-08). Never a second measurement, never a request. Optional; existing callers are unaffected.
+   */
+  onProgress?: (pct: number | null) => void;
+  /** Filled with "stop what is in flight" (the same stop as the row's own ✕) — for a parent whose own control cancels. */
+  cancelRef?: { current: (() => void) | null };
+  /**
+   * 🚧 Is a file on its way — picked and being prepared (compressed, signed), or in flight? True from the pick until
+   * the last one has landed or failed. For a parent that must not let the uploader be CLOSED meanwhile (a pop that
+   * unmounts it would drop the file — the Love Story's photo slots, 2026-10-08). The same two windows this component
+   * already guards a form's submit with (`busyRef` + `inFlight`); never a request. Optional; existing callers are
+   * unaffected.
+   */
+  onBusy?: (busy: boolean) => void;
+  /**
+   * 🚫 A FILE THAT DID NOT UPLOAD STAYS, SAYING SO (`gallery` only). Given these words ("Couldn't upload this
+   * photo."), a refused, broken or stalled upload leaves a tile in the grid that says them, with **Try again** (the
+   * same file, sent again) and ✕ — instead of the tile vanishing and one shared line above. Nothing of it joins the
+   * value, and `onBusy` goes false. The server's own reason, when it gave one meant for the person (too large, the
+   * allowance is full), is still shown. Optional; without it every caller behaves as before.
+   */
+  failedSays?: string;
+  /** How long nothing may move before an upload is declared dead. Default 45 s (`UPLOAD_STALL_MS`). */
+  stallMs?: number;
+  /**
+   * A stand-in for storage, with `sendToStorage`'s own shape (`lib/upload-send.ts`). ONLY the dev lab passes one (it
+   * has no storage to send to); production never does, and `lib/a-refused-upload-says-so.test.ts` holds that.
+   */
+  send?: UploadSend;
+  /**
+   * A few words drawn along the foot of a finished `gallery` tile, by its stored ref — or null for none. For a file
+   * that is not this field's own to change ("From Our engagement": a photo picked from another event). Words, not
+   * an icon — they are also what a screen reader says. Optional.
+   */
+  tileNote?: (r2Ref: string) => string | null;
   /**
    * Optional async validator run AFTER the size/MIME checks and BEFORE the
    * upload starts. Return an error string to reject the file (shown to the
@@ -162,6 +208,33 @@ type FileUploadBaseProps = {
    */
   roundPreview?: boolean;
   /**
+   * The words inside an EMPTY round slot (`roundPreview`). Defaults to "Add your logo" — the shop logo's own
+   * words, unchanged. A PERSON's photo never passes through here: it draws as `row` (below), which says "Your
+   * photo". Before 2026-10-21 every round slot said "logo", including the first-run "How should we call you?"
+   * card, about the person's own face.
+   */
+  slotSays?: string;
+  /**
+   * 📐 THE PHOTO ROW (owner 2026-10-21: "i noticed some misalignment where they upload their first profile
+   * photo"; approved prototype `first_run_you_and_next_steps_2026-10-21.html` §1).
+   *
+   * MEASURED before: the You card put this widget in a 96 px column, but the round slot is a 160 px circle and
+   * the picture 132 — both spilled 64 / 36 px into the Display name beside it, the name box shrank to 167 px and
+   * cut its own placeholder, and the circle told a person "Add your logo".
+   *
+   * With `row`, a round single-file field draws as ONE row: a 72 px circle — the one thing you press, the only
+   * frame on the row — beside plain words: `title`, then what is true now —
+   *   empty     "<help> · PNG, JPG or WEBP · up to N MB"
+   *   chosen    "Not saved yet — <unsavedHint>" · Remove
+   *   uploading the circle is the progress ring over the dimmed picture · "Uploading · N% · size" · Cancel
+   *   refused   the circle turns terracotta-dashed · "Tap the circle to try another file", the reason under the row
+   *   saved     "Saved" · Remove
+   * Nothing else is drawn (no formats line under, no filename rows, no help line): the row is the whole widget,
+   * and it is never wider than its column — the circle is 72 and the words wrap (`min-w-0`).
+   * The class names let the host card speak in its own type (the You card's label / hint / link).
+   */
+  row?: { title: string; titleClassName?: string; hintClassName?: string; actionClassName?: string };
+  /**
    * Apply the SETNAYAN watermark to each uploaded image before sending it
    * to R2. Per owner directive 2026-05-21: all photos posted on the app
    * get auto-watermarked EXCEPT event photos. Vendor marketplace photos
@@ -220,6 +293,23 @@ type FileUploadBaseProps = {
    * authoritative gate for images is the save-time server scan.
    */
   qrGuard?: boolean;
+  /**
+   * Song guard (2026-10-08): reject a picked audio file that will not play on
+   * every phone — an .m4a holding Opus (what the music generator exports) is
+   * silent on some iPhones, and nothing but the file's own bytes says so. Set
+   * on every upload that becomes an Event Hub's song. A serializable boolean,
+   * like `qrGuard`, so a server component can turn it on; the reader is
+   * lazy-loaded (`lib/audio-guard-client.ts`) and runs after `validateFile`.
+   * The refusal is the widget's own error line, in place. Fail-open.
+   */
+  audioGuard?: boolean;
+  /**
+   * A way forward that rides ON a refusal line (batch 7 R3, 2026-10-16): when the error the widget shows
+   * contains `when` (the server's own sentence — e.g. the media allowance's ◆ Pro mention), the link sits inside
+   * that same alert, so a couple refused below the meter's "full" still reads Unlock Pro where they were refused.
+   * 12 px words, pressed at 44+ (`.sn-hit`).
+   */
+  refusalLink?: { when: string; href: string; label: string } | null;
 };
 
 /**
@@ -244,6 +334,7 @@ export type FileUploadFormBinding =
 export type FileUploadProps = FileUploadBaseProps & FileUploadFormBinding;
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
 
 /**
  * How long an upload may move ZERO bytes before it is declared dead.
@@ -277,6 +368,13 @@ const UPLOAD_STALL_MS = 45_000;
  */
 const UPLOAD_RESPONSE_MS = 300_000;
 
+/**
+ * A `gallery` tile's ✕ — a 44 px ROUND target in the tile's corner, carrying a 24 px disc. (A bare 24 px button is
+ * stretched into a tall oval by the app's 44 px button floor — controller, 2026-10-08, on the Love Story's slots.)
+ */
+const TILE_X = 'absolute right-0 top-0 flex h-11 w-11 items-start justify-end rounded-full p-1.5 text-ink/70 hover:text-danger-700';
+const TILE_X_DISC = 'flex h-6 w-6 items-center justify-center rounded-full bg-cream/90';
+
 type UploadedItem = {
   /** Local-only ID for React keys + cancellation. */
   id: string;
@@ -296,8 +394,12 @@ type InFlightItem = {
   contentType: string;
   size: number;
   progress: number; // 0..100
-  xhr: XMLHttpRequest | null;
+  /** Stops this upload (`UploadRun.cancel`) — null until its run has started. */
+  stop: (() => void) | null;
 };
+
+/** A file that did not upload, kept as a tile so it can be tried again (`failedSays`). Never part of the value. */
+type FailedItem = { id: string; file: File };
 
 function isImage(contentType: string): boolean {
   return contentType.startsWith('image/');
@@ -382,6 +484,7 @@ export function FileUpload({
   pathPrefix,
   multiple = false,
   maxFiles,
+  limitMessage,
   maxSizeMB = 5,
   acceptedTypes = DEFAULT_TYPES,
   name,
@@ -396,6 +499,8 @@ export function FileUpload({
   variant = 'square',
   bigPreview = false,
   roundPreview = false,
+  slotSays = 'Add your logo',
+  row,
   watermark = false,
   compressVideo = false,
   compressImage = false,
@@ -403,7 +508,16 @@ export function FileUpload({
   videoCompressProfile,
   videoSilent = false,
   qrGuard = false,
+  audioGuard = false,
   unsavedHint,
+  onProgress,
+  cancelRef,
+  onBusy,
+  failedSays,
+  stallMs,
+  send,
+  tileNote,
+  refusalLink,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -411,6 +525,13 @@ export function FileUpload({
   const [items, setItems] = useState<UploadedItem[]>([]);
   const [inFlight, setInFlight] = useState<InFlightItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  /** The photo row's dimmed picture while its upload is on the way (`row`) — this device's own copy, never sent. */
+  const [rowLocal, setRowLocal] = useState<string | null>(null);
+  useEffect(() => () => {
+    if (rowLocal) URL.revokeObjectURL(rowLocal);
+  }, [rowLocal]);
+  /** Files that did not upload, kept as tiles (`failedSays`). */
+  const [failed, setFailed] = useState<FailedItem[]>([]);
   // In-browser video optimisation (ffmpeg.wasm) runs BEFORE the upload; this
   // surfaces a labelled progress bar while it works. null = not optimising.
   const [optimizing, setOptimizing] = useState<{ label: string; pct: number } | null>(null);
@@ -426,6 +547,8 @@ export function FileUpload({
   // orphaned R2 object. Covering only the validator sub-window (the prior fix)
   // left the far longer compression window open.
   const busyRef = useRef(false);
+  /** `busyRef`'s window, as state — only so `onBusy` hears it open and close. */
+  const [preparing, setPreparing] = useState(false);
   /** The root node, used only to find the enclosing <form>. */
   const rootRef = useRef<HTMLDivElement>(null);
   /** Set when a submit was refused, so the refusal is never silent. */
@@ -455,7 +578,9 @@ export function FileUpload({
    */
   useEffect(() => {
     if (inFlight.length === 0) return;
-    const form = rootRef.current?.closest('form');
+    // ownerFormOf, not closest('form'): inside a portaled sheet (the service-card
+    // maker's) closest() finds no form and this guard used to switch itself off.
+    const form = ownerFormOf(rootRef.current);
     if (!form) return;
     const refuse = (e: Event) => {
       e.preventDefault();
@@ -504,16 +629,45 @@ export function FileUpload({
   }, []);
 
   useEffect(() => {
+    // 🔑 SET ON MOUNT, not only cleared on unmount. In development React's Strict Mode runs every effect's
+    // cleanup once straight after mounting; a flag that is only ever cleared stayed false for the component's
+    // whole life, so every `if (isMountedRef.current)` below was skipped — a refused upload left its tile at 0%
+    // beside a spinner for ever, and one that landed was never shown (owner, 2026-10-08, on the local copy:
+    // "it does not upload").
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
       // Abort any in-flight XHRs so a router navigation doesn't leave a
       // half-finished PUT pinging in the background.
-      for (const item of inFlight) {
-        if (item.xhr) item.xhr.abort();
-      }
+      for (const item of inFlight) item.stop?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* 🥧 The parent hears the printed figure of the upload in flight, and holds its stop (see the props). */
+  const flyingPct = inFlight.length > 0 ? inFlight[0]!.progress : null;
+  const tellProgress = useRef(onProgress);
+  tellProgress.current = onProgress;
+  useEffect(() => {
+    tellProgress.current?.(flyingPct);
+  }, [flyingPct]);
+  /* 🚧 …and whether anything is on its way at all (see `onBusy`). */
+  const onItsWay = preparing || inFlight.length > 0;
+  const tellBusy = useRef(onBusy);
+  tellBusy.current = onBusy;
+  useEffect(() => {
+    tellBusy.current?.(onItsWay);
+  }, [onItsWay]);
+  useEffect(() => {
+    if (!cancelRef) return;
+    cancelRef.current = () => {
+      for (const item of inFlight) cancelInFlight(item.id);
+    };
+    return () => {
+      cancelRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `cancelInFlight` is this render's own
+  }, [cancelRef, inFlight]);
 
   const acceptAttr = useMemo(() => acceptedTypes.join(','), [acceptedTypes]);
   const maxBytes = maxSizeMB * 1024 * 1024;
@@ -533,6 +687,19 @@ export function FileUpload({
     },
     [multiple, onChange],
   );
+  /* 📣 THE PARENT IS TOLD AFTER THE SET, NEVER INSIDE IT (Maker walk F2, 2026-10-12). `onChange` was called from
+     inside a `setItems` updater — which React runs WHILE RENDERING this component — so a parent that sets its own
+     state in `onChange` was updated during this render ("Cannot update a component (StageTools) while rendering
+     FileUpload"), and React's development double-run of the updater told it twice (one upload, two RSVP picture
+     lines — #6483 had to guard by hand). An updater now only records what to say; this effect says it ONCE, after
+     the commit — so two uploads landing together are one change, told whole. */
+  const toSay = useRef<UploadedItem[] | null>(null);
+  useEffect(() => {
+    const next = toSay.current;
+    if (!next) return;
+    toSay.current = null;
+    emitChange(next);
+  }, [items, emitChange]);
 
   const handleFiles = useCallback(
     async (selected: FileList | File[]) => {
@@ -555,7 +722,7 @@ export function FileUpload({
       if (slotsLeft === 0) {
         setError(
           multiple
-            ? `Already at the ${effectiveMaxFiles}-file limit. Remove a file to add a new one.`
+            ? (limitMessage ?? `Already at the ${effectiveMaxFiles}-file limit. Remove a file to add a new one.`)
             : 'Already have one file. Remove it to replace.',
         );
         return;
@@ -563,11 +730,12 @@ export function FileUpload({
       const toUpload = files.slice(0, slotsLeft);
       if (toUpload.length < files.length) {
         setError(
-          `Only the first ${formatCount(toUpload.length)} file${toUpload.length === 1 ? '' : 's'} will upload — limit is ${effectiveMaxFiles}.`,
+          `Only the first ${formatCount(toUpload.length)} file${toUpload.length === 1 ? '' : 's'} will upload — ${limitMessage ?? `limit is ${effectiveMaxFiles}.`}`,
         );
       }
 
       busyRef.current = true;
+      setPreparing(true);
       try {
         for (const file of toUpload) {
           // Client-side validation. The server runs this same set in the
@@ -591,7 +759,7 @@ export function FileUpload({
             );
             continue;
           }
-          if (file.type && !acceptedTypes.includes(file.type)) {
+          if (file.type && !acceptedTypes.includes(uploadTypeOf(file.type))) {
             setError(
               `${file.name} is ${file.type || 'an unknown type'} — allowed: ${acceptedTypes.join(', ')}.`,
             );
@@ -602,7 +770,7 @@ export function FileUpload({
           // error string rejects the file; a validator crash fails OPEN so a
           // broken metadata read can never brick the upload path. Surface the
           // existing `optimizing` strip while it awaits.
-          if (validateFile || qrGuard) {
+          if (validateFile || qrGuard || audioGuard) {
             let problem: string | null = null;
             setOptimizing({ label: `Checking ${file.name}…`, pct: 0 });
             try {
@@ -615,6 +783,14 @@ export function FileUpload({
                   '@/lib/vendor-qr-guard-client'
                 );
                 problem = await validateNoVendorQrInFile(file);
+              }
+              // Song guard, same shape: a song that will not play on every
+              // phone is refused here, before a byte is uploaded.
+              if (!problem && audioGuard) {
+                const { validateSongPlaysOnPhones } = await import(
+                  '@/lib/audio-guard-client'
+                );
+                problem = await validateSongPlaysOnPhones(file);
               }
             } catch {
               problem = null;
@@ -642,6 +818,7 @@ export function FileUpload({
         }
       } finally {
         busyRef.current = false;
+        if (isMountedRef.current) setPreparing(false);
       }
 
       // Reset the underlying input so picking the same file twice still
@@ -655,6 +832,7 @@ export function FileUpload({
       compressVideo,
       disabled,
       effectiveMaxFiles,
+      limitMessage,
       inFlight.length,
       items,
       maxBytes,
@@ -662,6 +840,7 @@ export function FileUpload({
       multiple,
       validateFile,
       qrGuard,
+      audioGuard,
     ],
   );
 
@@ -678,7 +857,7 @@ export function FileUpload({
   async function uploadOne(rawFile: File) {
     const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const initialContentType =
-      rawFile.type || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+      uploadTypeOf(rawFile.type) || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
     // --- Step 0: watermark (if opted in and the file is an image) ---------
     // Done client-side before presign so the signed `content-length` matches
@@ -753,7 +932,7 @@ export function FileUpload({
       }
     }
 
-    const contentType = file.type || initialContentType;
+    const contentType = uploadTypeOf(file.type) || initialContentType;
 
     // ── COMPRESS FIRST, THEN CHECK — the other half of the reorder above ────
     // `handleFiles` skipped the size gate for anything it knew this instance
@@ -773,6 +952,7 @@ export function FileUpload({
       return;
     }
 
+    if (row && isImage(contentType) && typeof URL.createObjectURL === 'function') setRowLocal(URL.createObjectURL(file));
     setInFlight((prev) => [
       ...prev,
       {
@@ -781,179 +961,120 @@ export function FileUpload({
         contentType,
         size: file.size,
         progress: 0,
-        xhr: null,
+        stop: null,
       },
     ]);
 
-    // --- Step 1: presign --------------------------------------------------
-    let presign: {
-      uploadUrl: string;
-      r2Ref: string;
-      displayUrl: string;
-    };
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bucket,
-          pathPrefix,
-          filename: file.name,
-          contentType,
-          sizeBytes: file.size,
-        }),
-      });
-      const data = (await res.json()) as
-        | { uploadUrl: string; r2Ref: string; displayUrl: string }
-        | { error: string };
-      if (!res.ok || 'error' in data) {
-        const msg = 'error' in data ? data.error : `Presign failed (${res.status})`;
-        if (isMountedRef.current) {
-          setError(msg);
-          setInFlight((prev) => prev.filter((i) => i.id !== id));
-        }
-        return;
-      }
-      presign = data;
-    } catch (err) {
-      void trackFailure({
-        eventType: 'BUTTON_FAIL',
-        elementName: 'File upload presign request',
-        filePath: 'app/_components/file-upload.tsx',
-        error: err,
-        payload: { bucket, step: 'presign' },
-      });
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Network error.');
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      }
-      return;
-    }
-
-    // --- Step 2: PUT to R2 via XHR ---------------------------------------
-    const xhr = new XMLHttpRequest();
-    setInFlight((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, xhr } : i)),
-    );
-
-    // STALL WATCHDOG. Every other failure below announces itself with an event
-    // — `error`, `abort`, a non-2xx `load`. A transfer that simply DIES fires
-    // none of them: no event, no `setError`, nothing. The chip then sat at 0%
-    // with a spinner forever, which reads as "still working" and is the one
-    // state the person cannot tell from success in progress. Same shape as the
-    // guards in this codebase that refused in silence.
-    //
-    // XHR's own `xhr.timeout` is the wrong instrument: it caps TOTAL duration,
-    // so it would kill a slow-but-healthy 10 MB video on hotel wifi. This one
-    // measures SILENCE — it is reset by every progress event, so it only fires
-    // when no byte has moved for UPLOAD_STALL_MS.
-    const watchdog = createStallWatchdog({
-      timeoutMs: UPLOAD_STALL_MS,
-      onStall: () => {
-        // Aborting fires the `abort` handler, which removes the chip; it does
-        // not clear this message, so the person is told WHY it stopped instead
-        // of watching a spinner that will never move.
-        try {
-          xhr.abort();
-        } catch {
-          /* already dead — nothing left to stop */
-        }
-        // 📋 Problems list: a stalled upload is a failure the person never
-        // caused and the server never saw — this watchdog is the only witness.
-        void trackFailure({
-          eventType: 'UPLOAD_STALLED',
-          elementName: 'File upload',
-          filePath: 'app/_components/file-upload.tsx',
-          error: `no bytes moved for ${UPLOAD_STALL_MS / 1000}s`,
-          payload: { bucket, action: 'upload stalled', page: window.location.pathname },
-        });
-        if (!isMountedRef.current) return;
-        setError(
-          `${file.name} stopped uploading — check your connection and pick it again.`,
-        );
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      },
-    });
-
-    // Every byte is now on the network stack. No further upload-progress event
-    // can fire, so hand the clock over to the response budget rather than
-    // leaving the transfer clock armed against a wait it cannot measure.
-    xhr.upload.addEventListener('loadend', () => {
-      watchdog.arm(UPLOAD_RESPONSE_MS);
-    });
-
-    xhr.upload.addEventListener('progress', (evt) => {
-      // Re-armed BEFORE the computable check: bytes moved either way, which is
-      // the only thing this clock is measuring.
-      watchdog.arm();
-      if (!evt.lengthComputable) return;
-      const pct = Math.round((evt.loaded / evt.total) * 100);
-      setInFlight((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, progress: pct } : i)),
-      );
-    });
-
-    xhr.addEventListener('error', () => {
-      watchdog.settle();
+    // --- Steps 1 + 2: sign it, then PUT it to R2 ---------------------------
+    // The run itself lives in `lib/upload-send.ts` (loaded here, at the first
+    // upload — never with the page): it ALWAYS ends, and says how. Every
+    // ending is handled in ONE place, `ended`, so none can be left as a tile
+    // that spins for ever.
+    const keepsFailed = Boolean(failedSays) && variant === 'gallery';
+    let lib: typeof import('@/lib/upload-send') | null = null;
+    const ended = (out: UploadOutcome) => {
       if (!isMountedRef.current) return;
-      setError(`Upload failed for ${file.name}. Check your connection and retry.`);
+      // Whatever the ending, the tile that was in flight is no longer in flight.
       setInFlight((prev) => prev.filter((i) => i.id !== id));
-    });
-
-    xhr.addEventListener('abort', () => {
-      watchdog.settle();
-      if (!isMountedRef.current) return;
-      setInFlight((prev) => prev.filter((i) => i.id !== id));
-    });
-
-    xhr.addEventListener('load', () => {
-      watchdog.settle();
-      if (!isMountedRef.current) return;
-      // R2 returns 200 OR 201 on success — anything 2xx is a win.
-      if (xhr.status >= 200 && xhr.status < 300) {
+      const ending = lib ? lib.uploadEnding(out, keepsFailed) : keepsFailed ? 'tile' : 'line';
+      if (out.ok && ending === 'landed') {
         const completed: UploadedItem = {
           id,
-          r2Ref: presign.r2Ref,
-          displayUrl: presign.displayUrl,
+          r2Ref: out.r2Ref,
+          displayUrl: out.displayUrl,
           filename: file.name,
           contentType,
         };
         setItems((prev) => {
           const next = multiple ? [...prev, completed] : [completed];
-          emitChange(next);
+          toSay.current = next;
           return next;
         });
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
-      } else {
-        setError(
-          `R2 rejected ${file.name} (status ${xhr.status}). Try a different file or contact support.`,
-        );
-        setInFlight((prev) => prev.filter((i) => i.id !== id));
+        return;
       }
-    });
+      // The person stopped it: the tile goes, and there is nothing to say.
+      if (ending === 'stopped') return;
+      if (!out.ok && out.kind === 'network' && out.step === 'presign') {
+        void trackFailure({
+          eventType: 'BUTTON_FAIL',
+          elementName: 'File upload presign request',
+          filePath: 'app/_components/file-upload.tsx',
+          error: out.error,
+          payload: { bucket, step: 'presign' },
+        });
+      }
+      if (ending === 'tile') {
+        // The file stays where its tile was, saying so, with Try again — and nothing of it joins the value.
+        setFailed((prev) => [...prev, { id, file: rawFile }]);
+        const reason = lib?.uploadRefusalReason(out) ?? null;
+        if (reason) setError(reason);
+        return;
+      }
+      setError(lib?.uploadProblemLine(out, file.name) ?? 'Network error.');
+    };
 
-    xhr.open('PUT', presign.uploadUrl, true);
-    xhr.setRequestHeader('Content-Type', contentType);
-    xhr.send(file);
-    // Armed here too, so a request that never connects at all is caught — not
-    // only one that starts and then stops.
-    watchdog.arm();
+    let run: ReturnType<UploadSend>;
+    try {
+      lib = await import('@/lib/upload-send');
+      run = (send ?? lib.sendToStorage)(
+        { file, bucket, pathPrefix, contentType },
+        {
+          stallMs: stallMs ?? UPLOAD_STALL_MS,
+          responseMs: UPLOAD_RESPONSE_MS,
+          onProgress: (pct) => {
+            if (!isMountedRef.current) return;
+            setInFlight((prev) => prev.map((i) => (i.id === id ? { ...i, progress: pct } : i)));
+          },
+          // 📋 Problems list: a stalled upload is a failure the person never
+          // caused and the server never saw — the watchdog is the only witness.
+          onStall: () => {
+            void trackFailure({
+              eventType: 'UPLOAD_STALLED',
+              elementName: 'File upload',
+              filePath: 'app/_components/file-upload.tsx',
+              error: `no bytes moved for ${(stallMs ?? UPLOAD_STALL_MS) / 1000}s`,
+              payload: { bucket, action: 'upload stalled', page: window.location.pathname },
+            });
+          },
+        },
+      );
+      void run.done.then(ended);
+    } catch (error) {
+      // The uploader's own code could not be fetched (offline): still an ending.
+      return ended({ ok: false, kind: 'network', step: 'presign', says: null, status: null, error });
+    }
+    const stop = run.cancel;
+    setInFlight((prev) => prev.map((i) => (i.id === id ? { ...i, stop } : i)));
+    // Back to `handleFiles` once the bytes are on their way (or the run has
+    // already ended) — exactly when its busy window may close.
+    await run.sent;
   }
 
   function removeItem(id: string) {
     setItems((prev) => {
       const next = prev.filter((i) => i.id !== id);
-      emitChange(next);
+      toSay.current = next;
       return next;
     });
   }
 
   function cancelInFlight(id: string) {
     setInFlight((prev) => {
-      const target = prev.find((i) => i.id === id);
-      if (target?.xhr) target.xhr.abort();
+      prev.find((i) => i.id === id)?.stop?.();
       return prev.filter((i) => i.id !== id);
     });
+  }
+
+  /** ✕ on a failed tile: it goes. Nothing of it was ever kept. */
+  function dropFailed(id: string) {
+    setFailed((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  /** Try again: the SAME file, through the same door as a fresh pick (its checks, its room, its busy window). */
+  function retryFailed(item: FailedItem) {
+    // No room left, or the last pick is still being prepared: `handleFiles` says which — and the tile stays.
+    if (!busyRef.current && !atCapacity) dropFailed(item.id);
+    void handleFiles([item.file]);
   }
 
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1005,6 +1126,8 @@ export function FileUpload({
    * into disagreeing about the same picture.
    */
   const roundDropzone = roundPreview && variant === 'square' && !multiple;
+  /** The photo row (`row`): the circle and its words are the whole widget. */
+  const rowMode = roundDropzone && row != null;
   const atCapacity = items.length + inFlight.length >= effectiveMaxFiles;
 
   /**
@@ -1029,6 +1152,141 @@ export function FileUpload({
     !!first &&
     isImage(first.contentType) &&
     !!first.displayUrl;
+
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      id={inputId}
+      type="file"
+      accept={acceptAttr}
+      multiple={multiple}
+      disabled={disabled}
+      /* ⚡ The picker is opening: fetch the upload run NOW (`lib/upload-send.ts`), while the person chooses a
+         file — so the first upload never waits on it. Not with the page: most pages that show an uploader
+         never upload. A failed fetch is not a problem yet; the upload itself asks again and says so. */
+      onClick={() => void import('@/lib/upload-send').catch(() => {})}
+      onChange={onInputChange}
+      className="sr-only"
+    />
+  );
+
+  /** "PNG, JPG or WEBP" — the accepted types as a person says them. */
+  const typeWords = (() => {
+    const names = acceptedTypes.map((t) =>
+      t === 'image/jpeg' ? 'JPG' : t.replace('image/', '').replace('application/', '').toUpperCase(),
+    );
+    return names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}` : (names[0] ?? '');
+  })();
+  const flying = inFlight[0] ?? null;
+  const rowPhase: 'empty' | 'refused' | 'uploading' | 'has' = flying
+    ? 'uploading'
+    : atCapacity && first
+      ? 'has'
+      : error
+        ? 'refused'
+        : 'empty';
+  const rowHint = row?.hintClassName ?? 'text-[13px] leading-snug text-ink/60';
+  const rowAction = `sn-hit justify-self-start text-left text-[13px] font-medium ${row?.actionClassName ?? 'text-terracotta-700'}`;
+  const rowMono = 'inline-flex items-start gap-1 font-mono text-[10px] uppercase leading-snug tracking-[0.15em]';
+  const photoRow = rowMode ? (
+    <div data-upload-row={rowPhase} className="flex min-h-[72px] items-center gap-3.5">
+      {rowPhase === 'empty' || rowPhase === 'refused' ? (
+        <label
+          htmlFor={inputId}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          aria-label={row!.title}
+          className={`relative flex h-[72px] w-[72px] flex-none cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed transition-colors ${
+            disabled
+              ? 'cursor-not-allowed opacity-60'
+              : rowPhase === 'refused'
+                ? // The locked action colour (#C24E25), not the theme's accent — it stays terracotta in dark.
+                  'border-[#C24E25] bg-[#FBEFE9] text-[#C24E25] dark:bg-[#3A2A24]'
+                : isDragging
+                  ? 'border-terracotta bg-terracotta/5 text-terracotta'
+                  : 'border-ink/30 bg-cream text-ink/50 hover:border-terracotta/60'
+          }`}
+        >
+          {rowPhase === 'refused' ? (
+            <AlertCircle aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          ) : (
+            <Camera aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          )}
+          {fileInput}
+        </label>
+      ) : (
+        <span
+          className="relative flex h-[72px] w-[72px] flex-none items-center justify-center overflow-hidden rounded-full border bg-cream text-ink/45"
+          style={{ borderColor: 'var(--m-line)' }}
+        >
+          {rowPhase === 'uploading' ? (
+            <>
+              {rowLocal ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={rowLocal} alt="" className="h-full w-full object-cover opacity-35" />
+              ) : null}
+              {/* The circle IS the progress: a ring that fills with the upload. */}
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `conic-gradient(#C24E25 ${flying!.progress}%, transparent 0)`,
+                  WebkitMask: 'radial-gradient(circle, transparent 31px, #000 32px)',
+                  mask: 'radial-gradient(circle, transparent 31px, #000 32px)',
+                }}
+              />
+              <Loader2 aria-hidden className="absolute h-[22px] w-[22px] animate-spin text-[#C24E25]" strokeWidth={1.75} />
+            </>
+          ) : first && first.displayUrl && isImage(first.contentType) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={first.displayUrl} alt={first.filename} className="h-full w-full object-cover" />
+          ) : (
+            <Camera aria-hidden className="h-[26px] w-[26px]" strokeWidth={1.6} />
+          )}
+        </span>
+      )}
+      <div className="grid min-w-0 gap-[3px]">
+        {/* Plain words: the circle is the one press on the row (it carries the title as its name). */}
+        <span className={row!.titleClassName ?? 'font-mono text-xs uppercase tracking-[0.12em] text-ink/60'}>{row!.title}</span>
+        {rowPhase === 'empty' ? (
+          <span className={rowHint}>
+            {[help, `${typeWords} · up to ${formatCount(maxSizeMB)} MB`].filter(Boolean).join(' · ')}
+          </span>
+        ) : rowPhase === 'refused' ? (
+          <span className={rowHint}>Tap the circle to try another file</span>
+        ) : rowPhase === 'uploading' ? (
+          <>
+            <span className={`${rowMono} text-ink/55`} aria-live="polite">
+              Uploading · {flying!.progress}% · {bytesToHuman(flying!.size)}
+            </span>
+            <button type="button" onClick={() => cancelInFlight(flying!.id)} className={rowAction}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            {name && !first!.id.startsWith('seed-') ? (
+              unsavedHint === null ? null : (
+                <span className={`${rowMono} text-mulberry-600`}>
+                  <AlertCircle aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                  <span className="min-w-0">Not saved yet — {unsavedTail(unsavedHint)}</span>
+                </span>
+              )
+            ) : (
+              <span className={`${rowMono} text-success-700`}>
+                <CheckCircle2 aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                <span className="min-w-0">Saved</span>
+              </span>
+            )}
+            <button type="button" onClick={() => removeItem(first!.id)} className={rowAction}>
+              Remove
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-2" ref={rootRef}>
@@ -1056,7 +1314,9 @@ export function FileUpload({
         </p>
       ) : null}
 
-      {!atCapacity ? (
+      {rowMode ? photoRow : null}
+
+      {!atCapacity && !rowMode ? (
         <label
           htmlFor={inputId}
           onDrop={onDrop}
@@ -1067,7 +1327,9 @@ export function FileUpload({
               ? // A real circle: fixed square footprint so `rounded-full` cannot
                 // become a lozenge on a wide container, and centred because a
                 // left-aligned circle reads as a stray bullet rather than a slot.
-                'mx-auto aspect-square h-[160px] w-[160px] rounded-full px-3 py-3'
+                // Never wider than its column: 160 at most, square by `aspect-square`, so a narrow column
+                // gets a smaller circle — never one that spills over its neighbour (2026-10-21).
+                'mx-auto aspect-square w-[160px] max-w-full rounded-full px-3 py-3'
               : `${dropzoneHeight} w-full rounded-xl px-4 py-6`
           } ${
             disabled
@@ -1090,7 +1352,7 @@ export function FileUpload({
                   // fits a 160px-wide box does not fit a 160px-wide CIRCLE, and
                   // the usable width at the top and bottom of one is far less
                   // than its diameter.
-                  'Add your logo'
+                  slotSays
                 : multiple
                   ? 'Drop files or click to choose'
                   : 'Drop a file or click to choose'}
@@ -1110,25 +1372,27 @@ export function FileUpload({
               {multiple ? ` · max ${effectiveMaxFiles}` : ''}
             </span>
           )}
-          <input
-            ref={fileInputRef}
-            id={inputId}
-            type="file"
-            accept={acceptAttr}
-            multiple={multiple}
-            disabled={disabled}
-            onChange={onInputChange}
-            className="sr-only"
-          />
+          {fileInput}
         </label>
       ) : null}
 
-      {roundDropzone && !atCapacity ? (
-        <span className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          {acceptedTypes
-            .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
-            .join(' · ')}{' '}
-          · up to {formatCount(maxSizeMB)} MB
+      {/* 📏 TWO LINES, BROKEN WHERE THE MEANING BREAKS (2026-10-23). As one run, the
+          caps line wrapped wherever the width ran out — at 375 px on /open-shop it read
+          "… · HEIF · UP TO" / "10 MB". The formats are one line and the size limit is
+          the next, each kept whole (`whitespace-nowrap` on the size), so the break can
+          only fall between the two facts. Held by
+          app/open-shop/the-logo-step-says-one-thing.test.ts. */}
+      {roundDropzone && !atCapacity && !rowMode ? (
+        <span
+          data-upload-limits=""
+          className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+        >
+          <span className="block">
+            {acceptedTypes
+              .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
+              .join(' · ')}
+          </span>
+          <span className="block whitespace-nowrap">up to {formatCount(maxSizeMB)} MB</span>
         </span>
       ) : null}
 
@@ -1138,7 +1402,17 @@ export function FileUpload({
           className="flex items-start gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-          <span>{error}</span>
+          <span>
+            {error}
+            {refusalLink && error.includes(refusalLink.when) ? (
+              <>
+                {' '}
+                <Link href={refusalLink.href} className="sn-hit inline-block text-xs font-medium underline underline-offset-2">
+                  {refusalLink.label}
+                </Link>
+              </>
+            ) : null}
+          </span>
         </p>
       ) : null}
 
@@ -1172,7 +1446,7 @@ export function FileUpload({
           evidence lists and multi-file galleries keep the compact rows, where a
           filename is what you scan and a big preview per item would bury the
           list. */}
-      {items.length > 0 && isSingleImagePreview ? (
+      {items.length > 0 && isSingleImagePreview && !rowMode ? (
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="space-y-2">
@@ -1183,7 +1457,7 @@ export function FileUpload({
                 // so it has to crop.
                 <span className="flex w-full justify-center py-1">
                   <span
-                    className="flex h-[132px] w-[132px] items-center justify-center overflow-hidden rounded-full border bg-cream"
+                    className="flex aspect-square w-[132px] max-w-full items-center justify-center overflow-hidden rounded-full border bg-cream"
                     style={{ borderColor: 'var(--m-line)' }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1271,7 +1545,7 @@ export function FileUpload({
           A video renders as a real <video> (muted, preload=metadata) rather
           than a play glyph, so the poster frame shows — same reason as the
           picture: the vendor is checking WHICH clip, not that one exists. */}
-      {isGallery && (inFlight.length > 0 || items.length > 0) ? (
+      {(isGallery && (inFlight.length > 0 || items.length > 0)) || failed.length > 0 ? (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {items.map((item) => (
             <li
@@ -1304,19 +1578,21 @@ export function FileUpload({
                 </span>
               )}
               <span className="sr-only">{item.filename} — uploaded</span>
+              {tileNote?.(item.r2Ref) ? (
+                <span data-upload-tile-note="" className="absolute inset-x-0 bottom-0 truncate bg-ink/70 px-1.5 py-0.5 text-[10px] font-medium text-cream">
+                  {tileNote(item.r2Ref)}
+                </span>
+              ) : null}
               <span
                 aria-hidden
                 className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cream/90 text-success-700"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               </span>
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Remove ${item.filename}`}
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+              <button type="button" onClick={() => removeItem(item.id)} className={TILE_X} aria-label={`Remove ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}
@@ -1324,34 +1600,61 @@ export function FileUpload({
             <li
               key={item.id}
               title={item.filename}
-              className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-ink/10 bg-cream p-2"
+              className="relative flex aspect-square items-center justify-center rounded-xl border border-ink/10 bg-cream"
             >
-              <Loader2 className="h-5 w-5 animate-spin text-terracotta" strokeWidth={1.75} />
-              <span className="w-full">
-                <span className="block h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
-                  <span
-                    className="block h-full rounded-full bg-terracotta transition-all"
-                    style={{ width: `${item.progress}%` }}
-                  />
+              {/* 🥧 ON ITS WAY: the 0–100 PIE, in the accent (owner 2026-10-08: "show a loading screen 0-100 pie to
+                  know how long til it uploads"; gallery § 21). The figure is the upload's own measured one — a
+                  state that steps with the bytes, the same under "reduce motion". No spinner beside it. */}
+              <span
+                data-upload-pie={item.progress}
+                className="flex h-11 w-11 items-center justify-center rounded-full"
+                style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${item.progress}%, rgb(0 0 0 / 0.1) 0)` }}
+              >
+                <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-white text-[10px] font-bold tabular-nums text-sn-accent">
+                  {item.progress}%
                 </span>
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                {item.progress}%
+              <button type="button" onClick={() => cancelInFlight(item.id)} className={TILE_X} aria-label={`Cancel ${item.filename}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
+              </button>
+            </li>
+          ))}
+          {/* 🚫 DID NOT UPLOAD — said on the tile, in words, with Try again. Never a spinner, never a tick, never
+              nothing. Two cells wide so the words are read at a size a person can read. */}
+          {failed.map((item) => (
+            <li
+              key={item.id}
+              role="alert"
+              data-upload-failed=""
+              title={item.file.name}
+              className="relative col-span-2 flex min-h-[5.75rem] flex-col items-start justify-center gap-1.5 rounded-xl bg-danger-50 py-2 pl-2.5 pr-11"
+            >
+              <span className="flex items-start gap-1 text-[12px] font-semibold leading-tight text-danger-700">
+                <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+                {failedSays}
               </span>
               <button
                 type="button"
-                onClick={() => cancelInFlight(item.id)}
-                className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-cream/90 text-ink/70 transition-colors hover:bg-cream hover:text-danger-700"
-                aria-label={`Cancel ${item.filename}`}
+                data-upload-retry=""
+                onClick={() => retryFailed(item)}
+                className="inline-flex min-h-9 items-center rounded-full bg-cream px-3 text-[12.5px] font-semibold text-ink ring-1 ring-inset ring-ink/20"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2} />
+                Try again
+              </button>
+              <button type="button" onClick={() => dropFailed(item.id)} className={TILE_X} aria-label={`Remove ${item.file.name}`}>
+                <span className={TILE_X_DISC}>
+                  <X className="h-3.5 w-3.5" strokeWidth={2} />
+                </span>
               </button>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && (
+      {/* (Not in the photo row — `row` draws its own progress, in the circle.) */}
+      {!isGallery && (inFlight.length > 0 || (items.length > 0 && !isSingleImagePreview)) && !rowMode && (
         <ul className="grid gap-2 sm:grid-cols-2">
           {/* Skipped when the big preview owns the completed item — otherwise a
               replacement upload would show the picture AND its own filename row
@@ -1420,7 +1723,7 @@ export function FileUpload({
         </ul>
       )}
 
-      {help ? <p className="block text-xs text-ink/55">{help}</p> : null}
+      {help && !rowMode ? <p className="block text-xs text-ink/55">{help}</p> : null}
     </div>
   );
 }

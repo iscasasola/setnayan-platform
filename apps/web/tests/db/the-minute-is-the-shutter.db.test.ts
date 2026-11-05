@@ -323,9 +323,14 @@ test('neither writer gained an overload, and both consult the resolver', async (
         WHERE n.nspname = 'public' AND p.proname = $1`,
       [fn],
     );
+    // ⚖ 20271272777206 appended ONE argument after it on the guest writer — the
+    // shutter's own id (event-day L1·2). Appending keeps every positional caller's
+    // meaning, which is the property this asserts; anything else after it fails.
     assert.ok(
-      args.endsWith(', p_captured_at timestamp with time zone'),
-      `${fn} must take p_captured_at LAST, so every positional caller keeps its meaning`,
+      args.endsWith(', p_captured_at timestamp with time zone') ||
+        (fn === 'papic_record_guest_capture' &&
+          args.endsWith(', p_captured_at timestamp with time zone, p_client_capture_id uuid')),
+      `${fn} must take p_captured_at LAST (only the shutter id may follow it), so every positional caller keeps its meaning`,
     );
 
     const def = await one<string>(

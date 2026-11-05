@@ -110,24 +110,13 @@ test('META · the enumeration and the source scan both found something', async (
   assert.ok(sources.length > 1000, `only ${sources.length} sources loaded from ${WEB} — walk is wrong`);
 });
 
-test('the known instance is still detected — this guard would have caught it', async () => {
-  // The whole reason this file exists. If `planner_mode` ever stops being
-  // flagged, either it was fixed (delete this test and its baseline line) or the
-  // detector has gone blind — and those must not be confused.
-  const { writers, readersElsewhere } = switchReadersOutsideWriter(sources, 'users', 'planner_mode');
-  assert.ok(
-    writers.length > 0,
-    'users.planner_mode has no writer — that is the OTHER guard\'s finding, and it means this ' +
-      'test can no longer demonstrate the mirror shape.',
-  );
-  assert.deepEqual(
-    readersElsewhere,
-    [],
-    'users.planner_mode is now read outside the profile surface that writes it. If the Guided / ' +
-      'DIY control was WIRED UP, that is the fix landing — remove its baseline line and this ' +
-      'test. If it was not, the detector has gone blind.',
-  );
-});
+/*
+  🗑 'the known instance is still detected' LEFT 2026-10-23, as its own text asked
+  ("if it was fixed, delete this test and its baseline line"): the owner retired the
+  Guided · DIY control, so `users.planner_mode` has no writer and is no longer this
+  shape. The detector's anti-vacuity is the META test above. The column now sits in
+  gates-have-handles.baseline.txt as a retired setting.
+*/
 
 test('no switch is written by a control and read only by that control, without a written reason', async () => {
   const cands = await candidates();

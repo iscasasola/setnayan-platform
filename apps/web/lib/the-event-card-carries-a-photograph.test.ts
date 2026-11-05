@@ -52,7 +52,9 @@ test('it is handed the same two sources, in the same precedence', () => {
 
 test('a host-writable column cannot reach an <img src> unnarrowed', () => {
   const focal = code(FOCAL);
-  const block = focal.slice(focal.indexOf('const ownHeroSrc'), focal.indexOf('const ownHeroSrc') + 400);
+  // ⚡ The hero is STARTED ahead (`ownHeroRead`, 2026-10-16) and awaited as `ownHeroSrc`; the narrowing lives where it starts.
+  const block = focal.slice(focal.indexOf('const ownHeroRead'), focal.indexOf('const ownHeroRead') + 500);
+  assert.match(focal, /const ownHeroSrc = await ownHeroRead;/);
   assert.match(block, /renderableImageSrc\(await displayUrlForStoredAsset\(stored\)\)/);
   assert.match(block, /catch \{\s*return null;/, 'a signing failure must not take the page down');
 });

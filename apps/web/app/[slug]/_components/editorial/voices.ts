@@ -27,7 +27,8 @@ import { roleNameOne, type RoleNames } from '@/lib/role-names';
 /** `guests.role` values that carry editorial weight. Everything else is a guest. */
 export type ColumnVoice = 'parents' | 'named' | 'guest';
 
-const PARENT_ROLES = new Set(['bride_parents', 'groom_parents']);
+/* 👵 Grandparents (owner 2026-10-17: their own roles, "the same way Parents works") carry the parents' weight. */
+const PARENT_ROLES = new Set(['bride_parents', 'groom_parents', 'bride_grandparents', 'groom_grandparents']);
 
 /**
  * The roles the spec calls out by name — they earn a badge, not extra size.
@@ -37,6 +38,7 @@ const PARENT_ROLES = new Set(['bride_parents', 'groom_parents']);
 const NAMED_ROLES = new Set([
   'maid_of_honor',
   'matron_of_honor',
+  'man_of_honor',
   'best_man',
   'best_woman',
   'principal_sponsor',
@@ -56,8 +58,11 @@ export function voiceOf(role: string | null | undefined): ColumnVoice {
 const ROLE_LABEL: Record<string, string> = {
   bride_parents: 'Parents of the bride',
   groom_parents: 'Parents of the groom',
+  bride_grandparents: 'Grandparents of the bride',
+  groom_grandparents: 'Grandparents of the groom',
   maid_of_honor: 'Maid of honor',
   matron_of_honor: 'Matron of honor',
+  man_of_honor: 'Man of honor',
   best_man: 'Best man',
   best_woman: 'Best woman',
   principal_sponsor: 'Principal sponsor',

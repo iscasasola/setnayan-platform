@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { EventTableRow } from '@/lib/seating';
 import { DayOfModeBanner } from './banner';
@@ -19,6 +20,8 @@ type Block = {
   start_at: string;
   end_at: string | null;
   location: string | null;
+  /** ⏰ A Time-TBA chapter (migration 20271300482585): listed as "Time TBA", never now, never ranked by time. */
+  time_tba?: boolean | null;
 };
 
 type Props = {
@@ -26,6 +29,10 @@ type Props = {
   blocks: Block[];
   headTable: EventTableRow | null;
   nearbyTables: EventTableRow[];
+  /** The table read was refused — the Head table card says so instead of hiding. */
+  tablesFailed?: boolean;
+  /** 🛑 The schedule read was refused — the banner, Happening now and Up next say so, never "everything looks wrapped". */
+  blocksFailed?: boolean;
   sameDayVendors?: SameDayVendor[];
   /** LIVE_WALL ownership — resolved server-side (eventSkuActive), same predicate
    *  /wall/[eventId] gates on. When false the card hides. Defaults false so a
@@ -35,6 +42,12 @@ type Props = {
    *  'coordinator_day_of_broadcast' is active (it is, in prod). Absent = the card
    *  renders its pre-P3 stub. The env var once named here gates nothing. */
   broadcast?: BroadcastCardData;
+  /**
+   * 📷 Papic on the day (owner 22 Oct 2026, "Fix both") — Home › Your services' own Papic row
+   * (`DayPapicRow`), drawn by the page because it is a server row. Beside the Live photo wall card,
+   * near the top. Null in the iPhone app, exactly as Your services draws no Papic row there.
+   */
+  papic?: ReactNode;
 };
 
 export function DayOfModeGrid({
@@ -42,16 +55,19 @@ export function DayOfModeGrid({
   blocks,
   headTable,
   nearbyTables,
+  tablesFailed = false,
+  blocksFailed = false,
   sameDayVendors = [],
   liveWallActive = false,
   broadcast,
+  papic = null,
 }: Props) {
   return (
     <section
       aria-label="Day-of event mode"
       className="space-y-4 rounded-2xl border border-terracotta/20 bg-terracotta/[0.03] p-4 sm:p-5"
     >
-      <DayOfModeBanner eventId={eventId} blocks={blocks} />
+      <DayOfModeBanner eventId={eventId} blocks={blocks} failed={blocksFailed} />
 
       {/* ─── THE WRAP-UP DOOR, MOVED UP (2026-08-21) ────────────────────────
           It used to be the LAST element in this section, under seven cards —
@@ -81,14 +97,16 @@ export function DayOfModeGrid({
       </Link>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <WhatsHappeningCard blocks={blocks} />
+        <WhatsHappeningCard blocks={blocks} failed={blocksFailed} />
         <YourTableCard
           eventId={eventId}
           headTable={headTable}
           nearbyTables={nearbyTables}
+          tablesFailed={tablesFailed}
         />
+        {papic ? <div data-day-papic-slot="">{papic}</div> : null}
         {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
-        <LiveScheduleCard eventId={eventId} blocks={blocks} />
+        <LiveScheduleCard eventId={eventId} blocks={blocks} failed={blocksFailed} />
         <CoordinatorBroadcastCard eventId={eventId} broadcast={broadcast} />
         <GetHelpCard sameDayVendors={sameDayVendors} />
       </div>

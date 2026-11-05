@@ -19,8 +19,8 @@ import { SUPPLIER_DESK_ANCHOR } from './supplier-desk-anchor';
  * today paints the supplier's only strip out of sight for months."*
  *
  * ── PORTED, NOT INVENTED — TWICE ────────────────────────────────────────────
- * 1. **The chrome is the host's.** `owner-ribbon.tsx` is the same idea for the
- *    host on the same page, and its docblock already worked out the hard part:
+ * 1. **The chrome is the host's.** `owner-ribbon.tsx` (removed 2026-10-15) was the
+ *    same idea for the host on the same page, and its docblock had worked out the hard part:
  *    `sticky top-0 z-[90]` *"clears the Save-the-Date stack (film z-50/70,
  *    reveal z-60, touch glow z-80) so a host previewing ?phase=save_the_date can
  *    still click their way back out."* Same stack, same answer, same materials.
@@ -59,7 +59,9 @@ export function SupplierRibbon({
   return (
     <aside
       aria-label="Your booking"
-      className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 px-4 py-2.5 backdrop-blur"
+      // 📱 The first row of the Save-the-Date phase: it pads its own top by the iPhone's inset so the row clears the
+      // clock and the Dynamic Island, and names both side insets (owner 2026-10-30). env() is 0 on a desktop.
+      className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 pb-2.5 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-[calc(0.625rem+env(safe-area-inset-top,0px))] backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/70">

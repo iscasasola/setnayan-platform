@@ -63,16 +63,31 @@ test('sanity: PANOOD_PAID_SKUS is still the pair the alias depends on', () => {
   assert.deepEqual([...PANOOD_PAID_SKUS], ['PANOOD_SYSTEM', 'PANOOD_SYSTEM_MOBILE']);
 });
 
-test('the replay gate reads the sellable SKU, LIVE_STUDIO — never the retired PANOOD_SYSTEM', () => {
+/**
+ * The block's gate, resolved. RE-AIMED 2026-10-23 (`rd/post-event-reads-together`): the entitlement read is STARTED
+ * with the story's other event-only reads at the top of the loader (`ahead.liveWatch`) and AWAITED in this block —
+ * so the gate is the block's `await ahead.liveWatch` plus that one definition, read here exactly; anything else the
+ * block awaits as its gate is still read from the block itself.
+ */
+function watchFilmGate(): string {
   const block = watchFilmBlock();
+  if (!/await ahead\.liveWatch\b/.test(block)) return block;
+  const src = stripComments(readFileSync(DATA_TS, 'utf8'));
+  const def = /\bliveWatch:\s*early\(\(\)\s*=>\s*([^\n]*\n?[^\n]*?)\),\s*\n/.exec(src);
+  assert.ok(def, 'the block awaits ahead.liveWatch but its definition was not found');
+  return def[1]!;
+}
+
+test('the replay gate reads the sellable SKU, LIVE_STUDIO — never the retired PANOOD_SYSTEM', () => {
+  const gate = watchFilmGate();
   assert.match(
-    block,
+    gate,
     /eventSkuActive\(\s*admin\s*,\s*eventId\s*,\s*'LIVE_STUDIO'\s*\)/,
     "the gate must call eventSkuActive(admin, eventId, 'LIVE_STUDIO')",
   );
   for (const retired of PANOOD_PAID_SKUS) {
     assert.ok(
-      !block.includes(`eventSkuActive(admin, eventId, '${retired}')`),
+      !gate.includes(`eventSkuActive(admin, eventId, '${retired}')`),
       `the gate must not ask eventSkuActive for the retired '${retired}' — no order can ever carry it`,
     );
   }

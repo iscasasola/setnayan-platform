@@ -189,7 +189,8 @@ test('a refused read throws — it is never shown as ₱0', async () => {
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-for (const rel of ['app/vendor-dashboard/earnings/surface.tsx', 'lib/vendor-overview.ts']) {
+// S-PR4: the Earnings page is Customers › Money; its ledger read lives in money-segment.tsx.
+for (const rel of ['app/vendor-dashboard/customers/_components/money-segment.tsx', 'lib/vendor-overview.ts']) {
   test(`${rel} prints the supplier’s earnings from the ledger`, () => {
     const code = src(rel);
     assert.match(code, /fetchVendorLedgerEarnings\(/, `${rel} does not call the ledger reader`);

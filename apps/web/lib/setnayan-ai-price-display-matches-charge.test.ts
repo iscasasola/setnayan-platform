@@ -137,10 +137,18 @@ test('🔴 what the sign-up card SHOWS is the context checkout CHARGES', () => {
   // them agree is that both say 'onboarding'. If either drifts, the card quotes
   // one number and the bill takes another — on the screen where the number is a
   // promise.
+  // 💲 2026-10-28 ("ONE PRICE EVERYWHERE"): the bill asks for the sign-up price
+  // only while it applies to this buyer — the SAME `setupApplies` the card asks
+  // (`setupPriceAppliesForCreateFlow`). Switch off, that is always true.
   assert.match(
     ONBOARDING_ORDER,
-    /priceContext: 'onboarding'/,
-    'the sign-up ORDER must charge the sign-up price',
+    /priceContext: setupApplies \? 'onboarding' : 'regular'/,
+    'the sign-up ORDER must charge the sign-up price whenever the set-up price applies',
+  );
+  assert.match(
+    ONBOARDING_ORDER,
+    /const setupApplies = await setupPriceAppliesForCreateFlow\(userId\)/,
+    'the bill must decide "set-up price or not" through the one shared question',
   );
 });
 
@@ -165,6 +173,11 @@ test('🔒 only the sign-up path may ask for the discount', () => {
       // assertion string: the guard found itself and reported itself as the
       // offender. Same family as a check satisfied by the comment explaining it.
       if (/\.test\.tsx?$/.test(file)) continue;
+      // 💲 The website-only welcome price (owner 2026-10-28) asks for the AI
+      // type's sign-up price as its per-row override — only after
+      // `readWelcomeDecision` (session + orders + store shell, never the
+      // browser) said this account is on its welcome purchase.
+      if (file === 'lib/welcome-discount.server.ts') continue;
       if (file !== 'lib/onboarding-services-orders.ts') offenders.push(line);
     }
   }

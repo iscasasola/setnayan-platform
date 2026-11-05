@@ -139,6 +139,8 @@ export async function readYourEventFacts({
     groups,
     /** 🚶 The "Not walking" tray, built like the march; null = unread (never "nobody"). */
     notWalking: march.out,
+    /** 🚶 The march itself could not be read (`loadMarch`'s `unread`) — said, never "Nobody walks yet". */
+    marchUnread: march.unread === true,
     venues,
     people,
     chinese,

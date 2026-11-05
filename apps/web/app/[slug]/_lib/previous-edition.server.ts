@@ -25,6 +25,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 export type PreviousEdition = { href: string; label: string };
 
@@ -32,11 +33,14 @@ export async function loadPreviousEdition(eventId: string): Promise<PreviousEdit
   try {
     const admin = createAdminClient();
 
-    const { data: self, error: selfError } = await admin
-      .from('events')
-      .select('previous_event_id')
-      .eq('event_id', eventId)
-      .maybeSingle();
+    // From the row the render already holds (`lib/event-row-once.ts`); else this read, as before.
+    const { data: self, error: selfError } = await eventRowOnce(admin, eventId, 'previous_event_id', () =>
+      admin
+        .from('events')
+        .select('previous_event_id')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
     if (selfError) console.error('[supabase-error] app/[slug]/_lib/previous-edition.server.ts · from:events.select', selfError);
     // A refused read is not "no predecessor" — but for a read-only line both
     // resolve to the same safe answer: draw nothing.

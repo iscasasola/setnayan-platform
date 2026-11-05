@@ -35,8 +35,7 @@ const code = (p: string) =>
 
 const SCHEDULE_PAGE = 'app/dashboard/[eventId]/schedule/page.tsx';
 const SEED = 'lib/schedule-seed.server.ts';
-const CHECKLIST_PAGE = 'app/dashboard/[eventId]/checklist/page.tsx';
-const CHECKLIST_FULL = 'app/dashboard/[eventId]/_components/checklist/checklist-full.tsx';
+const PLANNING_VIEW = 'app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx';
 const TEAM = 'app/dashboard/[eventId]/vendors/_components/build-locked.tsx';
 const VENDORS_PAGE = 'app/dashboard/[eventId]/vendors/page.tsx';
 const SUMMARY = 'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx';
@@ -107,11 +106,12 @@ test('the comparator and the query still name the same two columns', () => {
 
 // ── 2 · the checklist knows the day happened ────────────────────────────────
 
-test('the checklist asks the ONE lifecycle resolver, not a date comparison of its own', () => {
-  const page = code(CHECKLIST_PAGE);
-  assert.match(page, /getMenuLifecyclePhase/, 'one resolver decides "did this happen", app-wide');
-  assert.match(page, /event_end_date/, 'a celebration spanning days is over after its LAST day');
-  assert.match(page, /eventIsOver=\{eventIsOver\}/, 'and the answer must reach the list');
+test('the to-do list asks the ONE lifecycle resolver, not a date comparison of its own', () => {
+  // The Checklist merged into Planning Stage (owner 2026-11-01): the schedule page answers "did this happen" for it.
+  const page = code(SCHEDULE_PAGE);
+  assert.match(page, /getMenuLifecyclePhase\(eventDate,/, 'one resolver decides "did this happen", app-wide');
+  assert.match(page, /eventRow\?\.event_end_date \?\? null\) === 'after'/, 'a celebration spanning days is over after its LAST day');
+  assert.match(page, /eventIsOver=\{\s*getMenuLifecyclePhase/, 'and the answer must reach the list');
 });
 
 test('"This week" is the only caption a finished event re-words — and it does', () => {
@@ -134,17 +134,11 @@ test('every OTHER caption is event-relative and is left alone', () => {
 });
 
 test('a finished list drops the deadline word and the alarm colours', () => {
-  const full = code(CHECKLIST_FULL);
-  const due = full.slice(full.indexOf('function dueLabel'), full.indexOf('function PhaseRows'));
-  assert.match(due, /if \(eventIsOver\) return \{ label: pretty/, 'the date, plainly');
-  assert.ok(
-    due.indexOf('if (eventIsOver) return') < due.indexOf('text-danger-700'),
-    'the finished branch must return BEFORE anything can paint a row overdue',
-  );
-  assert.ok(
-    !/\{pct\}%[\s\S]{0,80}<\/span>\s*<\/div>\s*<div className="sn-bar/.test(full),
-    'the countdown bar must be behind the not-over branch',
-  );
+  const view = code(PLANNING_VIEW);
+  const row = view.slice(view.indexOf('function PreparationRow'), view.indexOf('function preparationLegendWords') > 0 ? view.indexOf('function preparationLegendWords') : undefined);
+  assert.match(row, /const overdue = !eventIsOver && /, 'nothing on a finished celebration is overdue');
+  assert.match(row, /eventIsOver \? '' : relativeTag\(item\.daysFromNow\)/, 'the date, plainly — no "Nd overdue"');
+  assert.match(row, /done \|\| eventIsOver \? 'text-ink\/40'/, 'no alarm colour after the day');
 });
 
 // ── 3 · "Review" has a destination ──────────────────────────────────────────
@@ -198,8 +192,11 @@ test('the chip never uses the gold slot for text', () => {
   // 6.20:1 dark. NOT `bg-mulberry/10` + `text-mulberry`, which measures 4.16:1
   // and which both shipped contrast guards pass — an alpha fill is invisible to
   // one and out of scope for the other.
-  assert.match(chip, /bg-mulberry px-/, 'a solid fill, not a tint');
-  assert.match(chip, /text-cream/);
+  // 2026-10-12 look sweep: the chip is the ActionButton's FILLED main verb now
+  // (`main` → `.ab-main`, a solid tone fill with `--sn-on-accent` words) — the
+  // same protection, read from the one button source instead of hand classes.
+  assert.match(chip, /<ActionButton[\s\S]*?\bmain\b[\s\S]*?\/>/, 'a solid fill, not a tint');
+  assert.doesNotMatch(chip, /\bquiet\b/, 'a quiet (unfilled) chip is the tint that failed AA');
   assert.ok(!/bg-mulberry\//.test(chip), 'an alpha mulberry fill cannot carry mulberry text');
 });
 

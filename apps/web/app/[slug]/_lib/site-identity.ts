@@ -30,6 +30,7 @@
  * as `OwnerCapability` — see its doc block for why it is a SEPARATE, additive
  * field and not a third arm of `SiteIdentity`.
  */
+import type { GuestNoticeGroup } from '@/lib/supplier-page-notice';
 import type { PassCardEligibility } from '@/lib/pass-card';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { ChecklistKey } from '@/lib/guest-checklist';
@@ -73,6 +74,14 @@ export type AnonymousSiteIdentity = {
    * on the anonymous tier without carrying a single guest-derived fact.
    */
   signedInNotListed: boolean;
+  /**
+   * 🔌 A SIGNED-IN account whose seat read was REFUSED (2026-11-05): nobody
+   * knows whether they are on the list, so the door says "We couldn't check
+   * your invitation just now" + "Try again" — never the not-listed copy and
+   * never a join button (a second seat for a person already holding one).
+   * Like `signedInNotListed`, about the VIEWER's account and no guest's row.
+   */
+  seatUnread: boolean;
 };
 
 export type GuestSiteIdentity = {
@@ -91,6 +100,18 @@ export type GuestSiteIdentity = {
   guestOwnShots: GuestOwnShots | null;
   /** The couple's shipped "Shared gallery" switch is on — the Gallery offers everyone's photos. */
   poolGalleryOpen: boolean;
+  /**
+   * 🖼 Before the day, the host's "Let guests shoot now" is on and the camera
+   * gate is open: the bar shows Gallery holding THIS guest's own shots only
+   * (owner 2026-10-14, DECISION_LOG 🖼). False everywhere else.
+   */
+  earlyOwnShots: boolean;
+  /**
+   * 📣 Suppliers who will show (or show) photos from this event on their own page, each photo with Remove — the
+   * 7-day guest notice (owner 2026-10-03). Every guest of the event sees it (a supplier's album photo is never
+   * face-tagged, so the ruled "nobody recognised → every guest" branch applies). Empty = none; null = the read failed.
+   */
+  supplierPageNotices: GuestNoticeGroup[] | null;
   /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
    *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
   seatPassActive: boolean;
@@ -150,6 +171,12 @@ export type GuestSiteIdentity = {
    * 2026-09-27: the chip is shown to the guest). Decided by `rsvpGate`.
    */
   didntReply: boolean;
+  /**
+   * ✉️ "You're coming ✓ · N more answers" (owner 2026-10-20) — N, the answers this ATTENDING guest still owes: the key
+   * gate's own missing set (`moreAnswersOf(rsvpGate(…))`, the reply page's rule). 0: complete, or nothing to count.
+   * null: the answers could not be read — the page says the plain "Change", never a number.
+   */
+  moreAnswers: number | null;
   /**
    * "Your checklist" — the last 30 days (owner 2026-09-26). NULL outside the
    * window (nothing drawn); otherwise THIS guest's own ticks, read with the
@@ -354,10 +381,10 @@ export async function resolveVendorCapability(input: {
  * IS THIS VIEWER A VERIFIED HOST OF *THIS* EVENT?
  *
  * The ONE derivation of that question, because it was being answered in two
- * places from the same two facts: `buildOwnerRibbon` (lib/owner-ribbon.ts) and
+ * places from the same two facts: the owner ribbon (removed 2026-10-15) and
  * the host body copy in `_components/site-body.tsx`. Two implementations of one
- * rule is how a later edit tightens the ribbon and leaves the body speaking to
- * a host it no longer recognises — or worse, the reverse.
+ * rule is how a later edit tightens one and leaves the other speaking to a host
+ * it no longer recognises — or worse, the reverse. Every host read asks this.
  *
  * 🔒 THE EVENT CHECK IS NOT OPTIONAL AND IS NOT A FORMALITY. A capability is
  * resolved against ONE event; honouring it on another would let somebody who
@@ -365,9 +392,8 @@ export async function resolveVendorCapability(input: {
  * already refuses to mint one without a database-confirmed membership, so this
  * is the second half of the same guarantee: minted for A, spendable only on A.
  *
- * ⚠ NOT derived from `buildOwnerRibbon(...) !== null` — that also returns null
- * for the unrelated reason of a missing slug, so a host of a slugless event
- * would silently lose the body variant along with the ribbon.
+ * ⚠ NOT derived from anything that needs a URL — a missing slug must never
+ * silently drop the body variant for a host of a slugless event.
  */
 export function viewerIsEventHost(
   ownerCapability: OwnerCapability | null,
@@ -452,13 +478,16 @@ export function anonymousIdentity(input: {
   publicCandidCameraActive: boolean;
   publicAlbumHref: string | null;
   signedInNotListed?: boolean;
+  seatUnread?: boolean;
 }): AnonymousSiteIdentity {
   return {
     kind: 'anonymous',
     reason: input.reason,
     publicCandidCameraActive: input.publicCandidCameraActive,
     publicAlbumHref: input.publicAlbumHref,
-    signedInNotListed: input.signedInNotListed === true,
+    // A refused read is never ALSO "not listed" — the try-again door wins.
+    signedInNotListed: input.signedInNotListed === true && input.seatUnread !== true,
+    seatUnread: input.seatUnread === true,
   };
 }
 
@@ -477,12 +506,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
       >
     >,
 ): GuestSiteIdentity {
@@ -494,6 +523,8 @@ export function guestIdentity(
     guestLiveGallery: input.guestLiveGallery,
     guestOwnShots: input.guestOwnShots ?? null,
     poolGalleryOpen: input.poolGalleryOpen === true,
+    earlyOwnShots: input.earlyOwnShots === true,
+    supplierPageNotices: input.supplierPageNotices === undefined ? [] : input.supplierPageNotices,
     seatPassActive: input.seatPassActive,
     needsFaceEnroll: input.needsFaceEnroll,
     guestHubData: input.guestHubData,
@@ -508,6 +539,8 @@ export function guestIdentity(
     faceTaggingAskable: input.faceTaggingAskable,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
+    // Absent (a preview's sample guest): 0 — the button as shipped. A number or null passes through as given.
+    moreAnswers: input.moreAnswers === undefined ? 0 : input.moreAnswers,
     checklist: input.checklist ?? null,
   };
 }

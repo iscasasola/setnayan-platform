@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { answersInPlace } from '@/lib/answer-in-place';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -8,11 +9,12 @@ import {
   recomputeReceptionAnchor,
   userHostsEvent,
 } from '@/lib/events';
+import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
-import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import { cardForTile, type ShopCard } from '@/lib/bench-save-card';
-import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -120,7 +122,7 @@ export type SaveVendorResult =
   | { status: 'vendor_not_found' }
   | { status: 'error'; message: string };
 
-function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
+function coerceCategory(services: ReadonlyArray<string>, tax: CoarseCategorySource): VendorCategory {
   /**
    * ── WHY THIS STOPPED USING `resolveVendorCategory` (measured 2026-09-08) ──
    * A shop was saved to a couple's shortlist with `category = 'misc'`, so the
@@ -149,7 +151,7 @@ function coerceCategory(services: ReadonlyArray<string>): VendorCategory {
    * correctly-stored shops are unaffected.
    */
   for (const s of services) {
-    const resolved = vendorCategoryForLeaf(s, s);
+    const resolved = vendorCategoryForLeaf(s, s, tax);
     if (resolved !== 'misc') {
       return resolved;
     }
@@ -254,17 +256,28 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   */
   const tile = String(formData.get('tile') ?? '').trim();
   let tileCard: ShopCard | null = null;
+  // ③0-c — the coarse category a category files its shops under is the LIVE column.
+  const coarseSource = await getTaxonomy();
   if (tile) {
     const { data: cards } = await admin
       .from('vendor_services')
       .select('vendor_service_id, category, created_at')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true);
-    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, canonicalServicesForTile(tile as WeddingTile));
+    const tileServices = servicesInTile(await getCanonicalBuckets(), tile);
+    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, tileServices);
+    // THE CARD PRESSED (owner 2026-10-29, Find v4: a shop's several cards in one category each keep their own Save).
+    // Honoured only when it IS one of this shop's active cards in this category — never a way to file a pick under
+    // another shop's card or another category.
+    const pressed = String(formData.get('service_id') ?? '').trim();
+    const named = pressed
+      ? ((cards ?? []) as ShopCard[]).find((c) => c.vendor_service_id === pressed && (c.category === tile || tileServices.includes(c.category ?? '')))
+      : undefined;
+    if (named) tileCard = named;
   }
   const tileCategory: VendorCategory | null = (() => {
     if (!tileCard?.category) return null;
-    const c = vendorCategoryForLeaf(tileCard.category, tile);
+    const c = vendorCategoryForLeaf(tileCard.category, tile, coarseSource);
     return c === 'misc' ? null : c;
   })();
 
@@ -293,10 +306,13 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     };
   }
 
-  // 4. Insert. Stamp source='host_manual' so any auto-cascade "added for
-  // you" badge doesn't fire on rows the host added themselves from the
-  // /vendors marketplace.
-  const category = tileCategory ?? coerceCategory((vendor.services ?? []) as string[]);
+  // 4. Insert. Stamped 'host_marketplace_search' — the couple found this shop
+  // ON SETNAYAN (owner 2026-10-12, booking-fee audit B7: "a save from Find" is
+  // one of the facts that make a later booking sourced). It was 'host_manual',
+  // which is the word for a supplier the couple typed in themselves; the
+  // auto-cascade "added for you" badge keys on 'auto_cascade_from_finalize'
+  // only, so this changes no badge.
+  const category = tileCategory ?? coerceCategory((vendor.services ?? []) as string[], coarseSource);
   const { data: inserted, error: iError } = await admin
     .from('event_vendors')
     .insert({
@@ -306,7 +322,7 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
       service_id: tileCard?.vendor_service_id ?? null,
       vendor_name: vendor.business_name,
       status: 'considering',
-      source: 'host_manual',
+      source: 'host_marketplace_search',
     })
     .select('vendor_id')
     .single();
@@ -328,10 +344,14 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
 
   // Repaint both the marketplace (button → "Saved" · distance chips
   // update if venue just got anchored) and the couple home (12-group
-  // planner now shows the new pick).
-  revalidatePath('/explore');
-  revalidatePath(`/v/`);
-  revalidatePath(`/dashboard/${primaryEvent.event_id}`);
+  // planner now shows the new pick) — unless the caller drew the answer
+  // itself ("More to compare" → "Saved to your …"): then a revalidate would
+  // ship a whole render of the page it is on (`lib/answer-in-place.ts`).
+  if (!answersInPlace(formData)) {
+    revalidatePath('/explore');
+    revalidatePath(`/v/`);
+    revalidatePath(`/dashboard/${primaryEvent.event_id}`);
+  }
 
   return {
     status: 'ok',

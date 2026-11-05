@@ -11,8 +11,9 @@ import { uploadHeroPhoto, removeHeroPhoto } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { eventNoun } from '@/lib/event-noun';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { WebsiteProLock } from '../_components/website-pro-lock';
+import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 /**
  * Editor for the wedding landing page hero photo.
@@ -61,7 +62,7 @@ export default async function HeroPhotoEditorPage({
   // gated); putting up a new one is locked here and refused by the action.
   // Fail-open on a throwing read, like the sibling editors — the action is the
   // real gate either way.
-  const ownsPro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
+  const ownsPro = await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'background').catch(() => true);
 
   // Resolve the current photo (if any) to a presigned GET URL for display.
   const currentPhotoUrl = await displayUrlForStoredAsset(
@@ -72,7 +73,7 @@ export default async function HeroPhotoEditorPage({
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Back link */}
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -111,13 +112,13 @@ export default async function HeroPhotoEditorPage({
             >
               Current photo
             </h2>
-            <form action={removeHeroPhoto}>
+            <SafeForm action={removeHeroPhoto}>
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton pendingLabel="Removing…" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/75 transition-colors hover:border-burgundy/40 hover:bg-burgundy/5 hover:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 <span>Remove</span>
               </SubmitButton>
-            </form>
+            </SafeForm>
           </div>
           <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-ink/5">
             {/* unoptimized because the URL is presigned and short-lived (24h);
@@ -164,7 +165,7 @@ export default async function HeroPhotoEditorPage({
           {currentPhotoUrl ? 'Replace photo' : 'Add a photo'}
         </h2>
 
-        <form action={uploadHeroPhoto} className="space-y-4">
+        <SafeForm action={uploadHeroPhoto} className="space-y-4">
           <input type="hidden" name="event_id" value={eventId} />
 
           <FileUpload
@@ -186,7 +187,7 @@ export default async function HeroPhotoEditorPage({
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
-              href={`/dashboard/${eventId}/website`}
+              href={`/dashboard/${eventId}/launch`}
               className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink/75 transition-colors hover:border-ink/25 hover:bg-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Cancel
@@ -196,7 +197,7 @@ export default async function HeroPhotoEditorPage({
               <span>Save photo</span>
             </SubmitButton>
           </div>
-        </form>
+        </SafeForm>
       </section>
       )}
 

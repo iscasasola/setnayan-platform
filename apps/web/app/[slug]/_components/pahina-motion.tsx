@@ -78,6 +78,8 @@ export function PahinaMotionRootFlag() {
       dangerouslySetInnerHTML={{
         __html: `(function(){try{
 var r=document.documentElement;
+/* ✨ Save-Data: no shimmer band (lib/element-style.ts HUB_SHIMMER_ROOT) — a class, like pahina-js, never an attribute. */
+if(navigator.connection&&navigator.connection.saveData)r.classList.add('sn-save-data');
 if(!('IntersectionObserver' in window))return;
 if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
 r.classList.add('pahina-js');

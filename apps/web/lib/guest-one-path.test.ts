@@ -99,7 +99,8 @@ test('3 · the page renders the guest tree from the RESOLVED viewer, not the coo
   const submit = actions.slice(actions.indexOf('export async function submitRsvp'));
   assert.match(
     submit.slice(0, 900),
-    /readGuestSessionForEvent\(eventId\)/,
+    // (2026-10-24: through the reply's ONE identity, `readReplyIdentityForEvent`, which asks `readGuestViewerForEvent` first.)
+    /readReplyIdentityForEvent\(eventId\)/,
     'submitRsvp only honours the cookie — the new-device guest sees a form whose Save bounces',
   );
   // The seat's pass is adopted on MOUNT, from a Server Action — never a render or a GET.
@@ -230,7 +231,8 @@ test('4 · the callback and signUp ask the event question, not the 120-second cl
   assert.match(signup, /signupLanding\(\{ accountType, next, fromEvent \}\)/);
   // The connect route lands an unanswered guest AT the reply.
   const connect = read('app/join/[eventId]/connect/route.ts');
-  assert.match(connect, /dest = `\/\$\{slug\}\$\{REPLY_SHEET_HASH\}`/);
+  // 🔁 RE-AIMED 2026-10-11: AT the reply PAGE — the one reply form (it was the reply sheet's anchor).
+  assert.match(connect, /if \(slug && !thenReply && \(await seatAwaitsReply\(eventId, user\.id\)\)\) \{\s*dest = inviteReplyPath\(slug\);/);
   // The one Save's Google / Apple return through the connect route.
   const actions = read('app/[slug]/actions.ts');
   const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));

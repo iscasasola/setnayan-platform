@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 // Souvenir-table actions (owner 2026-06-28). Mirror the check-in desk exactly —
 // the same couple+coordinator actor pair runs the giveaway table, scanning the
@@ -48,6 +49,8 @@ export async function markSouvenirReceived(
   guestId: string,
   method: 'qr_scan' | 'manual_search',
 ): Promise<SouvenirActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let user;
   try {
     user = await assertStationCrew(eventId);
@@ -103,6 +106,8 @@ export async function undoSouvenirReceived(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertStationCrew(eventId);
   } catch {

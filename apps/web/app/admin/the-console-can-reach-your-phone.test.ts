@@ -55,10 +55,13 @@ test('it is the shared component, not a third copy', () => {
 
 test('it still asks permission only on a deliberate press, and degrades quietly', () => {
   const src = code(read(SHARED));
-  // Apple 4.2: never prompt on paint or on login.
-  assert.match(src, /Notification\.requestPermission/);
+  // Apple 4.2: never prompt on paint or on login. The ask itself lives in the
+  // shared yes-path (lib/push-subscribe.ts, 2026-10-31); the toggle reaches it
+  // only from its press handler.
+  assert.match(code(read('lib/push-subscribe.ts')), /Notification\.requestPermission/);
+  assert.match(src, /async function enable\(\)[\s\S]*?subscribeThisDevice\(\)/);
   assert.ok(
-    !/useEffect\([^)]*\)\s*=>\s*\{[^}]*requestPermission/.test(src),
+    !/useEffect\([^)]*\)\s*=>\s*\{[^}]*(requestPermission|subscribeThisDevice)/.test(src),
     'permission is being requested from an effect — it must only fire when the switch is flipped ON',
   );
   // Where push cannot work it must render a note, never a dead switch — this is

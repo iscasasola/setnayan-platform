@@ -11,6 +11,7 @@ import { paymentRowFor } from '@/lib/order-mint-identity';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -62,6 +63,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
  */
 
 export async function cancelOrder(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const orderId = formData.get('order_id');
   if (typeof eventId !== 'string' || typeof orderId !== 'string') {
@@ -121,6 +123,7 @@ export async function cancelOrder(formData: FormData) {
 }
 
 export async function logPayment(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const orderId = formData.get('order_id');
   const amountRaw = formData.get('amount_php');

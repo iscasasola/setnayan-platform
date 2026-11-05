@@ -17,6 +17,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { R2_BUCKETS } from '@/lib/r2';
 import { notifyFollowersOfNewChapter } from '@/lib/creator-notify';
 import { resolveEventTie } from '@/lib/chapter-event-participation';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 const SURFACE = '/dashboard/creator';
 
@@ -37,7 +38,7 @@ function fail(message: string): never {
  */
 function failWithDbMessage(message: string): never {
   if (message.includes('chapter_event_not_yours')) {
-    fail('You can only attach a celebration you host or worked on.');
+    fail('You can only attach an event you host or worked on.');
   }
   fail(message);
 }
@@ -217,7 +218,7 @@ async function readEventLink(
   // 🔒 The tie is proven server-side — a form can be posted with any id, and
   // attaching surfaces that day's name, date, venue and booked suppliers.
   const tie = await resolveEventTie(userId, picked);
-  if (!tie) fail('You can only attach a celebration you host or worked on.');
+  if (!tie) fail('You can only attach an event you host or worked on.');
   return picked;
 }
 
@@ -286,6 +287,8 @@ export async function updateChapter(formData: FormData) {
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('stories');
   if (error) failWithDbMessage(error.message);
 
   revalidatePath(SURFACE);
@@ -344,7 +347,7 @@ export async function setChapterAudience(formData: FormData) {
 
   if (audience === 'event' && !canShareWithEvent(row.event_id as string | null)) {
     fail(
-      'Pick which celebration this chapter is about first — that is who you would be sharing it with.',
+      'Pick which event this chapter is about first — that is who you would be sharing it with.',
     );
   }
 
@@ -392,6 +395,8 @@ export async function setChapterAudience(formData: FormData) {
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('stories');
   if (error) failWithDbMessage(error.message);
 
   if (audience === 'published' && profile && profile.public_profile_enabled !== true) {
@@ -403,6 +408,8 @@ export async function setChapterAudience(formData: FormData) {
       .from('users')
       .update({ public_profile_enabled: true, updated_at: new Date().toISOString() })
       .eq('user_id', userId);
+    // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+    clearHomeShelf('people');
     if (openError) fail(openError.message);
     revalidatePath('/u', 'layout');
   }
@@ -539,6 +546,8 @@ export async function deleteChapter(formData: FormData) {
     .delete()
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
+  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
+  clearHomeShelf('stories');
   if (error) fail(error.message);
 
   revalidatePath(SURFACE);

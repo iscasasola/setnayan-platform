@@ -37,9 +37,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, Users } from 'lucide-react';
-import { Drawer } from './overlay-primitives';
+import { Check, Search, Users, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { GuestPopup } from './guest-popup';
+import { plainRefusal } from './plain-refusal';
 import {
   chooseAllShown,
   isInSamahan,
@@ -48,13 +49,17 @@ import {
 } from '@/lib/people-you-can-invite-core';
 import { SIDE_LABELS, type GuestSide } from '@/lib/guests';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import {
-  addGuestsFromPeople,
-  listPeopleYouCanInvite,
-} from '../people-add-actions';
+import { useGuestActions } from './guest-actions-context';
+import { hearAction } from './hear-action';
 import { formatCount } from '@/lib/format-number';
 
 const OPEN_EVENT = 'setnayan:add-from-people-open';
+
+/** Open this sheet from code (the add sheet's "Add another way" dropdown) — the
+ *  SAME event the button below dispatches, so the name lives in one place. */
+export function openAddFromPeople(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT));
+}
 
 export function OpenAddFromPeopleButton({
   label = 'Add from your people',
@@ -115,7 +120,7 @@ export function AddFromPeopleSheet({
   const [side, setSide] = useState<GuestSide>(defaultSide);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
+  const { addGuestsFromPeople, listPeopleYouCanInvite } = useGuestActions();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const close = useCallback(() => {
@@ -175,7 +180,7 @@ export function AddFromPeopleSheet({
         setRows([]);
       })
       .finally(() => setLoading(false));
-  }, [open, rows, loading, eventId]);
+  }, [open, rows, loading, eventId, listPeopleYouCanInvite]);
 
   const pickedKeys = useMemo(
     () => Object.keys(picked).filter((k) => picked[k]),
@@ -218,38 +223,46 @@ export function AddFromPeopleSheet({
     if (pickedKeys.length === 0 || pending) return;
     setError(null);
     startTransition(async () => {
-      const res = await addGuestsFromPeople(
-        eventId,
-        pickedKeys.map((k) => ({ key: k })),
-        side,
+      // 🔌 `hearAction`: a failed request answers like a refusal — the sheet and the ticks stay, and it says so.
+      const res = await hearAction(() =>
+        addGuestsFromPeople(
+          eventId,
+          pickedKeys.map((k) => ({ key: k })),
+          side,
+        ),
       );
       if (!res.ok) {
-        setError(res.error);
+        setError(plainRefusal(res.error, 'Couldn’t add them just now. Try again.'));
         return;
       }
       if (res.failed > 0 && res.firstError) {
         // PARTIAL SUCCESS IS STATED. Closing on a silent partial is how a host
         // ends up adding the missing two a second time.
         setError(
-          `Added ${res.added}. ${res.failed} didn’t go on — ${res.firstError}`,
+          `Added ${res.added}. ${res.failed} didn’t go on — ${plainRefusal(res.firstError, 'try those again.').replace(/[.!?]$/, '')}.`,
         );
         setPicked({});
         // The sheet STAYS OPEN on a partial, so this one is not redundant with
         // the reset in `onOpen` — nothing re-opens it. It is what makes the
         // rows that DID land show as "already here" without closing the panel.
+        // (The guest list behind it is already redrawn: the action revalidates whenever a name landed, and its
+        // answer carries the render — no `router.refresh()`, which drew the page twice.)
         setRows(null);
-        router.refresh();
         return;
       }
       close();
-      router.refresh();
     });
   };
 
   if (!open) return null;
 
   return (
-    <Drawer onClose={close} labelledById="add-from-people-title">
+    <GuestPopup
+      onClose={close}
+      rootClassName="fixed inset-0 z-[80]"
+      panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
+      labelledById="add-from-people-title"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 id="add-from-people-title" className="text-lg font-extrabold tracking-tight text-ink">
@@ -260,13 +273,7 @@ export function AddFromPeopleSheet({
             your group.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-md px-2 py-1 text-sm text-ink/50 hover:bg-ink/5 hover:text-ink"
-        >
-          Close
-        </button>
+        <ActionButton tone="neutral" quiet icon={X} label="Close" onClick={close} />
       </div>
 
       <div className="mt-4 flex items-center gap-2">
@@ -290,19 +297,15 @@ export function AddFromPeopleSheet({
           {samahanGroups.map((g) => {
             const active = activeGroup === g;
             return (
-              <button
+              <ActionButton
                 key={g}
-                type="button"
+                tone={active ? 'brand' : 'neutral'}
+                main={active}
+                icon={active ? Check : Users}
+                label={g}
                 onClick={() => setActiveGroup(active ? null : g)}
                 aria-pressed={active}
-                className={`rounded-full border px-3 py-1 text-sm ${
-                  active
-                    ? 'border-mulberry/60 bg-mulberry/10 text-mulberry-700'
-                    : 'border-ink/15 text-ink/70 hover:border-ink/30'
-                }`}
-              >
-                {g}
-              </button>
+              />
             );
           })}
         </div>
@@ -327,20 +330,21 @@ export function AddFromPeopleSheet({
 
       {!loading && addableShown.length > 1 ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
-          <button
-            type="button"
+          <ActionButton
+            tone="neutral"
+            icon={allShownPicked ? X : Check}
+            label={
+              allShownPicked
+                ? `Clear these ${addableShown.length}`
+                : `Choose all ${addableShown.length} shown`
+            }
             onClick={() => {
               // Toggle: the same control that picks everyone shown lets go of
               // them again. Rows already on the list are never touched — adding
               // somebody twice is the mistake this sheet exists to prevent.
               setPicked((prev) => chooseAllShown(prev, addableShown, allShownPicked));
             }}
-            className="text-sm font-medium text-mulberry-700 underline underline-offset-4"
-          >
-            {allShownPicked
-              ? `Clear these ${addableShown.length}`
-              : `Choose all ${addableShown.length} shown`}
-          </button>
+          />
           {pickedKeys.length > 0 ? (
             <span className="text-[11px] text-ink/55">{pickedKeys.length} chosen</span>
           ) : null}
@@ -428,19 +432,22 @@ export function AddFromPeopleSheet({
         <span className="text-sm text-ink/55">
           {pickedKeys.length === 0 ? 'Nobody picked' : `${pickedKeys.length} picked`}
         </span>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={
+            pending
+              ? 'Adding…'
+              : pickedKeys.length > 1
+                ? `Add ${formatCount(pickedKeys.length)} guests`
+                : 'Add guest'
+          }
           onClick={submit}
-          disabled={pickedKeys.length === 0 || pending}
-          className="button-primary disabled:opacity-50"
-        >
-          {pending
-            ? 'Adding…'
-            : pickedKeys.length > 1
-              ? `Add ${formatCount(pickedKeys.length)} guests`
-              : 'Add guest'}
-        </button>
+          disabled={pending}
+          waiting={pickedKeys.length === 0 && !pending}
+        />
       </div>
-    </Drawer>
+    </GuestPopup>
   );
 }

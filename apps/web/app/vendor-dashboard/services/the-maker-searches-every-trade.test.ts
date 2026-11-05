@@ -42,12 +42,16 @@ const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
 const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
+/** The page's one drawing of the maker (shared with Today's setup sheet, 2026-10-28) — read with the page. */
+const NEW_DOOR_MAKER = 'app/vendor-dashboard/services/new/_components/new-service-maker.tsx';
+// Since 2026-10-14 the three doors into the maker read through ONE loader — the list is built there.
+const LOADER = 'lib/service-card-maker.server.ts';
 const RANK_LIB = 'lib/kind-search-trades.ts';
 const SHARED_RANKER = 'lib/taxonomy-search-rank.ts';
 
 test('the files under test actually read back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
-  assert.ok(read(NEW_DOOR).length > 500, 'the new door read back empty');
+  assert.ok((read(NEW_DOOR) + read(NEW_DOOR_MAKER)).length > 500, 'the new door read back empty');
   assert.ok(read(RANK_LIB).length > 200, 'the trade-search wiring read back empty');
   assert.ok(read(SHARED_RANKER).length > 200, 'the shared ranker read back empty');
 });
@@ -107,14 +111,14 @@ test('a ranked trade is never rendered bare — standing rides along to the pill
     'a ranked trade reaches KindPill WITHOUT its standing — a capped supplier could pick one and be refused only at Publish',
   );
   assert.match(block, /why: t\.why/, 'a locked ranked trade lost its reason on the way to the pill');
-  assert.match(block, /<KindPill/, 'ranked trades stopped rendering through the shared pill component');
+  assert.match(block, /<KindRow/, 'ranked trades stopped rendering through the shared kind row');
 });
 
 test('the pill actually reads the standing it was handed — a locked pill is disabled, not styled', () => {
   const src = read(MAKER);
-  const pillFn = src.slice(src.indexOf('function KindPill'), src.indexOf('function CardRegion'));
-  assert.match(pillFn, /disabled=\{locked\}/, 'KindPill stopped refusing a locked kind');
-  assert.match(pillFn, /const locked = opt\.standing === 'locked';/, 'KindPill stopped reading standing at all');
+  const rowFn = src.slice(src.indexOf('function KindRow'), src.indexOf('function ChipGroup'));
+  assert.match(rowFn, /disabled=\{locked\}/, 'KindRow stopped refusing a locked kind');
+  assert.match(rowFn, /const locked = opt\.standing === 'locked';/, 'KindRow stopped reading standing at all');
 });
 
 // ---------------------------------------------------------------------------
@@ -123,11 +127,15 @@ test('the pill actually reads the standing it was handed — a locked pill is di
 
 test('the search excludes every kind already on screen, not only the exact coverage match', () => {
   const src = read(MAKER);
+  // Since 2026-11-04 the "Something else" folds hold EVERY live trade, so excluding them would empty the band. The
+  // set is the kinds ALWAYS on screen (the "Common for" band); a fold hides whatever the band shows (`rankedKeys`).
   assert.match(
     src,
-    /const existingKindValues = useMemo\(\s*\(\) => new Set\(allChoices\.map\(\(o\) => o\.value\)\),/,
-    'the dedupe set stopped being built from every kind already on this screen',
+    /const existingKindValues = useMemo\(\s*\(\) => new Set\(coveredChoices\.map\(\(o\) => o\.value\)\),/,
+    'the dedupe set stopped being built from the kinds always on this screen',
   );
+  assert.match(src, /const rankedKeys = useMemo\(\(\) => new Set\(rankedTrades\.map\(\(\{ key \}\) => key\)\)/);
+  assert.match(src, /\.filter\(\(o\) => o\.standing !== 'covered' && !rankedKeys\.has\(o\.value\)\)/, 'a fold lists a trade the search band already shows');
   // It must be the SAME set fed to the ranker — a set built and never used
   // would pass this file's earlier assertion while doing nothing.
   assert.match(
@@ -156,7 +164,7 @@ test('trades render only once something is typed, and nowhere else on the door',
   const occurrences = (src.match(/rankedTrades\.map\(\(t\) =>/g) ?? []).length;
   assert.equal(occurrences, 1, `rankedTrades is rendered ${occurrences} times, expected exactly 1`);
   // The new door itself never dumps the full 262-item list outside the maker.
-  const door = read(NEW_DOOR);
+  const door = (read(NEW_DOOR) + read(NEW_DOOR_MAKER));
   assert.ok(
     !/tradeOptions\.map\(/.test(door),
     'the door started rendering the 262 trades itself instead of handing them to the maker',
@@ -176,8 +184,10 @@ test('the legacy list — the one holding Miscellaneous — still renders uncond
   const legacyAt = src.indexOf('categoryOptions.map((group) => {');
   assert.ok(tradeAt > 0 && legacyAt > 0, 'one of the two render sites is missing');
   assert.ok(tradeAt < legacyAt, 'the ranked-trade band stopped sitting ahead of (additive to) the legacy groups');
-  const door = read(NEW_DOOR);
-  assert.match(door, /SERVICE_GROUPS\.map/, 'the legacy groups — which carry Miscellaneous — stopped being built');
+  // Since 2026-11-04 the folds are the live taxonomy (lib/service-card-kind-groups.ts), which keeps Miscellaneous
+  // reachable on purpose (MISC_KIND) — proven in lib/service-card-kind-groups.test.ts.
+  const loader = read(LOADER);
+  assert.match(loader, /liveKindGroups\(\{/, 'the folds — which carry Miscellaneous — stopped being built');
 });
 
 // ---------------------------------------------------------------------------
@@ -185,19 +195,19 @@ test('the legacy list — the one holding Miscellaneous — still renders uncond
 // ---------------------------------------------------------------------------
 
 test('the door builds every trade from the visible coverage tree, with the SAME standing the save enforces', () => {
-  const door = read(NEW_DOOR);
+  const door = read(LOADER);
   assert.match(
     door,
-    /const tradeOptions: TradeMatch\[\] = tree\.flatMap\(/,
+    /tradeOptions = tree\.flatMap\(/,
     'the door stopped building the trade list from the live coverage tree',
   );
   // Read out of `tree` — the SAME `getCoverageTaxonomy()` read used for the
   // coverage picker and `coverageAllowed`, so a retired/hidden leaf is absent
   // here for exactly the reason it is absent there. A second, separate fetch
   // would be a second visibility rule.
-  const at = door.indexOf('const tradeOptions: TradeMatch[]');
+  const at = door.indexOf('tradeOptions = tree.flatMap(');
   const block = door.slice(at, at + 700);
   assert.match(block, /standingOf\(l\.canonicalService\)/, 'each trade stopped asking the SAME standing function the save enforces');
   assert.match(block, /branch: b\.label/, 'a trade lost its branch — two similar trades could no longer be told apart');
-  assert.match(door, /tradeOptions=\{tradeOptions\}/, 'the door stopped handing the trade list to the maker');
+  assert.match((read(NEW_DOOR) + read(NEW_DOOR_MAKER)), /tradeOptions=\{ctx\.tradeOptions\}/, 'the door stopped handing the trade list to the maker');
 });

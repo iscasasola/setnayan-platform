@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { notFound, redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -100,11 +101,11 @@ export default async function CoupleRecapPage({
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
       <Link
-        href={`/dashboard/${eventId}/studio/papic`}
+        href={`/dashboard/${eventId}/memories`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Back to Papic
+        Back to Memories
       </Link>
 
       <PageMasthead
@@ -119,11 +120,16 @@ export default async function CoupleRecapPage({
       {/* What's in your recap */}
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="text-base font-semibold text-ink">What&rsquo;s in your recap</h2>
-        <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
-          <Stat n={summary.privatePhotos} label="photos" />
-          <Stat n={summary.approvedKwentos} label="messages" />
-          <Stat n={summary.guests ?? 0} label="guests" />
-        </dl>
+        {summary.unreadable ? (
+          /* 🔌 A refused count is never "0 photos" (reads-are-honest, 2026-11-02 audit #18). */
+          <ReadRefusedNotice what="what is in your recap" className="mt-3" />
+        ) : (
+          <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
+            <Stat n={summary.privatePhotos} label="photos" />
+            <Stat n={summary.approvedKwentos} label="messages" />
+            <Stat n={summary.guests ?? 0} label="guests" />
+          </dl>
+        )}
       </section>
 
       {/* Publish state */}
@@ -239,11 +245,11 @@ export default async function CoupleRecapPage({
           <li>
             • The <strong>{formatCount(summary.publicPhotos)}</strong>{' '}
             {summary.publicPhotos === 1 ? 'photo' : 'photos'} that are safe to share — the ones you
-            curated, plus any privacy-screened, face-blurred wall photos.
+            curated, plus any privacy-screened, face-blurred Memory lane photos.
           </li>
           <li>
             • The <strong>{formatCount(summary.publicVoices)}</strong> guest{' '}
-            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to the Live Wall.
+            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to Memory lane.
           </li>
           <li>• Your love story and the milestones you wrote.</li>
         </ul>

@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
  * · The CURRENT option first — a selector list would return whichever comes first in the document, i.e. always the top option.
  * · A FONT ROW (`fontFamily`) is `content-visibility: auto`: a face is fetched when text is laid out in it, and that skips laying out a row that is off the list's screen — so a font row's face downloads only once it scrolls into view.
  * · ONE OPEN AT A TIME (owner 2026-10-04, "when a dropdown opens, the other dropdown collapses"): `useOneOpen(open, setOpen)` — opening this list, by tap OR keyboard, closes every other open dropdown, menu, popover or fold (`lib/one-open.ts`). It is a leaf: nothing inside the list can open, so it needs no `OneOpenScope`.
+ * · Esc peels one layer: the keydown listener is on window CAPTURE, so it runs before useModalA11y's — a list open inside a sheet closes, not the sheet.
  * · A labelled GROUP (owner 2026-09-27, the compact Maker bar: "combine them in 1 dropdown" — Stages and Pages in one list). The heading is not an option: no button, so the arrow keys and the first-focus query pass over it; the group is announced by its aria-label, the visible word is aria-hidden.
  */
 
@@ -61,7 +62,9 @@ export type PickOption = {
   /** The words beside the dot in the open list. Default "live today" (the
    *  Maker's stages); the People picker says "waiting on you" for Requests. */
   dotNote?: string;
-  /** Listed but not pickable, with its reason (a tab that opens its own page). */
+  /** Listed but not pickable, with its reason (a tab that opens its own page). The row shows its LABEL ONLY, greyed;
+   *  the reason sits behind the shared ⓘ at the row's right edge (`pick-menu-off-row.tsx`, owner 2026-10-31). Keep the
+   *  label short — it is never wrapped by the reason any more. */
   disabledNote?: string;
   /** Draw the option IN a face (the font dropdown — each font in its own face). */
   fontFamily?: string;
@@ -86,6 +89,13 @@ export type PickOption = {
 };
 
 export type PickMenuProps = {
+  /**
+   * 📏 The open list's least width in px (owner-approved 2026-10-30, the Papic card head: "On — everyone, now" on one
+   * line beside a 96 px button). The list may then reach left of its button; it stays on screen (`placePickList` clamps
+   * it to the viewport less its margins). Absent = today's rule (the button's width, at least 160 px) — no other menu
+   * changes.
+   */
+  menuMinWidth?: number;
   /** What the control is, for a screen reader ("This stage's menu"). */
   label: string;
   /** The option shown on the button. */
@@ -122,4 +132,23 @@ export type PickMenuProps = {
    * second render path there would split it into its own chunk.
    */
   grid?: boolean;
+  /**
+   * ✓ The words beside a checkmark list's "Done ✓" — default "Tick as many as apply." The guest card's Role in wedding
+   * says "Tick as many as apply. The first ticked is their main role." (owner 2026-10-20, one Role dropdown, several roles).
+   */
+  doneNote?: string;
+  /**
+   * 🔎 One row drawn ABOVE the options, inside the open list (owner 2026-10-20, the supplier card's "Also covers":
+   * *"allow us to search that"*) — a search box the CALLER owns and filters `options` with. It must be an
+   * `<li role="none">`; it is not an option, so the arrow keys and first-focus pass over its input. Omitted = none.
+   */
+  head?: ReactNode;
+  /**
+   * ▭ THE WHOLE ROW IS THE BUTTON (owner 2026-10-26, Suppliers' "Add a category" — the list's own last row:
+   * prototype `suppliers_add_category_row_2026-10-26`, DECISION_LOG "ADD A CATEGORY IS THE LIST'S LAST ROW").
+   * Drawn INSIDE the button in place of the ▾ pill's words and arrow, and the pill's look (`pickButtonClass`) is
+   * dropped — `className` alone dresses the button. The SAME list opens; `label` + `buttonText` still name it
+   * for a screen reader. Omitted = the ordinary ▾ pill (every other picker).
+   */
+  trigger?: ReactNode;
 };

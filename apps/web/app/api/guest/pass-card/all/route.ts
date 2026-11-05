@@ -4,26 +4,37 @@ import archiver from 'archiver';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
-import { printOwnsPro } from '@/lib/print-set.server';
-import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
 import { eligiblePassCardGuests, loadPassCardKit, passCardDesignFor, passCardFileNameFor, renderPassCardFor } from '@/lib/pass-card.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests, pickGuestRows } from '@/lib/print-picked-guests';
 
 /**
  * GET /api/guest/pass-card/all?event=<uuid> — EVERY guest's pass card in one
- * .zip, for the couple (owner 2026-09-29: *"can we also create a zip file to
- * download all? (PRO feature)"* · *"downloading them individually is free"*).
+ * .zip, for the couple — how they hand tickets out by phone.
  *
- * 🔒 THREE GATES, ALL HERE ON THE SERVER — a hidden button is never the lock:
+ * 🎟 FREE FOR EVERY EVENT (owner 2026-10-22, "yes", DECISION_LOG "THE DIGITAL
+ * TICKET ZIP IS FREE"; his rule, verbatim: *"the goal of the free is to keep
+ * everything minimum ready but no personalization."*). It was Event Hub Pro
+ * from 2026-09-29 (*"can we also create a zip file to download all? (PRO
+ * feature)"*); handing out tickets is readiness, so the route asks NO Pro
+ * question. What stays personal is the LOOK: the cards are drawn from
+ * `loadPassCardKit` → `loadPrintSet`, whose one door (`printLookForEvent`)
+ * draws a free event PLAIN WHITE and a Pro event in its Hub look (#6744).
+ *
+ * 🔒 TWO GATES, BOTH HERE ON THE SERVER — a hidden button is never the lock:
  *   1. signed in, and a HOST of this event (`getHostUserId`: an accepted
  *      moderator who is not a view-only helper, or the legacy couple row);
- *   2. the event holds EVENT HUB PRO (`printOwnsPro` — the same measured
- *      entitlement Prints & Tickets asks). A free couple gets 403 with words;
- *      one guest's card stays free at /api/guest/pass-card;
- *   3. only guests who HAVE a card (`eligiblePassCardGuests` → the pure
+ *   2. only guests who HAVE a card (`eligiblePassCardGuests` → the pure
  *      `passCardEligibility`): accepted, not "can't come", named — pending
  *      requests, declines and TBA seats are not in it.
+ *
+ * 🎟 PICKED GUESTS (owner 2026-10-26, on the Digital ticket: *"Why cant i pick specific guests to download and compile?"*):
+ * `&guests=<id>,<id>,…` narrows the zip to exactly those guests, in the zip's own order — read AFTER both gates above, every id
+ * checked against THIS event's ticket holders (`pickGuestRows` over `eligiblePassCardGuests`, the same read and rule as All guests).
+ * One id that is not among them (another event's guest, a removed guest, one who declined) refuses the whole zip (403) — never
+ * dropped, never included. A malformed, empty or oversized list is refused (400), never read as "everyone"; no list = every guest.
  *
  * Each file is the SAME render and the SAME name as a guest's own save
  * (`renderPassCardFor`, `passCardFileNameFor`) — two guests with one name get
@@ -59,11 +70,16 @@ export async function GET(req: Request) {
   if (!(await getHostUserId(eventId))) {
     return new NextResponse('Only the hosts of this event can download its passes.', { status: 403 });
   }
-  if (!(await printOwnsPro(eventId))) return new NextResponse(PASS_CARD_ZIP_PRO_MESSAGE, { status: 403 });
+
+  const pickedParam = parsePickedGuests(url.searchParams.get(PICKED_GUESTS_PARAM));
+  if (!pickedParam.ok) return new NextResponse(pickedParam.why, { status: 400 });
 
   const admin = createAdminClient();
-  const { guests, measured } = await eligiblePassCardGuests(admin, eventId);
-  if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+  const read = await eligiblePassCardGuests(admin, eventId);
+  if (!read.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+  const pick = pickGuestRows(read.guests, pickedParam.ids);
+  if (!pick.ok) return new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 });
+  const guests = pick.rows;
   if (guests.length === 0) {
     return new NextResponse(`No guest has a ${PASS_CARD_WORDS.noun} yet — a ${PASS_CARD_WORDS.noun} appears once a guest is on your list and coming.`, { status: 409 });
   }
@@ -103,7 +119,7 @@ export async function GET(req: Request) {
   return new Response(body, {
     headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${passCardsZipFileName(kit.set.event.display_name, kit.set.event.event_date)}"`,
+      'Content-Disposition': `attachment; filename="${pickedParam.ids ? passCardsZipFileName(kit.set.event.display_name, kit.set.event.event_date).replace(/\.zip$/, `-${guests.length}-picked.zip`) : passCardsZipFileName(kit.set.event.display_name, kit.set.event.event_date)}"`,
       'Cache-Control': 'private, no-store',
     },
   });

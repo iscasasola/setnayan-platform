@@ -91,7 +91,7 @@ test('the dependent set is exactly day_of + gallery — widening it needs a deci
 
 test('the refusal message names the surfaces and both ways out', () => {
   const msg = strandedWithoutWebsiteMessage(['day_of', 'gallery']);
-  assert.match(msg, /Day-of page and Gallery/);
+  assert.match(msg, /Day-of page and Memories/);
   assert.match(msg, /Tick Website/, 'must offer the fix');
   assert.match(msg, /untick/, 'must offer the other fix — refusal, not correction');
   assert.doesNotMatch(

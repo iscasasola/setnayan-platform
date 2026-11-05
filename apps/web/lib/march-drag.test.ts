@@ -165,7 +165,7 @@ test('a name onto another name → they trade places (swapEntouragePlaces), acro
 test('a name onto the empty spot beside a lone walker → they walk together (joinEntourageLine)', () => {
   const { plan } = drop(fixture(), { kind: 'name', id: 'cb' }, { kind: 'beside', anchor: 'rb' });
   assert.deepEqual(plan.steps.map((s) => s.kind), ['join']);
-  assert.equal(plan.said, 'Enzo Bautista walks with Joaquin Buanhog');
+  assert.equal(plan.said, 'Enzo Bautista walks with Joaquin Buanhog · empty walk removed');
   // Out of a pair: the one left behind walks alone, and the toast says so.
   const left = drop(fixture(), { kind: 'name', id: 'c2' }, { kind: 'beside', anchor: 'v1' });
   assert.match(left.plan.said, /Paolo Tan walks alone$/);

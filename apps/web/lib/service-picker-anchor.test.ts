@@ -163,7 +163,8 @@ test('every Create-a-service link in the product opens the maker', () => {
     'app/vendor-dashboard/layout.tsx',
     'lib/vendor-first-steps.ts',
     'app/vendor-dashboard/repertoire/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+    // (earnings/surface.tsx — retired by S-PR4; its empty ledger's "Add services" link went with it: Customers ›
+    // Money's empty year says how money arrives — a couple logs a payment you confirm — and links nowhere.)
   ];
   // 🪤 THE FIRST CUT OF THIS ASSERTION WAS DECORATION, AND ONLY A MEASURED
   // MUTATION FOUND IT. It matched the constant anywhere in the file, so
@@ -193,7 +194,9 @@ test('the maker href is a route that exists and draws the card', () => {
   assert.equal(SERVICE_MAKER_HREF, '/vendor-dashboard/services/new');
   const page = read('app/vendor-dashboard/services/new/page.tsx');
   assert.ok(page.length > 500, 'the maker route read back empty — this check is pointed at nothing');
-  assert.match(page, /<CanvasMaker/, 'the maker route stopped rendering the maker');
+  // The route draws the maker through its one drawing (`NewServiceMaker`, shared with Today's setup sheet, 2026-10-28).
+  assert.match(page, /<NewServiceMaker\b/, 'the maker route stopped rendering its maker');
+  assert.match(read('app/vendor-dashboard/services/new/_components/new-service-maker.tsx'), /<CanvasMaker/, 'the maker route stopped rendering the maker');
 });
 
 test('the picker constants survive, because the canvas-off fallback needs them', () => {
@@ -211,7 +214,7 @@ test('no new hand-typed picker link creeps back in anywhere', () => {
   const suspects = [
     'app/vendor-dashboard/layout.tsx',
     'app/vendor-dashboard/repertoire/page.tsx',
-    'app/vendor-dashboard/earnings/surface.tsx',
+    'app/vendor-dashboard/customers/_components/money-view.tsx',
     'lib/vendor-first-steps.ts',
     MANAGER,
   ];

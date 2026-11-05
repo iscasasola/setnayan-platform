@@ -4,7 +4,7 @@
  * Papic promotion BUILD SPEC PR-G (owner picked options A + B on 2026-07-30 from
  * `06_Prototypes/Papic_Home_Presence_2026-07-30.html`):
  *   A · a mini-tile in the at-a-glance 2×2, carrying what the event actually holds.
- *   B · a one-time "your free camera is ready" nudge in `slotAfterBento`.
+ *   B · a one-time "Papic is ready" nudge in `slotAfterBento`.
  *
  * Both need the same three facts, so they share one resolver and event-home pays
  * for one batch of reads, folded into the dashboard's existing `Promise.all`.
@@ -44,7 +44,7 @@
  *
  * So a coordinator on a wedding with thousands of photos would have resolved
  * `photosGathered = 0` ⇒ `preCapture = true`, and been shown a tile reading
- * "N shots ready · 0 cameras out" plus the "your free camera is ready" nudge, on
+ * "N shots ready · 0 cameras out" plus the "Papic is ready" nudge, on
  * an event that has been shooting for hours. Latent in prod today (every
  * `event_members` row is `couple`), live the moment one coordinator exists.
  *
@@ -72,6 +72,7 @@ import { papicIsOn } from '@/lib/event-answers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
+import { askedOnce } from '@/lib/request-once';
 
 export type PapicHomeTile = {
   /** Shots left in the shared pool. */
@@ -151,7 +152,7 @@ async function countCrewPhotos(
  *
  * 🔑 `null` WHEN EITHER HALF WAS REFUSED (S41b). This used to choose the zero,
  * and a zero is exactly the signal that says "nothing shot yet": it flipped the
- * tile back to "shots ready" and mounted the "your free camera is ready" nudge
+ * tile back to "shots ready" and mounted the "Papic is ready" nudge
  * on an event that could be hours into its shoot. Not measured is not none.
  */
 export async function countPapicCaptures(
@@ -168,7 +169,7 @@ export async function countPapicCaptures(
 }
 
 /**
- * Should the "your free camera is ready" nudge mount at all?
+ * Should the "Papic is ready" nudge mount at all?
  *
  * DELIBERATELY NOT the full resolver. The Home page mounts the nudge through
  * `slotAfterBento` while `<EventDashboard>` owns the tile's read, so the two live
@@ -182,8 +183,8 @@ export async function countPapicCaptures(
  *
  * ⚠ Takes the SERVICE-ROLE client and an explicit `canViewPapicCounts`, for exactly the
  * reason in the header note: read through a coordinator's session the capture count
- * is silently 0 under couple-only RLS, which would have shown "your free camera is
- * ready" on an event already mid-shoot.
+ * is silently 0 under couple-only RLS, which would have shown the "Papic is ready"
+ * nudge on an event already mid-shoot.
  */
 export async function papicNudgeShouldShow(
   admin: SupabaseClient,
@@ -227,7 +228,13 @@ export async function resolvePapicHomeTile(
   canViewPapicCounts: boolean,
 ): Promise<PapicHomeTile | null> {
   if (!eventId || !canViewPapicCounts) return null;
+  // 🔌 ONCE PER RENDER (2026-10-13): Home asks this for its "Your services" row
+  // and the dashboard's batch asks it again for its tile — one answer serves
+  // both (`askedOnce`; outside a render it reads fresh every time).
+  return askedOnce(admin, 'papic-home-tile', [eventId], () => resolvePapicHomeTileNow(admin, eventId));
+}
 
+async function resolvePapicHomeTileNow(admin: SupabaseClient, eventId: string): Promise<PapicHomeTile | null> {
   const [pool, cameras, photosGathered] = await Promise.all([
     fetchEventPoolStatus(admin, eventId),
     countLiveCameras(admin, eventId),

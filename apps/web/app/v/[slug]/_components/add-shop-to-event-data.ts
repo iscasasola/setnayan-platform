@@ -130,7 +130,7 @@ export const resolveAddShopToEvent = cache(
         options: result.pickable.map((e) => ({
           eventId: e.eventId,
           title: e.title,
-          kindWord: e.profile?.terminology?.eventWord ?? 'celebration',
+          kindWord: e.profile?.terminology?.eventWord ?? 'event',
           dateISO: e.eventDate,
           href: shopEventHref(slug, e.eventId),
         })),

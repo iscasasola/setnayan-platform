@@ -17,6 +17,7 @@ import {
 } from '@/lib/panood-control';
 import { setPanoodScreenSourceAdmin } from '@/lib/panood-screens';
 import { fetchPanoodMoments, type PanoodMomentConfig } from '@/lib/panood-moments';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Server actions for the REAL Panood multicam control room (iteration 0011, PR4).
@@ -131,6 +132,7 @@ export async function setProgramSource(
   eventId: string,
   source: string,
 ): Promise<ControlActionResult> {
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!source) return { error: 'No source selected.' };
@@ -150,6 +152,7 @@ export async function setLive(
   eventId: string,
   isLive: boolean,
 ): Promise<ControlActionResult> {
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
 
@@ -214,6 +217,7 @@ export async function fireMoment(
   eventId: string,
   momentId: number,
 ): Promise<ControlActionResult> {
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!Number.isInteger(momentId) || momentId <= 0) {
@@ -274,6 +278,7 @@ export async function setScreenSource(
   screenId: number,
   source: string,
 ): Promise<ControlActionResult> {
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!Number.isInteger(screenId) || screenId <= 0 || !source) {
@@ -300,23 +305,6 @@ export async function setScreenSource(
   return { ok: true };
 }
 
-/**
- * MARK a highlight — a STUB for PR4. On the day the director taps this at a
- * meaningful beat; the marked timestamps seed AI Highlight reels. The persistence
- * table (panood_highlight_marks) lands with the replay/playout PR, so for now
- * this validates the gate and acknowledges the tap WITHOUT writing — honest, not
- * fake. Returns ok so the console can show a "marked" affirmation; the real write
- * arrives with the streaming rollout (see footer note).
- */
-export async function markHighlight(
-  eventId: string,
-): Promise<ControlActionResult> {
-  const gate = await gateControlAction(eventId);
-  if ('error' in gate) return gate;
-  // No persistence yet (stub). Best-effort acknowledgement only.
-  return { ok: true };
-}
-
 /*
  * DEFERRED to a later PR (NOT wired here, by design — PR4 is CORE only):
  *   • Preview/Take two-bus (Director Mode) — setPreviewSourceAdmin /
@@ -324,8 +312,9 @@ export async function markHighlight(
  *     PR4 default is single-stage (tap = live).
  *   • Transition persistence (cut/dissolve), overlay persistence (monogram /
  *     lower-third on/off), audio-duck + banner fan-out from a moment macro.
- *   • Playout heartbeats / replays / a real panood_highlight_marks table
- *     (markHighlight is a stub above).
+ *   • Playout heartbeats / replays. (The old "Mark highlight" stub was retired
+ *     2026-11-05, owner: "retire". Highlights live in the newer controller,
+ *     app/panood/control/[eventId]/actions.ts.)
  *   • Realtime push (Supabase Realtime) so screens + the console live-update
  *     without a revalidate round-trip.
  */

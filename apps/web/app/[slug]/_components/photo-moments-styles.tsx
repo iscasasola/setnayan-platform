@@ -32,7 +32,7 @@ function ModeIcon({ mode }: { mode: PhotoMomentMode }) {
 function Header() {
   return (
     <header>
-      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/55">Savour the moments</p>
+      <p className="font-sans text-xs uppercase tracking-[0.2em] text-ink/70">Savour the moments</p>
       <h3 className="mt-1 text-2xl font-semibold tracking-tight">Photo moments</h3>
     </header>
   );
@@ -73,9 +73,9 @@ export function PhotoMomentsYesAndNo({ intro, moments, bare = false }: Props) {
   const no = moments.filter((m) => m.mode === 'phone_down');
   const column = (title: string, list: readonly PhotoMomentView[], side: 'yes' | 'no') => (
     <div className="min-w-0 space-y-3" data-moments-side={side}>
-      <p className={`font-sans text-xs uppercase tracking-[0.2em] ${side === 'yes' ? 'text-gild' : 'text-ink/60'}`}>{title}</p>
+      <p className={`font-sans text-xs uppercase tracking-[0.2em] ${side === 'yes' ? 'text-gild' : 'text-ink/70'}`}>{title}</p>
       {list.length === 0 ? (
-        <p className="text-sm text-ink/60">—</p>
+        <p className="text-sm text-ink/70">—</p>
       ) : (
         <ul className="space-y-3">
           {list.map((m, i) => (

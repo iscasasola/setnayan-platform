@@ -8,6 +8,10 @@ import { bookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
 import { whyNotBilled, type PendingCharge, type UnbilledVerdict } from '@/lib/unbilled-fee-repair';
 import { gatherUnbilledFacts } from '@/lib/unbilled-fee-repair.server';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
+import { ReviewMinForm } from './review-min-form';
+import { BookingsOpenForm } from './bookings-open-form';
+import { bookingsOpenFromSetting } from '@/lib/bookings-open';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,6 +187,20 @@ export default async function AdminBookingFeesPage() {
     }
   }
 
+  // ⚖ SUPPLIERS TO REVIEW (owner 2026-10-07 "flag suppliers with several
+  // booked-but-unsettled events"; 2026-10-12 #12: an admin-set count of events,
+  // default 2, REVIEW ONLY). It lists; it charges and tells nobody.
+  const review = await readSuppliersToReview(admin);
+
+  // 🚪 The bookings switch, read fresh (not remembered) so this page shows what was just saved.
+  const { data: switchRow, error: switchErr } = await admin
+    .from('platform_settings')
+    .select('bookings_open')
+    .eq('id', 1)
+    .maybeSingle();
+  if (switchErr) logQueryError('admin/booking-fees.bookings_open', switchErr);
+  const bookingsOpen = switchErr ? null : bookingsOpenFromSetting((switchRow as { bookings_open?: unknown } | null)?.bookings_open);
+
   const owedTotal = charges.reduce((s, c) => s + num(c.amount_charged_centavos), 0);
   const withProof = charges.filter(
     (c) => paidRefs.get(bookingFeeLockServiceKey(c.charge_id))?.hasProof,
@@ -195,6 +213,21 @@ export default async function AdminBookingFeesPage() {
       <PageMasthead
         title="Booking fees owed"
       />
+
+      {/* 🚪 BOOKINGS (owner 2026-11-02, "for now, they cannot add bookings"). `lib/bookings-open.ts`. */}
+      <div className="sn-tile mb-4 p-4">
+        <h2 className="font-serif text-lg text-ink">
+          Bookings are {bookingsOpen === null ? 'unknown' : bookingsOpen ? 'open' : 'closed'}
+        </h2>
+        <p className="mb-3 mt-1 text-sm text-[color:var(--sn-ink-500)]">
+          {bookingsOpen === null
+            ? 'Could not read the switch right now — this is not the same as closed. Reload to try again.'
+            : bookingsOpen
+              ? 'Verified shops can be booked, and booking fees are made.'
+              : 'No booking can be made from any door and no fee is made. Shop pages, packages and prices still show, with “Bookings open soon”.'}
+        </p>
+        <BookingsOpenForm open={bookingsOpen} />
+      </div>
 
       {unreadable ? (
         <div className="sn-tile mb-4 flex items-start gap-3 p-4">
@@ -348,6 +381,37 @@ export default async function AdminBookingFeesPage() {
           })}
         </ul>
       ) : null}
+
+      <h2 className="mb-2 mt-8 font-serif text-lg text-ink">Suppliers to review</h2>
+      <div className="sn-tile mb-3 p-4">
+        <p className="mb-3 text-sm text-[color:var(--sn-ink-500)]">
+          Suppliers with several events their couples treat as booked — a booked status or a
+          payment recorded — and no settled booking fee. For review only.
+        </p>
+        <ReviewMinForm value={review.ok ? review.minEvents : null} />
+      </div>
+      {!review.ok ? (
+        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
+          Could not read {review.why} — this is <strong>not</strong> the same as nobody to review.
+        </p>
+      ) : review.rows.length === 0 ? (
+        <p className="sn-tile p-4 text-sm text-[color:var(--sn-ink-500)]">
+          No supplier has {review.minEvents} or more such events.
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {review.rows.map((r) => (
+            <li key={r.vendorProfileId} className="sn-tile flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+              <span className="min-w-[10rem] flex-1 text-sm font-semibold">{r.name ?? 'A supplier'}</span>
+              <span className="text-xs tabular-nums text-[color:var(--sn-ink-500)]">
+                {r.events} {r.events === 1 ? 'event' : 'events'} · couples recorded{' '}
+                {formatCentavosPhp(Math.round(r.paymentsPhp * 100))} · fee owed{' '}
+                {formatCentavosPhp(r.owedCentavos)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

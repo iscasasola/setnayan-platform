@@ -181,7 +181,7 @@ export default async function AdminOverview() {
         queueTile(
           'subscriptions',
           'Subscriptions',
-          'Supplier Pro / Enterprise to confirm',
+          'Supplier Pro / Ultra to confirm',
           '/admin/subscriptions',
         ),
         queueTile('booking-fees', 'Fees to sync', 'Suppliers who have not paid to sync', '/admin/booking-fees'),
@@ -198,7 +198,7 @@ export default async function AdminOverview() {
         queueTile(
           'user-reports',
           'User reports',
-          'Reported gallery content to moderate',
+          'Reported Memories content to moderate',
           '/admin/user-reports',
         ),
         queueTile(
@@ -656,7 +656,7 @@ export default async function AdminOverview() {
         <KpiStatCard label="Supplier profiles" value={vendorProfiles} />
         <KpiStatCard label="Chat threads" value={threads} />
         <KpiStatCard label="Internal accounts" value={internal} />
-        <KpiStatCard label="Team Pool" value={teamPool} />
+        <KpiStatCard label="Team members" value={teamPool} />
       </section>
 
       {/* Recent admin activity — real admin_audit_log entries (§3.4 of the
@@ -708,7 +708,7 @@ export default async function AdminOverview() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team-pool members." />
+        <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team members." />
         <Tile href="/admin/events" icon="calendar" title="Events" body="All events in the system + couple-side stats." />
         <Tile href="/admin/vendors" icon="briefcase" title="Suppliers" body="Every supplier shop and whether it is published." />
         <Tile href="/admin/patiktok" icon="camera" title="Patiktok renders" body="Client-side reel render queue + failures." />
@@ -766,7 +766,7 @@ const ACTION_PHRASES: Record<string, string> = {
   ceremony_type_set: 'set a wedding ceremony type',
   ceremony_type_updated: 'updated a wedding ceremony type',
   demo_vendors_create_start: 'started creating demo suppliers',
-  user_team_member_toggle: 'changed a team-pool flag',
+  user_team_member_toggle: 'changed a team-member flag',
   approval_request_created: 'requested a two-admin approval',
   approval_execute_failed: 'hit a failed two-admin action',
   taxonomy_request_promote: 'promoted a taxonomy request',

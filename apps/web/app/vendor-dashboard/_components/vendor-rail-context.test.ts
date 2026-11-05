@@ -114,13 +114,22 @@ test('every rail row also tells a screen reader, not just the eye', () => {
   look like a lock being broken, which is how a real guard gets weakened by
   somebody in a hurry.
 */
+/*
+  🔁 UPDATED ON PURPOSE, 2026-10-21 — NOT WEAKENED. These pinned Today ·
+  Customers · Shop · More (DECISION_LOG 2026-10-01 answer 1). The owner
+  superseded it, verbatim "Yes to all", on the supplier-dashboard audit
+  (`shots-2026-10-21/supplier-dash-audit/AUDIT.md`, item 5; DECISION_LOG
+  2026-10-21): the fourth row is the Event Hub, under its old key `on-the-day`,
+  labelled "Hub" (the couple's fourth word). Same strictness: the exact set,
+  the exact order, the registry agreeing on all four.
+*/
 test('the four destination KEYS are exactly the owner-approved four', () => {
   assert.deepEqual(
     [...VENDOR_DESTINATIONS.map((d) => d.key)].sort(),
-    ['customers', 'more', 'overview', 'shop'],
-    'Owner-APPROVED 2026-10-01 (DECISION_LOG 2026-10-01 \"THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS\"): the rail ' +
-      'reads Today · Customers · Shop · More, the phone bar\'s four words; ' +
-      'Insights (`performance`) and Event Hub (`on-the-day`) live in More. ' +
+    ['customers', 'on-the-day', 'overview', 'shop'],
+    'Owner "Yes to all", 2026-10-21 (DECISION_LOG 2026-10-21, supersedes 2026-10-01 answer 1): the rail ' +
+      'reads Today · Customers · Shop · Hub, the phone bar\'s four words; ' +
+      'More is gone — its rows live under the envelope, Shop and the profile picture. ' +
       'The surviving keys are ALSO the staff role-filter set, the ' +
       '`vendor.sidebar.<key>` registry slots and the localStorage section ' +
       'state. Adding a fifth row here is a product change, not a chrome change.',
@@ -158,10 +167,10 @@ test('every destination is named the same in the code and in the rename registry
   assert.equal(checked, 4, `only ${checked} of the four destinations had a registry slot`);
 });
 
-test('the rail order is the 2026-08-26 re-cut — people before setup — then More', () => {
+test('the rail order is the 2026-08-26 re-cut — people before setup — then the Hub', () => {
   assert.deepEqual(
     VENDOR_DESTINATIONS.map((d) => d.key),
-    ['overview', 'customers', 'shop', 'more'],
+    ['overview', 'customers', 'shop', 'on-the-day'],
     'Owner re-cut 2026-08-26 ("yes i agree"): My Customers sits ahead of My ' +
       'Shop because people are the daily job and setting up a shop is a once. ' +
       'Order is display-only — nothing reads it — so this is the assertion to ' +
@@ -241,7 +250,20 @@ test('a URL belonging to no row lights NOTHING — never the first row', () => {
 
 test('an owner sees all four', () => {
   const rows = resolveVendorDestinations({ role: 'admin' });
-  assert.deepEqual(rows.map((r) => r.key), ['overview', 'customers', 'shop', 'more']);
+  assert.deepEqual(rows.map((r) => r.key), ['overview', 'customers', 'shop', 'on-the-day']);
+});
+
+test('a helper gets the Hub on an event day, and only then (owner 2026-10-21, item 6)', () => {
+  for (const role of ['agent', 'viewer'] as const) {
+    assert.deepEqual(resolveVendorDestinations({ role }).map((r) => r.key), ['overview', 'customers']);
+    assert.deepEqual(
+      resolveVendorDestinations({ role, eventToday: true }).map((r) => r.key),
+      ['overview', 'customers', 'on-the-day'],
+      'a crew helper at the venue needs the scanner, which is in the Hub',
+    );
+  }
+  // An owner's rail does not depend on the day.
+  assert.deepEqual(resolveVendorDestinations({ role: 'owner', eventToday: false }).map((r) => r.key), ['overview', 'customers', 'shop', 'on-the-day']);
 });
 
 test('an agent still gets the two surfaces they may work', () => {
@@ -430,6 +452,20 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       still looking correct.
     */
     'maybeRunUnbilledFeeRepair',
+    /*
+      The handshake catch-up (2026-10-12, owner #1 — the fee is made at the
+      supplier's yes). A booking agreed (or Locked-QR-claimed) before that
+      shipped, or whose mint failed, has no charge — and "no charge" no longer
+      unlocks the event. Drop it and those suppliers stay locked out of their
+      own booked events with nothing to pay.
+    */
+    'maybeCatchUpHandshakesWithoutFee',
+    /*
+      The 7-day guest notice's publish (2026-10-28, owner 2026-10-03). A supplier's event photo goes on its page only
+      through this job; drop it and every photo waits forever — the private direction, but the supplier's page never
+      fills and nothing says why.
+    */
+    'maybeRunSupplierPagePublish',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -447,7 +483,10 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // 10 since 2026-09-22: `maybeRefillPriceBands` (CTRL-B3 build 5). Mounted
     // here as well as on /admin because the meter it feeds belongs to
     // SUPPLIERS — an admin-only mount would make it wait for an admin page view.
-    10,
+    // 11 since 2026-10-12: `maybeCatchUpHandshakesWithoutFee` (the fee is made
+    // at the yes; named in the list above).
+    // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
+    12,
     'the count of post-response jobs changed',
   );
 });

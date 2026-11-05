@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -56,6 +57,7 @@ export async function saveResendConfig(formData: FormData): Promise<void> {
     .from('platform_settings')
     .update({ resend_from_address: fromAddress || null })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // API key — secret. Encrypt + store ONLY if a new value was entered; a blank
   // field means "keep the existing key" (so the masked display never round-trips
@@ -90,6 +92,7 @@ export async function setAiPaywall(formData: FormData): Promise<void> {
     .from('platform_settings')
     .update({ setnayan_ai_paywall_enabled: value })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');
@@ -176,6 +179,7 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
     patch[field.column] = val;
   }
   await admin.from('platform_settings').update(patch).eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // Client secret → encrypted, only if a new value was entered.
   const secretRaw = formData.get('client_secret');
@@ -243,6 +247,7 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
     .from('platform_settings')
     .update({ [MAYA_INTEGRATION.endpointColumn]: endpoint })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // Secrets → write only the keys that were entered. Both Maya columns map to
   // the same registry id, so the shared writer stamps the rotation clock once.
@@ -326,6 +331,7 @@ export async function saveOAuthField(formData: FormData): Promise<void> {
     .update({ [field.column]: val })
     .eq('id', 1)
     .select('id');
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error || !rows || rows.length === 0) {
     redirect('/admin/integrations?error=save_failed');
   }

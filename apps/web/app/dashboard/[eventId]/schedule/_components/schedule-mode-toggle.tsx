@@ -2,24 +2,27 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Route, CalendarRange, CalendarClock } from 'lucide-react';
+import { CalendarRange, CalendarClock } from 'lucide-react';
+import { PillThumb } from '@/app/_components/pill-selector';
 import { I_SEGMENTED_CLASS, iSegClass } from '../../website/editor/_components/inspector-kit';
 
 /**
  * ScheduleModeToggle — the segmented control at the top of /schedule that
- * switches between the three modes of the page (chrome redesign delta #3,
- * 2026-06-03; Journey added 2026-07-11):
+ * switches between the modes of the page (chrome redesign delta #3,
+ * 2026-06-03; Journey added 2026-07-11 and REMOVED 2026-11-01 — owner: "i don't
+ * think we need journey anymore?"; an old `?view=journey` lands on Planning
+ * Stage, `lib/schedule-view.ts`):
  *
- *   Journey │ Preparation │ Event Day
+ *   Planning Stage │ Event Day
  *
- * Mode is URL-driven via `?view=journey` / `?view=preparation` /
+ * Mode is URL-driven via `?view=preparation` /
  * `?view=event-day` so it's bookmarkable + SSR-resolved on the server (the
  * page reads searchParams). This client component owns ONLY the link
  * rendering + active-state highlight; it never lifts the editable Event-Day
  * blocks UI into the client. Each segment is a real <Link> (prefetched,
  * accessible, works without JS) that preserves the rest of the query string.
  *
- * `prepCount` / `journeyCount` let those segments show a small count badge so
+ * `prepCount` lets that segment show a small count badge so
  * the couple knows there's something there before they tap.
  *
  * 🎚 THE ONE SEGMENTED CONTROL (DECISION_LOG 2026-10-04 "ONE SEGMENTED CONTROL
@@ -28,22 +31,19 @@ import { I_SEGMENTED_CLASS, iSegClass } from '../../website/editor/_components/i
  * look, the chosen segment in Setnayan wine — kept as LINKS (above).
  */
 
-type Mode = 'journey' | 'preparation' | 'event-day';
+type Mode = 'preparation' | 'event-day';
 
-const VIEWS: { mode: Mode; label: string; Icon: typeof Route }[] = [
-  { mode: 'journey', label: 'Journey', Icon: Route },
-  { mode: 'preparation', label: 'Preparation', Icon: CalendarRange },
+const VIEWS: { mode: Mode; label: string; Icon: typeof CalendarRange }[] = [
+  { mode: 'preparation', label: 'Planning Stage', Icon: CalendarRange },
   { mode: 'event-day', label: 'Event Day', Icon: CalendarClock },
 ];
 
 export function ScheduleModeToggle({
   active,
   prepCount,
-  journeyCount,
 }: {
   active: Mode;
   prepCount: number;
-  journeyCount: number;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -57,11 +57,14 @@ export function ScheduleModeToggle({
     return `${pathname}?${params.toString()}`;
   }
 
-  const counts: Partial<Record<Mode, number>> = { journey: journeyCount, preparation: prepCount };
+  const counts: Partial<Record<Mode, number>> = { preparation: prepCount };
 
   return (
     <nav aria-label="Schedule view" className="w-full max-w-md sm:w-auto" data-schedule-view-switch="">
       <div className={I_SEGMENTED_CLASS}>
+        {/* The one thumb that travels between the views (owner 2026-10-08: "and make them animate") — it finds the
+            picked link by its `aria-current="page"`. */}
+        <PillThumb />
         {VIEWS.map(({ mode, label, Icon }) => {
           const on = mode === active;
           const n = counts[mode] ?? 0;

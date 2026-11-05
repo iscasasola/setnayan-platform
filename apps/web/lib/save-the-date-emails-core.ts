@@ -9,6 +9,8 @@
 // fan-out 2026-10-02). The shared link and QR are the whole delivery; no
 // builder remains for anything to call.
 
+import { coupleNamesLine } from './typed-names';
+
 export type StdGuestRow = {
   guest_id: string;
   first_name: string | null;
@@ -60,9 +62,6 @@ export function resolveCoupleName(ev: {
 }): string {
   const display = (ev.display_name ?? '').trim();
   if (display) return display;
-  const pair = [ev.bride_name, ev.groom_name]
-    .map((n) => (n ?? '').trim())
-    .filter(Boolean)
-    .join(' & ');
-  return pair || 'Our wedding';
+  // The two people in the event's order (`coupleNamesLine`) — the one composition every surface uses.
+  return coupleNamesLine(ev) || 'Our wedding';
 }

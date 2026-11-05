@@ -1270,7 +1270,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       { type: 'h2', text: 'The nights' },
       {
         type: 'p',
-        text: 'Neighbors came after dinner and stayed late over coffee. The photographs the visitors took those evenings — hands held, old friends arriving, the room full at eleven at night — went quietly into one gallery, where the family found pictures of people they had not seen in years.',
+        text: 'Neighbors came after dinner and stayed late over coffee. The photographs the visitors took those evenings — hands held, old friends arriving, the room full at eleven at night — went quietly into one set of Memories, where the family found pictures of people they had not seen in years.',
       },
       { type: 'h2', text: 'From Dubai' },
       {
@@ -1294,7 +1294,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
       { role: 'Transport', href: '/explore' },
     ],
     setnayanNote:
-      'The Villanueva family used one page to tell everyone where and when — the vigil nights, the mass, the interment — collected every photograph in one gallery, and kept the door open for family abroad through the live stream. The abuloy went straight to the family’s own account.',
+      'The Villanueva family used one page to tell everyone where and when — the vigil nights, the mass, the interment — collected every photograph in their Memories, and kept the door open for family abroad through the live stream. The abuloy went straight to the family’s own account.',
   },
 ];
 

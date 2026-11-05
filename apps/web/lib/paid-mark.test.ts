@@ -133,11 +133,22 @@ test('the themed prints wear the mark their owner has earned — both directions
   // 💎 Owner 2026-09-28: "let us remove padlock and just show that these tools
   // are for pro with the diamond icon" — no padlock anywhere in the Maker.
   // The themed prints' mark + the pass cards' "Download all passes (.zip)"
-  // (Event Hub Pro, 2026-09-29) — ◆ for both, never a padlock.
-  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 2);
+  // (Event Hub Pro, 2026-09-29; FREE since 2026-10-22, below) — ◆ for both, never a padlock.
+  /* 🗂 +5 since 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the whole set and every guest's ticket — Classic and, when
+     it prints, the theme's — and the Printed ticket batch each wear ◆ too. A free couple meets the three Classic ones (the theme's
+     own are not offered without Pro). */
+  /* 🤍 +1 since 2026-10-21 (owner: "Free version is the plain white. Themes that follows the event hub is pro"): the access line's
+     "Your Event Hub look on paper is Event Hub Pro." wears the mark too — the diamond owned, ◆ PRO free, nothing in the shell. */
+  /* 🎟 −3 owned / −2 free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."):
+     every guest's ticket in one file — Classic, the theme's, and the Printed ticket batch — is a FREE save now, so it wears no ◆. */
+  /* 🎟 −1 owned / −1 free, the same day (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"): the digital ticket zip is a
+     plain free save for every event — no ◆, no door. */
+  assert.equal(count(owned, 'data-paid-mark="unlocked"'), 4);
   assert.equal(count(owned, 'data-paid-mark="locked"'), 0);
-  assert.equal(count(free, 'data-paid-mark="try"'), 2, 'a free couple is not shown ◆ PRO on the themed prints and the zip');
-  assert.match(free, /data-pass-cards-zip-pro=""/, 'a free couple’s zip is a door to the Pro unlock');
+  assert.equal(count(free, 'data-paid-mark="try"'), 3, 'a free couple is not shown ◆ PRO on the themed prints and the whole set (or the zip still is)');
+  assert.equal(count(free, 'data-print-all-in-one-pro=""'), 1, 'the whole set is not a door to the Pro unlock (or every ticket still is)');
+  assert.doesNotMatch(free, /data-pass-cards-zip-pro=""/, 'a free couple’s zip is still a door to the Pro unlock');
+  assert.match(free, /data-print-save="passes\.zip"/, 'a free couple cannot save the digital ticket zip');
   assert.equal(count(free, 'data-paid-mark="locked"'), 0, 'a padlock in the Maker');
   assert.equal(count(free, 'data-paid-mark="unlocked"'), 0);
   assert.equal(count(shellFree, 'data-paid-mark='), 0, 'no padlock and no purchase hint in the store shell');

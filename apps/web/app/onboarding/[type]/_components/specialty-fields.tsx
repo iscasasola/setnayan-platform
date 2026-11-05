@@ -110,7 +110,7 @@ function Roster({
           <div className="flex flex-col gap-2">
             {items.map((it) => (
               <div key={it.key}>
-                <span className="mb-1 block text-xs uppercase tracking-wide text-ink/45">
+                <span className="mb-1 block text-xs uppercase tracking-wide text-ink/70">
                   {it.key.replace(/_/g, ' ')}
                 </span>
                 <ItemInput field={it} value={row[it.key]} onChange={(v) => setCell(i, it.key, v)} />
@@ -269,6 +269,8 @@ export function SpecialtyFields({
   value,
   onChange,
   prefilledKeys,
+  answered,
+  onChangeAnswered,
 }: {
   fields: readonly SpecialtyField[];
   value: Values;
@@ -279,11 +281,37 @@ export function SpecialtyFields({
    * editable, we just don't ask cold for what we already know.
    */
   prefilledKeys?: readonly string[];
+  /**
+   * 🔁 Keys already ANSWERED on an earlier screen (owner 2026-10-22, Host 6 — "ask every fact once"): drawn as the
+   * answer with Change — "Celebrant · Lola Rosa  Change", the create picker's "answer kept visible" — never as a box
+   * to fill again. Change is the caller's: it goes back to where the fact is asked.
+   */
+  answered?: readonly string[];
+  onChangeAnswered?: (key: string) => void;
 }) {
   const prefilled = new Set(prefilledKeys ?? []);
+  const shown = new Set(answered ?? []);
   return (
     <div className="mt-6 flex flex-col gap-6">
-      {fields.filter((f) => isSpecialtyFieldVisible(f, value)).map((f) => (
+      {fields.filter((f) => isSpecialtyFieldVisible(f, value)).map((f) =>
+        shown.has(f.key) ? (
+          <div
+            key={f.key}
+            data-specialty-answered={f.key}
+            className="flex items-center gap-3 rounded-[var(--m-r-md)] border border-ink/10 bg-ink/[0.02] px-4 py-3"
+          >
+            <span className="min-w-0 truncate text-sm text-ink/70">
+              {f.label} · <span className="font-medium text-ink">{asStr(value[f.key])}</span>
+            </span>
+            <button
+              type="button"
+              className="ml-auto min-h-[44px] shrink-0 text-xs font-medium text-ink/60 underline transition-colors hover:text-ink"
+              onClick={() => onChangeAnswered?.(f.key)}
+            >
+              Change
+            </button>
+          </div>
+        ) : (
         <div key={f.key}>
           <div className="flex flex-wrap items-center gap-2">
             <label className="block text-[15px] font-semibold text-ink">{f.label}</label>
@@ -300,7 +328,8 @@ export function SpecialtyFields({
             <Field field={f} value={value[f.key]} onChange={(v) => onChange({ ...value, [f.key]: v })} />
           </div>
         </div>
-      ))}
+        ),
+      )}
     </div>
   );
 }

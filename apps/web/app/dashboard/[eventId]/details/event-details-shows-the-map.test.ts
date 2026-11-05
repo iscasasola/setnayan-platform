@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from '@/lib/event-settings-record';
 import {
   COULD_NOT_LOAD,
   EVENT_DETAILS_MAP,
@@ -63,8 +64,15 @@ test('every MAP row with an Event Details column renders, in its own section (co
   assert.ok(!EVENT_DETAILS_MAP.some((r) => r.fact === 'theme'), 'a Theme fact came back to Event Details');
   const missing: string[] = [];
   let checked = 0;
+  // ⚙ A fact that MOVED to its menu's ⚙ (settings per menu, owner 2026-10-27 — `DETAILS_ROWS_MOVED_TO_GUESTS`) is shown
+  // THERE, once (`one-home-per-setting.test.ts`), and must be GONE from Event Details — never in two places.
+  const moved = new Set<string>([...Object.keys(DETAILS_ROWS_MOVED_TO_GUESTS), ...Object.keys(DETAILS_ROWS_MOVED_TO_SUPPLIERS)]);
   for (const row of EVENT_DETAILS_MAP) {
     checked += 1;
+    if (moved.has(row.fact)) {
+      assert.ok(!PAGE.includes(`fact="${row.fact}"`), `"${row.fact}" moved to its menu's ⚙ but Event Details still draws it`);
+      continue;
+    }
     if (!sectionBody(row.section).includes(`fact="${row.fact}"`)) {
       missing.push(`${row.asked} "${row.question}" → ${row.section} (fact="${row.fact}")`);
     }
@@ -185,27 +193,34 @@ test('the fixed bugs stay fixed: venues come from bookings, never a setting type
   assert.deepEqual(said, [], 'the word "vendor" is back in Event Details copy');
 });
 
-test('Event Home carries the Event Details button beside the event name', () => {
-  const home = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
-  assert.match(home, /href=\{`\/dashboard\/\$\{eventId\}\/details`\}[\s\S]{0,200}Event Details/);
-  const cover = home.slice(home.indexOf('{cover.name}'), home.indexOf('{cover.name}') + 600);
-  assert.ok(cover.includes('data-home-event-details'), 'the button is not on the cover beside the name');
+test('Event Home carries the date’s door — the Countdown opens the Date Finder', () => {
+  // Owner-approved 2026-10-24: the Countdown — the first widget, right under the name — was Event Details' one door.
+  // RE-AIMED 2026-10-30 (owner: *"move them all in the event settings"* · *"date finder. because we want them to find
+  // the date for their event"*): for the couple (whose /details forwards to ⚙ Event Settings) it opens the Date Finder in
+  // place; a helper's Countdown still opens this page (`countdownDoor`).
+  const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  assert.match(first, /<HomeCoverBand cover=\{cover\}/);
+  assert.match(first, /<HomeControlRow input=\{control\}[^>]*\/>/);
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown does not open the Date Finder');
+  assert.match(faces, /return dateFinderHref\(eventId\);/, 'the Countdown’s door is not the Date Finder');
+  assert.doesNotMatch(read('app/dashboard/[eventId]/_components/home-cover-band.tsx'), /data-home-event-details/, 'the cover’s pill is back — a second door');
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'List only · Guests reply', chosen: false });
-  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Accept · Guests reply', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'List only · No reply, each gets their own QR');
-  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · One QR for everyone');
+  assert.deepEqual(howGuestsGetIn(null), { value: 'Only my list · They reply', chosen: false });
+  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'My list + requests · They reply', chosen: true });
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'Only my list · No reply');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · Anyone with the link');
   assert.equal(
     howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
-    'Accept · No reply, one QR, I approve each',
+    'My list + requests · No reply',
   );
 });
 
 test('RSVP questions: absent is ON, only false is off; no reply means no questions', () => {
-  assert.ok(rsvpQuestions({}).includes('Meal choice'));
-  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal choice'));
+  assert.ok(rsvpQuestions({}).includes('Meal'));
+  assert.ok(!rsvpQuestions({ meal: false }).includes('Meal'));
   assert.deepEqual(rsvpQuestions({ guestsReply: false }), []);
 });
 

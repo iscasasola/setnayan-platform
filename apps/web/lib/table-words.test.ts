@@ -57,7 +57,7 @@ test('(2) no guest row, card, heading or check-in line prefixes a table name its
   const files = filesUnder(root);
   // The scan must SEE the surfaces it is about — a moved folder would make it
   // pass over nothing.
-  for (const must of ['guest-list-multiselect.tsx', 'guest-card-body.tsx', 'page.tsx', 'checkin-desk.tsx']) {
+  for (const must of ['guests-screen.tsx', 'guest-card-body.tsx', 'page.tsx', 'checkin-desk.tsx']) {
     assert.ok(
       files.some((f) => f.endsWith(must)),
       `${must} is no longer under the Guests route — re-anchor this guard`,
@@ -77,26 +77,4 @@ test('(2) no guest row, card, heading or check-in line prefixes a table name its
       'then reads "Table Sweetheart Table" (and "Table 9" reads "Table Table 9"). ' +
       'Write it through tableWords() from lib/table-words.ts.',
   );
-});
-
-test('(2) the phone row never lets a table name run off the card', () => {
-  const list = stripComments(
-    readFileSync(
-      join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
-      'utf8',
-    ),
-  );
-  const row = list.slice(list.indexOf('function MobileListRow('), list.indexOf('function SwipeToDelete('));
-  assert.ok(row.length > 0, 'MobileListRow moved — re-anchor this guard');
-  assert.match(row, /tableWords\(seat\.placed\)/, 'the row writes the table without tableWords');
-  const span = /<span[^>]*data-row-table=""[^>]*>/.exec(row)?.[0] ?? '';
-  assert.ok(span, 'the row lost its table span');
-  assert.match(span, /\btruncate\b/, 'a name wider than the card is clipped mid-word instead of ending in "…"');
-  assert.match(span, /\bmax-w-full\b/, 'a table name can be wider than the card');
-  assert.doesNotMatch(span, /whitespace-nowrap|shrink-0/, 'the table span is unshrinkable again');
-  // The line WRAPS the table under it when it does not fit, instead of pushing
-  // it past the card's edge; the editors keep their words whole.
-  assert.match(row, /<div className="flex flex-wrap items-center gap-x-1\.5 gap-y-0\.5">/);
-  assert.match(row, /<span className="flex shrink-0 items-center gap-1\.5">/);
-  assert.doesNotMatch(row, /flex w-max items-center gap-1\.5/, 'the line is max-content again, so the table runs off the card');
 });

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { SceneUndoData } from '@/lib/maker-drawn-undo';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { MakerStageList } from '@/lib/maker-scene-list';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
@@ -36,8 +37,15 @@ export type MakerPartRaw = {
   fullOrder: readonly string[];
   afterLastShown: string | null;
   scenes: readonly MakerScene[];
-  move: (id: string, delta: number) => void;
+  move: (id: string, delta: number, drawn?: boolean) => void;
   eyeWrite: (scene: MakerScene) => void;
+  /** ＋ A scene brought back to this stage, `delta` places from where it stands — its place AND its showing, ONE save. */
+  addHere: (scene: MakerScene, delta: number, drawn?: boolean) => void;
+  /** ↺ A step the page drew itself (the journal's, by value), taken back the same way — null: the Undo reloads as ever
+   *  (`lib/maker-drawn-undo.ts`). */
+  undoDrawn: (d: SceneUndoData) => { landed: (ok: boolean) => void; prior?: readonly string[] } | null;
+  /** 👁 What the eye took off a stage since the last render that agreed — `"<stage>:<scene id>"` (`lib/maker-list-gates.ts`). */
+  hereOff: Readonly<Record<string, true>>;
   sceneRemovers: Readonly<Record<string, ReactNode>>;
   navigator: WorkProps['navigator'];
   elementEditing: WorkProps['elementEditing'];
@@ -45,6 +53,21 @@ export type MakerPartRaw = {
   postEventPresets: WorkProps['postEventPresets'];
   sceneFacts: WorkProps['sceneFacts'];
   onPickTemplate: () => void;
+  /** 🖼 The couple's pictures a scene can take (the Background's Upload row's own) — null: the work area has none. */
+  sceneMedia: MakerSceneMedia | null;
+};
+
+/**
+ * 🖼 THE PICTURES A SCENE OF THEIR OWN'S SLOTS OFFER — the same set the scene's Background › Upload offers
+ * (`scene-background-row.tsx`): the hero and the gallery (`photoChoices`), the one video (`videoChoice`), and every
+ * scene's own upload (`sceneUploads`) — and who may try them (`ownsPro`, the store shell).
+ */
+export type MakerSceneMedia = {
+  photoChoices: readonly { ref: string; url: string }[];
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  sceneUploads: readonly { ref: string; url: string; kind: 'photo' | 'snippet'; poster?: string | null; posterUrl?: string | null }[];
+  ownsPro: boolean;
+  storeShell: boolean;
 };
 
 export type MakerPartOps = {
@@ -57,16 +80,28 @@ export type MakerPartOps = {
   /** The full-order row after the last shown scene (a drop "at the end"). */
   afterLastShown: string | null;
   scenes: readonly MakerScene[];
-  /** ↕ The navigator's move: `delta` places in the full order — ONE draft save of the stage's order. */
-  move: (id: string, delta: number) => void;
+  /** ↕ The navigator's move: `delta` places in the full order — ONE draft save of the stage's order. `drawn`: the page
+   *  already shows it (the drag's slides) — held, and the page redraws itself in place (no Maker render, no reload). */
+  move: (id: string, delta: number, drawn?: boolean) => void;
   /** 👁 The navigator's eye on a scene — hides a shown one, brings a hidden one back (drafted). */
   eye: (id: string) => void;
+  /** ＋ Bring a hidden scene back to this stage, `delta` places from where it stands in the full order — ONE draft save
+   *  (its place and its showing together), so one ↺ takes the whole press back. */
+  add: (id: string, delta: number, drawn?: boolean) => void;
+  /** ↺ The Maker's side of an Undo the page shows at once (`MakerPartRaw.undoDrawn`). */
+  undoDrawn: MakerPartRaw['undoDrawn'];
   /** 🗑 A scene of their own's shipped "Remove for good" form, by widget id. */
   removers: Readonly<Record<string, ReactNode>>;
   /** 🎞 Post Event's arrangement as the Maker shows it (live with the draft over it) — null off Post Event. */
   postEvent: PostEventArrangement | null;
   /** The one draft door (`hubDraftAction`). */
   draftAction: ElementDraftAction | null;
+  /** ✍ For Edit's typed words (`stage-panel/part-words.ts`): the hero's canvas and each scene of their own's words, as the last render had them. */
+  heroCanvas: NonNullable<WorkProps['elementEditing']>['canvases'][string] | null;
+  ownWords: NonNullable<WorkProps['elementEditing']>['ownWords'] | null;
+  /** 🎨 For Style's Colour · Size (`stage-panel/part-look.ts`): every scene's canvas as the last render drew it, and the Event Hub's colours. */
+  canvases: NonNullable<WorkProps['elementEditing']>['canvases'] | null;
+  palette: NonNullable<WorkProps['elementEditing']>['palette'] | null;
   /** "+ Add a scene" — the shipped picker's form, or why a scene cannot be added here; null = not on this stage. */
   addOwn:
     | {
@@ -85,4 +120,6 @@ export type MakerPartOps = {
     | null;
   /** A template tile was tapped — the work area waits for the scene and selects it. */
   onPickTemplate: () => void;
+  /** 🖼 What a scene's picture slot may take (`MakerSceneMedia`) — null: none handed. */
+  sceneMedia: MakerSceneMedia | null;
 };

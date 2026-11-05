@@ -1,57 +1,41 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { payPath } from '@/lib/pay-path';
+import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
+import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { eventSkuActive } from '@/lib/entitlements';
-import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+import { ALLOTMENT_BATCH_MAX, ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
-import { coupleSlots } from '@/lib/papic-missions';
+import { activationRefused, coupleSlots } from '@/lib/papic-missions';
 import { isKwentoMomentKey } from '@/lib/papic-ceremony-sequence';
 import {
   CHALLENGE_DURATION_CHOICES,
   CHALLENGE_DURATION_DEFAULT,
 } from '@/lib/papic-challenge-clock';
 import {
-  PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
-  PAPIC_LTD_CAP_FALLBACK_PHP,
-  PAPIC_MINI_CAP_FALLBACK_PHP,
-  PAPIC_MIN_PAID_CAMERAS,
-  PAPIC_UNLI_CAP_FALLBACK_PHP,
-  PAPIC_UNLOCK_BUNDLE_KEY,
-  PAPIC_UNLOCK_LTD_BUNDLE_KEY,
-  computeCameraQuote,
-  isPapicUncapped,
-  fetchCameraRates,
   mintPapicReferenceCode,
-  provisionPaidCamerasAdmin,
-  PAPIC_UPLOADS_CAMERA_INDEX,
+  hostCameraSeat,
+  readHostCamera,
 } from '@/lib/papic-cameras';
-import {
-  countLimitedGuests,
-  computeLimitedQuote,
-  fetchActiveLimitedSnapshot,
-  fetchEventPapicWindow,
-  syncGuestCameras,
-  type LimitedSnapshotRow,
-  type LimitedTier,
-} from '@/lib/papic-limited';
-import {
-  fetchPapicOneTiers,
-  papicOnePointsForSkuIn,
-  papicOneOrderRow,
-  resolvePapicOneTarget,
-} from '@/lib/papic-one';
+import { papicCameraSaleRefusedPath } from '@/lib/papic-sells-only-credits';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
-import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
-import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
+import { resolvePapicWindow } from '@/lib/papic-window';
 import { formatCount } from '@/lib/format-number';
+import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
+import {
+  uploadsClaimAnswer,
+  uploadsClaimStep,
+  uploadsClaimWords,
+  type UploadsClaimCode,
+} from '@/lib/uploads-seat-claim';
 
 // Iteration 0012 Papic — couple-side server actions.
 //
@@ -101,7 +85,7 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
   if (!membership || membership.member_type !== 'couple') {
     return {
       ok: false,
-      redirectTo: `/dashboard/${eventId}/studio/papic?papic_access_error=not_a_couple`,
+      redirectTo: papicHomeHref(eventId, `papic_access_error=not_a_couple`),
     };
   }
 
@@ -118,6 +102,7 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
  * wrapper. Feedback is the revalidated panel (an actioned row leaves "pending").
  */
 export async function reviewVendorChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -131,7 +116,7 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     missionId.length === 0 ||
     (decision !== 'approve' && decision !== 'reject')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic`);
+    redirect(papicHomeHref(eventId));
   }
 
   const supabase = await createClient();
@@ -140,8 +125,8 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     approve: decision === 'approve',
   });
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
+  redirect(papicHomeHref(eventId));
 }
 
 // ==========================================================================
@@ -155,7 +140,64 @@ export async function reviewVendorChallengeAction(formData: FormData) {
 
 /** The couple authors their own generic Photo Challenge. source='couple',
  *  mission_type='prompt', approved=true so it goes live to guests immediately. */
+/**
+ * 🔒 How many of this event's challenges are running, NOT counting `exceptMissionId` — null when the read failed (the
+ * cap then refuses; `activationRefused`). Read as the couple (RLS), the same rows the board draws.
+ */
+async function activeChallengesBesides(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  exceptMissionId: string | null,
+): Promise<number | null> {
+  let q = supabase.from('papic_missions').select('mission_id', { count: 'exact', head: true }).eq('event_id', eventId).eq('approved', true).eq('is_active', true);
+  if (exceptMissionId) q = q.neq('mission_id', exceptMissionId);
+  const { count, error } = await q;
+  if (error) {
+    logQueryError('activeChallengesBesides', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  return count ?? null;
+}
+
+/**
+ * 🎚 THE SLOT BEING CHANGED (owner 2026-10-27: *"there will be 10 challenges the can make. choose a challenge or turn
+ * that challenge off"*). A row in the card is tapped to CHOOSE its challenge: the form posts `replace_mission_id`, the
+ * new challenge is inserted, and THEN the old one is retired — `is_active = false, removed_at, moment_key = null`, never a
+ * DELETE (completions are `ON DELETE CASCADE`), so photos already taken keep it. Read as the couple (RLS); scoped to
+ * this event; a removed row cannot be replaced twice. null = nothing to replace (a plain add).
+ */
+async function slotBeingReplaced(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  raw: FormDataEntryValue | null,
+): Promise<{ id: string; createdAt: string | null } | null> {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const { data, error } = await supabase
+    .from('papic_missions')
+    .select('mission_id, created_at')
+    .eq('mission_id', raw)
+    .eq('event_id', eventId)
+    .eq('approved', true)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (error) logQueryError('slotBeingReplaced', error, { event_id: eventId }, 'graceful_degrade');
+  const row = data as { mission_id?: string; created_at?: string | null } | null;
+  return row?.mission_id ? { id: row.mission_id, createdAt: row.created_at ?? null } : null;
+}
+
+/** Retire the replaced challenge — kept for the photos it already tagged, off the host's list and every guest's board. */
+async function retireReplaced(supabase: Awaited<ReturnType<typeof createClient>>, eventId: string, missionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('papic_missions')
+    .update({ is_active: false, removed_at: new Date().toISOString(), moment_key: null })
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId)
+    .is('removed_at', null);
+  if (error) logQueryError('retireReplaced', error, { event_id: eventId }, 'graceful_degrade');
+}
+
 export async function createCoupleChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const prompt = formData.get('prompt');
@@ -163,24 +205,32 @@ export async function createCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof prompt !== 'string' || prompt.trim().length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
-  await supabase.from('papic_missions').insert({
+  // 🎚 Choosing a slot's challenge (2026-10-27): the new one takes the old one's place.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
+  // 🔒 It turns on only if there is room under the hard cap of 10 (owner 2026-10-24); else it is kept, switched off.
+  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  const { error: insertErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: 'prompt',
     source: 'couple',
     prompt: prompt.trim().slice(0, 280),
     approved: true,
-    is_active: true,
+    is_active: room,
+    // 🎚 In the replaced one's place — the card lists the ten oldest first, so the row does not move.
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
   });
+  if (insertErr) logQueryError('createCoupleChallengeAction.insert', insertErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !insertErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -222,11 +272,14 @@ export async function createCoupleChallengeAction(formData: FormData) {
  * 🔑 The guard was right that something was wrong; it was wrong about what.
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
-  const base = `/dashboard/${eventId}/studio/papic`;
-  return raw === 'run-of-show' ? `${base}/run-of-show` : `${base}/challenges`;
+  // 🏠 'home' — pressed inside Home's open Papic card (owner 2026-10-23: the card "expands on home"); a fixed word
+  // picks a fixed path, never a URL from the form. The two others are the Papic page's children, still pages.
+  if (raw === 'home') return `/dashboard/${eventId}`;
+  return raw === 'run-of-show' ? `/dashboard/${eventId}/studio/papic/run-of-show` : `/dashboard/${eventId}/studio/papic/challenges`;
 }
 
 export async function addLibraryChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -286,6 +339,9 @@ export async function addLibraryChallengeAction(formData: FormData) {
     .select('mission_id')
     .eq('event_id', eventId)
     .eq('library_id', libraryId)
+    // ✕ A removed pick is not "already on the board" — adding it again makes a fresh challenge; the removed row keeps
+    // its old photos.
+    .is('removed_at', null)
     .limit(1);
   if (existing && existing.length > 0) {
     // 🔑 ALREADY ON THE BOARD IS NOT ALREADY IN THE RUN OF SHOW. A couple who
@@ -335,6 +391,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (laneErr) {
     redirect(`${returnTo}?add=unavailable`);
   }
+  // 🎚 Choosing a slot's challenge (2026-10-27): one in, one out — the ceiling is not asked, the slot count is unchanged.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
   const live = (laneRows ?? []).filter((r) => r.is_active);
   const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
   const chosen = live.filter((r) => r.source === 'couple').length;
@@ -344,11 +402,17 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // will not fit. Refusing here with `?add=full` is what makes that legible;
   // silently dropping the last moments would be the same silent-drop this
   // ceiling was added to stop, moved into a new screen.
-  if (chosen >= coupleSlots(vendorUsed)) {
+  if (!replacing && chosen >= coupleSlots(vendorUsed)) {
+    redirect(`${returnTo}?add=full`);
+  }
+  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24). A
+  // replacement turns on only if there is room besides the one it replaces; else it is kept, switched off.
+  const roomForIt = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  if (!replacing && !roomForIt) {
     redirect(`${returnTo}?add=full`);
   }
 
-  await supabase.from('papic_missions').insert({
+  const { error: addErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: row.mission_type,
     source: 'couple',
@@ -356,12 +420,15 @@ export async function addLibraryChallengeAction(formData: FormData) {
     library_id: row.library_id,
     capture_kind: row.capture_kind,
     approved: true,
-    is_active: true,
+    is_active: roomForIt,
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
     // NULL for every add that did not come from the run of show — the column
     // means "placed at this moment", and a default would claim a placement
     // nobody made.
     moment_key: momentKey,
   });
+  if (addErr) logQueryError('addLibraryChallengeAction.insert', addErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !addErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(returnTo);
   redirect(returnTo);
@@ -370,6 +437,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
  *  approved vendor, or the couple's own. Curation, not deletion. */
 export async function setCoupleChallengeActiveAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -378,25 +446,31 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (
     typeof missionId !== 'string' ||
     missionId.length === 0 ||
     (active !== 'true' && active !== 'false')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
+  // 🔒 Turning one ON asks the hard cap first (owner 2026-10-24) — an 11th running challenge is refused.
+  if (active === 'true' && activationRefused(await activeChallengesBesides(supabase, eventId, missionId))) {
+    redirect(`${challengeReturnPath(eventId, formData.get('return_to'))}?add=full`);
+  }
   await supabase
     .from('papic_missions')
     .update({ is_active: active === 'true' })
     .eq('mission_id', missionId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    // ✕ A removed challenge is gone for good — the switch never re-lights it (CHECK papic_missions_removed_is_off).
+    .is('removed_at', null);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -428,6 +502,7 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
  * capture window closes the last one by itself.
  */
 export async function armChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -435,10 +510,10 @@ export async function armChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   // 🔑 THE RUN OF SHOW ARMS THROUGH THIS ACTION, IT DOES NOT RE-IMPLEMENT IT.
@@ -510,12 +585,14 @@ export async function armChallengeAction(formData: FormData) {
  * updates no rows.
  */
 export async function setChallengesPausedAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
     redirect('/dashboard');
   }
-  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  // 🏠 The Papic card's Challenges switch (owner 2026-10-24) saves back to Home; the run of show keeps its own page.
+  const returnTo = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic/run-of-show`;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }
@@ -557,6 +634,7 @@ export async function setChallengesPausedAction(formData: FormData) {
  * conflating them would close a prompt mid-answer.
  */
 export async function clearMomentChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -608,6 +686,7 @@ export async function clearMomentChallengeAction(formData: FormData) {
  * a page that went stale cannot kill the one the host has just started.
  */
 export async function stopChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -615,10 +694,10 @@ export async function stopChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -631,13 +710,30 @@ export async function stopChallengeAction(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
-/** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
- *  the toggle, never deleted here (a deleted auto mission would just regenerate;
- *  a vendor's challenge is theirs) — so this is scoped source='couple'. */
+/**
+ * ✕ REMOVE A CHALLENGE — A SOFT REMOVE, NEVER A DELETE (owner 2026-10-26, DECISION_LOG "PAPIC CHALLENGES: A LIVE
+ * SWITCH AND AN ✕"): *"if the challenge is removed and someone did the challenge, the photo and challenge is saved
+ * but anything after, you do not have the challenge"*.
+ *
+ * The row stays — `papic_mission_completions.mission_id` is `ON DELETE CASCADE`, so the old hard delete threw away
+ * every photo's challenge tag. Removal is `is_active = false` (which closes every guest path: the board, completing,
+ * arming — all filter it) PLUS `removed_at` (which takes it off the host's list too) PLUS `moment_key = null` (it
+ * leaves the run of show). The CHECK `papic_missions_removed_is_off` (migration 20271292346034) means a removed row
+ * can never be switched back on.
+ *
+ * The couple's OWN challenges only, as it always was (the full challenges page's bin; a Setnayan, booth or supplier
+ * challenge is switched off, never deleted). Since 2026-10-27 the Papic card has no ✕ at all — its ten slots are
+ * CHANGED (`replace_mission_id` on the two add actions, the same soft retirement) or switched off. A removed pick also
+ * leaves a Setnayan veto tombstone for that library row, so the board's fill (`ensure_papic_board`, which skips
+ * library rows a couple has taken or vetoed) cannot put the same challenge back as a Setnayan pick.
+ *
+ * 🔒 `a-removed-challenge-keeps-its-photos.test.ts` (source) + `.db.test.ts` (the database) hold it.
+ */
 export async function deleteCoupleChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -645,22 +741,57 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
-  await supabase
+  const removedAt = new Date().toISOString();
+  const { data: removed, error: removeErr } = await supabase
     .from('papic_missions')
-    .delete()
+    .update({ is_active: false, removed_at: removedAt, moment_key: null })
     .eq('mission_id', missionId)
     .eq('event_id', eventId)
-    .eq('source', 'couple');
+    .eq('source', 'couple')
+    .is('removed_at', null)
+    .select('source, library_id, prompt, mission_type, capture_kind')
+    .maybeSingle();
+  if (removeErr) logQueryError('deleteCoupleChallengeAction.remove', removeErr, { event_id: eventId }, 'graceful_degrade');
+
+  // The couple's own library pick leaves a veto tombstone, so the Setnayan fill cannot hand the same challenge back.
+  const libraryId = (removed as { library_id?: number | null } | null)?.library_id ?? null;
+  if (removed && (removed as { source?: string }).source === 'couple' && typeof libraryId === 'number') {
+    const { data: hero } = await supabase
+      .from('papic_missions')
+      .select('mission_id')
+      .eq('event_id', eventId)
+      .eq('source', 'setnayan')
+      .eq('library_id', libraryId)
+      .maybeSingle();
+    const veto = hero
+      ? await supabase
+          .from('papic_missions')
+          .update({ is_active: false, removed_at: removedAt, moment_key: null })
+          .eq('mission_id', (hero as { mission_id: string }).mission_id)
+          .eq('event_id', eventId)
+      : await supabase.from('papic_missions').insert({
+          event_id: eventId,
+          source: 'setnayan',
+          library_id: libraryId,
+          prompt: (removed as { prompt: string }).prompt,
+          mission_type: (removed as { mission_type: string }).mission_type,
+          capture_kind: (removed as { capture_kind?: string | null }).capture_kind ?? null,
+          approved: true,
+          is_active: false,
+          removed_at: removedAt,
+        });
+    if (veto.error) logQueryError('deleteCoupleChallengeAction.veto', veto.error, { event_id: eventId }, 'graceful_degrade');
+  }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and
@@ -714,11 +845,20 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * saved into the void; the guard written afterwards is why this redirect
  * carries a param the banner reads.
  */
+/**
+ * 🖼 Where an uploads save lands: Memories when it was made there (+ Add photos, owner 2026-10-23 — the files moved
+ * there), else the Papic page. A fixed word picks a fixed path — never a URL from the form.
+ */
+function papicBack(formData: FormData, eventId: string): string {
+  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : papicHomeHref(eventId);
+}
+
 export async function setPapicUploadsOpen(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicBack(formData, eventId);
 
   // The form posts the value it wants, not a flip of what it read — a toggle
   // that flips whatever it last saw double-fires on a double-tap and lands on
@@ -732,53 +872,73 @@ export async function setPapicUploadsOpen(formData: FormData) {
 
   if (error) {
     logQueryError('setPapicUploadsOpen', error, { event_id: eventId, open }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=save_failed`);
+    redirect(withQuery(back, `uploads_error=save_failed`));
   }
-  revalidatePath(back);
-  redirect(`${back}?uploads_open_set=${open ? '1' : '0'}`);
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `uploads_open_set=${open ? '1' : '0'}`));
 }
 
-export async function claimUploadsCamera(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) redirect(result.redirectTo);
+/**
+ * ＋ ADD PHOTOS IN ONE PRESS (owner 2026-10-26, live: "the turn on is not working as well fix it"). The sheet's
+ * "Choose photos" opens the file picker at once; the moment files are picked, the picker calls THIS to claim THIS
+ * host's own host camera (one per host — couple and co-hosts alike, owner 2026-10-31), then sends the files with the
+ * token it returns. There is no separate "Turn this on".
+ *
+ * Replaces `claimUploadsCamera` (a form + redirect): it answered a missing camera with `uploads_error=no_camera`, "please
+ * try again" — and no retry could mint the row (`lib/uploads-seat-claim.ts` has the measurement). It also answered a
+ * camera claimed by the OTHER host with "Adding photos is on" while the sheet stayed shut for this one.
+ *
+ * 🔒 THE SAME GATES, ANSWERED IN WORDS (a client-called action must not redirect a sheet away): the limited-helper gate,
+ * the couple check, then the token is read on the service role and claimed on the CALLER'S session through
+ * `papic_claim_seat` — idempotent in the database ('claimed' again for the same person; 'taken' for anybody else). The
+ * token reaches the browser only after the claim says it is this person's. It mints NOTHING
+ * (`the-uploads-camera-has-no-back-door.test.ts`): the camera is minted by the couple-checked Memories render.
+ */
+export type StartAddingPhotos = { ok: true; token: string } | { ok: false; code: UploadsClaimCode | 'helper'; words: string };
+
+export async function startAddingPhotos(rawEventId: string): Promise<StartAddingPhotos> {
+  const refuse = (code: UploadsClaimCode): StartAddingPhotos => ({ ok: false, code, words: uploadsClaimWords(code) });
+  const helper = await limitedHelperRefusal(rawEventId, 'photos');
+  if (helper) return { ok: false, code: 'helper', words: helper };
+  const result = await getCoupleEventId(rawEventId);
+  if (!result.ok) return refuse(result.redirectTo === '/login' ? 'signed_out' : 'not_host');
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
 
+  // 👥 THIS host's camera (owner 2026-10-31, "yes. papic credits still"): every host — each couple member and each
+  // co-host — has their own, read by the same resolver the Memories render used (`readHostCamera`), so the sheet and the
+  // claim agree on which camera is whose. It mints nothing: the couple-checked Memories render minted it.
   const admin = createAdminClient();
-  const { data: seat, error: seatError } = await admin
-    .from('paparazzi_seats')
-    .select('claim_qr_token, claimer_user_id')
-    .eq('event_id', eventId)
-    .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-    .is('revoked_at', null)
-    .maybeSingle();
-
-  // ⚠ A refused read is not "there is no camera". The studio render provisions
-  // it, so the honest answer is "try again in a moment", never a silent no-op.
-  if (seatError) {
-    logQueryError('claimUploadsCamera.seat', seatError, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=unavailable`);
-  }
-  if (!seat?.claim_qr_token) redirect(`${back}?uploads_error=no_camera`);
-  // Already ours ⇒ nothing to do. Not an error.
-  if (seat.claimer_user_id) redirect(`${back}?uploads_ready=1`);
-
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('papic_claim_seat', {
-    p_token: seat.claim_qr_token as string,
-  });
-  if (error) {
-    logQueryError('claimUploadsCamera.claim', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=claim_failed`);
-  }
-  const status = ((data ?? {}) as { status?: string }).status ?? 'error';
-  if (status !== 'claimed') redirect(`${back}?uploads_error=${encodeURIComponent(status)}`);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return refuse('signed_out');
+  // Two tries: a spare another host claimed a moment earlier answers 'taken', and the second read finds this host's
+  // own (claimed) camera or the next spare. Never a third — a loop here would hide a real refusal.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { pick, readFailed } = await readHostCamera(admin, eventId, user.id);
+    if (readFailed) logQueryError('startAddingPhotos.seat', { message: 'host camera read refused' }, { event_id: eventId }, 'graceful_degrade');
+    if (pick?.kind === 'full') return refuse('full');
+    const step = uploadsClaimStep(hostCameraSeat(pick), readFailed);
+    if ('refuse' in step) return refuse(step.refuse);
 
-  revalidatePath(back);
-  redirect(`${back}?uploads_ready=1`);
+    const { data, error } = await supabase.rpc('papic_claim_seat', { p_token: step.claim });
+    if (error) {
+      logQueryError('startAddingPhotos.claim', error, { event_id: eventId }, 'graceful_degrade');
+      return refuse('claim_failed');
+    }
+    const answer = uploadsClaimAnswer(((data ?? {}) as { status?: string }).status);
+    if ('refuse' in answer) {
+      if (answer.refuse === 'taken' && attempt === 0) continue;
+      return refuse(answer.refuse);
+    }
+    return { ok: true, token: step.claim };
+  }
+  return refuse('taken');
 }
 
 export async function setPapicStyle(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -788,7 +948,7 @@ export async function setPapicStyle(formData: FormData) {
   const raw = formData.get('style');
   const style = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) {
-    redirect(`/dashboard/${eventId}/studio/papic?style_error=invalid`);
+    redirect(papicHomeHref(eventId, `style_error=invalid`));
   }
 
   const admin = createAdminClient();
@@ -799,14 +959,44 @@ export async function setPapicStyle(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?style_error=${encodeURIComponent(
+      papicHomeHref(eventId, `style_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
+  revalidatePath(`/dashboard/${eventId}`);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
+  redirect(papicHomeHref(eventId, `style_set=${style}`));
+}
+
+/**
+ * 🎨 THE FILTER, PICKED IN PLACE (owner 2026-10-26, on his phone: *"on papic, picking a filter reload the whole screen
+ * and not just the filter to be highlighted"*). `setPapicStyle` above ends in a `redirect` — a navigation, so every
+ * tap re-drew the whole page from the top. The strip (`style-picker.tsx`) now highlights the tapped look at once and
+ * saves through THIS: the same gate, the same check, the same one column — answered, never a navigation. The pages
+ * that show the look are re-rendered in place (`revalidatePath`, no redirect). The form's `setPapicStyle` stays the
+ * no-JavaScript path. Held by `picking-a-filter-stays-in-place.test.ts`.
+ */
+export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const refused = await limitedHelperRefusal(eventIdRaw, 'photos');
+  if (refused) return { ok: false, error: refused };
+  const result = await getCoupleEventId(eventIdRaw);
+  if (!result.ok) return { ok: false, error: 'This event could not be opened just now. Please try again.' };
+  const { eventId } = result;
+  const style = typeof styleRaw === 'string' ? styleRaw.trim().toUpperCase() : '';
+  if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) return { ok: false, error: 'That filter could not be read.' };
+  const { error } = await createAdminClient().from('events').update({ papic_style: style }).eq('event_id', eventId);
+  if (error) {
+    logQueryError('setPapicStyleInPlace.update', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false, error: 'That filter could not be saved just now. Please try again.' };
+  }
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -835,6 +1025,7 @@ export async function setPapicStyle(formData: FormData) {
  * session so the fn's auth.uid() couple + ownership checks pass.
  */
 export async function provisionPapicSeats(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -866,6 +1057,7 @@ export async function provisionPapicSeats(formData: FormData) {
  * permits the UPDATE under their own session.
  */
 export async function reissuePapicSeat(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -948,6 +1140,7 @@ export async function reissuePapicSeat(formData: FormData) {
  * idempotent. Scoped to (event_id, photo_id) under the couple's session.
  */
 export async function setClipShowcaseApproval(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -957,7 +1150,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
   const rawPhotoId = formData.get('photo_id');
   const photoId = typeof rawPhotoId === 'string' ? rawPhotoId.trim() : '';
   if (!photoId) {
-    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -971,18 +1164,18 @@ export async function setClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
   // Refresh the gallery (couple) + the public manifesto orb (ISR) so the change
   // shows on the next render of either surface.
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
@@ -1004,6 +1197,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
  * to (capture_id, event_id) so a forged call can't touch another event's clip.
  */
 export async function setGuestClipShowcaseApproval(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1013,7 +1207,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
   const rawCaptureId = formData.get('photo_id');
   const captureId = typeof rawCaptureId === 'string' ? rawCaptureId.trim() : '';
   if (!captureId) {
-    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -1027,551 +1221,68 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Papic · per-CAMERA buy flow (owner-locked 2026-06-26 · PR2).
+// ⛔ PAPIC SELLS CREDITS — NOTHING ELSE (owner 2026-09-16, asked again 2026-10-23).
 //
-// A camera = a paparazzi seat with a tier. Beyond the free funnel cameras, a
-// couple buys paid cameras at Roll (₱30/camera/day) or Unlimited
-// (₱100/camera/day), 5-camera minimum, capped per tier (events.papic_ltd_cap_php / papic_unli_cap_php)
-// (default ₱6,999). Prices are admin-managed (read from the catalog). This is
-// apply-then-pay: the order lands at status='submitted' for the Setnayan team
-// to reconcile, and the paid cameras are materialized immediately as PENDING
-// seats (paid_order_id set) so the couple can prep invites — but capture stays
-// blocked until the order is paid (the presign gate is PR3). Strictly
-// additive: the PAPIC_SEATS pack is untouched.
+// ⚖ *"we do not have papic seat. we only have papic with credits and shared
+// amongst everybody. no dedicated shots individually."* The per-camera buy
+// (`purchasePapicCameras`), the guest-list Limited / Unlimited tier
+// (`activatePapicLimited`) and the off-list crew-camera tiers
+// (`purchasePapicExtras`) each minted a `PAPIC_CAMERAS` order of their own —
+// and on 2026-10-23 the couple's page still drew the guest-camera sheet with a
+// live "activate 264 guest cameras · ₱6,000" button. (`papic_tier_config` had
+// every paid rung switched off since September; the Limited tier never asked
+// it — it priced from `fetchCameraRates`, so the switch governed nothing.)
+//
+// 🔑 THE THREE ACTIONS STAY EXPORTED AND REFUSE, rather than vanish. A page a
+// couple opened before this shipped still holds a form bound to these ids; a
+// deleted action answers that form with a framework error, a refusal answers it
+// with a sentence. Each still checks the couple first, so a stranger learns
+// nothing about the event from the refusal.
+//
+// ✅ WHAT IS NOT TOUCHED: every order these actions ever minted, their
+// snapshots, their seats and their activation hooks (`lib/sku-activation.ts`).
+// Historical money stays readable and fulfilable; only the door that STARTS a
+// new one is shut. `lib/papic-sells-only-credits.test.ts` holds both halves.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Read one rung's camera count off the posted form (absent/garbage → 0). */
-function rungCount(formData: FormData, field: string): number {
-  const n = Number(formData.get(field) ?? 0);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+async function refuseRetiredCameraSale(formData: FormData): Promise<never> {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  redirect(papicCameraSaleRefusedPath(result.eventId));
 }
 
-/**
- * Buy paid Papic cameras across the THREE rungs — `mini` (₱30) · `ltd` (₱50) ·
- * `unlimited` (₱100) — plus the legacy `roll` field, which is accepted forever
- * and folded into Mini by computeCameraQuote (roll == Mini · see
- * lib/papic-cameras.ts). Validates the minimum + per-rung cap, creates the
- * apply-then-pay order, and provisions the cameras at their rungs. Redirects
- * back to the Papic page with payment instructions (reference code + amount).
- */
-/*
-  ─── THE CELEBRATION IS OVER: PAPIC STOPS SELLING ──────────────────────────
-
-  Owner, 2026-08-21, on Live Studio / Papic cameras / Custom QR once the event
-  has finished: **"stop offering them."** And, asked the same about a GUEST
-  buying shots: **"no. it needs to be in a new event."**
-
-  🔑 THESE FOUR ACTIONS MINT ORDERS WITHOUT EVER TOUCHING `submitOrderAction`,
-  so the refusal in the shared checkout does not reach them. A gate there alone
-  would be a button-not-a-door fix.
-
-  🔑 ONE HELPER, NOT A SECOND COPY. `lib/event-is-over.server.ts` is the shared
-  I/O half — the same one the account-less guest buy path calls. This file used
-  to carry its own four-column read and its own five-argument call; two copies
-  of "did this happen" is how the product comes to disagree with itself.
-
-  ⚠ IT ASKS THE LIFECYCLE RESOLVER, NOT THE CAPTURE WINDOW. `fetchEventPapicWindow`
-  FAILS OPEN by design when a couple never set bounds — most events — so a gate
-  built on it would simply not exist for them. And the window's day multiplier
-  is a PRICE input, not a gate.
-*/
+/** ⛔ Retired — refuses. Papic sells shared credits only (see above). */
 export async function purchasePapicCameras(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  // The guard already verified couple membership; re-read the user for the
-  // order's purchaser id (the same createClient session the guard used).
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const selection = {
-    mini: rungCount(formData, 'mini'),
-    ltd: rungCount(formData, 'ltd'),
-    unlimited: rungCount(formData, 'unlimited'),
-    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
-  };
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
-  }
-
-  // Cost cap + event date (the per-day validity window; days defaults to 1 —
-  // "1 day for ~all weddings" per the per-camera spec).
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const caps = {
-    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
-    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
-    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
-  };
-  const uncapped = isPapicUncapped(ev?.event_type as string | null);
-
-  // The event's capture window sets BOTH the day multiplier (price) and the
-  // seat validity bounds (how long the cameras shoot). Legacy single-day events
-  // fall back to 1 day anchored to event_date.
-  const win = await fetchEventPapicWindow(admin, eventId);
-
-  // Unlock owners get their tier free + uncapped (money-gated on an ACTIVE pass):
-  // PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD (owner 2026-07-11) → Ltd. Each pass
-  // covers only its own tier, so an owner never re-pays for cameras it unlocked.
-  const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
-  const ownsUnlockLtd = await eventSkuActive(
-    admin,
-    eventId,
-    PAPIC_UNLOCK_LTD_BUNDLE_KEY,
-  );
-  const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote(selection, win.days, rates, caps, {
-    unliFree: ownsUnlock,
-    // PAPIC_UNLOCK_LTD frees the ₱30 rung it was sold against — today's Mini
-    // (legacy 'roll'). It does NOT free the new ₱50 Ltd rung.
-    miniFree: ownsUnlockLtd,
-    uncapped,
-  });
-
-  if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_cameras`);
-  }
-
-  // Order shape: when the whole quote is free (an umbrella owner provisioning
-  // Unli only), nothing needs reconciling — the order lands 'fulfilled' (a ₱0
-  // comp the ACTIVE PAPIC_UNLOCK already covers) so the cameras shoot at once.
-  // Otherwise it's the apply-then-pay 'submitted' order the Setnayan team
-  // reconciles (the Roll part); any free Unli seats provisioned on that same
-  // order are freed by the capture-gate PAPIC_UNLOCK bypass (papic/actions +
-  // api/upload). requested_total_php is the pre-VAT base (the order layer adds
-  // VAT for the customer invoice, same as every other SKU).
-  const isFree = quote.totalPhp === 0;
-  const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description: quote.description,
-      requested_total_php: quote.totalPhp,
-      reference_code: referenceCode,
-      status: isFree ? 'fulfilled' : 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  // Materialize the paid cameras (PENDING — capture blocked until paid, PR3).
-  // Best-effort: a provisioning hiccup must not strand the order the couple
-  // already owes on (the activation hook / a later top-up can recover seats).
-  try {
-    await provisionPaidCamerasAdmin(admin, {
-      eventId,
-      orderId: order.order_id,
-      miniCount: quote.miniCount,
-      ltdCount: quote.ltdCount,
-      unlimitedCount: quote.unlimitedCount,
-      validFrom: win.startIso,
-      validUntil: win.endIso,
-    });
-  } catch {
-    // swallow — order exists; seats can be topped up on approval.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  if (isFree) {
-    // Free Unli provision (umbrella owner) — cameras are already active, no
-    // payment instructions. Surface a "your cameras are ready" confirmation.
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
-    );
-  }
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
+  return refuseRetiredCameraSale(formData);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Papic · LIMITED = the guest list (owner-locked 2026-06-26).
-//
-// "Ready for Papic" turns the couple's guest list into Limited cameras: every
-// guest who hasn't declined gets one camera (their personal QR is the credential)
-// + their own gallery. The count auto-derives from the list — no stepper. Sold
-// ONCE via a reversible snapshot; after that, late "yes" RSVPs are covered for
-// free within the cost cap by syncGuestCameras (the page calls it on render).
-//
-// Re-tapping "Ready for Papic" when Limited is already live is a FREE re-sync,
-// never a second charge (the "no surprise charge" rule). A fresh paid activation
-// happens only when there is no live snapshot.
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Activate (or re-sync) Papic Limited for the event's guest list. Apply-then-pay
- * on the first activation; a free re-sync once Limited is already live.
- */
+/** ⛔ Retired — refuses. A guest's invite QR is their camera; it costs nothing on its own. */
 export async function activatePapicLimited(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=event_over`);
-  }
-
-  // Chosen tier (owner 2026-06-26 — "upgrade to Unlimited"). Default Limited(roll).
-  const rawTier = formData.get('tier');
-  const tier: LimitedTier = rawTier === 'unlimited' ? 'unlimited' : 'roll';
-
-  const existing = await fetchActiveLimitedSnapshot(admin, eventId);
-
-  // Already live at the SAME tier → just re-sync (covers late RSVPs) — no new
-  // order, no charge.
-  if (existing && (existing.tier ?? 'roll') === tier) {
-    let synced = { added: 0, revoked: 0, retiered: 0 };
-    try {
-      synced = await syncGuestCameras(admin, eventId, existing);
-    } catch {
-      // best-effort — the snapshot is already live.
-    }
-    revalidatePath(`/dashboard/${eventId}/studio/papic`);
-    redirect(`/dashboard/${eventId}/studio/papic?limited_synced=${synced.added}`);
-  }
-
-  // Count the list + enforce the 5-camera minimum (the free tier covers the
-  // first 5). Applies to a fresh activation AND a tier change/upgrade.
-  const guestCount = await countLimitedGuests(admin, eventId);
-  if (guestCount < 1) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=no_guests`);
-  }
-  if (guestCount < PAPIC_MIN_PAID_CAMERAS) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=below_min`);
-  }
-
-  // Rate + cap for the chosen tier (both admin-managed).
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const rates = await fetchCameraRates(admin);
-  // The capture window sets the day multiplier (and, via syncGuestCameras, the
-  // seat validity bounds). Legacy single-day events fall back to 1 day.
-  const win = await fetchEventPapicWindow(admin, eventId);
-  const ratePhp = tier === 'unlimited' ? rates.unlimited : rates.roll;
-  // roll/limited == Mini (owner 2026-07-17 roll->Mini) → Mini cap; non-weddings
-  // uncapped (charge runs to the raw subtotal).
-  const capPhp = isPapicUncapped(ev?.event_type as string | null)
-    ? Number.MAX_SAFE_INTEGER
-    : tier === 'unlimited'
-      ? Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP
-      : Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP;
-  const quote = computeLimitedQuote(guestCount, ratePhp, capPhp, win.days);
-
-  // Tier CHANGE (upgrade to Unlimited / switch back to Limited): supersede the
-  // current snapshot first — the one-live-per-event index requires it — and
-  // cancel its order while it's still awaiting payment so the couple isn't billed
-  // twice. (If the old order was already PAID, it stays; the new order bills the
-  // full new tier — delta-billing is a holistic-pricing-pass question, flagged.)
-  if (existing) {
-    await admin
-      .from('papic_limited_snapshots')
-      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
-      .eq('snapshot_id', existing.snapshot_id);
-    if (existing.order_id) {
-      await admin
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('order_id', existing.order_id)
-        .eq('status', 'submitted');
-    }
-  }
-
-  // Apply-then-pay order (the Setnayan team reconciles the transfer). The order
-  // layer adds VAT for the customer invoice; requested_total_php is the base.
-  const tierLabel = tier === 'unlimited' ? 'Unlimited' : 'Limited';
-  const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
-  const description = `Papic ${tierLabel} — ${formatCount(guestCount)} guest camera${
-    guestCount === 1 ? '' : 's'
-  }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description,
-      requested_total_php: quote.frozenBillPhp,
-      reference_code: referenceCode,
-      status: 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  // Record the frozen snapshot at the chosen tier, then materialize / re-tier the
-  // guest cameras from it (syncGuestCameras provisions missing + re-tiers any
-  // existing guest seats to match).
-  const { data: snapRow, error: snapErr } = await admin
-    .from('papic_limited_snapshots')
-    .insert({
-      event_id: eventId,
-      order_id: order.order_id,
-      guest_count: guestCount,
-      rate_php: quote.ratePhp,
-      cap_php: quote.capPhp,
-      frozen_bill_php: quote.frozenBillPhp,
-      camera_cap: quote.cameraCap,
-      days: quote.days,
-      status: 'pending_payment',
-      tier,
-    })
-    .select(
-      'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, tier, created_at, activated_at, superseded_at',
-    )
-    .maybeSingle();
-  if (snapErr || !snapRow) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
-        (snapErr?.message ?? 'snapshot_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  try {
-    await syncGuestCameras(admin, eventId, snapRow as LimitedSnapshotRow);
-  } catch {
-    // swallow — snapshot exists; sync runs again on the next render.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
+  return refuseRetiredCameraSale(formData);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Papic · extra cameras — for shooters NOT on the guest list.
-//
-// The ONLY way to add a camera off the guest list (a videographer friend, a
-// hired second shooter). These stay anonymous paparazzi_seats with claim links
-// (the per-camera path). Each extra is a deliberate paid camera at the per-day
-// rate, so the minimum is 1 (no bulk-of-5 gate — owner UX call 2026-06-26).
-//
-// Owner 2026-07-20: extras now span the FULL three-rung ladder (Mini ₱30 · Ltd
-// ₱50 · Unli ₱100) rather than Unlimited-only. Every rung meters through the
-// same capture-points budget from papic_tier_config, so an off-list Mini camera
-// is exactly as well-defined as an on-list one.
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Buy extra cameras off the guest list, at any rung. Min 1 camera total.
- * Apply-then-pay. Accepts `mini` / `ltd` / `unlimited` counts (plus the legacy
- * `roll` field, folded into Mini).
- */
+/** ⛔ Retired — refuses. Anyone with the one shared code shoots from the same credits. */
 export async function purchasePapicExtras(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const selection = {
-    mini: rungCount(formData, 'mini'),
-    ltd: rungCount(formData, 'ltd'),
-    unlimited: rungCount(formData, 'unlimited'),
-    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
-  };
-  if (selection.mini + selection.ltd + selection.unlimited + selection.roll < 1) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_extras`);
-  }
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
-  }
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const caps = {
-    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
-    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
-    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
-  };
-  const uncapped = isPapicUncapped(ev?.event_type as string | null);
-
-  // Capture window → day multiplier + seat validity bounds (shared with the
-  // guest-list cameras so the whole event opens/closes together).
-  const win = await fetchEventPapicWindow(admin, eventId);
-
-  // Unlock passes: PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30
-  // Mini rung (the rung it was sold against — see lib/papic-cameras.ts).
-  const [ownsUnlock, ownsUnlockLtd] = await Promise.all([
-    eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY),
-    eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY),
-  ]);
-  const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote(selection, win.days, rates, caps, {
-    unliFree: ownsUnlock,
-    miniFree: ownsUnlockLtd,
-    uncapped,
-  });
-
-  const isFree = quote.totalPhp === 0;
-  const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
-  const description = `Papic extra cameras — ${quote.rungSummary}${
-    windowLabel
-      ? ` · ${windowLabel}`
-      : ` · ${win.days} day${win.days === 1 ? '' : 's'}`
-  }`;
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description,
-      requested_total_php: quote.totalPhp,
-      reference_code: referenceCode,
-      status: isFree ? 'fulfilled' : 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  // Anonymous seats at their chosen rungs (guest_id stays NULL → claim-link model).
-  try {
-    await provisionPaidCamerasAdmin(admin, {
-      eventId,
-      orderId: order.order_id,
-      miniCount: quote.miniCount,
-      ltdCount: quote.ltdCount,
-      unlimitedCount: quote.unlimitedCount,
-      validFrom: win.startIso,
-      validUntil: win.endIso,
-    });
-  } catch {
-    // swallow — order exists; seats can be topped up on approval.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  if (isFree) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
-    );
-  }
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
+  return refuseRetiredCameraSale(formData);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1593,6 +1304,7 @@ export async function purchasePapicExtras(formData: FormData) {
 
 /** Set (or edit) the event's Papic capture window from the studio picker. */
 export async function setPapicWindow(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1619,7 +1331,7 @@ export async function setPapicWindow(formData: FormData) {
   });
   if (!resolved.ok) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_window_error=${resolved.error}`,
+      papicHomeHref(eventId, `papic_window_error=${resolved.error}`),
     );
   }
   const { window: win } = resolved;
@@ -1633,9 +1345,9 @@ export async function setPapicWindow(formData: FormData) {
     .eq('event_id', eventId);
   if (updErr) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_window_error=${encodeURIComponent(
+      papicHomeHref(eventId, `papic_window_error=${encodeURIComponent(
         updErr.message.slice(0, 48),
-      )}`,
+      )}`),
     );
   }
 
@@ -1655,10 +1367,24 @@ export async function setPapicWindow(formData: FormData) {
     // swallow — the window is saved; seats re-stamp on the next sync.
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
+  // 🏠 Saved from Home's Papic card: land back on Home, the card still open (a failure still lands on the Papic
+  // page above, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(
-    `/dashboard/${eventId}/studio/papic?papic_window_saved=${win.days}`,
+    papicHomeHref(eventId, `papic_window_saved=${win.days}`),
   );
+}
+
+/**
+ * 🏠 Was this saved from Home's Papic card (owner 2026-10-23: the card *"expands on home"*, the URL unchanged)?
+ * 🔒 A fixed word (`return_to=home`) picks a fixed path — never a URL from the form.
+ */
+function savedFromHome(formData: FormData): boolean {
+  return formData.get('return_to') === 'home';
 }
 
 // ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────
@@ -1676,6 +1402,29 @@ export async function setPapicWindow(formData: FormData) {
 // What deliberately STAYS: the activation hooks in lib/sku-activation.ts and
 // the deactivated tier rows they resolve against. Deleting a buy path is not
 // the same as abandoning the orders it already minted.
+
+/**
+ * 📍 HOME'S IN-PLACE "BUY MORE" (owner 2026-10-13) — the credit ladder, read
+ * only when somebody taps the button, so Home's own view pays nothing for it
+ * (prod is on the free plan; owner: least requests per screen).
+ *
+ * Returns the SAME rungs `PapicPoolCard` sells (lib/papic-pool-rungs.ts); the
+ * charge still happens in `purchasePapicPoolTopUp`, which re-reads every price.
+ * Couple-only, exactly like the purchase it leads to — a coordinator would be
+ * refused at the charge, so they are told so here instead of after a tap.
+ */
+export async function papicBuySizes(
+  rawEventId: string,
+): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
+  const who = await getCoupleEventId(rawEventId);
+  if (!who.ok) return { ok: false, reason: 'not_couple' };
+  const admin = createAdminClient();
+  if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
+  // 🧮 "How many do I need?" left the sheet (owner 2026-10-24: *"asked for how many photos each doesn't need to show.
+  // it should just ask how much they want to add more and purchase"*), and with it the three reads it made on every tap.
+  const rungs = await loadPoolRungs(admin);
+  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
+}
 
 /**
  * Buy a Papic POOL top-up — add shots to the event's SHARED pool.
@@ -1700,6 +1449,7 @@ export async function setPapicWindow(formData: FormData) {
  * client-supplied.
  */
 export async function purchasePapicPoolTopUp(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1715,14 +1465,14 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   }
 
   const fail = (code: string): never =>
-    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=${code}`);
+    redirect(papicHomeHref(eventId, `papic_pool_error=${code}`));
 
   const admin = createAdminClient();
 
   // The celebration is over — no sale. See the note above this file's
   // purchase actions, and lib/event-is-over.server.ts.
   if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=event_over`);
+    redirect(papicHomeHref(eventId, `papic_pool_error=event_over`));
   }
 
   // The rung must be a LIVE, NON-TOPUP Pool rung. Read from the table, never an
@@ -1754,14 +1504,23 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     fail('unavailable');
   }
 
+  // ONE PRESS, ONE BILL (2026-10-13 — the tester's two presses made two
+  // orders). The same purchase made moments ago and still unpaid is the bill
+  // this press means; see lib/one-press-one-order.ts.
+  const description = `Papic — adds ${formatCount(points)} credits to this event`;
+  const twinKey = { eventId, userId: user.id, serviceKey: rawSku, amountPhp: pricePhp, description };
+  const reuse = await openTwinReference(admin, twinKey);
+  if (reuse) redirect(payPath(reuse));
+
   const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
+  const moneyWriter = createMoneyWriterClient();
+  const { data: order, error: orderErr } = await moneyWriter
     .from('orders')
     .insert({
       event_id: eventId,
       user_id: user.id,
       service_key: rawSku,
-      description: `Papic — adds ${formatCount(points)} credits to this event`,
+      description,
       requested_total_php: pricePhp,
       reference_code: referenceCode,
       status: 'submitted',
@@ -1771,7 +1530,15 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
     .maybeSingle();
   if (orderErr || !order) fail('order_failed');
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  // Two presses that arrived TOGETHER both passed the check above; the later
+  // order cancels itself here and lands on the earlier one.
+  const kept = await keepFirstTwin(admin, moneyWriter, twinKey, {
+    orderId: order!.order_id,
+    referenceCode,
+  });
+  if (!kept.keptMine) redirect(payPath(kept.reference));
+
+  revalidatePath(`/dashboard/${eventId}`);
   // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
   // Every other buy button in the product ends here (lib/pay-path.ts lists a
   // dozen), and this path used to be the exception: it returned to the studio,
@@ -1813,12 +1580,13 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
  * acting on another is the exact shape that left the run-of-show gate open.
  */
 export async function setCapturePreserved(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
   }
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const captureId = String(formData.get('capture_id') ?? '').trim();
   const source = String(formData.get('source') ?? '').trim();
@@ -1828,7 +1596,7 @@ export async function setCapturePreserved(formData: FormData) {
   const preserve = String(formData.get('preserve') ?? '') === 'yes';
 
   if (!captureId || (source !== 'seat' && source !== 'guest')) {
-    redirect(`${back}?preserve_error=invalid`);
+    redirect(withQuery(back, `preserve_error=invalid`));
   }
 
   const table = source === 'seat' ? 'papic_photos' : 'papic_guest_captures';
@@ -1845,13 +1613,13 @@ export async function setCapturePreserved(formData: FormData) {
 
   // Supabase resolves `{ error }` rather than throwing, so an unchecked failure
   // would read as "no such capture" and silently do nothing.
-  if (readErr) redirect(`${back}?preserve_error=unreadable`);
-  if (!row) redirect(`${back}?preserve_error=not_found`);
+  if (readErr) redirect(withQuery(back, `preserve_error=unreadable`));
+  if (!row) redirect(withQuery(back, `preserve_error=not_found`));
 
   if ((row as { full_res_dropped_at?: string | null }).full_res_dropped_at) {
     // The original is already the compressed copy. Nothing to keep, and nothing
     // this can undo — refuse out loud instead of writing a mark that does nothing.
-    redirect(`${back}?preserve_error=already_compressed`);
+    redirect(withQuery(back, `preserve_error=already_compressed`));
   }
 
   const { error: writeErr } = await admin
@@ -1861,11 +1629,11 @@ export async function setCapturePreserved(formData: FormData) {
     .eq('event_id', eventId);
 
   if (writeErr) {
-    redirect(`${back}?preserve_error=${encodeURIComponent(writeErr.message.slice(0, 64))}`);
+    redirect(withQuery(back, `preserve_error=${encodeURIComponent(writeErr.message.slice(0, 64))}`));
   }
 
-  revalidatePath(back);
-  redirect(`${back}?preserve_set=${preserve ? 'kept' : 'released'}`);
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `preserve_set=${preserve ? 'kept' : 'released'}`));
 }
 
 /**
@@ -1908,13 +1676,14 @@ export async function setCapturePreserved(formData: FormData) {
  * somebody pressed if the page was stale or they double-tapped.
  */
 export async function setGuestAllotments(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const fail = (code: string): never =>
-    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+    redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
 
   // The form posts the value it wants, not a flip of what it read.
   const enabled = String(formData.get('enabled') ?? '') === '1';
@@ -1981,8 +1750,13 @@ export async function setGuestAllotments(formData: FormData) {
     fail('save_failed');
   }
 
-  revalidatePath(back);
-  redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
+  revalidatePath(hrefPath(back));
+  // 🏠 Saved inside Home's Papic card — land back on Home (a failure above still lands here, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
+  redirect(withQuery(back, `allotment_set=${enabled ? '1' : '0'}`));
 }
 
 /**
@@ -1992,24 +1766,49 @@ export async function setGuestAllotments(formData: FormData) {
  * no separate "remove" verb, because two verbs for one state is how a list and
  * its total come to disagree. A blank box here means "stop naming this guest",
  * which is a different act from giving her zero, and both are honoured.
+ *
+ * 📸 ALSO THE GUEST CARD'S "Their camera ▾" AND THE GUEST LIST'S Set… › Papic (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`): the same door, not a second writer — the server-action budget sits
+ * one under its ceiling, and two writers of one ceiling is how a card and a sheet come to disagree.
+ *   · `quiet=1` — answered IN PLACE: `{ ok: true }` or `{ refused: <code> }`, never a redirect (a redirect would
+ *     navigate the card away). The guest list is revalidated with the Papic page.
+ *   · several `guest_id` — one RPC call per guest, the SAME target for each (never a delta), in order; the first
+ *     refusal stops the run and says how many were set before it.
  */
-export async function setGuestAllotment(formData: FormData) {
+export async function setGuestAllotment(formData: FormData): Promise<void | { ok: true; set: number } | { refused: string; set: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
+  const quiet = formData.get('quiet') === '1';
   const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) redirect(result.redirectTo);
+  if (!result.ok) {
+    if (quiet) return { refused: 'not_a_couple', set: 0 };
+    redirect(result.redirectTo);
+  }
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const fail = (code: string): never =>
-    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+    redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
 
-  const guestId = String(formData.get('guest_id') ?? '').trim();
-  if (!guestId) fail('unknown_guest');
+  const guestIds = [...new Set(formData.getAll('guest_id').map((v) => String(v).trim()).filter(Boolean))];
+  if (guestIds.length === 0) {
+    if (quiet) return { refused: 'unknown_guest', set: 0 };
+    fail('unknown_guest');
+  }
+  // 🧱 One call sets at most ALLOTMENT_BATCH_MAX guests — refused BEFORE the first RPC, never cut off half-way by a
+  // timeout with nothing said. The bulk sheet sends its selection in chunks of that many.
+  if (guestIds.length > ALLOTMENT_BATCH_MAX) {
+    if (quiet) return { refused: 'too_many', set: 0 };
+    fail('too_many');
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) {
+    if (quiet) return { refused: 'not_a_couple', set: 0 };
+    redirect('/login');
+  }
 
   // 🔑 A TARGET, NOT A DELTA — and NULL un-names her. Naming and un-naming are
   // therefore the SAME call rather than two code paths that can disagree about
@@ -2022,7 +1821,10 @@ export async function setGuestAllotment(formData: FormData) {
   let points: number | null = null;
   if (raw !== '') {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      if (quiet) return { refused: 'bad_number', set: 0 };
+      fail('bad_number');
+    }
     points = n;
   }
 
@@ -2030,30 +1832,50 @@ export async function setGuestAllotment(formData: FormData) {
   // this event, that the figure is sane, that a named allotment is protected
   // from the release. None of it is re-implemented here. Deriving the same
   // arithmetic twice is how a screen and a ledger come to disagree.
-  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.setOne, {
-    p_event_id: eventId,
-    p_guest_id: guestId,
-    p_points: points,
-    p_actor: user!.id,
-  });
+  const admin = createAdminClient();
+  let set = 0;
+  for (const guestId of guestIds) {
+    const { error } = await admin.rpc(ALLOTMENT_RPC.setOne, {
+      p_event_id: eventId,
+      p_guest_id: guestId,
+      p_points: points,
+      p_actor: user!.id,
+    });
 
-  if (error) {
-    // The refusal has to reach the screen. 42501 is "that guest is not on this
-    // event" — a guest id is not a capability — and 22023 is a negative figure.
-    const code = String((error as { code?: string }).code ?? '');
-    if (code === '42501') fail('unknown_guest');
-    if (code === '22023') fail('bad_number');
-    logQueryError(
-      'setGuestAllotment',
-      error,
-      { event_id: eventId, guest_id: guestId, points },
-      'graceful_degrade',
-    );
-    fail('save_failed');
+    if (error) {
+      // The refusal has to reach the screen. 42501 is "that guest is not on this
+      // event" — a guest id is not a capability — and 22023 is a negative figure.
+      const code = String((error as { code?: string }).code ?? '');
+      const why = code === '42501' ? 'unknown_guest' : code === '22023' ? 'bad_number' : 'save_failed';
+      if (why === 'save_failed') {
+        logQueryError(
+          'setGuestAllotment',
+          error,
+          { event_id: eventId, guest_id: guestId, points },
+          'graceful_degrade',
+        );
+      }
+      if (quiet) {
+        if (set > 0) revalidateAllotmentReaders(eventId);
+        return { refused: why, set };
+      }
+      fail(why);
+    }
+    set += 1;
   }
 
-  revalidatePath(back);
-  redirect(`${back}?allotment_set=${points === null ? 'cleared' : points}`);
+  if (quiet) {
+    revalidateAllotmentReaders(eventId);
+    return { ok: true, set };
+  }
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `allotment_set=${points === null ? 'cleared' : points}`));
+}
+
+/** The pages that draw a guest's ceiling: the Papic page's named guests, and the guest card's Papic row. */
+function revalidateAllotmentReaders(eventId: string) {
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
 }
 
 /**
@@ -2070,10 +1892,11 @@ export async function setGuestAllotment(formData: FormData) {
  * Do not re-propose it.
  */
 export async function releaseTheRest(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const supabase = await createClient();
   const {
@@ -2093,9 +1916,13 @@ export async function releaseTheRest(formData: FormData) {
 
   if (error) {
     logQueryError('releaseTheRest', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?allotment_error=save_failed`);
+    redirect(withQuery(back, `allotment_error=save_failed`));
   }
 
-  revalidatePath(back);
-  redirect(`${back}?allotment_set=released`);
+  revalidatePath(hrefPath(back));
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
+  redirect(withQuery(back, `allotment_set=released`));
 }

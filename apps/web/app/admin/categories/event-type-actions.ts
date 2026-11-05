@@ -1,6 +1,7 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,6 +13,7 @@ import {
   surfacesStrandedWithoutWebsite,
   strandedWithoutWebsiteMessage,
 } from '@/lib/event-type-profile';
+import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 /**
  * Setnayan HQ · Event type panel actions — the per-type category scoping,
@@ -329,6 +331,10 @@ export async function upsertEventTypeProfile(formData: FormData) {
   const { error } = await admin
     .from('event_type_profiles')
     .upsert(row, { onConflict: 'event_type' });
+  // The home page remembers the event types for 60 s — forget them now (lib/home-shelf-clear.ts).
+  clearHomeShelf('eventTypes');
+  // …and every event page remembers its type's profile (lib/global-settings-cache.ts).
+  revalidateTag(GLOBAL_SETTINGS_TAGS.eventTypeProfiles);
   if (error) {
     // 23503 = FK violation → the key isn't a known event_type_vocab row.
     if (error.code === '23503') {

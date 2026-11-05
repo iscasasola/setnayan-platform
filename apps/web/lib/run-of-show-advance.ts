@@ -79,8 +79,8 @@ async function resolveBlockEventId(
   return ((data as { event_id?: string } | null)?.event_id as string | null) ?? null;
 }
 
-/** Gather the four facts, on the BLOCK's event, and decide. */
-async function mayAdvance(
+/** Gather the four facts, on the BLOCK's event, and decide. Also the floor's Change the schedule gate (`floorChangeSchedule`, owner 2026-11-05 (A)(C)) — one rule for who runs the day. */
+export async function mayAdvance(
   clients: AdvanceClients,
   userId: string,
   eventId: string,

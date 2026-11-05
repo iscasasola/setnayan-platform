@@ -1246,7 +1246,7 @@ export function ScheduleDay({
                               : 'bg-ink/[0.03] ring-1 ring-inset ring-ink/[0.07]'
                         } ${isSel || isDragging ? 'z-[5] translate-x-0.5 ring-2 ring-terracotta' : ''} ${
                           isDragging ? 'cursor-grabbing shadow-2xl' : canEdit ? 'cursor-pointer' : ''
-                        } ${faded ? 'pointer-events-none opacity-[0.14]' : isEventDay && m.run_state === 'done' ? 'opacity-60' : ''} ${
+                        } ${faded ? 'pointer-events-none opacity-[0.14]' : isEventDay && (m.run_state === 'done' || m.run_state === 'skipped') ? 'opacity-60' : ''} ${
                           isEventDay && m.run_state === 'live' ? 'ring-[1.5px] ring-mulberry' : ''
                         }`}
                         style={{
@@ -1297,6 +1297,12 @@ export function ScheduleDay({
                           ) : null}
                           {isEventDay && m.run_state === 'done' ? (
                             <Check aria-label="done" className="ml-1.5 inline h-3 w-3 text-success-700" strokeWidth={2.5} />
+                          ) : null}
+                          {/* 🗓 Skipped on the day by the coordinator or their crew (Change the schedule) — said, never a ✓. */}
+                          {m.run_state === 'skipped' ? (
+                            <span className="ml-2 align-[1px] text-[9px] font-extrabold tracking-[0.16em] text-ink/60" data-moment-skipped="">
+                              SKIPPED
+                            </span>
                           ) : null}
                           {m.staged ? (
                             <span className="ml-2 align-[1px] text-[9px] font-extrabold tracking-[0.14em] text-terracotta-700">

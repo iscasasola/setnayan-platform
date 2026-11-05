@@ -468,9 +468,6 @@ const KNOWN_GAPS: Record<string, string> = {
   guest_checkins: 'TODO(RA10173-backlog): the subject’s own check-in events (time + place).',
   guest_claims: 'TODO(RA10173-backlog): the subject’s claim of a guest identity.',
   guest_souvenir_claims: 'TODO(RA10173-backlog): the subject’s souvenir claims.',
-  supplier_scan_claims:
-    'TODO(RA10173-backlog): the scans a supplier’s crew member made (scanned_by_user_id) — and, for the guest, their ' +
-    'claims, which reach no account export because a guest is not an account (same gap as guest_souvenir_claims).',
   guests:
     'TODO(RA10173-backlog): the guest row for the subject themselves — export shape pending (a guest row is also the HOST’s stored data about them).',
   kwento_assignments: 'TODO(RA10173-backlog): assignments naming the subject.',

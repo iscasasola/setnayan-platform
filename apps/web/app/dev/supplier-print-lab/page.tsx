@@ -3,7 +3,7 @@
  * TEMPLATES, for the For Suppliers "Free marketing tools" widget (owner: "we give the design"). DEV-ONLY: production
  * builds 404 this route first thing. These are PREVIEWS for the owner to approve, not files a supplier can order yet.
  *
- *   ?slug=<shop>&piece=calling-card|tarp|backdrop|rollup|table-front&template=<theme id>
+ *   ?slug=<shop>&piece=calling-card|tarp|backdrop|rollup|table-front&template=<theme id>[&badges=1]
  *
  * 🎨 THE TEMPLATES ARE THE PRINT THEMES — never plain white (owner 2026-11-05: *"do not use the plain white. use the
  * design templates"*). Each piece wears a theme the way the theme sample gallery prints it: `printLooksFor(theme, null,
@@ -19,10 +19,10 @@
  *   · an NFC note — a tag carries the same address as the QR (the app writes one with `NfcWriteButton`);
  *   · the direct link — `setnayan.com/<slug>`, the short shop address `app/[slug]` serves.
  * The badges are the EXISTING print route's files: `demo-shop-shots.mjs` saves `GET /api/vendor/badges?ground=light`
- * and `?ground=dark` (signed in as the shop) to `public/demo-shop-local/`, and the piece places the one that suits its
- * paper, as it came. With no file, no badges.
+ * and `?ground=dark` (signed in as the shop) to `public/demo-shop-local/` and opens this page with `&badges=1`; the
+ * piece places the one that suits its paper, as it came. Without `badges=1`, no badges.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { notFound } from 'next/navigation';
 import { Nfc } from 'lucide-react';
@@ -67,7 +67,7 @@ function fontFace(key: PrintFontKey): string | null {
 export default async function SupplierPrintLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ slug?: string; piece?: string; template?: string }>;
+  searchParams: Promise<{ slug?: string; piece?: string; template?: string; badges?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -116,9 +116,11 @@ export default async function SupplierPrintLabPage({
   const logoUrl = await displayUrlForStoredAsset(shop.logo_url).catch(() => null);
   const onPicture = still === 'full';
   const scrimDark = onPicture && look.scrim ? lum(hexRgb(look.scrim.color)) < 0.25 : false;
-  const ink = onPicture && scrimDark ? '#ffffff' : look.ink;
+  const ink = onPicture && scrimDark ? 'white' : look.ink;
   const badgeFile = darkPaper || scrimDark ? 'sp-badges-dark.svg' : 'sp-badges-light.svg';
-  const badges = existsSync(join(process.cwd(), 'public', 'demo-shop-local', badgeFile)) ? `${LOCAL}/${badgeFile}` : null;
+  // The page never reads public/ itself (a server file that touches public/ ships it in its lambda): the shots script,
+  // which saved the route's files, says they are there with `&badges=1`.
+  const badges = sp.badges === '1' ? `${LOCAL}/${badgeFile}` : null;
   const height = Math.round(spec.w / spec.aspect);
   const tall = spec.tall;
   /* A theme that gives part of the piece to its picture (a band on top, a column on the left) sets the words a step
@@ -178,7 +180,7 @@ export default async function SupplierPrintLabPage({
     <div className={`flex ${tall ? 'flex-col items-center text-center' : 'items-center'}`} style={{ gap: z(tall ? 3 : 2.4) }}>
       {qr ? (
         <div
-          className="shrink-0 bg-white [&>svg]:h-full [&>svg]:w-full"
+          className="qr-slot shrink-0 bg-white [&>svg]:h-full [&>svg]:w-full"
           style={{ width: z(spec.qr), padding: z(spec.qr / 30), borderRadius: theme.radius * 2, boxShadow: `0 0 0 ${z(0.2)} ${look.accent}` }}
           dangerouslySetInnerHTML={{ __html: qr }}
         />

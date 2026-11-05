@@ -283,6 +283,7 @@ async function main() {
     const ctx = await browser.newContext();
     await ctx.addCookies(await sessionCookies(JUAN));
     mkdirSync(join(OUT, 'prints'), { recursive: true });
+    let haveBadges = true;
     // The route's own two grounds: `light` for a paper template, `dark` for a dark one or a picture under a dark scrim.
     for (const ground of ['light', 'dark']) {
       const res = await ctx.request.get(`${BASE}/api/vendor/badges?badge=all&ground=${ground}`);
@@ -291,16 +292,21 @@ async function main() {
       if (svg) {
         writeFileSync(served, svg);
         writeFileSync(join(OUT, 'prints', `sp-badges-${ground}.svg`), svg);
-      } else rmSync(served, { force: true });
+      } else {
+        rmSync(served, { force: true });
+        haveBadges = false;
+      }
       console.log(`  /api/vendor/badges?ground=${ground} → ${res.status()}${svg ? ` · ${svg.length} bytes` : ''}`);
     }
     await ctx.close();
 
     const ctx2 = await browser.newContext({ viewport: { width: 1600, height: 1600 }, deviceScaleFactor: 1 });
-    const page = await ctx2.newPage();
     for (const piece of PIECES) {
       for (const t of TEMPLATES) {
-        const url = `/dev/supplier-print-lab?slug=${SLUG}&piece=${piece}&template=${t.id}`;
+        // A fresh page per print: each one inlines its template's faces, and one page reused fifty times outgrew a
+        // container's memory and was killed mid-run (measured).
+        const page = await ctx2.newPage();
+        const url = `/dev/supplier-print-lab?slug=${SLUG}&piece=${piece}&template=${t.id}${haveBadges ? '&badges=1' : ''}`;
         await page.goto(`${BASE}${url}`, { waitUntil: 'domcontentloaded', timeout: 240_000 });
         await settle(page);
         const el = page.locator('[data-print-piece]');
@@ -319,6 +325,7 @@ async function main() {
         });
         if (overflow) console.log(`  ⚠ ${piece} · ${t.name}: something runs past the trim`);
         note({ what: `Print · ${piece} · ${size} · ${t.name}`, url, file, kind: 'print', key: piece, template: t.id, templateName: t.name, tier: t.tier, printSize: size, picture, overflow });
+        await page.close();
       }
     }
     await ctx2.close();

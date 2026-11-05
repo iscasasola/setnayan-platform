@@ -100,6 +100,7 @@ import {
 } from './fixtures';
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
+import { labServiceCounts } from '@/app/dev/count-fixtures';
 import { LabBookedStandIns } from './lab-booked';
 import { labBookedBudget, labBookedMoney, labBookedNow, labBookedView, type LabBookedOptions } from './booked-fixtures';
 import { priceToday } from '@/lib/price-summary';
@@ -353,6 +354,7 @@ export default async function SuppliersLabPage({
               <BookedBody
                   eventId={LAB_EVENT}
                   firstOpen={one('bkopen') ?? null}
+                  counts={labServiceCounts({ catering: 'v-bituin', cateringShop: 'Bituin Catering' })}
                   state={
                     bookedOpts.fail === 'team'
                       ? { kind: 'unreadable', retryHref: '/dev/suppliers-lab?mode=booked' }

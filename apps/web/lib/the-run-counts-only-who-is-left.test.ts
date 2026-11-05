@@ -171,9 +171,10 @@ test('4 · a refused read is unknown — never "0 more to invite", never a numbe
 
 test('5 · a row’s Share is that guest’s own share — it never opens the run', () => {
   const cell = read('app/dashboard/[eventId]/guests/_components/guest-invite-cell.tsx');
-  const rowShare = cell.match(/async function rowShare\([\s\S]*?\n  \}\n/)?.[0] ?? '';
+  const rowShare = cell.match(/\n  function rowShare\([\s\S]*?\n  \}\n/)?.[0] ?? '';
   assert.ok(rowShare, 'rowShare is gone — re-anchor this guard');
-  assert.match(rowShare, /shareInvite\(null, message\)/, 'the row’s Share no longer shares this guest’s own message');
+  // Owner 2026-11-05: Share opens THIS cell's own menu (this guest's message) on every device — never the run.
+  assert.match(rowShare, /invite\(at\)/, 'the row’s Share no longer opens this guest’s own menu');
   assert.doesNotMatch(cell, /sendRunHref|guests\/send|useRouter|router\.push|location\.(href|assign)/, 'the Share cell navigates — one guest’s Share must be that guest only');
   // The list row hands the cell ONE guest — itself.
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');

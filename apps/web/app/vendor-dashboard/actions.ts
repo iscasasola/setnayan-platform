@@ -859,13 +859,13 @@ export async function requestProfileCorrection(
 /**
  * The FREE microsite controls a vendor can edit inline in My Shop → Website.
  * (Pro controls — slug / hero photo / accent / featured editorials / pinned
- * review — are gated on tierCaps.customWebsiteName and land in a follow-up PR.)
+ * review — are gated on tierCaps.premiumPage and land in a follow-up PR.)
  */
 const INLINE_WEBSITE_FIELDS = new Set([
   'microsite_about',
   'microsite_sections',
   'microsite_featured_services',
-  // PRO controls (gated on tierCaps.customWebsiteName).
+  // PRO controls (gated on tierCaps.premiumPage — split from customWebsiteName 2026-11-04).
   // ⛔ 'business_slug' lived here until 2026-08-10. The shop address is chosen
   //    once at /open-shop and is PERMANENT on every tier (owner, twice).
   //    🔑 IT IS REFUSED HERE, AT THE ALLOWLIST — NOT AT THE TIER GATE BELOW.
@@ -945,7 +945,7 @@ function websiteFieldPatch(
   // PRO gate — the premium customization controls reuse the same cap as the
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
-  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.customWebsiteName)) {
+  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.premiumPage)) {
     return { ok: false, error: 'This is part of Pro. Pick Pro on the Plans page to save it.' };
   }
 

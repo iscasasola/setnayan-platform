@@ -1,9 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { askedOnce } from '@/lib/request-once';
-import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { COUNTED_BOOKING_STATUSES, notCountedAfterSave, notCountedWords, type BookedService } from '@/lib/guest-not-counted';
+import { notCountedAfterSave, notCountedWords, type BookedService } from '@/lib/guest-not-counted';
+import { readEventServiceCounts } from '@/lib/supplier-count.server';
 
 /**
  * 🍽 "NOT COUNTED FOR ▾" — the reads and the one write (owner 2026-11-02; `lib/guest-not-counted.ts` for the rule).
@@ -13,33 +12,17 @@ import { COUNTED_BOOKING_STATUSES, notCountedAfterSave, notCountedWords, type Bo
  * failure is never drawn as "Counted for all".
  */
 
-type Booking = { vendor_id: string; category: string | null; vendor_name: string | null };
-
-/** "Catering" — the booking's trade in the app's own words; the shop's name rides along for the list's hint. */
-function serviceOf(b: Booking): BookedService {
-  const label = (b.category && VENDOR_CATEGORY_LABEL[b.category as VendorCategory]) || b.vendor_name?.trim() || 'Service';
-  return { id: b.vendor_id, label, shop: b.vendor_name?.trim() || null };
-}
-
-/** The event's BOOKED services, in a steady order (trade, then shop). Null = refused. */
+/**
+ * The event's PER-HEAD services — every supplier on the event in any status, not archived, whose service card is priced
+ * per head (owner 2026-11-04) — in a steady order (trade, then shop), each with its count. Null = refused. ONE ask per
+ * render, shared with the Suppliers page's rule rows (`readEventServiceCounts` › `askedOnce`).
+ */
 export async function readBookedServices(supabase: SupabaseClient, eventId: string): Promise<BookedService[] | null> {
-  // ONE ask per render (`askedOnce`): the Guest list's row notes and the open card both need it
-  // (`the-guests-page-asks-once.test.ts` — nothing is asked twice).
-  const { data, error } = await askedOnce(supabase, 'event_vendors.booked_services', [eventId], async () =>
-    supabase
-      .from('event_vendors')
-      .select('vendor_id, category, vendor_name')
-      .eq('event_id', eventId)
-      .in('status', [...COUNTED_BOOKING_STATUSES])
-      .is('archived_at', null),
+  const counts = await readEventServiceCounts(supabase, eventId);
+  if (!counts) return null;
+  return [...counts.services].sort(
+    (a, b) => a.label.localeCompare(b.label) || (a.shop ?? '').localeCompare(b.shop ?? '') || a.id.localeCompare(b.id),
   );
-  if (error) {
-    logQueryError('guestNotCounted.bookedServices', error, { eventId }, 'graceful_degrade');
-    return null;
-  }
-  return ((data ?? []) as Booking[])
-    .map(serviceOf)
-    .sort((a, b) => a.label.localeCompare(b.label) || (a.shop ?? '').localeCompare(b.shop ?? '') || a.id.localeCompare(b.id));
 }
 
 /** The card's dropdown: the booked services and the ones this guest is left out of. Null = either read refused. */

@@ -15,7 +15,7 @@ import {
 } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, planHasBranches } from '@/lib/vendor-tier-caps';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind, type LeafIndex } from '@/lib/service-card-kind';
 import type { TradeMatch } from '@/lib/kind-search-trades';
@@ -242,10 +242,10 @@ export async function loadMakerContext(
     if (activePool.has(r.pool_id)) scheduleOfKind[r.category_key] = r.pool_id;
   }
 
-  // ── Branches (Enterprise) — only a paid, in-window branch may be chosen ──
+  // ── Branches (Pro includes some, Ultra includes more + buys — owner 2026-11-04) — only a live branch may be chosen ──
   // A lapsed branch stays LISTED (not choosable) so a card filed under it keeps naming it — dropping it would
   // relabel that card "You" and the save would move it (owner 2026-08-28 "paid").
-  const branches = isTierAtLeast(tierRow?.tier_state ?? null, 'enterprise')
+  const branches = planHasBranches(tierRow?.tier_state ?? null)
     ? (await fetchVendorBranches(supabase, vendorProfileId, createAdminClient()).catch(() => []))
         .filter((b) => b.status !== 'cancelled')
         .map((b) => ({ id: b.branch_id, label: b.branch_label, usable: branchIsUsable(b.status) }))

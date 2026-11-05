@@ -5,7 +5,7 @@
  * Runs the pure decision (`lib/reply-push-ask.ts`) the sheet calls on the device:
  *   1 · a list with no reply is never asked;
  *   2 · an answer (Yes OR Not now) silences it for 30 days, then it may ask again;
- *   3 · never inside the iPhone app (the native ask owns that moment);
+ *   3 · inside the iPhone app it is the NATIVE ask — only with the plugin, only while iOS is unanswered;
  *   4 · a subscribed device, a blocked one, or a browser without Web Push is not asked;
  *   5 · iPhone Safari in a tab is TOLD how (Home Screen), never offered a dead Yes;
  *   6 · the remembered answer survives a blocked storage without throwing.
@@ -29,6 +29,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const base: ReplyAskInput = {
   replied: 3,
   storeShell: false,
+  native: 'unavailable',
   supported: true,
   iosOutsideHomeScreen: false,
   permission: 'default',
@@ -52,9 +53,14 @@ test('2 · an answer silences it for 30 days, then it may ask again', () => {
   assert.equal(REPLY_ASK_REASK_MS, 30 * DAY);
 });
 
-test('3 · never inside the iPhone app', () => {
-  assert.equal(replyAskMode({ ...base, storeShell: true }), null);
+test('3 · inside the iPhone app: the NATIVE ask, only on a build with the plugin, only while iOS is unanswered', () => {
+  assert.equal(replyAskMode({ ...base, storeShell: true }), null, 'an app build without the push plugin was shown a dead ask');
   assert.equal(replyAskMode({ ...base, storeShell: true, iosOutsideHomeScreen: true }), null);
+  assert.equal(replyAskMode({ ...base, storeShell: true, native: 'prompt' }), 'native');
+  assert.equal(replyAskMode({ ...base, storeShell: true, native: 'granted' }), null);
+  assert.equal(replyAskMode({ ...base, storeShell: true, native: 'denied' }), null);
+  // …and once means once there too.
+  assert.equal(replyAskMode({ ...base, storeShell: true, native: 'prompt', lastAnsweredAtMs: NOW - DAY }), null);
 });
 
 test('4 · subscribed, blocked, or no Web Push → not asked', () => {

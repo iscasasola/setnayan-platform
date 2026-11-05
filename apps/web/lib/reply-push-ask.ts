@@ -9,7 +9,8 @@
  *
  * The rules, each a branch below and each held by `reply-push-ask.test.ts`:
  *   · only once there is a reply to be told about (never on an empty list);
- *   · never inside the iPhone app — the native ask (PR 2) owns that moment;
+ *   · inside the iPhone app it is the NATIVE ask (APNs) — only on a build with the
+ *     push plugin, and only while iOS has not been answered;
  *   · an answer — Yes OR Not now — is remembered, and asked again at most after
  *     30 days (no server field exists for it, so it is kept per device);
  *   · a device already subscribed, or one that has blocked notifications (which
@@ -32,13 +33,19 @@ export const REPLY_ASK_REASK_MS = 30 * 24 * 60 * 60 * 1000;
 /** Never on first paint: the sheet rises this long after Guests settles. */
 export const REPLY_ASK_DELAY_MS = 2500;
 
-export type ReplyAskMode = 'ask' | 'ios-home-screen' | null;
+/** 'native' = the same ask inside the iPhone app, whose Yes registers with APNs (lib/native-push.ts). */
+export type ReplyAskMode = 'ask' | 'native' | 'ios-home-screen' | null;
 
 export type ReplyAskInput = {
   /** Guests who have replied (attending + not attending), from the counts the list already draws. */
   replied: number;
   /** Inside the App Store / Play Store shell (`isStoreShellInBrowser`). */
   storeShell: boolean;
+  /**
+   * The iPhone app's own push permission (`nativePushPermission()`), or
+   * 'unavailable' — the web, or an app build without the push plugin.
+   */
+  native: 'granted' | 'denied' | 'prompt' | 'unavailable';
   /** `webPushSupported()` — service worker, PushManager, Notification, a VAPID key. */
   supported: boolean;
   /** iPhone / iPad Safari in a tab, not opened from the Home Screen. */
@@ -54,8 +61,10 @@ export type ReplyAskInput = {
 
 export function replyAskMode(i: ReplyAskInput): ReplyAskMode {
   if (i.replied <= 0) return null;
-  if (i.storeShell) return null;
   if (i.lastAnsweredAtMs !== null && i.nowMs - i.lastAnsweredAtMs < REPLY_ASK_REASK_MS) return null;
+  // Inside the app: Web Push does not exist there, so the ask is the NATIVE one —
+  // only when the build carries the plugin and iOS has not been answered yet.
+  if (i.storeShell) return i.native === 'prompt' ? 'native' : null;
   if (i.iosOutsideHomeScreen) return 'ios-home-screen';
   if (!i.supported) return null;
   if (i.permission === 'denied' || i.permission === 'unsupported') return null;

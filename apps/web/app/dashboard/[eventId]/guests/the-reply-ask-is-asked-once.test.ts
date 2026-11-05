@@ -67,8 +67,9 @@ test('4 · it is the house sheet, its detail in an ⓘ', () => {
   assert.match(ASK, /<InfoTip[\s\S]*?label=\{REPLY_ASK_COPY\.title\}/);
 });
 
-test('5 · the couple only, never in the iPhone app, told from counts already drawn', () => {
-  assert.match(PAGE, /replyAsk=\{viewer\.isCouple && !storeShell\}/);
+test('5 · the couple only — Web Push on the web, APNs in the app — told from counts already drawn', () => {
+  assert.match(PAGE, /replyAsk=\{viewer\.isCouple\}/);
+  assert.match(ASK, /if \(mode === 'native'\) await registerNativePush\(\);\s*else await subscribeThisDevice\(\);/, 'the app\'s Yes is not the native one');
   assert.match(SCREEN, /replyAsk && measured \? <ReplyPushAsk replied=\{stats\.yes \+ stats\.no\} \/> : null/);
   assert.match(ASK, /isStoreShellInBrowser\(/, 'the device-side app check is gone');
 });

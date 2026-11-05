@@ -97,19 +97,12 @@ export async function startThreadCall(
     return { ok: false, error: 'Calls open once the inquiry is accepted.' };
   }
 
-  // Calls are a PAID-vendor capability (owner 2026-07-13: "a service for the
-  // paid"). This is the AUTHORITATIVE chokepoint — both the "Call" tab
-  // (ThreadCallLauncher) and the appointment video/voice join call this action,
-  // so gating here covers every call-start regardless of the UI. Paid only by
-  // default since 2026-10-02 (owner, tracker d10) — its own switch,
-  // VENDOR_CALLS_PAID_ONLY (lib/thread-calls-rule.ts), not the shared tier gate.
+  // No PLAN gates a call any more (owner 2026-11-04: the stale `calls` capability is removed; booked suppliers on
+  // every plan). The relationship check above is the gate; this asks the one shared place in case it ever closes.
   if (!(await resolveThreadCallsEnabled(thread.vendor_profile_id))) {
     return {
       ok: false,
-      error:
-        role === 'vendor'
-          ? 'Calling clients is a paid feature — upgrade your plan to start voice & video calls.'
-          : 'This supplier hasn’t turned on in-app calling yet.',
+      error: role === 'vendor' ? 'Calls are not open on this chat.' : 'This supplier hasn’t turned on in-app calling yet.',
     };
   }
 

@@ -18,6 +18,9 @@
  *     the browser's permission prompt fires only from that press.
  *   · iPhone Safari in a tab has no Web Push at all — so there is no Yes; the ⓘ
  *     says how to get these from the Home Screen, once.
+ *   · INSIDE THE IPHONE APP the same sheet asks at the same moment, and its Yes
+ *     registers with APNs (`registerNativePush`, lib/native-push.ts) — only on a
+ *     build with the push plugin, only while iOS has not been answered.
  *
  * 🔒 lib/reply-push-ask.test.ts · app/dashboard/[eventId]/guests/the-reply-ask-is-asked-once.test.ts
  */
@@ -30,6 +33,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { deviceOs } from '@/lib/apple-device';
 import { isStoreShellInBrowser } from '@/lib/store-shell';
 import { deviceIsSubscribed, subscribeThisDevice, webPushSupported } from '@/lib/push-subscribe';
+import { nativePushPermission, registerNativePush } from '@/lib/native-push';
 import {
   REPLY_ASK_COPY,
   REPLY_ASK_DELAY_MS,
@@ -62,10 +66,12 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       const os = deviceOs(navigator.userAgent, navigator.maxTouchPoints);
-      const supported = webPushSupported();
+      const storeShell = isStoreShellInBrowser(navigator.userAgent, document.cookie);
+      const supported = !storeShell && webPushSupported();
       const next = replyAskMode({
         replied: 1,
-        storeShell: isStoreShellInBrowser(navigator.userAgent, document.cookie),
+        storeShell,
+        native: storeShell ? await nativePushPermission() : 'unavailable',
         supported,
         iosOutsideHomeScreen: (os === 'iphone' || os === 'ipad') && !standalone() && !supported,
         permission: 'Notification' in window ? Notification.permission : 'unsupported',
@@ -90,7 +96,9 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
   async function yes() {
     setBusy(true);
     try {
-      await subscribeThisDevice();
+      // Same moment, same words — inside the iPhone app the Yes is APNs, on the web it is Web Push.
+      if (mode === 'native') await registerNativePush();
+      else await subscribeThisDevice();
     } finally {
       rememberAnswer(storage(), Date.now());
       setBusy(false);

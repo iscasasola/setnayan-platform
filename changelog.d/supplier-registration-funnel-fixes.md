@@ -22,7 +22,9 @@ Each one made the supplier sign-up funnel look broken or lost the supplier. Each
   `/finalize` refuses a customer account with no shop or seat (`users.account_type` + vendor access,
   `lib/claim-account-gate.ts`) BEFORE anything is written — the link stays unspent and the page says so. The
   retired-token claim burn (`claim_unlock_vendor_event`) is no longer called; `seatClaimedCoupleAsCustomer` →
-  `unlock_vendor_event_free` already writes the supplier's unlock row. The DB function itself is left in place.
+  `unlock_vendor_event_free` already writes the supplier's unlock row. With no caller left, migration
+  `20271309403755_drop_retired_claim_token_burn.sql` drops the function (the both-ends check's rule: call it or drop
+  it; same shape as the 2026 token-wallet drop `20271234329420`).
 - **Inspiration uploads.** `uploadStylistAsset` returns `{ ok: false, error }` instead of throwing (production Next
   blanks thrown action messages), so "wrong trade / quota full / confirm rights" reach the supplier; only storage/DB
   faults become a generic retry line. The editor compresses with `compressImageForWeb` before sending.

@@ -102,7 +102,7 @@ export function crewRoleGets(role: CrewRole, coordinator: boolean): { opens: str
   if (can.scanner) opens.push('Seat scanner — scan a guest’s QR to find their table.');
   if (can.runOfShow) opens.push('Run of show — every moment of the day, as it moves.');
   if (can.runOfShow && coordinator) {
-    opens.push('Ask to change the schedule — move a part earlier or later; the hosts approve it with one tap.');
+    opens.push('Ask to change the schedule — move a part earlier or later, or skip one; it is approved with one tap.');
   }
   if (opens.length === 0) opens.push('The event’s day and place, and their pass — no tools on this event.');
   return { opens, never: 'Never Today, Customers, Shop or money — and only this event. The pass ends after the event.' };

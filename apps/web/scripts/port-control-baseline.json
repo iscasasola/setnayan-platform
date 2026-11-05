@@ -42,6 +42,7 @@
         "PressFeel",
         "Providers",
         "Reconnecting",
+        "RevealDetailsOnOpen",
         "Script",
         "SiteChrome",
         "SiteFooterChrome",
@@ -7419,6 +7420,7 @@
         "EmptyState",
         "Link",
         "PrintButton",
+        "ReadRefusedNotice",
         "ServeRow",
         "SideBlock"
       ]
@@ -8995,6 +8997,7 @@
         "PageMasthead",
         "PickMenu",
         "PillSelector",
+        "ReadRefusedNotice",
         "SaveState",
         "Size"
       ]
@@ -9045,6 +9048,7 @@
         "MoverToken",
         "OrbitControls",
         "PickMenu",
+        "ReadRefusedNotice",
         "RemotePlayers",
         "RoomShell",
         "RoomViewTools",
@@ -12378,6 +12382,7 @@
         "BottomDock",
         "BottomNav",
         "BranchPanel",
+        "ChangeTheSchedule",
         "ChatAskLab",
         "ChatBox",
         "ChatOriginMark",
@@ -13563,6 +13568,7 @@
       "files": [
         "papic/me/[token]/_components/guest-story-maker.tsx",
         "papic/me/[token]/actions.ts",
+        "papic/me/[token]/error.tsx",
         "papic/me/[token]/loading.tsx",
         "papic/me/[token]/page.tsx"
       ],
@@ -15649,6 +15655,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/ask-access.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/crew-asks.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
@@ -15703,6 +15710,7 @@
         "ConsolePlate",
         "ConsoleRule",
         "Coverage",
+        "CrewAsks",
         "CueCard",
         "EventHubAnnounce",
         "EventHubBar",
@@ -15933,6 +15941,7 @@
         "GrowthCard",
         "GrowthRecsCard",
         "HTMLDivElement",
+        "HTMLElement",
         "HealthCompositeCard",
         "InfoTip",
         "InquiryHandlingCard",

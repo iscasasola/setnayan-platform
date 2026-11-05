@@ -1293,7 +1293,7 @@ function ChaptersFrame({ eventId, input, dateLine, children }: { eventId: string
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where';
+  kind: 'adjust' | 'new' | 'remove' | 'hours' | 'where' | 'skip';
   proposed_ingress_minutes?: number | null;
   proposed_egress_minutes?: number | null;
   /** 📍 A Where pick: the booking and the chapters asked (migration 20271308641275). */
@@ -1363,9 +1363,9 @@ function VendorSuggestionsQueue({
             <li key={s.suggestion_id} className="space-y-1.5 py-3">
               <p className="text-sm">
                 <span className="font-medium">{s.suggested_by_name ?? 'A booked supplier'}</span>{' '}
-                {s.kind === 'remove' ? (
+                {s.kind === 'remove' || s.kind === 'skip' ? (
                   <>
-                    asks to remove{' '}
+                    {s.kind === 'skip' ? 'asks to skip' : 'asks to remove'}{' '}
                     <span className="font-medium">
                       {blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a timeline block'}
                     </span>

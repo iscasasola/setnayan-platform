@@ -22,7 +22,7 @@ import 'server-only';
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
+import { SHOP_PAPIC_PACK_KEY_PREFIX, VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
 import { fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
 import {
   SHOP_WALLET_KINDS,
@@ -126,7 +126,8 @@ async function fetchPendingPack(
       .from('orders')
       .select('reference_code, requested_total_php, status, payments(status, created_at)')
       .eq('vendor_profile_id', vendorProfileId)
-      .eq('service_key', VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE)
+      // The retired ₱500 pack (an order minted before 2026-11-04) OR one of the couple's packs bought by the shop.
+      .or(`service_key.eq.${VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE},service_key.like.${SHOP_PAPIC_PACK_KEY_PREFIX}%`)
       .in('status', ['submitted', 'awaiting_payment'])
       .order('created_at', { ascending: false })
       .limit(1)

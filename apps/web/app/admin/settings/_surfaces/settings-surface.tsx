@@ -19,6 +19,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
   fetchPlatformSettingsMeasured,
   fetchVendorValidateContacts,
+  fetchDriveSpeed,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
 import { removeBrandIcon, saveBusinessIdentity } from '@/app/admin/settings/actions';
@@ -68,6 +69,7 @@ export async function SettingsSurface({ searchParams }: Props) {
     await fetchPlatformSettingsMeasured(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const validateContacts = await fetchVendorValidateContacts(admin);
+  const driveSpeed = await fetchDriveSpeed(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
   const loaderConfig = await getLoaderSettings();
@@ -227,6 +229,29 @@ export async function SettingsSurface({ searchParams }: Props) {
               type="tel"
               defaultValue={validateContacts.vendor_validate_phone ?? ''}
               placeholder="09XX XXX XXXX"
+              className="input-field"
+            />
+          </Field>
+          {/* 🚗 Slice 5 (owner 2026-11-04, "Admin-set speed"): no default — blank means no drive is estimated. */}
+          <Field
+            label="Average driving speed (km/h)"
+            htmlFor="drive_speed_kmh"
+            help={
+              driveSpeed.read
+                ? 'Turns the distance between two same-day events into a crew’s drive on the supplier schedule, so a crew booked too close together is flagged. Distances are straight lines between the two venue pins, so set this lower than road speed to allow for traffic and turns. Leave blank to flag only overlapping times.'
+                : 'Couldn’t read the current speed, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="drive_speed_kmh"
+              name="drive_speed_kmh"
+              type="number"
+              min={1}
+              max={150}
+              step="0.5"
+              disabled={!driveSpeed.read}
+              defaultValue={driveSpeed.read && driveSpeed.kmh !== null ? driveSpeed.kmh : ''}
+              placeholder="Not set"
               className="input-field"
             />
           </Field>

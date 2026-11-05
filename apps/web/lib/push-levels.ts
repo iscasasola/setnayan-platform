@@ -49,6 +49,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   coordinator_invited: 'normal', // a booked coordinator's invite to the event, waiting on their Accept (E1)
   schedule_ask: 'normal', // a host or the coordinator asks a booked supplier to change their times (D2)
   schedule_ask_answered: 'normal', // the supplier said yes or no to that ask
+  supplier_where_asked: 'normal', // a booked supplier asks to serve these chapters — the host OKs it
   papic_originals_reminder: 'normal', // day 60 · 80 · 89 of the 3 months a host's originals are kept (photo rule)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',

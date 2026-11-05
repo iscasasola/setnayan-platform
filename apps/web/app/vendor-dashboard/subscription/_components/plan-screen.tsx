@@ -27,15 +27,15 @@ import {
 } from '@/lib/vendor-tier-caps';
 import {
   fetchVendorAiAddonState,
-  fetchVendorAiAddonPricePhp,
   isVendorAiAddonActive,
+  VENDOR_AI_ADDON_FALLBACK_PHP,
 } from '@/lib/vendor-addon-pricing';
+import { VENDOR_DEEP_SEARCH_FALLBACK_PHP } from '@/lib/vendor-deep-search-addon';
 import {
   fetchVendor3dBoothState,
   fetchVendor3dBoothPricePhp,
   isVendor3dBoothActive,
 } from '@/lib/vendor-3d-booth-pricing';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   PHOTO_CHALLENGE_MIN_TIER,
@@ -44,7 +44,7 @@ import {
   fetchVendorPhotoChallengePricePhp,
   isPhotoChallengeSubscriptionActive,
 } from '@/lib/vendor-photo-challenge';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   addonIsFreeUnderFirst5,
@@ -68,7 +68,7 @@ import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { planWord } from '@/lib/vendor-plan-change-words';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
-import { VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE } from '@/lib/vendor-papic-credits';
+import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
 
@@ -197,20 +197,16 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // try/catch) so a pre-migration DB degrades to "not activated, trial
   // available" instead of blanking the page.
   const isPaidTierForAddon = isTierAtLeast(currentTier, 'solo');
-  const [aiAddonState, aiAddonCatalogPricePhp] = await Promise.all([
+  // 2026-11-04 ("DEEP SEARCH AND CHATBOT KEEP TWO PRICES BY PLAN"): each band is its own catalogue row — the card
+  // reads THIS shop's row, exactly as ai-addon-actions.ts / deep-search/actions.ts charge it.
+  const [aiAddonState, aiAddonBandPricePhp, deepSearchBandPricePhp] = await Promise.all([
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
-    fetchVendorAiAddonPricePhp(supabase),
+    fetchVendorAddonPricePhp(supabase, 'ai_chatbot_basic', currentTier),
+    fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
   ]);
-  // 2026-07-25 tiered band for AI Chatbot Basic (₱2,000 Free/Solo · ₱1,500
-  // Pro/Ent). Mirrors ai-addon-actions.ts so the card and the charge agree.
-  const aiAddonPricePhp = isVendorAddonTieredPricingEnabled()
-    ? resolveVendorAddonPricePhp('ai_chatbot_basic', currentTier)
-    : aiAddonCatalogPricePhp;
-  // Deep Search — About-You band (₱1,000 Free/Solo · ₱500 Pro/Ent) for the
-  // doorway copy below, so the tile never quotes a price the runner won't charge.
-  const deepSearchPricePhp = isVendorAddonTieredPricingEnabled()
-    ? resolveVendorAddonPricePhp('deep_search_about_you', currentTier)
-    : 500;
+  const aiAddonPricePhp = aiAddonBandPricePhp ?? VENDOR_AI_ADDON_FALLBACK_PHP;
+  // Deep Search — for the doorway copy below, so the tile never quotes a price the runner won't charge.
+  const deepSearchPricePhp = deepSearchBandPricePhp ?? VENDOR_DEEP_SEARCH_FALLBACK_PHP;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
@@ -223,7 +219,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // EVERY tier at its band's price (₱2,000 Free/Solo · ₱1,500 Pro/Ent) — the
   // verified-only rule stays. Mirrors the buy action's gate exactly, so the card
   // never offers what the server would reject (or vice versa).
-  const tieredAddonPricing = isVendorAddonTieredPricingEnabled();
   // ⚠ NOT `tieredAddonPricing || …` any more. Owner 2026-08-29 ruled the 3D
   // Booth floor the same way as Papic Challenges: paid plans only, Solo and up.
   // The flag keeps its PRICE job; it no longer decides access.
@@ -232,9 +227,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     fetchVendor3dBoothState(supabase, profile.vendor_profile_id),
     fetchVendor3dBoothPricePhp(supabase),
   ]);
-  const boothAddonPricePhp = tieredAddonPricing
-    ? resolveVendorAddonPricePhp('ads_3d_plan', currentTier)
-    : boothAddonCatalogPricePhp;
+  const boothAddonPricePhp = boothAddonCatalogPricePhp;
   const boothAddonActive = isVendor3dBoothActive(boothAddonState.expiresAt);
 
   // ── Papic Challenges (owner 2026-08-28: "unlimited us 2500 for 4 weeks") ───
@@ -252,9 +245,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     fetchPhotoChallengeExpiry(supabase, profile.vendor_profile_id),
     fetchVendorPhotoChallengePricePhp(supabase),
   ]);
-  const papicChallengePricePhp = tieredAddonPricing
-    ? resolveVendorAddonPricePhp('papic_challenge', currentTier)
-    : papicChallengeCatalogPricePhp;
+  const papicChallengePricePhp = papicChallengeCatalogPricePhp;
   const papicChallengeActive = isPhotoChallengeSubscriptionActive(papicChallengeExpiry);
 
   // "Free until your 6th booking" (owner 2026-07-25, flag-dark). Reads the SAME
@@ -431,8 +422,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         : isPaid
           ? 'paid'
           : 'nothing to pay';
-  const papicPackPrice =
-    vendorCatalog.find((r) => r.sku_code === VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE)?.price_php ?? null;
+  // 🛍 2026-11-04: the shop buys the couple's Papic packs — the row quotes the smallest one's catalogue price.
+  const papicPackPrice = (await fetchShopPapicPacks(createAdminClient()))?.[0]?.pricePhp ?? null;
   const gives = planGivesLines(currentTier, isVendorFeatureGateEnabled());
   const featured = TIER_CAPS[currentTier].editorialFeatures;
 

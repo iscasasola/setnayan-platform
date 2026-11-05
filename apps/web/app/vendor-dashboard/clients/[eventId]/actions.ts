@@ -32,6 +32,7 @@ import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
+import { whereAskRefusalWords } from '@/lib/supplier-where';
 import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
 import { answerScheduleAsk } from '@/lib/schedule-ask.server';
 import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
@@ -458,6 +459,9 @@ export async function deleteClientNote(formData: FormData) {
  *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
  *   'answer'          — Accept / Decline what a HOST or the COORDINATOR asked of them (D2, owner 2026-11-02;
  *                       `answerScheduleAsk`, lib/schedule-ask.server.ts): `decision` accept | decline, `reason` on a No.
+ *   'where'           — 📍 Where (owner 2026-11-04, "They can pick and we can also pick for them"): the chapters a
+ *                       booked supplier serves, sent as ONE request (`supplier_ask_where`, migration 20271308641275)
+ *                       the host OKs; Auto-agree applies it at once. The host hears it in the app only.
  *   'lock' · 'unlock' — 🔒 CHANGE LOCK (audit D7, 20271303409352): the host's later changes to their part are refused
  *                       by the database until they unlock. Their own requests still go through.
  *
@@ -469,7 +473,7 @@ export async function deleteClientNote(formData: FormData) {
  * and the screen never resets; the old Customer-card forms keep their redirect.
  */
 export type SupplierScheduleAnswer =
-  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done' }
+  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done'; /** 📍 the request written, for Take back */ suggestionId?: string }
   | { ok: false; error: string };
 
 const NOT_YOURS_WORDS = 'That isn’t yours, so you can only suggest a change to it in words.';
@@ -502,7 +506,8 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   const request = formData.get('request');
   const note = formData.get('note');
   const isMark = request === 'seen' || request === 'confirm' || request === 'lock' || request === 'unlock';
-  const sheetAsk = request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours';
+  const sheetAsk =
+    request === 'take_back' || isMark || request === 'times' || request === 'answer' || request === 'hours' || request === 'where';
   if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
     if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
@@ -635,6 +640,34 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     });
     if (!r.ok) return { ok: false, error: r.code === '42501' ? 'Only the venue booked to this chapter can set its hours.' : NOT_SENT_WORDS };
     return done({ ok: true, outcome: r.outcome });
+  }
+
+  // ── 📍 Where — the chapters they serve, as one request (migration 20271308641275) ──────────────────────────────────
+  // The database decides who may ask and what (`supplier_ask_where`: their own booked booking, chapters of this event,
+  // at least one, a real change). Then the ONE accept path settles it exactly like every other ask.
+  if (request === 'where') {
+    const vendorId = nullIfBlank(formData.get('vendor_id'), 64);
+    const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
+    if (!vendorId) return { ok: false, error: NOT_SENT_WORDS };
+    const { data, error } = await supabase.rpc('supplier_ask_where', { p_vendor_id: vendorId, p_block_ids: ids });
+    const asked = (data ?? null) as { suggestion_id?: string; names?: string } | null;
+    if (error || !asked?.suggestion_id) return { ok: false, error: whereAskRefusalWords(error?.message ?? '') };
+    const outcome = await settleAfterAsking(eventId, asked.suggestion_id);
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName,
+        kind: 'adjust',
+        itemLabel: 'Where',
+        proposesChange: true,
+        note: `Asks to work ${asked.names ?? ''}`,
+        applied: outcome === 'applied',
+        where: { names: asked.names || 'their chapters', suggestionId: asked.suggestion_id },
+      });
+    } catch (e) {
+      console.error('[suggestScheduleChange] where notify failed:', e);
+    }
+    return done({ ok: true, outcome: outcome === 'words' ? 'waits' : outcome, suggestionId: asked.suggestion_id });
   }
 
   // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────

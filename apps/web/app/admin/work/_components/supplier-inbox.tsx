@@ -30,7 +30,7 @@ import {
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormPick } from './form-pick';
-import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { EventTypeNameRow } from './event-type-name-row';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -311,16 +311,7 @@ function TypesBody({
         <input type="hidden" name="return_to" value={back} />
         {/* ✍ The new type's name is a row of the ONE Field template (`TypedRow`, owner 1 Nov 2026: every field follows
             it). It posts `label_en` exactly as the raw box did; required, 80 characters. */}
-        <FormRows width="wide">
-          <TypedRow
-            name="Name"
-            about={{ words: 'As people will see it. Its supplier coverage opens here next.' }}
-            value={item.label}
-            required
-            maxLength={80}
-            fieldName="label_en"
-          />
-        </FormRows>
+        <EventTypeNameRow initial={item.label} />
       </form>
       <form id={link} action={setEventTypeStatus} data-work-form="types-link">
         <input type="hidden" name="request_id" value={item.requestId} />

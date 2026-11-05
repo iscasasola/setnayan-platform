@@ -21,8 +21,15 @@ export type MapActionResult =
   | { ok: true; id: string }
   | { ok: false; error: string };
 
-/** "+" on a side branch → a new custom group on that side. */
-export async function mapAddGroup(
+/**
+ * "+" on a side branch → a new custom group on that side.
+ *
+ * 🔢 NOT EXPORTED (2026-11-04, the server-action budget): nothing imports it since the old mind map
+ * (`guest-mind-map.tsx`) left — today's `guest-map-canvas.tsx` makes groups elsewhere — and every exported
+ * `"use server"` function is a Vercel route (`scripts/lint-server-action-budget.mjs`). Kept, not deleted, so the
+ * one-name rule's guard (`lib/one-group-per-name.test.ts`) still reads it; export it again only with a caller.
+ */
+async function mapAddGroup(
   eventId: string,
   rawLabel: string,
   rawTeamSide: string,

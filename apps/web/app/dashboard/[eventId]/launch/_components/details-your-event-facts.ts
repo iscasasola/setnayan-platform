@@ -79,9 +79,10 @@ export async function readYourEventFacts({
   parentCount: number;
   hostCount: number;
   /**
-   * ✍ The couple's drafted `events` columns (the Event Hub draft). The names and
-   * the date typed in the Maker are drafted until Apply (owner 2026-10-01, "wait
-   * for apply"), so the Maker shows them — and counts them done — as drafted.
+   * ✍ The couple's drafted `events` columns (the Event Hub draft). The names
+   * typed in the Maker are drafted until Apply (owner 2026-10-01, "wait for
+   * apply"), so the Maker shows them — and counts them done — as drafted. The
+   * date never is (owner 2026-11-05): it is always the live row's.
    * Omitted = the live row (what a guest reads).
    */
   drafted?: Record<string, unknown>;

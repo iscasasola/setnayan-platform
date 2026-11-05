@@ -20,6 +20,11 @@ import { DatesRow } from '../../customers/_components/dates-row';
  *   Check a date · My page · Crew for an event — added 2026-10-29/11-01 ("THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"):
  *               one code each under the same dropdown (`lib/supplier-qr-codes.ts`).
  *
+ * 📣 TWO HOMES since 2026-11-05 (owner: the QR codes do not belong under Customers — Shop › Promote, beside the website,
+ * print materials and gifts): Shortlist · Check a date · My page draw here under Shop › Promote (`place="promote"`: the
+ * Shop row is the page's head, so no ‹ Dates and the title is the section's); Booked · Crew stay on Customers › QR codes
+ * (`place="customers"`). Same component, same words — each home hands in only its own codes (`lib/supplier-qr-codes.ts`).
+ *
  * Reached from Customers › Dates (the QR codes row); `/locked-qr` forwards to Booked with Issued open.
  * Server component: every word arrives read.
  */
@@ -61,6 +66,7 @@ const STATUS_BADGE = {
 } as const;
 
 export function QrCodes({
+  place = 'customers',
   mode,
   backHref,
   modeOptions,
@@ -72,6 +78,8 @@ export function QrCodes({
   myPage = null,
   crew = null,
 }: {
+  /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
+  place?: 'customers' | 'promote';
   mode: SupplierQrMode;
   backHref: string;
   modeOptions: QrPick[];
@@ -109,12 +117,18 @@ export function QrCodes({
   const claimed = ledger?.filter((r) => r.status === 'claimed').length ?? 0;
   const voided = ledger?.filter((r) => r.status === 'void').length ?? 0;
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-3 sm:px-6" data-qr-codes={mode}>
-      <Link href={backHref} className="sn-press -ml-1 inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-ink" data-qr-back="">
-        <ChevronLeft aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
-        Dates
-      </Link>
-      <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink">QR codes</h1>
+    <div className={place === 'promote' ? 'w-full max-w-xl' : 'mx-auto w-full max-w-xl px-4 pb-16 pt-3 sm:px-6'} data-qr-codes={mode} data-qr-place={place}>
+      {place === 'promote' ? (
+        <h2 className="mt-2 text-[20px] font-semibold leading-tight tracking-tight text-ink">QR codes</h2>
+      ) : (
+        <>
+          <Link href={backHref} className="sn-press -ml-1 inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-ink" data-qr-back="">
+            <ChevronLeft aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
+            Dates
+          </Link>
+          <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-tight text-ink">QR codes</h1>
+        </>
+      )}
       <div className="mt-3">
         <CustomersPick label="Which code" value={mode} options={modeOptions} dataAttr="data-qr-mode" className="!min-h-11" />
       </div>

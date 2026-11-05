@@ -1497,7 +1497,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         parentCount: printParents.length,
         hostCount: rsvpHosts.length,
         helpFirst: one(search.date) === 'help',
-        // ✍ The names, the date and the venues as the couple is editing them (drafted until Apply).
+        // ✍ The names and the venues as the couple is editing them (drafted until Apply; the date saves at once, owner 2026-11-05).
         drafted: draftedEvents,
         draftedVenue,
         draftedMarch,

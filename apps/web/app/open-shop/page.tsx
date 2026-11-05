@@ -41,7 +41,7 @@ export default async function OpenShopPage({
 }) {
   const { error, step, next } = await searchParams;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
-  // on /for-suppliers → `?next=/vendor-dashboard/invite`). Same-origin by
+  // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
   // general-purpose redirector. Default: Today.
   const landing = shopConsolePath(next);

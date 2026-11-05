@@ -5,8 +5,9 @@
  * Services · Page · Gallery · Analytics, one dropdown (any set of choices is ONE dropdown), each section's three figures
  * on its pinned row (DECISION_LOG "EVERY SUPPLIER-DASHBOARD PAGE: THE TOP ROWS COMPRESS INTO ONE PINNED ROW ON SCROLL").
  *
- *   1. ONE SOURCE: the five, in the prototype's order and words, in `shop-sections.ts`; the bar's page menu from 701 lists
- *      exactly them (never a copy).
+ *   1. ONE SOURCE: the five, in the prototype's order and words, in `shop-sections.ts` — + Promote after Page (owner
+ *      2026-11-05: the shop's QR codes leave Customers for Shop, "beside the website, print materials and gifts") — the
+ *      bar's page menu from 701 lists exactly them (never a copy).
  *   2. The row is the dropdown, never pills; it folds with the shared `usePinFold`; only the ▾ steps aside from 701.
  *   3. Every Shop screen hands the row ITS section's figures — read by that page, never typed (Gallery's albums screen
  *      is a sub-screen and draws the row without figures).
@@ -28,10 +29,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const VD = join(HERE, '..');
 const read = (rel: string) => stripComments(readFileSync(join(VD, rel), 'utf8'));
 
-test('1 · the five sections, in the approved order and words — and the bar menu lists exactly them', () => {
+test('1 · the v13 sections + Promote, in the approved order and words — and the bar menu lists exactly them', () => {
   assert.deepEqual(
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
-    ['Details', 'Services', 'Page', 'Portfolio', 'Analytics'],
+    ['Details', 'Services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
   );
   for (const s of SHOP_SEGMENT_ORDER) {
     const m = supplierPageMenuOf(SHOP_SEGMENT_HREF[s], null);
@@ -61,6 +62,11 @@ const SCREENS: Array<[seg: string, file: string, maker: RegExp]> = [
   ['details', 'profile/_components/details-screen.tsx', /figures=\{detailsFigures\(/],
   ['services', 'shop/page.tsx', /figures=\{servicesFigures\(/],
   ['page', 'website/page.tsx', /figures=\{pageFigures\(/],
+  // 📣 Promote (2026-11-05) draws its row WITHOUT figures, as the albums sub-screen does: part 1 holds only the QR codes,
+  // and nothing on it is counted yet — a typed figure would be a lie. Its first figure arrives with the gifts stock
+  // (part 2), read by the page; when it does, this line becomes `figures=\{promoteFigures\(`. Until then a `figures=` on
+  // this row with no reader behind it fails here.
+  ['promote', 'shop/promote/page.tsx', /^<ShopSegments\s+on="promote"\s+gearBody=\{shopGearBody\(search\)\}\s*\/>$/],
   ['gallery', 'collections/page.tsx', /figures=\{galleryFigures\(/],
   ['insights', 'performance/page.tsx', /figures=\{pinFigures\}/],
 ];

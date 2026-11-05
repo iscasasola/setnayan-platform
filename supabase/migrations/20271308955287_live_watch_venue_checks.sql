@@ -61,7 +61,7 @@ CREATE POLICY live_watch_venue_checks_team_select ON public.live_watch_venue_che
     event_id IN (SELECT public.current_couple_or_coordinator_event_ids())
     OR event_id IN (SELECT public.current_moderator_event_ids())
     OR event_id IN (SELECT public.current_coordinator_booked_event_ids())
-    OR public.is_admin()
+    OR (SELECT public.is_admin())
   );
 
 DROP POLICY IF EXISTS live_watch_venue_checks_team_insert ON public.live_watch_venue_checks;

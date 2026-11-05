@@ -558,8 +558,8 @@ function ComingSoonPlaceholder() {
           <p className="max-w-prose text-xs text-ink/60">
             Setnayan&rsquo;s YouTube OAuth verified-app review is still in progress with
             Google (the review window is 1–4 weeks). Once it clears, the Connect button
-            lights up here and your broadcast goes live to your own channel. We&rsquo;ll
-            email you the moment it&rsquo;s ready.
+            lights up here and your broadcast goes live to your own channel. You&rsquo;ll
+            get a notice in Setnayan the moment it&rsquo;s ready.
           </p>
         </div>
       </div>
@@ -860,7 +860,7 @@ function BroadcastSetup({ eventId }: { eventId: string }) {
               link, plus a private setup link for each camera operator — no install, just
               open on any modern phone. The control room is built and you can open it now;
               the live per-camera ingest finishes wiring with the streaming rollout, and
-              we&rsquo;ll email you the moment it&rsquo;s ready.
+              you&rsquo;ll get a notice in Setnayan the moment it&rsquo;s ready.
             </p>
           </div>
         </div>

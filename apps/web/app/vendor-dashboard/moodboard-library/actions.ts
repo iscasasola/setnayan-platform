@@ -384,7 +384,38 @@ async function readShopOwnPhoto(
   return readShopOwnPhotoBytes(await createClient(), profile, ref);
 }
 
-export async function uploadStylistAsset(
+/**
+ * The upload's answer. 🔑 A REFUSAL IS RETURNED, NEVER THROWN (2026-11-05).
+ * A server action that throws has its message REPLACED in a production build
+ * ("An error occurred in the Server Components render…"), so every sentence
+ * below written for the supplier — wrong trade, quota full, confirm the rights,
+ * the screen's own reason — reached them in dev and never in production.
+ */
+export type UploadStylistAssetResult =
+  | { ok: true; assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }
+  | { ok: false; error: string };
+
+/** Internal storage/DB faults are not the supplier's to read; every gate's own sentence is. */
+const UPLOAD_FAULT_PREFIXES = ['upload failed:', 'db insert failed:'];
+function uploadRefusal(err: unknown): { ok: false; error: string } {
+  const message = err instanceof Error ? err.message : '';
+  if (!message || UPLOAD_FAULT_PREFIXES.some((p) => message.startsWith(p))) {
+    console.error('[moodboard-library] uploadStylistAsset failed', err);
+    return { ok: false, error: 'We couldn’t save that photo just now — please try again in a moment.' };
+  }
+  return { ok: false, error: message };
+}
+
+export async function uploadStylistAsset(formData: FormData): Promise<UploadStylistAssetResult> {
+  try {
+    return { ok: true, ...(await uploadStylistAssetOrThrow(formData)) };
+  } catch (err) {
+    return uploadRefusal(err);
+  }
+}
+
+/** The upload itself — every gate THROWS its sentence; `uploadStylistAsset` above turns that into a result. */
+async function uploadStylistAssetOrThrow(
   formData: FormData,
 ): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();

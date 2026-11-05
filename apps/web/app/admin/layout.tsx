@@ -296,7 +296,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       }
     : profile?.is_team_member
       ? {
-          label: 'Team Pool',
+          label: 'Team member',
           tone: 'bg-success-100 text-success-800',
           dot: 'bg-success-600',
         }

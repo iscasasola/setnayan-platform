@@ -226,7 +226,7 @@ export function TradePlans({
         </details>
         {fullTable ? (
           <details className={css.more}>
-            <summary>Every tool, side by side</summary>
+            <summary>What each plan adds, and every tool side by side</summary>
             {fullTable}
           </details>
         ) : null}
@@ -328,7 +328,7 @@ export function SupplierSpecialTools() {
               <span className={css.rosT}>5:30 PM</span>
               <span>
                 <b>Reception centrepieces</b>
-                <small>Hall, 18 tables</small>
+                <small>Reception hall</small>
               </span>
               <span className={css.st}>Now</span>
             </div>

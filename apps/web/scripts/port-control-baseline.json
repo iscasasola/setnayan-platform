@@ -318,6 +318,7 @@
         "VendorGrowHero",
         "VendorGrowProblems",
         "VendorGrowVerifiedOnly",
+        "VendorTierDeltas",
         "VendorTierMatrix"
       ]
     },

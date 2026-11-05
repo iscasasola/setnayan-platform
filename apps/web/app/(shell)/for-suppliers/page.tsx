@@ -64,6 +64,7 @@ import {
   VendorGrowCTA,
 } from '@/app/for-suppliers/_components/vendor-grow-sections';
 import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
+import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
 import {
   SupplierSpecialTools,
   TradeEco,
@@ -255,8 +256,9 @@ export default async function ForVendorsPage() {
             prices={{ soloMonthly: p.soloMonthly, proMonthly: p.proMonthly, enterpriseMonthly: p.enterpriseMonthly }}
             fee={fee}
             fullTable={
-              <VendorTierMatrix
-                feeSchedule={fee}
+              /* What each plan adds, with the full side-by-side matrix behind its own button — one fold under the
+                 cards (the 4 Nov prototype's "full table … further down"; the owner's 2026-07-04 matrix). */
+              <VendorTierDeltas
                 prices={{
                   soloMonthly: p.soloMonthly,
                   proMonthly: p.proMonthly,
@@ -264,6 +266,19 @@ export default async function ForVendorsPage() {
                   customFrom: p.customFrom,
                   branch: p.branch,
                 }}
+                feeSchedule={fee}
+                matrix={
+                  <VendorTierMatrix
+                    feeSchedule={fee}
+                    prices={{
+                      soloMonthly: p.soloMonthly,
+                      proMonthly: p.proMonthly,
+                      enterpriseMonthly: p.enterpriseMonthly,
+                      customFrom: p.customFrom,
+                      branch: p.branch,
+                    }}
+                  />
+                }
               />
             }
           />

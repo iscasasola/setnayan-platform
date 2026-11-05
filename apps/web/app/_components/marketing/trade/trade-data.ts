@@ -210,7 +210,7 @@ export const SUPPLIER_DAY_TOOLS: readonly { title: string; tag: string; items: r
     items: ['The minute-by-minute schedule for your part', 'Ask the coordinator to move one of your times', 'A countdown clock: now, next, ahead or behind'],
   },
   {
-    title: 'On the day',
+    title: 'The Day',
     tag: 'Free',
     items: ['Headcount, live from the couple’s RSVPs', 'Hand over to the couple: mark your work done', 'Review QR and live reviews as they land'],
   },

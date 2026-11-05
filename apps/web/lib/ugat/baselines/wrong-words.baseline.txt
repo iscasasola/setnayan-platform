@@ -76,7 +76,6 @@ app/download/page.tsx "setnayan.com" → /	# first run 2026-10-02 · public site
 app/download/page.tsx "Use it on the web instead" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/download/page.tsx "use Setnayan on the web" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-grow-sections.tsx "Get Verified — free" → /vendor-dashboard/profile	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-app/for-suppliers/_components/vendor-grow-sections.tsx "Get your invite link" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-tier-deltas.tsx "Talk to us →" → /help	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-tier-matrix.tsx "Talk to us →" → /help	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/papic/me/[token]/page.tsx "Open my camera" → /papic/seat/[token]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster

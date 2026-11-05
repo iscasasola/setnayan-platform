@@ -6,6 +6,7 @@
  */
 import { Children, useRef, useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import css from './trade.module.css';
 import type { Role } from './trade-data';
 
@@ -132,16 +133,13 @@ export function EcoFlows({
       </div>
       <div>
         <div className={css.ecoCtl}>
-          <label className={css.pick}>
-            <span>Show me as</span>
-            <select value={role} onChange={(e) => setRole(e.target.value as Role)} aria-label="Show the flows that touch this role">
-              {roles.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <span className={css.hint}>Show me as</span>
+          <PickMenu
+            label="Show the flows that touch this role"
+            value={role}
+            options={roles.map((r) => ({ key: r.value, label: r.label }))}
+            onPick={(k) => setRole(k as Role)}
+          />
         </div>
         <div className={open ? `${css.fold} ${css.foldOpen}` : css.fold}>
           <ol className={css.flows}>{flows.slice(0, FLOWS_FIRST).map((f, i) => row(f, i))}</ol>
@@ -198,16 +196,7 @@ export function PlanRow({ options, children }: { options: readonly { key: string
   return (
     <>
       <div className={css.plansCtl}>
-        <label className={css.pick}>
-          <span className={css.sr}>Plan</span>
-          <select value={pick} onChange={(e) => jump(e.target.value)} aria-label="Jump to a plan">
-            {options.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <PickMenu label="Jump to a plan" value={pick} options={options.map((o) => ({ key: o.key, label: o.label }))} onPick={jump} />
         <span className={css.hint}>Swipe to compare the five.</span>
       </div>
       <div className={css.plans} ref={row} aria-label="The five plans">
@@ -223,16 +212,10 @@ export function FormatPicker({ formats }: { formats: readonly { key: string; lab
   const current = formats.find((f) => f.key === key) ?? formats[0];
   return (
     <div className={css.formats}>
-      <label className={css.pick}>
-        <span>Format</span>
-        <select value={key} onChange={(e) => setKey(e.target.value)} aria-label="Print format">
-          {formats.map((f) => (
-            <option key={f.key} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className={css.ecoCtl}>
+        <span className={css.hint}>Format</span>
+        <PickMenu label="Print format" value={key} options={formats.map((f) => ({ key: f.key, label: f.label }))} onPick={setKey} />
+      </div>
       {current?.mock}
     </div>
   );

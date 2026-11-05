@@ -7,51 +7,18 @@ import { formatCount } from '@/lib/format-number';
  *
  *     "This camera has used today's shots — it refills tomorrow."
  *
- * ⚠ AND THE FIRST CORRECTION IS TO THE REASON, NOT THE VERDICT. A per-day
- * budget DOES exist in this schema, and an earlier pass of this work asserted
- * "nothing refills a seat, anywhere" — which is false as stated.
- * `papic_tier_config.points_per_day` minus `papic_seat_day_usage.points_used
- * WHERE usage_date = CURRENT_DATE` is a genuine daily allowance, read by
- * `papic_camera_points_remaining` and once enforced by `papic_reserve_camera_points`
- * (dropped 2026-09-18, 20271234330879 — it had no caller).
- * It resets with no job at all: tomorrow is simply a different row.
- * 🔑 SEARCHING FOR A SCHEDULED JOB AND FINDING NONE IS NOT EVIDENCE THAT
- * NOTHING RESETS. That was the wrong mechanism, and its absence proved nothing.
- *
- * ── WHY THE SENTENCE IS STILL FALSE FOR EVERY GUEST WHO EXISTS ────────────
- * Measured in production 2026-09-16, and the first three lines were re-measured
- * independently after the correction above:
- *
- *   tier         points_per_day   is_active   seats
- *   free              NULL          true        23   ← every seat in production
- *   mini              NULL          false        0
- *   ltd                70           false        0
- *   roll              200           false        0
- *   unlimited         500           false        0
- *
- *   · `papic_seat_day_usage` holds ZERO rows. It has never recorded anything.
- *   · `papic_camera_points_remaining` and `papic_reserve_camera_points` — the
- *     only two functions that read the daily budget — have NO caller anywhere:
- *     0 in `apps/`, 0 in RLS policies, 0 in views, 0 in CHECK clauses, 0 in
- *     other functions. (`papic_reserve_camera_capture` appears once inside
- *     `papic_record_guest_capture` — in a COMMENT. A code comment is not a call
- *     site, and `position('…(' in …)` returns 0 for it.)
- *   · What `api/upload` actually resolves is `papic_capture_points_available`
- *     (= dedicated − used + pool) and `papic_event_points_remaining_for_seat`.
- *     Neither carries a date, a day boundary, a reset or a `now()`, and
- *     `papic_seat_point_usage` has no period column to hold one. The dedicated
- *     bucket is, in the live SQL's own words, "a lifetime bucket, not a daily
- *     one".
- *
- * So the budgets that actually refuse a capture today do not refill, and the
- * one that would refill belongs to tiers nobody holds and nothing enforces.
- *
- * ⛔ WHICH IS EXACTLY WHY THE HONEST SENTENCE IS NOT HARDCODED EITHER.
- * "It refills tomorrow" is TRUE on a tier with a non-null `points_per_day`, and
- * `ltd`/`roll`/`unlimited` are one `is_active` flip away. Replacing one
- * hardcoded claim with the opposite hardcoded claim is the same defect facing
- * the other way. `exhaustionDetail` therefore takes `dailyBudget` — read from
- * this seat's own tier row — and says the thing that is true for THIS camera.
+ * 🛑 THERE IS NO DAILY ALLOWANCE TO MENTION, EITHER. Owner, 5 Nov 2026, on
+ * the per-seat daily budget: *"retire. we do not have papic seat anymore"* —
+ * confirming DECISION_LOG 2026-09-16 *"ONE POOL OF CREDITS, SHARED BY
+ * EVERYBODY … no dedicated shots individually"*. The per-day meter
+ * (`papic_tier_config.points_per_day` against `papic_seat_day_usage`) had no
+ * reader left — `papic_reserve_camera_points` was dropped 2026-09-18
+ * (20271234330879) and `papic_camera_points_remaining` after it
+ * (20271286935967) — so an earlier version of this module asked each seat's
+ * tier whether to add "a daily allowance resets tomorrow". That branch is gone
+ * with the budget. What refuses a capture now is the camera's own credits (if it
+ * has any) and the event's one shared pool; neither carries a date, and neither
+ * comes back on its own. Guard: `lib/papic-no-daily-budget.test.ts`.
  *
  * 🔑 AND A FALSE REASSURANCE IS WORSE THAN A REFUSAL. A guest hits the ceiling
  * at a wedding, reads "it refills tomorrow", and STOPS ASKING. She does not
@@ -149,16 +116,10 @@ export function exhaustionHeadline(cause: PapicExhaustionCause): string {
  *   "add more shots" panel is actually mounted (`papicGuestBuyEnabled`).
  *   Naming a remedy that is not on the screen is its own small lie, and a dead
  *   control makes working code look broken.
- * @param opts.dailyBudget whether THIS seat's tier carries a non-null
- *   `points_per_day`. DERIVED, never assumed — see the docblock: the honest
- *   sentence is as tier-dependent as the false one was, and hardcoding either
- *   direction is the same defect.
- *
  * ⛔ NEITHER SENTENCE MAY SAY THE EXHAUSTED BUDGET COMES BACK, because neither
  * of them does: the dedicated bucket is a lifetime bucket by the live SQL's own
- * words, and the shared pool carries no date at all. When a daily allowance
- * ALSO exists for this camera, that is said — and said alongside which budget it
- * is not, so "tomorrow" can never be read as applying to the one that refused.
+ * words, and the shared pool carries no date at all. There is no daily
+ * allowance either (retired, owner 5 Nov 2026), so no sentence says "tomorrow".
  *
  * ⛔ AND BOTH MUST NAME WHO CAN ACT. She cannot top up a pool she shares with
  * every other guest; the couple can. A refusal that is accurate and still a
@@ -166,32 +127,22 @@ export function exhaustionHeadline(cause: PapicExhaustionCause): string {
  */
 export function exhaustionDetail(
   cause: PapicExhaustionCause,
-  opts: { buyOffered: boolean; dailyBudget: boolean },
+  opts: { buyOffered: boolean },
 ): string {
   if (cause === 'own_camera') {
     return [
       'The credits added to this camera are spent, and a camera’s own credits don’t come back.',
-      opts.dailyBudget
-        ? 'This camera’s daily allowance does reset tomorrow — the credits you added don’t.'
-        : null,
       opts.buyOffered
         ? 'Add more credits below, or ask the couple to top up this camera.'
         : 'Ask the couple to add more credits to this camera.',
-    ]
-      .filter((part): part is string => part !== null)
-      .join(' ');
+    ].join(' ');
   }
   return [
     'Everybody here shares one set of credits and they’re all spent. The shared set doesn’t refill.',
-    opts.dailyBudget
-      ? 'A camera’s own daily allowance resets tomorrow — the shared set doesn’t.'
-      : null,
     opts.buyOffered
       ? 'Only the couple can add more to it — or you can add your own credits below.'
       : 'Only the couple can add more.',
-  ]
-    .filter((part): part is string => part !== null)
-    .join(' ');
+  ].join(' ');
 }
 
 /**

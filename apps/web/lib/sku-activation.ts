@@ -22,7 +22,6 @@ import {
 import { customPlanExpiryFrom } from '@/lib/vendor-custom-pricing';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
-import { provisionPapicSeatsAdmin } from '@/lib/papic-seats';
 import { papicPointsBoughtBySku } from '@/lib/papic-pass-tiers';
 import {
   ONBOARDING_SERVICES_SKU,
@@ -1528,24 +1527,10 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // in the same change, so activate/reverse stay symmetric and no order can
   // activate without a matching rollback.
 
-  // 'PAPIC_SEATS' → paid Papic upgrade. Ownership reads off orders.status (no
-  // stored unlock flag). On approval the hook PROVISIONS the 5 paparazzi seats
-  // so the feature is READY with no manual "Set up your seats" step (owner-locked:
-  // the approval IS the activation). provisionPapicSeatsAdmin is idempotent
-  // (top-up of missing indexes only) so re-approval / a couple who already
-  // self-served via /crew is safe. Best-effort (never throws). Also fires for
-  // bundle buyers via activateBundleChildren (Papic is a MEDIA_PACK child).
-  PAPIC_SEATS: async (ctx) => {
-    if (!ctx.eventId) return;
-    const eventId = ctx.eventId;
-    // Materialize the seats — the no-manual-step half of the feature.
-    try {
-      await provisionPapicSeatsAdmin(ctx.admin, eventId);
-    } catch (e) {
-      console.error('[sku-activation] PAPIC_SEATS seat provisioning threw (non-fatal):', e);
-      reportActivationFault('activate:PAPIC_SEATS', ctx, e);
-    }
-  },
+  // PAPIC_SEATS (the five-seat crew pack) has NO activation hook any more: the
+  // pack is retired and nobody holds it (owner 2026-11-05: "no one. remove
+  // both"), and its seats would be refused at capture anyway.
+
 
   // Papic POOL — the SHARED, additive top-up rungs (owner-locked 2026-07-29:
   // +3,000 ₱1,000 · +6,000 ₱2,000 · +10,000 ₱3,000). A paid rung grants its

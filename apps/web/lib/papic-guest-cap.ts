@@ -2,12 +2,12 @@
  * ONE RULE, ONE READER — does the per-guest ceiling actually bind?
  *
  * ── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
- * `papic_record_guest_capture` decides it with TWO writes to `v_unlimited`
- * (migration 20270920602517):
- *
+ * `papic_record_guest_capture` decides it with writes to `v_unlimited`. There
+ * used to be TWO (migration 20270920602517):
  *   1.  SELECT EXISTS (… service_key = 'PAPIC_UNLOCK' …) INTO v_unlimited;
  *   2.  v_unlimited := v_unlimited OR COALESCE(v_pool_applies, FALSE);
- *
+ * The Unlock pass is retired (owner 2026-11-05: "no one. remove both") and
+ * 20271309535584 takes write 1 out, so ONE remains — the shared pot's yield.
  * The TypeScript mirror learned only the first. The second arrived with the
  * one-pool model and never crossed over — so the browser counted a guest down
  * from a hardcoded 150, hid its own shutter and said "That's all 150 photos"
@@ -29,8 +29,6 @@
  */
 
 export type GuestCapInputs = {
-  /** An ACTIVE (paid/fulfilled) PAPIC_UNLOCK order on this event. */
-  hasUnlock: boolean;
   /** `papic_event_pool_status(event_id).applies` — the shared pot is the
    *  authoritative ceiling for a pool event, so the per-guest number yields. */
   poolApplies: boolean;
@@ -54,9 +52,8 @@ export type GuestCapInputs = {
  */
 export function papicGuestCapLifts(i: GuestCapInputs): boolean[] {
   return [
-    // 1 · SELECT EXISTS (… 'PAPIC_UNLOCK' …) INTO v_unlimited
-    i.hasUnlock,
-    // 2 · v_unlimited := v_unlimited OR COALESCE(v_pool_applies, FALSE)
+    // 1 · v_unlimited := (COALESCE(v_pool_applies, FALSE) AND v_ceiling IS NULL)
+    //     (the ceiling half is papicGuestCapAppliesWithCeiling, below)
     i.poolApplies || i.poolUnknown,
   ];
 }
@@ -75,10 +72,9 @@ export function papicGuestCapApplies(i: GuestCapInputs): boolean {
  *                                   v_ceiling IS NULL);
  *
  * and the RPC's own response reports `'unlimited', (v_unlimited AND v_ceiling
- * IS NULL)`. So a bought "Unlock all of Papic" pass or a shared pot only lifts
- * the cap while nobody has put a number on THIS guest — a ceiling always wins,
- * because the couple buying their way past OUR limit is not permission to walk
- * through a limit the couple themselves set on one guest.
+ * IS NULL)`. So a shared pot only lifts the cap while nobody has put a number
+ * on THIS guest — a ceiling always wins: the pot standing our limit down is not
+ * permission to walk through a limit the couple themselves set on one guest.
  *
  * The pre-S2 rule (`papicGuestCapApplies`) is left untouched above — this is a
  * SEPARATE function, not a rewrite of it, so a database that predates the

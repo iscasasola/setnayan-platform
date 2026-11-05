@@ -142,8 +142,8 @@ export function AddToLibrary({
   /** The event, for the claim on the first pick. Needed only while `token` is null. */
   eventId?: string | null;
   /**
-   * Credits this camera can still spend — the presign gate's own read (`papic_capture_points_available`), or
-   * 'unmetered' (the Papic Unlock pass), or null when it could not be read (said as "Couldn't check", never 0).
+   * Credits this camera can still spend — the presign gate's own read (`papic_capture_points_available`), or null
+   * when it could not be read (said as "Couldn't check", never 0).
    */
   pot: UploadPot;
   /** The shipped Add more door (`PapicBuySheet`, or Apple's in the app) — offered when the pot is short. */
@@ -456,7 +456,6 @@ export function AddToLibrary({
 
 /** The credits line: what this camera can still spend, or why it is not a number. */
 function potWords(pot: UploadPot): string {
-  if (pot === 'unmetered') return 'Your pass covers these';
   if (pot === null) return 'Couldn’t check your credits';
   return `${creditsCount(pot)} left`;
 }

@@ -73,7 +73,9 @@ import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { ShopNotice } from '../../_components/kit';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftRewardStock, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
+import { readGrantedRewards, readRewardNames } from '@/lib/badge-rewards.server';
 import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import { ShopGiftsSection } from './shop-gifts-section';
 
@@ -460,14 +462,20 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // 🎁 YOUR GIFTS (owner 2026-11-04) — the shop's gift stock, read with the shop's own client (RLS: its own rows);
   // the catalogue and the tier with the service role, as the buy action prices them.
   const giftsAdmin = createAdminClient();
-  const [giftStock, giftBought, giftPacks, giftPaysGiftPrice, giftPapicOn, giftStoreShell] = await Promise.all([
-    fetchShopGiftStock(supabase, profile.vendor_profile_id, null),
-    fetchShopGiftBought(supabase, profile.vendor_profile_id),
-    fetchShopGiftPacks(giftsAdmin),
-    fetchVendorPaysGiftPrice(giftsAdmin, profile.vendor_profile_id),
-    isVendorPapicCaptureEnabled(),
-    isStoreShellRequest(),
-  ]);
+  // 🏅 …and the badge rewards kept in it (owner 2026-11-05): what is left of the reward stock, every reward given and
+  // the free booking fee's history — read with the service role, keyed on the shop's own id.
+  const [giftStock, giftBought, giftPacks, giftPaysGiftPrice, giftPapicOn, giftStoreShell, rewardStock, rewardsGranted, rewardNames] =
+    await Promise.all([
+      fetchShopGiftStock(supabase, profile.vendor_profile_id, null),
+      fetchShopGiftBought(supabase, profile.vendor_profile_id),
+      fetchShopGiftPacks(giftsAdmin),
+      fetchVendorPaysGiftPrice(giftsAdmin, profile.vendor_profile_id),
+      isVendorPapicCaptureEnabled(),
+      isStoreShellRequest(),
+      fetchShopGiftRewardStock(supabase, profile.vendor_profile_id, null),
+      readGrantedRewards(giftsAdmin, profile.vendor_profile_id),
+      readRewardNames(giftsAdmin),
+    ]);
 
   // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
   const photosLine = allowance.ok
@@ -563,6 +571,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
           bought: giftBought,
           openRails,
           canBuy: !giftStoreShell,
+          rewards: { left: rewardFreeByKind(rewardStock, freeByKind(giftStock)), granted: rewardsGranted, names: rewardNames },
         }}
       />
 

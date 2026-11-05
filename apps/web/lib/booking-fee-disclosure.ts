@@ -90,7 +90,17 @@ export type BookingFeeStanding =
       /** ISO end of the window, or null when it is open-ended. */
       endsAt: string | null;
     }
-  | { kind: 'billable'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  /**
+   * Booking 2+ with a fee. `badgeReward` (owner 2026-11-05): a free booking fee — a badge reward from 1,000 events —
+   * PAID this booking ('this', the charge reads ₱0) or is WAITING for the shop's next booking with a fee ('next').
+   */
+  | {
+      kind: 'billable';
+      ordinal: number;
+      ordinalIsFrozen: boolean;
+      schedule: BookingFeeSchedule;
+      badgeReward?: 'this' | 'next';
+    }
   /**
    * THE LAUNCH OFFER (migration 20271268832636) — the booking is, or would be,
    * one of Setnayan's first `cap` sourced bookings, fee-free. It sits ABOVE
@@ -286,6 +296,17 @@ export function bookingFeeForecast(
       }
       const fee = bookingFeePhp(total, standing.schedule);
       const rate = effectiveRateText(fee, total);
+      // 🏅 A free booking fee (badge reward). The amount is still named — "₱0 · Badge reward" after it.
+      if (standing.kind === 'billable' && standing.badgeReward) {
+        return {
+          tone: 'good',
+          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Badge reward.`,
+          detail:
+            standing.badgeReward === 'this'
+              ? `Your free booking fee — a badge reward — paid this one. ${position}`
+              : `You have a free booking fee waiting — a badge reward. It is used by itself on your next booking with a fee, so if this one is agreed first it costs you nothing. ${position}`,
+        };
+      }
       if (promo) {
         const ends = freeWindowEndsLabel(standing.endsAt);
         return {

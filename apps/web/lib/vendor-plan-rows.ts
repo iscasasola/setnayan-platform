@@ -133,6 +133,13 @@ export function bookingFeeRow(
         badge: due ?? { tone: 'quiet', word: 'First booking free' },
       };
     case 'billable':
+      // 🏅 A free booking fee waiting (badge reward, owner 2026-11-05) — the next booking with a fee reads ₱0.
+      if (standing.badgeReward === 'next') {
+        return {
+          line: `${bookingFeeScheduleSummary(standing.schedule)} · your next one is free · Badge reward`,
+          badge: due ?? { tone: 'ok', word: 'Badge reward' },
+        };
+      }
       return {
         line: `${bookingFeeScheduleSummary(standing.schedule)} · locked until settled`,
         badge: due ?? { tone: 'quiet', word: 'Free booking used' },

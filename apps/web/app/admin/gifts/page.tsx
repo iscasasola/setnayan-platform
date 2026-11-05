@@ -42,6 +42,8 @@ import {
 } from '@/lib/v2-catalog';
 import { isPromoFreeWindowsEnabled, vendorTierOfSku } from '@/lib/promo-free-windows';
 import { fetchShopGiftHolds, fetchShopGiftLedger } from '@/lib/shop-gifts.server';
+import { fetchBadgeRewardLedger, readRewardNames } from '@/lib/badge-rewards.server';
+import { BadgeRewardsLedger } from './_components/badge-rewards-ledger';
 import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
 
 /**
@@ -199,7 +201,14 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
     coupleWindowsReadError = asReadError(e);
   }
   // ── Supplier gifts (owner 2026-11-04) — every bought / given / reversed credit, and what live quotes promise ──
-  const [shopGiftLedger, shopGiftHolds] = await Promise.all([fetchShopGiftLedger(admin), fetchShopGiftHolds(admin)]);
+  // ── Badge rewards (owner 2026-11-05) — what each badge gave, and every free booking fee with its history ──
+  const [shopGiftLedger, shopGiftHolds, badgeRewards, badgeRewardNames] = await Promise.all([
+    fetchShopGiftLedger(admin),
+    fetchShopGiftHolds(admin),
+    fetchBadgeRewardLedger(admin),
+    readRewardNames(admin),
+  ]);
+  const badgeRewardsError = badgeRewards ? null : { message: 'the badge rewards read was refused' };
   const shopGiftLedgerError = shopGiftLedger ? null : { message: 'the supplier gift ledger read was refused' };
   const shopGiftHoldsError = shopGiftHolds ? null : { message: 'the quote gift lines read was refused' };
 
@@ -954,6 +963,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
         holds={shopGiftHolds}
         holdsError={shopGiftHoldsError}
       />
+
+      {/* 🏅 BADGE REWARDS (owner 2026-11-05) — every reward a badge gave, and the free booking fees (take back an unused
+          one). */}
+      <BadgeRewardsLedger rows={badgeRewards} readError={badgeRewardsError} names={badgeRewardNames} />
 
       {/* ══════════════════ USER SIDE ══════════════════ */}
       <section>

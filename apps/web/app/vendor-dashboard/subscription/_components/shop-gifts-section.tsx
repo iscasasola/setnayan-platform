@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
-import { Gift, ShoppingBag, Sparkles } from 'lucide-react';
+import { Award, Gift, ShoppingBag, Sparkles, Ticket } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { Counter } from '@/app/_components/counter';
 import { Fold } from '@/app/_components/fold';
@@ -17,12 +17,23 @@ import { formatPhp } from '@/lib/php';
 import type { OpenRail } from '@/lib/payment-channels';
 import {
   SHOP_GIFT_MAX_QUANTITY,
+  giftCount,
   giftUnitPrice,
   stockSubline,
+  type FreeByKind,
   type ShopGiftKind,
   type ShopGiftPack,
   type ShopGiftStocks,
 } from '@/lib/shop-gifts';
+import {
+  FREE_FEE_SUBLINE,
+  FREE_FEE_TITLE,
+  freeFeeSummary,
+  rewardSourceWords,
+  rewardWords,
+  type GrantedReward,
+  type RewardNames,
+} from '@/lib/badge-rewards';
 import {
   buyVendorPapicPortfolioPack,
   type BuyVendorPapicPortfolioPackState,
@@ -51,11 +62,29 @@ export type ShopGiftsSectionData = {
   openRails: OpenRail[];
   /** Papic on, and not inside the App Store shell (supplier purchases stay on the web). */
   canBuy: boolean;
+  /**
+   * 🏅 Badge rewards (owner 2026-11-05) — what each badge gave, kept in this same stock and marked "Badge reward", plus
+   * the free booking fee. Absent ⇒ the section reads as before. `granted: null` ⇒ could not be read (never "none").
+   */
+  rewards?: {
+    /** What is left of each kind's badge-reward stock (`rewardFreeByKind`). Null ⇒ unread. */
+    left: FreeByKind | null;
+    granted: GrantedReward[] | null;
+    names: RewardNames;
+  };
 };
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
 const ic = <Gift aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const icUnlock = <Sparkles aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const icFee = <Ticket aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
+
+/** " · 300 from badge rewards" on a stock row, when some of it is. */
+function rewardPart(left: FreeByKind | null | undefined, k: ShopGiftKind): string {
+  const n = left?.[k] ?? 0;
+  return n > 0 ? ` · ${giftCount(n)} from badge rewards` : '';
+}
 
 function day(iso: string): string {
   const d = new Date(iso);
@@ -89,12 +118,18 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const { stock, bought } = data;
   const packs = data.packs ?? [];
   const canOffer = data.canBuy && stock !== null && packs.length > 0;
+  const rewards = data.rewards;
+  const granted = rewards?.granted ?? null;
+  const fee = granted ? freeFeeSummary(granted) : null;
+  const stockRewards = granted?.filter((g) => g.kind !== 'fee_waiver') ?? [];
 
   return (
     <section className="mt-8" data-shop-gifts="" aria-labelledby={headingId}>
       <InfoTip label="Your gifts" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Bought ahead, for your couples. Put them on a quote; they leave your stock only when that couple&rsquo;s first
-        payment clears, and land on their event. Never cashed out.
+        payment clears, and land on their event. Never cashed out. Every badge you earn adds its reward here too, marked
+        Badge reward: it never expires and sits outside a booking&rsquo;s gift limit. A free booking fee is used by
+        itself on your next booking that would carry a fee.
       </InfoTip>
 
       <div className="mt-2">
@@ -102,7 +137,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           data="shop-gifts-papic"
           lead={ic}
           title="Papic credits"
-          line={stockSubline(stock?.papic ?? null)}
+          line={`${stockSubline(stock?.papic ?? null)}${stock ? rewardPart(rewards?.left, 'papic') : ''}`}
           strong={stock ? formatCount(stock.papic.balance) : null}
         />
         {(['event_plus', 'event_pro'] as const).map((k) => {
@@ -116,11 +151,28 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
               title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
-              line={stockSubline(s)}
+              line={`${stockSubline(s)}${stock ? rewardPart(rewards?.left, k) : ''}`}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
             />
           );
         })}
+
+        {rewards ? (
+          <DatesRow
+            data="shop-gifts-free-fee"
+            lead={icFee}
+            title={FREE_FEE_TITLE}
+            line={
+              fee === null
+                ? 'Couldn’t read your badge rewards right now'
+                : fee.waiting > 0
+                  ? `${FREE_FEE_SUBLINE} · used by itself on your next booking with a fee`
+                  : FREE_FEE_SUBLINE
+            }
+            strong={fee ? formatCount(fee.waiting) : null}
+            badge={fee && fee.history.length > 0 ? { tone: 'ok', word: 'Badge reward' } : null}
+          />
+        ) : null}
 
         {canOffer ? (
           <div className="mt-3">
@@ -170,6 +222,49 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
             </div>
           </Fold>
         </div>
+
+        {rewards ? (
+          <div className="border-t border-ink/10" data-plan-fold="gifts-badge-rewards">
+            <Fold
+              title="Badge rewards"
+              line={granted === null ? 'Couldn’t load — nothing is lost' : granted.length > 0 ? `${formatCount(granted.length)}` : 'None yet'}
+              data="shop-gifts-badge-rewards"
+            >
+              <div className="pb-3">
+                {granted === null ? (
+                  <p className="py-2 text-[13.5px] text-ink/70" role="status">
+                    Your badge rewards couldn&rsquo;t load. Reload to try again — nothing you earned has changed.
+                  </p>
+                ) : granted.length === 0 ? (
+                  <p className="py-2 text-[13.5px] text-ink/60">Each badge you earn adds a gift here for your next couples.</p>
+                ) : (
+                  <>
+                    {stockRewards.map((g) => (
+                      <DatesRow
+                        key={g.rewardId}
+                        data="shop-gifts-badge-reward-row"
+                        lead={icReward}
+                        title={rewardWords({ kind: g.kind, units: g.units }, rewards.names)}
+                        line={`${day(g.grantedAt)} · ${rewardSourceWords(g.key)}`}
+                        badge={{ tone: 'ok', word: 'Badge reward' }}
+                      />
+                    ))}
+                    {fee?.history.map((h) => (
+                      <DatesRow
+                        key={h.rewardId}
+                        data="shop-gifts-free-fee-row"
+                        lead={icFee}
+                        title={FREE_FEE_TITLE}
+                        line={h.line}
+                        badge={{ tone: h.state === 'waiting' ? 'ok' : 'quiet', word: h.state === 'used' ? 'Used' : h.state === 'revoked' ? 'Taken back' : 'Waiting' }}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            </Fold>
+          </div>
+        ) : null}
 
         <p className="mt-2 text-[13px] text-ink/55">
           You give them on a quote — they come out of here when the couple&rsquo;s first payment clears.

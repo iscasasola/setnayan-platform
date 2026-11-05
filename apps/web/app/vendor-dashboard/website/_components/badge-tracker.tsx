@@ -1,4 +1,4 @@
-import { MessageCircle, Share, Users } from 'lucide-react';
+import { Gift, MessageCircle, Share, Users } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -18,6 +18,11 @@ import type { ShopBadge, TrackerRow, TrackerState } from '@/lib/shop-badges';
  *
  * Every word arrives composed by `lib/shop-badges.ts` (`badgeTracker`, `nextToEarnLine`, `shopBadges`) from the reads
  * in `lib/shop-badges.server.ts`. ⚠ The rating row has no bar and no goal — no ruling sets one (owner: "don't guess").
+ *
+ * 🎁 REWARDS (owner 2026-11-05: *"make sure the page for the badges also show what their next badge and reward is"*):
+ * under each row that pays one, two short lines from the ONE reward table (`badgeRowsWithRewards`,
+ * `lib/badge-rewards.ts`) — what it already gave ("Gave you: Event Plus · in your gifts") and what the next step gives
+ * ("Next: 100 events · Gold · 4 to go → 2 × Event Plus"). A badge that pays nothing (Rating, Years) shows neither.
  */
 export type BadgeTrackerData = {
   /** The pills couples see today (`shopBadges`). */
@@ -35,6 +40,7 @@ const STATE_TONE: Record<TrackerState, BadgeTone> = {
   live: 'quiet',
   not_yet: 'quiet',
   unread: 'no',
+  not_counted: 'quiet',
 };
 
 /** The tracker row's circle — the pill's own circle, alone: the mark, or the number / ★, in gold on a gold-foil ring. */
@@ -102,6 +108,17 @@ export function BadgeTracker({ d }: { d: BadgeTrackerData }) {
                   ) : null}
                 </div>
               ) : null}
+              {r.reward?.gave ? (
+                <p className="mt-1.5 flex items-start gap-1.5 text-[12.5px] font-medium text-success-700" data-badge-reward-gave="">
+                  <Gift aria-hidden className="mt-[2px] h-3.5 w-3.5 flex-none" strokeWidth={1.9} />
+                  <span className="min-w-0">{r.reward.gave}</span>
+                </p>
+              ) : null}
+              {r.reward?.next ? (
+                <p className="mt-1 text-[12.5px] text-ink/70" data-badge-reward-next="">
+                  {r.reward.next}
+                </p>
+              ) : null}
               {r.door ? (
                 <div className="mt-2">
                   <ActionButton
@@ -123,7 +140,9 @@ export function BadgeTracker({ d }: { d: BadgeTrackerData }) {
       </div>
       <InfoTip label="How badges work" labelClassName="text-[12.5px] text-ink/60" align="start">
         Worked out live from your real bookings, reviews and years — nothing to type. They print on your card and tarps as
-        they are on the day you print, and a voided booking takes its medal back.
+        they are on the day you print, and a voided booking takes its medal back. Each badge step pays its reward once,
+        into your gifts, and it never expires — give it to a couple on a card or a quote. Badge rewards sit outside a
+        booking&rsquo;s gift limit. A free booking fee is used by itself on your next booking that would carry a fee.
       </InfoTip>
     </div>
   );

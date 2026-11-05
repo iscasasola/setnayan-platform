@@ -21,6 +21,12 @@
  * At the first payment the gift unlocks the EVENT; a second Event Plus on an event that already holds Plus unlocks
  * Event Pro instead (owner 2026-11-05: *"yes, the second event plus will auto upgrade event pro"*). An event that
  * already holds Event Pro cannot take either — the quote says so before it is sent.
+ *
+ * 🏅 BADGE REWARDS (2026-11-05) — a badge's Papic 150 / Event Plus / Event Pro lands in this same stock, marked
+ * "Badge reward" (migration `badge_rewards_land_in_the_gift_stock`). Owner: *"badge rewards are exempt from the
+ * 40%-of-booking-fee gift limit … bought gifts keep the limit"*. So a quote's lines are paid from the shop's REWARD
+ * stock first (`allocateRewardLines`, whole lines, the most valuable first) and only the lines left — the bought ones —
+ * are measured against the limit.
  */
 
 import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
@@ -139,6 +145,19 @@ export function giftLimitCentavos(totalCentavos: number, schedule: BookingFeeSch
   return Math.floor((feeCentavos * GIFT_SHARE_OF_FEE_PCT) / 100);
 }
 
+/**
+ * What is left of each kind's BADGE-REWARD stock: earned − used (`shop_gift_reward_stock_status`), never more than
+ * what is free to offer at all. Null when either could not be read — then no line is treated as a reward.
+ */
+export function rewardFreeByKind(
+  reward: Readonly<Record<ShopGiftKind, { earned: number; used: number }>> | null,
+  free: FreeByKind | null,
+): FreeByKind | null {
+  if (!reward || !free) return null;
+  const left = (k: ShopGiftKind) => Math.max(0, Math.min(free[k], reward[k].earned - reward[k].used));
+  return { papic: left('papic'), event_plus: left('event_plus'), event_pro: left('event_pro') };
+}
+
 /** The stock a shop can still offer: balance − what live quotes hold. `null` = could not be read. */
 export type ShopGiftStock = {
   /** SUM of the ledger. */
@@ -179,6 +198,10 @@ export type QuoteGiftsVerdict = {
   limitCentavos: number;
   /** Only the always-allowed pack — fits whatever the limit. */
   alwaysAllowed: boolean;
+  /** Per CODE handed in (same order): this line is paid from badge-reward stock, outside the limit. */
+  fromReward: boolean[];
+  /** Value of the badge-reward lines, at the price couples pay — not measured against the limit. */
+  rewardCentavos: number;
   state: 'none' | 'ok' | 'over_limit' | 'short' | 'unknown_pack' | 'already_has';
   /** Missing from stock (state 'short') — credits for Papic, units for an unlock. */
   shortBy: number;
@@ -187,12 +210,36 @@ export type QuoteGiftsVerdict = {
 };
 
 /**
+ * Which lines the shop's BADGE-REWARD stock pays (owner 2026-11-05: badge rewards sit outside the 40% limit). Whole
+ * lines only — a reward never pays part of a pack — and the most valuable lines first, so the exemption covers as much
+ * as the reward stock can. `rewardFree` is what is left of each kind's reward stock (never more than the free stock).
+ */
+export function allocateRewardLines(lines: readonly ShopGiftPack[], rewardFree: FreeByKind | null): boolean[] {
+  const left: Record<ShopGiftKind, number> = {
+    papic: Math.max(0, rewardFree?.papic ?? 0),
+    event_plus: Math.max(0, rewardFree?.event_plus ?? 0),
+    event_pro: Math.max(0, rewardFree?.event_pro ?? 0),
+  };
+  const out = lines.map(() => false);
+  const order = lines.map((_, i) => i).sort((a, b) => lines[b]!.srpCentavos - lines[a]!.srpCentavos || a - b);
+  for (const i of order) {
+    const p = lines[i]!;
+    if (left[p.kind] >= p.credits) {
+      left[p.kind] -= p.credits;
+      out[i] = true;
+    }
+  }
+  return out;
+}
+
+/**
  * Judge the gifts a supplier put on a quote. The server runs this before it writes the lines; the composer runs the
  * SAME function to draw the block, so the two can never disagree.
  *
  * @param codes    the packs added, one entry per pack (two Papic 1000 ⇒ the code twice)
  * @param free     what is free to offer of each kind, from `freeByKind` — `null` (stock unread) judges as short
  * @param eventHas what the couple's event already holds — an event with Event Pro cannot take Plus or Pro
+ * @param rewardFree what is left of the shop's BADGE-REWARD stock, per kind — those lines sit outside the limit
  */
 export function judgeQuoteGifts(
   codes: readonly string[],
@@ -201,28 +248,52 @@ export function judgeQuoteGifts(
   schedule: BookingFeeSchedule,
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
+  rewardFree: FreeByKind | null = null,
 ): QuoteGiftsVerdict {
   const limitCentavos = giftLimitCentavos(totalCentavos, schedule);
   const byCode = new Map(packs.map((p) => [p.code, p]));
   const lines: ShopGiftPack[] = [];
+  const lineOfCode: number[] = [];
   let unknown = false;
   for (const c of codes) {
     const p = byCode.get(c);
-    if (p) lines.push(p);
-    else unknown = true;
+    if (p) {
+      lineOfCode.push(lines.length);
+      lines.push(p);
+    } else {
+      lineOfCode.push(-1);
+      unknown = true;
+    }
   }
   const need = (k: ShopGiftKind) => lines.reduce((s, p) => s + (p.kind === k ? p.credits : 0), 0);
   const credits = need('papic');
   const unlocks = { event_plus: need('event_plus'), event_pro: need('event_pro') };
   const valueCentavos = lines.reduce((s, p) => s + p.srpCentavos, 0);
+  const rewardLines = allocateRewardLines(lines, rewardFree);
+  const fromReward = lineOfCode.map((i) => i >= 0 && rewardLines[i] === true);
+  const bought = lines.filter((_, i) => !rewardLines[i]);
+  const rewardCentavos = valueCentavos - bought.reduce((s, p) => s + p.srpCentavos, 0);
+  const boughtCentavos = valueCentavos - rewardCentavos;
   const smallest = alwaysAllowedPack(packs);
-  const alwaysAllowed = lines.length === 1 && !!smallest && lines[0]!.code === smallest.code;
-  const base = { lines, credits, unlocks, valueCentavos, limitCentavos, alwaysAllowed, shortBy: 0, shortKind: null };
+  // The limit binds only the BOUGHT lines: none at all, or only the smallest pack, always fits.
+  const alwaysAllowed = bought.length === 0 || (bought.length === 1 && !!smallest && bought[0]!.code === smallest.code);
+  const base = {
+    lines,
+    credits,
+    unlocks,
+    valueCentavos,
+    limitCentavos,
+    alwaysAllowed,
+    fromReward,
+    rewardCentavos,
+    shortBy: 0,
+    shortKind: null,
+  };
 
   if (unknown) return { ...base, state: 'unknown_pack' };
   if (lines.length === 0) return { ...base, state: 'none' };
   if (eventHas === 'pro' && unlocks.event_plus + unlocks.event_pro > 0) return { ...base, state: 'already_has' };
-  if (!alwaysAllowed && valueCentavos > limitCentavos) return { ...base, state: 'over_limit' };
+  if (!alwaysAllowed && boughtCentavos > limitCentavos) return { ...base, state: 'over_limit' };
   for (const k of SHOP_GIFT_KINDS) {
     const have = free?.[k] ?? 0;
     if (need(k) > have) return { ...base, state: 'short', shortBy: need(k) - have, shortKind: k };
@@ -238,6 +309,8 @@ export type ShopGiftQuoteBasis = {
   free: FreeByKind | null;
   /** What the couple's event already holds — Plus and Pro gifts read it. */
   eventHas: EventHolds;
+  /** What is left of the shop's BADGE-REWARD stock, per kind (outside the limit). Null / absent = none counted. */
+  rewardFree?: FreeByKind | null;
 };
 
 /** One choice in the "＋ Add a gift" menu. */
@@ -260,9 +333,10 @@ export function addGiftMenu(
   schedule: BookingFeeSchedule,
   free: FreeByKind | null,
   eventHas: EventHolds = 'none',
+  rewardFree: FreeByKind | null = null,
 ): GiftMenuOption[] {
   return packs.map((p) => {
-    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, free, eventHas);
+    const v = judgeQuoteGifts([...codes, p.code], packs, totalCentavos, schedule, free, eventHas, rewardFree);
     if (v.state === 'ok') return { code: p.code, title: p.title, ok: true, why: null };
     if (v.state === 'already_has') return { code: p.code, title: p.title, ok: false, why: 'Their event already has Event Pro' };
     if (v.state === 'over_limit') return { code: p.code, title: p.title, ok: false, why: 'Over this booking’s gift limit' };

@@ -10,6 +10,7 @@ import {
   SHOP_GIFT_UNLOCK_CODE,
   freeByKind,
   judgeQuoteGifts,
+  rewardFreeByKind,
   shopGiftPacksFrom,
   type EventHolds,
   type ShopGiftKind,
@@ -99,6 +100,38 @@ export async function fetchShopGiftStock(
     const held = Number(row?.held ?? 0);
     if (!Number.isFinite(balance) || !Number.isFinite(held)) return null;
     out[k] = { balance: Math.trunc(balance), held: Math.trunc(held) };
+  }
+  return out;
+}
+
+/**
+ * 🏅 How much of each kind of stock is still BADGE REWARD (`shop_gift_reward_stock_status`): earned and used. Same
+ * `exceptEventId` as `fetchShopGiftStock`. Null on a read failure — then no line is treated as a reward (the limit
+ * applies to everything, which can only refuse, never over-give).
+ */
+export async function fetchShopGiftRewardStock(
+  client: SupabaseClient,
+  vendorProfileId: string,
+  exceptEventId: string | null = null,
+): Promise<Record<ShopGiftKind, { earned: number; used: number }> | null> {
+  const { data, error } = await client.rpc('shop_gift_reward_stock_status', {
+    p_vendor_profile_id: vendorProfileId,
+    p_except_event_id: exceptEventId,
+  });
+  if (error) {
+    console.error('[supabase-error] shop-gifts: shop_gift_reward_stock_status', error);
+    return null;
+  }
+  const rows = (Array.isArray(data) ? data : [data]) as Array<
+    { gift_kind?: string; earned?: number | string | null; used?: number | string | null } | null
+  >;
+  const out = {} as Record<ShopGiftKind, { earned: number; used: number }>;
+  for (const k of SHOP_GIFT_KINDS) {
+    const row = rows.find((r) => r?.gift_kind === k);
+    const earned = Number(row?.earned ?? 0);
+    const used = Number(row?.used ?? 0);
+    if (!Number.isFinite(earned) || !Number.isFinite(used)) return null;
+    out[k] = { earned: Math.trunc(earned), used: Math.trunc(used) };
   }
   return out;
 }
@@ -208,14 +241,16 @@ export async function fetchShopGiftQuoteBasis(
   vendorProfileId: string,
   eventId: string | null,
 ): Promise<ShopGiftQuoteBasis | null> {
-  const [packs, schedule, stock, eventHas] = await Promise.all([
+  const [packs, schedule, stock, eventHas, reward] = await Promise.all([
     fetchShopGiftPacks(admin),
     getBookingFeeSchedule(admin),
     fetchShopGiftStock(admin, vendorProfileId, eventId),
     eventId ? fetchEventGiftHolds(admin, eventId, 'owned') : Promise.resolve<EventHolds>('none'),
+    fetchShopGiftRewardStock(admin, vendorProfileId, eventId),
   ]);
   if (!packs || packs.length === 0) return null;
-  return { packs, schedule, free: freeByKind(stock), eventHas };
+  const free = freeByKind(stock);
+  return { packs, schedule, free, eventHas, rewardFree: rewardFreeByKind(reward, free) };
 }
 
 /** Why a quote's gifts were refused, as the supplier reads it. */
@@ -246,15 +281,26 @@ export async function writeQuoteShopGifts(
   if (!basis) return { ok: false, message: 'Gifts are not on sale right now — send the quote without them.' };
   if (basis.free === null) return { ok: false, message: 'Couldn’t read your gifts right now. Please try again.' };
 
-  const v = judgeQuoteGifts(codes, basis.packs, args.totalCentavos, basis.schedule, basis.free, basis.eventHas);
+  const v = judgeQuoteGifts(
+    codes,
+    basis.packs,
+    args.totalCentavos,
+    basis.schedule,
+    basis.free,
+    basis.eventHas,
+    basis.rewardFree ?? null,
+  );
   if (v.state === 'unknown_pack') return { ok: false, message: 'One of those gifts is not on sale any more.' };
   if (v.state === 'already_has') return { ok: false, message: 'Their event already has Event Pro — take Event Plus and Event Pro off.' };
   if (v.state === 'over_limit') return { ok: false, message: 'Your gifts are over this booking’s gift limit.' };
   if (v.state === 'short') return { ok: false, message: 'Not enough in your gift stock — buy more first.' };
   if (v.state !== 'ok') return { ok: true, credits: 0 };
 
+  // 🏅 Which lines the badge-reward stock pays — recorded, so the reward stock counts them as used. (State 'ok' means
+  // every code is a known pack, so `fromReward`, kept per code, lines up with `lines`.)
+  const rewardByLine = v.fromReward;
   const { error } = await admin.from('vendor_proposal_shop_gifts').insert(
-    v.lines.map((p) => ({
+    v.lines.map((p, i) => ({
       proposal_id: args.proposalId,
       vendor_profile_id: args.vendorProfileId,
       service_code: p.code,
@@ -262,6 +308,7 @@ export async function writeQuoteShopGifts(
       credits: p.credits,
       srp_php: p.srpCentavos / 100,
       title: p.title,
+      from_badge_reward: rewardByLine[i] === true,
     })),
   );
   if (error) {
@@ -399,7 +446,7 @@ export type ShopGiftLedgerRow = {
   entryId: string;
   vendorProfileId: string;
   shopName: string | null;
-  kind: 'bought' | 'given' | 'reversal';
+  kind: 'bought' | 'given' | 'reversal' | 'badge_reward';
   giftKind: ShopGiftKind;
   delta: number;
   /** On a given Event Plus / Pro: what the event received (a second Plus becomes Event Pro). */
@@ -408,6 +455,8 @@ export type ShopGiftLedgerRow = {
   eventName: string | null;
   orderReference: string | null;
   landed: boolean;
+  /** On a badge_reward row: the reward's note ("Badge reward · 50 events · Silver"). */
+  note?: string | null;
   createdAt: string;
 };
 
@@ -416,7 +465,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
   const { data, error } = await admin
     .from('shop_gift_stock_entries')
     .select(
-      'entry_id, vendor_profile_id, kind, gift_kind, delta, unlocks_sku, event_id, order_id, pool_grant_id, created_at, ' +
+      'entry_id, vendor_profile_id, kind, gift_kind, delta, unlocks_sku, event_id, order_id, pool_grant_id, note, created_at, ' +
         'vendor_profiles(business_name), events(display_name), orders(reference_code)',
     )
     .order('created_at', { ascending: false })
@@ -434,6 +483,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     unlocks_sku: string | null;
     event_id: string | null;
     pool_grant_id: string | null;
+    note: string | null;
     created_at: string;
     vendor_profiles: { business_name: string | null } | null;
     events: { display_name: string | null } | null;
@@ -452,6 +502,7 @@ export async function fetchShopGiftLedger(admin: SupabaseClient, limit = 200): P
     orderReference: r.orders?.reference_code ?? null,
     // A Papic gift has landed when it became a pool row; an unlock when it names what the event received.
     landed: r.gift_kind === 'papic' ? !!r.pool_grant_id : !!r.unlocks_sku,
+    note: r.kind === 'badge_reward' ? r.note : null,
     createdAt: r.created_at,
   }));
 }

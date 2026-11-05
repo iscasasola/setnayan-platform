@@ -33,7 +33,8 @@ import { cardRecordRatingFromTrusted, milestonesFor } from '@/lib/service-card-r
 import { yearsInBusiness } from '@/lib/vendor-experience';
 import { stepGlyph, tierForStep, type TierKey } from '@/lib/badge-tiers';
 
-export type ShopBadgeKind = 'verified' | 'milestone' | 'rating' | 'years' | 'award';
+/** `reward` = a tracker row for a badge that pays a reward but wears no pill yet (`lib/badge-rewards.ts`). */
+export type ShopBadgeKind = 'verified' | 'milestone' | 'rating' | 'years' | 'award' | 'reward';
 
 /** One badge, ready to draw as the pill: the circle (the mark when `glyph` is null) and two tracked lines. */
 export type ShopBadge = {
@@ -179,7 +180,8 @@ export function badgesForPrint(shop: ShopBadgeFacts): ShopBadge[] {
 
 /* ── The tracker (Shop › Page › Awards and badges) ─────────────────────────────────────────────────────────── */
 
-export type TrackerState = 'earned' | 'to_go' | 'live' | 'not_yet' | 'unread';
+/** `not_counted` = the badge has no counter in the code yet — drawn with its reward, never a count. */
+export type TrackerState = 'earned' | 'to_go' | 'live' | 'not_yet' | 'unread' | 'not_counted';
 
 export type TrackerRow = {
   kind: ShopBadgeKind;
@@ -197,6 +199,12 @@ export type TrackerRow = {
   door?: { label: string; href: string };
   /** A ladder badge: the pill it wears now and the pill the next step wears (the material climbs). */
   ladder?: { now: ShopBadge | null; next: ShopBadge | null };
+  /**
+   * 🎁 The badge's reward (owner 2026-11-05), composed by `badgeRowsWithRewards` (`lib/badge-rewards.ts`) from the
+   * one reward table: `gave` — "Gave you: Event Plus · in your gifts"; `next` — "Next: 100 events · Gold · 4 to go →
+   * 2 × Event Plus". Absent on a badge that pays nothing (Rating, Years) — it says nothing about rewards.
+   */
+  reward?: { gave: string | null; next: string | null };
 };
 
 /** Where the tracker's doors go — the shipped pages, never a new one. */

@@ -122,8 +122,9 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   guest_takedown_honored: 'low',
   service_card_moderated: 'low',
   // Admin supplier slice — Setnayan answered the shop's name / web-address request, or sent a flagged service-card
-  // photo back. The same kind of answer as `service_card_moderated` beside it, so the same level.
-  supplier_request_answered: 'low',
+  // photo back. Owner, 5 Nov 2026: *"Let us make it buzz"* — the supplier is waiting on this answer, so it pushes
+  // now (Normal: buzzes, waits for 7 am during quiet hours) instead of joining the evening summary.
+  supplier_request_answered: 'normal',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',

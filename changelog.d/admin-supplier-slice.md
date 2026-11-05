@@ -53,3 +53,5 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
 SPEC IMPACT: corpus `DECISION_LOG.md` — a BUILT row under "ADMIN SUPPLIER SLICE APPROVED" (what shipped, what waits:
 #7001 for event-type asks, C1 for the chat, the supplier-side Hub for the tools; the price reason left out per the
 2026-10-26 ruling).
+
+Owner, 5 Nov 2026 — *"Let us make it buzz"*: `supplier_request_answered` is a **Normal** push (buzzes now; waits for 7 am in quiet hours), not Low.

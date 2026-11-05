@@ -9,6 +9,7 @@
  *   · the five `vendor_custom_*` catalogue rows are off sale AND marked retired (not merely switched off — a switch
  *     is how this plan was "hidden" before, and the code warned that hiding is not retiring);
  *   · the Custom-only "no limit" axis (`vendor_pipeline_is_unlimited`) is gone, and the limit grid has no Custom arm;
+ *   · the `vendor_custom_plans` table and its write guard are gone;
  *   · Ultra's own add-ons — `vendor_additional_branch`, `vendor_extra_seat` — are still on sale. Retiring Custom must
  *     never take Ultra's add-ons with it.
  *
@@ -142,6 +143,13 @@ test("Ultra's add-ons stay on sale — retiring Custom must not take them", asyn
 test('the Custom-only "no limit" axis is gone, and no limit has a Custom arm', async () => {
   const fn = await db.query<{ p: string | null }>(`SELECT to_regprocedure('public.vendor_pipeline_is_unlimited(uuid)')::text AS p`);
   assert.equal(fn.rows[0]!.p, null, 'vendor_pipeline_is_unlimited still exists');
+
+  // The plan table and its write guard are gone too (dropped empty — the migration refuses while it holds a row).
+  const tbl = await db.query<{ t: string | null; g: string | null }>(
+    `SELECT to_regclass('public.vendor_custom_plans')::text AS t,
+            to_regprocedure('public.guard_vendor_custom_plans_entitlement()')::text AS g`,
+  );
+  assert.deepEqual([tbl.rows[0]!.t, tbl.rows[0]!.g], [null, null], 'vendor_custom_plans or its write guard still exists');
 
   for (const sig of [
     'public.vendor_tier_limit(text,text)',

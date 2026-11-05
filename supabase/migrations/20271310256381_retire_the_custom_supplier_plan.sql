@@ -1,6 +1,7 @@
 -- retire_the_custom_supplier_plan
 -- Created via `pnpm migration:new`. Idempotent: guarded preconditions · DROP/ADD CONSTRAINT · a COALESCE'd retire ·
--- CREATE OR REPLACE FUNCTION · DROP FUNCTION IF EXISTS · read-only post-conditions. RLS untouched: no policy, no grant.
+-- CREATE OR REPLACE FUNCTION · DROP … IF EXISTS · read-only post-conditions. No policy or grant on any REMAINING table
+-- changes; the only policies touched are the two that go with the dropped `vendor_custom_plans` (step 7).
 --
 -- ============================================================================
 -- ⛔ THE CUSTOM SUPPLIER PLAN IS RETIRED FROM THE APP — DELETED, NOT HIDDEN.
@@ -40,10 +41,13 @@
 --       both tier lists and the two `vendor_custom_plans` demotions. Everything else is byte-identical, including the
 --       credit rule and the paid-scheduled-change applier.
 --
+--   7 · The `vendor_custom_plans` TABLE goes, with its two policies and its entitlement write guard. Once the app
+--       stopped writing it, `ugat-both-ends.db.test.ts` named it a table with no writer ("mount the writer, or the
+--       table is a wish") — and mounting a writer would bring Custom back. It is dropped ONLY IF EMPTY: the
+--       precondition in step 1 refuses to run while it holds a single row, so no quote or plan is ever destroyed
+--       here; if one exists the owner decides first. (2026-08-27 measured it at zero rows in production.)
+--
 -- ── WHAT IS DELIBERATELY LEFT ────────────────────────────────────────────────
---   · The `vendor_custom_plans` TABLE, its RLS and its write guard: kept for any rows it may already hold (a
---     commercial record; export-completeness lists it). Nothing in the app reads or writes it any more. Dropping it
---     is an owner call (PR body, "Needs the owner").
 --   · 'custom' inside OLD function bodies that only test `tier NOT IN ('solo','pro','enterprise','custom')` (the
 --     Papic-challenge and creator RPCs): with the CHECK above the value can never be read, so the word is inert.
 --     Re-creating six large RPCs to delete one dead word each is more risk than it removes.
@@ -59,15 +63,19 @@ DECLARE
   v_profiles INT;
   v_pending  INT;
   v_subs     INT;
+  v_plans    INT := 0;
 BEGIN
   SELECT count(*) INTO v_profiles FROM public.vendor_profiles WHERE tier_state::text = 'custom';
   SELECT count(*) INTO v_pending  FROM public.vendor_profiles WHERE pending_tier::text = 'custom';
   SELECT count(*) INTO v_subs     FROM public.vendor_subscriptions WHERE tier::text = 'custom';
-  IF v_profiles + v_pending + v_subs > 0 THEN
+  IF to_regclass('public.vendor_custom_plans') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM public.vendor_custom_plans' INTO v_plans;
+  END IF;
+  IF v_profiles + v_pending + v_subs + v_plans > 0 THEN
     RAISE EXCEPTION
-      'retire_the_custom_supplier_plan: % shop(s) on Custom, % scheduled to move to it, % Custom subscription row(s). '
-      'Nothing was changed. Ask the owner what each of them moves to, then re-run.',
-      v_profiles, v_pending, v_subs;
+      'retire_the_custom_supplier_plan: % shop(s) on Custom, % scheduled to move to it, % Custom subscription row(s), '
+      '% vendor_custom_plans row(s). Nothing was changed. Ask the owner what each of them becomes, then re-run.',
+      v_profiles, v_pending, v_subs, v_plans;
   END IF;
 END $$;
 
@@ -458,6 +466,11 @@ $function$;
 COMMENT ON FUNCTION public.sweep_vendor_tier_expiry(UUID) IS
   'Login-driven, cron-free. Applies a PAID scheduled plan change the moment the current term runs out and RETURNS; otherwise reverts an expired solo/pro/enterprise tier to verified/free and EXPIRES any carried credit with it (owner 2026-08-28), leaving a vendor_credit_ledger row. A scheduled plan with no paid purchase behind it is dropped, never granted. Applying a scheduled change is NOT a lapse and never touches the balance. (Its Custom branches went 2026-11-06 with the Custom plan.)';
 
+-- ── 7 · the plan table goes (empty — step 1 refused otherwise) ────────────────
+-- Its two policies, its indexes and its trigger go with it; the trigger's function is dropped by name.
+DROP TABLE IF EXISTS public.vendor_custom_plans;
+DROP FUNCTION IF EXISTS public.guard_vendor_custom_plans_entitlement();
+
 -- ── post-conditions — fail loudly rather than half-apply ─────────────────────
 DO $$
 DECLARE
@@ -469,6 +482,11 @@ BEGIN
    WHERE sku_code LIKE 'vendor\_custom\_%' AND (is_active OR retired_at IS NULL);
   IF v_live <> 0 THEN
     RAISE EXCEPTION 'retire_the_custom_supplier_plan: % vendor_custom_* row(s) still on sale or not marked retired', v_live;
+  END IF;
+
+  IF to_regclass('public.vendor_custom_plans') IS NOT NULL
+     OR to_regprocedure('public.guard_vendor_custom_plans_entitlement()') IS NOT NULL THEN
+    RAISE EXCEPTION 'retire_the_custom_supplier_plan: vendor_custom_plans or its write guard still exists';
   END IF;
 
   IF to_regprocedure('public.vendor_pipeline_is_unlimited(uuid)') IS NOT NULL THEN

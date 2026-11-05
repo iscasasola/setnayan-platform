@@ -30,15 +30,13 @@ import { VENDOR_TIERS, TIER_CAPS, TIER_LABEL, TIER_PRICE_PHP, asVendorTier, tier
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * The ONLY shipped files allowed to name a Custom-plan string, each with why. Both are about money that may already
- * exist, never about offering the plan.
+ * The ONLY shipped file allowed to name a Custom-plan string, with why. It is about money that may already exist,
+ * never about offering the plan.
  */
 const ALLOWED: Record<string, string> = {
   'lib/vendor-pays-setnayan.ts':
     'keeps `vendor_custom_plan__` / `vendor_custom_plan_annual__` classified as a supplier paying Setnayan, so an ' +
     'order that already carries one can never be scheduled a payout',
-  'lib/export-completeness.ts':
-    'lists the `vendor_custom_plans` table (kept for rows it may already hold) so the data-export guard stays complete',
 };
 
 function sources(dir: string, acc: string[] = []): string[] {

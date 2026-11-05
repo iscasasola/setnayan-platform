@@ -158,15 +158,6 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'derived from a credential. Same line as resolved_by on event_day_requests.',
   },
   {
-    table: 'vendor_custom_plans',
-    decision: 'excluded',
-    why:
-      'A SHOP\'s custom subscription plan (seats, reach, the 28-day price), keyed to vendor_profile_id. ' +
-      '`created_by` stamps who composed it. It is the business\'s commercial record — the same call as ' +
-      'shop_papic_wallet_entries (owner 2026-10-23, option A). The Custom plan was retired from the app 2026-11-06; ' +
-      'the table is kept only for the rows it may already hold, and nothing writes or reads it any more.',
-  },
-  {
     table: 'platform_expenses',
     decision: 'excluded',
     why:

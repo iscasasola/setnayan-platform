@@ -24,8 +24,10 @@ rows — nobody is stranded.
   `vendor_subscriptions.tier` (the enum label stays — Postgres cannot drop one); the five `vendor_custom_*` catalogue
   rows are retired (off sale + `retired_at` + `retirement_reason`), never deleted; `vendor_tier_rank` /
   `vendor_tier_limit` / `sweep_vendor_tier_expiry` lose their Custom arms; the Custom-only "no limit" axis
-  (`vendor_pipeline_is_unlimited`) is dropped and its three callers re-created without it. RLS untouched. Ultra's
-  add-ons (`vendor_additional_branch`, `vendor_extra_seat`) untouched.
+  (`vendor_pipeline_is_unlimited`) is dropped and its three callers re-created without it; the `vendor_custom_plans`
+  table (and its two policies + write guard) is dropped ONLY IF EMPTY — `ugat-both-ends` named it a table with no
+  writer once the app stopped writing it, and the migration refuses to run while it holds a row. No policy or grant on
+  any remaining table changes. Ultra's add-ons (`vendor_additional_branch`, `vendor_extra_seat`) untouched.
 - **Guards:** `lib/the-custom-plan-is-retired.test.ts` (no tier key, no route, no code read of a `vendor_custom_*`
   SKU / `vendor_custom_plans` / `tier === 'custom'`) and `tests/db/the-custom-plan-is-retired.db.test.ts` (the CHECKs
   refuse, the rows are retired, the axis is gone, Ultra's add-ons are still on sale).
@@ -33,4 +35,4 @@ rows — nobody is stranded.
 SPEC IMPACT: `DECISION_LOG.md` 2026-11-06 "THE CUSTOM SUPPLIER PLAN IS RETIRED FROM THE APP" is now BUILT (this PR);
 it reverses the 2026-08-27 row "THE OWNER'S PRICE SHEET … one retirement RULED AND REVERSED THE SAME DAY". 
 `apps/web/VENDOR_TIERS_AND_BENEFITS.md` §2 Custom card and §11 rate card carry a "retired from the app" banner.
-Open owner questions (API access · the `vendor_custom_plans` table · the per-date "no limit" axis) are listed in the PR.
+Open owner questions (API access · the per-date "no limit" axis · event slot / own domain) are listed in the PR.

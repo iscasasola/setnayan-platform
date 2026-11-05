@@ -172,9 +172,11 @@ test('PARITY: vendor_tier_limit matches TIER_CAPS for every tier × key', async 
       checked++;
     }
   }
-  // Meta: a loop that checks nothing passes. VENDOR_TIERS has 6 entries × 2 keys.
+  // Meta: a loop that checks nothing passes. VENDOR_TIERS has 5 entries × 2 keys (6 until the Custom plan was
+  // retired 2026-11-06). The equality above already pins the loop to the real list; the floor below only refuses an
+  // empty or shrunken-by-accident one.
   assert.equal(checked, VENDOR_TIERS.length * keys.length, 'the parity loop ran empty');
-  assert.ok(checked >= 12, `expected at least 12 comparisons, ran ${checked}`);
+  assert.ok(checked >= 10, `expected at least 10 comparisons, ran ${checked}`);
 });
 
 test("PARITY meta: the checker is not vacuous — a wrong expectation FAILS", async () => {

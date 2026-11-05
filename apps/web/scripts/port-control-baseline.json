@@ -6877,6 +6877,7 @@
         "dashboard/[eventId]/guests/_components/just-added.tsx",
         "dashboard/[eventId]/guests/_components/new-group-inline-form.tsx",
         "dashboard/[eventId]/guests/_components/new-guest-group-role.tsx",
+        "dashboard/[eventId]/guests/_components/not-counted-result.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
         "dashboard/[eventId]/guests/_components/plain-refusal.ts",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
@@ -7096,6 +7097,7 @@
         "NarrowFolds",
         "NewGroupInlineForm",
         "NfcWriteButton",
+        "NotCountedResult",
         "OneOpenScope",
         "Op",
         "OpenAddFromPeopleButton",
@@ -10049,6 +10051,7 @@
         "dashboard/[eventId]/vendors/_actions/bench-marketplace-search.ts",
         "dashboard/[eventId]/vendors/_actions/category-search.ts",
         "dashboard/[eventId]/vendors/_actions/contact-shortlist-vendor.ts",
+        "dashboard/[eventId]/vendors/_actions/count-rule.ts",
         "dashboard/[eventId]/vendors/_actions/fact-sheet.ts",
         "dashboard/[eventId]/vendors/_actions/inline-more-row.ts",
         "dashboard/[eventId]/vendors/_actions/pay-sheet.ts",
@@ -10061,6 +10064,7 @@
         "dashboard/[eventId]/vendors/_components/book-this-build.tsx",
         "dashboard/[eventId]/vendors/_components/booked-body.tsx",
         "dashboard/[eventId]/vendors/_components/booked-budget.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-count-rule.tsx",
         "dashboard/[eventId]/vendors/_components/booked-room-line.tsx",
         "dashboard/[eventId]/vendors/_components/booked-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-slot.tsx",
@@ -10158,6 +10162,7 @@
         "BookSheet",
         "BookThisBuild",
         "BookedBody",
+        "BookedCountRule",
         "BookedFold",
         "BookedPlan",
         "BookedRoomLine",
@@ -10210,6 +10215,8 @@
         "ContactShortlistVendorResult",
         "CostsRow",
         "Count",
+        "CountMode",
+        "CountRuleSheet",
         "CoverBar",
         "CoverCatalogRead",
         "CoverCount",
@@ -10343,6 +10350,7 @@
         "Said",
         "SaveAnswer",
         "SaveCategoryRequirementsResult",
+        "SaveCountRuleResult",
         "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
@@ -11521,7 +11529,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "CustomerMoneyFold"
+        "CustomerMoneyFold",
+        "ShopCard",
+        "SupplierCountTile"
       ]
     },
     "/dev/details-lab": {
@@ -14346,7 +14356,6 @@
         "CardShell",
         "ClaimWaitLines",
         "Collapsible",
-        "ComingSoon",
         "Connected",
         "ContractDraftBody",
         "CorrectionRequestResult",
@@ -14648,6 +14657,7 @@
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/supplier-count-tile.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx",
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
@@ -14774,6 +14784,7 @@
         "StudioPopup",
         "SubmitButton",
         "SuggestSheet",
+        "SupplierCountTile",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
         "SupplierTaskRow",
@@ -15469,7 +15480,8 @@
         "ShopNotice",
         "StylistLibraryActions",
         "StylistLibraryEditor",
-        "Uint8Array"
+        "Uint8Array",
+        "UploadStylistAssetResult"
       ]
     },
     "/vendor-dashboard/more": {
@@ -16785,14 +16797,16 @@
         "vendor/claim/[token]/finalize/page.tsx"
       ],
       "destinations": [
-        "/login"
+        "/login",
+        "/vendor/claim/[seg]"
       ],
       "actions": [],
       "blocks": [
         "DoorShell",
         "ErrorShell",
         "FormPageSkeleton",
-        "Link"
+        "Link",
+        "NotASupplierShell"
       ]
     },
     "/vendor/fit/[ref]": {

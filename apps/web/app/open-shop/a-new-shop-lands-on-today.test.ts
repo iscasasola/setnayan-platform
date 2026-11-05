@@ -19,7 +19,11 @@ test('opening a shop ends on Today', () => {
   assert.ok(!redirects.includes('/vendor-dashboard/shop'), 'no open-shop success path lands on My Shop');
 });
 
-test('a person who already has a shop is sent to Today too', () => {
+test('a person who already has a shop is sent to Today too (or to the console page `?next=` names)', () => {
   const page = strip(read('app/open-shop/page.tsx'));
-  assert.match(page, /if \(row\?\.business_name\?\.trim\(\)\) redirect\('\/vendor-dashboard'\);/);
+  assert.match(page, /const landing = openShopLanding\(next\);/);
+  assert.match(page, /if \(row\?\.business_name\?\.trim\(\)\) redirect\(landing\);/);
+  // The default — no `next`, or one that is not a console page — is still Today.
+  const lib = strip(read('lib/open-shop-landing.ts'));
+  assert.match(lib, /OPEN_SHOP_DEFAULT_LANDING = '\/vendor-dashboard'/);
 });

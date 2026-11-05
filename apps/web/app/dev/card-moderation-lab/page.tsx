@@ -21,6 +21,7 @@ import {
   type AdminServiceCard,
 } from '@/app/admin/vendors/[vendorProfileId]/_components/service-cards-section';
 import { ServicesGallery } from '@/app/v/[slug]/_components/services-gallery';
+import { formatPhpRounded } from '@/lib/php';
 import { toServiceCard } from '@/lib/service-card-view-model';
 import type { VendorServiceRow } from '@/lib/vendor-services';
 
@@ -41,7 +42,7 @@ const ADMIN_CARDS = (takenDown: boolean): AdminServiceCard[] => [
     publicId: 'S89S-7KQ2M4X9PA',
     title: 'Garden Wedding Live Band',
     kind: 'Live Band',
-    price: 'From ₱45,000',
+    price: `From ${formatPhpRounded(45000)}`,
     status: takenDown ? 'taken_down' : 'live',
     takenDownReason: takenDown ? 'The cover photo belongs to another studio. Please upload your own work.' : null,
     cover: { key: 'r2://setnayan-media/lab/cover.jpg', url: '/realstories/maria-juan-tagaytay.jpg' },
@@ -57,7 +58,7 @@ const ADMIN_CARDS = (takenDown: boolean): AdminServiceCard[] => [
     publicId: 'S89S-3HD8W1RT6N',
     title: 'Acoustic Duo for the Ceremony',
     kind: 'Live Band',
-    price: 'From ₱18,000',
+    price: `From ${formatPhpRounded(18000)}`,
     status: 'live',
     takenDownReason: null,
     cover: { key: 'r2://setnayan-media/lab/duo.jpg', url: '/realstories/jack-jill-g1.jpg' },

@@ -36,7 +36,8 @@ const at = (v: string | null | undefined): number => (v ? Date.parse(v) : Number
 export function ceremonyIsOver(blocks: readonly Block[], nowMs: number): boolean {
   const c = ceremonyBlock(blocks as ScheduleBlockRow[]);
   if (!c) return false;
-  if (c.run_state === 'done' || c.actual_end_at) return true;
+  // A skipped chapter is over too (Change the schedule › Skip) — it is not where the day is now.
+  if (c.run_state === 'done' || c.run_state === 'skipped' || c.actual_end_at) return true;
   if (c.run_state === 'live') return false;
   const end = at(c.end_at);
   if (Number.isFinite(end)) return nowMs >= end;

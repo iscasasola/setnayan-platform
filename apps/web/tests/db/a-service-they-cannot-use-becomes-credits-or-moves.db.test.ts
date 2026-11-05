@@ -56,13 +56,13 @@ async function hostedEvent(userId: string, name: string, createdAt: string): Pro
 async function paidOrder(
   userId: string,
   eventId: string,
-  opts: { paidPhp?: number; serviceKey?: string; status?: string } = {},
+  opts: { paidPhp?: number; sku?: string; status?: string } = {},
 ): Promise<string> {
   seq += 1;
   const o = await db.query<{ order_id: string }>(
     `INSERT INTO public.orders (user_id, event_id, description, requested_total_php, reference_code, service_key, status)
      VALUES ($1, $2, 'Live Studio', 3000, $3, $4, $5) RETURNING order_id`,
-    [userId, eventId, `RMDY${seq}`, opts.serviceKey ?? 'LIVE_STUDIO', opts.status ?? 'paid'],
+    [userId, eventId, `RMDY${seq}`, opts.sku ?? 'LIVE_STUDIO', opts.status ?? 'paid'],
   );
   const orderId = o.rows[0]!.order_id;
   if ((opts.paidPhp ?? 3360) > 0) {
@@ -288,7 +288,7 @@ test('move: refused once its value became credits, and when the event pot has be
   assert.equal((await move(converted, next, admin)).refusal, 'already_converted');
 
   // A Papic pack whose credits sit in the shared pot, and the pot has been used.
-  const pack = await paidOrder(buyer, first, { serviceKey: 'PAPIC_GUEST_1K' });
+  const pack = await paidOrder(buyer, first, { sku: 'PAPIC_GUEST_1K' });
   await db.query(
     `INSERT INTO public.papic_event_point_grants (event_id, points, source, order_id) VALUES ($1, 1000, 'topup_order', $2)`,
     [first, pack],
@@ -306,7 +306,7 @@ test('move: an unused Papic pack takes its shared-pot credits with it', async ()
   const buyer = await newUser();
   const first = await hostedEvent(buyer, 'first', '2026-01-01T00:00:00Z');
   const next = await hostedEvent(buyer, 'next', '2026-02-01T00:00:00Z');
-  const pack = await paidOrder(buyer, first, { serviceKey: 'PAPIC_GUEST_1K' });
+  const pack = await paidOrder(buyer, first, { sku: 'PAPIC_GUEST_1K' });
   await db.query(
     `INSERT INTO public.papic_event_point_grants (event_id, points, source, order_id) VALUES ($1, 1000, 'topup_order', $2)`,
     [first, pack],

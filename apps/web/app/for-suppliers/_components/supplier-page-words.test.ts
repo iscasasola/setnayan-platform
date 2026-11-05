@@ -22,11 +22,14 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
+import { FEATURE_PAGES } from '@/lib/feature-pages';
 import {
   HERO_SLIDES,
   MARKETING_PHOTOS,
   OPEN_SHOP_HREF,
   freePlanLine,
+  giftProducts,
+  packageTools,
   planLine,
   planTools,
   reachLine,
@@ -165,6 +168,25 @@ test('(2c) every plan lists its tools, from the one shared list (owner, 5 Nov: "
   // Nothing is listed twice across the ladder.
   const all = Object.values(by).flat();
   assert.equal(new Set(all).size, all.length, 'a tool is listed under two plans');
+});
+
+test('(2d) your package: the couple’s free tools from the Features list, and the owner’s gifts (5 Nov)', () => {
+  const tools = packageTools();
+  assert.ok(tools.length >= 10, `only ${tools.length} tools — the Features list was not read`);
+  for (const t of tools) {
+    const f = FEATURE_PAGES.find((x) => x.slug === t.slug);
+    assert.ok(f, `${t.slug} is not a Features page`);
+    assert.notEqual(f!.price.kind, 'paid', `${t.name} is a PAID tool — it is a gift, never "free for your couple"`);
+  }
+  for (const must of ['guest-list', 'budget', 'event-hub']) assert.ok(tools.some((t) => t.slug === must), `${must} is missing (owner named it)`);
+  assert.ok(!tools.some((t) => t.slug === 'marketplace' || t.slug === 'compare' || t.slug === 'suppliers'), 'a supplier-finding page is listed as a package tool');
+  assert.deepEqual(giftProducts(), ['Papic', 'Event Plus', 'Event Pro', 'Live Watch', 'Music Maker', 'Patiktok']);
+  const src = code('app/for-suppliers/_components/vendor-grow-sections.tsx');
+  const block = src.slice(src.indexOf('export function VendorGrowPackage'), src.indexOf('export type PlanLinePrices'));
+  assert.ok(block.length > 300, 'could not find VendorGrowPackage');
+  assert.doesNotMatch(block, /₱\s*\d/, 'a gift price is typed — gift prices live in the catalogue');
+  assert.match(block, /packageTools\(\)/);
+  assert.match(block, /giftProducts\(\)/);
 });
 
 test('(3) every photo is on disk, with the owner’s hero shifts', () => {

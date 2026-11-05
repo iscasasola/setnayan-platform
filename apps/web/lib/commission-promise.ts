@@ -32,8 +32,8 @@
  * that decides whether anyone is billed. A hand-edited sentence is exactly what
  * went stale here, twice.
  */
-import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
+import { bookingFeeBandsLine, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /**
@@ -77,24 +77,30 @@ export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): 
     // would be its own kind of untrue. Said plainly rather than left silent.
     return `${base} Setnayan charges no booking fee while it is switched off.`;
   }
-  const rate = schedule ? ` of ${bookingFeeScheduleSummary(schedule)}` : '';
+  /*
+   * ⚖ OWNER, 2026-11-05 (DECISION_LOG "FOR SUPPLIERS … (R)"): this line takes the NEW booking-fee wording — the
+   * one <BookingFeeLine> says — everywhere it feeds (/for-suppliers, /pricing, help, the JSON-LD). One line, one
+   * source: the lead is FIRST_BOOKING_FREE, the bands and the minimum are read off the LIVE schedule.
+   */
+  const fee = schedule
+    ? `After that, a booking fee of ${bookingFeeBandsLine(schedule)} — only on couples who found you here; ` +
+      `minimum ${bookingFeeMinimumAmount(schedule)} a booking.`
+    : 'After that, a booking fee — only on couples who found you here. The rate is shown in full before you agree to any booking.';
   return (
-    `${base} Setnayan bills you a booking fee${rate}, ` +
-    `only on the couples we introduce — ${FIRST_BOOKING_ON_US_CLAUSE}, ` +
-    'and your own clients stay free. It is charged to you, never added to what a couple pays.' +
-    (schedule ? '' : ' The rate is shown in full before you agree to any booking.')
+    `${base} ${FIRST_BOOKING_FREE} ${fee} ` +
+    'Bookings you bring in yourself are never charged. It is charged to you, never added to what a couple pays.'
   );
 }
 
 /**
  * The short form, for a perk list or a matrix cell where a paragraph does not
- * fit. Still both halves — shorter, not partial.
+ * fit. Still both halves — shorter, not partial. Same new wording (owner, 5 Nov).
  */
 export function supplierCommissionShort(schedule: BookingFeeSchedule | null): string {
   if (!isBookingFeeEnabled()) return '0% commission — no booking fee while it is switched off';
   return schedule
-    ? `0% commission · booking fee ${bookingFeeScheduleSummary(schedule)}, only on couples we introduce`
-    : '0% commission · a booking fee only on couples we introduce';
+    ? `0% commission · first booking free, then a booking fee of ${bookingFeeBandsLine(schedule)}, only on couples who found you here`
+    : '0% commission · a booking fee only on couples who found you here';
 }
 
 /**

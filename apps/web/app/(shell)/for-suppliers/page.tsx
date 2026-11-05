@@ -30,13 +30,15 @@
  * 2026-11-04 "THE THREE MARKETING PAGES GO TO CLOUD BUILD"). The prototype is
  * "the TOP of the supplier benefits page"; what it does not redraw stays below it:
  *   hero (aspiring · new · experienced, six trade photos) → Verified only →
- *   twelve problems suppliers face → plans in one line each (live prices) →
- *   the shipped deeper sections, unchanged (one home · Setnayan AI · fair by
- *   design · get discovered · analytics · trust · merit only · reach · the
- *   tools · get paid) → tier DELTAS + the full matrix ("further down this
- *   page", #plan-table) → couple-pricing pointer → close ("Set na ’yan.").
- *   The thesis strip and the old closing CTA are retired — the hero's truths
- *   line and the close say them now.
+ *   twelve problems suppliers face → your package (the couple's free tools +
+ *   the gifts you can give, owner 5 Nov) → plans, every tool, climbing →
+ *   tier DELTAS + the full matrix ("further down this page", #plan-table) →
+ *   couple-pricing pointer → close ("Set na ’yan.").
+ *   ⚖ Owner 2026-11-05 (DECISION_LOG "FOR SUPPLIERS … (P)"): the older deeper
+ *   sections (one home · Setnayan AI · fair by design · get discovered ·
+ *   analytics · trust · merit only · reach · the tools · get paid) are DROPPED —
+ *   "the 4 Nov prototype is the page". The thesis strip and the old closing CTA
+ *   were retired before them.
  *
  * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
  *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
@@ -59,19 +61,9 @@ import { VendorGrowHero } from '@/app/for-suppliers/_components/vendor-grow-hero
 import {
   VendorGrowVerifiedOnly,
   VendorGrowProblems,
+  VendorGrowPackage,
   VendorGrowPlanLines,
-  VendorGrowHub,
-  VendorGrowAI,
-  VendorGrowFairPay,
-  VendorGrowWebsite,
-  VendorGrowAnalytics,
-  VendorGrowTrust,
-  VendorGrowNoFakes,
-  VendorGrowReach,
-  VendorGrowTools,
-  VendorGrowGetPaid,
   VendorGrowCTA,
-  VendorGrowStyles,
 } from '@/app/for-suppliers/_components/vendor-grow-sections';
 import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
 import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
@@ -248,36 +240,13 @@ export default async function ForVendorsPage() {
         </RevealOnView>
         <VendorGrowProblems fee={fee} />
         <RevealOnView>
+          <VendorGrowPackage />
+        </RevealOnView>
+        <RevealOnView>
           <VendorGrowPlanLines
             prices={{ soloMonthly: p.soloMonthly, proMonthly: p.proMonthly, enterpriseMonthly: p.enterpriseMonthly }}
             fee={fee}
           />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowHub />
-        </RevealOnView>
-        <VendorGrowAI />
-        <RevealOnView>
-          <VendorGrowFairPay fee={fee} />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowWebsite />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowAnalytics />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowTrust />
-        </RevealOnView>
-        <VendorGrowNoFakes />
-        <RevealOnView>
-          <VendorGrowReach />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowTools />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowGetPaid />
         </RevealOnView>
         {/* THE TIER LADDER, AS DELTAS — each plan says what it ADDS, once.
             The ~90-row × 5-column MATRIX is still here, behind a disclosure
@@ -370,7 +339,6 @@ export default async function ForVendorsPage() {
         <RevealOnView>
           <VendorGrowCTA />
         </RevealOnView>
-        <VendorGrowStyles />
       </main>
     </>
   );

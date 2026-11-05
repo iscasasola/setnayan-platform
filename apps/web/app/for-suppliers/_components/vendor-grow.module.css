@@ -221,6 +221,21 @@
   .ans { font-size: 22px; }
 }
 
+/* ───────── 2b · YOUR PACKAGE ───────── */
+.pkg { display: grid; gap: 28px; }
+.pkgCol { min-width: 0; }
+.pkgH3 { margin: 0 0 12px; font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; color: rgb(var(--color-ink)); }
+.pkgTools { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.pkgTools li { display: grid; gap: 2px; padding-left: 15px; position: relative; font-size: 15px; line-height: 1.4; }
+.pkgTools li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: var(--m-r-full); background: rgb(var(--color-terracotta)); }
+.pkgTools b { font-weight: 600; color: rgb(var(--color-ink)); }
+.pkgTools span { font-size: 14px; color: rgb(var(--ink-soft)); }
+.pkgGiftList { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; }
+/* a gift is a NAME, not a control — a plain list, no frame or fill (frames are only for things you can press) */
+.pkgGiftList li { position: relative; padding-left: 15px; font-size: 15px; font-weight: 600; line-height: 1.4; color: rgb(var(--color-ink)); }
+.pkgGiftList li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: var(--m-r-full); background: rgb(var(--color-terracotta)); }
+.extraTools { margin-top: 24px; }
+
 /* ───────── 3 · PLANS, IN ONE LINE EACH ───────── */
 .tiers { margin: 0; display: grid; }
 .tiers > div { display: grid; grid-template-columns: 1fr auto; grid-template-areas: 'dt price' 'dd price'; gap: 2px 16px; padding: 14px 0; border-top: 1px solid var(--m-line-soft); align-items: center; }
@@ -287,6 +302,8 @@
   .tiers > div:first-child { border-left: 0; padding-left: 0; }
 
   .closeH2 { font-size: 52px; }
+  .pkg { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 48px; align-items: start; }
+  .pkgTools { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
 }
 @media (min-width: 768px) {
   .voTwo { grid-template-columns: 1fr 1fr; gap: 0; align-items: stretch; border-top: 1px solid rgb(251 250 247 / .16); }

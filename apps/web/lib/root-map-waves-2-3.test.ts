@@ -162,7 +162,9 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     // one-sign-up-discount change (d18); the one card left quotes the floor by name.
     ['app/admin/pricing/_components/signup-discount-card.tsx', /min=\{PAPIC_DISCOUNT_FLOOR_PCT\}/],
     ['app/admin/studio/_surfaces/social-queue-surface.tsx', /SHARE_PUBLISH_GATE_DAYS/],
-    ['app/for-suppliers/_components/vendor-grow-sections.tsx', /\{COMMISSION_PCT\}%/],
+    // /for-suppliers' "Fair by design" section (the one that quoted COMMISSION_PCT by name) was DROPPED with the
+    // older sections on 2026-11-05 (owner, DECISION_LOG "FOR SUPPLIERS … (P)") — that file no longer states the
+    // rule at all, typed or named. The zero is still defined once, as COMMISSION_PCT in lib/commission-promise.ts.
   ];
   for (const [file, re] of quotes) assert.match(code(file), re, `${file} no longer quotes its rule by name`);
   // …and the named rules are real, single definitions.

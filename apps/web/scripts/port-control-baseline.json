@@ -308,22 +308,12 @@
       "blocks": [
         "Link",
         "RevealOnView",
-        "VendorGrowAI",
-        "VendorGrowAnalytics",
         "VendorGrowCTA",
-        "VendorGrowFairPay",
-        "VendorGrowGetPaid",
         "VendorGrowHero",
-        "VendorGrowHub",
-        "VendorGrowNoFakes",
+        "VendorGrowPackage",
         "VendorGrowPlanLines",
         "VendorGrowProblems",
-        "VendorGrowReach",
-        "VendorGrowStyles",
-        "VendorGrowTools",
-        "VendorGrowTrust",
         "VendorGrowVerifiedOnly",
-        "VendorGrowWebsite",
         "VendorTierDeltas",
         "VendorTierMatrix"
       ]

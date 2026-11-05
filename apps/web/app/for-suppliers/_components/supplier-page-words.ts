@@ -9,6 +9,7 @@
  */
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { FEATURE_PAGES, type FeatureSlug } from '@/lib/feature-pages';
 import { TIER_CAPS, TIER_LABEL, type TierCaps, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /** The owner's 4 Nov renders, shared with the front page and /for-coordinators (same file names as the corpus). */
@@ -178,4 +179,36 @@ export function planTools(): PlanTools[] {
     { plan: 'pro', tools: shipped('pro').map((t) => t.name) },
     { plan: 'enterprise', tools: shipped('enterprise').map((t) => t.name) },
   ];
+}
+
+/*
+ * WHAT A SUPPLIER CAN PUT IN THEIR PACKAGE (owner, 5 Nov: *"also a dedicated widget on what they can add to their
+ * packages when they promote. Guestlist, RSVP, Website, Budget Planner, (all features of Setnayan) · And also
+ * their gifts. they can give gifts to the user's event like event plus, event pro, papic, etc"*).
+ *
+ * 🔑 THE TOOLS ARE THE FEATURES PAGES' OWN LIST (`FEATURE_PAGES`) — every couple tool whose price kind is `free`
+ * or `free-plus`, i.e. what a couple who books the supplier gets free. The three supplier-finding entries
+ * (marketplace · compare · suppliers) are the couple's way TO the supplier, not something a package carries.
+ * A paid tool is not listed as included — it is what a GIFT is for.
+ */
+const NOT_A_PACKAGE_TOOL: ReadonlySet<FeatureSlug> = new Set<FeatureSlug>(['marketplace', 'compare', 'suppliers']);
+
+export function packageTools(): { slug: FeatureSlug; name: string; line: string }[] {
+  return FEATURE_PAGES.filter(
+    (f) => f.group !== 'suppliers' && f.price.kind !== 'paid' && !NOT_A_PACKAGE_TOOL.has(f.slug),
+  ).map((f) => ({ slug: f.slug, name: f.name.en, line: f.line.en }));
+}
+
+/*
+ * THE GIFTS — the owner's gift list, DECISION_LOG 2026-11-04 "GIFT PRICES": Papic · Event Plus · Event Pro ·
+ * Live Watch · Music Maker · Patiktok. Bought ahead as stock, offered only on a service card or a quote, the couple
+ * receives the full product (2026-11-04 "SUPPLIER GIFTS: BOUGHT IN QUANTITY…"). Names only — never a price here;
+ * the gift prices live in the catalogue. Names that have a Features page are read from it.
+ * ⚠ Today the Papic gift ships (`lib/setnayan-gift.ts`, `lib/papic-on-a-quote.ts`); the gift stock for the rest is
+ * the supplier-gifts build (PR #7279) — this list follows the owner's ruling, not that branch.
+ */
+const featureName = (slug: FeatureSlug) => FEATURE_PAGES.find((f) => f.slug === slug)?.name.en ?? slug;
+
+export function giftProducts(): string[] {
+  return [featureName('papic'), 'Event Plus', 'Event Pro', featureName('live-watch'), featureName('music-maker'), featureName('patiktok')];
 }

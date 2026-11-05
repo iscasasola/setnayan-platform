@@ -12,19 +12,33 @@
  * a free-forward, grow-with-us narrative → the tier ladder → a "for those who
  * need more" Custom callout → CTA. The ladder now LEADS with per-plan DELTAS
  * (what each plan adds, once) and keeps the ~90-row matrix behind a disclosure
- * inside the same section. The persistent glass nav +
- * footer are global site-chrome (SiteChrome) — this page renders neither.
+ * inside the same section.
  *
- * Narrative flow (top→bottom):
- *   photographic hero → thesis strip (₱0 · 0% commission + booking fee · first-5-free) →
- *   run-your-business-here-free hub → Setnayan AI (dark signature: sells for
- *   you + 3 nudge steps + phone mock + flywheel callout) →
- *   never-spend-a-peso-that-doesn't-grow-you → free website that ranks (SEO/GEO)
- *   → analytics + only-inquiries-that-matter → trust earned not bought →
- *   no-fakes → reach that compounds → the tools → get paid your way →
- *   tier DELTAS (Free·Verified / Solo / Pro / Enterprise / Custom), with the
- *   full 5-column matrix collapsed behind "Compare every tier side by side"
- *   → Custom "for those who need more" → CTA.
+ * 🧭 MOVED INTO `app/(shell)/` 2026-11-04 (owner, on his phone: *"the page is on
+ * the wrong shell"*). It used to sit outside the group and wear the older
+ * SiteChrome glass nav + reskin footer, while every other public page wears the
+ * front-door bar + rail from `app/(shell)/layout.tsx`. Only this `page.tsx`
+ * moved — the sections stay in `app/for-suppliers/_components/` (the same split
+ * /features uses) — and the route left `NAV_ROUTES` in site-chrome.tsx, so the
+ * chrome is drawn once. It is full-bleed (`DOORWAY_BLEED_PATHS`): the photo hero
+ * and the dark bands run edge to edge and every section caps its own width.
+ * The URL is unchanged; `/vendors` and `/for-vendors` still 308 here.
+ * Held by `for-suppliers-wears-the-shell.test.ts` beside this file.
+ *
+ * Narrative flow (top→bottom) — 🆕 PORTED 2026-11-04 from the owner-approved
+ * prototype `prototypes/for_suppliers_2026-11-04.html` (Setnayan-specs; DECISION_LOG
+ * 2026-11-04 "THE THREE MARKETING PAGES GO TO CLOUD BUILD"). The prototype is
+ * "the TOP of the supplier benefits page"; what it does not redraw stays below it:
+ *   hero (aspiring · new · experienced, six trade photos) → Verified only →
+ *   twelve problems suppliers face → your package (the couple's free tools +
+ *   the gifts you can give, owner 5 Nov) → plans, every tool, climbing →
+ *   tier DELTAS + the full matrix ("further down this page", #plan-table) →
+ *   couple-pricing pointer → close ("Set na ’yan.").
+ *   ⚖ Owner 2026-11-05 (DECISION_LOG "FOR SUPPLIERS … (P)"): the older deeper
+ *   sections (one home · Setnayan AI · fair by design · get discovered ·
+ *   analytics · trust · merit only · reach · the tools · get paid) are DROPPED —
+ *   "the 4 Nov prototype is the page". The thesis strip and the old closing CTA
+ *   were retired before them.
  *
  * PRICE SOURCING (owner-locked "prices based on the admin page, not hardcoded"):
  *   Every vendor tier price comes from getVendorPrices() (live vendor_billing_
@@ -43,25 +57,22 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { VendorGrowHero } from './_components/vendor-grow-hero';
+import { VendorGrowHero } from '@/app/for-suppliers/_components/vendor-grow-hero';
 import {
-  VendorGrowThesis,
-  VendorGrowHub,
-  VendorGrowAI,
-  VendorGrowFairPay,
-  VendorGrowWebsite,
-  VendorGrowAnalytics,
-  VendorGrowTrust,
-  VendorGrowNoFakes,
-  VendorGrowReach,
-  VendorGrowTools,
-  VendorGrowGetPaid,
+  VendorGrowVerifiedOnly,
+  VendorGrowProblems,
   VendorGrowCTA,
-  VendorGrowStyles,
-} from './_components/vendor-grow-sections';
-import { VendorTierMatrix } from './_components/vendor-tier-matrix';
-import { VendorTierDeltas } from './_components/vendor-tier-deltas';
-import { RevealOnView } from './_components/for-vendors-motion';
+} from '@/app/for-suppliers/_components/vendor-grow-sections';
+import { VendorTierMatrix } from '@/app/for-suppliers/_components/vendor-tier-matrix';
+import { VendorTierDeltas } from '@/app/for-suppliers/_components/vendor-tier-deltas';
+import {
+  SupplierSpecialTools,
+  TradeEco,
+  TradeMarketing,
+  TradePlans,
+  TradeRewards,
+} from '@/app/_components/marketing/trade/trade-widgets';
+import { RevealOnView } from '@/app/for-suppliers/_components/for-vendors-motion';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
@@ -71,9 +82,9 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
 // the admin page and not hardcoded"): the vendor tier prices read the live
-// catalog DB via getVendorPrices(). force-dynamic = always-live prices + the CI
-// build skips the createAdminClient throw (the /pricing pattern).
-export const dynamic = 'force-dynamic';
+// catalog DB via getVendorPrices(). `force-dynamic` now comes from the group
+// layout, `app/(shell)/layout.tsx`, which owns it for every shelled page
+// (`one-shell-mount.test.ts` forbids a page re-declaring it — the /pricing pattern).
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 
@@ -229,58 +240,25 @@ export default async function ForVendorsPage() {
       />
       <main className="m-surface min-h-dvh">
         <VendorGrowHero fee={fee} />
-        <VendorGrowThesis fee={fee} />
         <RevealOnView>
-          <VendorGrowHub />
+          <VendorGrowVerifiedOnly />
         </RevealOnView>
-        <VendorGrowAI />
+        <VendorGrowProblems fee={fee} />
+        {/* ══ THE FIVE SHARED WIDGETS (controller's prototype, artifact WAh2zYfLCurgknopQBf9WV v3; owner 5 Nov:
+            build them here, shared with /for-coordinators). They replace the plan lines, the "Your package" section
+            (folded into Marketing) and the per-plan deltas; the full matrix lives inside Plans, behind a fold. */}
         <RevealOnView>
-          <VendorGrowFairPay fee={fee} />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowWebsite />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowAnalytics />
+          <TradeEco trade="supplier" />
         </RevealOnView>
         <RevealOnView>
-          <VendorGrowTrust />
-        </RevealOnView>
-        <VendorGrowNoFakes />
-        <RevealOnView>
-          <VendorGrowReach />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowTools />
-        </RevealOnView>
-        <RevealOnView>
-          <VendorGrowGetPaid />
-        </RevealOnView>
-        {/* THE TIER LADDER, AS DELTAS — each plan says what it ADDS, once.
-            The ~90-row × 5-column MATRIX is still here, behind a disclosure
-            inside this same section, because a grid is what the owner asked for
-            on 2026-07-04 and a vendor comparing two specific plans wants one.
-            What changed is which of the two a person reads first: the matrix
-            restated every benefit in every column above it, ~360 of ~450 cells
-            being restatement of the ~90 that carry information.
-
-            Both are built from the SAME canonical data (VENDOR_TIER_SECTIONS +
-            TIER_CAPS + VENDOR_CUSTOM_TIER), and every price — including Custom's
-            "from" floor and the branch dial, which used to be typed into the
-            shared constant — reads the live catalog via getVendorPrices. */}
-        <RevealOnView>
-          <VendorTierDeltas
-            prices={{
-              soloMonthly: p.soloMonthly,
-              proMonthly: p.proMonthly,
-              enterpriseMonthly: p.enterpriseMonthly,
-              customFrom: p.customFrom,
-              branch: p.branch,
-            }}
-            feeSchedule={fee}
-            matrix={
-              <VendorTierMatrix
-                feeSchedule={fee}
+          <TradePlans
+            trade="supplier"
+            prices={{ soloMonthly: p.soloMonthly, proMonthly: p.proMonthly, enterpriseMonthly: p.enterpriseMonthly }}
+            fee={fee}
+            fullTable={
+              /* What each plan adds, with the full side-by-side matrix behind its own button — one fold under the
+                 cards (the 4 Nov prototype's "full table … further down"; the owner's 2026-07-04 matrix). */
+              <VendorTierDeltas
                 prices={{
                   soloMonthly: p.soloMonthly,
                   proMonthly: p.proMonthly,
@@ -288,9 +266,31 @@ export default async function ForVendorsPage() {
                   customFrom: p.customFrom,
                   branch: p.branch,
                 }}
+                feeSchedule={fee}
+                matrix={
+                  <VendorTierMatrix
+                    feeSchedule={fee}
+                    prices={{
+                      soloMonthly: p.soloMonthly,
+                      proMonthly: p.proMonthly,
+                      enterpriseMonthly: p.enterpriseMonthly,
+                      customFrom: p.customFrom,
+                      branch: p.branch,
+                    }}
+                  />
+                }
               />
             }
           />
+        </RevealOnView>
+        <RevealOnView>
+          <SupplierSpecialTools />
+        </RevealOnView>
+        <RevealOnView>
+          <TradeMarketing lede="Everything a supplier hands out at a bridal fair, a booth or the event itself, made from your shop." />
+        </RevealOnView>
+        <RevealOnView>
+          <TradeRewards lede="Run your service for your clients and their guests inside Setnayan, and every booking, review and milestone earns you a badge. Most come with a gift for your next client: more for their guests to enjoy, on us." />
         </RevealOnView>
         {/*
           THE RETURN LEG — added 2026-09-22 at the owner's instruction.
@@ -344,8 +344,9 @@ export default async function ForVendorsPage() {
             </div>
           </div>
         </section>
-        <VendorGrowCTA fee={fee} />
-        <VendorGrowStyles />
+        <RevealOnView>
+          <VendorGrowCTA />
+        </RevealOnView>
       </main>
     </>
   );

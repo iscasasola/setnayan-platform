@@ -43,7 +43,8 @@ import {
 import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
+import { bookingFeeBandsLine, bookingFeeMinimumAmount } from '@/lib/booking-fee';
+import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -429,8 +430,10 @@ export function FrontDoorFeed({
                 is CORRECT (owner 2026-08-06: the couple pays the supplier directly) but true
                 only when the booking-fee sentence travels with it, so both stay here.
 
-                🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()` and
-                `FIRST_BOOKING_ON_US` speak for the same rule the bill uses, and the launch
+                🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeBandsLine()`,
+                `bookingFeeMinimumAmount()` and `FIRST_BOOKING_FREE` (the owner's
+                2026-11-04 wording of the fee line) speak for the same rule the bill uses,
+                and the minimum stays inline here because this is already a tip. The launch
                 line is gated on `isBookingFeeEnabled()` — the flag that decides whether
                 anyone is billed.
               */
@@ -438,10 +441,16 @@ export function FrontDoorFeed({
                 Couples pay you directly — we never take a cut of it.{' '}
                 {isBookingFeeEnabled() ? (
                   <>
-                    Your first booking from Setnayan is on us;
-                    after that a booking fee
-                    {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
-                    on couples we bring you. Your own clients stay free.{' '}
+                    {FIRST_BOOKING_FREE} After that:{' '}
+                    {data.bookingFee ? (
+                      <>
+                        {bookingFeeBandsLine(data.bookingFee)}, minimum{' '}
+                        {bookingFeeMinimumAmount(data.bookingFee)}
+                      </>
+                    ) : (
+                      'a booking fee'
+                    )}{' '}
+                    — only on couples who found you here. Your own clients stay free.{' '}
                   </>
                 ) : (
                   <>No booking fee while we&rsquo;re new.{' '}</>

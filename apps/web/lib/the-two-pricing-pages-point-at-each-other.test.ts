@@ -29,7 +29,7 @@ const readCode = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'ut
 const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) ?? []).length;
 
 const PRICING = 'app/(shell)/pricing/page.tsx';
-const VENDORS = 'app/for-suppliers/page.tsx';
+const VENDORS = 'app/(shell)/for-suppliers/page.tsx';
 
 // SABOTAGE: remove either href → RED.
 test('each pricing page offers a door to the other', () => {

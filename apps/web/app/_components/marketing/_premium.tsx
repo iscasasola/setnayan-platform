@@ -229,6 +229,17 @@ export function useReveal(
         });
       };
 
+      /*
+        🔴 A SECTION TALLER THAN THE SCREEN COULD NEVER REVEAL. `threshold` is a
+        share of the ELEMENT, and the most of it a screen can show is
+        viewport ÷ height. /for-suppliers' plan ladder is ~7,400 px tall at 390 px
+        wide, so 15% of it (~1,100 px) never fits an 844-px phone: the observer
+        never fired and every plan stayed at opacity 0 (measured 2026-11-04 on a
+        local build). Cap it at half of what the screen can show, so it is always
+        reachable; a section that fits keeps the threshold it asked for.
+        🔒 app/_components/marketing/a-tall-section-still-reveals.test.ts
+      */
+      const reachable = (window.innerHeight * 0.5) / Math.max(1, root.offsetHeight);
       const io = new IntersectionObserver(
         (entries) => {
           if (entries[0]?.isIntersecting) {
@@ -236,7 +247,7 @@ export function useReveal(
             io.disconnect();
           }
         },
-        { threshold },
+        { threshold: Math.min(threshold, reachable) },
       );
       io.observe(root);
 

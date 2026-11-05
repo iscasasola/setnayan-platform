@@ -1,106 +1,105 @@
 /**
- * VendorGrowHero — the photographic hero for the rebuilt /vendors page
- * ("Everything your business needs. Set na 'yan.").
+ * VendorGrowHero — the /for-suppliers hero, ported from the owner-approved 4 Nov 2026 prototype
+ * (`prototypes/for_suppliers_2026-11-04.html`, section 1 "aspiring · new · experienced").
  *
- * A full-bleed warm candid photo (a real repo asset —
- * public/for-vendors/vendor-planning.webp: a wedding-business owner planning
- * her bookings at her desk) under a dark scrim with white display copy + two
- * CTAs. No eyebrow kicker (per the project's no-eyebrow-kickers rule). The
- * persistent glass nav + footer are global site-chrome — this component
- * renders NO nav of its own.
+ * "Start or grow your event business here." — one headline for three kinds of supplier (no business yet · new ·
+ * experienced), one primary door ("Open a shop — free") — no demo-shop button (owner, "just do not add buttons") — and the truths line with the
+ * booking fee behind an ⓘ.
  *
- * Clean Editorial tokens only (--m-*). Radii route through --m-r-* per the
- * radius-token lint guard. No prices here (the tier prices live in the matrix,
- * DB-sourced) — the hero speaks the "all set, kept free" thesis, not a number.
+ * THE PHOTOS — six trades, one every 5 s (`HeroSlides`), the owner's 4 Nov renders in
+ * `public/marketing/2026-11-04/`. Hero rule (owner, "images are too cut", for all three marketing pages):
+ *   · phone — `object-fit: cover`;
+ *   · ≥1024 px — the hero is `min(100svh − bar, max(600px, 58vw))` tall and the photo shows its FULL height,
+ *     anchored right and shifted right by its own `--dr` (the prototype's values, below); zoom 2.5%.
+ *
+ * Replaces the 2026-07-05 hero ("Everything your business needs. Set na 'yan.", one photo under a dark scrim)
+ * and its scroll-lock gate (`vendor-hero-gate.tsx`, owner 2026-07-10): the 4 Nov prototype has no lock and no
+ * "How the model works ↓" release, and a lock whose only exits leave the page would strand the visitor above
+ * everything this page now says.
+ *
+ * No peso figure is typed here: the fee's numbers are the LIVE schedule the page read (`fee`), via
+ * `bookingFeeBandsLine`; `null` names the fee with no rate.
  */
 import Image from 'next/image';
-import { VendorHeroGate } from './vendor-hero-gate';
-import { supplierCommissionPromise } from '@/lib/commission-promise';
-import type { BookingFeeSchedule } from '@/lib/booking-fee';
+import Link from 'next/link';
+import type { CSSProperties } from 'react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { bookingFeeBandsLine, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { HERO_SLIDES, MARKETING_PHOTOS, OPEN_SHOP_HREF } from './supplier-page-words';
+import { HeroSlides } from './for-vendors-motion';
+import css from './vendor-grow.module.css';
 
 /** `fee` — the LIVE schedule the page read, or null (named without a rate). */
 export function VendorGrowHero({ fee }: { fee: BookingFeeSchedule | null }) {
   return (
-    <header
-      style={{
-        position: 'relative',
-        minHeight: '92vh',
-        display: 'flex',
-        alignItems: 'flex-end',
-        overflow: 'hidden',
-        color: '#fff',
-        background: 'var(--m-ink)',
-      }}
-    >
-      {/* Full-bleed on-brand candid photo — a real repo asset. */}
-      <Image
-        src="/for-vendors/vendor-planning.webp"
-        alt="A wedding-business owner at her desk, planning her bookings on a laptop — the business Setnayan is built to grow"
-        fill
-        priority
-        sizes="100vw"
-        style={{ objectFit: 'cover', objectPosition: 'center 45%' }}
-      />
-      {/* Dark scrim — left-weighted for legible copy, bottom-weighted for depth. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'linear-gradient(90deg, rgba(18,14,10,.74), rgba(18,14,10,.30) 55%, transparent), linear-gradient(0deg, rgba(18,14,10,.86) 4%, transparent 50%)',
-        }}
-      />
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          maxWidth: 1120,
-          margin: '0 auto',
-          width: '100%',
-          padding: '0 clamp(20px, 5vw, 56px) clamp(44px, 7vw, 80px)',
-        }}
-      >
-        <h1
-          className="m-display"
-          style={{
-            fontSize: 'clamp(40px, 7.5vw, 84px)',
-            lineHeight: 0.98,
-            letterSpacing: '-0.025em',
-            margin: '0 0 18px',
-            maxWidth: '16ch',
-            /* .m-display hard-sets color:var(--m-ink) (dark navy) — override to
-               white so the headline reads over the photo, matching the header's
-               inherited #fff. Without this the h1 rendered navy-on-photo and was
-               unreadable (owner 2026-07-10). */
-            color: '#fff',
-            textShadow: '0 2px 40px rgba(0,0,0,.35)',
-          }}
-        >
-          Everything your business needs. Set na &rsquo;yan.
-        </h1>
-        <p
-          style={{
-            fontSize: 'clamp(16px, 2vw, 19px)',
-            color: '#eae0cf',
-            maxWidth: '52ch',
-            margin: '0 0 30px',
-            lineHeight: 1.55,
-          }}
-        >
-          Profile, clients, calendar, bookings, and your own Setnayan page &mdash; all set
-          up free, kept free. Free to join.{' '}
-          {/* 🔴 SAID "0% commission while we launch" UNTIL 2026-09-22 — with no
-              gate, while production had already charged and collected ₱837.50.
-              The same false claim `VendorGrowFairPay` records fixing on
-              2026-09-20; it was simply never removed here. One source now, and
-              its numbers derive from the bill. */}
-          {supplierCommissionPromise(fee)}
-        </p>
-        {/* CTA row + hero scroll-lock gate — a client island (the hero itself
-            stays a Server Component with the LCP <Image>). */}
-        <VendorHeroGate />
+    <section className={css.hero} aria-labelledby="fs-h1">
+      <div className={css.heroPhoto} aria-hidden>
+        <HeroSlides>
+          {HERO_SLIDES.map((s, i) => (
+            <Image
+              key={s.key}
+              src={`${MARKETING_PHOTOS}/${s.key}.webp`}
+              alt={s.alt}
+              width={1600}
+              height={1200}
+              priority={i === 0}
+              sizes="(min-width: 1024px) 80vw, 100vw"
+              className={css.slideImg}
+              style={{ '--dr': s.dr } as CSSProperties}
+            />
+          ))}
+        </HeroSlides>
       </div>
-    </header>
+      <div className={css.heroCopy}>
+        <p className={css.eyebrow}>For suppliers</p>
+        <h1 id="fs-h1" className={css.h1}>
+          Start or grow your event business here.
+        </h1>
+        <p className={css.heroLede}>
+          <b>Setnayan is where Filipino hosts plan their events</b> — and where they find, compare and book their
+          suppliers. Whether you have no business yet, a new one, or one booked every weekend, this is your starting
+          market.
+        </p>
+        <dl className={css.three}>
+          <div>
+            <dt>No business yet?</dt>
+            <dd>Open a shop in two steps, free. Your first booking through Setnayan is free too.</dd>
+          </div>
+          <div>
+            <dt>New?</dt>
+            <dd>Get Verified free, and couples and search engines can find you.</dd>
+          </div>
+          <div>
+            <dt>Experienced?</dt>
+            <dd>Bring your clients in free and keep them free. Pay only on the ones Setnayan brings.</dd>
+          </div>
+        </dl>
+        <div className={css.ctas}>
+          <Link href={OPEN_SHOP_HREF} className={`${css.btn} ${css.btnPrimary}`}>
+            Open a shop — free
+          </Link>
+        </div>
+        <div className={css.truths}>
+          <span>Free to join</span>
+          <span className={css.sep} aria-hidden>
+            ·
+          </span>
+          <span>Full dashboard free</span>
+          <span className={css.sep} aria-hidden>
+            ·
+          </span>
+          <span>Only Verified businesses are shown</span>
+          <span className={css.sep} aria-hidden>
+            ·
+          </span>
+          <InfoTip label="Booking fee only on the couples Setnayan brings" ariaLabel="About the booking fee" align="start">
+            {FIRST_BOOKING_FREE} After that,{' '}
+            {fee ? bookingFeeBandsLine(fee) : 'a booking fee'} — only on couples Setnayan brought you. The clients you
+            import or bring yourself never carry a fee.
+          </InfoTip>
+        </div>
+      </div>
+    </section>
   );
 }

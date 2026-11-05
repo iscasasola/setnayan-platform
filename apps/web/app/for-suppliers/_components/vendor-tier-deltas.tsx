@@ -63,11 +63,14 @@ import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/bookin
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { tierTag, type VendorTierMatrixPrices } from './vendor-tier-matrix';
 
 /** The ladder as a person climbs it. `verified` is the real free-vendor state. */
 const LADDER: { cap: VendorTier; source: string; label: string }[] = [
-  { cap: 'verified', source: 'free', label: 'Free · Verified' },
+  // ⚖ 2026-11-05 clean split: Free and Verified are two rungs (owner, "separate the features of verified from free").
+  { cap: 'free', source: 'free', label: 'Free' },
+  { cap: 'verified', source: 'verified', label: 'Verified' },
   { cap: 'solo', source: 'solo', label: 'Solo' },
   { cap: 'pro', source: 'pro', label: 'Pro' },
   { cap: 'enterprise', source: 'enterprise', label: TIER_LABEL.enterprise },
@@ -166,6 +169,7 @@ export function VendorTierDeltas({
   const [showMatrix, setShowMatrix] = useState(false);
 
   const priceOf: Record<string, { price: string; unit: string }> = {
+    free: { price: '₱0', unit: 'forever' },
     verified: { price: '₱0', unit: 'forever' },
     solo: tierTag(prices.soloMonthly, '/ 28 days'),
     pro: tierTag(prices.proMonthly, '/ 28 days'),
@@ -174,6 +178,8 @@ export function VendorTierDeltas({
 
   return (
     <section
+      // The plan lines near the top of the page point here ("further down this page").
+      id="plan-table"
       style={{
         padding: 'clamp(56px, 9vw, 104px) clamp(20px, 5vw, 56px)',
         background: 'var(--m-paper-2)',
@@ -202,8 +208,8 @@ export function VendorTierDeltas({
             margin: 0,
           }}
         >
-          Free · Verified is the whole ops spine — get found, get trusted, get
-          booked, keep 100%. Every paid plan includes everything before it, so
+          Free runs your whole business with your own clients; Verified is when couples can
+          find you. Every plan includes everything before it, so
           below you only read what is <strong style={{ color: 'var(--m-ink)' }}>new</strong> at
           that step.
         </p>
@@ -369,11 +375,16 @@ export function VendorTierDeltas({
                     }}
                   >
                     Everything above is free, forever.{' '}
-                    {isBookingFeeEnabled()
-                      ? 'Your first booking from Setnayan is on us — after that'
-                      : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
-                    {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples Setnayan
-                    brings you; your own clients stay free.
+                    {isBookingFeeEnabled() ? (
+                      // Owner 2026-11-04 reword — the one fee line, from the live schedule.
+                      <BookingFeeLine fee={feeSchedule} />
+                    ) : (
+                      <>
+                        0% commission — no booking fee while it is switched off; if it is switched on{' '}
+                        {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples
+                        Setnayan brings you; your own clients stay free.
+                      </>
+                    )}
                   </p>
                 ) : null}
               </article>

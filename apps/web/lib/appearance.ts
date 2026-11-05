@@ -83,6 +83,10 @@ export const DARK_READY: readonly string[] = [
   '/signup',
   '/forgot-password',
   '/reset-password',
+  // /for-suppliers (owner 2026-11-05, DECISION_LOG "FOR SUPPLIERS … (Q)": "the page gets DARK MODE like the rest of
+  // the app"). Walked at 390 and 1280, light and dark, before it was listed (PR #7268 screenshots). Signed-out stays
+  // Light (call 4): this paints dark only for a signed-in person who chose Dark.
+  '/for-suppliers',
 ];
 
 /**

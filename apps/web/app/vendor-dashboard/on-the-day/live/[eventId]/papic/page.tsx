@@ -172,8 +172,7 @@ export default async function VendorPapicCapturePage({
         // 🔒 No pack for sale in the App Store / Play Store shell (guideline
         // 3.1.1; lib/store-shell.ts) — the credit count still shows.
         offerPack={portfolioCredits.offerPack && !(await isStoreShellRequest())}
-        packPricePhp={portfolioCredits.packPricePhp}
-        packCredits={portfolioCredits.packCredits}
+        packs={portfolioCredits.packs}
         openRails={openRails}
       />
 

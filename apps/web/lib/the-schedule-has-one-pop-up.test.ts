@@ -34,7 +34,7 @@ test('2 · every add and every edit opens THAT template', () => {
   assert.match(add, /<ScheduleSheet\b/, 'Add a moment is not the one pop-up');
   assert.doesNotMatch(add, /<Sheet\b/, 'Add a moment draws its own sheet');
   const prep = read('prep-item-controls.tsx');
-  const addStep = prep.slice(prep.indexOf('export function AddPreparationItem('), prep.indexOf('export function DeletePreparationItemButton('));
+  const addStep = prep.slice(prep.indexOf('export function AddPreparationItem('), prep.indexOf('export function PrepItemSwipe('));
   assert.match(addStep, /<ScheduleSheet\b/, 'Add a step is not the one pop-up');
   assert.doesNotMatch(addStep, /role="dialog"|fixed inset-0|OverlayBackdrop/, 'Add a step draws its own boxed card');
   const rail = read('day-rail.tsx');

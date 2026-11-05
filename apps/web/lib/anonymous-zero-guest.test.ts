@@ -91,6 +91,10 @@ test('anonymousIdentity() output carries exactly the five anonymous keys (none g
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
   assert.equal(identity.kind, 'anonymous');
@@ -184,6 +188,10 @@ test('anonymousIdentity() strips smuggled owner capability from a poisoned input
     'publicAlbumHref',
     'publicCandidCameraActive',
     'reason',
+    // seatUnread (2026-11-05) — the VIEWER's own seat read was refused, so the
+    // door says "try again" rather than "not on the list". About their account,
+    // never a guest's row; a boolean, so it cannot carry a guest-derived fact.
+    'seatUnread',
     'signedInNotListed',
   ]);
 });

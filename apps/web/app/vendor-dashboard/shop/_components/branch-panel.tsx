@@ -1,7 +1,8 @@
 import { Building2 } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { TIER_LABEL, asVendorTier, isTierAtLeast, nextPlanReach, reachLadderWords } from '@/lib/vendor-tier-caps';
+import { TIER_LABEL, asVendorTier, canBuyExtraBranches, includedBranchesLeft, nextPlanReach, planHasBranches, reachLadderWords, tierCaps } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import type { VendorBranchView } from '@/lib/vendor-branches';
@@ -47,7 +48,11 @@ export async function BranchPanel({
   /** The plan was read. False → Where you work says so instead of drawing a plan's reach nobody read. */
   tierMeasured?: boolean;
 }) {
-  const isEnterprise = isTierAtLeast(tier, 'enterprise');
+  // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro includes 3, Ultra 6 (trimmed the same day), fee-free; only Ultra buys
+  // more. Counted from the shop's own live included branches — a shop over a lowered allowance keeps them (0 left).
+  const includedInUse = branches.filter((b) => b.included_in_plan && b.status !== 'cancelled').length;
+  const includedLeft = includedBranchesLeft(tier, includedInUse);
+  const includedTotal = tierCaps(tier).branchesIncluded;
   // 🔒 A branch is a paid add-on (₱ per 28 days), bought AND managed in the
   // BranchManager below. The App Store / Play Store shell neither sells nor
   // runs it (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the manager
@@ -61,7 +66,12 @@ export async function BranchPanel({
   // told findable shops they were hidden.
   const reachHidden = !hasRing && isVendorSearchGateEnabled();
   const reachPaywall = vendorPaywallApplies(false) && !storeShell;
-  const branchPaywall = vendorPaywallApplies(isEnterprise);
+  // The plan ask: a plan with no branches at all (Free · Verified · Solo) while the switch is on. A Pro shop at its
+  // included three is told the same — more is Ultra's.
+  const branchPaywall = vendorPaywallApplies(planHasBranches(tier) && (includedLeft > 0 || canBuyExtraBranches(tier)));
+  // ⚖ May the paid flow sell one more? ULTRA ONLY, ALWAYS (owner 2026-11-05, "Ultra only, always") — a price rule,
+  // not a try-first paywall, so the switch does not open it.
+  const canBuyMore = canBuyExtraBranches(tier);
   const from = city ?? 'your headquarters';
   // The shipped sentence, word for word — now the ⓘ of How far you go (house rule: one line visible, the rest in ⓘ).
   const reachNote = hasRing
@@ -128,12 +138,13 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Part of Ultra — plan it here; adding asks for Ultra"
+                label="Extra branches are sold with Ultra only"
                 text="ENTERPRISE"
                 size="xs"
               />
-              Extra branches are part of Ultra — each gets its own team and
-              calendar. Plan one here; adding it asks for the plan.
+              {includedTotal > 0
+                ? `Your plan’s ${formatCount(includedTotal)} branches are in use. More branches are part of Ultra — plan one here; adding it asks for the plan.`
+                : 'Branches come with Pro and Ultra — each gets its own team and calendar. Plan one here; adding it asks for the plan.'}
             </p>
           ) : null}
           <BranchManager
@@ -142,6 +153,9 @@ export async function BranchPanel({
             autoRadiusKm={branchAutoRadius}
             initialCenter={branchMapCenter}
             pay={branchPay}
+            includedLeft={includedLeft}
+            includedTotal={includedTotal}
+            canBuyMore={canBuyMore}
           />
         </>
       )}

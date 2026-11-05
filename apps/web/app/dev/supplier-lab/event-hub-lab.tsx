@@ -10,6 +10,8 @@ import { EventHubBar, EventHubCounts } from '@/app/vendor-dashboard/on-the-day/l
 import { EventHubAnnounce, EventHubScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-views';
 import { FloorClock } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock';
 import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
+import { ScheduleUpdater } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater';
+import { nextAdvanceAction, remainingBlockCount } from '@/lib/floor-command';
 import { eventHubViewOf } from '@/lib/event-hub-views';
 import type { EventYouRun } from '@/lib/events-you-run';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
@@ -87,8 +89,21 @@ const SCAN_ANSWERS: Record<string, ScanAnswer> = {
   'no-session': { outcome: 'no_session' },
 };
 
-export function EventHubLab({ view: rawView, scan, answer }: { view?: string; scan?: string; answer?: string }) {
+/**
+ * 🗓 The run of show after a Change the schedule (2026-11-04): `moved` = Guests arrive moved later 10 min, the parts after
+ * it with it; `skipped` = Processional skipped. Fixtures only — the lab's Move / Skip write nothing (no database here).
+ */
+function blocksAfter(state: string | undefined): RunOfShowBlock[] {
+  if (state === 'moved') {
+    return BLOCKS.map((b, i) => (i >= 2 ? { ...b, start_at: new Date(Date.parse(b.start_at) + 10 * 60_000).toISOString().replace('.000Z', 'Z') } : b));
+  }
+  if (state === 'skipped') return BLOCKS.map((b) => (b.block_id === 'b4' ? { ...b, run_state: 'skipped' } : b));
+  return BLOCKS;
+}
+
+export function EventHubLab({ view: rawView, scan, answer, state }: { view?: string; scan?: string; answer?: string; state?: string }) {
   const view = eventHubViewOf(rawView);
+  const blocks = blocksAfter(state);
   return (
     <div className="min-h-screen bg-paper" data-supplier-lab="event-hub">
       <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6" data-event-hub-view={view}>
@@ -105,7 +120,7 @@ export function EventHubLab({ view: rawView, scan, answer }: { view?: string; sc
           <EventHubCounts
             tiles={[
               { key: 'now', value: '2:00 PM', word: 'now · Styling walk-through', href: '#schedule', hot: true },
-              { key: 'next', value: '2:30 PM', word: 'next · Guests arrive', href: '#schedule' },
+              { key: 'next', value: state === 'moved' ? '2:40 PM' : '2:30 PM', word: 'next · Guests arrive', href: '#schedule' },
               { key: 'coming', value: '162/180', word: 'coming (RSVP)' },
             ]}
           />
@@ -131,13 +146,21 @@ export function EventHubLab({ view: rawView, scan, answer }: { view?: string; sc
               <p className="truncate text-2xl font-light text-paper">Indalecio &amp; Claire</p>
               <p className="mt-0.5 truncate text-sm text-paper/60">Seda Vertis North, Quezon City</p>
               <div className="mt-4">
-                <FloorClock blocks={BLOCKS} />
+                <FloorClock blocks={blocks} />
               </div>
             </div>
-            <RunOfShowHeader eventId="ic" initial={BLOCKS} />
+            <RunOfShowHeader eventId="ic" initial={blocks} />
+            {/* Floor Command's running order — the REAL control (Start / Done · next and Change the schedule). */}
+            <ScheduleUpdater
+              eventId="ic"
+              action={nextAdvanceAction(blocks, new Date('2026-12-18T14:10:00Z'))}
+              remaining={remainingBlockCount(blocks)}
+              driftMinutes={null}
+              parts={blocks}
+            />
             <p className="text-[13px] text-ink/60" data-lab-standin="">
-              Below this on the live page: Floor Command (requests · move or hold a moment · find a guest’s seat), the
-              headcount, your tools and live reviews — read from the database, not drawn in the lab.
+              Below this on the live page: Floor Command&rsquo;s requests and seat finder, the headcount, your tools and live
+              reviews — read from the database, not drawn in the lab.
             </p>
           </>
         )}

@@ -1144,7 +1144,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
        and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
     <LastSeenCapture page="schedule">
-    <section className="sn-col space-y-5" data-schedule-page={oneLine ? '' : undefined}>
+    <section className={`sn-col space-y-5${oneLine ? ' xl:max-w-[100rem]' : ''}`} data-schedule-page={oneLine ? '' : undefined}>
       {/* Inside the Maker, Details' own header names it; on its own page, the shared masthead. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
 

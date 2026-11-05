@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { setnayanMarkSvg } from '@/lib/qr-style-svg';
 import { badgePill } from '@/lib/shop-badge-print';
+import { formatCount } from '@/lib/format-number';
 import type { ShopBadge } from '@/lib/shop-badges';
 import {
   PRINT_QR,
@@ -304,7 +305,7 @@ function sealLn(c: Ctx, fs: number, maxW: number): Box {
 
 function rateLn(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle'): Box {
   const r = c.shop.rating;
-  return r ? lnBox(c, `${r.avg.toFixed(1)} · ${r.count} review${r.count === 1 ? '' : 's'}`, fs, maxW, align) : EMPTY;
+  return r ? lnBox(c, `${r.avg.toFixed(1)} · ${formatCount(r.count)} review${r.count === 1 ? '' : 's'}`, fs, maxW, align) : EMPTY;
 }
 
 function badgeLn(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle', max: number): Box {

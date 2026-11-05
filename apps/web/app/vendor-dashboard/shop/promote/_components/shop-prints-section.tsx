@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
-import { ChevronRight, Download, Printer } from 'lucide-react';
+import { ChevronRight, Printer, Share } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -234,7 +234,7 @@ function SaveButton({ piece, d, qr, small = false }: { piece: PrintPiece; d: Pri
         'Save'
       ) : (
         <>
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={1.8} />
           Save
         </>
       )}

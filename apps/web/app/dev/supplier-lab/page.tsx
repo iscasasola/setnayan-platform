@@ -364,6 +364,10 @@ export default async function SupplierLabPage({
     /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
     return wrap(<EventHubLab view={q.view} scan={q.scan} answer={q.answer} numbers={q.numbers} />, 'own');
   }
+  if (q.s === 'scan-shop') {
+    /* ⭐ The supplier's public page — Guest ratings in their own section (owner 2026-11-05) — `scan-lab.tsx`. */
+    return <ScanLab side="shop" state={q.state} />;
+  }
   if (q.s === 'scan-guest' || q.s === 'scan-couple') {
     /* 🎟 The supplier claim scanner's guest card and the couple's list (2026-11-04) — `scan-lab.tsx`; &two=1 · &state=… */
     return <ScanLab side={q.s === 'scan-couple' ? 'couple' : 'guest'} two={q.two} state={q.state} review={q.review} />;

@@ -1027,7 +1027,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
   },
   {
     /**
-     * 🎟 SUPPLIER SCANS — the supplier claim scanner (migration 20271309463657; DECISION_LOG 2026-09-25 "SUPPLIERS
+     * 🎟 SUPPLIER SCANS — the supplier claim scanner (migration 20271316581328; DECISION_LOG 2026-09-25 "SUPPLIERS
      * CLAIM A GUEST'S SERVICE BY SCANNING…", 2026-10-03 "SUPPLIER SCAN … APPROVED", 2026-10-29 "SET ONCE PER
      * SERVICE"). A booked shop's service scans a guest's QR or NFC tag; the guest gets the next shared number (#0042).
      * Souvenir services write the couple's own `guest_souvenir_claims` row instead — one record, two desks.
@@ -3798,7 +3798,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
-     * 🎟 A SUPPLIER'S SCAN CLAIMS A GUEST'S SERVICE (migration 20271309463657). One function writes every claim
+     * 🎟 A SUPPLIER'S SCAN CLAIMS A GUEST'S SERVICE (migration 20271316581328). One function writes every claim
      * (`supplier_scan_claim`, SECURITY DEFINER) after asking the shop, the booking, the booked service, the scanner and
      * the guest; the number moves under the counter row's lock in the same transaction.
      */

@@ -5,7 +5,7 @@
  * SCAN SHOWS A COUNT ONLY" · "EVERY SUPPLIER SCAN GETS A SHARED SEQUENCE NUMBER" · "NFC = QR IN EVERY SUPPLIER MODE" ·
  * "THE SUPPLIER SCANNER EXPLAINS QR vs NFC ITSELF"; 2026-10-03 "SUPPLIER SCAN … APPROVED" (design of record
  * `prototypes/supplier_scan_2026-10-03_fable.html`); 2026-10-29 "A SUPPLIER'S TOOLS + SCANNER ARE SET ONCE PER
- * SERVICE". The database half is migration 20271309463657 (`supplier_scan_claim`, every permission check).
+ * SERVICE". The database half is migration 20271316581328 (`supplier_scan_claim`, every permission check).
  *
  * 🔢 COUNT ONLY. Nothing in here takes or returns a guest's name. A coordinator the hosts approved sees the name
  * because the scan action re-reads the guest row under that person's own access (host read parity) — never here.

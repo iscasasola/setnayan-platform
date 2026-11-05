@@ -87,7 +87,9 @@ export type TwoAdminPromise = {
 };
 
 /**
- * § 9.1's major-decisions table, all nine rows, in the contract's own order.
+ * § 9.1's major-decisions table, all eight rows, in the contract's own order. (The ninth —
+ * "adding a team member to the shared pool" — was REMOVED from the agreement on 2026-11-05,
+ * owner: "no remove it." The pool was retired the same day and there was nothing to add anyone to.)
  * ⚠ Do not add a row that is not in § 9.1, and do not drop one that is. The
  * page is generated from this; the contract is not.
  */
@@ -97,7 +99,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     asPublished: 'promoting a user to any admin role',
     whyPerClause: 'Privilege escalation — irreversible damage potential',
     actionType: 'promote_to_admin',
-    note: 'Enforced. In the live CHECK since the approvals table shipped.',
+    note: 'Enforced, through TWO action types, because there are two admin roles. `promote_to_admin` sets `account_type = \'admin\'` (in the live CHECK since the approvals table shipped). `grant_team_member` sets `users.is_team_member = TRUE`, which `isAdminProfile` also treats as admin; since 2026-11-05 (migration 20271309260178) "Add to team" on the Users list opens it instead of writing the flag. Removing someone from the team stays single-admin.',
   },
   {
     key: 'internal-account',
@@ -105,13 +107,6 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     whyPerClause: 'Bypasses all billing permanently',
     actionType: 'grant_internal_account',
     note: 'Enforced (§ 10a). `users.is_internal = TRUE` passes every paid gate, which is why it is here.',
-  },
-  {
-    key: 'team-pool',
-    asPublished: 'adding a team member to the shared pool',
-    whyPerClause: 'Grants ongoing pool draw rights',
-    actionType: 'grant_team_pool',
-    note: 'Enforced (§ 10b). `users.is_team_member = TRUE`.',
   },
   {
     key: 'large-comp-grant',

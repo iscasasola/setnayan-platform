@@ -53,7 +53,7 @@ export async function fetchLatestBroadcasts(
       .from('coordinator_broadcasts')
       .select('broadcast_id, body, sender_role, created_at')
       .eq('event_id', eventId)
-      // 🎟 Event-wide lines only. A supplier's "#0042 is ready" (`target_guest_id`, migration 20271309498016) is for
+      // 🎟 Event-wide lines only. A supplier's "#0042 is ready" (`target_guest_id`, migration 20271317406591) is for
       // ONE guest and is read by that guest's own Event Hub alone (`latestNoticeForGuest`) — never shown to the room.
       .is('target_guest_id', null)
       .order('created_at', { ascending: false })

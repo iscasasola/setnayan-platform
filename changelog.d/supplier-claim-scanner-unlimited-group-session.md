@@ -4,7 +4,7 @@ Slice 3 of 5 of the supplier claim scanner (stacked on slice 2). Owner rulings: 
 UNLIMITED" (*"if their service is unlimited, they can do multiple scans and it will count them again"*) and "GROUP
 SESSIONS (photo booth group shots) — print count = guests scanned, adjustable"; prototype frames C · C′.
 
-- **Migration `20271310233702`**: modes `unlimited` and `group_session`; `supplier_scan_sessions` (one shot = one
+- **Migration `20271317711533`**: modes `unlimited` and `group_session`; `supplier_scan_sessions` (one shot = one
   number, its prints 1–99, open → done; one open shot per service per event; RLS at CREATE: couple/coordinator + admin
   read, no write policy); claims gain `session_id` (a guest is in a shot once; a guest may be in many shots).
   `supplier_scan_session_open` allocates the shot's number under the same counter lock (a second phone joins the open

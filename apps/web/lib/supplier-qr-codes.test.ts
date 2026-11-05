@@ -133,3 +133,22 @@ test('every refused crew read is said — never "no code yet"', () => {
   assert.match(VIEW, /code\?\.state === 'unread'[\s\S]{0,200}role="alert"/);
   assert.match(VIEW, /code\.waiting === null\s*\?\s*'Couldn’t count/);
 });
+
+// 📣 Your QR codes (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL"): Which code ▾ · Share · Copy link ·
+// Save · Write to NFC. Copy link is a button in the card's own row, beside Share — and the strip under the card no longer
+// carries a second one.
+test('📣 the QR card reads Share · Copy link · Download, and the strip under it carries no second Copy link', () => {
+  const CARD = stripComments(fs.readFileSync(path.join(ROOT, 'app/_components/qr-card.tsx'), 'utf8'));
+  const share = CARD.indexOf('data-qr-share=""');
+  const copy = CARD.indexOf('data-qr-copy=""');
+  const save = CARD.indexOf('data-qr-download=""');
+  const strip = CARD.indexOf('<QrActions');
+  assert.ok(share > 0 && copy > share && save > copy && strip > save, `order was share ${share} · copy ${copy} · save ${save} · strip ${strip}`);
+  assert.equal(CARD.split('data-qr-copy=""').length - 1, 1, 'exactly one Copy link button');
+  assert.match(CARD, /onClick=\{copy\}[^>]*data-qr-copy=""/, 'the Copy link button does not run the copy');
+  assert.match(CARD, /const copy = async \(\) => \{[\s\S]{0,120}navigator\.clipboard\.writeText\(url\)/, 'Copy link copies the code’s own address');
+  assert.match(CARD, /'Copy link'/);
+  assert.match(CARD, /<QrActions url=\{url\} hideCopy\b/, 'the strip still draws its own Copy link — two on one card');
+  // Every Promote code is a QrCard, so each gets it: Shortlist · Check a date · My page.
+  for (const d of ['shortlist', 'check-a-date', 'my-page']) assert.match(VIEW, new RegExp(`data="${d}"`), `${d} is not a QR card`);
+});

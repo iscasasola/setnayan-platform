@@ -207,7 +207,9 @@ export async function UsersSurface({
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
       .in('target_user_id', teamCandidates);
-    if (!pendingErr) {
+    if (pendingErr) {
+      console.error('[UsersSurface] pending team-member requests read failed', pendingErr.message);
+    } else {
       pendingTeamGrants = new Set(
         ((pending ?? []) as Array<{ target_user_id: string | null }>)
           .map((r) => r.target_user_id)

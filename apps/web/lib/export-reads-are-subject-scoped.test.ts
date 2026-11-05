@@ -84,6 +84,8 @@ const ANCHORS: Record<string, RegExp> = {
   event_colour_changes: eqUid('actor_user_id'),
   /* 🖼⏱ The Mood Board changes the subject made under Mood Board Edit — the author's act (2026-10-30). */
   event_mood_board_changes: eqUid('actor_user_id'),
+  // 2026-11-05 — the booking fees the subject disputed: AUTHOR-scoped on the account that opened the dispute.
+  booking_fee_disputes: eqUid('opened_by_user_id'),
   // couple-grain by decision (2026-09-11): the caller's OWN couple events — pinned
   // by T15 in export-coverage-guardrail.test.ts
   event_vendor_payments: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,

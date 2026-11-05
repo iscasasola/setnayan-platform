@@ -20,7 +20,8 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
  *      🗓 `?asks=1` (D2): the moment sheet's "Asked of suppliers" — one ask waiting, one declined with a reason.
  *      🔒 `?lock=1` (D7): the hair-and-make-up supplier pressed Lock my times — the moment sheet says "<shop> isn’t
  *      taking changes. Send them a request instead." and Send them a request opens the Ask with them picked.
- *      👁 View as ▾ (Step 3c) on fake tasks: a guest, a role, a supplier or crew, Suppliers by time; `?free=1` a Free event.
+ *      👁 View as ▾ (Step 3c) on fake tasks: a guest, a role, a supplier or crew, Suppliers by time; `?free=1` a Free event;
+ *      👤📋 slice 6: a named guest (`?released=1` after Release), the coordinator, and each view’s PDF.
  *   2. THE RUN-OF-SHOW SHAPE (§3c): one moment holding three parallel tasks in two places, each place resolved by the
  *      real `taskPlace` (a task with no place follows its moment's room). `?clash=1` adds the planner's Coord A in a
  *      second place at the same time, and the real `findTaskClashes` flags it — flagged, never blocked.
@@ -28,7 +29,7 @@ import { LabScheduleChapters } from './lab-schedule-chapters';
 export default async function ChaptersLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string; defaults?: string; held?: string; lock?: string }>;
+  searchParams: Promise<{ empty?: string; fail?: string; clash?: string; view?: string; tasksfail?: string; marchfail?: string; moment?: string; free?: string; asks?: string; defaults?: string; held?: string; lock?: string; released?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -36,9 +37,9 @@ export default async function ChaptersLabPage({
   const tasks: TaskRow[] = q.clash === '1' ? [...LAB_TASKS, LAB_CLASH_TASK] : LAB_TASKS;
   const clashes = findTaskClashes(tasks.map((task) => ({ task, moment: LAB_MOMENT, chapter })));
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 py-6 text-ink dark:bg-ink-950">
+    <main data-shell-main="" className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 bg-cream px-4 pt-6 text-ink dark:bg-ink-950 md:max-w-[64rem] xl:max-w-[100rem]">
       <section data-lab="chapters" className="flex flex-col gap-3">
-        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} held={q.held === '1'} lock={q.lock === '1'} />
+        <LabScheduleChapters empty={q.empty === '1'} fail={q.fail === '1'} viewOnly={q.view === '1'} clash={q.clash === '1'} tasksFail={q.tasksfail === '1'} marchFail={q.marchfail === '1'} openMoment={q.moment === '1'} free={q.free === '1'} released={q.released === '1'} asks={q.asks === 'fail' ? 'fail' : q.asks === '1'} defaults={q.defaults === '1'} held={q.held === '1'} lock={q.lock === '1'} />
       </section>
 
       <section data-lab="moment-tasks" className="flex flex-col gap-2 border-t border-ink/10 pt-6">

@@ -117,6 +117,8 @@ const NOT_GUEST_FACING: Record<string, string> = {
     'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
+  'app/admin/events/[eventId]/page.tsx':
+    'admin — Admin › Events › one event › Suppliers’ schedule reads the chapters to say each supplier’s Where (2026-11-04); behind the admin gate, never a guest',
   'lib/schedule-ask.server.ts':
     'host — a host or the coordinator asks a booked supplier to change their times (D2); reads the moment’s name for the ask, never for a guest',
   'lib/moment-follow.server.ts':
@@ -154,8 +156,9 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/vendor-dashboard/clients/[eventId]/actions.ts': 'supplier — the client workspace’s actions',
   'app/vendor-dashboard/clients/[eventId]/_components/script-tab.tsx': 'supplier — the emcee script tab',
   'app/vendor-dashboard/clients/[eventId]/page.tsx': 'supplier — the client workspace',
+  'lib/crew-elsewhere.server.ts': 'supplier — their crews on their other events the same day (slice 5)',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
-  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
+  'lib/change-the-schedule.server.ts': 'coordinator + their crew Member — Change the schedule on the day (move / skip); the crew read is fenced as a booked shop (onlyWhatABookedShopMaySee)',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',
   'lib/supplier-today.server.ts': 'supplier — their own Today on an event day: the next moment and how many checked in, for a booking the room read proved is theirs',
 };

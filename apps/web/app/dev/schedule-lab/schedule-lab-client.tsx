@@ -14,6 +14,7 @@ import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
 import { lockedLine } from '@/lib/supplier-schedule-marks';
 import { useMemo, useState } from 'react';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
+import { MakerContext, type MakerState } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
 import type {
   DayActions,
@@ -26,7 +27,7 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { venueNowMs } from '@/lib/schedule';
 import { wallDateKey } from '@/lib/schedule-rail';
-import { PLAN_DATE, seedMoments } from './lab-moments';
+import { PLAN_DATE, labAfterChange, seedMoments } from './lab-moments';
 
 const LAB_SLOT = 'schedule-lab-inspector';
 /** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
@@ -76,6 +77,19 @@ const LOCKED_MOMENTS = new Set(['ingress']);
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
+    {
+      /* 📍 A supplier's Where pick (owner 2026-11-04, migration 20271308641275): OK · Decline · Change. */
+      suggestion_id: 'r5',
+      block_id: null,
+      kind: 'where',
+      by: 'Lumière Photo',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      where: { now: 'Ceremony', asked: 'Preparation, Ceremony, Reception' },
+      note: 'Asks to work Preparation, Ceremony, Reception',
+    },
     {
       suggestion_id: 'r1',
       block_id: 'ingress',
@@ -136,7 +150,10 @@ export default function ScheduleLabClient({
   tags,
   frame = 'page',
   toolsSlot = null,
+  noRequests = false,
 }: {
+  /** 📖 No seeded supplier requests (the chapters lab's `?defaults=1` — a NEW event has none). */
+  noRequests?: boolean;
   /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
   frame?: 'page' | 'line';
   toolsSlot?: string | null;
@@ -147,7 +164,8 @@ export default function ScheduleLabClient({
   tags?: Readonly<Record<string, readonly string[]>>;
 } = {}) {
   const [role, setRole] = useState<DayRole>('host');
-  const [when, setWhen] = useState<'plan' | 'live'>('plan');
+  // `?live=1` (slice 8): open on the day itself — "Happening now" on the running chapter (pair it with a fixed clock).
+  const [when, setWhen] = useState<'plan' | 'live'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('live') === '1' ? 'live' : 'plan'));
   const [refuse, setRefuse] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   /* ⚡ `?maker=1` — the rail as the Event Hub Maker draws it (Details › Schedule,
@@ -156,7 +174,12 @@ export default function ScheduleLabClient({
      (the rail must show the edit on its own); each write is recorded on
      `window.__labWrites` with its time, to measure edit → save. */
   const [maker] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('maker') === '1');
+  /* 🗓 `?maker=1&studio=1` — the new Maker's Studio day (`studio-day.tsx`: one timeline row per moment, swipe left to
+     delete — owner 2026-11-03), on the same fixtures. Only `stagesStudio` is said; nothing else of the Maker is drawn. */
+  const [studio] = useState(() => maker && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1');
   const [locked] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('lock') === '1');
+  // 🗓 `?after=move|skip` — the day after the coordinator's crew changed it (Change the schedule, 2026-11-04).
+  const [after] = useState(() => (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('after') : null));
   const suppliers = suppliersIn ?? (locked ? LOCKED_SUPPLIERS : SUPPLIERS);
 
   const venueNow = new Date(venueNowMs());
@@ -170,12 +193,12 @@ export default function ScheduleLabClient({
      stable between renders; so is this now. */
   const seedNowMin = when === 'live' ? nowMin : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is taken once per day shown, not per clock tick
-  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin, tags), [dateKey]);
+  const seeded = useMemo(() => labAfterChange(seedMoments(dateKey, seedNowMin, tags), after), [dateKey]);
   const moments = byMode[dateKey] ?? seeded;
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
     setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);
-  const reqs = requests ?? seedRequests(dateKey);
+  const reqs = requests ?? (noRequests ? [] : seedRequests(dateKey));
 
   const actions = useMemo<DayActions>(() => {
     const say = (line: string) => setLog((l) => [line, ...l].slice(0, 8));
@@ -347,8 +370,8 @@ export default function ScheduleLabClient({
         canStage={false}
         rosEnabled
         templates={[]}
-        isEventDay={false}
-        daysToGo={81}
+        isEventDay={when === 'live'}
+        daysToGo={when === 'live' ? 0 : 81}
         emcee={null}
         hostPanel={null}
       />
@@ -389,6 +412,7 @@ export default function ScheduleLabClient({
 
       {when === 'live' ? <RunOfShowHeader eventId="lab" initial={strip} canAdvance={false} variant="strip" /> : null}
 
+      <MakerContext.Provider value={studio ? ({ stagesStudio: true } as MakerState) : null}>
       <ScheduleDay
         key={`${role}-${when}`}
         inspectorSlot={maker ? LAB_SLOT : null}
@@ -408,6 +432,7 @@ export default function ScheduleLabClient({
         emcee={null}
         hostPanel={<p className="text-[13px] text-ink/60">Your booked host&rsquo;s segments, questions and a note to them sit here.</p>}
       />
+      </MakerContext.Provider>
 
       {maker ? <aside id={LAB_SLOT} data-lab-slot="" className="rounded-xl bg-white/60 p-2" /> : null}
 

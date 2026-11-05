@@ -20,10 +20,18 @@ const line = (tier: string, key: string, paywallOn = true) =>
 test('what a plan gives is read from TIER_CAPS', () => {
   assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.servicesPerLeaf} per kind`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), 'No limit per kind · every kind of work');
+  assert.equal(line('enterprise', 'services'), '25 per kind · 15 kinds of work'); // Ultra trimmed 2026-11-04 (was unlimited)
   assert.equal(line('free', 'reach'), 'Not in couples’ search on this plan');
   assert.equal(line('enterprise', 'reach'), 'Nationwide');
-  assert.equal(line('pro', 'web'), TIER_CAPS.pro.customWebsiteName ? 'Yes' : 'Comes with Pro');
+  // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
+  assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
+  // Own web address from Solo up ("website applies to solo as well"); below it, the plan is named from the table.
+  assert.equal(line('solo', 'web'), 'Yes');
+  assert.equal(line('verified', 'web'), 'Comes with Solo');
+  // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).
+  assert.equal(line('solo', 'branches'), 'Not on this plan');
+  assert.equal(line('pro', 'branches'), `${TIER_CAPS.pro.branchesIncluded} included`);
+  assert.equal(line('enterprise', 'branches'), `${TIER_CAPS.enterprise.branchesIncluded} included · more can be added`);
 });
 
 test('with the paywall OFF, a plan with no seats gets the entry plan’s, and says insights are open', () => {

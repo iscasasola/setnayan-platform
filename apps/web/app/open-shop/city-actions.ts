@@ -1,7 +1,38 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { headers } from 'next/headers';
 import { geocodeAddressWithCity, reverseGeocodeNominatim } from '@/lib/geo';
+import { clientIp } from '@/lib/client-ip';
+import { enforceRateLimit } from '@/lib/with-rate-limit';
+
+/**
+ * 🔒 THE GATE IS A PER-IP BUDGET, NOT A SESSION (2026-11-05).
+ *
+ * These two actions used to open with `if (!user) return empty`. But the
+ * `/open-shop` wizard is SIGNED OUT until its last step creates the account —
+ * the page renders it to anonymous visitors on purpose — so every NEW supplier
+ * got the empty answer and read *"Couldn't find that — drop your pin"* /
+ * *"Couldn't name that spot"* for a perfectly good address. The only vendors
+ * the lookup ever worked for were the ones who already had an account.
+ *
+ * What the session check was really for is protecting Nominatim (a free
+ * community service, 1 req/sec policy) from being used as an open proxy. A
+ * per-IP budget does that job without needing an account: one shared bucket for
+ * both actions, generous enough for a vendor typing and dragging a pin
+ * (the address box is debounced at 700 ms), far below a scraper.
+ * `enforceRateLimit` is the repo's two-layer limiter (in-memory + durable
+ * Postgres), and it fails OPEN on a limiter outage so a real vendor is never
+ * refused because the limiter broke. A refused call returns the same empty
+ * answer as a miss, whose copy already offers the honest fallback (drop the
+ * pin / type the city) — the city field stays the vendor's to type.
+ */
+const GEOCODE_BUCKET = 'open_shop_geocode';
+const GEOCODE_LIMIT = { limit: 40, windowSecs: 600 } as const;
+
+async function geocodeAllowed(): Promise<boolean> {
+  const rl = await enforceRateLimit(GEOCODE_BUCKET, clientIp(await headers()), GEOCODE_LIMIT);
+  return rl.ok;
+}
 
 /**
  * Drop a pin → get the city.
@@ -23,11 +54,12 @@ import { geocodeAddressWithCity, reverseGeocodeNominatim } from '@/lib/geo';
  * answer that looks exactly like a geocode miss. The gate is right for branches
  * and wrong here; the gate is the only difference.
  *
- * 🔒 STILL GATED, JUST DIFFERENTLY. It requires a signed-in user, because
- * Nominatim is a free community service with a 1 req/sec policy and an ungated
- * server action is an open geocoding proxy anyone can point at it — which is how
- * a project gets its User-Agent banned. `/open-shop` already redirects a logged
- * out visitor to sign in first, so this costs a real vendor nothing.
+ * 🔒 STILL GATED, JUST DIFFERENTLY. Nominatim is a free community service with
+ * a 1 req/sec policy and an ungated server action is an open geocoding proxy
+ * anyone can point at it — which is how a project gets its User-Agent banned.
+ * The gate is the per-IP budget above (`geocodeAllowed`), NOT a session:
+ * `/open-shop` shows the wizard to signed-out visitors, and a session gate here
+ * silently broke the lookup for every new supplier.
  *
  * ⚠ BEST-EFFORT, AND THE CITY STAYS EDITABLE. Nominatim's Philippine coverage is
  * good but not perfect, and its `city` can come back as a province or a barangay
@@ -38,11 +70,7 @@ import { geocodeAddressWithCity, reverseGeocodeNominatim } from '@/lib/geo';
 export type DetectedCity = { city: string; address: string; country: string };
 
 export async function detectShopCity(lat: number, lng: number): Promise<DetectedCity> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { city: '', address: '', country: '' };
+  if (!(await geocodeAllowed())) return { city: '', address: '', country: '' };
 
   const r = await reverseGeocodeNominatim(lat, lng);
   return { city: r?.city ?? '', address: r?.displayName ?? '', country: r?.country ?? '' };
@@ -60,7 +88,7 @@ export async function detectShopCity(lat: number, lng: number): Promise<Detected
  * heart — they type it once and the map catches up. The pin stays draggable
  * because a geocoder lands on the street, not the unit.
  *
- * Same gate and the same honesty as its sibling: signed-in only (an ungated
+ * Same gate and the same honesty as its sibling: the per-IP budget (an ungated
  * action is an open geocoding proxy pointed at a free community service), and a
  * miss returns nulls rather than a guess. A vendor whose address does not
  * resolve must still be able to finish — the city field stays theirs to type.
@@ -76,11 +104,7 @@ export type LocatedAddress = {
 
 export async function locateShopAddress(query: string): Promise<LocatedAddress> {
   const empty: LocatedAddress = { lat: null, lng: null, city: '', address: '', country: '' };
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return empty;
+  if (!(await geocodeAllowed())) return empty;
 
   const r = await geocodeAddressWithCity(query);
   if (!r) return empty;

@@ -52,7 +52,8 @@ export const VENDOR_3D_BOOTH_PERIOD_DAYS = 28;
  * SKU in either state. The tier FLOOR is unchanged: paid plans only
  * (BOOTH_BRANDING_MIN_TIER, owner 2026-08-29).
  */
-export const VENDOR_3D_BOOTH_FALLBACK_PHP = 3000;
+// 💲 2026-11-04 (owner, final price sheet): ₱1,490 — moves WITH the `vendor_3d_booth` row (fallback-prices-match-the-catalog).
+export const VENDOR_3D_BOOTH_FALLBACK_PHP = 1490;
 
 export type Vendor3dBoothPriceInputs = {
   /** Has this vendor already consumed its one-time free first cycle? */

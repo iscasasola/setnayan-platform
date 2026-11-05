@@ -6,7 +6,7 @@
  * The RENDERED card (the real `GuestCardBody` with the real Invite cell and ⋯ handed in, as the Guests pages draw it):
  *   1. beside the ticket: Share · (NFC) · New QR — neutral icon buttons, in that order, then ⋯ only while an account holds
  *      the invitation (Unlink is all the ⋯ has left); no big "Invite ▾" anywhere on the card; "Not sent yet · Not linked".
- *   2. Share is the ROW's one sender (`rowShare` → `shareInvite`), never a second share path.
+ *   2. Share is the ROW's one sender (`rowShare` → our own menu on every device, owner 2026-11-05), never a second share path.
  *   3. New QR asks first, in the ruled words, and posts the shipped `releaseGuestClaim` › `new_qr` door.
  *   4. NFC is the shipped writer (`NfcWriteButton`) as an icon — same sheet, same flag.
  *
@@ -107,13 +107,15 @@ test('1 · the RENDERED card: Share · NFC · New QR beside the ticket, ⋯ only
   assert.deepEqual(rowNames(linked).slice(-1), ['More for Cita Ramos'], 'the ⋯ (Unlink) is not last in the row once linked');
 });
 
-test('2 · Share is the row’s ONE sender — `rowShare` → `shareInvite`, a computer gets the shipped app rows + Copy', () => {
+test('2 · Share is the row’s ONE sender — `rowShare` → our own menu (app rows + Copy) on every device', () => {
   const card = CELL.slice(CELL.indexOf("if (layout === 'card') {"));
   const body = card.slice(0, card.indexOf('\n  }\n'));
-  assert.match(body, /icon=\{Share\}[\s\S]*?onClick=\{\(\) => void rowShare\('body'\)\}/, 'the card’s Share does not run the row’s share');
+  assert.match(body, /icon=\{Share\}[\s\S]*?onClick=\{\(\) => rowShare\('body'\)\}/, 'the card’s Share does not run the row’s share');
   assert.doesNotMatch(body, /invite\('body'\)|tone="brand"/, 'the card still opens the old Invite sheet / draws a filled Invite');
-  const fn = CELL.slice(CELL.indexOf('async function rowShare('));
-  assert.match(fn.slice(0, fn.indexOf('\n  }\n')), /await shareInvite\(null, message\)/);
+  const fn = CELL.slice(CELL.indexOf('function rowShare('));
+  const share = fn.slice(0, fn.indexOf('\n  }\n'));
+  assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'the card’s Share does not open our own menu');
+  assert.doesNotMatch(share, /shareInvite|navigator/, 'the card’s Share jumps to the system sheet (owner 2026-11-05: always our menu)');
   assert.match(CELL, /data-invite-apps=""/, 'the computer’s app rows are gone');
 });
 

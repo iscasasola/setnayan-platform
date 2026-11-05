@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
-import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
+import { Pencil, Trash2, BadgeCheck, Users, LayoutGrid } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -607,6 +607,15 @@ export async function VendorsSurface({
               <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
                 {v.public_id}
               </p>
+
+              {/* Every shop's service cards — take down a card or a photo (7 Nov registration). */}
+              <Link
+                href={`/admin/vendors/${v.vendor_profile_id}#cards`}
+                className="inline-flex min-h-[44px] w-fit items-center gap-1 text-[11px] font-medium text-ink underline underline-offset-2"
+              >
+                <LayoutGrid className="h-3 w-3" strokeWidth={2} aria-hidden />
+                Service cards
+              </Link>
 
               {/* Plan link · admin sets the vendor's subscription tier. Was
                   "Grant tokens" until the token currency was retired

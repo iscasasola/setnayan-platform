@@ -74,6 +74,14 @@ export type AnonymousSiteIdentity = {
    * on the anonymous tier without carrying a single guest-derived fact.
    */
   signedInNotListed: boolean;
+  /**
+   * 🔌 A SIGNED-IN account whose seat read was REFUSED (2026-11-05): nobody
+   * knows whether they are on the list, so the door says "We couldn't check
+   * your invitation just now" + "Try again" — never the not-listed copy and
+   * never a join button (a second seat for a person already holding one).
+   * Like `signedInNotListed`, about the VIEWER's account and no guest's row.
+   */
+  seatUnread: boolean;
 };
 
 export type GuestSiteIdentity = {
@@ -470,13 +478,16 @@ export function anonymousIdentity(input: {
   publicCandidCameraActive: boolean;
   publicAlbumHref: string | null;
   signedInNotListed?: boolean;
+  seatUnread?: boolean;
 }): AnonymousSiteIdentity {
   return {
     kind: 'anonymous',
     reason: input.reason,
     publicCandidCameraActive: input.publicCandidCameraActive,
     publicAlbumHref: input.publicAlbumHref,
-    signedInNotListed: input.signedInNotListed === true,
+    // A refused read is never ALSO "not listed" — the try-again door wins.
+    signedInNotListed: input.signedInNotListed === true && input.seatUnread !== true,
+    seatUnread: input.seatUnread === true,
   };
 }
 

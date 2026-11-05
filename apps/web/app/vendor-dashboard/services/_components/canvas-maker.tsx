@@ -39,6 +39,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ActionButton } from '@/components/action-button';
@@ -105,6 +106,8 @@ import {
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
+import { revealFold } from '@/lib/reveal-sweep';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -193,6 +196,8 @@ const paper = 'var(--m-paper)';
  * portals to <body>, see CanvasSheet); the thumb row's Create names it with `form=`. One maker per page.
  */
 export const CARD_FORM_ID = 'card-maker-form';
+/** The "More settings" fold's id — the first-open reveal finds it by this. */
+const MORE_ANCHOR = 'maker-more-settings';
 
 // ════════════════════════════════════════════════════════════════════════════
 // The maker
@@ -319,16 +324,22 @@ export function CanvasMaker({
     () => allChoices.find((o) => o.standing === 'locked' && o.why)?.why ?? null,
     [allChoices],
   );
-  /** Every kind value already on this screen — a ranked trade with the same key must not render twice. */
+  /**
+   * The kinds ALWAYS on this screen — the "Common for …" band, drawn whatever is typed. A ranked trade with the same
+   * key must not render twice. (Since 2026-11-04 the folds below hold every live trade, so they are not in this set —
+   * that would empty the search band; instead a fold hides whatever the band is already showing: `rankedKeys`.)
+   */
   const existingKindValues = useMemo(
-    () => new Set(allChoices.map((o) => o.value)),
-    [allChoices],
+    () => new Set(coveredChoices.map((o) => o.value)),
+    [coveredChoices],
   );
   /** "Matches what you typed" — the live trades, ranked by the shared ranker; [] below the minimum query. */
   const rankedTrades = useMemo(
     () => rankTradeMatches(tradeOptions, kindQuery, existingKindValues),
     [tradeOptions, kindQuery, existingKindValues],
   );
+  /** What the search band shows now — a fold below does not list it a second time. */
+  const rankedKeys = useMemo(() => new Set(rankedTrades.map(({ key }) => key)), [rankedTrades]);
   /** C3 2026-08-28 — every live trade key the search band can return (what a resolved miss may teach). */
   const liveTradeKeySet = useMemo(() => new Set(tradeOptions.map((t) => t.key)), [tradeOptions]);
   /** Did ANY legacy kind's own label match the query? The SAME filter the list below draws with. */
@@ -742,6 +753,37 @@ export function CanvasMaker({
   // A card that is LIVE keeps its price (the gate's own rule for a live card) — Save waits while it is blank.
   const liveNeedsPrice = isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
   const saveBlocked = unread.length > 0 || liveNeedsPrice;
+  /**
+   * 🎞 THE FIRST OPEN OF "MORE SETTINGS" SHOWS WHAT IS INSIDE (owner 2026-11-04: "when i opened more settings. we want
+   * to scroll so the see all animating then return back to the first one which is price") — down to the last row, then
+   * back with "Price · more" right under the head. Once per visit; a touch stops it; none under reduce motion.
+   * lib/reveal-sweep.ts
+   */
+  const [moreOpen, setMoreOpen] = useState(discountSeed !== null);
+  const moreRevealed = useRef(discountSeed !== null);
+  const stopReveal = useRef<(() => void) | null>(null);
+  const onMoreOpenChange = useCallback((next: boolean) => {
+    setMoreOpen(next);
+    if (!next) {
+      stopReveal.current?.();
+      return;
+    }
+    if (moreRevealed.current) return;
+    moreRevealed.current = true;
+    const fold = document.getElementById(MORE_ANCHOR);
+    if (!fold) return;
+    const lastRow = () => {
+      const rows = fold.querySelectorAll<HTMLElement>('[data-maker-more] > [data-fold]');
+      return rows[rows.length - 1] ?? null;
+    };
+    // 140 px: the thumb row (Preview · Create) that floats over the bottom of the screen.
+    stopReveal.current = revealFold(fold, lastRow, { bottomInset: 140 });
+  }, []);
+  useEffect(() => () => stopReveal.current?.(), []);
+  // Every one-line field's Return key reads "next" on a phone (set at the form, so the shared editors get it too).
+  useEffect(() => {
+    markReturnAsNext(formRef.current);
+  });
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (saveBlocked) {
       e.preventDefault();
@@ -856,6 +898,9 @@ export function CanvasMaker({
           ref={formRef}
           action={commitVendorService}
           onSubmit={onSubmit}
+          // ⏎ RETURN NEVER SAVES THE CARD (owner 2026-11-04, "after i placed the price, it finished") — it moves to the
+          // next field. Create / Save is the only way to save. lib/return-moves-on.ts
+          onKeyDown={returnMovesOn}
           noValidate
           className="mt-2 lg:mt-0"
           data-card-form=""
@@ -902,7 +947,7 @@ export function CanvasMaker({
 
             {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too). ── */}
             {category || isEdit ? (
-              <div className="flex min-h-[58px] items-center gap-3 py-2" data-maker-row="name">
+              <div className="flex min-h-[58px] items-center gap-2 py-2" data-maker-row="name">
                 <RowIcon><Pencil aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>
                 <label className="min-w-0 flex-1">
                   <span className="block text-[16px] font-medium leading-tight text-ink">Name</span>
@@ -1023,12 +1068,22 @@ export function CanvasMaker({
             {/* ═══ MORE SETTINGS — every other field, filled for this supplier type ═══ */}
             <Fold
               data="more"
-              defaultOpen={discountSeed !== null}
+              open={moreOpen}
+              onOpenChange={onMoreOpenChange}
+              anchor={MORE_ANCHOR}
+              // 📌 Its body stops clipping once open and still, so the groups inside (Price · more, Discounts …) pin as
+              // slim lines UNDER this one while you scroll them (owner 2026-11-04: "these should pin under the more
+              // settings? so as they scroll, the know they are doing price"; the app-wide 2026-10-29 pin rule). A clip
+              // is a sticky container — through it a nested head can only stick inside its own fold (fold.tsx).
+              popovers
               title="More settings"
               line={`Filled for ${fillWord}`}
               lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
             >
-              <div className="divide-y pb-2 pl-1" style={{ borderColor: line }} data-maker-more="">
+              {/* 📐 ONE ICON COLUMN, ONE TEXT COLUMN (owner 2026-11-04 "alignments for the more settings is wrong"): a
+                  nested row's mark sits in the same 40 px box as the row above it (SubIcon), with no extra inset, and
+                  what a nested fold opens onto starts on the title's column (40 px mark + the head's 8 px gap). */}
+              <div className="divide-y pb-2 [&>[data-fold]>[data-fold-body]>div>*]:pl-12" style={{ borderColor: line }} data-maker-more="">
                 <Fold data="m-price" lead={<SubIcon><PhilippinePeso aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>} title="Price · more" line={basis === 'per_pax' ? (category === 'crew_meals' ? 'Per meal · minimum' : 'Per guest · minimum') : basis === 'per_hour' ? 'Per hour · minimum hours · extra hour' : defaults.summary.price}>
                   <div className="space-y-3 pb-4 pt-1">
                     <div className="flex min-h-11 items-center justify-between gap-3">
@@ -1062,6 +1117,12 @@ export function CanvasMaker({
                 {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
                 <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                   <div className="pb-4 pt-1">
+                    {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
+                    <div className="mb-2" data-maker-disc-tip="">
+                      <InfoTip label="Starting offers" labelClassName="text-[14px] text-ink/70" align="start">
+                        Starting offers. You can give a bigger discount in any quote.
+                      </InfoTip>
+                    </div>
                     <DiscountsEditor
                       initial={initial?.discounts ?? []}
                       seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
@@ -1392,7 +1453,7 @@ export function CanvasMaker({
           <KindGroup heading="Something else">
             {categoryOptions.map((group) => {
               const rest = group.options
-                .filter((o) => o.standing !== 'covered')
+                .filter((o) => o.standing !== 'covered' && !rankedKeys.has(o.value))
                 .filter((o) =>
                   kindQuery.trim().length === 0
                     ? true
@@ -1647,7 +1708,7 @@ function RowIcon({ children }: { children: ReactNode }) {
 
 /** The smaller mark a More-settings fold leads with. */
 function SubIcon({ children }: { children: ReactNode }) {
-  return <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-full text-ink/70">{children}</span>;
+  return <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full text-ink/70">{children}</span>;
 }
 
 /**
@@ -1687,13 +1748,13 @@ function MakerRow({
   );
   if (onPress) {
     return (
-      <button type="button" onClick={onPress} aria-label={label} className="sn-press flex min-h-[58px] w-full items-center gap-3 py-2 text-left" data-maker-row={data}>
+      <button type="button" onClick={onPress} aria-label={label} className="sn-press flex min-h-[58px] w-full items-center gap-2 py-2 text-left" data-maker-row={data}>
         {body}
       </button>
     );
   }
   return (
-    <div className="flex min-h-[58px] items-center gap-3 py-2" data-maker-row={data}>
+    <div className="flex min-h-[58px] items-center gap-2 py-2" data-maker-row={data}>
       {body}
     </div>
   );

@@ -64,3 +64,15 @@ export function seedMoments(dateKey: string, nowMin: number | null, tags?: Reado
   });
 }
 
+
+/**
+ * 🗓 `?after=move|skip` — the day as the couple sees it after the coordinator's crew changed it (Change the schedule,
+ * 2026-11-04): `move` = Cocktails and everything after it later by 15 min; `skip` = Cocktails skipped. Fixtures only.
+ */
+export function labAfterChange(moments: DayMoment[], after: string | null): DayMoment[] {
+  if (after === 'skip') return moments.map((m) => (m.block_id === 'cock' ? { ...m, run_state: 'skipped' } : m));
+  if (after !== 'move') return moments;
+  const from = moments.find((m) => m.block_id === 'cock')?.start_at ?? '';
+  const later = (iso: string | null) => (iso ? new Date(Date.parse(iso) + 15 * 60_000).toISOString() : iso);
+  return moments.map((m) => (m.start_at >= from ? { ...m, start_at: later(m.start_at)!, end_at: later(m.end_at) } : m));
+}

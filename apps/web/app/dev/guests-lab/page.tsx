@@ -84,6 +84,7 @@ import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
 import { GuestCard } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 import { LabCardSheet } from './lab-card-sheet';
+import { labServiceCounts } from '@/app/dev/count-fixtures';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
@@ -822,18 +823,17 @@ export default async function GuestsLabPage({
     const notCountedData = countedMode
       ? {
           notCounted: {
-            services: [
-              { id: 'ev-cater', label: 'Catering', shop: 'Kusina ni Lola' },
-              { id: 'ev-booth', label: 'Photo Booth', shop: 'Snap Box Manila' },
-              { id: 'ev-cake', label: 'Cake', shop: 'Sweet Layers' },
-            ],
+            // 🧮 Every per-head supplier on the event, booked or quoted (owner 2026-11-04) — with each one's count.
+            services: labServiceCounts({ catering: 'ev-cater', giveaway: 'ev-give', quoted: 'ev-bar' }).services,
             picked: countedMode === 'one' ? ['ev-cater'] : [],
           },
         }
       : {};
     const baseCardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
     /* 🔁 `&rsvp=pending` — a guest who has not replied: the Access row's Give this spot… is offered (owner 2026-11-02). */
-    const cardGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
+    const answeredGuest = sp.rsvp === 'pending' ? { ...baseCardGuest, rsvp_status: 'pending' as const } : baseCardGuest;
+    /* 🕯 `&away=1` — a guest who passed away: the card shows only what still applies (owner 2026-11-04). */
+    const cardGuest = sp.away === '1' ? { ...answeredGuest, passed_away: true } : answeredGuest;
     const labDress = sp.dress === '1'
       ? {
           groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },

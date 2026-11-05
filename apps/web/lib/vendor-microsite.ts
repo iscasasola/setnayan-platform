@@ -7,7 +7,7 @@ import { asVendorTier } from './vendor-tier-caps';
  * subscription `tier_state` to what the microsite editor unlocks:
  *   - canPersonalize (Solo+): About · accent · featured services · sections
  *   - canPremium (Pro+): custom slug · hero photo · pinned review · editorials
- *     + the 2-column public layout (mirrors tierCaps.customWebsiteName)
+ *     + the 2-column public layout (mirrors tierCaps.premiumPage — NOT customWebsiteName, which is Solo+ since 2026-11-04)
  *   - isEnterprise: the cinematic flagship layer
  * Free / Verified get the clean auto-composed page (no customization).
  */

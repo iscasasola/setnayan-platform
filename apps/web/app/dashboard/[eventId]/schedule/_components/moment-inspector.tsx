@@ -18,6 +18,8 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowUpDown, Check, Send, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { SheetFoot } from './schedule-sheet';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
@@ -64,6 +66,8 @@ export function MomentInspector({
   onConfirm,
   live = false,
   inSheet = false,
+  askDelete = 0,
+  onGone,
 }: {
   eventId: string;
   eventType: string | null;
@@ -95,6 +99,15 @@ export function MomentInspector({
    * in the sheet's foot — the thumb zone — beside each other. Every field and every write is the same.
    */
   inSheet?: boolean;
+  /** 👈 Opened by the row's swipe (owner 2026-11-03): open at the delete's warning, not at the fields. A count, so a
+   *  second swipe on the same moment asks again after a Keep (0 = not asked). */
+  askDelete?: number;
+  /**
+   * ↩ The day hides / shows a moment (`day-rail.tsx`'s gone set). Given, a confirmed delete waits out the Undo window
+   * (`deleteWithUndo`): the moment leaves the day at once, Undo brings it back with nothing written, a refusal brings it
+   * back and says so. Not given: the delete is written at once, as before.
+   */
+  onGone?: (id: string, gone: boolean) => void;
 }) {
   const {
     createScheduleBlock,
@@ -109,7 +122,19 @@ export function MomentInspector({
   const studio = useMaker()?.stagesStudio === true;
   const audience = readScheduleAudience(m.audience ?? null);
   const [, startTransition] = useTransition();
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(askDelete > 0 && canEdit);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!(askDelete > 0 && canEdit)) return;
+    setConfirmDelete(true);
+    /* The warning sits at the editor's foot: bring it into view, so the swipe lands on it. */
+    const frame = requestAnimationFrame(() =>
+      rootRef.current?.querySelector('[data-moment-delete-ask]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [askDelete, canEdit]);
+  /** Parts deleted by their swipe, waiting out the Undo window. */
+  const [goneParts, setGoneParts] = useState<ReadonlySet<string>>(() => new Set());
   const [party, setParty] = useState(m.responsible_party ?? '');
   const [partLabel, setPartLabel] = useState('');
   const dateKey = wallDateKey(m.start_at);
@@ -154,6 +179,25 @@ export function MomentInspector({
         setLockedBy(lockedShopOnMoments([m.block_id], [m], suppliers));
         setSave('error');
       }
+    });
+  }
+
+  /** The confirmed Delete — the warning above already said what goes with it (parts · tasks · Papic). */
+  function removeMoment() {
+    const id = m.block_id;
+    const write = () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: id }));
+    if (!onGone) return run([id], write, onDeleted);
+    deleteWithUndo({
+      label: `“${m.label}” deleted`,
+      hide: () => {
+        onGone(id, true);
+        onDeleted();
+      },
+      restore: () => onGone(id, false),
+      commit: async () => {
+        await write();
+      },
+      failed: `Couldn’t delete “${m.label}”. It’s back — try again.`,
     });
   }
 
@@ -272,7 +316,7 @@ export function MomentInspector({
   const readOnly = !canEdit;
 
   return (
-    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'}>
+    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'} ref={rootRef}>
       {/* 🪜 In the Maker's guided flow the step's sheet IS this moment's frame —
           one header row (step ▾ · Peek · ×) — so this row of its own steps aside
           there (owner 2026-10-05: one layout for every step). */}
@@ -514,31 +558,48 @@ export function MomentInspector({
             <Tip>Parts sit inside this moment and move with it. They show under the moment for guests and in the emcee script.</Tip>
           </div>
           <ul className="mt-1">
-            {parts.map((p) => {
+            {parts.filter((p) => !goneParts.has(p.block_id)).map((p) => {
               const ps = spanOf(p.start_at, p.end_at);
-              return (
-                <li key={p.block_id} className="flex items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
+              const line = (
+                <div className="flex min-h-11 items-center justify-between gap-2 border-b border-ink/[0.06] py-2 text-[13.5px]">
                   <span className="min-w-0 truncate">{p.label}</span>
-                  <span className="flex items-center gap-1">
-                    <span className="font-mono text-xs text-ink/55">
-                      {p.end_at ? formatClockRange(ps.startMin, ps.endMin) : formatClock(ps.startMin)}
-                    </span>
-                    {canEdit ? (
-                      <button
-                        type="button"
-                        aria-label={`Remove the part ${p.label}`}
-                        onClick={() =>
-                          run([], () =>
-                            deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id })),
-                          )
-                        }
-                        className="sn-dot-btn grid h-8 w-8 place-items-center rounded-md text-ink/40 hover:bg-ink/[0.06] hover:text-danger-700"
-                      >
-                        <X aria-hidden className="h-3.5 w-3.5" />
-                      </button>
-                    ) : null}
+                  <span className="font-mono text-xs text-ink/55">
+                    {p.end_at ? formatClockRange(ps.startMin, ps.endMin) : formatClock(ps.startMin)}
                   </span>
-                </li>
+                </div>
+              );
+              if (!canEdit) return <li key={p.block_id}>{line}</li>;
+              /* 👈 A part's Delete is its swipe (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW") — it was a
+                 small ✕ on the line. Same write; it waits out the Undo window (`deleteWithUndo`). The line is 44 px tall so the
+                 revealed Delete's icon and word fit. */
+              return (
+                <SwipeToDelete
+                  key={p.block_id}
+                  as="li"
+                  label={`Delete the part ${p.label}`}
+                  radiusClass=""
+                  /* Cream on a phone (the sheet's ground); a computer never shows the Delete behind it, and there the
+                     panel is translucent white — so the front adds no band of its own. */
+                  surfaceClass="bg-cream [@media(hover:hover)_and_(pointer:fine)]:bg-transparent"
+                  onDelete={() =>
+                    deleteWithUndo({
+                      label: `“${p.label}” deleted`,
+                      hide: () => setGoneParts((g) => new Set(g).add(p.block_id)),
+                      restore: () =>
+                        setGoneParts((g) => {
+                          const next = new Set(g);
+                          next.delete(p.block_id);
+                          return next;
+                        }),
+                      commit: async () => {
+                        await deleteScheduleBlock(toFormData({ event_id: eventId, block_id: p.block_id }));
+                      },
+                      failed: `Couldn’t delete “${p.label}”. It’s back — try again.`,
+                    })
+                  }
+                >
+                  {line}
+                </SwipeToDelete>
               );
             })}
           </ul>
@@ -630,7 +691,7 @@ export function MomentInspector({
             </button>
           ) : null}
           {inSheet ? null : confirmDelete ? (
-              <span className="ml-auto flex items-center gap-1">
+              <span className="ml-auto flex items-center gap-1" data-moment-delete-ask="">
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
@@ -641,11 +702,7 @@ export function MomentInspector({
                 <button
                   type="button"
                   onClick={() =>
-                    run(
-                      [m.block_id],
-                      () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
-                      onDeleted,
-                    )
+                    removeMoment()
                   }
                   className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
                 >
@@ -696,11 +753,7 @@ export function MomentInspector({
                 icon={Trash2}
                 label={parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
                 onClick={() =>
-                  run(
-                    [m.block_id],
-                    () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
-                    onDeleted,
-                  )
+                  removeMoment()
                 }
               />
             </>

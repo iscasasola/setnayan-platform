@@ -23,22 +23,25 @@ import {
   RETIRED_IAP_PRODUCT_IDS,
   RETIRED_HUB_PART_SERVICE_KEYS,
   iapPriceRowFor,
-  iapProductFitsAiTier,
   iapSetnayanAiProductForTier,
   iapProductIsRepeatable,
+  IAP_SUPPLIER_GIFT_PRODUCTS,
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { RETIRED_EVENT_PRODUCT_IDS, RETIRED_PAPIC_CREDIT_PRODUCT_IDS, iapProductForDelivery } from './products-delivery';
 import { HUB_PARTS } from '../hub-parts';
 import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the five more; no supplier plan', () => {
+test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, Live Watch, Music Maker, Patiktok; no supplier plan, no Setnayan AI', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
     // 🗑 The eleven Event Hub Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
     // upgrade event hub pro") — Event Hub Pro is the one Event Hub product. See RETIRED_HUB_PART_PRODUCT_IDS.
+    // 💰 Event Pro (`event_pro`, replaces `event_hub_pro`) and Event Plus (`event_plus`) — owner 2026-11-02 / 2026-11-04.
     'COUPLE_WEBSITE_PRO',
+    'EVENT_PLUS',
     'LIVE_STUDIO',
     // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
     // Board pack as Apple products before submitting build 6." This SUPERSEDES the first wave's "no Setnayan AI"
@@ -46,17 +49,13 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
     // 🗑 MOODBOARD_RENDER_PACK left with Mood Board renders (owner 2026-10-26, "can we delete that?").
     'PAKANTA',
     // 🗑 PAPIC_ADDON_THANK_YOU left — the Thank-You Video is free for every event (owner 2026-10-26).
-    'PAPIC_GUEST_100',
-    'PAPIC_GUEST_10K',
+    // 📸 The three Papic packs (owner 2026-11-03): 3,000 · 150 · 1,000. The five credit products are retired.
+    'PAPIC_GUEST',
+    'PAPIC_GUEST_150',
     'PAPIC_GUEST_1K',
-    'PAPIC_GUEST_500',
-    'PAPIC_GUEST_5K',
     'PATIKTOK_COMPILER',
-    // ✦ Setnayan AI — FOUR products, one per web tier (owner 2026-10-23), all selling the one SETNAYAN_AI order.
-    'SETNAYAN_AI',
-    'SETNAYAN_AI',
-    'SETNAYAN_AI',
-    'SETNAYAN_AI',
+    // 🗑 Setnayan AI's four tier products left sale 2026-11-04 — owner: "Setnayan ai no separate purchase will be part
+    // of event plus and event pro". They still deliver an already-charged transaction (products-delivery.ts).
   ]);
   for (const p of IAP_PRODUCTS) {
     // Supplier plans stay web-only (ruling 1) — and so does every per-USER or tier-only Setnayan AI row.
@@ -65,12 +64,14 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
   }
 });
 
-test('🍎 23 Oct — the five more: ids are exactly the controller’s (FOREVER), kinds and names as ruled', () => {
+test('ids are exactly the ruled ones (FOREVER), kinds and the owner’s display names (2026-11-04)', () => {
   const want: Array<[string, string, string, string, number | null]> = [
-    ['com.setnayan.app.setnayan_ai', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
-    ['com.setnayan.app.setnayan_ai_tier_b', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
-    ['com.setnayan.app.setnayan_ai_tier_c', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
-    ['com.setnayan.app.setnayan_ai_tier_d', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
+    ['com.setnayan.app.event_plus', 'EVENT_PLUS', 'event-plus', 'Event Plus', null],
+    ['com.setnayan.app.event_pro', 'COUPLE_WEBSITE_PRO', 'event-hub-pro', 'Event Pro', null],
+    ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 'papic-credits', 'Papic 150', 150], // gitleaks:allow — catalog service_codes, not secrets
+    ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 'papic-credits', 'Papic 1000', 1_000], // gitleaks:allow — catalog service_codes, not secrets
+    ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 'papic-credits', 'Papic 3000', 3_000], // gitleaks:allow — catalog service_codes, not secrets
+    ['com.setnayan.app.live_watch', 'LIVE_STUDIO', 'live-watch', 'Live Watch', null],
     ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
     ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
     // 🗑 com.setnayan.app.papic_thank_you is RETIRED (owner 2026-10-26) — held by the test below.
@@ -110,11 +111,24 @@ test('ruling 3 — every product is a CONSUMABLE (one purchase for the current e
   for (const p of IAP_PRODUCTS) assert.equal(p.appleType, 'consumable', p.productId);
 });
 
-test('ruling 5 — the Papic packs are 100 · 500 · 1,000 · 5,000 · 10,000, smallest first', () => {
+test('ruling 5, superseded 2026-11-03 — Papic is THREE packs: 150 · 1,000 · 3,000, smallest first', () => {
   assert.deepEqual(
-    IAP_PAPIC_PRODUCTS.map((p) => p.credits),
-    [100, 500, 1_000, 5_000, 10_000],
+    IAP_PAPIC_PRODUCTS.map((p) => [p.productId, p.serviceKey, p.credits]),
+    [
+      ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 150], // gitleaks:allow — catalog service_codes, not secrets
+      ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 1_000], // gitleaks:allow — catalog service_codes, not secrets
+      ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 3_000], // gitleaks:allow — catalog service_codes, not secrets
+    ],
   );
+});
+
+test('2026-11-03 — the five papic_credits_* products are retired: never sold, never asked of StoreKit, never reused', () => {
+  for (const credits of [100, 500, 1_000, 5_000, 10_000]) {
+    const id = `com.setnayan.app.papic_credits_${credits}`;
+    assert.ok(RETIRED_PAPIC_CREDIT_PRODUCT_IDS.includes(id), `${id} is not on the retired list — it could be reused`);
+    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
+    assert.equal(iapProductById(id), null, `${id} is sold again`);
+  }
 });
 
 test('product ids are unique, reverse-DNS under the app bundle, and resolve both ways', () => {
@@ -160,10 +174,10 @@ test('the fulfilment holds a sale to the ONE-price check, never the retired ÷0.
 });
 
 test('a Papic product is on sale only while its tier grants exactly the credits its name promises', () => {
-  const p500 = IAP_PAPIC_PRODUCTS.find((p) => p.credits === 500)!;
-  assert.equal(papicCreditsMatch(p500, 500), true);
-  assert.equal(papicCreditsMatch(p500, 600), false);
-  assert.equal(papicCreditsMatch(p500, null), false);
+  const p1000 = IAP_PAPIC_PRODUCTS.find((p) => p.credits === 1_000)!;
+  assert.equal(papicCreditsMatch(p1000, 1_000), true);
+  assert.equal(papicCreditsMatch(p1000, 1_100), false);
+  assert.equal(papicCreditsMatch(p1000, null), false);
   const pro = iapProductForServiceKey('COUPLE_WEBSITE_PRO')!;
   assert.equal(papicCreditsMatch(pro, null), true);
 });
@@ -187,8 +201,31 @@ test('the Apple gate needs the store shell AND the plugin build AND the owner’
   );
 });
 
-test('Event Hub Pro’s product sells THE Pro key (the client-safe spelling equals the shipped constant)', () => {
-  assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_hub_pro');
+test('Event Pro’s product sells THE Pro key (the client-safe spelling equals the shipped constant)', () => {
+  assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_pro');
+});
+
+test('🗑 2026-11-04 — event_hub_pro and the four Setnayan AI products are retired from sale but still DELIVER', () => {
+  const want: Array<[string, string, string | undefined]> = [
+    ['com.setnayan.app.event_hub_pro', 'COUPLE_WEBSITE_PRO', undefined],
+    ['com.setnayan.app.setnayan_ai', 'SETNAYAN_AI', 'A'],
+    ['com.setnayan.app.setnayan_ai_tier_b', 'SETNAYAN_AI', 'B'],
+    ['com.setnayan.app.setnayan_ai_tier_c', 'SETNAYAN_AI', 'C'],
+    ['com.setnayan.app.setnayan_ai_tier_d', 'SETNAYAN_AI', 'D'],
+  ];
+  assert.deepEqual([...RETIRED_EVENT_PRODUCT_IDS].sort(), want.map(([id]) => id).sort());
+  for (const [id, key, tier] of want) {
+    assert.equal(iapProductById(id), null, `${id} is sold again`);
+    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
+    const d = iapProductForDelivery(id);
+    assert.ok(d, `${id} no longer delivers an already-charged transaction`);
+    assert.equal(d!.serviceKey, key, `${id} delivers the wrong order`);
+    assert.equal(d!.aiTier, tier, `${id} lost its tier — its delivery would price-check against the wrong row`);
+  }
+  // Every retired Papic credit product still delivers too, and nothing on sale is shadowed by a retired one.
+  for (const id of RETIRED_PAPIC_CREDIT_PRODUCT_IDS) assert.ok(iapProductForDelivery(id), `${id} no longer delivers`);
+  for (const p of IAP_PRODUCTS) assert.equal(iapProductForDelivery(p.productId), p);
+  assert.equal(iapProductForDelivery('com.setnayan.app.unknown'), null);
 });
 
 test('🗑 the eleven part products are retired — sold by nothing, their ids kept so none is ever reused (owner 2026-10-26)', () => {
@@ -204,31 +241,29 @@ test('🗑 the eleven part products are retired — sold by nothing, their ids k
   assert.ok(!IAP_PRODUCTS.some((p) => /hub_part|COUPLE_HUB_PART/.test(p.productId + p.serviceKey)), 'a part product is back');
 });
 
-test('✦ Setnayan AI: one product per web tier — A keeps `setnayan_ai` (never renamed), E has none, each checked against its own row', async () => {
+test('🗑 Setnayan AI is sold by no product (2026-11-04) — the tier lookup answers null; a delivered tier product is priced from its tier row', async () => {
   const { AI_TIER_SKU } = await import('../setnayan-ai-type-pricing');
-  const tiers = [['A', 'com.setnayan.app.setnayan_ai'], ['B', 'com.setnayan.app.setnayan_ai_tier_b'], ['C', 'com.setnayan.app.setnayan_ai_tier_c'], ['D', 'com.setnayan.app.setnayan_ai_tier_d']] as const;
-  for (const [tier, id] of tiers) {
-    const p = iapSetnayanAiProductForTier(tier)!;
-    assert.equal(p.productId, id, `tier ${tier} sells the wrong product — ids are forever`);
-    assert.equal(p.serviceKey, 'SETNAYAN_AI', 'every tier sells the ONE SETNAYAN_AI order (one activation, one ownership)');
-    // The row an Apple price is checked against is the tier's own catalogue row — the web's one tier → row map, not a second one.
-    assert.equal(iapPriceRowFor(p), AI_TIER_SKU[tier]);
+  for (const tier of ['A', 'B', 'C', 'D', 'E', null] as const) assert.equal(iapSetnayanAiProductForTier(tier), null, `tier ${tier} is sold again`);
+  assert.equal(iapProductForServiceKey('SETNAYAN_AI'), null, 'Setnayan AI has an App Store product again');
+  assert.ok(!IAP_PRODUCTS.some((p) => p.serviceKey === 'SETNAYAN_AI' || p.aiTier), 'a Setnayan AI product is back on sale');
+  for (const [id, tier] of [['com.setnayan.app.setnayan_ai', 'A'], ['com.setnayan.app.setnayan_ai_tier_d', 'D']] as const) {
+    assert.equal(iapPriceRowFor(iapProductForDelivery(id)!), AI_TIER_SKU[tier]);
   }
-  assert.equal(iapSetnayanAiProductForTier('E'), null, 'Tier E is not offered — on the web or in the app');
-  assert.equal(iapSetnayanAiProductForTier(null), null);
-  assert.equal(iapProductForServiceKey('SETNAYAN_AI')?.productId, 'com.setnayan.app.setnayan_ai', 'the code alone still means Tier A');
   assert.equal(iapPriceRowFor(iapProductForServiceKey('PAKANTA')!), 'PAKANTA', 'a product with no tier is checked against its own code');
 });
 
-test('✦ a tier product fits ONLY an event of its tier — a Tier D product never unlocks a wedding', () => {
-  const T = ['A', 'B', 'C', 'D'] as const;
-  for (const sold of T) {
-    const p = iapSetnayanAiProductForTier(sold)!;
-    for (const event of [...T, 'E' as const]) {
-      assert.equal(iapProductFitsAiTier(p, event), sold === event, `tier ${sold} product vs a tier ${event} event`);
-    }
-    assert.equal(iapProductFitsAiTier(p, null), false, 'an unread tier fits nothing');
+test('💝 the eight supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {
+  assert.deepEqual(
+    IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.serviceKey),
+    ['PAPIC_GUEST_150', 'PAPIC_GUEST_1K', 'PAPIC_GUEST', 'EVENT_PLUS', COUPLE_WEBSITE_PRO_SERVICE_KEY, 'LIVE_STUDIO', 'PAKANTA', 'PATIKTOK_COMPILER'],
+  );
+  const ids = IAP_SUPPLIER_GIFT_PRODUCTS.map((p) => p.productId);
+  assert.equal(new Set(ids).size, 8);
+  for (const id of ids) {
+    // A couple must never reach the gift price: no gift id is asked of StoreKit or resolved for a purchase.
+    assert.equal(IAP_PRODUCT_IDS.includes(id), false, `${id} is in the sellable list`);
+    assert.equal(iapProductById(id), null, `${id} resolves for the couple purchase path`);
+    assert.equal(RETIRED_IAP_PRODUCT_IDS.includes(id), false, `${id} reuses a retired id`);
+    assert.equal(iapProductForDelivery(id), null, `${id} delivers — no supplier gift delivery is built`);
   }
-  // Every other product has no tier and is unaffected.
-  assert.equal(iapProductFitsAiTier(iapProductForServiceKey('PAKANTA')!, null), true);
 });

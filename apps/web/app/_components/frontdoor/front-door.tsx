@@ -27,7 +27,7 @@ import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
+import { getCreatableEventTypes, type EventTypeRow } from '@/lib/event-types-db';
 import { FrontDoorLanding, frontPageSample, planPricesFrom, type PlanPrices } from './front-door-landing';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
@@ -99,7 +99,7 @@ export async function FrontDoor({ q }: { q?: string }) {
   */
   const signedOut = !account.signedIn;
   const landing = signedOut && !searchQuery;
-  const [eventTypes, planPrices]: [ReadonlyArray<{ key: string; label: string; heroPhotoUrl: string | null }>, PlanPrices] = landing
+  const [eventTypes, planPrices]: [ReadonlyArray<Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>>, PlanPrices] = landing
     ? await Promise.all([getCreatableEventTypes(), fetchV2CustomerCatalog().then(planPricesFrom, () => planPricesFrom([]))])
     : [[], planPricesFrom([])];
 

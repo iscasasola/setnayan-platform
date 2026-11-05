@@ -32,7 +32,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 
 import { marketingPhoto } from '@/lib/front-page-photos';
-import { eventTypePhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, type EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { readSampleEvent, readSampleGuest, SAMPLE_EVENT_ID } from '@/lib/sample-event/snapshot';
 import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event/hub';
 import { marchOrdinal } from '@/lib/march-place';
@@ -190,7 +190,7 @@ function Head({
 }
 
 /** One marquee row of event types. Decorative: the same names are listed once, for screen readers, below. */
-function EventTypeRow({ types, reverse }: { types: readonly EventTypeTile[]; reverse?: boolean }) {
+function EventTypeStrip({ types, reverse }: { types: readonly EventTypeTile[]; reverse?: boolean }) {
   const tile = (t: EventTypeTile, dup: boolean) => (
     <figure className={dup ? 'fl-et fl-et-dup' : 'fl-et'} key={`${dup ? 'b' : 'a'}-${t.key}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -246,7 +246,7 @@ export function FrontDoorLanding({
   shelves,
 }: {
   /** The creatable event types, in the roster's order (`getCreatableEventTypes`). */
-  eventTypes: readonly { key: string; label: string; heroPhotoUrl: string | null }[];
+  eventTypes: readonly Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>[];
   /** Event Plus and Event Pro from the price list (`planPricesFrom`). */
   planPrices: PlanPrices;
   /**
@@ -283,8 +283,8 @@ export function FrontDoorLanding({
             title={<>From a christening to a company gala — {tiles.length} kinds, one place.</>}
             lede="Pick yours when you start. Setnayan sets up the right tools for it."
           />
-          <EventTypeRow types={tiles.slice(0, half)} />
-          {tiles.length > half ? <EventTypeRow types={tiles.slice(half)} reverse /> : null}
+          <EventTypeStrip types={tiles.slice(0, half)} />
+          {tiles.length > half ? <EventTypeStrip types={tiles.slice(half)} reverse /> : null}
           <ul className="fd-sr-only">
             {tiles.map((t) => (
               <li key={t.key}>{t.label}</li>

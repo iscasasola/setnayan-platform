@@ -14,6 +14,11 @@
  *   4 · "Done · next" passes over a skipped part.
  *   5 · Guests are told in the app — one notice per guest account, never the person who pressed, never a removed
  *       guest — and only the service role may tell them.
+ *   6 · A CREW MEMBER MAY ASK TO SKIP (owner 2026-11-05, *"yes they can request"*; migration 20271308669061):
+ *       `crew_request_schedule_skip` files one open 'skip' ask and skips NOTHING; asking again files nothing; a part that
+ *       has started, or that a LOCKED supplier is on (the lock's own line), is never asked about; no other insert path
+ *       writes a skip ask; a coordinator without The Day = Edit cannot answer the row on their own session (the floor
+ *       answers on the service role after checking it is their crew's) while their own skip passes; the couple may.
  *
  * Every refusal asserts the rows are unchanged afterwards — a refusal that still wrote is not a refusal.
  *
@@ -319,4 +324,74 @@ test('5 · guests are told in the app — once each, never the presser or a remo
     [{ user_id: F.guest, type: 'schedule_shifted', related_url: '/ana-and-ben-change?tab=details' }],
     'the wrong people were told, or told to the wrong place',
   );
+});
+
+test('6 · a crew Member asks to skip — one ask, nothing skipped; never a started or locked part; only the crew door', async () => {
+  const skipAsk = (id: string) => db.query<{ n: number }>(`SELECT public.crew_request_schedule_skip($1, $2) AS n`, [F.event, id]);
+  const asks = async () =>
+    (
+      await db.query<{ block_id: string; status: string; v: string; by: string; dir: string }>(
+        `SELECT block_id, status, vendor_profile_id AS v, suggested_by_user_id AS by, direction AS dir
+           FROM public.event_schedule_suggestions WHERE event_id = $1 AND kind = 'skip' ORDER BY created_at`,
+        [F.event],
+      )
+    ).rows.map((r) => ({ ...r }));
+  // After test 4: Dance (F.d) has not started; Dinner (F.c) is live.
+  const was = await day();
+  assert.equal(ok(await asUser(F.crew, () => skipAsk(F.d))).rows[0]!.n, 1);
+  assert.deepEqual(await day(), was, 'asking to skip skipped the part');
+  assert.deepEqual(await asks(), [{ block_id: F.d, status: 'open', v: F.shop, by: F.crew, dir: 'to_host' }], 'the ask was filed wrong');
+  assert.equal(ok(await asUser(F.crew, () => skipAsk(F.d))).rows[0]!.n, 0, 'asking again filed a second ask');
+  assert.equal((await asks()).length, 1);
+
+  refused(await asUser(F.helper, () => skipAsk(F.d)), /not_a_member/, 'a Helper asked to skip');
+  refused(await asUser(F.stranger, () => skipAsk(F.d)), /no_crew_pass/, 'a phone with no pass asked to skip');
+  refused(await asUser(F.crew, () => skipAsk(F.c)), /nothing_changed/, 'an ask to skip a part that has started');
+
+  // A locked supplier's part: the lock's own line, and no ask.
+  const toast = (
+    await db.query<{ b: string }>(
+      `INSERT INTO public.event_schedule_blocks (event_id, label, start_at, end_at, responsible_vendor_ids, is_public)
+       VALUES ($1, 'Toast', '2099-12-18 21:00:00+00', '2099-12-18 21:30:00+00', ARRAY[$2]::uuid[], true) RETURNING block_id AS b`,
+      [F.event, F.evB],
+    )
+  ).rows[0]!.b;
+  ok(await asUser(F.supB, () => db.query(`SELECT public.supplier_mark_schedule($1, 'lock')`, [F.event])));
+  refused(await asUser(F.crew, () => skipAsk(toast)), /Supplier B isn't taking changes\. Send them a request instead\./, 'an ask to skip a locked part');
+  ok(await asUser(F.supB, () => db.query(`SELECT public.supplier_mark_schedule($1, 'unlock')`, [F.event])));
+  assert.equal((await asks()).length, 1, 'a refused ask was filed anyway');
+
+  // Only the crew door writes a skip ask — not the shop's own insert, not the couple's.
+  for (const uid of [F.owner, F.couple]) {
+    refused(
+      await asUser(uid, () =>
+        db.query(
+          `INSERT INTO public.event_schedule_suggestions (event_id, block_id, vendor_profile_id, suggested_by_user_id, kind, note, status)
+           VALUES ($1, $2, $3, $4, 'skip', 'skip it', 'open')`,
+          [F.event, toast, F.shop, uid],
+        ),
+      ),
+      /row-level security|violates/,
+      'a skip ask was written outside the crew door',
+    );
+  }
+  const anon = await db.query<{ a: boolean }>(
+    `SELECT has_function_privilege('anon', 'public.crew_request_schedule_skip(uuid, uuid)', 'EXECUTE') AS a`,
+  );
+  assert.equal(anon.rows[0]!.a, false, 'signed out may ask to skip');
+
+  // The answer: the coordinator's own session holds no UPDATE on the ask (the floor answers it on the service role, after
+  // checking it is their crew's) — while the skip itself passes on their own session, exactly as the floor's Skip.
+  const flip = () =>
+    db.query<{ s: string }>(
+      `UPDATE public.event_schedule_suggestions SET status = 'accepted', resolved_at = NOW() WHERE event_id = $1 AND kind = 'skip' RETURNING suggestion_id AS s`,
+      [F.event],
+    );
+  // (A coordinator the hosts lent The Day = Edit may answer it like any Edit seat; one with View cannot.)
+  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"view"}}'::jsonb WHERE user_id = $1`, [F.owner]);
+  assert.equal(ok(await asUser(F.owner, flip)).rows.length, 0, 'a coordinator with View answered the ask on their own session');
+  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"edit"}}'::jsonb WHERE user_id = $1`, [F.owner]);
+  assert.equal(ok(await asUser(F.owner, () => setRun(F.d, 'skipped'))).rows.length, 1, 'the coordinator could not skip the part');
+  assert.equal(ok(await asUser(F.couple, flip)).rows.length, 1, 'the couple could not answer the ask');
+  assert.equal((await day())[F.d]!.state, 'skipped');
 });

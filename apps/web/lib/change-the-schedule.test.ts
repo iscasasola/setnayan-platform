@@ -10,6 +10,8 @@
  *   ⓹ The crew row's sheet promises only what the crew phone draws.
  *   ⓺ Day-of tools stay Free: nothing on these paths asks for Pro.
  *   ⓻ Who may (owner 2026-11-05): a crew phone only asks; the emcee changes it with a lent Edit.
+ *   ⓼ Ask to skip (owner 2026-11-05, "yes they can request"): the crew phone asks, a locked part says the lock's line and
+ *      offers no ask; the coordinator answers on the floor with one tap; an approved skip IS the floor's own Skip.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -127,7 +129,7 @@ test('⓸ the sheet: one dropdown per choice, and the floor’s +N pill row is g
   const sheet = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx');
   assert.equal(sheet.match(/<ChosenRow\b/g)?.length, 3, 'Part ▾ · Move it ▾ · By ▾ — each one dropdown');
   assert.match(sheet, /label=\{ask \? 'Ask the hosts' : 'Move'\}/);
-  assert.match(sheet, /label="Skip this part"/);
+  assert.match(sheet, /label=\{ask \? 'Ask to skip' : 'Skip this part'\}/);
   assert.match(sheet, /pushUndo\(/, 'a change has no Undo');
   const updater = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx');
   assert.match(updater, /<ChangeTheSchedule\b/);
@@ -174,7 +176,7 @@ test('⓻ who may change it (owner 2026-11-05): a crew phone ASKS, the emcee cha
   assert.equal(requestWords(-10, DAY[4]!, 1), 'Move Dinner earlier 10 min.');
   const sheet = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx');
   assert.match(sheet, /const ask = via === 'crew'/);
-  assert.match(sheet, /const canSkip = !ask &&/, 'the crew phone offers a skip it cannot ask for');
+  assert.match(sheet, /const canSkip = skippableHere && !lockedShop && !alreadyAsked/, 'the crew phone offers an ask the database refuses');
   assert.match(sheet, /label=\{ask \? 'Ask the hosts' : 'Move'\}/);
   // (A)(C) the floor door asks the shipped "Done · next" gate — couple · lent Edit (within the access window) ·
   // booked coordinator — so an emcee the hosts lent The Day = Edit is let in, and View / Off are not.
@@ -182,4 +184,34 @@ test('⓻ who may change it (owner 2026-11-05): a crew phone ASKS, the emcee cha
   const body = actions.slice(actions.indexOf('export async function floorChangeSchedule'));
   assert.match(body, /await mayAdvance\(/);
   assert.doesNotMatch(body.slice(0, body.indexOf('changeTheSchedule(')), /requireCoordinator\(/, 'the emcee lent The Day is refused as "not the coordinator"');
+});
+
+test('⓼ ask to skip (owner 2026-11-05): the crew asks, a locked part offers no ask, the floor answers with one tap', () => {
+  const server = read('lib/change-the-schedule.server.ts');
+  // The crew phone's skip is an ASK — the database files it (gates, the lock's line, one per part) and nothing is skipped.
+  assert.match(server, /if \(via === 'crew' && change\.op === 'skip'\) return askToSkip\(/);
+  assert.match(server, /rpc\('crew_request_schedule_skip'/);
+  // The coordinator is told IN THE APP only — never the emailed request notice (owner: no new emails).
+  const ask = server.slice(server.indexOf('async function askToSkip'), server.indexOf('export async function readCrewSkipAsks'));
+  assert.match(ask, /type: 'schedule_ask'/);
+  assert.doesNotMatch(ask, /notifyScheduleRequest\(|schedule_change_requested/, 'a skip ask is emailed');
+  // A locked part: the lock's line, and no Ask to skip.
+  const sheet = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx');
+  assert.match(sheet, /\{lockedHead\(lockedShop\)\}/);
+  const page = read('app/join/crew/[token]/page.tsx');
+  assert.match(page, /readPartLocks\(admin, eventId\)/, 'the crew page does not know which parts are locked');
+  assert.match(page, /lockedBy=\{lockedBy\} asked=\{asked\}/);
+  // An approved skip IS the floor's own Skip — the one accept path calls changeTheSchedule, never a copy of it.
+  const decide = read('lib/schedule-suggestion-decide.server.ts');
+  assert.match(decide, /suggestion\.kind === 'skip' && suggestion\.block_id\) \{\s*const res = await changeTheSchedule\(db, userId \?\? '', eventId, \{ op: 'skip', blockId: suggestion\.block_id \}, 'floor'\)/);
+  // The floor answers only its OWN crew's open skip ask, through the one accept path, after the floor's own gate.
+  const actions = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts');
+  const body = actions.slice(actions.indexOf('export async function floorChangeSchedule'));
+  const answer = body.slice(body.indexOf("if (change.op === 'answer') {"));
+  assert.ok(body.indexOf('await mayAdvance(') < body.indexOf("if (change.op === 'answer') {"), 'the answer skips the floor gate');
+  assert.match(answer, /\.eq\('vendor_profile_id', profile\?\.vendor_profile_id \?\? ''\)/, 'the floor answers another shop’s ask');
+  assert.match(answer, /decideSuggestion\(supabase, user\.id, eventId, change\.suggestionId,/);
+  const asks = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/crew-asks.tsx');
+  assert.match(asks, /op: 'answer', suggestionId: id, accept/);
+  assert.doesNotMatch(asks, /router\.refresh\(/, 'the floor refreshes after an action that already revalidated');
 });

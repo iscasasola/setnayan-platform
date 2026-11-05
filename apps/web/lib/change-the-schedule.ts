@@ -31,6 +31,17 @@ export type ScheduleChange =
   | { op: 'skip'; blockId: string }
   | { op: 'unskip'; blockId: string };
 
+/** 🗓 The coordinator answers a crew Member's skip ask on the floor (owner 2026-11-05) — one tap, Approve or Decline. */
+export type CrewAskAnswer = { op: 'answer'; suggestionId: string; accept: boolean };
+
+/** A crew Member's open skip ask, as the floor lists it. */
+export type CrewSkipAsk = { suggestionId: string; blockId: string; who: string; label: string; startAt: string };
+
+/** "Ana asks to skip First dance · 7:30 PM" — the floor's line for one ask. */
+export function crewAskWords(ask: Pick<CrewSkipAsk, 'who' | 'label' | 'startAt'>): string {
+  return `${ask.who} asks to skip ${ask.label} · ${formatWallClock(ask.startAt, { hour12: true })}`;
+}
+
 /** The fields the rule reads — every run-of-show read already selects them. */
 export type ChangeablePart = {
   block_id: string;

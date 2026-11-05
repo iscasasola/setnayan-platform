@@ -10,9 +10,14 @@ supplier prototype v59 (`rosMoveSheet`, `crewSheet`).
   Move will do, **Move** and **Skip this part**, then the shipped Undo toast. A move carries the picked part and every
   later part that has not run (it was the chapter span before); earlier moves are new. Writes through the shipped
   running-late shift (`running_late_shift_schedule`). `floorRetimeFrom` → `floorChangeSchedule` (net-zero server actions).
-- **Crew Member's phone (`/join/crew/[token]`):** the same sheet, drawn only when `crew_schedule_door(event)` says `ok` —
-  a Member of the coordinator's crew whose QR issuer holds The Day = Edit — and written by `crew_change_schedule`, which
-  asks the same function. Helpers and other trades see nothing new.
+- **Crew Member's phone (`/join/crew/[token]`):** the same sheet in its ASK mode — **Ask the hosts**, no Skip, no Undo
+  (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (D): crew changes are requests the coordinator / hosts
+  approve with one tap). `crew_request_schedule_move` files one shipped request per part (`event_schedule_suggestions`,
+  kind 'adjust', the shifted times) and moves nothing; the approvers are told by the shipped `notifyScheduleRequest`.
+  Drawn only when `crew_schedule_door(event)` says `ok` — a Member of the coordinator's crew.
+- **Emcee lent The Day (C):** the floor action now asks the shipped "Done · next" gate (`mayAdvance`: the couple, a
+  delegate with The Day = **Edit** within the access window, the booked coordinator) instead of "coordinator trade
+  only", so an emcee lent Edit can change it from the stage desk; View / Off change nothing (RLS).
 - **Crew row (Hub › Crew for the day):** the name/line is now a tap → a sheet with what that role gets
   (`crewRoleGets`, from the crew page's own `crewRoleOpens`), the other role in one line, Role ▾, Allow, Remove.
 - **Skip** is a new run state `skipped` (not `done`): "Done · next" passes over it, "N left" does not count it, the couple's
@@ -34,6 +39,6 @@ Shared files touched (in-flight PRs may also touch them): `app/dashboard/[eventI
 (SKIPPED tag only), `…/day-types.ts` (run_state union), `lib/schedule.ts` (`fetchPublicScheduleBlocks` return line),
 `app/_actions/run-of-show.ts`, `app/api/live/run-of-show/[eventId]/route.ts`.
 
-SPEC IMPACT: None — builds the 2026-11-04 build notes. Flagged for the owner, not decided here: a move passes a locked
-supplier (per the 2026-11-03 running-late ruling) rather than becoming a request; there is no "request a skip" door yet
-(`askSupplierToChange` carries times only), so a locked skip says the lock's line and stops.
+SPEC IMPACT: None — builds the 2026-11-04 build notes and the owner's 2026-11-05 rulings (DECISION_LOG "WHO CHANGES THE
+SCHEDULE…" (A)(C)(D)). Still open (no ruling): a skip request — a locked skip says the lock's line and stops, and the
+crew phone offers no Skip.

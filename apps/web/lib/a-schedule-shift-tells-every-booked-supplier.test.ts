@@ -88,13 +88,17 @@ test('⓷ once per shift — after the write loop, never inside it; Running late
   }
   {
     // Change the schedule writes in ONE statement (a shift RPC, or one skip UPDATE) — told once, after the last write.
+    // A crew phone only ASKS (owner 2026-11-05 (D)): its request returns before the shift notice — nothing moved yet.
     const fn = 'changeTheSchedule';
     const b = body(read(CHANGE), fn);
     const calls = [...b.matchAll(/notifyScheduleShifted\(/g)].map((m) => m.index!);
     assert.equal(calls.length, 1, `${fn} tells the suppliers ${calls.length} times — once per change`);
-    const writes = [".rpc('crew_change_schedule'", ".rpc('running_late_shift_schedule'", '.update('].map((w) => b.lastIndexOf(w));
-    assert.ok(writes.every((w) => w > 0), `${fn} lost one of its three writes — re-point this guard`);
+    const writes = [".rpc('running_late_shift_schedule'", '.update('].map((w) => b.lastIndexOf(w));
+    assert.ok(writes.every((w) => w > 0), `${fn} lost one of its two writes — re-point this guard`);
     assert.ok(calls[0]! > Math.max(...writes), `${fn} tells the suppliers before the change landed`);
+    const asked = b.indexOf(".rpc('crew_request_schedule_move'");
+    assert.ok(asked > 0 && asked < Math.min(...writes), `${fn} lost the crew request, or asks after writing`);
+    assert.match(b.slice(asked, Math.min(...writes)), /requested: true \}/, 'a crew request falls through to the shift notice');
   }
   const retime = body(read(ACTIONS), 'bulkRetimeScheduleBlocks');
   assert.match(retime, /if \(formData\.get\('shift_notice'\) === '1'\) \{[\s\S]*?notifyScheduleShifted\(/, 'every retime — a drag too — notifies');

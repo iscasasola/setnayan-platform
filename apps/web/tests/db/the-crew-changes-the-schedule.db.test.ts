@@ -2,13 +2,15 @@
  * 🗓 CHANGE THE SCHEDULE, ON THE DAY — asserted against the DATABASE through real `authenticated` sessions (migration
  * 20271308380805; owner 2026-11-04, SUPPLIER_PLANS_GIFTS_QUOTES_BUILD_NOTES · Hub + Couple lines).
  *
- *   1 · ONE answer to "may this phone change the schedule" (`crew_schedule_door`): a Member of the coordinator's crew
- *       whose QR issuer holds The Day = Edit — 'ok'; a Helper, a phone with no pass, an issuer with View only — each its
- *       own word. The write (`crew_change_schedule`) refuses with the same word.
- *   2 · MOVE — a pure shift of exactly the parts asked, all or nothing; it passes a supplier's change lock (the owner's
- *       running-late ruling, DECISION_LOG 2026-11-03 (2)).
- *   3 · SKIP — one part that has not started; a locked supplier's part is refused with the lock's calm line and the row
- *       is unchanged; un-skip puts it back. The couple's own UPDATE meets the same lock.
+ *   1 · ONE answer to "may this phone ask to change the schedule" (`crew_schedule_door`): a Member of the coordinator's
+ *       crew — 'ok'; a Helper, a phone with no pass — each its own word, and the request refuses with the same word. A
+ *       request needs no edit right (the hosts decide), so an issuer with View only does not shut it.
+ *   2 · A CREW CHANGE IS A REQUEST (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (D)):
+ *       `crew_request_schedule_move` files one open request per part with the shifted times and moves NOTHING; all or
+ *       nothing; a part that has run is never asked about.
+ *   3 · ON THE FLOOR (A)(C) — the coordinator holding The Day = Edit: a MOVE (the running-late shift) passes a
+ *       supplier's change lock; a SKIP of a locked supplier's part is refused with the lock's calm line, un-skip puts a
+ *       part back, and the couple's own UPDATE meets the same lock. A delegate with View only changes nothing.
  *   4 · "Done · next" passes over a skipped part.
  *   5 · Guests are told in the app — one notice per guest account, never the person who pressed, never a removed
  *       guest — and only the service role may tell them.
@@ -30,6 +32,7 @@ const F = {
   crew: '',
   helper: '',
   stranger: '',
+  viewer: '',
   couple: '',
   guest: '',
   gone: '',
@@ -85,8 +88,20 @@ async function day(): Promise<Record<string, { at: string; state: string }>> {
   );
   return Object.fromEntries(r.rows.map((x) => [x.block_id, { at: x.at, state: x.state }]));
 }
-const change = (op: string, ids: string[], minutes: number | null = null) =>
-  db.query<{ n: number }>(`SELECT public.crew_change_schedule($1, $2, $3::uuid[], $4) AS n`, [F.event, op, ids, minutes]);
+const ask = (ids: string[], minutes: number) =>
+  db.query<{ n: number }>(`SELECT public.crew_request_schedule_move($1, $2::uuid[], $3) AS n`, [F.event, ids, minutes]);
+const shift = (ids: string[], minutes: number) =>
+  db.query<{ n: number }>(`SELECT public.running_late_shift_schedule($1, $2::uuid[], $3) AS n`, [F.event, ids, minutes]);
+const setRun = (id: string, state: string) =>
+  db.query<{ block_id: string }>(`UPDATE public.event_schedule_blocks SET run_state = $2::public.schedule_run_state WHERE block_id = $1 RETURNING block_id`, [id, state]);
+async function requests(): Promise<{ block_id: string; at: string; status: string; kind: string }[]> {
+  const r = await db.query<{ block_id: string; at: string; status: string; kind: string }>(
+    `SELECT block_id, to_char(proposed_start_at AT TIME ZONE 'UTC', 'HH24:MI') AS at, status, kind
+       FROM public.event_schedule_suggestions WHERE event_id = $1 ORDER BY proposed_start_at`,
+    [F.event],
+  );
+  return r.rows.map((x) => ({ ...x }));
+}
 const door = () => db.query<{ d: string }>(`SELECT public.crew_schedule_door($1) AS d`, [F.event]);
 
 before(async () => {
@@ -101,6 +116,7 @@ before(async () => {
   F.guest = await mkUser('guest@change.test');
   F.gone = await mkUser('removed-guest@change.test');
   F.supB = await mkUser('caterer@change.test', 'vendor');
+  F.viewer = await mkUser('emcee-view@change.test');
 
   F.event = (
     await db.query<{ e: string }>(
@@ -132,6 +148,12 @@ before(async () => {
     `INSERT INTO public.event_moderators (event_id, user_id, role_subtype, permissions_json, accepted_at)
      VALUES ($1, $2, 'wedding_planner_external', '{"areas":{"schedule":"edit"}}'::jsonb, NOW())`,
     [F.event, F.owner],
+  );
+  // An emcee the hosts lent The Day to as View only — may see, not change (owner 2026-11-05 (C)).
+  await db.query(
+    `INSERT INTO public.event_moderators (event_id, user_id, role_subtype, permissions_json, accepted_at)
+     VALUES ($1, $2, 'wedding_planner_external', '{"areas":{"schedule":"view"}}'::jsonb, NOW())`,
+    [F.event, F.viewer],
   );
   // A caterer, booked, who will lock their part.
   const vpB = await mkShop(F.supB, 'Supplier B', 'catering');
@@ -192,74 +214,83 @@ after(async () => {
   await db?.close?.();
 });
 
-test('1 · one answer to "may this phone change the schedule" — and the write refuses with the same word', async () => {
+test('1 · one answer to "may this phone ask to change the schedule" — and the request refuses with the same word', async () => {
   assert.equal(ok(await asUser(F.crew, door)).rows[0]!.d, 'ok');
   assert.equal(ok(await asUser(F.helper, door)).rows[0]!.d, 'not_a_member');
   assert.equal(ok(await asUser(F.stranger, door)).rows[0]!.d, 'no_crew_pass');
   const was = await day();
-  refused(await asUser(F.helper, () => change('move', [F.b], 10)), /not_a_member/, 'a Helper moved the schedule');
-  refused(await asUser(F.stranger, () => change('skip', [F.b])), /no_crew_pass/, 'a phone with no pass skipped a part');
-  // The issuer holds View only → the crew holds nothing more than the issuer.
-  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"view"}}'::jsonb WHERE event_id = $1`, [F.event]);
-  assert.equal(ok(await asUser(F.crew, door)).rows[0]!.d, 'schedule_not_shared');
-  refused(await asUser(F.crew, () => change('move', [F.b], 10)), /schedule_not_shared/, 'the crew outran the issuer');
-  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"edit"}}'::jsonb WHERE event_id = $1`, [F.event]);
-  assert.deepEqual(await day(), was, 'a refused change moved the day anyway');
-  const anon = await db.query<{ a: boolean; b: boolean }>(
-    `SELECT has_function_privilege('anon', 'public.crew_change_schedule(uuid, text, uuid[], integer)', 'EXECUTE') AS a,
-            has_function_privilege('anon', 'public.crew_schedule_door(uuid)', 'EXECUTE') AS b`,
+  refused(await asUser(F.helper, () => ask([F.b], 10)), /not_a_member/, 'a Helper asked');
+  refused(await asUser(F.stranger, () => ask([F.b], 10)), /no_crew_pass/, 'a phone with no pass asked');
+  // A request needs no edit right — the hosts decide — so the issuer's View does not shut the door.
+  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"view"}}'::jsonb WHERE user_id = $1`, [F.owner]);
+  assert.equal(ok(await asUser(F.crew, door)).rows[0]!.d, 'ok');
+  await db.query(`UPDATE public.event_moderators SET permissions_json = '{"areas":{"schedule":"edit"}}'::jsonb WHERE user_id = $1`, [F.owner]);
+  assert.deepEqual(await day(), was, 'a refused request moved the day');
+  assert.deepEqual(await requests(), [], 'a refused request was filed');
+  const anon = await db.query<{ a: boolean; b: boolean; old: boolean }>(
+    `SELECT has_function_privilege('anon', 'public.crew_request_schedule_move(uuid, uuid[], integer)', 'EXECUTE') AS a,
+            has_function_privilege('anon', 'public.crew_schedule_door(uuid)', 'EXECUTE') AS b,
+            to_regprocedure('public.crew_change_schedule(uuid, text, uuid[], integer)') IS NOT NULL AS old`,
   );
-  assert.deepEqual({ ...anon.rows[0] }, { a: false, b: false }, 'signed out reaches the crew door');
+  assert.deepEqual({ ...anon.rows[0] }, { a: false, b: false, old: false }, 'signed out reaches the crew door, or the crew can still write');
 });
 
-test('2 · a move shifts exactly the parts asked — all or nothing — and passes a locked supplier', async () => {
-  ok(await asUser(F.supB, () => db.query(`SELECT public.supplier_mark_schedule($1, 'lock')`, [F.event])));
-  const n = ok(await asUser(F.crew, () => change('move', [F.b, F.c, F.d], 10))).rows[0]!.n;
-  assert.equal(n, 3);
-  const after1 = await day();
-  assert.deepEqual(
-    [after1[F.a]!.at, after1[F.b]!.at, after1[F.c]!.at, after1[F.d]!.at],
-    ['15:00', '16:10', '18:10', '20:10'],
-    'the move did not carry exactly the parts after it (the locked Dinner moves too — the running-late ruling)',
-  );
-  // One part that is not on this event → nothing moves, never half the day.
-  refused(
-    await asUser(F.crew, () => change('move', [F.b, '00000000-0000-0000-0000-000000000000'], 10)),
-    /nothing_changed/,
-    'a move with a stranger part',
-  );
-  assert.deepEqual(await day(), after1, 'a refused move moved half the day');
-  refused(await asUser(F.crew, () => change('move', [F.b], 0)), /whole number of minutes/, 'a move of 0 minutes');
-  // Undo — the same rows back.
-  ok(await asUser(F.crew, () => change('move', [F.b, F.c, F.d], -10)));
-  assert.equal((await day())[F.c]!.at, '18:00');
-});
-
-test('3 · a skip meets the change lock — the crew and the couple alike — and un-skip puts a part back', async () => {
+test('2 · a crew change is a REQUEST — one per part, the shifted times, nothing moves — all or nothing', async () => {
   const was = await day();
-  refused(
-    await asUser(F.crew, () => change('skip', [F.c])),
-    /Supplier B isn't taking changes\. Send them a request instead\./,
-    'the crew skipped a locked supplier’s part',
+  const n = ok(await asUser(F.crew, () => ask([F.b, F.c, F.d], 10))).rows[0]!.n;
+  assert.equal(n, 3);
+  assert.deepEqual(await day(), was, 'a crew request moved the schedule');
+  assert.deepEqual(
+    (await requests()).map((r) => [r.block_id, r.at, r.status, r.kind]),
+    [
+      [F.b, '16:10', 'open', 'adjust'],
+      [F.c, '18:10', 'open', 'adjust'],
+      [F.d, '20:10', 'open', 'adjust'],
+    ],
+    'the request did not carry exactly the parts asked, at the shifted times, waiting for the hosts',
   );
-  refused(
-    await asUser(F.couple, () => db.query(`UPDATE public.event_schedule_blocks SET run_state = 'skipped' WHERE block_id = $1`, [F.c])),
-    /Supplier B isn't taking changes/,
-    'the couple skipped a locked supplier’s part',
+  const who = await db.query<{ v: string; by: string; dir: string }>(
+    `SELECT DISTINCT vendor_profile_id AS v, suggested_by_user_id AS by, direction AS dir FROM public.event_schedule_suggestions WHERE event_id = $1`,
+    [F.event],
   );
-  assert.deepEqual(await day(), was, 'a refused skip skipped it anyway');
+  assert.deepEqual(who.rows.map((r) => ({ ...r })), [{ v: F.shop, by: F.crew, dir: 'to_host' }], 'filed as the wrong shop, person or side');
+  // One part that is not on this event → nothing is asked, never half the move.
+  refused(await asUser(F.crew, () => ask([F.b, '00000000-0000-0000-0000-000000000000'], 10)), /nothing_changed/, 'a request with a stranger part');
+  refused(await asUser(F.crew, () => ask([F.b], 0)), /whole number of minutes/, 'a request of 0 minutes');
+  // A part that has run is never asked about.
+  await setRun(F.a, 'done');
+  refused(await asUser(F.crew, () => ask([F.a], 10)), /nothing_changed/, 'a request to move a part that already ran');
+  await setRun(F.a, 'upcoming');
+  assert.equal((await requests()).length, 3, 'a refused request was filed anyway');
+  await db.query(`DELETE FROM public.event_schedule_suggestions WHERE event_id = $1`, [F.event]);
+});
 
-  assert.equal(ok(await asUser(F.crew, () => change('skip', [F.b]))).rows[0]!.n, 1);
+test('3 · on the floor: a move passes a locked supplier, a skip meets the lock, and View changes nothing', async () => {
+  ok(await asUser(F.supB, () => db.query(`SELECT public.supplier_mark_schedule($1, 'lock')`, [F.event])));
+  // MOVE — the coordinator holding The Day = Edit, the shipped running-late shift (owner 2026-11-03 (2) · 2026-11-05 (A)).
+  assert.equal(ok(await asUser(F.owner, () => shift([F.b, F.c, F.d], 10))).rows[0]!.n, 3);
+  const moved = await day();
+  assert.deepEqual([moved[F.b]!.at, moved[F.c]!.at, moved[F.d]!.at], ['16:10', '18:10', '20:10'], 'the locked Dinner did not move with the day');
+  // A delegate lent The Day as View only (C): may see, not change — the shift and the skip both change nothing.
+  refused(await asUser(F.viewer, () => shift([F.b], 10)), /nothing_changed/, 'a View-only delegate moved the schedule');
+  const viewSkip = ok(await asUser(F.viewer, () => setRun(F.b, 'skipped')));
+  assert.equal(viewSkip.rows.length, 0, 'a View-only delegate skipped a part');
+  ok(await asUser(F.owner, () => shift([F.b, F.c, F.d], -10)));
+
+  // SKIP — a locked supplier's part is refused with the lock's calm line, for the coordinator and the couple alike.
+  const was = await day();
+  refused(await asUser(F.owner, () => setRun(F.c, 'skipped')), /Supplier B isn't taking changes\. Send them a request instead\./, 'the coordinator skipped a locked supplier’s part');
+  refused(await asUser(F.couple, () => setRun(F.c, 'skipped')), /Supplier B isn't taking changes/, 'the couple skipped a locked supplier’s part');
+  assert.deepEqual(await day(), was, 'a refused skip skipped it anyway');
+  assert.equal(ok(await asUser(F.owner, () => setRun(F.b, 'skipped'))).rows.length, 1);
   assert.equal((await day())[F.b]!.state, 'skipped');
-  refused(await asUser(F.crew, () => change('skip', [F.b])), /nothing_changed/, 'a part skipped twice');
-  refused(await asUser(F.crew, () => change('skip', [F.a, F.d])), /one part at a time/, 'two parts skipped at once');
-  ok(await asUser(F.crew, () => change('unskip', [F.b])));
+  assert.equal(ok(await asUser(F.owner, () => setRun(F.b, 'upcoming'))).rows.length, 1);
   assert.equal((await day())[F.b]!.state, 'upcoming');
   ok(await asUser(F.supB, () => db.query(`SELECT public.supplier_mark_schedule($1, 'unlock')`, [F.event])));
 });
 
 test('4 · "Done · next" passes over a skipped part', async () => {
-  ok(await asUser(F.crew, () => change('skip', [F.b])));
+  ok(await asUser(F.owner, () => setRun(F.b, 'skipped')));
   await db.query(`UPDATE public.event_schedule_blocks SET run_state = 'live', actual_start_at = NOW() WHERE block_id = $1`, [F.a]);
   ok(await asUser(F.couple, () => db.query(`SELECT public.advance_schedule_block($1)`, [F.a])));
   const now = await day();

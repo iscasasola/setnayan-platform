@@ -86,9 +86,9 @@ export function CrewEventHub({
   /** The crew's scanner — the shipped seat scanner on the crew door, handed in by the page (it carries a server action). */
   scanner: ReactNode;
   /**
-   * 🗓 Change the schedule (owner 2026-11-04) — the floor's own sheet on the crew door, handed in by the page ONLY when
-   * the database's one answer (`crew_schedule_door`) is 'ok': a Member of the coordinator's crew whose issuer holds The
-   * Day = Edit. Absent → nothing is drawn (a door that never opens is not furniture).
+   * 🗓 Change the schedule (owner 2026-11-04) — the floor's own sheet on the crew door, in its ASK mode (2026-11-05 (D):
+   * a request the coordinator / hosts approve), handed in by the page ONLY when the database's one answer
+   * (`crew_schedule_door`) is 'ok': a Member of the coordinator's crew. Absent → nothing is drawn.
    */
   changer?: ReactNode;
   eventName: string;

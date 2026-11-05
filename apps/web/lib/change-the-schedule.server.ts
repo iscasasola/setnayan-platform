@@ -6,11 +6,13 @@ import { onlyWhatABookedShopMaySee } from './schedule';
 import { isTimeTba } from './time-tba';
 import { checkRetime } from './floor-command';
 import { notifyScheduleShifted } from './schedule-shift-notify.server';
+import { notifyScheduleRequest } from './schedule-request-notify.server';
 import {
   changedWords,
   guestNotice,
   guestsSeePart,
   partsThatFollow,
+  requestWords,
   type ChangeablePart,
   type ScheduleChange,
 } from './change-the-schedule';
@@ -18,24 +20,27 @@ import {
 /**
  * 🗓 CHANGE THE SCHEDULE — the server half (owner 2026-11-04; the rule and the words are `lib/change-the-schedule.ts`).
  *
- * TWO DOORS, ONE PATH. Both end here and differ only in who answers "may you":
- *   · `floor` — the coordinator (or the emcee the hosts lent The Day to) on their OWN session: a move is the shipped
- *     running-late write (`running_late_shift_schedule`, all or nothing), a skip an UPDATE of `run_state`. RLS decides.
- *   · `crew`  — a crew Member's phone: `crew_change_schedule` (migration 20271308380805), which asks the crew scanner's
- *     gates of the shop and of the person who issued the QR. The phone cannot read the schedule under RLS, so the parts
- *     are read here on the service role, fenced exactly as the crew phone's own read is (`onlyWhatABookedShopMaySee`) —
- *     and nothing read here goes back to the caller before the database said yes.
+ * WHO MAY (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…"):
+ *   · `floor` — a CHANGE, on the caller's OWN session: the booked coordinator, the couple, or a delegate the hosts lent
+ *     The Day = Edit (an emcee — "Edit … only until their coverage": the shipped access window). One gate, the shipped
+ *     `mayAdvance` that "Done · next" asks (`lib/run-of-show-advance.ts`); then RLS decides the write. A move is the
+ *     shipped running-late write (`running_late_shift_schedule`, all or nothing), a skip an UPDATE of `run_state`.
+ *   · `crew`  — a crew Member's phone ASKS, never writes (D): `crew_request_schedule_move` files the shipped requests
+ *     (`event_schedule_suggestions`) and the coordinator / hosts approve them with one tap. Only a move: the shipped
+ *     request carries times, not a skip. The phone cannot read the schedule under RLS, so the parts are read here on the
+ *     service role, fenced exactly as the crew phone's own read is (`onlyWhatABookedShopMaySee`) — and nothing read here
+ *     goes back to the caller before the database said yes.
  *
  * 🔒 A locked supplier's part: a MOVE passes (the owner's running-late ruling, DECISION_LOG 2026-11-03 (2)) and the
  * supplier is told; a SKIP is refused by the database with the lock's calm line, handed back as `locked` so the sheet
  * offers the request instead of a dead end.
  *
- * After it landed: ONE notice per booked supplier and, when guests can see the part, ONE in-app notice per guest
+ * After a floor change landed: ONE notice per booked supplier and, when guests can see the part, ONE in-app notice per guest
  * account (`notifyScheduleShifted` — the shipped shift notice, never a second one).
  */
 
 export type ChangeAnswer =
-  | { ok: true; message: string; moved: readonly string[] }
+  | { ok: true; message: string; moved: readonly string[]; requested?: boolean }
   | { ok: false; error: string; locked?: string | null };
 
 type PartRow = ChangeablePart & { is_public: boolean | null; audience: string | null; parent_block_id: string | null };
@@ -54,9 +59,8 @@ function lockedShopOf(err: { message?: string; hint?: string | null } | null): s
 /** The crew door's refusals, as sentences a phone on the floor can act on. */
 function crewRefusal(message: string | undefined): string {
   if (message?.includes('no_crew_pass')) return 'This phone is not on the crew for this event right now.';
-  if (message?.includes('not_a_member')) return 'Changing the schedule is for a Member of the crew — ask the shop.';
-  if (message?.includes('not_the_coordinator')) return 'Changing the schedule is for the coordinator’s crew.';
-  if (message?.includes('schedule_not_shared')) return 'The hosts haven’t let the shop change the schedule — ask them.';
+  if (message?.includes('not_a_member')) return 'Asking to change the schedule is for a Member of the crew — ask the shop.';
+  if (message?.includes('not_the_coordinator')) return 'Asking to change the schedule is for the coordinator’s crew.';
   return 'Nothing changed — try again.';
 }
 
@@ -104,22 +108,38 @@ export async function changeTheSchedule(
     ids = [part.block_id];
   }
 
-  // ── the write ──
+  // ── a crew phone ASKS (owner 2026-11-05 (D)): requests the coordinator / hosts approve with one tap ──
   if (via === 'crew') {
-    const { data: n, error: crewErr } = await supabase.rpc('crew_change_schedule', {
+    if (change.op !== 'move') return { ok: false, error: 'From the crew phone you can ask to move a part. Ask the coordinator to skip one.' };
+    const { data: n, error: crewErr } = await supabase.rpc('crew_request_schedule_move', {
       p_event_id: eventId,
-      p_op: change.op,
       p_block_ids: ids,
-      p_minutes: change.op === 'move' ? change.minutes : null,
+      p_minutes: change.minutes,
     });
     if (crewErr) {
-      const locked = lockedShopOf(crewErr);
-      if (locked) return { ok: false, error: crewErr.message, locked };
-      if (crewErr.code === 'P0002') return { ok: false, error: 'Nothing changed — the schedule moved meanwhile. Open it again.' };
+      if (crewErr.code === 'P0002') return { ok: false, error: 'Nothing sent — the schedule moved meanwhile. Open it again.' };
       return { ok: false, error: crewRefusal(crewErr.message) };
     }
-    if (n !== ids.length) return { ok: false, error: 'Nothing changed — the schedule moved meanwhile. Open it again.' };
-  } else if (change.op === 'move') {
+    if (n !== ids.length) return { ok: false, error: 'Nothing sent — the schedule moved meanwhile. Open it again.' };
+    // Tell everyone who can approve it — the shipped request notice (the couple + a coordinator holding The Day = Edit).
+    // Best-effort: the request is filed; a failed notice never undoes it.
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName: 'The coordinator’s crew',
+        kind: 'adjust',
+        itemLabel: part.label,
+        proposesChange: true,
+        note: requestWords(change.minutes, part, ids.length),
+      });
+    } catch (e) {
+      logQueryError('changeTheSchedule.requestNotice', { message: String(e) }, { eventId }, 'graceful_degrade');
+    }
+    return { ok: true, message: 'Sent to the hosts — they approve it with one tap.', moved: [], requested: true };
+  }
+
+  // ── the write: the coordinator, or a delegate the hosts lent The Day = Edit ──
+  if (change.op === 'move') {
     // The running-late shift (20271303571970): a pure shift, all or nothing — one refused row undoes the whole day.
     const { data: n, error: moveErr } = await supabase.rpc('running_late_shift_schedule', {
       p_event_id: eventId,

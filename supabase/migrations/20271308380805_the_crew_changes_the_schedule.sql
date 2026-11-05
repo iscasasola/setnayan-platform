@@ -19,11 +19,14 @@
 --       `run_state`, so the part-lock function (redefined by 20271307658341 today) is not copied a third time.
 --       A MOVE keeps the owner's running-late ruling (DECISION_LOG 2026-11-03 (2)): a pure shift passes a lock and the
 --       supplier is told.
---   3 · `crew_change_schedule` — a crew MEMBER's phone moves or skips a part. The crew scanner's own gates
---       (`crew_seat_by_guest_qr`, 20271297483236), asked of the shop and of the person who issued the QR: an allowed,
---       unexpired pass on THIS event, role `member`, the shop booked as the coordinator, and the hosts gave the issuer
---       The Day = Edit (`moderator_area_level_of … 'schedule' = 'edit'`). All or nothing. The gates are ONE function,
---       `crew_schedule_door`, which the crew page asks too — so the button is drawn exactly when the write would open.
+--   3 · `crew_request_schedule_move` — a crew MEMBER's phone ASKS to move parts (owner 2026-11-05, DECISION_LOG "WHO
+--       CHANGES THE SCHEDULE…" (D): *"crew changes will only be requests. the coordinator/hosts of the event approves
+--       with one tap"*). It writes nothing on the schedule: it files one shipped request per part
+--       (`event_schedule_suggestions`, kind 'adjust', the shifted times), which the hosts — and a coordinator holding
+--       The Day = Edit — accept with Approve all through the shipped accept path. Gates: an allowed, unexpired pass on
+--       THIS event, role `member`, the shop booked as the coordinator — ONE function, `crew_schedule_door`, which the
+--       crew page asks too, so the button is drawn exactly when the request would be filed. No skip request: the
+--       shipped request carries times only (no ruling yet on a skip request).
 --   4 · `tell_guests_the_schedule_changed` — guests holding an account get ONE in-app notice per change (plan
 --       SCHEDULE_CHAPTERS_BUILD_PLAN §3 "Time moves": *"notifies those on it in-app; replies are kept and nothing is
 --       re-sent"*). Release's pattern (20271302139506): one statement, never a loop, the shipped `schedule_shifted`
@@ -39,7 +42,7 @@ BEGIN;
 
 COMMENT ON COLUMN public.event_schedule_blocks.run_state IS
   'Day-of run-of-show — upcoming | live | done | skipped. Advanced by advance_schedule_block; skipped (or put back) by '
-  'the coordinator''s Change the schedule or a crew member''s (crew_change_schedule). A skipped part did not happen. '
+  'the floor''s Change the schedule (the coordinator, or a delegate lent The Day = Edit). A skipped part did not happen. '
   '20270321980372 · skipped 20271308380805.';
 
 -- ── 2 · a skip meets the change lock ────────────────────────────────────────────────────────────────────────────────
@@ -74,8 +77,9 @@ CREATE TRIGGER event_schedule_blocks_skip_lock
   FOR EACH ROW EXECUTE FUNCTION public.event_schedule_blocks_skip_lock();
 
 -- ── 3 · the crew member's door ──────────────────────────────────────────────────────────────────────────────────────
--- ONE answer to "may this phone change the schedule", asked by the crew page (to draw the button or not — a door that
--- never opens is not drawn) and by the write below (to refuse). 'ok', or the word for the first gate that is shut.
+-- ONE answer to "may this phone ask to change the schedule", asked by the crew page (to draw the button or not — a door
+-- that never opens is not drawn) and by the request below (to refuse). 'ok', or the word for the first gate that is shut.
+-- A request needs no edit right — the hosts decide — so the QR issuer's The Day = Edit is not asked.
 CREATE OR REPLACE FUNCTION public.crew_schedule_door(p_event_id UUID)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -85,11 +89,10 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_shop   UUID;
-  v_issuer UUID;
   v_role   TEXT;
 BEGIN
   -- 1 · an allowed, unexpired pass on THIS event — a Member's (a Helper's pass opens no schedule)
-  SELECT p.vendor_profile_id, c.created_by, p.crew_role INTO v_shop, v_issuer, v_role
+  SELECT p.vendor_profile_id, p.crew_role INTO v_shop, v_role
     FROM public.vendor_crew_passes p
     JOIN public.vendor_crew_codes c
       ON c.vendor_profile_id = p.vendor_profile_id AND c.event_id = p.event_id
@@ -117,10 +120,6 @@ BEGIN
     RETURN 'not_the_coordinator';
   END IF;
 
-  -- 3 · the hosts gave the person who issued the crew QR The Day = Edit — the crew never holds more than they do
-  IF v_issuer IS NULL OR public.moderator_area_level_of(p_event_id, v_issuer, 'schedule') IS DISTINCT FROM 'edit' THEN
-    RETURN 'schedule_not_shared';
-  END IF;
   RETURN 'ok';
 END;
 $$;
@@ -128,15 +127,17 @@ REVOKE ALL ON FUNCTION public.crew_schedule_door(UUID) FROM PUBLIC, anon, authen
 GRANT EXECUTE ON FUNCTION public.crew_schedule_door(UUID) TO authenticated;
 
 COMMENT ON FUNCTION public.crew_schedule_door(UUID) IS
-  'May the calling crew phone change this event''s schedule? ''ok'' or the first shut gate (no_crew_pass · not_a_member · '
-  'not_the_coordinator · schedule_not_shared). Asked by /join/crew to draw the button and by crew_change_schedule to '
+  'May the calling crew phone ask to change this event''s schedule? ''ok'' or the first shut gate (no_crew_pass · '
+  'not_a_member · not_the_coordinator). Asked by /join/crew to draw the button and by crew_request_schedule_move to '
   'refuse — one answer for both. 20271308380805.';
 
-CREATE OR REPLACE FUNCTION public.crew_change_schedule(
+-- A REQUEST, never a write on the schedule: one shipped `event_schedule_suggestions` row per part, the shifted times
+-- proposed, waiting for the hosts (no Auto-agree — a crew request always waits). Fenced as the crew phone reads the
+-- schedule (`onlyWhatABookedShopMaySee`: not a coordinator's prep) and only parts that can still move (timed, not run).
+CREATE OR REPLACE FUNCTION public.crew_request_schedule_move(
   p_event_id  UUID,
-  p_op        TEXT,
   p_block_ids UUID[],
-  p_minutes   INTEGER DEFAULT NULL
+  p_minutes   INTEGER
 )
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -145,67 +146,63 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_door   TEXT;
-  v_ids    UUID[] := ARRAY(SELECT DISTINCT x FROM unnest(coalesce(p_block_ids, '{}'::uuid[])) x WHERE x IS NOT NULL);
-  v_n      INTEGER;
+  v_door  TEXT;
+  v_ids   UUID[] := ARRAY(SELECT DISTINCT x FROM unnest(coalesce(p_block_ids, '{}'::uuid[])) x WHERE x IS NOT NULL);
+  v_shop  UUID;
+  v_name  TEXT;
+  v_note  TEXT;
+  v_n     INTEGER;
 BEGIN
-  IF p_op IS NULL OR p_op NOT IN ('move', 'skip', 'unskip') THEN
-    RAISE EXCEPTION 'unknown_change' USING ERRCODE = '22023';
-  END IF;
-
   v_door := public.crew_schedule_door(p_event_id);
   IF v_door IS DISTINCT FROM 'ok' THEN
     RAISE EXCEPTION '%', coalesce(v_door, 'no_crew_pass') USING ERRCODE = '42501';
   END IF;
-
+  IF p_minutes IS NULL OR p_minutes = 0 OR abs(p_minutes) > 720 THEN
+    RAISE EXCEPTION 'A move is a whole number of minutes, at most 12 hours either way.' USING ERRCODE = '22023';
+  END IF;
   IF cardinality(v_ids) = 0 THEN
     RAISE EXCEPTION 'nothing_changed' USING ERRCODE = 'P0002';
   END IF;
 
-  IF p_op = 'move' THEN
-    IF p_minutes IS NULL OR p_minutes = 0 OR abs(p_minutes) > 720 THEN
-      RAISE EXCEPTION 'A move is a whole number of minutes, at most 12 hours either way.' USING ERRCODE = '22023';
-    END IF;
-    -- The running-late shift, exactly (20271303571970): the marker lets a locked part through only for a pure shift
-    -- of these minutes, and it lives one transaction.
-    PERFORM set_config('app.running_late_minutes', p_minutes::text, true);
-    UPDATE public.event_schedule_blocks b
-       SET start_at   = b.start_at + make_interval(mins => p_minutes),
-           end_at     = b.end_at   + make_interval(mins => p_minutes),
-           updated_at = now()
-     WHERE b.event_id = p_event_id
-       AND b.block_id = ANY (v_ids)
-       AND b.time_tba = false;
-    GET DIAGNOSTICS v_n = ROW_COUNT;
-    PERFORM set_config('app.running_late_minutes', '', true);
-  ELSE
-    -- A skip is one part; it never touches a part that has started or finished.
-    IF cardinality(v_ids) <> 1 THEN
-      RAISE EXCEPTION 'Skip one part at a time.' USING ERRCODE = '22023';
-    END IF;
-    UPDATE public.event_schedule_blocks b
-       SET run_state  = CASE WHEN p_op = 'skip' THEN 'skipped' ELSE 'upcoming' END::public.schedule_run_state,
-           updated_at = now()
-     WHERE b.event_id = p_event_id
-       AND b.block_id = v_ids[1]
-       AND b.run_state::text = CASE WHEN p_op = 'skip' THEN 'upcoming' ELSE 'skipped' END;
-    GET DIAGNOSTICS v_n = ROW_COUNT;
-  END IF;
+  SELECT p.vendor_profile_id, btrim(p.display_name) || ' · ' || coalesce(nullif(btrim(vp.business_name), ''), 'crew')
+    INTO v_shop, v_name
+    FROM public.vendor_crew_passes p
+    JOIN public.vendor_profiles vp ON vp.vendor_profile_id = p.vendor_profile_id
+   WHERE p.event_id = p_event_id AND p.crew_user_id = auth.uid() AND p.status = 'allowed'
+   LIMIT 1;
 
-  -- A part that is gone, belongs to another event, or has already run: nothing moves, never half the day.
+  v_note := 'Crew on the day: move ' || CASE WHEN p_minutes > 0 THEN 'later' ELSE 'earlier' END || ' '
+            || abs(p_minutes)::text || ' min.';
+
+  INSERT INTO public.event_schedule_suggestions
+    (event_id, block_id, vendor_profile_id, suggested_by_user_id, suggested_by_name, kind, direction,
+     proposed_start_at, proposed_end_at, note, status)
+  SELECT b.event_id, b.block_id, v_shop, auth.uid(), v_name, 'adjust', 'to_host',
+         b.start_at + make_interval(mins => p_minutes),
+         CASE WHEN b.end_at IS NULL THEN NULL ELSE b.end_at + make_interval(mins => p_minutes) END,
+         v_note, 'open'
+    FROM public.event_schedule_blocks b
+   WHERE b.event_id = p_event_id
+     AND b.block_id = ANY (v_ids)
+     AND b.time_tba = false
+     AND b.visibility <> 'coordinator_only'
+     AND b.run_state::text IN ('upcoming', 'live');
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+
+  -- A part that is gone, belongs to another event, or has already run: nothing is asked, never half the move.
   IF v_n <> cardinality(v_ids) THEN
     RAISE EXCEPTION 'nothing_changed' USING ERRCODE = 'P0002';
   END IF;
   RETURN v_n;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.crew_change_schedule(UUID, TEXT, UUID[], INTEGER) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.crew_change_schedule(UUID, TEXT, UUID[], INTEGER) TO authenticated;
+REVOKE ALL ON FUNCTION public.crew_request_schedule_move(UUID, UUID[], INTEGER) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.crew_request_schedule_move(UUID, UUID[], INTEGER) TO authenticated;
 
-COMMENT ON FUNCTION public.crew_change_schedule(UUID, TEXT, UUID[], INTEGER) IS
-  'A crew MEMBER''s Change the schedule (owner 2026-11-04): move parts by a pure shift (the running-late rule) or skip / '
-  'un-skip one part. Gates = the crew scanner''s: an allowed unexpired member pass on this event, the shop booked as the '
-  'coordinator, the QR''s issuer holding The Day = Edit. All or nothing. 20271308380805.';
+COMMENT ON FUNCTION public.crew_request_schedule_move(UUID, UUID[], INTEGER) IS
+  'A crew MEMBER asks to move parts (owner 2026-11-05 (D): crew changes are requests the coordinator/hosts approve with '
+  'one tap). Files one open event_schedule_suggestions row per part with the shifted times — never writes the schedule. '
+  'Gates = crew_schedule_door. All or nothing. 20271308380805.';
 
 -- ── 4 · the guests are told, in the app ─────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.tell_guests_the_schedule_changed(

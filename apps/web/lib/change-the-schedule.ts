@@ -10,6 +10,8 @@
  *     takes stays the same ("later parts follow"). A part that is done keeps its time: it already happened. A pure
  *     shift — the shipped running-late write, which the owner let past a supplier's change lock (DECISION_LOG
  *     2026-11-03 (2)); the supplier is told.
+ *   · CREW — a crew Member's phone only ASKS to move (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (D));
+ *     the coordinator / hosts approve with one tap. No skip request yet (the shipped request carries times only).
  *   · SKIP — one part that has not started becomes `skipped` (migration 20271308380805): it did not happen, so it is
  *     never a ✓, and "Done · next" passes over it. Later parts keep their times. A skip of a locked supplier's part is
  *     refused by the database with the lock's calm line, and the sheet offers the request instead.
@@ -105,6 +107,19 @@ export function moveLead(part: ChangeablePart, minutes: number, following: numbe
   return following === 0
     ? `${part.label} moves to ${to}. ${rest} The couple, your crew and the guests see the new time.`
     : `${part.label} moves to ${to}, and ${rest} The couple, your crew and the guests see the new times.`;
+}
+
+/** The crew phone's line under the pickers — a request, so it says who decides (owner 2026-11-05 (D)). */
+export function requestLead(part: ChangeablePart, minutes: number, following: number): string {
+  const to = clockAfter(part.start_at, minutes);
+  const rest = following === 0 ? '' : ` and the ${following === 1 ? 'part' : `${following} parts`} after it`;
+  return `Asks the hosts to move ${part.label}${rest} — ${part.label} to ${to}. Nothing changes until they approve it with one tap.`;
+}
+
+/** The request's words in the hosts' notice. */
+export function requestWords(minutes: number, part: { label: string }, parts: number): string {
+  const rest = parts > 1 ? ` and the ${parts - 1 === 1 ? 'part' : `${parts - 1} parts`} after it` : '';
+  return `Move ${part.label}${rest} ${moveWords(minutes)}.`;
 }
 
 /** The sheet's line for Skip. */

@@ -39,8 +39,9 @@ export const dynamic = 'force-dynamic';
  * phone saw the coordinator's unreleased prep (`visibility = 'coordinator_only'`), which the shop itself may not read.
  * 🚪 The scanner is drawn only for a coordinator shop's crew (`crewRoleOpens(role, coordinator)`): its door refuses
  * every other shop, and a door that never opens is said in words instead.
- * 🗓 A Member of the coordinator's crew whose QR issuer holds The Day = Edit also gets Change the schedule (owner
- * 2026-11-04) — drawn only when `crew_schedule_door` says 'ok', written by `crew_change_schedule` (same gates).
+ * 🗓 A Member of the coordinator's crew also gets Change the schedule as a REQUEST (owner 2026-11-04; 2026-11-05 (D):
+ * crew changes are requests the coordinator / hosts approve with one tap) — drawn only when `crew_schedule_door` says
+ * 'ok', filed by `crew_request_schedule_move` (same gates).
  * 🔒 app/join/crew/the-crew-sees-only-the-event-hub.test.ts · tests/db/crew-pass-sees-only-its-event.db.test.ts
  */
 export default async function CrewJoinPage({ params }: { params: Promise<{ token: string }> }) {
@@ -104,8 +105,8 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
           .order('start_at', { ascending: true })
           .order('sort_order', { ascending: true })
       : Promise.resolve({ data: null, error: null }),
-    // 🗓 May this phone change the schedule? The database's ONE answer — the same function the write asks, on this
-    // phone's own session — so the button is drawn exactly when Move / Skip would open.
+    // 🗓 May this phone ask to change the schedule? The database's ONE answer — the same function the request asks, on
+    // this phone's own session — so the button is drawn exactly when the request would be filed.
     member ? supabase.rpc('crew_schedule_door', { p_event_id: eventId }) : Promise.resolve({ data: null, error: null }),
   ]);
   if (doorRes.error) logQueryError('CrewJoin.scheduleDoor', doorRes.error, { eventId }, 'graceful_degrade');

@@ -14,10 +14,12 @@
 import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { changeTheSchedule } from '@/lib/change-the-schedule.server';
+import { mayAdvance } from '@/lib/run-of-show-advance';
 import type { ScheduleChange } from '@/lib/change-the-schedule';
 import { liveDayTag } from '@/lib/live-day-cache';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
@@ -91,9 +93,11 @@ export async function floorAdvanceBlock(
  *
  * ONE ACTION, TWO DOORS — every export is a Vercel route (`lint-server-action-budget.mjs`), so the crew's phone rides
  * this one the way the crew scanner rides `floorSeatByQr`:
- *   · `floor` — the booked coordinator (re-checked here for a sentence; RLS and the running-late door decide);
- *   · `crew`  — a crew Member's phone: signed in (an anonymous account is enough), and `crew_change_schedule` holds
- *     every gate itself.
+ *   · `floor` — a CHANGE: the booked coordinator, the couple, or a delegate the hosts lent The Day = Edit (an emcee,
+ *     within the access window) — the shipped "Done · next" gate (`mayAdvance`), asked here for a sentence; RLS and
+ *     the running-late door decide the write (owner 2026-11-05, DECISION_LOG "WHO CHANGES THE SCHEDULE…" (A)(C));
+ *   · `crew`  — a crew Member's phone ASKS (D): signed in (an anonymous account is enough), and
+ *     `crew_request_schedule_move` holds every gate itself and files requests the coordinator / hosts approve.
  *
  * One revalidate per change for the guests (`liveDayTag` — the cached Event Hub copies wear it; the schedule write
  * moves the event's stamp too). No live connection is opened for anyone.
@@ -113,10 +117,18 @@ export async function floorChangeSchedule(
     if (!user) return { ok: false, error: 'Scan the crew QR again to sign this phone in.' };
     userId = user.id;
   } else {
-    const ctx = await requireCoordinator(eventId);
-    if ('error' in ctx) return { ok: false, error: ctx.error };
-    supabase = ctx.supabase;
-    userId = ctx.user.id;
+    supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false, error: 'Not signed in.' };
+    userId = user.id;
+    // A supplier's booking fee still unlocks the event (owner 2026-09-20) — no-op while the flag is off.
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+    const feeBlocked = profile ? await eventFeeBlocksAction(profile.vendor_profile_id, eventId) : null;
+    if (feeBlocked) return { ok: false, error: feeBlocked as string };
+    const allowed = await mayAdvance({ user: supabase as never, admin: createAdminClient() as never }, user.id, eventId);
+    if (!allowed) return { ok: false, error: 'The hosts haven’t lent you the schedule to change — ask them for The Day = Edit.' };
   }
 
   const res = await changeTheSchedule(supabase, userId, eventId, change, via);

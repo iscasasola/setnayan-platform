@@ -8,7 +8,8 @@
  *
  * One component, both doors: the coordinator's floor and the emcee's desk (`ScheduleUpdater`, `via="floor"`) and a crew
  * Member's phone (`app/join/crew/[token]`, `via="crew"`). The rule and the words are `lib/change-the-schedule.ts`; the
- * write is `floorChangeSchedule` (one action — every export is a route).
+ * write is `floorChangeSchedule` (one action — every export is a route). On the crew phone the sheet ASKS (owner
+ * 2026-11-05 (D)): **Ask the hosts** files requests the coordinator / hosts approve with one tap; no Skip, no Undo.
  *
  * 🔒 A skip of a locked supplier's part is refused by the database with the lock's own line (#7253's words) — said here,
  * never "try again".
@@ -24,6 +25,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import {
   MOVE_MINUTES,
   moveLead,
+  requestLead,
   movableParts,
   partsThatFollow,
   skipLead,
@@ -62,7 +64,9 @@ export function ChangeTheSchedule({
   const part = movable.find((p) => p.block_id === partId) ?? first;
   const signed = later ? minutes : -minutes;
   const following = part ? Math.max(0, partsThatFollow(parts, part.block_id).length - 1) : 0;
-  const canSkip = part ? skippable.has(part.block_id) : false;
+  /** A crew phone asks (owner 2026-11-05 (D)): a request to move — there is no skip request. */
+  const ask = via === 'crew';
+  const canSkip = !ask && part ? skippable.has(part.block_id) : false;
 
   const show = () => {
     setPartId(first?.block_id ?? null);
@@ -80,6 +84,11 @@ export function ChangeTheSchedule({
       }
       // The action revalidates, so this page re-renders with the new times — no refresh of our own.
       setOpen(false);
+      // A crew phone ASKED — nothing changed yet, so there is nothing to undo (owner 2026-11-05 (D)).
+      if (ask) {
+        guestToast.success(res.message ?? 'Sent to the hosts.');
+        return;
+      }
       const moved = res.moved ?? [];
       pushUndo({
         label: res.message ?? 'Schedule changed',
@@ -137,7 +146,7 @@ export function ChangeTheSchedule({
         </FormRows>
         {part ? (
           <p className="mt-3 text-[13.5px] leading-snug text-ink/70" data-change-lead="">
-            {moveLead(part, signed, following)}
+            {ask ? requestLead(part, signed, following) : moveLead(part, signed, following)}
           </p>
         ) : null}
         {part && canSkip ? (
@@ -155,7 +164,7 @@ export function ChangeTheSchedule({
             tone="brand"
             main
             icon={MoveRight}
-            label="Move"
+            label={ask ? 'Ask the hosts' : 'Move'}
             disabled={pending || !part}
             onClick={() => part && run({ op: 'move', blockId: part.block_id, minutes: signed })}
             className="flex-1"

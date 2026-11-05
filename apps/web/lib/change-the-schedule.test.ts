@@ -9,6 +9,7 @@
  *   ⓸ The sheet: one dropdown per choice, no pill row of +N buttons left on the floor.
  *   ⓹ The crew row's sheet promises only what the crew phone draws.
  *   ⓺ Day-of tools stay Free: nothing on these paths asks for Pro.
+ *   ⓻ Who may (owner 2026-11-05): a crew phone only asks; the emcee changes it with a lent Edit.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +26,8 @@ import {
   moveWords,
   movableParts,
   partsThatFollow,
+  requestLead,
+  requestWords,
   skippableParts,
   undoOf,
   withoutSkipped,
@@ -123,7 +126,7 @@ test('⓸ the sheet: one dropdown per choice, and the floor’s +N pill row is g
   assert.deepEqual([...MOVE_MINUTES], [5, 10, 15, 20, 30, 45, 60]);
   const sheet = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx');
   assert.equal(sheet.match(/<ChosenRow\b/g)?.length, 3, 'Part ▾ · Move it ▾ · By ▾ — each one dropdown');
-  assert.match(sheet, /label="Move"/);
+  assert.match(sheet, /label=\{ask \? 'Ask the hosts' : 'Move'\}/);
   assert.match(sheet, /label="Skip this part"/);
   assert.match(sheet, /pushUndo\(/, 'a change has no Undo');
   const updater = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx');
@@ -138,7 +141,9 @@ test('⓹ the crew row’s sheet promises only what the crew phone draws', () =>
       const gets = crewRoleGets(role, coordinator).opens.join(' | ');
       assert.equal(/Seat scanner/.test(gets), opens.scanner, `${role}/${coordinator}: the scanner line disagrees with the phone`);
       assert.equal(/Run of show/.test(gets), opens.runOfShow, `${role}/${coordinator}: the run-of-show line disagrees`);
-      assert.equal(/Change the schedule/.test(gets), role === 'member' && coordinator, `${role}/${coordinator}: change promised`);
+      assert.equal(/change the schedule/i.test(gets), role === 'member' && coordinator, `${role}/${coordinator}: change promised`);
+      // A crew phone ASKS (owner 2026-11-05 (D)) — the sheet never promises the crew a change of its own.
+      if (role === 'member' && coordinator) assert.match(gets, /Ask to change the schedule[^|]*approve/);
     }
   }
   const panel = read('app/vendor-dashboard/on-the-day/_components/crew-panel.tsx');
@@ -157,4 +162,24 @@ test('⓺ day-of tools stay Free — nothing on these paths asks for Pro', () =>
   ]) {
     assert.doesNotMatch(read(rel), /entitlement|isPro\b|ProMark|requirePro|◆/, `${rel} gates a day-of tool on Pro`);
   }
+});
+
+test('⓻ who may change it (owner 2026-11-05): a crew phone ASKS, the emcee changes with a lent Edit', () => {
+  // (D) a crew change is a request the coordinator / hosts approve with one tap — never a write on the schedule.
+  const server = read('lib/change-the-schedule.server.ts');
+  assert.match(server, /rpc\('crew_request_schedule_move'/);
+  assert.doesNotMatch(server, /crew_change_schedule/, 'the crew phone writes the schedule directly');
+  assert.match(server, /notifyScheduleRequest\(/, 'the hosts are not told a crew request is waiting');
+  assert.match(requestLead(DAY[2]!, 15, 2), /^Asks the hosts to move Photos and the 2 parts after it — Photos to 4:15 PM\. Nothing changes until they approve/);
+  assert.equal(requestWords(-10, DAY[4]!, 1), 'Move Dinner earlier 10 min.');
+  const sheet = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule.tsx');
+  assert.match(sheet, /const ask = via === 'crew'/);
+  assert.match(sheet, /const canSkip = !ask &&/, 'the crew phone offers a skip it cannot ask for');
+  assert.match(sheet, /label=\{ask \? 'Ask the hosts' : 'Move'\}/);
+  // (A)(C) the floor door asks the shipped "Done · next" gate — couple · lent Edit (within the access window) ·
+  // booked coordinator — so an emcee the hosts lent The Day = Edit is let in, and View / Off are not.
+  const actions = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts');
+  const body = actions.slice(actions.indexOf('export async function floorChangeSchedule'));
+  assert.match(body, /await mayAdvance\(/);
+  assert.doesNotMatch(body.slice(0, body.indexOf('changeTheSchedule(')), /requireCoordinator\(/, 'the emcee lent The Day is refused as "not the coordinator"');
 });

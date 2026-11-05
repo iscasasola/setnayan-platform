@@ -58,7 +58,7 @@ type BranchManager = {
  * an error string so the inline form can show it. Returns the manager context
  * or an error result.
  */
-async function requireBranchManager(): Promise<
+async function requireBranchManager(opts: { buying: boolean } = { buying: true }): Promise<
   BranchManager | { error: BranchActionState }
 > {
   const supabase = await createClient();
@@ -102,9 +102,11 @@ async function requireBranchManager(): Promise<
   }
   // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro and Ultra have branches (Pro 3 included,
   // Ultra 6 included + buys more). A plan with none is a PLAN PAYWALL, asked through the one flag-aware question:
-  // while VENDOR_TIER_FEATURE_GATE is off any shop may still BUY a branch (the branch's own fee, below), as before;
-  // while on, this is where a Free · Verified · Solo shop is asked for the plan — the final action, try-first.
-  if (vendorPaywallApplies(planHasBranches(tier))) {
+  // while VENDOR_TIER_FEATURE_GATE is on, this is where a Free · Verified · Solo shop is asked for the plan — the final
+  // action, try-first. BUYING a branch is a separate rule, asked where the money is (createBranch past the included
+  // ones · renewBranch): ULTRA ONLY, ALWAYS, whatever the switch says (owner 2026-11-05, "Ultra only, always").
+  // Cancelling a branch a shop already holds is not a purchase and stays open to it (`buying: false`).
+  if (opts.buying && vendorPaywallApplies(planHasBranches(tier))) {
     return { error: err(`Branches come with Pro and ${TIER_LABEL.enterprise}. Pick one on the Plans page to add a branch.`) };
   }
 
@@ -273,9 +275,10 @@ export async function createBranch(
     revalidateBranchSurfaces();
     return { status: 'success', kind: 'created', message: `${label} added — included in your plan.` };
   }
-  // Past the included ones, only Ultra (and Custom) may BUY more — asked through the same switch, so while it is off
-  // the paid flow stays open to every plan exactly as before.
-  if (vendorPaywallApplies(canBuyExtraBranches(tier))) {
+  // ⚖ Past the included ones, only Ultra (and Custom) may BUY more — ULTRA ONLY, ALWAYS (owner 2026-11-05, verbatim
+  // "Ultra only, always"; price sheet 2026-11-04 "Extra branch 1990 (applies for ultra only)"). A price rule is not a
+  // try-first paywall, so VENDOR_TIER_FEATURE_GATE does not open it.
+  if (!canBuyExtraBranches(tier)) {
     const total = tierCaps(tier).branchesIncluded;
     return err(
       total > 0
@@ -349,7 +352,7 @@ export async function renewBranch(
 ): Promise<BranchActionState> {
   const ctx = await requireBranchManager();
   if ('error' in ctx) return ctx.error;
-  const { supabase, userId, vendorProfileId } = ctx;
+  const { supabase, userId, vendorProfileId, tier } = ctx;
 
   const branchId = String(formData.get('branch_id') ?? '').trim();
   if (!branchId) return err('Missing branch.');
@@ -372,6 +375,10 @@ export async function renewBranch(
   if ((branch as { included_in_plan?: boolean | null }).included_in_plan === true) {
     return err('This branch is included in your plan — there is nothing to renew.');
   }
+  // ⚖ Renewing a bought branch is a purchase — ULTRA ONLY, ALWAYS (owner 2026-11-05), whatever the switch says.
+  if (!canBuyExtraBranches(tier)) {
+    return err(`Extra branches are sold with ${TIER_LABEL.enterprise} only. Pick ${TIER_LABEL.enterprise} on the Plans page to renew this one.`);
+  }
   const label = (branch as { branch_label: string }).branch_label;
 
   const feePhp = await fetchBranchFeePhp(supabase);
@@ -393,7 +400,7 @@ export async function cancelBranch(
   _prev: BranchActionState,
   formData: FormData,
 ): Promise<BranchActionState> {
-  const ctx = await requireBranchManager();
+  const ctx = await requireBranchManager({ buying: false });
   if ('error' in ctx) return ctx.error;
   const { supabase, vendorProfileId } = ctx;
 

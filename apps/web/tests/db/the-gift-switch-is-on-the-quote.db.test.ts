@@ -152,14 +152,15 @@ test('6 · the BILL sizes the gift from the same answer — a switched-on quote 
     `INSERT INTO public.booking_fee_ledger (event_id, vendor_profile_id) VALUES ($1, $2) RETURNING ledger_id`,
     [b.eventId, b.vendorProfileId],
   );
-  const FEE_ON_50K = 250_000; // ₱2,500 on a ₱50,000 booking (5%)
+  // ₱1,000 on a ₱20,000 booking (5%) — 40% is ₱400, under the top pack's ₱990, so the gift is not capped (2026-11-03).
+  const FEE_ON_20K = 100_000;
   const chargeId = await one<string>(
     `INSERT INTO public.booking_fee_charges
        (ledger_id, event_id, vendor_profile_id, event_vendor_id, kind, source, status,
         proposal_amount_centavos, computed_fee_centavos, amount_charged_centavos, schedule_version)
-     VALUES ($1, $2, $3, $4, 'primary', 'lock', 'pending', 5000000, $5, $5, 'test')
+     VALUES ($1, $2, $3, $4, 'primary', 'lock', 'pending', 2000000, $5, $5, 'test')
      RETURNING charge_id`,
-    [ledgerId, b.eventId, b.vendorProfileId, b.eventVendorId, FEE_ON_50K],
+    [ledgerId, b.eventId, b.vendorProfileId, b.eventVendorId, FEE_ON_20K],
   );
   const row = await db.query<{ offered: boolean; credits: number; centavos: string | number }>(
     `SELECT setnayan_gift_offered AS offered, gift_credits AS credits, gift_centavos AS centavos
@@ -168,8 +169,8 @@ test('6 · the BILL sizes the gift from the same answer — a switched-on quote 
   );
   assert.equal(row.rows[0]!.offered, true, 'the charge snapshot read the quote\'s switch');
   assert.ok(Number(row.rows[0]!.credits) > 0, 'and the gift was sized on the fee');
-  // 40% of ₱2,500 = ₱1,000 → the ladder's 1,000-credit rung at ₱700 is below; between rungs
-  assert.equal(Number(row.rows[0]!.centavos), Math.floor((FEE_ON_50K * 40) / 100), 'the charge is 40% of the fee');
+  // 40% of ₱1,000 = ₱400 → between the 150 (₱90) and 1,000 (₱490) packs
+  assert.equal(Number(row.rows[0]!.centavos), Math.floor((FEE_ON_20K * 40) / 100), 'the charge is 40% of the fee');
 
   // and the mirror: card ON, accepted quote OFF ⇒ the bill carries NO gift
   const c = await seedBooking(true);
@@ -184,7 +185,7 @@ test('6 · the BILL sizes the gift from the same answer — a switched-on quote 
         proposal_amount_centavos, computed_fee_centavos, amount_charged_centavos, schedule_version)
      VALUES ($1, $2, $3, $4, 'primary', 'lock', 'pending', 5000000, $5, $5, 'test')
      RETURNING charge_id`,
-    [ledger2, c.eventId, c.vendorProfileId, c.eventVendorId, FEE_ON_50K],
+    [ledger2, c.eventId, c.vendorProfileId, c.eventVendorId, FEE_ON_20K],
   );
   const row2 = await db.query<{ offered: boolean; credits: number }>(
     `SELECT setnayan_gift_offered AS offered, gift_credits AS credits FROM public.booking_fee_charges WHERE charge_id = $1`,

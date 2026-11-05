@@ -57,7 +57,16 @@ export type ViewMoment = {
   time_tba?: boolean;
 };
 
-export type ViewSupplier = { vendor_id: string; name: string; booked: boolean };
+/** `everyChapter` — a coordinator (`isOnEveryChapter`): offered "Coordinator" in View as (slice 6). */
+/** `host` — the booked Host / MC; `trade` — "Photo and video" (Side by side's column heads, slice 9). */
+export type ViewSupplier = { vendor_id: string; name: string; booked: boolean; everyChapter?: boolean; host?: boolean; trade?: string | null };
+
+/**
+ * 👤 A NAMED GUEST, as View as › Guests reads them (slice 6, owner 2026-11-04 "What they see now"): the same three facts
+ * their own Event Hub card reads (`readYourSchedule`) — the roles they hold, their groups, the chapters the hosts took
+ * them off — so the host's preview and the guest's card are one rule (`yourSchedule`).
+ */
+export type ViewPerson = { guest_id: string; name: string; roles: string[]; groupIds: string[]; notInvited: string[] };
 
 export type ViewAsData = {
   moments: ViewMoment[];
@@ -68,6 +77,12 @@ export type ViewAsData = {
   groups: Record<string, string> | null;
   /** A task's role word → how it reads ("bridesmaid" → "Bridesmaid"). */
   roleNames: Record<string, string>;
+  /** 👤 The event's guests for View as › a named guest (slice 6); NULL = the read was refused, absent = not read here. */
+  people?: ViewPerson[] | null;
+  /** The schedule is released (`events.schedule_released_at`) AND the event holds Pro — the guests' own `released`. */
+  released?: boolean;
+  /** The invitation's Arrive by ("4:45 PM", `guestsArriveTime`) — a plain guest's call. */
+  guestsArriveBy?: string | null;
 };
 
 /** What the View as ▾ needs from the page: the data, and whether this event owns the view (Pro, plan §3b). */
@@ -87,7 +102,11 @@ export type ViewLens =
   | { kind: 'suptime' }
   /** `aud:entourage` · `role:bridesmaid` · `group:<id>`. */
   | { kind: 'role'; key: string }
-  | { kind: 'supplier'; vendorId: string; crew: string | null };
+  | { kind: 'supplier'; vendorId: string; crew: string | null }
+  /** 👤 One named guest — exactly their Event Hub card today (slice 6). */
+  | { kind: 'person'; guestId: string }
+  /** 📋 The coordinator: every chapter and moment, with their own tasks marked (slice 6). */
+  | { kind: 'coord'; vendorId: string };
 
 export const EVERYONE: ViewLens = { kind: 'everyone' };
 
@@ -102,6 +121,10 @@ export function lensKey(l: ViewLens): string {
       return `role=${l.key}`;
     case 'supplier':
       return l.crew ? `sup=${l.vendorId}=${l.crew}` : `sup=${l.vendorId}`;
+    case 'person':
+      return `guest=${l.guestId}`;
+    case 'coord':
+      return `coord=${l.vendorId}`;
   }
 }
 
@@ -109,6 +132,8 @@ export function lensKey(l: ViewLens): string {
 export function lensFromKey(key: string): ViewLens {
   if (key === 'guest' || key === 'suptime') return { kind: key };
   if (key.startsWith('role=')) return { kind: 'role', key: key.slice(5) };
+  if (key.startsWith('guest=') && key.length > 6) return { kind: 'person', guestId: key.slice(6) };
+  if (key.startsWith('coord=') && key.length > 6) return { kind: 'coord', vendorId: key.slice(6) };
   if (key.startsWith('sup=')) {
     const [vendorId, ...crew] = key.slice(4).split('=');
     if (vendorId) return { kind: 'supplier', vendorId, crew: crew.length ? crew.join('=') : null };
@@ -160,7 +185,7 @@ export function viewAsMenuOptions(data: ViewAsData, pro: boolean, proDoor: boole
   const all = viewAsOptions(data);
   if (pro) return all;
   const free = all.filter((o) => lensIsFree(lensFromKey(o.key)));
-  return proDoor ? [...free, { key: VIEW_AS_PRO_DOOR, label: 'A guest, a role or a supplier', group: 'Part of Pro' }] : free;
+  return proDoor ? [...free, { key: VIEW_AS_PRO_DOOR, label: 'A guest, a role, a supplier or the coordinator', group: 'Part of Pro' }] : free;
 }
 
 /** The words the button and the "back to Everyone" line say for a lens. */
@@ -171,11 +196,15 @@ export function lensWords(data: ViewAsData, l: ViewLens): string {
     case 'guest':
       return 'A guest';
     case 'suptime':
-      return 'Suppliers by time';
+      return 'Side by side';
     case 'role':
       return roleWords(data, l.key);
     case 'supplier':
       return l.crew ? `${supplierName(data, l.vendorId)} · ${l.crew}` : supplierName(data, l.vendorId);
+    case 'person':
+      return data.people?.find((p) => p.guest_id === l.guestId)?.name ?? 'A guest';
+    case 'coord':
+      return `Coordinator · ${supplierName(data, l.vendorId)}`;
   }
 }
 
@@ -190,7 +219,7 @@ export function viewAsOptions(data: ViewAsData): ViewOption[] {
   const out: ViewOption[] = [
     { key: 'everyone', label: 'Everyone' },
     { key: 'guest', label: 'A guest' },
-    { key: 'suptime', label: 'Suppliers by time' },
+    { key: 'suptime', label: 'Side by side' },
   ];
   const roles = new Map<string, string>();
   for (const m of data.moments) {
@@ -200,6 +229,10 @@ export function viewAsOptions(data: ViewAsData): ViewOption[] {
   for (const t of data.tasks ?? []) {
     if (t.role?.trim()) roles.set(`role:${norm(t.role)}`, roleWords(data, `role:${norm(t.role)}`));
     if (t.group_id) roles.set(`group:${t.group_id}`, roleWords(data, `group:${t.group_id}`));
+  }
+  // 📋 The coordinator first under By role (slice 6): a booked coordinator is on every chapter (`everyChapter`).
+  for (const s of data.suppliers.filter((x) => x.everyChapter).sort((a, b) => a.name.localeCompare(b.name))) {
+    out.push({ key: `coord=${s.vendor_id}`, label: `Coordinator · ${s.name}`, group: 'By role' });
   }
   for (const [key, label] of [...roles].sort((a, b) => a[1].localeCompare(b[1]))) out.push({ key: `role=${key}`, label, group: 'By role' });
 
@@ -216,6 +249,8 @@ export function viewAsOptions(data: ViewAsData): ViewOption[] {
     const crews = [...new Set((data.tasks ?? []).filter((t) => t.vendor_id === s.vendor_id && t.crew?.trim()).map((t) => t.crew!.trim()))];
     for (const crew of crews.sort()) out.push({ key: `sup=${s.vendor_id}=${crew}`, label: `${s.name} · ${crew}`, group: 'Suppliers' });
   }
+  // 👤 Every guest by name (slice 6) — unlimited, so the menu searches; listed last.
+  for (const p of [...(data.people ?? [])].sort((a, b) => a.name.localeCompare(b.name))) out.push({ key: `guest=${p.guest_id}`, label: p.name, group: 'Guests' });
   return out;
 }
 
@@ -231,6 +266,8 @@ export type ViewRow = {
   sub: string;
   /** This line also puts the same person or crew somewhere else at once (§3c #5) — flagged, never refused. */
   clash?: boolean;
+  /** 📋 The coordinator's own task on this line (slice 6). */
+  mine?: boolean;
 };
 
 export type ViewChapter = { chapter: Chapter; rows: ViewRow[] };

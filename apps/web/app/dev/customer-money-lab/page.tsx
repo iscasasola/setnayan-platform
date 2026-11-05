@@ -21,6 +21,10 @@
  * supplier's session (the lab draws, it does not confirm). Names are samples.
  */
 import { notFound } from 'next/navigation';
+import { Users } from 'lucide-react';
+import { ShopCard } from '@/app/vendor-dashboard/_components/kit';
+import { SupplierCountTile } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-count-tile';
+import type { SupplierHeadcount } from '@/lib/supplier-count';
 import { CustomerMoneyFold } from '@/app/vendor-dashboard/clients/[eventId]/_components/customer-money-fold';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import type { BookingMoney } from '@/lib/vendor-cashflow';
@@ -57,6 +61,46 @@ export default async function CustomerMoneyLabPage({
   const raw = typeof sp.s === 'string' ? sp.s : 'waiting';
   const noPlan = raw === 'noplan' || raw === 'unread';
   const stage = moneyStageOf(raw);
+  /* 🧮 `?count=catering|giveaway|flat` — the Headcount card's count tile (owner 2026-11-04, the prototype's "Supplier ·
+     their count"): Juan's Kitchen counts 169 of 180 (11 not counted by the couple); Bloom & Vine counts 18 (only
+     principal sponsors); `flat` = a flat-priced service, which gets no tile. */
+  const countMode = typeof sp.count === 'string' ? sp.count : null;
+  if (countMode) {
+    const labCount: SupplierHeadcount | null =
+      countMode === 'catering'
+        ? { attending: 180, notCounted: 11, outsideRule: 0, counted: 169, category: 'catering', mode: 'all', roles: [], groups: [] }
+        : countMode === 'giveaway'
+          ? {
+              attending: 180,
+              notCounted: 0,
+              outsideRule: 162,
+              counted: 18,
+              category: 'gifts_and_giveaways',
+              mode: 'only',
+              roles: ['principal_sponsor_ninong', 'principal_sponsor_ninang', 'principal_sponsor'],
+              groups: [],
+            }
+          : null;
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6" data-lab-count={countMode}>
+        <p className="text-xs uppercase tracking-[0.14em] text-ink/55">Customer</p>
+        <h1 className="font-display text-[22px] font-medium leading-tight text-ink">Maria &amp; Jose · Wedding</h1>
+        <p className="mb-5 mt-0.5 text-sm text-ink/55">{countMode === 'giveaway' ? 'Bloom & Vine' : 'Juan’s Kitchen'} · their customer card</p>
+        <ShopCard>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
+            <Users aria-hidden className="h-4 w-4 text-terracotta" /> Headcount
+          </h2>
+          {labCount ? (
+            <SupplierCountTile count={labCount} />
+          ) : (
+            <p className="mt-3 text-3xl font-semibold tracking-tight">
+              180<span className="ml-2 text-sm font-normal text-ink/55">attending of 214 invited</span>
+            </p>
+          )}
+        </ShopCard>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 pb-32 pt-6" data-lab-customer-money={raw}>

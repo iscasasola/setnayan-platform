@@ -143,7 +143,8 @@ test('1 · Budget shows ONE Share for the budget, on the house template, through
   assert.match(button, /from '@\/app\/dashboard\/\[eventId\]\/launch\/_components\/print-save-button'/, 'Share left the shared save path (usePrintSave)');
   assert.match(button, /const \{ state, save \} = usePrintSave\(\);/);
   assert.match(button, /<ActionButton\b[\s\S]{0,400}?icon=\{state\.k === 'working' \? [\s\S]{0,120}: Share\}/, 'Share is not the house ActionButton with the share icon');
-  assert.match(button, /onClick=\{\(\) => void save\(url, fileName\)\}/, 'Share does not save the file it names');
+  // A file drawn from the screen (one person's day, slice 6) also hands its body; still the file it names.
+  assert.match(button, /onClick=\{\(\) => void save\(url, fileName(?:, body)?\)\}/, 'Share does not save the file it names');
   assert.match(button, /paper=\$\{encodeURIComponent\(sharePdfPaperParam\(paper\)\)\}/, 'the picked paper does not reach the route');
   // Nothing that opens a page in the app's only view.
   assert.doesNotMatch(button, /location\.assign|location\.href\s*=|openEventHub|<a\b/, 'Share opens a page — the app can be trapped in it');

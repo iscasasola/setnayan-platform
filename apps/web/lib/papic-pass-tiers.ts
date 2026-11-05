@@ -59,10 +59,11 @@ export type PapicPassTier = {
  * Owner-set 2026-07-20; the DB is the source of truth.
  */
 export const FALLBACK_TIERS: readonly PapicPassTier[] = Object.freeze([
-  { serviceCode: 'PAPIC_GUEST', points: 3_000, isTopup: false, sortOrder: 10 },
-  { serviceCode: 'PAPIC_GUEST_6K', points: 6_000, isTopup: false, sortOrder: 20 },
-  { serviceCode: 'PAPIC_GUEST_10K', points: 10_000, isTopup: false, sortOrder: 30 },
-  { serviceCode: 'PAPIC_GUEST_TOPUP', points: 10_000, isTopup: true, sortOrder: 40 },
+  // The three packs (owner 2026-11-03). A fallback is never a price: a rung whose catalogue row is missing or off sale
+  // still disappears from every stepper (`loadPoolRungs`).
+  { serviceCode: 'PAPIC_GUEST_150', points: 150, isTopup: false, sortOrder: 3 },
+  { serviceCode: 'PAPIC_GUEST_1K', points: 1_000, isTopup: false, sortOrder: 30 },
+  { serviceCode: 'PAPIC_GUEST', points: 3_000, isTopup: false, sortOrder: 40 },
 ]);
 
 type TierRow = {
@@ -121,6 +122,36 @@ export async function papicPassPointsForSku(
 ): Promise<number | null> {
   const tiers = await fetchPapicPassTiers(db);
   return tiers.find((t) => t.serviceCode === serviceCode)?.points ?? null;
+}
+
+/**
+ * Points a PAID order of `serviceCode` must grant — the tier row's own points WHETHER OR NOT the rung is still on sale.
+ * Only `grantPapicPassPoints` (lib/sku-activation.ts) reads this; anything that SELLS keeps `papicPassPointsForSku`.
+ *
+ * 🚨 WHY IT EXISTS (2026-11-03, Papic became three packs). Activation used to read ACTIVE tiers only, so a rung retired
+ * between payment and approval — a GCash order still awaiting the admin, an App Store purchase already charged — was
+ * marked paid and granted ZERO credits: no throw, no log. Retiring fourteen rungs at once would have done that to
+ * every such order. A customer who paid gets what the rung said when they paid.
+ *
+ * Top-up rows (`is_topup`) are left out on purpose: `PAPIC_GUEST_TOPUP`'s retirement (2026-07-29) was written to
+ * resolve to zero, and this does not reopen that decision. Retired camera models stay dropped (`dropRetiredPapicTiers`).
+ */
+export async function papicPointsBoughtBySku(db: SupabaseClient, serviceCode: string): Promise<number | null> {
+  const live = await papicPassPointsForSku(db, serviceCode);
+  if (live !== null) return live;
+  const { data, error } = await db
+    .from('papic_pass_tiers')
+    .select('service_code, points, is_topup, sort_order')
+    .eq('service_code', serviceCode)
+    .eq('is_topup', false)
+    .maybeSingle();
+  if (error) {
+    // Logged, never swallowed: a paid order that grants nothing must leave a trace.
+    console.error('[supabase-error] lib/papic-pass-tiers.ts · papic_pass_tiers (retired rung read)', error);
+    return null;
+  }
+  if (!data) return null;
+  return normalise([data as TierRow])[0]?.points ?? null;
 }
 
 /** Is this SKU one of the purchased point buckets? */

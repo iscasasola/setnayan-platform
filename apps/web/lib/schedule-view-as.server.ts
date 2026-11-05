@@ -2,14 +2,16 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
 import { readScheduleSuppliers } from './schedule-suppliers-read';
-import { ROLE_LABELS, guestRoleLabel, type GuestRole } from './guests';
+import { ROLE_LABELS, fetchGuestsByEventMeasured, guestDisplayName, readEventGroupMemberships, guestRoleLabel, type GuestRole } from './guests';
+import { isOnEveryChapter } from './supplier-where';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 import { sanitizeRoleNames } from './role-names';
 import { eventCoupleWebsiteProActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
 import { getIapGate } from './request-platform';
 import type { TaskRow } from './schedule-chapters';
-import type { ViewSupplier } from './schedule-view-as';
+import type { ViewPerson, ViewSupplier } from './schedule-view-as';
 
 /**
  * 👁 VIEW AS — the server half: what the Schedule's View as ▾ reads beyond what the page already holds, in ONE parallel
@@ -35,10 +37,16 @@ export type ViewAsExtras = {
   roleNames: Record<string, string>;
   pro: boolean;
   proHref: string | null;
+  /** 👤 The guests for View as › a named guest (slice 6) — read on a Pro event only; NULL = refused (said). */
+  people: ViewPerson[] | null;
+  /** Released AND Pro — the guests' own `released` (`readYourSchedule`). */
+  released: boolean;
+  /** 📋 The booked coordinators — on every chapter (`isOnEveryChapter`); empty when the trades could not be read. */
+  coordinatorIds: string[];
 };
 
 export async function readViewAsExtras(supabase: SupabaseClient, eventId: string, opts: { readSuppliers: boolean; tasks: Promise<TaskRow[] | null> }): Promise<ViewAsExtras> {
-  const [taskRows, groups, suppliers, pro, gate, roleWords] = await Promise.all([
+  const [taskRows, groups, suppliers, pro, gate, eventHead] = await Promise.all([
     opts.tasks,
     supabase
       .from('guest_groups')
@@ -61,14 +69,26 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
     // The couple's own word for a role (Bridesmaid → "Bride's Crew") — the word every screen shows.
     supabase
       .from('events')
-      .select('role_names')
+      .select('role_names, schedule_released_at')
       .eq('event_id', eventId)
       .maybeSingle()
       .then(
-        ({ data }) => sanitizeRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null),
-        () => sanitizeRoleNames(null),
+        ({ data }) => ({
+          words: sanitizeRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null),
+          releasedAt: (data as { schedule_released_at?: string | null } | null)?.schedule_released_at ?? null,
+        }),
+        () => ({ words: sanitizeRoleNames(null), releasedAt: null }),
       ),
   ]);
+  const roleWords = eventHead.words;
+  // 📋 Which booked suppliers are coordinators (on every chapter) — their trade. A refused read lists none (logged).
+  const tradesRes = await supabase.from('event_vendors').select('vendor_id, category').eq('event_id', eventId);
+  if (tradesRes.error) logQueryError('readViewAsExtras.trades', tradesRes.error, { event_id: eventId }, 'graceful_degrade');
+  const tradeRows = (tradesRes.data ?? []) as Array<{ vendor_id: string; category: string | null }>;
+  const coordinatorIds = tradeRows.filter((t) => isOnEveryChapter(null, t.category)).map((t) => t.vendor_id);
+  // 🧭 Side by side (slice 9): each supplier's trade under their name, and which one is the Host / MC.
+  const tradeOf = new Map(tradeRows.map((t) => [t.vendor_id, t.category]));
+  const people = pro ? await readViewPeople(supabase, eventId) : null;
   const roleNames: Record<string, string> = {};
   for (const t of taskRows ?? []) {
     const word = t.role?.trim().toLowerCase();
@@ -76,10 +96,54 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
   }
   return {
     groups,
-    suppliers: suppliers ? suppliers.map((s) => ({ vendor_id: s.vendor_id, name: s.vendor_name, booked: s.standing === 'Booked' })) : null,
+    suppliers: suppliers
+      ? suppliers.map((s) => {
+          const cat = tradeOf.get(s.vendor_id) ?? null;
+          return {
+            vendor_id: s.vendor_id,
+            name: s.vendor_name,
+            booked: s.standing === 'Booked',
+            everyChapter: coordinatorIds.includes(s.vendor_id),
+            host: cat === 'host_mc',
+            trade: cat ? (VENDOR_CATEGORY_LABEL[cat as VendorCategory] ?? null) : null,
+          };
+        })
+      : null,
+    people,
+    released: pro && eventHead.releasedAt !== null,
+    coordinatorIds,
     roleNames,
     pro,
     // 🍎 Where Apple sells Pro, its page; any other store shell sells none — the door is absent there (shell rule).
     proHref: gate.iap ? `/dashboard/${eventId}/apple-pro` : gate.storeShell ? null : `/dashboard/${eventId}/studio/website-pro`,
   };
+}
+
+/**
+ * 👤 THE GUESTS, AS THEIR OWN CARD READS THEM (slice 6) — for each living, accepted guest: their name, the roles they
+ * hold (`role` + `extra_roles`), their groups and the chapters the hosts took them off — the same three facts
+ * `readYourSchedule` reads for one guest, read once for the event on the host's own session. Any refusal = null.
+ */
+async function readViewPeople(supabase: SupabaseClient, eventId: string): Promise<ViewPerson[] | null> {
+  const [guests, members, off] = await Promise.all([
+    fetchGuestsByEventMeasured(supabase, eventId),
+    readEventGroupMemberships(supabase, eventId),
+    supabase.from('guest_chapter_not_invited').select('guest_id, block_id').eq('event_id', eventId),
+  ]);
+  if (!guests.measured || members.error || off.error) {
+    const error = members.error ?? off.error;
+    if (error) logQueryError('readViewAsExtras.people', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  const groupsOf = new Map<string, string[]>();
+  for (const m of members.data ?? []) groupsOf.set(m.guest_id, [...(groupsOf.get(m.guest_id) ?? []), m.group_id]);
+  const offOf = new Map<string, string[]>();
+  for (const o of (off.data ?? []) as Array<{ guest_id: string; block_id: string }>) offOf.set(o.guest_id, [...(offOf.get(o.guest_id) ?? []), o.block_id]);
+  return guests.rows.map((g) => ({
+    guest_id: g.guest_id,
+    name: guestDisplayName(g),
+    roles: [g.role as string | null, ...((g.extra_roles as string[] | null) ?? [])].filter((r): r is string => typeof r === 'string' && r.trim().length > 0),
+    groupIds: groupsOf.get(g.guest_id) ?? [],
+    notInvited: offOf.get(g.guest_id) ?? [],
+  }));
 }

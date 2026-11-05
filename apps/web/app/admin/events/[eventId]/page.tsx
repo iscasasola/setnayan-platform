@@ -10,6 +10,8 @@ import { setEventFaceMode } from '@/app/admin/events/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readEventServiceCounts } from '@/lib/supplier-count.server';
+import { breakdownWords, ruleLabels, ruleWords } from '@/lib/supplier-count';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -19,6 +21,7 @@ import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { readAdminEventScans } from '@/lib/supplier-scan.server';
 import { SupplierScansAdmin } from './_components/supplier-scans-admin';
 import { NOT_TAKING_CHANGES, SCHEDULE_MARK_COLUMNS, marksByShop, markDay, timesMarkOf } from '@/lib/supplier-schedule-marks';
+import { adminWhereLine, whereChaptersFrom, type WhereBlockRow, type WhereRequestRow } from '@/lib/supplier-where';
 
 export const metadata = { title: 'Event · Admin' };
 export const dynamic = 'force-dynamic';
@@ -118,6 +121,8 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   const ev = eventRead.data;
   if (!ev) notFound();
   const eventId = ev.event_id as string;
+  // 🧮 Leaves now, read below — it needs no other answer.
+  const serviceCountsRead = readEventServiceCounts(admin, eventId);
 
   // ── hosts ───────────────────────────────────────────────────────────────
   const membersRead = await admin
@@ -155,6 +160,10 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   }
   const countCell = (r: { count: number | null; error: unknown }) =>
     r.error || r.count === null ? COULD_NOT_LOAD : formatCount(r.count);
+
+  // ── 🧮 who each per-head service counts (owner 2026-11-04) — numbers and the rule, so support can answer "why 141?"
+  // without opening a guest list. The service role reads it (`get_event_service_counts`); null = refused, said so.
+  const serviceCounts = await serviceCountsRead;
 
   // ── per-guest face list ─────────────────────────────────────────────────
   const guestsRead = await admin
@@ -198,7 +207,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
   // change. Admin words may say "Locked"; the host reads "Not taking changes".
   const supRowsRead = await admin
     .from('event_vendors')
-    .select('vendor_id, vendor_name, marketplace_vendor_id')
+    .select('vendor_id, vendor_name, marketplace_vendor_id, category')
     .eq('event_id', eventId)
     .in('status', [...BOOKED_EVENT_VENDOR_STATUSES])
     .is('archived_at', null)
@@ -221,7 +230,24 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
       );
   // 🎟 Suppliers' scans (the claim scanner) — every claim at this event, to see and to fix. null = unread.
   const supplierScans = await readAdminEventScans(eventId);
-  const supplierLocks: Array<{ key: string; name: string; state: string }> | null = supRowsRead.error
+  // 📍 Each supplier's Where (owner 2026-11-04, migration 20271308641275): the chapters they are on, and a Where request
+  // still waiting either way. Read-only; a refused read is said on the row, never "no chapter".
+  const chaptersRead = await admin
+    .from('event_schedule_blocks')
+    .select('block_id, parent_block_id, label, start_at, time_tba, responsible_vendor_ids')
+    .eq('event_id', eventId)
+    .is('parent_block_id', null);
+  const whereAsksRead = await admin
+    .from('event_schedule_suggestions')
+    .select('suggestion_id, kind, status, direction, where_vendor_id, proposed_block_ids')
+    .eq('event_id', eventId)
+    .eq('kind', 'where')
+    .eq('status', 'open');
+  if (chaptersRead.error) logQueryError('admin/events/[eventId]:chapters for Where', chaptersRead.error);
+  if (whereAsksRead.error) logQueryError('admin/events/[eventId]:Where requests', whereAsksRead.error);
+  const whereChapters = chaptersRead.error ? null : whereChaptersFrom((chaptersRead.data ?? []) as WhereBlockRow[]);
+  const whereAsks = whereAsksRead.error ? null : ((whereAsksRead.data ?? []) as WhereRequestRow[]);
+  const supplierLocks: Array<{ key: string; name: string; state: string; where: string }> | null = supRowsRead.error
     ? null
     : (supRowsRead.data ?? []).map((r) => {
         const shop = r.marketplace_vendor_id as string;
@@ -234,7 +260,17 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               : mark.word === NOT_TAKING_CHANGES
                 ? `Locked since ${markDay(mark.at)} · a host's change is refused`
                 : `Open · ${mark.word} ${markDay(mark.at)}`;
-        return { key: r.vendor_id as string, name: shopName.get(shop) || ((r.vendor_name as string | null) ?? '').trim() || 'Supplier', state };
+        return {
+          key: r.vendor_id as string,
+          name: shopName.get(shop) || ((r.vendor_name as string | null) ?? '').trim() || 'Supplier',
+          state,
+          where: adminWhereLine({
+            vendorId: r.vendor_id as string,
+            category: (r.category as string | null) ?? null,
+            chapters: whereChapters,
+            openAsks: whereAsks,
+          }),
+        };
       });
 
   // RA 10173 who-viewed-whom — one row per host whose details this page shows.
@@ -398,6 +434,38 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
         ) : null}
       </section>
 
+      {/* 🧮 Who each supplier counts (owner 2026-11-04) — each per-head service's count and its rule. */}
+      <section className="border-t border-ink/10 pt-5" data-admin-service-counts="">
+        <h2 className="mb-3 text-sm font-medium text-ink">Who each supplier counts</h2>
+        {serviceCounts === null ? (
+          <p role="alert" className="text-sm text-mulberry">
+            {COULD_NOT_LOAD} the suppliers&rsquo; counts — the read was refused, so this is not &ldquo;none&rdquo;.
+          </p>
+        ) : serviceCounts.services.length === 0 ? (
+          <p className="text-sm text-ink/60">Verified: no supplier on this event is priced per head.</p>
+        ) : (
+          <ul className="divide-y divide-ink/10 text-sm">
+            {serviceCounts.services.map((s) => (
+              <li key={s.id} className="flex items-start justify-between gap-4 py-2" data-admin-service-count={s.id}>
+                <span className="min-w-0">
+                  <span className="block text-ink">
+                    {s.label} · {s.shop ?? '—'}
+                    {s.booked ? '' : <span className="text-ink/50"> · quoted, not booked</span>}
+                  </span>
+                  <span className="block text-xs text-ink/60">
+                    {ruleWords(s.rule.mode, ruleLabels(s.rule, serviceCounts.groups, serviceCounts.names))} · {breakdownWords(s)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <b className="block text-base font-medium tabular-nums text-ink">{formatCount(s.counted)}</b>
+                  <span className="text-xs text-ink/60">counted</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* 🔒 Suppliers' schedule — the CHANGE LOCK (audit D7), read-only */}
       <section className="border-t border-ink/10 pt-5" data-admin-supplier-locks="">
         <h2 className="mb-3 text-sm font-medium text-ink">Suppliers&rsquo; schedule</h2>
@@ -413,6 +481,9 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               <li key={s.key} className="flex flex-wrap justify-between gap-x-4 py-2">
                 <span className="text-ink">{s.name}</span>
                 <span className={s.state.startsWith('Locked') ? 'font-medium text-ink' : 'text-ink/60'}>{s.state}</span>
+                <span className="basis-full text-xs text-ink/60" data-admin-supplier-where={s.key}>
+                  {s.where}
+                </span>
               </li>
             ))}
           </ul>

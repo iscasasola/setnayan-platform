@@ -35,8 +35,11 @@ export function SharePdfButton({
   fileName,
   name,
   papers,
+  body,
 }: {
   href: string;
+  /** A file drawn from what the screen holds (one person's day, slice 6): POSTed as JSON. Omitted → a GET. */
+  body?: string;
   fileName: string;
   /** The accessible name — says WHAT is shared ("Share your budget (PDF)"). */
   name: string;
@@ -62,7 +65,7 @@ export function SharePdfButton({
           icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Share}
           label={word}
           name={state.k === 'working' ? word : name}
-          onClick={() => void save(url, fileName)}
+          onClick={() => void save(url, fileName, body)}
         />
         {papers ? (
           <PaperPicker

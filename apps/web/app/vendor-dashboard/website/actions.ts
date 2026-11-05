@@ -15,14 +15,18 @@ import {
 import { isSetnayanHost } from '@/lib/custom-domain-resolve';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 
-/** Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ Pro item. */
-const OWN_ADDRESS_ASKS_FOR_PRO = 'Your own web address is part of Pro. Pick Pro on the Plan page to add one.';
+/**
+ * Owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (3)): your own web address is a ◆ plan item — Solo and up since
+ * 2026-11-04 ("website applies to solo as well"). The plan is named from the table, never typed.
+ */
+const ADDRESS_TIER_NAME = TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'];
+const OWN_ADDRESS_ASKS_FOR_PRO = `Your own web address is part of ${ADDRESS_TIER_NAME}. Pick ${ADDRESS_TIER_NAME} on the Plan page to add one.`;
 /** The App Store / Play shell refuses the Plan route (lib/store-shell.ts, 3.1.1): the refusal names no place to buy. */
-const OWN_ADDRESS_ASKS_FOR_PRO_SHELL = 'Your own web address is part of Pro.';
+const OWN_ADDRESS_ASKS_FOR_PRO_SHELL = `Your own web address is part of ${ADDRESS_TIER_NAME}.`;
 
 // ── Custom-domain management for the vendor's public page (PR8) ───────────────
 // A vendor points their own domain (e.g. sny.theirshop.com) at Setnayan. The

@@ -66,6 +66,11 @@ const DENIED_COLUMNS = [
   'retirement_reason',
   'retired_by_admin_id',
   'updated_by_admin_id',
+  // 2026-11-04 final price sheet: read only by the service-role client (the gift ladder in
+  // lib/setnayan-gift.server.ts · the plan activation in lib/sku-activation.ts). A supplier's gift
+  // price is shown to that supplier from the server, never read by a browser session.
+  'gift_price_php',
+  'included_papic_credits',
 ] as const;
 
 /** The column this whole file exists for. */

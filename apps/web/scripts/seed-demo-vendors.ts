@@ -365,7 +365,7 @@ type PricingProfile = {
   numPackagesRange: [number, number]; // how many vendor_services rows to create per vendor
 };
 
-function priceProfileFor(service: string): PricingProfile {
+export function priceProfileFor(service: string): PricingProfile {
   const s = service;
 
   // Photography variants — ₱30k-150k
@@ -1854,6 +1854,10 @@ function generateCalendarBlocks(
 // ===========================================================================
 
 type SeedArgs = {
+  /** `--showcase=setnayan-productions` — seed ONE named showcase shop instead of the marketplace batch. */
+  showcase: string | null;
+  /** `--plan=free|verified|solo|pro|ultra` — the plan the showcase shop is drawn at. */
+  plan: string;
   append: boolean;
   dryRun: boolean;
   limit: number | null;
@@ -1863,6 +1867,8 @@ type SeedArgs = {
 
 function parseArgs(argv: string[]): SeedArgs {
   const args: SeedArgs = {
+    showcase: null,
+    plan: 'pro',
     append: false,
     dryRun: false,
     limit: null,
@@ -1870,7 +1876,9 @@ function parseArgs(argv: string[]): SeedArgs {
     vendorsMax: 50,
   };
   for (const a of argv.slice(2)) {
-    if (a === '--append') args.append = true;
+    if (a.startsWith('--showcase=')) args.showcase = a.slice('--showcase='.length);
+    else if (a.startsWith('--plan=')) args.plan = a.slice('--plan='.length);
+    else if (a === '--append') args.append = true;
     else if (a === '--dry-run') args.dryRun = true;
     else if (a.startsWith('--limit=')) args.limit = Number(a.slice('--limit='.length));
     else if (a.startsWith('--min=')) args.vendorsMin = Number(a.slice('--min='.length));
@@ -2429,6 +2437,26 @@ async function seed(args: SeedArgs): Promise<void> {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+
+  // 🎬 A named SHOWCASE shop (scripts/demo-shop/) — one shop at one plan, for the For Suppliers screenshots. It never
+  // touches the marketplace batch, and the same non-prod guard above has already run.
+  if (args.showcase) {
+    if (args.showcase !== 'setnayan-productions') {
+      console.error(`Unknown showcase "${args.showcase}". Known: setnayan-productions`);
+      process.exit(2);
+    }
+    const { seedSetnayanProductions } = await import('./demo-shop/seed-setnayan-productions');
+    // The pictures are served by the app itself from a gitignored copy (demo-shop-shots.mjs makes it), so next/image
+    // needs no new host and nothing is uploaded anywhere.
+    const imageBase = process.env.DEMO_SHOP_IMAGE_BASE ?? '/demo-shop-local';
+    const r = await seedSetnayanProductions(admin, {
+      supabaseUrl,
+      plan: args.plan as Parameters<typeof seedSetnayanProductions>[1]['plan'],
+      imageBase,
+    });
+    console.log(`Showcase ${r.slug} at plan ${r.plan} · live cards: ${r.live.join(' · ')}`);
+    return;
+  }
 
   console.log(`\n--- Setnayan demo-vendor seed ---`);
   console.log(`Target: ${supabaseUrl}`);

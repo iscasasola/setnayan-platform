@@ -23,7 +23,8 @@ import {
   LockAnswerLine,
   LockRequestAnswer,
 } from '@/app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel';
-import { vendorAgreeToLock, vendorDeclineLock } from '@/app/vendor-dashboard/clients/[eventId]/actions';
+import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '@/app/vendor-dashboard/clients/[eventId]/actions';
+import { parseDayCheck, type DayCheckRead } from '@/lib/day-check';
 import { supplierAskOutcomeOf } from '@/lib/booking-ask-words';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeForecast } from '@/lib/booking-fee-disclosure';
@@ -44,6 +45,39 @@ const ENDED = {
   expired: { status: 'considering', lock_request_state: 'expired', lock_request_expires_at: '2026-10-11T02:00:00Z' },
   cancelled: { status: 'considering', lock_request_state: 'cancelled', lock_request_cancelled_at: '2026-10-11T12:15:00Z' },
 } as const;
+
+/**
+ * THE DAY, BEFORE THE YES (owner 2026-11-04) — `?day=open|full|failed`. The RPC's own jsonb shape, read through the
+ * real `parseDayCheck`, so the lab draws exactly what `vendor_day_check` would hand the panel (the prototype's two
+ * events: an open Dec 19, a full Feb 14).
+ */
+const LAB_DAY: Record<string, unknown> = {
+  open: {
+    status: 'ok', date: '2026-12-19', verdict: 'open', slot_full: false, daily_full: false, competing: 0,
+    services: [{ service_id: 'svc-1', name: 'Same-day edit', mode: 'day', daily_limit: 4, slots: 0, per_slot: null, slot_limit: 0, booked: 0, is_this_ask: true }],
+    booked: [{ name: 'Garcia debut', source: 'outside' }],
+    asking: [],
+    shortlisted: [{ event_id: 'e-9', name: 'Santos & Lim', event_type: 'Wedding' }],
+  },
+  full: {
+    status: 'ok', date: '2027-02-14', verdict: 'daily_limit_reached', slot_full: false, daily_full: true, competing: 0,
+    services: [
+      { service_id: 'svc-1', name: 'Same-day edit', mode: 'day', daily_limit: 1, slots: 0, per_slot: null, slot_limit: 0, booked: 1, is_this_ask: true },
+      { service_id: 'svc-2', name: 'Photo booth', mode: 'slot', daily_limit: null, slots: 3, per_slot: 1, slot_limit: 3, booked: 1, is_this_ask: false },
+    ],
+    booked: [
+      { name: 'Lopez & Pineda', event_type: 'Wedding', service: 'Same-day edit', service_id: 'svc-1', source: 'setnayan' },
+      { name: 'Reyes', event_type: 'Debut', service: 'Photo booth', service_id: 'svc-2', source: 'setnayan' },
+    ],
+    asking: [{ event_id: 'e-4', name: 'Aquino & Diaz', event_type: 'Wedding', thread_id: null }],
+    shortlisted: [{ event_id: 'e-5', name: 'Mendoza & Ong', event_type: 'Wedding' }],
+  },
+};
+function labDay(key: string): DayCheckRead | null {
+  if (key === 'failed') return { kind: 'failed' };
+  const check = parseDayCheck(LAB_DAY[key]);
+  return check ? { kind: 'ok', check } : null;
+}
 
 export default async function BookingAskLabPage({
   searchParams,
@@ -74,6 +108,8 @@ export default async function BookingAskLabPage({
           returnTo={`/vendor-dashboard/clients/${LAB_EVENT}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
+          dayCheck={typeof sp.day === 'string' ? labDay(sp.day) : null}
+          waitlistAsk={vendorWaitlistTheAsk}
           now={NOW}
         />
       ) : ended ? (

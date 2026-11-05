@@ -1466,6 +1466,7 @@
         "NativeSaveHandOff",
         "NearViewport",
         "NotYouSwitch",
+        "OfflineViewerScript",
         "OnYourTicket",
         "OpenInBrowser",
         "OpenUpScene",
@@ -1608,6 +1609,7 @@
         "SceneSample",
         "ScheduleClockFace",
         "ScheduleOneChapter",
+        "ScheduleSavedMark",
         "ScheduleScene",
         "ScheduleWidget",
         "SeatDoorLine",
@@ -3457,6 +3459,7 @@
     },
     "/admin/gifts": {
       "files": [
+        "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/page.tsx"
       ],
       "destinations": [
@@ -3478,6 +3481,9 @@
         "CoupleFreeWindowRow",
         "Link",
         "PageMasthead",
+        "ShopGiftHoldRow",
+        "ShopGiftLedgerRow",
+        "ShopGiftsLedger",
         "SubmitButton",
         "VendorGiftRow"
       ]
@@ -8638,6 +8644,7 @@
         "dashboard/[eventId]/schedule/_components/vendor-meetings-section.tsx",
         "dashboard/[eventId]/schedule/actions.ts",
         "dashboard/[eventId]/schedule/activity-picks-actions.ts",
+        "dashboard/[eventId]/schedule/layout.tsx",
         "dashboard/[eventId]/schedule/loading.tsx",
         "dashboard/[eventId]/schedule/moment-march-step.ts",
         "dashboard/[eventId]/schedule/page.tsx",
@@ -8781,6 +8788,7 @@
         "ScheduleOneLine",
         "SchedulePeople",
         "ScheduleRequestAnswer",
+        "ScheduleSavedSlot",
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
         "SearchHead",
@@ -11718,6 +11726,7 @@
         "dev/home-lab/lab-event-settings.tsx",
         "dev/home-lab/lab-spotlight.tsx",
         "dev/home-lab/offline-lab.tsx",
+        "dev/home-lab/offline-schedule-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -11745,9 +11754,11 @@
         "HubProOffer",
         "LabBoard",
         "LabFactSheets",
+        "LabScheduleMark",
         "LabShell",
         "LabSpotlight",
         "OfflineLab",
+        "OfflineScheduleLab",
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
@@ -11756,10 +11767,12 @@
         "PapicTopBand",
         "ProLockPanel",
         "ReadyForNoSignalView",
+        "ScheduleSavedMarkView",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
         "SupplierSavedStripView",
+        "YourScheduleCard",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -12490,7 +12503,10 @@
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
-        "SettingsView"
+        "QuoteShopGiftNote",
+        "SettingsView",
+        "ShopGiftsLedger",
+        "ShopGiftsSection"
       ]
     },
     "/dev/suppliers-lab": {
@@ -13687,6 +13703,7 @@
         "BookedWhere",
         "Link",
         "PrintButton",
+        "QuoteShopGiftNote",
         "QuoteWhereFact",
         "SubmitButton"
       ]
@@ -14782,6 +14799,7 @@
         "ReturningMarkerAndActions",
         "RunOfShowHeader",
         "SaveFileLink",
+        "ScheduleSavedMark",
         "ScheduleTab",
         "ScheduleThumbRow",
         "ScriptActionState",
@@ -16556,6 +16574,7 @@
         "vendor-dashboard/subscription/_components/plan-picker.tsx",
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
+        "vendor-dashboard/subscription/_components/shop-gifts-section.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/booth-addon-actions.ts",
@@ -16581,12 +16600,16 @@
         "AiAddonCard",
         "BookingFeeStanding",
         "BoothAddonCard",
+        "BuyGiftsSheet",
+        "BuyVendorPapicPortfolioPackState",
         "Column",
+        "Counter",
         "Cycle",
         "DatesRow",
         "Fold",
         "GridPageSkeleton",
         "Icon",
+        "InfoTip",
         "Link",
         "PaidMark",
         "PapicChallengeCard",
@@ -16598,6 +16621,8 @@
         "PlanRows",
         "PlanScreen",
         "PlanSearch",
+        "Sheet",
+        "ShopGiftsSection",
         "ShopNotice",
         "SubmitButton",
         "SupplierSubmit",

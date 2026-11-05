@@ -63,7 +63,7 @@ const LAB_OFFERS = [{ kind: 'pool_topup' as const, serviceCode: 'LAB_RUNG', poin
 
 const LAB_CHAPTER = { blockId: '00000000-0000-4000-8000-0000000c4a01', label: 'Meeting with caterer' };
 
-export function LabCamera({ lane, pro = false, buy = false, chapter = false }: { lane: 'guest' | 'vendor' | 'seat'; pro?: boolean; buy?: boolean; chapter?: boolean }) {
+export function LabCamera({ lane, pro = false, buy = false, chapter = false, ceilingZero = false }: { lane: 'guest' | 'vendor' | 'seat'; pro?: boolean; buy?: boolean; chapter?: boolean; ceilingZero?: boolean }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
   // The walk's probes reach the real modules through this (lab only).
@@ -133,8 +133,8 @@ export function LabCamera({ lane, pro = false, buy = false, chapter = false }: {
           eventName="Lab Event"
           eventId={LAB_EVENT_ID}
           uploadOwner={null}
-          initialRemaining={150}
-          total={150}
+          initialRemaining={ceilingZero ? 0 : 150}
+          total={ceilingZero ? 0 : 150}
           termsAccepted
           capApplies
           sponsorShare={false}

@@ -392,7 +392,14 @@ test('WIRED: every error boundary reports a browser-born crash', () => {
   };
   walk('app');
   assert.ok(boundaries.length >= 2);
-  for (const b of boundaries) assert.match(code(b), /report-crash'\)[\s\S]*reportCrash\(error,/, `${b} records nothing`);
+  for (const b of boundaries) {
+    // A boundary that only RE-EXPORTS another (`export { default } from '@/app/…/error'`, e.g. MY camera re-using the
+    // invitation's) records exactly what that one records — so the one it names is read. Nothing else may sit beside it.
+    const own = code(b);
+    const reexport = /^\s*'use client';\s*export \{ default \} from '@\/(app\/(?:[^']+\/)?(?:global-)?error)';\s*$/.exec(own);
+    const src = reexport ? code(`${reexport[1]}.tsx`) : own;
+    assert.match(src, /report-crash'\)[\s\S]*reportCrash\(error,/, `${b} records nothing`);
+  }
 });
 
 test('WIRED: a stalled upload is recorded by the upload watchdog', () => {

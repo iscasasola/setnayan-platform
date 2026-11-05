@@ -200,7 +200,7 @@ test('⓼ ask to skip (owner 2026-11-05): the crew asks, a locked part offers no
   assert.match(sheet, /\{lockedHead\(lockedShop\)\}/);
   const page = read('app/join/crew/[token]/page.tsx');
   assert.match(page, /readPartLocks\(admin, eventId\)/, 'the crew page does not know which parts are locked');
-  assert.match(page, /lockedBy=\{lockedBy\} asked=\{asked\}/);
+  assert.match(page, /lockedBy=\{lockedBy\} asked=\{skipAsked\}/);
   // An approved skip IS the floor's own Skip — the one accept path calls changeTheSchedule, never a copy of it.
   const decide = read('lib/schedule-suggestion-decide.server.ts');
   assert.match(decide, /suggestion\.kind === 'skip' && suggestion\.block_id\) \{\s*const res = await changeTheSchedule\(db, userId \?\? '', eventId, \{ op: 'skip', blockId: suggestion\.block_id \}, 'floor'\)/);

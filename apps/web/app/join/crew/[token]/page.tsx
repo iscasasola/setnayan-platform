@@ -122,7 +122,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
      lock's line there and offers no ask (the database refuses the ask the same way) — and which parts already wait on
      an ask. Read only for a phone that may ask; a refused read offers the ask, and the database still refuses it. */
   const lockedBy: Record<string, string> = {};
-  let asked: string[] = [];
+  let skipAsked: string[] = [];
   if (doorRes.data === 'ok' && blocks && blocks.length > 0) {
     const [locks, asksRes] = await Promise.all([
       readPartLocks(admin, eventId),
@@ -133,7 +133,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
       const shop = (b.responsible_vendor_ids ?? []).map((v) => locks.get(v)).find(Boolean);
       if (shop) lockedBy[b.block_id] = shop;
     }
-    asked = ((asksRes.data ?? []) as { block_id: string | null }[]).flatMap((a) => (a.block_id ? [a.block_id] : []));
+    skipAsked = ((asksRes.data ?? []) as { block_id: string | null }[]).flatMap((a) => (a.block_id ? [a.block_id] : []));
   }
   const ev = eventRes.data as { display_name: string | null; event_date: string | null; venue_name: string | null } | null;
   const ends = new Date(pass.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -148,7 +148,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
       role={role}
       coordinator={coordinator}
       blocks={blocks}
-      changer={doorRes.data === 'ok' && blocks ? <ChangeTheSchedule eventId={eventId} parts={blocks} via="crew" lockedBy={lockedBy} asked={asked} /> : null}
+      changer={doorRes.data === 'ok' && blocks ? <ChangeTheSchedule eventId={eventId} parts={blocks} via="crew" lockedBy={lockedBy} asked={skipAsked} /> : null}
       endsWords={`ends ${ends}`}
     />
   );

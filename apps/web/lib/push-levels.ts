@@ -123,6 +123,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   completion_accepted: 'low',
   booking_fee_waived: 'low',
   guest_takedown_honored: 'low',
+  service_card_moderated: 'low',
   guest_claim_rejected: 'low',
   access_more_asked: 'low',
   event_auto_surfaced: 'low',

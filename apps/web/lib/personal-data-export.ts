@@ -845,6 +845,232 @@ export async function buildPersonalDataExport(
       .order('created_at', { ascending: true }),
   ]);
 
+  /*
+    THE 39 UNDECIDED, SORTED (2026-11-05 — owner: "this is important"; DECISION_LOG
+    2026-11-05, the 15 "act first" items, item 7). Each read below was on
+    UNDECIDED_PERSON_KEYED_TABLES in lib/export-completeness.ts and is now on its
+    exported list. The same three rules as every read above:
+      · filtered on the SUBJECT's own id, explicitly — on the admin door
+        `supabase` is the service-role client and consults no policy, so the
+        filter is the only bound;
+      · a fixed projection: other people's account ids, staff notes and
+        credentials (an invitation token, a face vector) are never selected;
+      · unwrapped through listOutcome, so a failed read is NAMED, never `[]`.
+  */
+  const [
+    notificationsRes,
+    receiptsRes,
+    orderHistoryRes,
+    accountDeletionRequestsRes,
+    chatReadMarkersRes,
+    compGrantsRes,
+    eventTypeSignupsRes,
+    weddingTypeSignupsRes,
+    creatorChaptersRes,
+    voucherEligibilityRes,
+    cohostRolesRes,
+    prepItemsRes,
+    budgetBuildsRes,
+    stageNotesRes,
+    founderSeatRes,
+    savedSuppliersRes,
+    helpMessagesRes,
+    referralCodesRes,
+    reservationsRes,
+    faceProfileRes,
+    dateWaitlistsRes,
+    tokenBalancesRes,
+    teamMembershipsRes,
+  ] = await Promise.all([
+    // What Setnayan told this person in the app. Recipient-scoped: every row is
+    // addressed to them. A body can quote a chat message somebody sent them, so
+    // an admin-prepared file drops the body (see below).
+    supabase
+      .from('notifications')
+      .select('notification_id, event_id, type, title, body, related_url, read_at, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Their BIR official receipts — the record /privacy says we keep for the
+    // BIR period. Their own name and TIN as printed on the receipt.
+    supabase
+      .from('receipts')
+      .select(
+        'receipt_id, or_number, or_serial, issued_to_name, issued_to_email, issued_to_tin, ' +
+          'pre_vat_php, vat_rate_pct, vat_amount_php, gross_total_php, issued_at, created_at, orders(public_id)',
+      )
+      .eq('user_id', user.id)
+      .order('issued_at', { ascending: true }),
+    // The step-by-step history of THEIR OWN orders (created, voucher applied,
+    // payment uploaded / approved / refused, activated, refunded). Scoped to
+    // orders the subject owns. Who pressed each step is given as a role only:
+    // `actor_user_id` names a Setnayan admin on the approve/refuse rows, and
+    // `metadata` is free-form internal bookkeeping — neither is selected.
+    (async () => {
+      const own = await supabase.from('orders').select('order_id').eq('user_id', user.id);
+      if (own.error) return { data: [] as unknown[], error: own.error };
+      const ownOrderIds = own.data
+        .map((r) => (r as { order_id?: string }).order_id)
+        .filter((id): id is string => typeof id === 'string');
+      if (ownOrderIds.length === 0) return { data: [] as unknown[], error: null };
+      return supabase
+        .from('order_ledger')
+        .select('ledger_id, event_type, amount_centavos, voucher_code, payment_id, actor_role, created_at, orders(public_id)')
+        .in('order_id', ownOrderIds)
+        .order('created_at', { ascending: true });
+    })(),
+    // Their own requests to delete their account. `reviewed_by` and
+    // `admin_note` are our staff's answer — an action ON their record, the
+    // same line event_deletion_requests draws above.
+    supabase
+      .from('account_deletion_requests')
+      .select('request_id, status, reason, created_at, reviewed_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // When they last read each conversation, and which they archived.
+    supabase
+      .from('chat_thread_reads')
+      .select('thread_id, last_read_at, archived_at')
+      .eq('user_id', user.id),
+    // Charges Setnayan waived for them. The admin's internal `rationale` and
+    // the granting / approving admins' ids are not selected.
+    supabase
+      .from('comp_grants')
+      .select('public_id, source, scope, scoped_skus, event_id, expiry, retail_value_centavos, revoked_at, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // "Tell me when you support my kind of event" sign-ups. This table has no
+    // self-read policy (admin-only), so it is read on the privileged client,
+    // bounded by the subject's own id exactly like the coordinator reads above.
+    admin
+      ? admin
+          .from('couple_event_type_notify_signups')
+          .select('signup_id, email, event_type, region, notes, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
+    supabase
+      .from('couple_wedding_type_notify_signups')
+      .select('signup_id, email, ceremony_type_interested, region, expected_wedding_date, notes, notified_at, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Creator chapters they wrote — their own words and links.
+    supabase
+      .from('creator_chapters')
+      .select(
+        'public_id, event_id, title, kind, body, embed_url, embed_provider, teaser_r2_key, substrate, status, ' +
+          'happened_on, published_at, host_included_at, showcase_featured_at, view_count, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Vouchers an admin made them eligible for (a targeting list they are on).
+    // The admin who added them is not selected.
+    supabase
+      .from('discount_code_eligible_users')
+      .select('discount_code_id, added_at')
+      .eq('user_id', user.id)
+      .order('added_at', { ascending: true }),
+    // Co-host / coordinator roles they were given on someone's event — what
+    // they may do, when invited, accepted, removed, and the reason given. The
+    // live `invitation_token` (a credential), `guest_id` (not granted to the
+    // public API at all) and the inviter's id are not selected. Their own row
+    // stays readable after removal (event_moderators_select_own_events).
+    supabase
+      .from('event_moderators')
+      .select(
+        'moderator_id, event_id, role_subtype, display_label, permissions_json, invitation_email, invitation_phone, ' +
+          'invitation_sent_at, invitation_expires_at, accepted_at, removed_at, removal_reason, created_at, updated_at',
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Prep-list items they added themselves. AUTHOR-scoped on created_by, like
+    // own_costs_recorded: a shared prep list must not hand one partner the
+    // other's entries.
+    supabase
+      .from('event_preparation_items')
+      .select('item_id, event_id, kind, label, notes, due_date, amount_php, completed_at, source_tag, created_at, updated_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
+    // Budget builds they made. AUTHOR-scoped on created_by, for the same reason.
+    supabase
+      .from('budget_builds')
+      .select('build_id, event_id, label, title, budget_php, basket, total_php, snapshot, created_at, updated_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
+    // Stage notes they SENT to a supplier on the day — their own words,
+    // AUTHOR-scoped exactly like the working notes above. The sender policy is
+    // event-scoped, so a coordinator who has since left the event would read
+    // zero rows; read privileged and bounded by author_user_id = the subject.
+    admin
+      ? admin
+          .from('event_stage_notes')
+          .select('note_id, event_id, recipient_vendor_profile_id, body, created_at, read_at')
+          .eq('author_user_id', user.id)
+          .order('created_at', { ascending: true })
+      : Promise.resolve(null),
+    // Their founder seat, if they hold one. The granting admin is not selected.
+    supabase
+      .from('founder_seats')
+      .select('seat_no, label, granted_at')
+      .eq('user_id', user.id),
+    // Suppliers they saved.
+    supabase
+      .from('guest_saved_vendors')
+      .select('vendor_profile_id, source_event_id, saved_at')
+      .eq('user_id', user.id)
+      .order('saved_at', { ascending: true }),
+    // What they wrote to Setnayan support. Our staff's internal `admin_notes`
+    // and the handler's id are not selected.
+    supabase
+      .from('help_messages')
+      .select('public_id, topic, subject, body, sender_name, sender_email, status, resolved_at, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Their own referral code(s) — made to be shared, not a secret.
+    supabase
+      .from('referral_codes')
+      .select('code, created_at')
+      .eq('owner_user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Reservations they made on a supplier's time slots. AUTHOR-scoped on
+    // created_by. The id of whoever cancelled is not selected; the reason they
+    // were given is.
+    supabase
+      .from('service_slot_reservations')
+      .select(
+        'reservation_id, event_id, vendor_profile_id, vendor_service_id, reserved_date, party_size, status, guest_note, ' +
+          'confirmed_at, cancelled_at, cancel_reason, created_at, updated_at',
+      )
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
+    // Their account-level face profile — METADATA ONLY, like face_enrollments:
+    // `face_vector` and `vectors` (the biometric itself) are never exported.
+    supabase
+      .from('user_face_profiles')
+      .select(
+        'profile_id, vector_model, quality_score, consent_version, consent_granted_at, revoked_at, ' +
+          'source_event_ids, reuse_event_ids, created_at, updated_at',
+      )
+      .eq('user_id', user.id),
+    // Supplier date waitlists they joined.
+    supabase
+      .from('vendor_date_waitlist')
+      .select('waitlist_id, vendor_profile_id, event_id, requested_date, status, created_at, notified_at, accepted_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // Their balance in the RETIRED supplier token wallet. The currency can no
+    // longer be earned or spent, but the record is still held about them.
+    supabase
+      .from('vendor_member_token_wallets')
+      .select('vendor_id, purchased_tokens, updated_at')
+      .eq('user_id', user.id),
+    // Supplier teams they belong (or belonged) to, and their role.
+    supabase
+      .from('vendor_team_members')
+      .select('public_id, vendor_profile_id, role, team_label, created_at, updated_at, deactivated_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+  ]);
+
   // ── Unwrap every read through the integrity helper ──────────────────────────
   // `?? []` is banned on this route: it turns "the read failed" into the
   // assertion "you have no such records".
@@ -906,6 +1132,29 @@ export async function buildPersonalDataExport(
   const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
   const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
   const ledgerSuppliers = listOutcome<LedgerSupplierRow>('payment_ledger_suppliers', ledgerSuppliersRes);
+  const notificationsReceived = listOutcome('notifications_received', notificationsRes);
+  const receipts = listOutcome('receipts', receiptsRes);
+  const orderHistory = listOutcome('order_history', orderHistoryRes);
+  const accountDeletionRequests = listOutcome('account_deletion_requests', accountDeletionRequestsRes);
+  const chatReadMarkers = listOutcome('chat_read_markers', chatReadMarkersRes);
+  const compGrants = listOutcome('comps_given_to_you', compGrantsRes);
+  const eventTypeSignups = listOutcome('notify_me_signups (event types)', eventTypeSignupsRes, adminUnavailable);
+  const weddingTypeSignups = listOutcome('notify_me_signups (wedding types)', weddingTypeSignupsRes);
+  const creatorChapters = listOutcome('creator_chapters', creatorChaptersRes);
+  const voucherEligibility = listOutcome('vouchers_you_were_offered', voucherEligibilityRes);
+  const cohostRoles = listOutcome('cohost_roles', cohostRolesRes);
+  const prepItems = listOutcome('prep_items_added', prepItemsRes);
+  const budgetBuilds = listOutcome('budget_builds_made', budgetBuildsRes);
+  const stageNotes = listOutcome('stage_notes_sent', stageNotesRes, adminUnavailable);
+  const founderSeat = listOutcome('founder_seat', founderSeatRes);
+  const savedSuppliers = listOutcome('saved_suppliers', savedSuppliersRes);
+  const helpMessages = listOutcome('help_messages_sent', helpMessagesRes);
+  const referralCodes = listOutcome('referral_codes', referralCodesRes);
+  const reservations = listOutcome('reservations_made', reservationsRes);
+  const faceProfile = listOutcome('face_profile', faceProfileRes);
+  const dateWaitlists = listOutcome('date_waitlists_joined', dateWaitlistsRes);
+  const tokenBalances = listOutcome('retired_token_balances', tokenBalancesRes);
+  const teamMemberships = listOutcome('supplier_team_memberships', teamMembershipsRes);
 
   // Receipt links for the ledger: presigned from the payment-proof folder of the
   // row's OWN event (the only folder its writer accepts), with the expiry the
@@ -1007,6 +1256,44 @@ export async function buildPersonalDataExport(
     ownCrewPasses,
     ownMoodBoardChanges,
     ownFeeDisputes,
+    // ⚠ These ten were read and shipped but missing from this list until
+    // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
+    // the silent empty this file exists to prevent. Now pinned by
+    // personal-data-export-sections-are-counted.test.ts.
+    samahanStories,
+    samahanMessages,
+    papicFreeGrantClaims,
+    userUnfollows,
+    inviteMutes,
+    eventTypeAsks,
+    vendorReuseRequests,
+    ownSuggestions,
+    eventRemovalReasons,
+    eventClusters,
+    // The 39 undecided, sorted (2026-11-05).
+    notificationsReceived,
+    receipts,
+    orderHistory,
+    accountDeletionRequests,
+    chatReadMarkers,
+    compGrants,
+    eventTypeSignups,
+    weddingTypeSignups,
+    creatorChapters,
+    voucherEligibility,
+    cohostRoles,
+    prepItems,
+    budgetBuilds,
+    stageNotes,
+    founderSeat,
+    savedSuppliers,
+    helpMessages,
+    referralCodes,
+    reservations,
+    faceProfile,
+    dateWaitlists,
+    tokenBalances,
+    teamMemberships,
   ]);
 
   const exported = {
@@ -1137,6 +1424,43 @@ export async function buildPersonalDataExport(
     payment_ledger: shapeLedgerRows(ledger.rows, ledgerSuppliers.rows, receiptLinks),
     payment_ledger_note:
       'Every payment you logged against a supplier on an event you own, with the supplier’s confirmation, any “it never reached me” and Setnayan’s ruling. receipt_link is presigned and stops working at receipt_link_expires_at; the durable record of each receipt is proof_r2_key.',
+    // ── Added 2026-11-05: the record types that were missing (see
+    // lib/export-completeness.ts). Each is scoped to you.
+    // What Setnayan told you in the app. An admin-prepared file leaves out each
+    // notification's text, because it can quote a message someone sent you.
+    notifications_received: forAdmin ? withoutMessageText(notificationsReceived.rows) : notificationsReceived.rows,
+    // Your BIR official receipts, as issued to you.
+    receipts: receipts.rows,
+    // The step-by-step history of your own orders.
+    order_history: orderHistory.rows,
+    account_deletion_requests: accountDeletionRequests.rows,
+    // When you last read each conversation, and which you archived.
+    chat_read_markers: chatReadMarkers.rows,
+    // Charges Setnayan waived for you.
+    comps_given_to_you: compGrants.rows,
+    // "Tell me when you support my event" sign-ups.
+    notify_me_signups: { event_types: eventTypeSignups.rows, wedding_types: weddingTypeSignups.rows },
+    creator_chapters: creatorChapters.rows,
+    vouchers_you_were_offered: voucherEligibility.rows,
+    // Co-host and coordinator roles you were given on other people's events.
+    cohost_roles: cohostRoles.rows,
+    // Prep-list items and budget builds you made yourself (author-scoped).
+    prep_items_added: prepItems.rows,
+    budget_builds_made: budgetBuilds.rows,
+    // Day-of notes you sent to a supplier (author-scoped).
+    stage_notes_sent: stageNotes.rows,
+    founder_seat: founderSeat.rows,
+    saved_suppliers: savedSuppliers.rows,
+    // What you wrote to Setnayan support.
+    help_messages_sent: helpMessages.rows,
+    referral_codes: referralCodes.rows,
+    reservations_made: reservations.rows,
+    // Your face profile's consent record — never the face data itself.
+    face_profile: faceProfile.rows,
+    date_waitlists_joined: dateWaitlists.rows,
+    // Your balance in the supplier token wallet, which is retired.
+    retired_token_balances: tokenBalances.rows,
+    supplier_team_memberships: teamMemberships.rows,
     not_included: [
       // CORRECTED 2026-07-21 — the previous single line claimed "no user-scoped
       // access-log table in V1". That was FALSE: supabase/migrations/
@@ -1149,7 +1473,19 @@ export async function buildPersonalDataExport(
       'active loved-one claim_token values (live bearer secrets — never exported)',
       'working notes + day-of broadcasts authored by OTHERS (third-party personal data — the export ships what the subject wrote, not what they received)',
       'in payment_ledger, the account ids of the supplier-side people and the Setnayan admin who confirmed, refused or ruled on a payment (their identifiers, not yours — what each of them recorded, and when, IS included)',
+      // 2026-11-05 — what the new sections deliberately leave out, so a field
+      // that is missing reads as a decision, not an accident.
+      'Setnayan staff’s internal notes on your records — the note on an account-deletion request, the reason written for a comp, the notes on a help message — and the ids of the staff who handled them. When each was handled IS included.',
+      'in order_history, who pressed each step is given as a role (you, an admin, the system), not as an account id, and our internal bookkeeping field is left out',
+      'in cohost_roles, the live invitation token (a working key — never exported)',
+      'your face profile’s face vectors (biometric raw data — the consent record only is exported, as with face_enrollments)',
+      'the fraud-prevention device identifier (see /privacy § Device identifier), enforcement actions on a supplier’s shop, and a supplier’s private notes about a client — whether these belong in this file is awaiting a decision. Until then, request them from the DPO.',
       ...(forAdmin ? [ADMIN_PREPARED_WITHHELD] : []),
+      ...(forAdmin
+        ? [
+            'the TEXT of your notifications — this file was prepared by a Setnayan admin, and a notification can quote a message someone sent you. Each notification is still listed (when, what kind, read or not). To get the text, sign in and use Profile › Download my data.',
+          ]
+        : []),
       // Anything that failed or went unread on THIS run, named. Empty on a
       // clean export; `export_complete` above is the machine-readable twin.
       ...incompleteSections,

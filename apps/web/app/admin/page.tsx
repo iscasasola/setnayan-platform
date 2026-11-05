@@ -767,6 +767,7 @@ const ACTION_PHRASES: Record<string, string> = {
   ceremony_type_updated: 'updated a wedding ceremony type',
   demo_vendors_create_start: 'started creating demo suppliers',
   user_team_member_toggle: 'changed a team-member flag',
+  user_team_member_requested: 'asked a second admin to add a team member',
   approval_request_created: 'requested a two-admin approval',
   approval_execute_failed: 'hit a failed two-admin action',
   taxonomy_request_promote: 'promoted a taxonomy request',

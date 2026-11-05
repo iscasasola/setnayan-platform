@@ -97,7 +97,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     asPublished: 'promoting a user to any admin role',
     whyPerClause: 'Privilege escalation — irreversible damage potential',
     actionType: 'promote_to_admin',
-    note: 'Enforced. In the live CHECK since the approvals table shipped.',
+    note: 'Enforced, through TWO action types, because there are two admin roles. `promote_to_admin` sets `account_type = \'admin\'` (in the live CHECK since the approvals table shipped). `grant_team_member` sets `users.is_team_member = TRUE`, which `isAdminProfile` also treats as admin; since 2026-11-05 (migration 20271309260178) "Add to team" on the Users list opens it instead of writing the flag. Removing someone from the team stays single-admin.',
   },
   {
     key: 'internal-account',
@@ -111,7 +111,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
     asPublished: 'adding a team member to the shared pool',
     whyPerClause: 'Grants ongoing pool draw rights',
     actionType: null,
-    note: 'Nothing to enforce: the shared service-credit pool was RETIRED 2026-11-05 (owner: "retire. we already have our pool = papic credits") — no pool table or draw ever existed, so no one can be added to it, and the `grant_team_pool` approval is no longer offered. The row stays because § 9.1 still names it; taking it out of the Vendor Agreement is an owner and counsel edit. `users.is_team_member` itself is kept (it is staff admin access, lib/admin/admin-predicate.ts).',
+    note: 'Nothing to enforce: the shared service-credit pool was RETIRED 2026-11-05 (owner: "retire. we already have our pool = papic credits") — no pool table or draw ever existed, so no one can be added to it, and the `grant_team_pool` approval is no longer offered. The row stays because § 9.1 still names it; taking it out of the Vendor Agreement is an owner and counsel edit. `users.is_team_member` itself is kept (it is staff admin access, lib/admin/admin-predicate.ts), and turning it on is now gated under the promote-to-admin row (`grant_team_member`).',
   },
   {
     key: 'large-comp-grant',

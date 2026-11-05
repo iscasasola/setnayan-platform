@@ -43,7 +43,9 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // apps/web/app/[slug]
 const APP = resolve(HERE, '..');
 const WEBROOT = resolve(APP, '..');
 const SLUG_PAGE = resolve(HERE, 'page.tsx');
-const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-membership-session.ts');
+// The reads moved out of the server-only module (2026-11-05) so a refusal can be
+// behaviour-tested; `findGuestSeatForUser` delegates to them.
+const SEAT_LOOKUP = resolve(WEBROOT, 'lib', 'guest-seat-read.ts');
 const CONNECT_ROUTE = resolve(APP, 'join', '[eventId]', 'connect', 'route.ts');
 const LAUNCHER = resolve(APP, 'dashboard', '(launcher)', 'page.tsx');
 /** The board card's SHELL (link-or-inert) moved here 2026-09-24 — the
@@ -129,7 +131,7 @@ test("the event page admits a signed-in person holding a seat", () => {
   const src = read(SLUG_PAGE);
   assert.match(
     src,
-    /isSeatHolder =\s*\(await findGuestSeatForUser\(event\.event_id, user\.id\)\) !== null;/,
+    /const seatRead = await findGuestSeatForUserMeasured\(event\.event_id, user\.id\);\s*isSeatHolder = seatRead\.seat !== null;/,
     'The private gate no longer consults the seat. Every invited guest whose ' +
       '60-day cookie lapsed is told to scan a QR again — on a page they are on ' +
       'the guest list for.',
@@ -247,18 +249,22 @@ test('leaving, and being removed, both close the door', () => {
 });
 
 test('a rejected read fails CLOSED, and is never mistaken for "no seat"', () => {
+  // Closed: a refusal returns no seat, so no gate admits on it. Never mistaken:
+  // it returns `measured: false`, so no page says "not on the guest list" on it
+  // (behaviour in lib/a-refused-seat-read-is-not-not-listed.test.ts).
   const src = read(SEAT_LOOKUP);
   assert.match(
     src,
-    /if \(membershipError \|\| !membership\?\.guest_id\) return null;/,
+    /if \(membershipError\) \{[^}]*return UNMEASURED;\s*\}/,
     'The membership read stopped checking its error. A lost grant would read as ' +
       '"no seat" and silently restore the lock-out.',
   );
   assert.match(
     src,
-    /if \(seatError \|\| !seat\?\.qr_token\) return null;/,
+    /if \(seatError\) \{[^}]*return UNMEASURED;\s*\}/,
     'The seat read stopped checking its error.',
   );
+  assert.match(src, /const UNMEASURED: GuestSeatRead = \{ seat: null, measured: false \};/);
 });
 
 // ── 3 · THE FOURTH DOOR THAT SLAMMED, NOW SHUT ──────────────────────────────

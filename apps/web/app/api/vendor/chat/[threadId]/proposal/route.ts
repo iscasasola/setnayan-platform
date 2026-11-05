@@ -19,6 +19,8 @@ const STATUS_BY_CODE: Record<SendProposalError, number> = {
   // asked to lock at, or the booking is confirmed — a change order, not a re-quote.
   deal_locked: 409,
   lock_requested: 409,
+  // 🎁 the quote's own gifts are over the booking's gift limit or more than the shop's stock — nothing was sent.
+  gift_refused: 422,
   failed: 500,
 };
 

@@ -186,7 +186,11 @@ test('4b · the database gate says the same number — the LATEST vendor_tier_li
   const arm = sql.slice(sql.indexOf("WHEN 'whitelist_per_date' THEN"), sql.indexOf("WHEN 'waitlist_acceptances' THEN"));
   assert.ok(arm.length > 50, `${latest}: could not find the whitelist arm`);
   const numbers = [...arm.matchAll(/(?:WHEN '(\w+)'|ELSE)\s+THEN\s+(\d+)|ELSE\s+(\d+)/g)].map((m) => Number(m[2] ?? m[3]));
-  assert.ok(numbers.length >= 7, `${latest}: expected every tier + ELSE in the whitelist arm, found ${numbers.length}`);
+  // Derived, not typed: every tier in VENDOR_TIERS + the ELSE (was a literal 7 until the Custom plan was retired 2026-11-06).
+  assert.ok(
+    numbers.length >= VENDOR_TIERS.length + 1,
+    `${latest}: expected every tier + ELSE in the whitelist arm, found ${numbers.length}`,
+  );
   assert.deepEqual(
     [...new Set(numbers)],
     [WHITELIST_PER_DATE_ALL_PLANS],

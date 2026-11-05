@@ -202,7 +202,9 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // ONE SELECTOR — it is `Your services · Coverage ▾` now; see its note in CONVERTED).
   // 25, not 26: My Performance's Momentum window track was RETIRED on purpose (2026-11-01, ONE SELECTOR — it is the
   // shared PickMenu now; see its note in CONVERTED).
-  assert.ok(CONVERTED.length >= 25, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 23, not 25, since 2026-11-06: two converted selectors (the Custom plan's billing term and its admin pay channel)
+  // were DELETED with the Custom plan — the screens are gone, not unconverted.
+  assert.ok(CONVERTED.length >= 23, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

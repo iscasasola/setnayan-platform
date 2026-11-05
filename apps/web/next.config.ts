@@ -409,6 +409,9 @@ const nextConfig: NextConfig = {
       // nft can't statically trace them — force-include the set).
       './assets/npc-docs/*.pdf',
     ],
+    // 🖨 The supplier's prints (lib/supplier-prints-svg.ts) outline every letter from these faces — read by a dynamic
+    // path, so nft cannot see them. Only the one route that draws a print carries them.
+    '/api/vendor/prints': ['./public/print-fonts/*.ttf'],
   },
   // `sharp` (native) is loaded server-side to decode uploaded vendor QR images
   // (lib/vendor-payment-methods.server.ts). Keep it external so it's required

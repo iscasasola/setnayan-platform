@@ -55,7 +55,8 @@ function starPath(cx: number, cy: number, r: number): string {
   return `M${pts.join('L')}Z`;
 }
 
-type Drawn = { svg: string; defs: string; width: number; height: number };
+export type DrawnPill = { svg: string; defs: string; width: number; height: number };
+type Drawn = DrawnPill;
 
 function grad(id: string, stops: readonly string[], w: number, h: number): string {
   return (
@@ -141,6 +142,14 @@ function pill(b: ShopBadge, F: number, ground: PrintGround, colour: string, idx:
     tickSvg +
     `</g>`;
   return { svg, defs, width: W, height: H };
+}
+
+/**
+ * ONE pill at em `F`, top-left at (0, 0) — the same shape `badgePrintSvg` stacks, for a print that lays the pills out
+ * itself (the supplier's tarps and backdrops, `lib/supplier-prints-svg.ts`). `idx` keeps its gradient ids apart.
+ */
+export function badgePill(b: ShopBadge, F: number, ground: Exclude<PrintGround, 'colour'>, idx: number): DrawnPill {
+  return pill(b, F, ground, '#1F3A2C', idx);
 }
 
 /**

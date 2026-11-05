@@ -30,6 +30,10 @@ const standIns = (payFail: boolean, paySlow: boolean, money: MoneyStage, whereFa
     await wait(200);
     return { ok: true };
   },
+  saveRule: async () => {
+    await wait(200);
+    return { ok: true as const };
+  },
   loadRecord: async (vendorId) => {
     await wait(200);
     const seda = vendorId === 'v-seda';

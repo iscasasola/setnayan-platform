@@ -78,10 +78,6 @@ const ALLOWED: ReadonlyArray<[prefix: string, why: string]> = [
     'lib/llms-txt-guard-input.ts',
     'the catalogue mirror the llms.txt guards render against; its INACTIVE rows are negative fixtures that prove a retired price never surfaces',
   ],
-  [
-    'app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx',
-    'the CUSTOM plan is not on the 2026-11-04 sheet: its live year is still final28 × 10.4 (lib/vendor-custom-pricing.ts, re-checked to the peso by lib/vendor-custom-catalog.ts), so "save 20%" is TRUE there; moving it to 10× is an open owner question, not copy',
-  ],
   ['lib/sku-catalog.ts', 'the LEGACY v1 catalogue mirror of retired rows, kept only to resolve historical sku_codes on old orders'],
   [
     'lib/setnayan-ai-type-pricing.ts',

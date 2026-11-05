@@ -34,7 +34,6 @@ const TIER_CHIP_TONE: Record<VendorTier, string> = {
   solo: 'bg-mulberry/10 text-mulberry-700',
   pro: 'bg-terracotta/15 text-terracotta-700',
   enterprise: 'bg-success-100 text-success-800',
-  custom: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
 };
 
 const STATUS_TONE: Record<HelpMessageRow['status'], string> = {

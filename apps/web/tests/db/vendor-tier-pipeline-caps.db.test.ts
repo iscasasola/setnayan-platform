@@ -195,7 +195,8 @@ test('the owner grid reads exactly as given', async () => {
     ['solo', 5, 0],
     ['pro', 5, 1],
     ['enterprise', 5, 3],
-    ['custom', 5, 3],
+    // The retired Custom plan (2026-11-06) has no arm any more — a stray 'custom' reads the ELSE, i.e. as Free.
+    ['custom', 5, 0],
   ];
   for (const [tier, wl, wa] of expect) {
     const r = await db.query<{ wl: number; wa: number }>(

@@ -130,8 +130,8 @@ export async function activateVendor3dBooth(
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────
   // tier_state + verification_state are not in FULL_VENDOR_PROFILE_SELECT — soft
-  // probe them together. The add-on is a PRO+ feature (Pro / Enterprise /
-  // Custom), verified only (owner 2026-07-22 · booth branding is a Pro perk).
+  // probe them together. The add-on is a PRO+ feature (Pro / Ultra),
+  // verified only (owner 2026-07-22 · booth branding is a Pro perk).
   const { data: gateRow } = await supabase
     .from('vendor_profiles')
     .select('tier_state, verification_state')
@@ -151,7 +151,7 @@ export async function activateVendor3dBooth(
   // price change. A floor a pricing flag can lift is not a floor.
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
-      '3D Booth comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.',
+      '3D Booth comes with a paid plan — Solo, Pro or Ultra. Move up to add it.',
     );
   }
   if (verification !== 'verified') {

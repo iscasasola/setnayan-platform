@@ -215,7 +215,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
 
   // ── 3D Booth add-on state (owner 2026-07-22) ───────────────────────────────
-  // PRO+ (Pro / Enterprise / Custom) + verified only — booth branding is a
+  // PRO+ (Pro / Ultra) + verified only — booth branding is a
   // Pro/Enterprise perk, so the add-on that turns it on is Pro+ too. Soft reads
   // (try/catch inside) degrade to "not activated, trial available" on a
   // pre-migration DB instead of blanking the page.
@@ -330,14 +330,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     new Date(tierExpiresAt).getTime() - now <= fourteenDaysMs &&
     new Date(tierExpiresAt).getTime() > now;
 
-  // Custom is a paid tier too (composed via the Stage-2 configurator / admin
-  // handshake, not self-serve-buyable from PAID_TIERS below) — include it so the
-  // renewal/expiry chip renders for Custom vendors.
   const isPaid =
     currentTier === 'solo' ||
     currentTier === 'pro' ||
-    currentTier === 'enterprise' ||
-    currentTier === 'custom';
+    currentTier === 'enterprise';
 
   // Booking-fee doorway (surfacing layer). Flag-gated AND count-gated so nothing
   // shows when the fee system is dark OR the vendor owes nothing ("no fee →
@@ -394,10 +390,6 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const pickCurrent = currentTier === 'verified' ? 'free' : currentTier;
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
-    // A Custom shop's own plan is not sold here — it is listed so the dropdown shows what they are on.
-    ...(currentTier === 'custom'
-      ? [{ key: 'custom', name: 'Custom', price: {}, tooShort: {}, pickLine: 'Your own plan — change it under Custom plan below' }]
-      : []),
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),
@@ -420,13 +412,11 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ? priceBySku.get(skuFor(currentTier, currentCycleKey)) ?? null
       : null;
   const pays =
-    currentTier === 'custom'
-      ? 'your Custom quote'
-      : currentPrice !== null
-        ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
-        : isPaid
-          ? 'paid'
-          : 'nothing to pay';
+    currentPrice !== null
+      ? `${formatPhp(currentPrice)} / ${currentCycleKey === 'annual' ? 'year' : '28 days'}`
+      : isPaid
+        ? 'paid'
+        : 'nothing to pay';
   // 🛍 2026-11-04: the shop buys the couple's Papic packs — the row quotes the smallest one's catalogue price.
   const papicPackPrice = (await fetchShopPapicPacks(createAdminClient()))?.[0]?.pricePhp ?? null;
   const gives = planGivesLines(currentTier, isVendorFeatureGateEnabled());
@@ -584,7 +574,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       />
 
       {/* 3D Booth add-on — free first 28-day cycle, then ₱3,000/28d (flat, 2026-09-05), on
-          Pro/Enterprise/Custom + verified shops (owner 2026-07-22). Turns on the
+          Pro/Ultra + verified shops (owner 2026-07-22). Turns on the
           vendor's branded booth inside their couples' published 3D Plans.
           With the 2026-07-25 tiered model on: every verified tier, at ₱2,000
           (Free/Solo) or ₱1,500 (Pro/Ent). */}

@@ -346,19 +346,17 @@ export default async function VendorDashboardLayout({
 
   // Login-driven vendor TIER lapse (no cron) — post-response, downgrade-only,
   // idempotent. sweep_vendor_tier_expiry reverts a tier past its tier_expires_at
-  // (pro/enterprise → verified-or-free; custom → verified-or-free + demotes the
-  // active custom plan). Deferring to after() keeps it off the render path of a
+  // (pro/enterprise → verified-or-free). Deferring to after() keeps it off the render path of a
   // layout that re-renders on every navigation; `supabase` is captured in the
   // closure (holds the access token in memory), so the post-response call still
   // authenticates. Only fired for a sweepable PAID tier — for free/verified it
   // is a guaranteed no-op, so skip the pointless background write. The
   // api_access gate already denies expired access inline; this reconciles
-  // tier_state + the caps overlay so a lapsed vendor stops reading Custom/Pro
-  // ceilings.
+  // tier_state so a lapsed vendor stops reading Pro/Ultra ceilings.
   if (
     tierProbe.vendorId &&
     vendorTier != null &&
-    (['pro', 'enterprise', 'custom'] as readonly string[]).includes(vendorTier)
+    (['pro', 'enterprise'] as readonly string[]).includes(vendorTier)
   ) {
     const vendorId = tierProbe.vendorId;
     after(async () => {

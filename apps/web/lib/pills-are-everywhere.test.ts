@@ -104,14 +104,12 @@ export const CONVERTED: readonly Converted[] = [
   // (owner "any set of choices is a dropdown"; DECISION_LOG "SUPPLIER DASHBOARD APPROVED — … A ⚙ PER PAGE").
   { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
   { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
-  { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
   /* ── area 3 · onboarding, sign-in and the public pages ── */
   { area: 'public', what: 'Browse songs (Top 100 | Search | Playlist)', file: 'app/onboarding/wedding/_components/song-bank-step.tsx', anchor: 'aria-label="Browse songs"', via: 'track', thumb: 'slides', gone: "className={mode === m ? 'on' : undefined}" },
   /* ── area 4 · admin (selector shape only) ── */
   { area: 'admin', what: 'Verification surfaces (Applications | Listing visibility)', file: `${AD}/verify/page.tsx`, anchor: 'aria-label="Verification surfaces"', via: 'track', thumb: 'slides', gone: 'mb-4 inline-flex flex-wrap gap-2' },
   { area: 'admin', what: 'Price state (On sale | Switched off)', file: `${AD}/pricing/_components/catalog-editor.tsx`, anchor: 'aria-label="Price state"', via: 'track', thumb: 'slides', gone: "'border-terracotta-700 text-ink'" },
   { area: 'admin', what: 'Connection logs (Active issues | Resolved archive)', file: `${AD}/connection-logs/connection-logs-client.tsx`, anchor: 'data-connection-log-tabs=""', via: 'track', thumb: 'slides', gone: "'bg-[#1B1A17] text-white' : 'text-[#5B5B5B]" },
-  { area: 'admin', what: 'Custom plan pay channel (BDO | GCASH)', file: `${AD}/custom-plans/_components/custom-composer.tsx`, anchor: 'data-pay-channel=""', via: 'track', thumb: 'slides', gone: "channel === ch ? 'bg-ink text-cream'" },
   { area: 'admin', what: 'Integrity watch sections (Reviews | Listings | Inquiries | Prices)', file: `${AD}/integrity-watch/page.tsx`, anchor: 'data-integrity-tabs=""', via: 'track', thumb: 'slides', gone: "tab === 'reviews'\n              ? 'bg-ink text-cream'" },
   { area: 'admin', what: 'Concierge abuse sections (Pending review | Enforcement decisions)', file: `${AD}/concierge-abuse/_components/abuse-tabs.tsx`, anchor: 'data-abuse-tabs=""', via: 'classes', thumb: 'slides', gone: 'bg-terracotta text-cream' },
 ];

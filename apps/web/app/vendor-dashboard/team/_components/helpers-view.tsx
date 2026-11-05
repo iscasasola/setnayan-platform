@@ -27,7 +27,7 @@ import { InviteHelperSheet, RolePick } from './helpers-controls';
  *
  *   · one row per person, the role as ONE dropdown (`RolePick` → `updateVendorTeamMember`), ✕ removes;
  *   · Helpers on your plan — the seat line, with the ONE FREE HELPER every plan carries (lib/vendor-free-helper.ts);
- *   · Add a seat (Enterprise/Custom, live catalogue price) · Who works what (labels + an agent's services) ·
+ *   · Add a seat (Ultra, live catalogue price) · Who works what (labels + an agent's services) ·
  *     Admin changes (two admins agree — the shipped motions) · Step down;
  *   · the one terracotta button, "Invite a helper", opens the invite sheet (`inviteVendorTeamMember`).
  */
@@ -205,7 +205,7 @@ export function HelpersView({
           href={storeShell ? null : '/vendor-dashboard/subscription'}
         />
 
-        {/* Extra seats — Enterprise/Custom ₱/28d add-on, the live catalogue price. 🔒 Never in the store shell. */}
+        {/* Extra seats — Ultra ₱/28d add-on, the live catalogue price. 🔒 Never in the store shell. */}
         {canBuySeats && !storeShell ? (
           <DatesRow
             data="helpers-add-seat"

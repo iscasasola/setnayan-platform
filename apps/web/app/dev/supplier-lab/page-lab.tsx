@@ -185,7 +185,7 @@ const FIX: Record<Who, Fixture> = {
 function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
   // Lab fixture (dev-only route): a two-sided band shaped like the catalogue's, never read by a real page.
   const band = { entryPhp: 799, growthPhp: 499 };
-  const pro = tier === 'pro' || tier === 'enterprise' || tier === 'custom';
+  const pro = tier === 'pro' || tier === 'enterprise';
   const price = pro ? band.growthPhp : band.entryPhp;
   return {
     eligible: verified,

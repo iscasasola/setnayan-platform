@@ -30,7 +30,7 @@ type SaveAnswer = { ok: boolean; savedAt: number | null; failed: string[]; dev?:
 /** Rendering four pages on venue Wi-Fi can be slow; past this the save is reported as not landed. */
 const SAVE_TIMEOUT_MS = 90_000;
 
-function workerSupported(): boolean {
+export function workerSupported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && typeof caches !== 'undefined';
 }
 
@@ -48,7 +48,7 @@ export function runsAsInstalledApp(): boolean {
 
 type Kept = { savedAt: number | null; stale: boolean };
 
-async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
+export async function readKept(viewer: string, eventId: string, paths: readonly string[], version: string | null): Promise<Kept> {
   try {
     if (!(await caches.has(OFFLINE_COPIES_CACHE))) return { savedAt: null, stale: false };
     const cache = await caches.open(OFFLINE_COPIES_CACHE);
@@ -62,7 +62,7 @@ async function readKept(viewer: string, eventId: string, paths: readonly string[
   }
 }
 
-async function askWorker(data: Record<string, unknown>): Promise<SaveAnswer | null> {
+export async function askWorker(data: Record<string, unknown>): Promise<SaveAnswer | null> {
   if (!workerSupported()) return null;
   const sw = navigator.serviceWorker;
   const ready = await Promise.race([

@@ -7,6 +7,7 @@ import { canViewSlugEvent } from '@/lib/slug-access';
 import { openToStrangers } from '@/lib/event-visibility';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { onlyWhatGuestsMaySee } from '@/lib/schedule';
+import { withoutSkipped } from '@/lib/change-the-schedule';
 import { liveEdgeHeaders, NOT_HELD, rememberedLiveRead } from '@/lib/live-day-cache';
 import type { RunOfShowBlock, RunState } from '@/lib/run-of-show';
 
@@ -53,7 +54,8 @@ async function guestLines(eventId: string): Promise<RunOfShowBlock[]> {
   const { data, error } = await onlyWhatGuestsMaySee(read).order('start_at', { ascending: true }).order('sort_order', { ascending: true });
   // A refused read throws: nothing is remembered, and this phone is answered 503 (it keeps what it shows).
   if (error) throw error;
-  return (data ?? []).map((b) => ({
+  // 🎟 A skipped part is not on a guest's schedule — dropped after the fenced read (`withoutSkipped`).
+  return withoutSkipped(data ?? []).map((b) => ({
     block_id: b.block_id as string,
     label: b.label as string,
     start_at: b.start_at as string,

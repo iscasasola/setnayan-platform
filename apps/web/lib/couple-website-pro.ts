@@ -9,6 +9,7 @@ import {
 } from '@/lib/entitlements';
 import { askedOnce } from '@/lib/request-once';
 import {
+  EVENT_PLUS_SKU,
   FULL_PRO_SKU,
   HUB_PARTS_ORDER_KEY,
   HUB_PART_PAID_CODES,
@@ -132,11 +133,14 @@ export function eventHubOwnership(
     //    reader (orders + comps + promos, `eventActiveSkus`) answers all eleven.
     //    💎 …and a part bought inside a multi-part order is a LINE of that order (`HUB_PARTS_ORDER_KEY`), read with the
     //    order's own status (`eventSkuLinesFor`) — held, and counted toward the cap, exactly like its own order.
-    const [batch, rows] = await Promise.all([
+    const [batch, rows, plusRows] = await Promise.all([
       eventActiveSkus(supabase, eventId),
       eventSkuLinesFor(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY),
+      // 💎 Event Plus paid toward Pro (owner 2026-11-04) — its own order, read with its own status.
+      eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU]),
     ]);
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
+    const plusPaid = plusRows.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
     const heldSku = (sku: string) =>
       batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku)) || rows.some((r) => r.service_key === sku && counts(r.status));
     // 3. The cap: the parts PAID for, each at its catalogue (web) price.
@@ -144,13 +148,14 @@ export function eventHubOwnership(
       .filter((r) => counts(r.status))
       .map((r) => hubPartOfPaidCode(r.service_key))
       .filter((p): p is HubPartId => p !== null);
-    const prices = paidParts.length === 0 ? null : await hubPartPrices(supabase);
+    const prices = paidParts.length === 0 && !plusPaid ? null : await hubPartPrices(supabase);
     const own = hubOwnershipFrom({
       fullHeld: false,
       partHeld: (id) => heldSku(hubPart(id).sku),
       paidParts,
       prices: prices?.parts ?? new Map(),
       fullPrice: prices?.full ?? null,
+      plusPaid,
     });
     // 4. ⚖ The old cap, kept (owner 2026-10-28): asked ONLY for an event that has paid parts and has not reached
     //    today's price — the few part-holders of 22–26 Oct — so no other event pays for the extra read.
@@ -163,6 +168,7 @@ export function eventHubOwnership(
       paidParts,
       prices: prices?.parts ?? new Map(),
       fullPrice: prices?.full ?? null,
+      plusPaid,
       legacy: {
         capPhp: legacy.capPhp,
         paidParts: legacy.lines
@@ -207,7 +213,7 @@ export function hubPartPrices(
     const { data, error } = await supabase
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php, is_active')
-      .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU]);
+      .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU, EVENT_PLUS_SKU]);
     if (error || !data) {
       if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
       return { parts: new Map(), full: null, onSale: new Set<string>() };

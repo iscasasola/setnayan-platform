@@ -91,12 +91,12 @@ test('price: an admin reprice flows straight through on a paid run', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: 750 }), 750);
 });
 
-test('price: missing/invalid catalog value falls back to ₱500 on a paid run', () => {
+test('price: missing/invalid catalog value falls back to the fallback on a paid run', () => {
   assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 0 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: -5 }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: null }), 500);
-  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: Number.NaN }), 500);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: 0 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'solo', usesThisCycle: 0, cyclePricePhp: -5 }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: null }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
+  assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 1, cyclePricePhp: Number.NaN }), VENDOR_DEEP_SEARCH_FALLBACK_PHP);
   // A Pro vendor's FREE first search is ₱0 regardless of a missing catalog price.
   assert.equal(resolveDeepSearchPricePhp({ tier: 'pro', usesThisCycle: 0, cyclePricePhp: null }), 0);
 });

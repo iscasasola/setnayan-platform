@@ -541,6 +541,12 @@ export type NotificationType =
      why the ask is not `schedule_change_requested`, which is emailed. ⚠ ENUM values in 20271302910538. */
   | 'schedule_ask'
   | 'schedule_ask_answered'
+  /* 📍 A BOOKED SUPPLIER ASKS TO SERVE THESE CHAPTERS (owner 2026-11-04, DECISION_LOG "CHAPTERS: THE SUPPLIER PICKS,
+     AND THE HOST CAN ALSO PICK FOR THEM"). → the couple and every seat holding The Day = Edit, opening the Schedule's
+     Requests (OK / Decline / Change). Sent from app/vendor-dashboard/clients/[eventId]/actions.ts after
+     `supplier_ask_where`. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES — and that is why it is not
+     `schedule_change_requested`, which is emailed. ⚠ ENUM value in 20271308386601. */
+  | 'supplier_where_asked'
   /* 📸 THE PHOTO RULE'S REMINDERS (owner 2026-11-03, DECISION_LOG "THE PHOTO RULE"): originals are kept until 3 months
      after the event's LAST day; each host is told at day 60, 80 and 89 — "Copy to Google Drive (free) or Download all".
      Sent by `lib/papic-originals-reminder.ts`, once per stage per host. ⚠ IN-APP ONLY (owner: no new emails): NOT on
@@ -674,6 +680,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   coordinator_invited: 'You’re invited to coordinate',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
+  supplier_where_asked: 'A supplier picked their chapters',
   papic_originals_reminder: 'Keep your original photos',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
@@ -911,6 +918,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
   schedule_ask_answered: 'bg-sky-100 text-sky-800',
+  supplier_where_asked: 'bg-sky-100 text-sky-800',
   supplier_part_changed: 'bg-sky-100 text-sky-800',
   // News a guest plans their day around, not a yes or no → the informational sky.
   schedule_released: 'bg-sky-100 text-sky-800',
@@ -1198,6 +1206,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   coordinator_invited: 'user-plus',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',
+  supplier_where_asked: 'calendar',
   papic_originals_reminder: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',

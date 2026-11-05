@@ -260,7 +260,7 @@ function PortfolioForm({
           maxSizeMB={5}
           acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
           variant="wide"
-          watermark
+          mark="supplier"
           qrGuard
           stallMs={20000}
         />

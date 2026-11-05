@@ -9,6 +9,7 @@ import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
+import { MarkedPhoto } from '@/app/_components/marked-photo';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
@@ -2321,13 +2322,14 @@ export async function renderVendorBySlug({
         {cinematicHero && heroPhotoUrl ? (
           /* Enterprise flagship — full cinematic hero with the name overlaid. */
           <div className="relative mb-8 h-80 w-full overflow-hidden rounded-2xl bg-ink sm:h-[26rem]">
-            <Image
+            {/* 🔏 1024×416 on desktop (2.5:1) would crop a portfolio photo's mark off — drawn whole on its own blur. */}
+            <MarkedPhoto
               src={heroPhotoUrl}
               alt={displayLabel}
-              fill
+              frame="square"
+              displayAspect={1024 / 416}
               priority
               sizes="(max-width: 1024px) 100vw, 1024px"
-              className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/20 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6 sm:p-10">
@@ -2355,12 +2357,13 @@ export async function renderVendorBySlug({
           </div>
         ) : heroPhotoUrl ? (
           <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl bg-ink/5 sm:h-56 lg:h-64">
-            <Image
+            {/* 🔏 a 768×256 band (3:1) — the same rule as the cinematic hero above. */}
+            <MarkedPhoto
               src={heroPhotoUrl}
               alt={displayLabel}
-              fill
+              frame="square"
+              displayAspect={768 / 256}
               sizes="(max-width: 1024px) 100vw, 768px"
-              className="object-cover"
             />
           </div>
         ) : portfolioUrls.length === 0 ? (

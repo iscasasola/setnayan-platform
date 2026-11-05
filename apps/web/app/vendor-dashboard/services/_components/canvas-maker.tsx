@@ -991,7 +991,7 @@ export function CanvasMaker({
                     unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
                     maxSizeMB={5}
                     acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-                    watermark
+                    mark="supplier"
                     compressImage
                     variant="square"
                     qrGuard

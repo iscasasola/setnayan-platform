@@ -228,7 +228,7 @@ export function ServiceWizard({
             onChange={(v) => setPhotoKey(typeof v === 'string' ? v : '')}
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
-            watermark
+            mark="supplier"
             compressImage
             variant="square"
             qrGuard

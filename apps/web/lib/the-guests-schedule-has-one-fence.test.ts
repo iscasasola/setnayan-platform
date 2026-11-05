@@ -158,7 +158,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/vendor-dashboard/clients/[eventId]/page.tsx': 'supplier — the client workspace',
   'lib/crew-elsewhere.server.ts': 'supplier — their crews on their other events the same day (slice 5)',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
-  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
+  'lib/change-the-schedule.server.ts': 'coordinator + their crew Member — Change the schedule on the day (move / skip); the crew read is fenced as a booked shop (onlyWhatABookedShopMaySee)',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',
   'lib/supplier-today.server.ts': 'supplier — their own Today on an event day: the next moment and how many checked in, for a booking the room read proved is theirs',
 };

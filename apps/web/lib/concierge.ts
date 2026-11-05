@@ -37,8 +37,8 @@ export type ConciergeEnforcementLevel =
 // when the V2 schema migration renames/drops those columns (V2.x scope per lock).
 export const CONCIERGE_ENABLED = false;
 
-export const CONCIERGE_PRICE_CENTAVOS = 249_900; // ₱2,499
-export const CONCIERGE_PRICE_PHP = 2_499;
+// CONCIERGE_PRICE_CENTAVOS / CONCIERGE_PRICE_PHP deleted 2026-11-04 (owner, final price sheet: "make sure there is no
+// record of the older prices") — they had no reader; a dead SKU's price kept in product code is exactly that record.
 export const TRIAL_DURATION_DAYS = 3;
 export const FLOOR_MONTHS = 12;
 export const CAP_MONTHS = 24;

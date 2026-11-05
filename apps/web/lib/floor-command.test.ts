@@ -11,7 +11,6 @@ import assert from 'node:assert/strict';
 
 import {
   FLOOR_REQUESTABLE_AREAS,
-  RETIME_PRESETS,
   buildFloorCommand,
   checkRetime,
   classifyScan,
@@ -25,6 +24,7 @@ import {
   type ScanKind,
 } from './floor-command';
 import { MAX_RETIME_MINUTES } from './schedule-ros';
+import { MOVE_MINUTES } from './change-the-schedule';
 import type { RunOfShowBlock } from './run-of-show';
 import type { DelegateArea } from './event-moderators';
 
@@ -115,8 +115,8 @@ test('remainingBlockCount counts everything not yet done', () => {
 
 // ─── 2. Pushing the schedule ───────────────────────────────────────────────
 
-test('checkRetime accepts the presets the floor actually uses', () => {
-  for (const m of RETIME_PRESETS) {
+test('checkRetime accepts every move the floor’s Change the schedule offers, later and earlier', () => {
+  for (const m of MOVE_MINUTES) {
     assert.equal(checkRetime(m).ok, true, `+${m} should be allowed`);
     assert.equal(checkRetime(-m).ok, true, `−${m} should be allowed`);
   }

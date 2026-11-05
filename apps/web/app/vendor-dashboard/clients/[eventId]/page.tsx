@@ -57,6 +57,10 @@ import {
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
+import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
+import { SupplierCountTile } from './_components/supplier-count-tile';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -205,6 +209,8 @@ import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
 import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
@@ -405,7 +411,7 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
-  run_state?: 'upcoming' | 'live' | 'done' | null;
+  run_state?: 'upcoming' | 'live' | 'done' | 'skipped' | null;
   actual_start_at?: string | null;
   // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
   parent_block_id?: string | null;
@@ -682,6 +688,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     myMarksRes,
     myScheduleFacts,
     myContactsRes,
+    headcountRule,
+    headcountNames,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -768,6 +776,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
       // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
       supabase.from('event_schedule_task_contacts').select('task_id, block_id, name, phone').eq('event_id', eventId),
+      // 🧮 WHO THEY COUNT (owner 2026-11-04) — a per-head booked supplier's count and its why, NUMBERS only
+      // (`get_vendor_headcount_rule`). Null for a flat-priced service: the Headcount card then draws what it always did.
+      isBooked && feeUnlocked ? readVendorHeadcountRule(supabase, eventId) : Promise.resolve(null),
+      // …and the rule in the couple's words ("Only Bride's Crew") — admin-read like the event row above (a supplier has no
+      // read on `events`), behind the same booking gate. A failed read is the usual words, logged (`loadRoleNames`).
+      isBooked && feeUnlocked ? loadRoleNames(admin, eventId, 'vendorClientCard.roleNames') : Promise.resolve(null),
     ]),
   );
 
@@ -1848,6 +1862,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     <OverviewTab
       eventId={eventId}
       brief={brief}
+      headcountRule={headcountRule}
+      headcountNames={headcountNames}
       threadId={threadId}
       returningFlag={returningFlag}
       isBooked={isBooked}
@@ -1954,8 +1970,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — this supplier's (a Host/MC's) own day, kept on their phone for the venue
+     (`lib/offline-copies.ts`). The version is what this tab draws of the day; a read that failed is `unread`, which is
+     never kept over the older copy. */
+  const scheduleCopyPath = supplierSchedulePath(eventId);
+  const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
   const scheduleNode = (
     <>
+      {scheduleCopyPath ? (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={factsRow?.event_date ?? null} path={scheduleCopyPath} version={scheduleCopyVersion} className="mb-3" />
+      ) : null}
       <ScheduleTab
         eventId={eventId}
         preAgreement={preAgreement}
@@ -2534,6 +2558,10 @@ function ReturningMarkerAndActions({
 function OverviewTab(props: {
   eventId: string;
   brief: Brief;
+  /** 🧮 Their count and its why (owner 2026-11-04) — null for a flat-priced service or a refused read. */
+  headcountRule: SupplierHeadcount | null;
+  /** The couple's words for roles, for the rule's line. */
+  headcountNames: RoleNames | null;
   threadId: string | null;
   returningFlag: ReturningClientFlag | null;
   isBooked: boolean;
@@ -2599,6 +2627,8 @@ function OverviewTab(props: {
     eventId,
     depositReturnTo,
     brief,
+    headcountRule,
+    headcountNames,
     threadId,
     returningFlag,
     isBooked,
@@ -2704,7 +2734,11 @@ function OverviewTab(props: {
           <h2 className="flex items-center gap-2 text-sm font-semibold text-ink/70">
             <Users aria-hidden className="h-4 w-4 text-terracotta" /> Headcount
           </h2>
-          {brief.pax.invited > 0 ? (
+          {/* 🧮 WHO THEY COUNT (owner 2026-11-04, the approved prototype's "Supplier · their count"): a per-head service
+              reads ITS number — the couple's rule and ticks applied — with the why in the ⓘ. Numbers only, never names. */}
+          {headcountRule ? (
+            <SupplierCountTile count={headcountRule} names={headcountNames} />
+          ) : brief.pax.invited > 0 ? (
             <>
               <p className="mt-3 text-3xl font-semibold tracking-tight">
                 {brief.pax.attending}

@@ -679,9 +679,11 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
 export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: number }> = {
   free: { monthly: 0, annual: 0 },
   verified: { monthly: 0, annual: 0 },
-  solo: { monthly: 1000, annual: 10000 },
-  pro: { monthly: 2500, annual: 25000 },
-  enterprise: { monthly: 8000, annual: 80000 },
+  // 💰 FINAL PRICE SHEET (owner 2026-11-04): Solo ₱990 · Pro ₱2,490 · Ultra ₱5,990 per 4 weeks (owner, same day: "ULTRA = ₱5,990…"); a year = 10×.
+  // A fallback that lags the catalogue is how an unreadable read shows a superseded price — it moves with the rows.
+  solo: { monthly: 990, annual: 9900 },
+  pro: { monthly: 2490, annual: 24900 },
+  enterprise: { monthly: 5990, annual: 59900 },
   // Custom is priced PER PLAN (composed 28-day total on vendor_custom_plans,
   // computed by lib/vendor-custom-pricing.ts). These are the base-only fallback
   // figures (base ₱8,999/28d · annual = 10× base) for display when no plan is

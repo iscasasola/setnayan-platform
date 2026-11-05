@@ -21,7 +21,7 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { makeAdminClient } from './supabase-over-pglite';
 import { FIXTURE_ROOTS, FIXTURE_TOKENS, fixtureJws } from '../../lib/iap/apple-jws-fixture';
 import { verifyAppleTransaction } from '../../lib/iap/apple-transaction';
-import { iapProductById } from '../../lib/iap/products';
+import { iapProductForDelivery } from '../../lib/iap/products-delivery';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -63,7 +63,9 @@ async function newCouple(): Promise<{ userId: string; eventId: string }> {
 
 /** The intent row `startAppStorePurchase` writes — here with the fixture's fixed token. */
 async function intent(token: string, userId: string, eventId: string, productId: string): Promise<void> {
-  const p = iapProductById(productId)!;
+  // ForDelivery: the Papic fixture was signed for `papic_credits_500`, retired 2026-11-03 — an intent written before
+  // the retirement must still deliver, which is exactly the case this models.
+  const p = iapProductForDelivery(productId)!;
   await db.query(
     `INSERT INTO public.app_store_purchases (app_account_token, user_id, event_id, product_id, service_key)
      VALUES ($1, $2, $3, $4, $5)`,
@@ -257,7 +259,7 @@ async function buyInApp(productId: string) {
   const n = String(++fresh).padStart(4, '0');
   const token = `7e57${n}-0000-4000-8000-00000000${n}`;
   await intent(token, userId, eventId, productId);
-  const t = { ...tx('txLive'), appAccountToken: token, transactionId: `30000000000${n}`, originalTransactionId: `30000000000${n}`, product: iapProductById(productId)! };
+  const t = { ...tx('txLive'), appAccountToken: token, transactionId: `30000000000${n}`, originalTransactionId: `30000000000${n}`, product: iapProductForDelivery(productId)! };
   const out = await fulfil.fulfilAppleTransaction(admin, t, { expectUserId: userId });
   assert.equal(out.status, 'on', JSON.stringify(out));
   return { userId, eventId, t, orderId: out.status === 'on' ? out.orderId : '' };

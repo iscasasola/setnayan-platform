@@ -3,6 +3,10 @@ import { readGuestChapterReplies, readGuestNotInvited, readRemovedChapterLabels 
 import { chaptersForGuest } from '@/lib/invitation-chapters';
 import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.server';
 import { YourScheduleCard } from './_components/your-schedule-card';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
+import { guestMePath } from '@/lib/offline-copy-addresses';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
@@ -2415,6 +2419,34 @@ async function invitationBody({
     />
   );
   const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL (`lib/offline-copies.ts`) — kept on this phone only when the day on screen is
+     the VIEWER'S OWN: the pass holder's (no account: `g-<guest>`), or the signed-in account whose seat this is. Never a
+     host's look at a guest (hosts keep their own day on the Schedule), a sample, or the Maker's canvas. */
+  const ownDayViewer: string | null =
+    isEditorCanvas || search.as !== undefined || ownerCapability
+      ? null
+      : viewerAccount?.id
+        ? seatHolderUserId === viewerAccount.id && passStandingNow.standing !== 'host_preview'
+          ? viewerAccount.id
+          : null
+        : session?.event_id === event.event_id && session?.guest_id === guest.guest_id
+          ? `g-${guest.guest_id}`
+          : null;
+  const meCopyPath = ownDayViewer ? guestMePath(event.slug ?? slug) : null;
+  const meSaved =
+    ownDayViewer && meCopyPath && yourScheduleRead ? (
+      <>
+        <OfflineViewerScript viewer={ownDayViewer} />
+        <ScheduleSavedMark
+          viewer={ownDayViewer}
+          eventKey={meCopyPath.slice(1, meCopyPath.indexOf('?'))}
+          eventDate={event.event_date ?? null}
+          eventEndDate={event.event_end_date ?? null}
+          path={meCopyPath}
+          version={yourScheduleRead.kind === 'ok' ? copyVersionOf(yourScheduleRead.schedule) : OFFLINE_COPY_UNREAD}
+        />
+      </>
+    ) : null;
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
@@ -2481,7 +2513,7 @@ async function invitationBody({
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
       profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
-      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} />}
+      yourSchedule={<YourScheduleCard read={yourScheduleRead} eventName={event.display_name ?? 'the event'} saved={meSaved} />}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={

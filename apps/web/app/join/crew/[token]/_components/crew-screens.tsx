@@ -81,9 +81,16 @@ export function CrewEventHub({
   blocks,
   endsWords,
   scanner,
+  changer = null,
 }: {
   /** The crew's scanner — the shipped seat scanner on the crew door, handed in by the page (it carries a server action). */
   scanner: ReactNode;
+  /**
+   * 🗓 Change the schedule (owner 2026-11-04) — the floor's own sheet on the crew door, in its ASK mode (2026-11-05 (D):
+   * a request the coordinator / hosts approve), handed in by the page ONLY when the database's one answer
+   * (`crew_schedule_door`) is 'ok': a Member of the coordinator's crew. Absent → nothing is drawn.
+   */
+  changer?: ReactNode;
   eventName: string;
   shopName: string;
   dayWords: string | null;
@@ -126,6 +133,11 @@ export function CrewEventHub({
         {opens.runOfShow ? (
           <div data-crew-tool="run-of-show">
             <HubRunOfShow blocks={blocks} moreHref={null} all />
+            {changer ? (
+              <div className="pt-3" data-crew-tool="change-the-schedule">
+                {changer}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

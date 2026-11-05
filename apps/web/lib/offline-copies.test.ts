@@ -6,9 +6,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  OFFLINE_COPY_UNREAD,
   STALE_AFTER_MS,
   coordinatorOfflinePaths,
-  isOfflineCopyPath,
+  coordinatorSchedulePath,
+  copyVersionIn,
+  copyVersionOf,
+  offlineEventDay,
+  staleFor,
+  supplierSchedulePath,
   offlineCopiesUntil,
   offlineSavingOpen,
   parseOfflineRegistry,
@@ -17,6 +23,8 @@ import {
   supplierOfflinePaths,
   type SavedPhase,
 } from './offline-copies';
+import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from './offline-copy-addresses';
+import { labYourSchedule } from '@/app/dev/me-lab/lab-your-schedule';
 
 const E = '0e0e0e0e-0000-4000-8000-000000000001';
 const DAY = '2026-11-14';
@@ -104,4 +112,100 @@ test('the saved copy on screen says so — never "Saved for offline", with signa
   const back = savedMark({ phase: 'saved', savedAt: at, now: NOON, online: true, eventDay: true, onCopy: at });
   assert.equal(back.tone, 'amber');
   assert.match(back.text, /^Showing the copy from 2:10 PM · load the latest/);
+});
+
+// ── 📅 YOUR SCHEDULE — each person's own day, saved for no signal ─────────────────────────────────────────────────
+
+test('every person’s "Your schedule" has a saved address — the guest’s Me, the supplier’s Schedule tab, the hosts’ Schedule', () => {
+  assert.equal(coordinatorSchedulePath(E), `/dashboard/${E}/schedule`);
+  assert.equal(supplierSchedulePath(E), `/vendor-dashboard/clients/${E}?tab=schedule`);
+  assert.equal(guestMePath('Ana-Ben'), '/ana-ben?tab=me');
+  for (const [p, owner] of [
+    [`/dashboard/${E}/schedule`, E],
+    [`/vendor-dashboard/clients/${E}?tab=schedule`, E],
+    ['/ana-ben?tab=me', 'ana-ben'],
+  ] as const) {
+    assert.ok(isOfflineCopyPath(p), `${p} is not a saved address`);
+    assert.equal(offlineCopyEventId(p), owner, `${p} is kept under ${offlineCopyEventId(p)}`);
+  }
+  // Only those exact addresses: another tab, another query, a reserved first segment, an unsafe id — never.
+  for (const p of [
+    `/vendor-dashboard/clients/${E}?tab=files`,
+    `/vendor-dashboard/clients/${E}`,
+    `/vendor-dashboard/clients/${E}?tab=schedule&x=1`,
+    `/dashboard/${E}/schedule?maker=1`,
+    '/ana-ben',
+    '/ana-ben?tab=home',
+    '/dashboard?tab=me',
+    '/login?tab=me',
+    '/schedule?tab=me',
+    '/ab?tab=me',
+  ]) {
+    assert.equal(isOfflineCopyPath(p), false, `${p} would be kept`);
+  }
+  assert.equal(guestMePath('dashboard'), null, 'a reserved word made a guest address');
+  assert.equal(coordinatorSchedulePath('../x'), null);
+  assert.equal(supplierSchedulePath('a?b'), null);
+});
+
+test('the copy’s version is a fingerprint of the day drawn — a Release changes it; the same day never does', () => {
+  const before = labYourSchedule({ schedule: 'bridesmaid' });
+  const after = labYourSchedule({ schedule: 'bridesmaid', released: '1' });
+  assert.ok(before?.kind === 'ok' && after?.kind === 'ok');
+  const v1 = copyVersionOf(before.schedule);
+  const again = labYourSchedule({ schedule: 'bridesmaid' });
+  assert.ok(again?.kind === 'ok');
+  assert.equal(copyVersionOf(again.schedule), v1, 'the same day gave two versions');
+  assert.notEqual(copyVersionOf(after.schedule), v1, 'pressing Release did not change the version');
+  // A moved time, a deleted moment: changed.
+  const day = { chapters: [{ id: 'c1', lines: [{ id: 'l1', time: '1:30 PM' }, { id: 'l2', time: '2:00 PM' }] }] };
+  const moved = { chapters: [{ id: 'c1', lines: [{ id: 'l1', time: '1:45 PM' }, { id: 'l2', time: '2:00 PM' }] }] };
+  const deleted = { chapters: [{ id: 'c1', lines: [{ id: 'l1', time: '1:30 PM' }] }] };
+  assert.notEqual(copyVersionOf(moved), copyVersionOf(day));
+  assert.notEqual(copyVersionOf(deleted), copyVersionOf(day));
+  assert.match(copyVersionOf(day), /^[A-Za-z0-9._-]{1,64}$/);
+  assert.notEqual(copyVersionOf(day), OFFLINE_COPY_UNREAD);
+  // The worker reads it back out of the page the way it is drawn.
+  assert.equal(copyVersionIn(`<div data-schedule-saved="" data-sn-copy-version="${v1}"></div>`), v1);
+  assert.equal(copyVersionIn('<div>no version</div>'), null);
+});
+
+test('a copy from before the Release is stale — and is never drawn as "Saved for offline"', () => {
+  const v1 = 'v1abc.10';
+  const v2 = 'v2def.12';
+  const P = `/vendor-dashboard/clients/${E}?tab=schedule`;
+  const reg = parseOfflineRegistry({ v: 1, viewer: 'ana-00000001', events: { [E]: { until: NOON + HOUR, pages: { [P]: NOON - 10 * 60_000 }, versions: { [P]: v1 } } } });
+  assert.equal(staleFor(reg, 'ana-00000001', E, [P], v1), false, 'the same version read as stale');
+  assert.equal(staleFor(reg, 'ana-00000001', E, [P], v2), true, 'a copy from before the change read as current');
+  assert.equal(staleFor(reg, 'ben-00000002', E, [P], v2), false, 'another person’s copy was weighed at all');
+  assert.equal(staleFor(reg, 'ana-00000001', E, [P], OFFLINE_COPY_UNREAD), false, 'a page that could not read its day judged the copy');
+  const unversioned = parseOfflineRegistry({ v: 1, viewer: 'ana-00000001', events: { [E]: { until: NOON + HOUR, pages: { [P]: NOON } } } });
+  assert.equal(staleFor(unversioned, 'ana-00000001', E, [P], v2), true, 'a copy that carries no version read as current');
+  // The mark: ten minutes old (fresh by the clock) but stale — never ok, never "Saved for offline".
+  const savedAt = NOON - 10 * 60_000;
+  for (const eventDay of [true, false]) {
+    const m = savedMark({ phase: 'saved', savedAt, now: NOON, online: true, eventDay, stale: true });
+    assert.notEqual(m.tone, 'ok', `a stale copy was drawn ${m.tone}: "${m.text}"`);
+    assert.doesNotMatch(m.text, /Saved for offline/);
+    assert.match(m.text, /^Couldn’t update · the copy from /);
+  }
+  // Offline it is the copy on screen: amber, and says which copy.
+  const off = savedMark({ phase: 'saved', savedAt, now: NOON, online: false, eventDay: true, stale: true });
+  assert.equal(off.tone, 'amber');
+  assert.match(off.text, /^No signal · showing the copy from /);
+});
+
+test('offline, a saved schedule opens with the amber mark naming its copy; with nothing saved it says so in red', () => {
+  const at = Date.parse('2026-11-14T07:05:00+08:00');
+  const m = savedMark({ phase: 'saved', savedAt: at, now: NOON, online: false, eventDay: true, onCopy: at });
+  assert.deepEqual(m, { tone: 'amber', text: 'No signal · showing the copy from 7:05 AM' });
+  assert.equal(savedMark({ phase: 'none', savedAt: null, now: NOON, online: false, eventDay: true }).tone, 'bad');
+});
+
+test('the event day, Philippine time, for the amber line — one day or every day of a long event', () => {
+  assert.equal(offlineEventDay(DAY, NOON), true);
+  assert.equal(offlineEventDay(DAY, Date.parse('2026-11-13T23:59:00+08:00')), false);
+  assert.equal(offlineEventDay(DAY, Date.parse('2026-11-15T00:00:00+08:00')), false);
+  assert.equal(offlineEventDay(DAY, Date.parse('2026-11-15T09:00:00+08:00'), '2026-11-16'), true);
+  assert.equal(offlineEventDay(null, NOON), false);
 });

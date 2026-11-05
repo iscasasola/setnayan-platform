@@ -18,8 +18,6 @@ import {
   resolveVendor3dBoothPricePhp,
   nextVendor3dBoothExpiry,
 } from '@/lib/vendor-3d-booth-pricing';
-import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
-import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-flag';
 import {
   addonIsFreeUnderFirst5,
@@ -151,7 +149,6 @@ export async function activateVendor3dBooth(
   // tiered-PRICING switch decided who may buy. The owner turned that switch on
   // the same day, which opened the 3D Booth to free shops as a side effect of a
   // price change. A floor a pricing flag can lift is not a floor.
-  const tieredPricing = isVendorAddonTieredPricingEnabled();
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
       '3D Booth comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.',
@@ -190,9 +187,8 @@ export async function activateVendor3dBooth(
   // instead of the flat catalog row — since 2026-09-05 both say ₱3,000 (bands
   // equal), so this branch selects a SOURCE, not a price; the free first cycle
   // and every other rule below are unchanged.
-  const cyclePricePhp = tieredPricing
-    ? resolveVendorAddonPricePhp('ads_3d_plan', tier)
-    : catalogCyclePricePhp;
+  // 2026-11-04: one price for every plan, read from the catalogue row (no typed band any more).
+  const cyclePricePhp = catalogCyclePricePhp;
 
   /** The standing renewal price for THIS vendor — what a cycle costs once any
    *  free grant is spent. Used in copy so no message hardcodes ₱1,500. */

@@ -134,15 +134,14 @@ export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
  * than to zero or to full price.
  */
 export const AI_TIER_ONBOARDING_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
-  // 💲 2026-10-28: the rows carry NO sign-up override any more — the sign-up
-  // price is the house dial (40%) of the new regular price, as every other
-  // product's is (`houseSignupPricePhp`). 40% off 3300 / 1980 / 1190 / 265:
-  // (Was 1499 / 899 / 539 / 119 — the per-row overrides of the 2026-08-28
-  // single-discount ruling, set against the old prices.)
-  A: 1980,
-  B: 1188,
-  C: 714,
-  D: 159,
+  // ⚖ 2026-11-03 (owner, "drop the 40% on all then"): there is NO sign-up
+  // price, so buying during set-up costs the regular price — these equal
+  // AI_TIER_FALLBACK_PHP. (Was 1980 / 1188 / 714 / 159, 40% off, 2026-10-28;
+  // before that 1499 / 899 / 539 / 119.)
+  A: 3300,
+  B: 1980,
+  C: 1190,
+  D: 265,
   E: 0,
 };
 

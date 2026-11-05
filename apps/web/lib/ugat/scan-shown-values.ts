@@ -51,7 +51,7 @@ export const SAMPLE_PATH =
 export const RULE_CONSTANTS: ReadonlyArray<{ re: RegExp; why: string }> = [
   { re: /\b(?:within|after|every|for|up to|at least|than|over|under|per|each|in|first|last|past|next|from|keep(?:s)?|stay(?:s)?|lasts?)\s+(?:the\s+)?\d+\s*(?:-\s*)?days?\b/i, why: 'a time window the app enforces ("within 7 days", "every 28 days")' },
   { re: /\b\d+\s*-\s*days?\b|\b\d+\s*days?\s+(?:before|after|of|notice|grace|trial|window|in advance|prior|free|left to|to (?:pay|reply|confirm|cancel|respond|claim|accept|agree|decide|refund|try))\b/i, why: 'a period stated as a rule ("30-day", "7 days before")' },
-  { re: /\b(?:commission|deposit|balance|off|discount|refund|fee|cap|vat|tax|keep|interest|markup|share|split|downpayment|down payment|surcharge|save|of the (?:total|price|amount))\b/i, why: 'a percentage or amount that is a policy, not a count ("0% commission", "save 20%")' },
+  { re: /\b(?:commission|deposit|balance|off|discount|refund|fee|cap|vat|tax|keep|interest|markup|share|split|downpayment|down payment|surcharge|save|of the (?:total|price|amount))\b/i, why: 'a percentage or amount that is a policy, not a count ("0% commission", "save 15%")' },
   { re: /(?:\/\s*|\bevery\s+)?\b28\s*days\b/i, why: 'the 28-day billing cycle every supplier plan runs on' },
   { re: /₱\s?0(?!\d|[,.]\d)/, why: '"₱0" — free, the one price that never moves' },
   { re: /\d+(?:\s*\/\s*\d+)+\s*(?:seats|guests|pax)/i, why: 'a menu of sizes ("8/10/12 seats"), not a count' },

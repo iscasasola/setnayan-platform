@@ -30,7 +30,8 @@ import { Tip } from './day-ui';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ScheduleViewOnScreen } from './schedule-sheet';
 import { useChapters } from './chapters-context';
-import { Settings } from 'lucide-react';
+import { Settings, X } from 'lucide-react';
+import { lensWords } from '@/lib/schedule-view-as';
 import { chapterStage } from '@/lib/schedule-chapters';
 import { formatCount } from '@/lib/format-number';
 import { DEFAULT_CHAPTERS_TELL, DEFAULT_CHAPTERS_TIP, defaultChaptersUnfilled } from '@/lib/schedule';
@@ -100,9 +101,22 @@ export function ScheduleOneLine({
      [Event Day ▾] 4 chapters · 👤 · ⚙ — the date line, its ⓘ, Announce and Share live in Schedule settings (⚙). Where
      no chapters are drawn (the Maker, a failed read) the line stays as it was. */
   const settled = Boolean(chapters);
-  const chapterCount = chapters
-    ? chapters.chapters.filter((c) => chapterStage(c, chapters.eventDay) === (view === 'preparation' ? 'planning' : 'day')).length
-    : 0;
+  const dayChapters = chapters
+    ? chapters.chapters.filter((c) => chapterStage(c, chapters.eventDay) === (view === 'preparation' ? 'planning' : 'day'))
+    : [];
+  const chapterCount = dayChapters.length;
+  /* 📌 Slice 8: the row is PINNED and never hides; once the page scrolls it cross-fades to a tighter face of the
+     same doors (labels shrink to their counts) — the height never changes, so nothing jumps. */
+  const [tight, setTight] = useState(false);
+  useEffect(() => {
+    if (!settled) return;
+    const onScroll = () => setTight(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [settled]);
+  const narrowed = chapters?.dayFilter ? (chapters.chapters.find((c) => c.block_id === chapters.dayFilter) ?? null) : null;
+  const lensOn = chapters && chapters.viewAs && chapters.lens.kind !== 'everyone' ? lensWords(chapters.viewAs.data, chapters.lens) : null;
   const lineParts = (
     <>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[14px] text-ink/70" data-schedule-date-line="">
@@ -132,8 +146,12 @@ export function ScheduleOneLine({
     <ScheduleViewOnScreen.Provider value={view}>
       <div data-schedule-one-line={view}>
         {/* ── THE ONE LINE: the view ▾ · the day's own tools (Event Day only) · 🔊 Announce. */}
-        <div className="flex min-h-11 items-center gap-1.5" data-schedule-line="">
-          <span className="flex min-w-0 shrink items-center">
+        <div
+          className={settled ? `sticky top-0 z-20 -mx-4 flex h-14 items-center gap-1 bg-cream px-4 transition-shadow duration-200 ${tight ? 'shadow-[0_1px_0_rgba(27,26,23,0.08)]' : ''}` : 'flex min-h-11 items-center gap-1.5'}
+          data-schedule-line=""
+          data-schedule-line-tight={settled && tight ? '' : undefined}
+        >
+          <span className={settled ? 'flex flex-none items-center' : 'flex min-w-0 shrink items-center'}>
             <PickMenu
               label="Schedule view"
               value={view}
@@ -154,7 +172,36 @@ export function ScheduleOneLine({
             />
           </span>
           {/* The day's tools are the Event Day's only: `hidden` as a CLASS — a `flex` class beats the attribute. */}
-          {settled ? (
+          {/* 🔎 "4 chapters" is a DOOR (slice 8, "Changed 2"): it narrows the day to one chapter, and reads as a tinted
+              chip with ✕ while narrowed. */}
+          {settled && chapters && view === 'event-day' && narrowed ? (
+            <span className="flex min-w-0 items-center rounded-full bg-terracotta/15" data-schedule-count-chip="">
+              <span className="max-w-[7rem] truncate pl-3 text-[14px] font-semibold text-ink">{narrowed.label}</span>
+              <button
+                type="button"
+                onClick={() => chapters.setDayFilter(null)}
+                aria-label="Show every chapter"
+                className="sn-press grid h-11 w-9 place-items-center rounded-full text-ink/70"
+              >
+                <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
+              </button>
+            </span>
+          ) : settled && chapters && view === 'event-day' && chapterCount > 1 ? (
+            <span className="flex-none" data-schedule-count="">
+              <PickMenu
+                label="Show one chapter"
+                value="all"
+                buttonText={tight || lensOn ? `≡ ${formatCount(chapterCount)}` : `${formatCount(chapterCount)} chapters`}
+                options={[
+                  { key: 'all', label: 'Every chapter', trail: { text: formatCount(chapterCount), tone: 'muted' as const } },
+                  ...dayChapters.map((c) => ({ key: c.block_id, label: c.label, group: 'Show one chapter' })),
+                ]}
+                onPick={(k) => chapters.setDayFilter(k === 'all' ? null : k)}
+                dataAttr="data-schedule-chapter-door"
+                compact
+              />
+            </span>
+          ) : settled ? (
             <span className="min-w-0 truncate text-[14px] text-ink/60" data-schedule-count="">
               {formatCount(chapterCount)} chapter{chapterCount === 1 ? '' : 's'}
             </span>
@@ -171,7 +218,7 @@ export function ScheduleOneLine({
               onClick={() => chapters?.openSettings()}
               aria-label="Schedule settings"
               data-schedule-settings-open=""
-              className={`sn-press grid h-11 w-11 flex-none place-items-center rounded-full border border-ink/15 text-ink${view !== 'event-day' ? ' ml-auto' : ''}`}
+              className={`sn-press grid h-10 w-10 flex-none place-items-center rounded-full border border-ink/15 text-ink${view !== 'event-day' ? ' ml-auto' : ''}`}
             >
               <Settings aria-hidden className="h-5 w-5" strokeWidth={1.8} />
             </button>
@@ -188,6 +235,34 @@ export function ScheduleOneLine({
           </p>
         ) : null}
 
+        {/* 📅 Slice 8 ("Changed 5"): the date line sits under the pinned row and scrolls away; it is in ⚙ too. A filter
+            says what you are seeing and how to clear it, right under it. */}
+        {settled ? (
+          <div className="mt-1 space-y-1" data-schedule-under-line="">
+            <p className="text-[13px] text-ink/60" data-schedule-date-under="">
+              {dateLine}
+            </p>
+            {view === 'event-day' && (narrowed || lensOn) ? (
+              <p className="text-[13px] text-ink/70" data-schedule-filter-line="">
+                {lensOn ? (
+                  <>
+                    Seeing the day as <b className="font-semibold text-ink">{lensOn}</b> ·{' '}
+                    <button type="button" className="font-semibold text-ink underline" onClick={() => chapters?.setLens({ kind: 'everyone' })}>
+                      Show everyone
+                    </button>
+                  </>
+                ) : narrowed ? (
+                  <>
+                    Showing <b className="font-semibold text-ink">{narrowed.label}</b> only ·{' '}
+                    <button type="button" className="font-semibold text-ink underline" onClick={() => chapters?.setDayFilter(null)}>
+                      Show every chapter
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {/* ── THE DATE LINE — everything else about the day is inside its ⓘ (inside ⚙ on the chapters page). */}
         {settled ? null : (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px] text-ink/60" data-schedule-date-line="">

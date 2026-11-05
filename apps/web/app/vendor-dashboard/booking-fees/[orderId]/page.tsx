@@ -31,12 +31,17 @@ import { bookingFeeErrorCopy,
   VENDOR_BOOKING_FEES_PATH,
 } from '@/lib/vendor-booking-fees';
 import { ShopNotice } from '../../_components/kit';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { chargeIdFromBookingFeeLockServiceKey } from '@/lib/booking-fee-lock';
+import { DISPUTE_TEXT_MAX, asDisputeStatus, disputeStateLine } from '@/lib/booking-fee-dispute';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { disputeBookingFee } from './actions';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
 type Props = {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ logged?: string; error?: string }>;
+  searchParams: Promise<{ logged?: string; error?: string; dispute?: string }>;
 };
 
 /**
@@ -103,6 +108,47 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   const staticImageWords = qrWords(false, payAmount(totals.headlineTotal), {
     reference: order.reference_code,
   });
+
+  /*
+    🕵️ THE DISPUTE (DECISION_LOG 2026-07-27 grace-first ladder; owner 2026-11-05 "build dispute"). The bill's own
+    charge, its dispute if any (the supplier's own read, RLS), and — only to quote it back — how often the couple
+    opened this shop on Setnayan. That count lives in the couple-only found-record, so it is read with the service
+    role, scoped to THIS bill's own (event, shop), which the checks above already proved is the caller's.
+    A failed read shows no dispute control rather than a wrong one.
+  */
+  const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
+  const disputeRead = chargeId
+    ? await supabase
+        .from('booking_fee_disputes')
+        .select('status, decision_note')
+        .eq('charge_id', chargeId)
+        .maybeSingle()
+    : { data: null, error: null };
+  const dispute = disputeRead.error
+    ? undefined
+    : ((disputeRead.data as { status: string; decision_note: string | null } | null) ?? null);
+  const disputeStatus = dispute ? asDisputeStatus(dispute.status) : null;
+  let disputeViewCount: number | null = null;
+  if (disputeStatus === 'auto_accepted' && chargeId) {
+    const admin = createAdminClient();
+    const { data: charge } = await admin
+      .from('booking_fee_charges')
+      .select('event_id, vendor_profile_id')
+      .eq('charge_id', chargeId)
+      .maybeSingle();
+    const c = charge as { event_id: string | null; vendor_profile_id: string } | null;
+    if (c?.event_id) {
+      const { data: found } = await admin
+        .from('event_vendor_found')
+        .select('view_count')
+        .eq('event_id', c.event_id)
+        .eq('vendor_profile_id', c.vendor_profile_id)
+        .maybeSingle();
+      disputeViewCount = (found as { view_count?: number } | null)?.view_count ?? null;
+    }
+  }
+  // Disputable: an open bill, no dispute yet, and the dispute read answered.
+  const canDispute = payable && Boolean(chargeId) && dispute === null;
 
   const paymentScreenshotMap: Record<string, string> = {};
   await Promise.all(
@@ -276,6 +322,44 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
             <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Send your payment
           </Link>
+        </section>
+      ) : null}
+
+      {disputeStatus ? (
+        <section className="sn-tile space-y-2 p-5" data-fee-dispute={disputeStatus}>
+          <h2 className="sn-eye">Your dispute</h2>
+          <p className="text-sm text-ink/75">
+            {disputeStateLine(disputeStatus, disputeViewCount, dispute?.decision_note ?? null)}
+          </p>
+        </section>
+      ) : search.dispute === 'error' || search.dispute === 'not_disputable' ? (
+        <ShopNotice tone="gold" role="alert">
+          {search.dispute === 'not_disputable'
+            ? 'This fee can no longer be disputed here — it is not an open bill.'
+            : 'We could not send your dispute just now. Nothing has changed. Please try again.'}
+        </ShopNotice>
+      ) : null}
+
+      {canDispute ? (
+        <section className="sn-tile space-y-3 p-5" data-fee-dispute-form="">
+          <h2 className="sn-eye">Think this fee is wrong?</h2>
+          <p className="text-sm text-ink/70">
+            If this couple did not find you through Setnayan, tell us and we will look at it.
+          </p>
+          <form action={disputeBookingFee} className="space-y-3">
+            <input type="hidden" name="order_id" value={order.order_id} />
+            <label className="block text-xs font-medium text-ink/70" htmlFor="fee-dispute-reason">
+              What happened? (optional)
+            </label>
+            <textarea
+              id="fee-dispute-reason"
+              name="reason"
+              rows={3}
+              maxLength={DISPUTE_TEXT_MAX}
+              className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
+            />
+            <SubmitButton pendingLabel="Sending…">Dispute this fee</SubmitButton>
+          </form>
         </section>
       ) : null}
 

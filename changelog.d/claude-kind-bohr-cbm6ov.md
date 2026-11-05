@@ -23,6 +23,24 @@ important"*. Builds the 2026-07-27 FOUND-YOU plan (`Explore_Replan_BUILD_SPEC_20
 - Tests: `tests/db/found-you-at-claim.db.test.ts` (7 walks, including a supplier with NO account claiming free end to
   end) · `lib/found-you.test.ts`.
 
-SPEC IMPACT: None to the rules — this implements DECISION_LOG 2026-07-27 §10 as written. Two readings are left to the
-owner (PR "Where I stopped"): impressions are not recorded (07-27 said never), and the lead alert fires at the
-claim Approve, not at the add-time name match.
+## 2026-11-05 · feat(booking-fee): a supplier can dispute a booking fee — the grace-first ladder
+
+Owner, 5 Nov 2026: *"switch on booking fee. and build dispute"*. Builds the DECISION_LOG 2026-07-27 "FOUND-YOU
+DISPUTES — grace-first ladder" row.
+
+- **The record** — `booking_fee_disputes`, one per charge. The supplier reads its own; admins read all; no session
+  writes it. Two database steps, service role only: `booking_fee_open_dispute` and `booking_fee_decide_dispute`.
+- **First dispute per supplier, ever → accepted on the spot.** The unpaid charge becomes `waived_import` ("the
+  supplier brought this client" — an existing settled status every fee rule already reads) and its open bill is
+  cancelled by the one shared bill writer. The bill page shows the owner's reminder ("This one's on us…"), with the
+  found-record's view count when there is one.
+- **Second and later → admin review** in a new section of `/admin/disputes`, with the receipts (found-record, a chat
+  started from Setnayan, a save from Find). Accept waives the fee; reject keeps the bill. The supplier gets an in-app
+  notice (`fee_dispute_answered`); admins get one when a dispute waits (`fee_dispute_opened`). No emails.
+- **Only an unpaid fee can be disputed.** No flag and no price is touched. The free-five place is not given back.
+- Tests: `tests/db/a-supplier-can-dispute-a-booking-fee.db.test.ts` (6) · `lib/booking-fee-dispute.test.ts` (5).
+
+SPEC IMPACT: None to the rules — both builds implement the DECISION_LOG 2026-07-27 FOUND-YOU rows. Owner rulings
+5 Nov 2026 (for a DECISION_LOG row): found = OPENED only, never a list appearance · the supplier's alert fires at the
+couple's Approve · the Locked QR found-check waits until after the 7 Nov supplier invite · disputes built now, and the
+booking fee switched on (an owner action in Vercel — not done from this session).

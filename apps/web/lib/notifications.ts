@@ -524,6 +524,13 @@ export type NotificationType =
      (app/dashboard/[eventId]/access-requests/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES.
      ⚠ ENUM value in 20271309388071. */
   | 'found_you_lead'
+  /* 🕵️ BOOKING-FEE DISPUTES (DECISION_LOG 2026-07-27 grace-first ladder; built 2026-11-05).
+     `fee_dispute_opened` → every admin, when a supplier's SECOND or later dispute waits for review (their first is
+     accepted on the spot). `fee_dispute_answered` → the supplier, when an admin accepts or rejects it. Sent by
+     `disputeBookingFee` (app/vendor-dashboard/booking-fees/[orderId]/actions.ts) and `decideBookingFeeDispute`
+     (app/admin/disputes/actions.ts). ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM values in 20271309623556. */
+  | 'fee_dispute_opened'
+  | 'fee_dispute_answered'
   /* 🔔 A HOST OR COORDINATOR CHANGED A SUPPLIER'S PART (supplier gate audit D6, 2026-11-02; owner: *"getting
      notifications if they are changed by user"*). → each booked supplier named on the moment (`responsible_vendor_ids`,
      before AND after the edit), ONE notice per save however many moments it touched — retimed, edited, re-assigned or
@@ -685,6 +692,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   supplier_where_changed: 'Where you go changed',
   claim_access_answered: 'A couple answered your link',
   found_you_lead: 'A couple found you on Setnayan',
+  fee_dispute_opened: 'A booking fee is disputed',
+  fee_dispute_answered: 'Your fee dispute was answered',
   coordinator_invited: 'You’re invited to coordinate',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
@@ -920,6 +929,9 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   claim_access_answered: 'bg-sky-100 text-sky-800',
   // Good news for the supplier, not a yes or no → the informational sky.
   found_you_lead: 'bg-sky-100 text-sky-800',
+  // Waiting on an admin's answer → the action-needed amber, like every other ask.
+  fee_dispute_opened: 'bg-warn-100 text-warn-900',
+  fee_dispute_answered: 'bg-sky-100 text-sky-800',
   // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
   coordinator_invited: 'bg-warn-100 text-warn-900',
   // A deadline on the couple's own originals → the action-needed amber.
@@ -1185,6 +1197,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   change_order_proposed: 'receipt',
   change_order_answered: 'receipt',
   booking_fee_waived: 'receipt',
+  fee_dispute_opened: 'receipt',
+  fee_dispute_answered: 'receipt',
   payment_info_sent: 'receipt',
   vendor_payment_asked: 'receipt',
   ai_payment_due: 'receipt',

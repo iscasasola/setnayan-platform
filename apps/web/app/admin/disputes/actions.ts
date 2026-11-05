@@ -11,6 +11,9 @@ import { runDepositAcknowledgedEffects } from '@/lib/deposit-acknowledged-effect
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
 import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
+import { DISPUTE_TEXT_MAX, disputeAnsweredNotice } from '@/lib/booking-fee-dispute';
+import { BOOKING_FEE_LOCK_SERVICE_PREFIX } from '@/lib/booking-fee-lock';
+import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 /**
  * /admin/disputes resolution actions (cross-actor audit 2026-06-07).
  *
@@ -514,4 +517,59 @@ export async function settlePaymentDispute(formData: FormData) {
   revalidatePath('/admin/work');
   if (eventId) revalidatePath(`/dashboard/${eventId}/vendors/${eventVendorId}/workspace`);
   redirect('/admin/disputes?settled=ok');
+}
+
+/**
+ * 🕵️ AN ADMIN DECIDES A SUPPLIER'S BOOKING-FEE DISPUTE (DECISION_LOG 2026-07-27 grace-first ladder: *"second
+ * dispute will be upon review of our admin"*; owner 2026-11-05 "build dispute"). ONE database step,
+ * `booking_fee_decide_dispute` (migration 20271310612526): accept waives the fee and voids its open bill (only if it
+ * is still unpaid); reject leaves the bill standing. It re-checks the caller is an admin.
+ *
+ * The supplier is told IN THE APP (`fee_dispute_answered`), never by email, with a link to the bill itself.
+ */
+export async function decideBookingFeeDispute(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const disputeId = String(formData.get('dispute_id') ?? '');
+  const accept = formData.get('decision') === 'accept';
+  const note = nullIfBlank(formData.get('note'));
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('booking_fee_decide_dispute', {
+    p_dispute_id: disputeId,
+    p_admin_id: userId,
+    p_accept: accept,
+    p_note: note ? note.slice(0, DISPUTE_TEXT_MAX) : null,
+  });
+  if (error) {
+    console.error('[supabase-error] admin/disputes · booking_fee_decide_dispute', error.message, { disputeId });
+    redirect('/admin/disputes?fee_dispute=error#fee-disputes');
+  }
+  const res = (data ?? {}) as { result?: string; vendor_profile_id?: string; charge_id?: string };
+
+  if ((res.result === 'accepted' || res.result === 'rejected') && res.vendor_profile_id && res.charge_id) {
+    try {
+      const [{ data: vp }, { data: order }] = await Promise.all([
+        admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', res.vendor_profile_id).maybeSingle(),
+        admin
+          .from('orders')
+          .select('order_id')
+          .eq('service_key', `${BOOKING_FEE_LOCK_SERVICE_PREFIX}${res.charge_id}`)
+          .maybeSingle(),
+      ]);
+      const supplier = (vp as { user_id?: string | null } | null)?.user_id ?? null;
+      const orderId = (order as { order_id?: string } | null)?.order_id ?? null;
+      if (supplier) {
+        const notice = disputeAnsweredNotice({
+          accepted: res.result === 'accepted',
+          orderPath: orderId ? vendorBookingFeePayPath(orderId) : VENDOR_BOOKING_FEES_PATH,
+        });
+        await emitNotification({ userId: supplier, type: 'fee_dispute_answered', ...notice });
+      }
+    } catch (e) {
+      console.error('[admin/disputes] fee dispute answer notice failed:', e);
+    }
+  }
+
+  revalidatePath('/admin/disputes');
+  redirect(`/admin/disputes?fee_dispute=${encodeURIComponent(res.result ?? 'error')}#fee-disputes`);
 }

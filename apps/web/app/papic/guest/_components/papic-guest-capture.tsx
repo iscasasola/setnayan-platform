@@ -592,7 +592,19 @@ export function PapicGuestCapture({
   // the platform's flat 150. Server-authoritative (json.reason), never
   // guessed — only capReason === 'guest_spend_ceiling' gets the one extra
   // sentence naming a remedy the flat 150 does not have.
-  const [capReason, setCapReason] = useState<string | null>(null);
+  //
+  // 🔒 A CEILING OF 0 IS KNOWN AT OPEN (2026-11-05). The couple's "may not
+  // spend" is `ceiling_points = 0` (papic_guest_spend_ceilings), and the
+  // platform's own number is a flat 150 — so `capApplies && total <= 0` can only
+  // be the couple's own ceiling. Started as 'guest_spend_ceiling' rather than
+  // null, the camera says "The host hasn't opened your camera yet" from the first
+  // frame, not "That's all 0 photos!" with a thank-you for photos nobody took.
+  const cameraNotOpened = capApplies && total <= 0;
+  const [capReason, setCapReason] = useState<string | null>(
+    cameraNotOpened ? 'guest_spend_ceiling' : null,
+  );
+  /** The host gave this guest no shots: said ONCE, over the viewfinder — never "all used up". */
+  const notOpened = capReason === 'guest_spend_ceiling' && total <= 0;
   // Starts TRUE when the pot was already empty at open (server-read), so the
   // shutter rests before a shot is taken and lost — not after.
   const [poolEmpty, setPoolEmpty] = useState(poolEmptyAtOpen);
@@ -1834,6 +1846,18 @@ export function PapicGuestCapture({
                   the moment they do.
                 </p>
               </>
+            ) : notOpened ? (
+              /* THE HOST GAVE THIS GUEST NO SHOTS (a ceiling of 0) — nothing was
+                 used up and nothing finished, so no tick and no thank-you. */
+              <>
+                <Camera aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
+                <p className="text-base font-semibold" data-papic-camera-not-opened="">
+                  The host hasn&rsquo;t opened your camera yet
+                </p>
+                <p className="text-sm text-cream/70">
+                  Your camera starts here the moment they do.
+                </p>
+              </>
             ) : (
               <>
                 <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
@@ -2063,7 +2087,7 @@ export function PapicGuestCapture({
         </div>
         {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
             over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
-        {exhausted && poolEmpty ? null : (fullScreen && !exhausted && !recording && !tagging) ? null : (
+        {exhausted && (poolEmpty || notOpened) ? null : (fullScreen && !exhausted && !recording && !tagging) ? null : (
           <p className="order-3 text-center text-xs text-cream/60" data-camera-hint="">
             {exhausted
               ? 'Your camera is all used up — enjoy the event.'

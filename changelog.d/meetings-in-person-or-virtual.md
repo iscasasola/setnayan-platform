@@ -68,6 +68,10 @@ Virtual is stored as 'video'; the link lives in `location` as `"jitsi|<link>"`.
   `cancelAppointment` body. Same update, same notification, same redirect.
 - Exposure baseline regenerated: +2 `col` facts, `event_appointments.room_created_at` / `room_created_by`, with the same
   grants as every sibling column. RLS and the set-once trigger govern them.
+- `bookedCounterpartyPhone` (`lib/shop-booking.server.ts`) now logs a refused `vendor_profiles` / `event_members` /
+  `users` read, and a thrown error, through `logQueryError` (`graceful_degrade`), instead of dropping it. It still
+  returns null, so no buttons show, but a refused read is no longer indistinguishable from "no number saved".
+  Spotted by #7300's session.
 
 SPEC IMPACT: None in this PR — it implements rulings already in DECISION_LOG.md (2026-10-28 no calls; 2026-11-04 "SIX
 OWNER ANSWERS", "VIRTUAL = JITSI ONLY", "ONE BUTTON THAT SAYS WHAT THE ROOM NEEDS").

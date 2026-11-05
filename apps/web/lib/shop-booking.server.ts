@@ -52,29 +52,45 @@ export async function bookedCounterpartyPhone(opts: {
   vendorProfileId: string;
 }): Promise<string | null> {
   if (opts.booked !== true) return null;
+  // A refused read still answers null (no buttons), but it is logged — so "refused" and "no number saved" are no
+  // longer the same silent null (same pattern as shopIsBookedOnEvent above).
+  const ctx = { event_id: opts.eventId, vendor_profile_id: opts.vendorProfileId };
   try {
     const admin = createAdminClient();
     if (opts.viewer === 'couple') {
-      const { data } = await admin
+      const { data, error } = await admin
         .from('vendor_profiles')
         .select('contact_phone')
         .eq('vendor_profile_id', opts.vendorProfileId)
         .maybeSingle();
+      if (error) {
+        logQueryError('bookedCounterpartyPhone.shop', error, ctx, 'graceful_degrade');
+        return null;
+      }
       return ((data as { contact_phone?: string | null } | null)?.contact_phone ?? '').trim() || null;
     }
-    const { data: members } = await admin
+    const { data: members, error: membersError } = await admin
       .from('event_members')
       .select('user_id')
       .eq('event_id', opts.eventId)
       .eq('member_type', 'couple');
+    if (membersError) {
+      logQueryError('bookedCounterpartyPhone.couple', membersError, ctx, 'graceful_degrade');
+      return null;
+    }
     const ids = ((members ?? []) as Array<{ user_id: string | null }>).map((m) => m.user_id).filter((x): x is string => !!x);
     if (ids.length === 0) return null;
-    const { data: users } = await admin.from('users').select('user_id, phone').in('user_id', ids);
+    const { data: users, error: usersError } = await admin.from('users').select('user_id, phone').in('user_id', ids);
+    if (usersError) {
+      logQueryError('bookedCounterpartyPhone.couplePhone', usersError, ctx, 'graceful_degrade');
+      return null;
+    }
     for (const u of (users ?? []) as Array<{ phone: string | null }>) {
       if (u.phone?.trim()) return u.phone.trim();
     }
     return null;
-  } catch {
+  } catch (err) {
+    logQueryError('bookedCounterpartyPhone', err, ctx, 'graceful_degrade');
     return null;
   }
 }

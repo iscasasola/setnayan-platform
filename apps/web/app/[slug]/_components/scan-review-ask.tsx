@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { REVIEW_LINE_MAX, REVIEW_STAR_OPTIONS, reviewAskWords } from '@/lib/supplier-scan';
 import { supplierScan } from '@/app/_actions/supplier-scan-actions';
@@ -51,7 +52,18 @@ export function ScanReviewAsk({ eventId, coverageId, service, shop }: { eventId:
         <PickMenu label="Your rating" value={stars} options={REVIEW_STAR_OPTIONS} onPick={setStars} buttonText={stars ? undefined : 'Your rating'} dataAttr="data-scan-review-stars" />
       </div>
       {stars ? (
-        <input type="text" value={line} maxLength={REVIEW_LINE_MAX} onChange={(e) => setLine(e.target.value)} placeholder="One line (optional)" aria-label="One line (optional)" className="w-full rounded-lg border border-ink/20 bg-transparent px-3 py-2 text-[15px] text-ink placeholder:text-ink/40" />
+        // ✍ The one Field template (`TypedRow`): it posts nothing itself — what it holds rides along with Send, as typed.
+        <FormRows width="wide">
+          <TypedRow
+            name="One line"
+            value={line}
+            empty="Optional"
+            maxLength={REVIEW_LINE_MAX}
+            onType={setLine}
+            onKeep={(t) => setLine(t)}
+            data="scan-review-line"
+          />
+        </FormRows>
       ) : null}
       <div className="flex items-center justify-center gap-4">
         <button

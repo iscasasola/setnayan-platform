@@ -1693,7 +1693,7 @@ async function serviceRemedy(
       ? await convertOrderToPapicCredits(admin, {
           adminUserId,
           orderId,
-          creditsRaw: formData.get('papic_credits'),
+          expectedCreditsRaw: formData.get('expected_credits'),
           reason,
         })
       : await moveOrderToNextEvent(admin, {

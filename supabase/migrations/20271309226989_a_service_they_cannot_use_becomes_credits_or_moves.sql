@@ -20,18 +20,17 @@
 --     the move is "done by hand by the team".
 --   • 2026-11-05 "THE 15 'ACT FIRST' ITEMS" (1) — build the conversion and the move.
 --
--- ⚠ NO RATE IS WRITTEN HERE OR ANYWHERE. The catalogue sells Papic in packs whose
--- per-credit price differs by pack, and no ruling says which pack prices a
--- conversion. So the ADMIN enters the credit count; this file stores it, never
--- computes it. (The admin page shows the live packs beside the box.)
+-- ⚖ OWNER 2026-11-05 (three answers in chat): (1) credits = what they paid at the
+-- BEST-VALUE Papic pack on sale, read live — no rate is typed anywhere; (2) "switch
+-- it off": the converted order goes to 'lapsed' (ended, not refunded); (3) one
+-- admin is enough.
 --
 -- RULE 0 — what this REUSES:
 --   • THE POT. Converted credits land as ONE `papic_event_point_grants` row,
---     seat_id NULL, source 'admin', order_id = the converted order — the same
---     ledger `papic_event_pool_status` already sums. No second pot.
---   • REVERSAL IS FREE. A later `refundOrder` runs `deactivateOrderSku` →
---     `reversePapicPassPoints`, which deletes every grant carrying the order's id,
---     so a refunded order takes its converted credits with it.
+--     seat_id NULL, source 'admin' — the same ledger `papic_event_pool_status`
+--     already sums. No second pot.
+--   • THE OFF SWITCH is the existing 'lapsed' status, which every ownership check
+--     already reads as "not owned". No new status.
 --   • THE MOVE re-points `orders.event_id` and this order's own shared-pot grants.
 --     Ownership of every orders-backed service follows `orders.event_id` already.
 --
@@ -86,7 +85,7 @@ COMMENT ON TABLE public.order_service_remedies IS
   'kind next_event = it moved to the buyer''s next event (one move out of each event per order). Not a refund: '
   'no money moves. Written only by admin_convert_order_to_papic_credits / admin_move_order_to_next_event.';
 COMMENT ON COLUMN public.order_service_remedies.papic_credits IS
-  'Credits the ADMIN entered. No conversion rate is ruled (DECISION_LOG 2026-10-22: "worth what you paid", no rate stated), so none is computed.';
+  'Credits granted: what was paid, at the best-value Papic pack on sale at that moment (owner 2026-11-05), computed by orders_papic_credit_value.';
 
 -- ── 2) The buyer's next event ───────────────────────────────────────────────
 -- Job 22: "their next immediate event created". The earliest event created AFTER
@@ -159,12 +158,83 @@ $$;
 REVOKE ALL ON FUNCTION public.order_remedy_refusal(TEXT, UUID, UUID, UUID, NUMERIC) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.order_remedy_refusal(TEXT, UUID, UUID, UUID, NUMERIC) TO service_role;
 
--- ── 4) Convert to Papic credits ─────────────────────────────────────────────
+-- ── 4) What an order is worth in Papic credits ─────────────────────────────
+-- ⚖ OWNER 2026-11-05: credits = what they paid, at the BEST-VALUE Papic pack on
+-- sale (he was shown "₱999 = 3,000 credits, about 3 per peso" and answered "yes.
+-- different prices different packs"). So: of every sellable pack — an active,
+-- unretired PAPIC_GUEST* catalogue row at its REGULAR price, with an active,
+-- non-top-up tier row — the one that gives the most credits per peso, and then
+-- floor(paid × its credits ÷ its price).
+-- ⚠ NO NUMBER IS TYPED HERE. The packs and their prices are read at call time
+-- from platform_retail_catalog_v2 (admin-managed, the only price a customer is
+-- charged) × papic_pass_tiers. ONE definition, read by the admin page (to show the
+-- figure) and by the conversion (to grant it), so the two cannot disagree.
+-- credits NULL = no pack is on sale, so nothing can be converted.
+CREATE OR REPLACE FUNCTION public.orders_papic_credit_value(p_order_ids UUID[])
+RETURNS TABLE (
+  order_id UUID,
+  paid_php NUMERIC,
+  credits INTEGER,
+  pack_credits INTEGER,
+  pack_price_php NUMERIC
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  WITH best AS (
+    SELECT t.points::BIGINT AS pts, c.retail_price_php AS php
+      FROM public.platform_retail_catalog_v2 c
+      JOIN public.papic_pass_tiers t ON t.service_code = c.service_code
+     WHERE left(c.service_code, 11) = 'PAPIC_GUEST'
+       AND c.is_active IS TRUE
+       AND c.retired_at IS NULL
+       AND c.retail_price_php > 0
+       AND t.is_active IS TRUE
+       AND t.is_topup IS NOT TRUE
+       AND t.points > 0
+     -- most credits per peso; on a tie, the cheaper pack (an arbitrary but fixed pick)
+     ORDER BY (t.points::NUMERIC / c.retail_price_php) DESC, c.retail_price_php ASC, c.service_code ASC
+     LIMIT 1
+  ),
+  paid AS (
+    SELECT o.order_id,
+           COALESCE((SELECT sum(p.amount_php) FROM public.payments p
+                      WHERE p.order_id = o.order_id AND p.status::text = 'matched'), 0)::NUMERIC AS php
+      FROM public.orders o
+     WHERE o.order_id = ANY (p_order_ids)
+  )
+  SELECT paid.order_id,
+         paid.php,
+         CASE WHEN best.pts IS NULL THEN NULL
+              ELSE floor(round(paid.php * 100) * best.pts / round(best.php * 100))::INTEGER END,
+         best.pts::INTEGER,
+         best.php
+    FROM paid
+    LEFT JOIN best ON TRUE;
+$$;
+
+REVOKE ALL ON FUNCTION public.orders_papic_credit_value(UUID[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.orders_papic_credit_value(UUID[]) TO service_role;
+
+-- ── 5) Convert to Papic credits ─────────────────────────────────────────────
+-- The number is COMPUTED (section 4), never posted. The admin's page posts the
+-- figure it SHOWED; if prices changed in between, this refuses ('prices_changed')
+-- rather than grant a number nobody looked at.
+-- ⚖ OWNER 2026-11-05: "switch it off" — the service they could not use stops being
+-- theirs. The order goes paid|fulfilled → 'lapsed' (the existing terminal status:
+-- ended, NOT refunded — the money stays with Setnayan). Every ownership check
+-- already treats lapsed as not owned.
+-- The grant carries NO order_id on purpose: the reversal path deletes grants by
+-- order_id, and these credits replace the order — they are not part of it. The
+-- ledger row links them (grant_id).
 -- Returns { ok, applied, refusal?, remedy_id?, grant_id?, event_id?, credits?, paid_php? }.
 -- applied=false + ok=true = it was already converted (a double click) — nothing new.
+DROP FUNCTION IF EXISTS public.admin_convert_order_to_papic_credits(UUID, INTEGER, TEXT, UUID);
 CREATE OR REPLACE FUNCTION public.admin_convert_order_to_papic_credits(
   p_order_id UUID,
-  p_credits INTEGER,
+  p_expected_credits INTEGER,
   p_reason TEXT,
   p_admin_user_id UUID
 )
@@ -175,15 +245,12 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_order    RECORD;
-  v_paid     NUMERIC(12, 2);
+  v_value    RECORD;
   v_refusal  TEXT;
   v_existing RECORD;
   v_grant_id UUID;
   v_remedy   UUID;
 BEGIN
-  IF p_credits IS NULL OR p_credits <= 0 THEN
-    RETURN jsonb_build_object('ok', false, 'refusal', 'bad_credits');
-  END IF;
   IF p_reason IS NULL OR length(btrim(p_reason)) < 20 THEN
     RETURN jsonb_build_object('ok', false, 'refusal', 'short_reason');
   END IF;
@@ -211,20 +278,38 @@ BEGIN
     );
   END IF;
 
-  SELECT COALESCE(sum(p.amount_php), 0) INTO v_paid
-    FROM public.payments p
-   WHERE p.order_id = p_order_id AND p.status::text = 'matched';
+  SELECT * INTO v_value FROM public.orders_papic_credit_value(ARRAY[p_order_id]);
 
   v_refusal := public.order_remedy_refusal(
-    v_order.status, v_order.vendor_profile_id, v_order.user_id, v_order.event_id, v_paid
+    v_order.status, v_order.vendor_profile_id, v_order.user_id, v_order.event_id, v_value.paid_php
   );
   IF v_refusal IS NOT NULL THEN
     RETURN jsonb_build_object('ok', false, 'refusal', v_refusal);
   END IF;
 
-  INSERT INTO public.papic_event_point_grants (event_id, points, source, order_id, note)
+  -- A Papic pack (or a basket holding one) is already Papic credits on this event.
+  IF EXISTS (SELECT 1 FROM public.papic_event_point_grants g WHERE g.order_id = p_order_id) THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', 'already_papic');
+  END IF;
+
+  IF v_value.credits IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', 'no_prices');
+  END IF;
+  IF v_value.credits <= 0 THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', 'too_small');
+  END IF;
+  IF p_expected_credits IS DISTINCT FROM v_value.credits THEN
+    RETURN jsonb_build_object('ok', false, 'refusal', 'prices_changed', 'credits', v_value.credits);
+  END IF;
+
+  -- Switch the service off: ended, not refunded.
+  UPDATE public.orders
+     SET status = 'lapsed', updated_at = NOW()
+   WHERE order_id = p_order_id AND status::text IN ('paid', 'fulfilled');
+
+  INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
   VALUES (
-    v_order.event_id, p_credits, 'admin', p_order_id,
+    v_order.event_id, v_value.credits, 'admin',
     'Converted from order ' || v_order.public_id || ' (a service they could not use)'
   )
   RETURNING grant_id INTO v_grant_id;
@@ -232,14 +317,16 @@ BEGIN
   INSERT INTO public.order_service_remedies (
     order_id, kind, from_event_id, papic_credits, grant_id, paid_php, reason, admin_user_id
   ) VALUES (
-    p_order_id, 'papic_credits', v_order.event_id, p_credits, v_grant_id, v_paid, btrim(p_reason), p_admin_user_id
+    p_order_id, 'papic_credits', v_order.event_id, v_value.credits, v_grant_id, v_value.paid_php,
+    btrim(p_reason), p_admin_user_id
   )
   RETURNING remedy_id INTO v_remedy;
 
   RETURN jsonb_build_object(
     'ok', true, 'applied', true,
     'remedy_id', v_remedy, 'grant_id', v_grant_id,
-    'credits', p_credits, 'event_id', v_order.event_id, 'paid_php', v_paid
+    'credits', v_value.credits, 'event_id', v_order.event_id, 'paid_php', v_value.paid_php,
+    'status_before', v_order.status
   );
 END;
 $$;
@@ -247,7 +334,7 @@ $$;
 REVOKE ALL ON FUNCTION public.admin_convert_order_to_papic_credits(UUID, INTEGER, TEXT, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_convert_order_to_papic_credits(UUID, INTEGER, TEXT, UUID) TO service_role;
 
--- ── 5) Move to the buyer's next event ───────────────────────────────────────
+-- ── 6) Move to the buyer's next event ───────────────────────────────────────
 -- Returns { ok, applied, refusal?, remedy_id?, from_event_id?, to_event_id?, grants_moved? }.
 CREATE OR REPLACE FUNCTION public.admin_move_order_to_next_event(
   p_order_id UUID,

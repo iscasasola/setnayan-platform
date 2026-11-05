@@ -4,15 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { emitNotification } from '@/lib/notification-emit';
 import { orderNoticeLinkForRow } from '@/lib/pay-back-link';
-import { fetchGiftLadder } from '@/lib/setnayan-gift.server';
-import { activateOrderSku, rederiveEventFlagsAfterMove } from '@/lib/sku-activation';
+import { activateOrderSku, rederiveStoredEventFlags } from '@/lib/sku-activation';
 import {
-  SERVICES_THAT_CANNOT_MOVE,
+  SERVICES_SET_UP_ON_THE_EVENT,
   creditsNotice,
-  maxCreditsForPaid,
   movedNotice,
-  packsLine,
-  parseCredits,
+  packLine,
   remedyRefusalCopy,
 } from '@/lib/admin/service-remedies';
 
@@ -25,7 +22,12 @@ import {
  * refusal. The SQL function does the work in one transaction and decides
  * "already done" (a double click) — this layer only adds what must happen
  * AFTER a real, first application: the audit row, the couple's in-app notice,
- * and (for a move) the activation on the new event.
+ * and the stored per-event flags (switched off on the old event; for a move,
+ * switched on at the new one).
+ *
+ * ⚖ The credit figure is never typed and never computed here: the SQL function
+ * `orders_papic_credit_value` is its one home (owner 2026-11-05: what they paid,
+ * at the best-value Papic pack on sale).
  */
 
 export type RemedyOutcome = { ok: boolean; message: string };
@@ -51,6 +53,7 @@ type RpcResult = {
   to_event_id?: string;
   grants_moved?: number;
   paid_php?: number | string;
+  status_before?: string;
 };
 
 const MIN_REASON = 20;
@@ -63,20 +66,6 @@ async function readOrder(admin: SupabaseClient, orderId: string): Promise<OrderR
     .maybeSingle();
   if (error) throw new Error(`Could not read the order: ${error.message}`);
   return (data as OrderRow | null) ?? null;
-}
-
-/** Sum of MATCHED payments — the same figure the SQL function snapshots. */
-async function paidCentavos(admin: SupabaseClient, orderId: string): Promise<number> {
-  const { data, error } = await admin
-    .from('payments')
-    .select('amount_php')
-    .eq('order_id', orderId)
-    .eq('status', 'matched');
-  if (error) throw new Error(`Could not read the payments: ${error.message}`);
-  return (data ?? []).reduce(
-    (sum, r) => sum + Math.round(Number((r as { amount_php?: unknown }).amount_php ?? 0) * 100),
-    0,
-  );
 }
 
 async function audit(
@@ -103,31 +92,27 @@ async function audit(
 
 export async function convertOrderToPapicCredits(
   admin: SupabaseClient,
-  args: { adminUserId: string; orderId: string; creditsRaw: unknown; reason: string | null },
+  args: { adminUserId: string; orderId: string; expectedCreditsRaw: unknown; reason: string | null },
 ): Promise<RemedyOutcome> {
-  const credits = parseCredits(args.creditsRaw);
-  if (credits === null) return { ok: false, message: remedyRefusalCopy('bad_credits') };
   const reason = (args.reason ?? '').trim();
   if (reason.length < MIN_REASON) return { ok: false, message: remedyRefusalCopy('short_reason') };
+  // The figure the admin's page SHOWED. The SQL recomputes it and refuses if the
+  // two differ, so nothing is granted that nobody looked at.
+  const expected =
+    typeof args.expectedCreditsRaw === 'string' && /^\d{1,9}$/.test(args.expectedCreditsRaw.trim())
+      ? Number(args.expectedCreditsRaw.trim())
+      : null;
+  if (expected === null) return { ok: false, message: remedyRefusalCopy('prices_changed') };
 
   const order = await readOrder(admin, args.orderId);
   if (!order) return { ok: false, message: remedyRefusalCopy('not_found') };
-
-  // The bound: never more than what was paid buys at today's cheapest Papic
-  // price. Read live; an unreadable catalogue refuses rather than accept any number.
-  const [paid, ladder] = await Promise.all([paidCentavos(admin, args.orderId), fetchGiftLadder(admin)]);
-  const bound = maxCreditsForPaid(paid, ladder);
-  if (bound === null) return { ok: false, message: remedyRefusalCopy('no_prices') };
-  if (paid > 0 && credits > bound) {
-    return {
-      ok: false,
-      message: `${remedyRefusalCopy('over_bound')} The most is ${bound.toLocaleString('en-PH')}.`,
-    };
+  if (order.service_key && SERVICES_SET_UP_ON_THE_EVENT.has(order.service_key)) {
+    return { ok: false, message: remedyRefusalCopy('set_up_on_the_event') };
   }
 
   const { data, error } = await admin.rpc('admin_convert_order_to_papic_credits', {
     p_order_id: args.orderId,
-    p_credits: credits,
+    p_expected_credits: expected,
     p_reason: reason,
     p_admin_user_id: args.adminUserId,
   });
@@ -142,6 +127,20 @@ export async function convertOrderToPapicCredits(
       message: `Order ${order.public_id} was already converted to ${Number(r.credits ?? 0).toLocaleString('en-PH')} Papic credits.`,
     };
   }
+  const credits = Number(r.credits ?? 0);
+
+  // "Switch it off" (owner 2026-11-05): the order is now 'lapsed', so every
+  // orders-backed gate already reads it as not owned. The one stored per-event
+  // flag (Setnayan AI) is re-derived here.
+  if (order.event_id) {
+    await rederiveStoredEventFlags({
+      admin,
+      orderId: args.orderId,
+      eventId: order.event_id,
+      serviceKey: order.service_key ?? '',
+      actorUserId: args.adminUserId,
+    });
+  }
 
   await audit(admin, {
     action: 'convert_order_to_papic_credits',
@@ -154,7 +153,8 @@ export async function convertOrderToPapicCredits(
       event_id: r.event_id ?? null,
       papic_credits: credits,
       paid_php: r.paid_php ?? null,
-      bound_credits: bound,
+      before: { status: r.status_before ?? null },
+      after: { status: 'lapsed' },
       reason,
     },
   });
@@ -172,7 +172,7 @@ export async function convertOrderToPapicCredits(
 
   return {
     ok: true,
-    message: `${credits.toLocaleString('en-PH')} Papic credits added to the event for order ${order.public_id}. The couple was told in the app.`,
+    message: `${credits.toLocaleString('en-PH')} Papic credits added to the event for order ${order.public_id}, and the service is switched off. The couple was told in the app.`,
   };
 }
 
@@ -188,8 +188,8 @@ export async function moveOrderToNextEvent(
 
   const order = await readOrder(admin, args.orderId);
   if (!order) return { ok: false, message: remedyRefusalCopy('not_found') };
-  if (order.service_key && SERVICES_THAT_CANNOT_MOVE.has(order.service_key)) {
-    return { ok: false, message: remedyRefusalCopy('cannot_move_service') };
+  if (order.service_key && SERVICES_SET_UP_ON_THE_EVENT.has(order.service_key)) {
+    return { ok: false, message: remedyRefusalCopy('set_up_on_the_event') };
   }
 
   const { data, error } = await admin.rpc('admin_move_order_to_next_event', {
@@ -216,7 +216,7 @@ export async function moveOrderToNextEvent(
   // …and off where it was, for the one stored per-event flag (Setnayan AI). Every
   // orders-backed service already follows `orders.event_id`.
   if (fromEventId) {
-    await rederiveEventFlagsAfterMove({
+    await rederiveStoredEventFlags({
       admin,
       orderId: args.orderId,
       eventId: fromEventId,
@@ -281,14 +281,15 @@ export type RemedyDeskRow = {
   done: RemedyDone[];
   converted: boolean;
   nextEvent: { id: string; name: string | null } | null;
-  paidCentavos: number;
-  maxCredits: number | null;
+  paidPhp: number;
+  /** What converting would grant now, or null when no Papic pack is on sale. */
+  credits: number | null;
+  /** The pack it is priced at, "₱999 = 3,000 credits". */
+  pack: string | null;
 };
 
 export type RemedyDesk = {
   byOrderId: Map<string, RemedyDeskRow>;
-  /** The live Papic packs, "₱99 = 150 · …", or null when unreadable. */
-  packs: string | null;
   /** A read was refused: the forms are hidden and the desk says so, never an empty "nothing done". */
   failed: boolean;
 };
@@ -300,21 +301,21 @@ export type RemedyDesk = {
  */
 export async function readRemedyDesk(admin: SupabaseClient, orderIds: readonly string[]): Promise<RemedyDesk> {
   const ids = [...new Set(orderIds)];
-  const empty: RemedyDesk = { byOrderId: new Map(), packs: null, failed: false };
+  const empty: RemedyDesk = { byOrderId: new Map(), failed: false };
   if (ids.length === 0) return empty;
 
-  const [done, next, paid, ladder] = await Promise.all([
+  const [done, next, value] = await Promise.all([
     admin
       .from('order_service_remedies')
       .select('order_id, kind, created_at, papic_credits, from_event_id, to_event_id, reason')
       .in('order_id', ids)
       .order('created_at', { ascending: true }),
     admin.rpc('orders_next_event', { p_order_ids: ids }),
-    admin.from('payments').select('order_id, amount_php').in('order_id', ids).eq('status', 'matched'),
-    fetchGiftLadder(admin),
+    // The SAME function the conversion grants from — the figure shown is the figure granted.
+    admin.rpc('orders_papic_credit_value', { p_order_ids: ids }),
   ]);
-  if (done.error || next.error || paid.error) {
-    console.error('[service-remedies] desk read refused:', done.error ?? next.error ?? paid.error);
+  if (done.error || next.error || value.error) {
+    console.error('[service-remedies] desk read refused:', done.error ?? next.error ?? value.error);
     return { ...empty, failed: true };
   }
 
@@ -343,20 +344,26 @@ export async function readRemedyDesk(admin: SupabaseClient, orderIds: readonly s
     }
   }
 
-  const paidBy = new Map<string, number>();
-  for (const p of (paid.data ?? []) as Array<{ order_id: string; amount_php: number | string }>) {
-    paidBy.set(p.order_id, (paidBy.get(p.order_id) ?? 0) + Math.round(Number(p.amount_php) * 100));
-  }
+  type ValueRow = {
+    order_id: string;
+    paid_php: number | string | null;
+    credits: number | null;
+    pack_credits: number | null;
+    pack_price_php: number | string | null;
+  };
+  const valueBy = new Map<string, ValueRow>();
+  for (const v of (value.data ?? []) as ValueRow[]) valueBy.set(v.order_id, v);
 
   const byOrderId = new Map<string, RemedyDeskRow>();
   for (const id of ids) {
-    const cents = paidBy.get(id) ?? 0;
+    const v = valueBy.get(id);
     byOrderId.set(id, {
       done: [],
       converted: false,
       nextEvent: null,
-      paidCentavos: cents,
-      maxCredits: maxCreditsForPaid(cents, ladder),
+      paidPhp: Number(v?.paid_php ?? 0),
+      credits: typeof v?.credits === 'number' ? v.credits : null,
+      pack: packLine(v?.pack_credits ?? null, v?.pack_price_php == null ? null : Number(v.pack_price_php)),
     });
   }
   for (const r of doneRows) {
@@ -377,5 +384,5 @@ export async function readRemedyDesk(admin: SupabaseClient, orderIds: readonly s
     if (row && n.next_event_id) row.nextEvent = { id: n.next_event_id, name: n.next_event_name };
   }
 
-  return { byOrderId, packs: packsLine(ladder), failed: false };
+  return { byOrderId, failed: false };
 }

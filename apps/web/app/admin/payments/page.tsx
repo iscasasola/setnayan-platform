@@ -59,7 +59,6 @@ import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
-import { formatCentavosPhp } from '@/lib/php';
 import { readRemedyDesk, type RemedyDesk, type RemedyDeskRow } from '@/lib/admin/service-remedies.server';
 export const metadata = { title: 'Payments · Admin' };
 
@@ -367,7 +366,8 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   const remedyDesk = await readRemedyDesk(
     admin,
     payments
-      .filter((p) => p.order && (p.order.status === 'paid' || p.order.status === 'fulfilled'))
+      // `lapsed` too: a converted order is switched off (lapsed) and its row still shows what was done.
+      .filter((p) => p.order && ['paid', 'fulfilled', 'lapsed'].includes(p.order.status))
       .map((p) => p.order_id),
   );
 
@@ -1127,9 +1127,9 @@ function PaymentsList({
                 orderId={p.order_id}
                 orderPublicId={p.order.public_id}
                 row={remedyDesk.byOrderId.get(p.order_id) ?? null}
-                packs={remedyDesk.packs}
                 failed={remedyDesk.failed}
                 query={query}
+                closed={false}
               />
               <RefundForm
                 orderId={p.order_id}
@@ -1139,6 +1139,16 @@ function PaymentsList({
                 }
               />
               </>
+            ) : p.order && p.order.status === 'lapsed' ? (
+              // Switched off — show what was done with it, no actions.
+              <ServiceRemedyForms
+                orderId={p.order_id}
+                orderPublicId={p.order.public_id}
+                row={remedyDesk.byOrderId.get(p.order_id) ?? null}
+                failed={remedyDesk.failed}
+                query={query}
+                closed
+              />
             ) : null}
 
             {/*
@@ -1189,25 +1199,29 @@ function PaymentsList({
  * server-action budget is at its ceiling); the work and the double-click guard
  * are one SQL transaction each (lib/admin/service-remedies.server.ts).
  *
- * ⚠ The credit box has NO default. No rate is ruled (DECISION_LOG 2026-10-22,
- * "worth what you paid", no rate stated), so the admin types the number; the
- * live Papic packs and the most the payment could buy are shown beside it.
+ * ⚖ OWNER 2026-11-05: the credit figure is what they paid at the best-value
+ * Papic pack on sale, computed by the SQL function the conversion itself grants
+ * from — so there is NO box to type a number into. The form posts the figure it
+ * shows; the database refuses if prices moved in between. Converting also
+ * switches the service off (the order becomes `lapsed`).
  */
 function ServiceRemedyForms({
   orderId,
   orderPublicId,
   row,
-  packs,
   failed,
   query,
+  closed,
 }: {
   orderId: string;
   orderPublicId: string;
   row: RemedyDeskRow | null;
-  packs: string | null;
   failed: boolean;
   query: string;
+  /** The order is switched off (`lapsed`): show the history, offer nothing. */
+  closed: boolean;
 }) {
+  if (closed && (!row || row.done.length === 0)) return null;
   if (failed || !row) {
     return (
       <p className="border-t border-ink/10 pt-3 text-xs text-[color:var(--sn-warning)]">
@@ -1239,39 +1253,35 @@ function ServiceRemedyForms({
         </ul>
       ) : null}
 
-      {row.converted ? null : (
+      {closed || row.converted || !row.credits ? null : (
         <details>
           <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
             Convert to Papic credits
           </summary>
           <ConfirmForm
             action={refundOrder}
-            title="Convert to Papic credits?"
+            title={`Convert to ${formatCount(row.credits)} Papic credits?`}
             confirmLabel="Convert · tell the couple"
-            message="Adds the credits to their event, records who did it and why, and tells the couple in the app. No money is sent back. It can be done once per order."
+            message="Adds the credits to their event and switches this service off. Records who did it and why, and tells the couple in the app. No money is sent back. It can be done once per order."
             className="mt-2 space-y-2"
           >
             <input type="hidden" name="intent" value="convert_to_papic_credits" />
             <input type="hidden" name="order_id" value={orderId} />
             {query ? <input type="hidden" name="q" value={query} /> : null}
-            <label className="block space-y-1">
-              <span className={label}>Papic credits to add</span>
-              <input
-                name="papic_credits"
-                type="number"
-                min={1}
-                step={1}
-                max={row.maxCredits ?? undefined}
-                required
-                inputMode="numeric"
-                className="input-field h-9 py-0 text-sm"
-              />
-              <span className={hint}>
-                They paid {formatCentavosPhp(row.paidCentavos)}.
-                {packs ? ` Papic packs now: ${packs}.` : ' Papic prices could not be read.'}
-                {row.maxCredits !== null ? ` Most you can add: ${formatCount(row.maxCredits)}.` : ''}
-              </span>
-            </label>
+            <input type="hidden" name="expected_credits" value={String(row.credits ?? '')} />
+            <p className={hint}>
+              They paid {formatPhp(row.paidPhp)}.{' '}
+              {row.credits !== null && row.credits > 0 ? (
+                <>
+                  That is <span className="font-medium text-ink">{formatCount(row.credits)} Papic credits</span>
+                  {row.pack ? ` at the best-value pack (${row.pack}).` : '.'}
+                </>
+              ) : row.credits === 0 ? (
+                'That is too little to make even one Papic credit.'
+              ) : (
+                'No Papic pack is on sale right now, so this can’t be converted.'
+              )}
+            </p>
             {reasonBox('E.g. The live video could not start on the day — our encoder failed.')}
             <SubmitButton className={button} pendingLabel="Converting…">
               Convert · tell the couple
@@ -1280,7 +1290,7 @@ function ServiceRemedyForms({
         </details>
       )}
 
-      {row.converted ? null : row.nextEvent ? (
+      {closed || row.converted ? null : row.nextEvent ? (
         <details>
           <summary className="cursor-pointer text-xs font-medium text-ink/70 hover:text-ink">
             Move to their next event

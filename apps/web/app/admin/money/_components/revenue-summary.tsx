@@ -19,7 +19,10 @@ export async function RevenueSummary() {
   const admin = createAdminClient();
 
   const [ordersRes, feesRes, refundsRes, receiptsRes] = await Promise.all([
-    admin.from('orders').select('requested_total_php, status').in('status', ['paid', 'fulfilled']),
+    // `lapsed` is paid money too: a subscription whose term ran out, or a service
+    // switched off when its value became Papic credits (owner 2026-11-05). Only a
+    // `paid` order is ever lapsed, and nothing was sent back — so it stays revenue.
+    admin.from('orders').select('requested_total_php, status').in('status', ['paid', 'fulfilled', 'lapsed']),
     admin.from('booking_fee_charges').select('amount_charged_centavos').eq('status', 'paid'),
     admin.from('order_refunds').select('refund_amount_centavos'),
     admin.from('receipts').select('gross_total_php'),

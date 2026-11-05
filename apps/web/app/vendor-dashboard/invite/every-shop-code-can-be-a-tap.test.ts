@@ -58,3 +58,13 @@ test('the couple’s supplier-connect panel stays without Write to NFC (2026-10-
   const src = read('app/dashboard/[eventId]/_components/supplier-connect-panel.tsx');
   assert.doesNotMatch(src, /NfcWriteButton|<QrActions|<QrCard/);
 });
+
+test('the door sticker has ONE home — Shop › Promote, never Customers › QR codes (2026-11-05)', () => {
+  // Promote is the home of the shop's prints (owner 2026-11-05). `QrCodes` draws in both homes, so the sticker must ask
+  // for `place === 'promote'` — without it, Customers (Booked · Crew) would carry a second copy of the same print.
+  const src = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  const mounts = [...src.matchAll(/\{([^{}]*)\?\s*<DoorSticker\b/g)].map((m) => m[1]);
+  console.log(`door sticker mounts: ${mounts.length} · gated on Promote: ${mounts.filter((g) => /place === 'promote'/.test(g)).length}`);
+  assert.equal(mounts.length, 1, 'the door sticker is drawn exactly once');
+  assert.match(mounts[0], /place === 'promote'/, 'the door sticker must draw only on Shop › Promote');
+});

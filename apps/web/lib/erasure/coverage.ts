@@ -769,6 +769,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
   },
   {
+    table: 'shop_gift_purchases',
+    column: 'created_by',
+    why: 'Who pressed Buy on a shop’s gift stock. The purchase is the SHOP’s money record and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    column: 'created_by',
+    why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
+  },
+  {
     table: 'hub_music_tracks',
     column: 'created_by',
     why: 'Which admin uploaded an Event Hub music track. The track is Setnayan’s own catalogue and stays; the stamp goes.',

@@ -260,6 +260,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
         <div className="min-h-screen bg-cream" data-supplier-lab={state}>
           <QrCodes
             mode={state === 'qr-page' ? 'page' : 'dates'}
+            place="promote"
             backHref="/dev/supplier-lab?s=dates"
             modeOptions={modeOptions}
             canShare

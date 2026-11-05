@@ -129,7 +129,9 @@ test('supplier · the card mounts the answer, gated on the rule, fed the SAME tw
   // The supplier's thread hands in exactly the Overview's actions, from their one module.
   assert.equal(count(supplier, /agreeLock: vendorAgreeToLock,/g), 1);
   assert.equal(count(supplier, /declineLock: vendorDeclineLock,/g), 1);
-  assert.equal(count(supplier, /import \{ vendorAgreeToLock, vendorDeclineLock \} from '\.\.\/\.\.\/clients\/\[eventId\]\/actions';/g), 1);
+  // The day check (2026-11-04, `lib/day-check.ts`) adds the full day's "Waiting list" from the SAME module — never a
+  // wrapper of its own. The line stays exact so a fourth name is a reviewed change.
+  assert.equal(count(supplier, /import \{ vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk \} from '\.\.\/\.\.\/clients\/\[eventId\]\/actions';/g), 1);
   /*
     ⚠ WAS `=== 1`, AND THE NUMBER WAS NEVER THE POINT. The Overview mounts two
     feeds since 2026-09-22 ("Needs your answer" + "Nothing to answer"), so the
@@ -178,7 +180,8 @@ test('supplier · both forms post only the row id and the way home — the same 
 });
 
 test('supplier · the answer lands back in the thread, and the thread says what happened', () => {
-  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 2);
+  // Agree, Turn it down, and (2026-11-04) the full day's "Waiting list" — all three land back where they were tapped.
+  assert.equal(count(actions, /const back = lockAnswerReturnTo\(formData\.get\('return_to'\)\);/g), 3);
   // Batch 5 (audit F9): the redirect also carries `&fee=held` when the couple's news waits on the fee.
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_agree=\$\{flag\}\$\{competing\}\$\{feeHeld\}`\);/g), 1);
   assert.equal(count(actions, /redirect\(`\$\{back\}\?lock_decline=\$\{flag\}`\);/g), 1);

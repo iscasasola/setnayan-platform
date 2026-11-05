@@ -114,7 +114,9 @@ import {
   vendorWithdrawChangeOrder,
   vendorAgreeToLock,
   vendorDeclineLock,
+  vendorWaitlistTheAsk,
 } from './actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
@@ -208,6 +210,8 @@ import { blocksWithAClock, buildSupplierDay, changedSinceSeen, inFinalWeek, type
 import { SCHEDULE_MARK_COLUMNS } from '@/lib/supplier-schedule-marks';
 import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { SupplierSchedule } from './_components/supplier-schedule';
+import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, supplierSchedulePath } from '@/lib/offline-copies';
 import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
@@ -408,7 +412,7 @@ type LiveBlock = {
   start_at: string | null;
   end_at: string | null;
   location: string | null;
-  run_state?: 'upcoming' | 'live' | 'done' | null;
+  run_state?: 'upcoming' | 'live' | 'done' | 'skipped' | null;
   actual_start_at?: string | null;
   // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
   parent_block_id?: string | null;
@@ -858,12 +862,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ⚠ The forecast is resolved ONLY while a lock ask is on screen — it is the
   // sentence that belongs beside the Agree button, and nowhere else on this
   // page is a decision being made about money.
-  const feeForecast: FeeDisclosure | null = lockRequest?.event_vendor_id
-    ? await forecastForBooking(admin, {
-        vendorProfileId: profile.vendor_profile_id,
-        eventVendorId: lockRequest.event_vendor_id,
-      })
-    : null;
+  // …and THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`): the ask's day through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
+  const [feeForecast, dayCheck]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null] = lockRequest?.event_vendor_id
+    ? await Promise.all([
+        forecastForBooking(admin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockRequest.event_vendor_id,
+        }),
+        readDayCheck(supabase, lockRequest.event_vendor_id),
+      ])
+    : [null, null];
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1714,6 +1723,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             returnTo={`/vendor-dashboard/clients/${eventId}`}
             agreeLock={vendorAgreeToLock}
             declineLock={vendorDeclineLock}
+            dayCheck={dayCheck}
+            waitlistAsk={vendorWaitlistTheAsk}
           />
         ) : askOutcome ? (
           <BookingAskOutcomeLine outcome={askOutcome} />
@@ -1967,8 +1978,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     />
   );
 
+  /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL — this supplier's (a Host/MC's) own day, kept on their phone for the venue
+     (`lib/offline-copies.ts`). The version is what this tab draws of the day; a read that failed is `unread`, which is
+     never kept over the older copy. */
+  const scheduleCopyPath = supplierSchedulePath(eventId);
+  const scheduleCopyVersion = supplierDay ? copyVersionOf([supplierDay, runOfShowBlocks, callTime]) : OFFLINE_COPY_UNREAD;
   const scheduleNode = (
     <>
+      {scheduleCopyPath ? (
+        <ScheduleSavedMark viewer={user.id} eventKey={eventId} eventDate={factsRow?.event_date ?? null} path={scheduleCopyPath} version={scheduleCopyVersion} className="mb-3" />
+      ) : null}
       <ScheduleTab
         eventId={eventId}
         preAgreement={preAgreement}

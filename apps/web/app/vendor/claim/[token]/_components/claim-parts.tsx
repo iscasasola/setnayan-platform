@@ -6,7 +6,7 @@
  * perk. `CoupleLinkDoor` is the door a supplier meets on a COUPLE'S OWN LINK.
  */
 import type { ReactNode } from 'react';
-import { Phone, Sparkles, UserPlus } from 'lucide-react';
+import { LogIn, Phone, Sparkles, UserPlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -35,6 +35,7 @@ export function CoupleLinkDoor({
   contactPerson,
   contactPhone,
   signupUrl,
+  signInUrl,
   decline,
 }: {
   eyebrow: string;
@@ -49,6 +50,12 @@ export function CoupleLinkDoor({
   contactPerson: string | null;
   contactPhone: string | null;
   signupUrl: string;
+  /**
+   * For a supplier who ALREADY has a Setnayan account (2026-11-05): sign in,
+   * then finalize. The door used to offer only "Claim & sign up", so an
+   * existing supplier had to make a second account to claim the record.
+   */
+  signInUrl: string;
   /** The "I'm not this supplier" control — the page's own form. */
   decline: ReactNode;
 }) {
@@ -131,9 +138,16 @@ export function CoupleLinkDoor({
             label="Claim & sign up"
             href={signupUrl}
           />
+          <ActionButton
+            tone="brand"
+            icon={<LogIn aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+            label="Sign in & claim"
+            href={signInUrl}
+          />
           {decline}
         </div>
         <p className="text-xs text-ink/50">
+          Already on Setnayan? Sign in with your supplier account to claim it.
           Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
         </p>
       </article>

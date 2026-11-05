@@ -746,6 +746,12 @@ export function resolveAttirePaletteColors(
 ): string[] {
   const list = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((c): c is string => typeof c === 'string' && c.length > 0) : [];
+  // 0. 🎂 the celebrant wears the event's MAIN colours by default (owner 2026-11-05, DECISION_LOG "…CELEBRANT DRESS
+  //    CODES…" (K)) — they have no palette key of their own (`getPrimaryColor`), so without this they read the guests'.
+  if (role === 'celebrant') {
+    const main = list(palette.reception);
+    if (main.length > 0) return main;
+  }
   // 1. specific role palette key
   const specific = list(palette[paletteKeyForRole(role)]);
   if (specific.length > 0) return specific;

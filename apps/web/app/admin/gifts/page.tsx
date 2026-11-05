@@ -41,6 +41,8 @@ import {
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
 import { isPromoFreeWindowsEnabled, vendorTierOfSku } from '@/lib/promo-free-windows';
+import { fetchShopGiftHolds, fetchShopGiftLedger } from '@/lib/shop-gifts.server';
+import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
 
 /**
  * One row of the vendor list — a single comped vendor, or one cohort DEAL
@@ -196,6 +198,11 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   } catch (e) {
     coupleWindowsReadError = asReadError(e);
   }
+  // ── Supplier gifts (owner 2026-11-04) — every bought / given / reversed credit, and what live quotes promise ──
+  const [shopGiftLedger, shopGiftHolds] = await Promise.all([fetchShopGiftLedger(admin), fetchShopGiftHolds(admin)]);
+  const shopGiftLedgerError = shopGiftLedger ? null : { message: 'the supplier gift ledger read was refused' };
+  const shopGiftHoldsError = shopGiftHolds ? null : { message: 'the quote gift lines read was refused' };
+
   const customerCatalog = await fetchV2CustomerCatalog();
   const coupleTitleFor = new Map<string, string>(
     customerCatalog.map((s: V2CustomerSku) => [s.service_code, s.title]),
@@ -937,6 +944,16 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           </div>
         </form>
       </section>
+
+      {/* 🎁 SUPPLIER GIFTS (owner 2026-11-04) — shops buy gifts as stock, put them on quotes, and they leave the stock
+          for the couple's event when that couple's first payment clears. Read-only here: the money moves through the
+          order (approve / refund on Orders) and the one delivery door. */}
+      <ShopGiftsLedger
+        ledger={shopGiftLedger}
+        ledgerError={shopGiftLedgerError}
+        holds={shopGiftHolds}
+        holdsError={shopGiftHoldsError}
+      />
 
       {/* ══════════════════ USER SIDE ══════════════════ */}
       <section>

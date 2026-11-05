@@ -1,7 +1,8 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
-import type { Chapter } from '@/lib/schedule-chapters';
+import type { Chapter, TaskRow } from '@/lib/schedule-chapters';
+import type { ChapterMoment } from './chapters-host';
 import type { ViewAsInput, ViewLens } from '@/lib/schedule-view-as';
 
 /**
@@ -33,7 +34,25 @@ export type ChaptersApi = {
    * Announce and Share (from the page's one line), and the day's tools (from the rail) — each registered here.
    */
   openSettings: () => void;
-  setSettingsPart: (part: 'line' | 'tools', node: ReactNode) => void;
+  /** `needs` — what needs you (the supplier requests' door), drawn in the desktop's people column (slice 10). */
+  setSettingsPart: (part: 'line' | 'tools' | 'needs', node: ReactNode) => void;
+  /**
+   * 📋 THE DAY AS A LIST (slice 8): what a chapter row draws — its moments, the tasks in them and the suppliers they
+   * name — read from the page's ONE chapter state (so a save shows at once), and the booked suppliers who have not
+   * picked a chapter yet, by the chapter their trade usually serves (dashed faces).
+   */
+  moments: ChapterMoment[];
+  tasks: TaskRow[] | null;
+  suppliers: { id: string; name: string; everyChapter?: boolean }[];
+  picking: Readonly<Record<string, readonly string[]>>;
+  /** 🔎 "4 chapters" is a door: the day narrowed to ONE chapter (null = every chapter). */
+  dayFilter: string | null;
+  setDayFilter: (id: string | null) => void;
+  /**
+   * ↕ THE DESKTOP BOARD (slice 10, ≥1280 only): a chapter dragged by `minutes` (snapped to 5) — saved in place through
+   * the phone's own time edit (`lib/chapter-move.ts` → `ChapterDoors.save`), with Undo. The page never resets.
+   */
+  moveChapter: (id: string, minutes: number) => void;
 };
 
 export const ChaptersContext = createContext<ChaptersApi | null>(null);

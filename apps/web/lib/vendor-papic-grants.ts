@@ -214,7 +214,7 @@ export async function fetchShopPapicPacks(client: SupabaseClient): Promise<ShopP
     const [catalog, tiers] = await Promise.all([
       client
         .from('platform_retail_catalog_v2')
-        .select('service_code, title, retail_price_php, is_active, retired_at')
+        .select('service_code, title, retail_price_php, gift_price_php, is_active, retired_at')
         .like('service_code', 'PAPIC_GUEST%'),
       client.from('papic_pass_tiers').select('service_code, points, is_active, is_topup').like('service_code', 'PAPIC_GUEST%'),
     ]);
@@ -229,12 +229,14 @@ export async function fetchShopPapicPacks(client: SupabaseClient): Promise<ShopP
       }
     }
     const packs: ShopPapicPack[] = [];
-    for (const c of (catalog.data ?? []) as Array<{ service_code: string; title: string | null; retail_price_php: number | string | null; is_active: boolean | null; retired_at: string | null }>) {
+    for (const c of (catalog.data ?? []) as Array<{ service_code: string; title: string | null; retail_price_php: number | string | null; gift_price_php?: number | string | null; is_active: boolean | null; retired_at: string | null }>) {
       if (c.is_active !== true || c.retired_at) continue;
       const credits = points.get(c.service_code);
       const pricePhp = Number(c.retail_price_php);
       if (credits === undefined || !Number.isFinite(pricePhp) || pricePhp <= 0) continue;
-      packs.push({ code: c.service_code, title: c.title ?? c.service_code, credits, pricePhp });
+      const gift = c.gift_price_php == null ? NaN : Number(c.gift_price_php);
+      const giftPricePhp = Number.isFinite(gift) && gift > 0 ? gift : null;
+      packs.push({ code: c.service_code, title: c.title ?? c.service_code, credits, pricePhp, giftPricePhp });
     }
     return packs.sort((a, b) => a.credits - b.credits);
   } catch (e) {

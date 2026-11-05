@@ -52,12 +52,31 @@ async function newVendor(email: string): Promise<{ uid: string; vpid: string }> 
   return { uid, vpid };
 }
 
+/**
+ * A booking on a PER-HEAD service card — since 20271307968824 only a per-head service counts heads (owner 2026-11-04:
+ * *"not counted for will be for service cards with pax only"*), so a tick on a flat-priced booking is refused.
+ */
 async function book(ev: string, vpid: string, category: string): Promise<string> {
+  const have = (
+    await db.query<{ s: string }>(
+      `SELECT vendor_service_id AS s FROM public.vendor_services WHERE vendor_profile_id = $1 AND category = $2 LIMIT 1`,
+      [vpid, category],
+    )
+  ).rows[0]?.s;
+  const card =
+    have ??
+    (
+      await db.query<{ s: string }>(
+        `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, pricing_basis, per_pax_price_php, min_pax, is_active)
+         VALUES ($1, $2, 1000, 'per_pax', 1000, 1, FALSE) RETURNING vendor_service_id AS s`,
+        [vpid, category],
+      )
+    ).rows[0]!.s;
   return (
     await db.query<{ vendor_id: string }>(
-      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
-       VALUES ($1, $2::public.vendor_category, 'Count Co', 'contracted'::public.vendor_status, $3) RETURNING vendor_id`,
-      [ev, category, vpid],
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+       VALUES ($1, $2::public.vendor_category, 'Count Co', 'contracted'::public.vendor_status, $3, $4) RETURNING vendor_id`,
+      [ev, category, vpid, card],
     )
   ).rows[0]!.vendor_id;
 }
@@ -242,7 +261,7 @@ test('the couple reads their own tick; a booking of another event is refused', a
   await asPostgres();
   await assert.rejects(
     db.query(`INSERT INTO public.guest_not_counted_for (guest_id, event_vendor_id) VALUES ($1, $2)`, [toddler, otherBooking]),
-    /not booked on this event/,
+    /not on this event/,
   );
 });
 

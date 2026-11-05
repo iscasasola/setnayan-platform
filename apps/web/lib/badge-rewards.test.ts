@@ -232,7 +232,9 @@ describe('the gifts list', () => {
     ]);
     assert.equal(s.waiting, 1);
     assert.equal(s.history.length, 2, 'stock rewards are not free fees');
-    assert.match(s.history[0]!.line, /^Earned Nov 5, 2026 · 1,000 events · used Nov 9, 2026 on Maria & Juan · ₱0 fee · Badge reward$/);
+    assert.equal(s.history[0]!.title, '₱0 fee · Maria & Juan');
+    assert.equal(s.history[0]!.line, '1,000 events · earned Nov 5 · used Nov 9');
+    assert.equal(s.history[0]!.sentence, 'Earned Nov 5, 2026 · 1,000 events · used Nov 9, 2026 on Maria & Juan · ₱0 fee · Badge reward');
     assert.equal(s.history[1]!.state, 'waiting');
   });
 });

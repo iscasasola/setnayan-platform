@@ -347,8 +347,7 @@ function gaveLine(granted: readonly GrantedReward[] | null, badge: RewardBadge, 
     .sort((a, b) => b.grantedAt.localeCompare(a.grantedAt));
   const last = mine[0];
   if (!last) return null;
-  const more = mine.length > 1 ? ` · ${COUNT.format(mine.length)} rewards so far` : '';
-  return `Gave you: ${rewardWords({ kind: last.kind, units: last.units }, names)} · in your gifts${more}`;
+  return `Gave you: ${rewardWords({ kind: last.kind, units: last.units }, names)} · in your gifts`;
 }
 
 /**
@@ -410,33 +409,50 @@ export function awardGaveLine(
 
 /* ── the gifts list ───────────────────────────────────────────────────────────────────────────────────────────── */
 
-/** The free booking fee's row: how many wait, and the history (earned when · used on which booking). */
+/**
+ * The free booking fee's row: how many wait, and the history — earned when, used on which booking. Each entry is a
+ * phone row: a short `title` ("₱0 fee · Maria & Juan") and one short `line` ("1,000 events · earned Oct 12 · used
+ * Oct 20"); `sentence` is the whole of it in one line, for the ⓘ and a screen reader.
+ */
 export type FreeFeeSummary = {
   waiting: number;
-  history: Array<{ rewardId: string; line: string; state: 'waiting' | 'used' | 'revoked' }>;
+  history: Array<{ rewardId: string; title: string; line: string; sentence: string; state: 'waiting' | 'used' | 'revoked' }>;
 };
 
-function shortDay(iso: string): string {
+function shortDay(iso: string, year = false): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' } : {}), timeZone: 'Asia/Manila' });
 }
 
-/** "Earned Nov 5, 2026 · 1,000 events" · "Used Nov 9, 2026 on Maria & Juan · ₱0 fee · Badge reward". */
 export function freeFeeSummary(granted: readonly GrantedReward[]): FreeFeeSummary {
   const fees = granted.filter((g) => g.kind === 'fee_waiver').sort((a, b) => a.grantedAt.localeCompare(b.grantedAt));
   const history = fees.map((g) => {
     const step = Number(g.key.split(':')[1]);
-    const from = Number.isFinite(step) ? ` · ${COUNT.format(step)} events` : '';
-    const earned = `Earned ${shortDay(g.grantedAt)}${from}`;
-    if (g.revokedAt) return { rewardId: g.rewardId, line: `${earned} · taken back by Setnayan`, state: 'revoked' as const };
-    if (g.usedAt) {
-      const who = g.usedOn?.coupleName?.trim() ? ` on ${g.usedOn.coupleName.trim()}` : '';
-      return { rewardId: g.rewardId, line: `${earned} · used ${shortDay(g.usedAt)}${who} · ₱0 fee · Badge reward`, state: 'used' as const };
+    const from = Number.isFinite(step) && step > 0 ? `${COUNT.format(step)} events · ` : '';
+    const earned = `${from}earned ${shortDay(g.grantedAt)}`;
+    const earnedLong = `Earned ${shortDay(g.grantedAt, true)}${from ? ` · ${from.slice(0, -3)}` : ''}`;
+    if (g.revokedAt) {
+      return { rewardId: g.rewardId, title: FREE_FEE_TITLE, line: `${earned} · taken back`, sentence: `${earnedLong} · taken back by Setnayan`, state: 'revoked' as const };
     }
-    return { rewardId: g.rewardId, line: `${earned} · waiting for your next customer`, state: 'waiting' as const };
+    if (g.usedAt) {
+      const name = g.usedOn?.coupleName?.trim() || null;
+      return {
+        rewardId: g.rewardId,
+        title: `${FREE_FEE_ZERO} fee · ${name ?? 'a booking'}`,
+        line: `${earned} · used ${shortDay(g.usedAt)}`,
+        sentence: `${earnedLong} · used ${shortDay(g.usedAt, true)}${name ? ` on ${name}` : ''} · ${FREE_FEE_ZERO} fee · Badge reward`,
+        state: 'used' as const,
+      };
+    }
+    return { rewardId: g.rewardId, title: FREE_FEE_TITLE, line: earned, sentence: `${earnedLong} · waiting for your next customer`, state: 'waiting' as const };
   });
   return { waiting: history.filter((h) => h.state === 'waiting').length, history };
 }
+
+/** The fee a badge reward leaves: nothing. Formatted like every peso on the page. */
+const FREE_FEE_ZERO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(0);
 
 /* ── the badge page: every tracker row with its reward ───────────────────────────────────────────────────────── */
 

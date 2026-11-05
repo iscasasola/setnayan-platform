@@ -80,10 +80,13 @@ const icUnlock = <Sparkles aria-hidden className="h-[18px] w-[18px] flex-none te
 const icFee = <Ticket aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 const icReward = <Award aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />;
 
-/** " · 300 from badge rewards" on a stock row, when some of it is. */
-function rewardPart(left: FreeByKind | null | undefined, k: ShopGiftKind): string {
+/**
+ * The "🏅 300" chip on a stock row when some of it is badge reward — the mark that tells it apart from bought stock,
+ * kept short so the row's own line still fits a phone (the ⓘ says what 🏅 means; the Badge rewards fold lists each).
+ */
+function rewardChip(left: FreeByKind | null | undefined, k: ShopGiftKind): { tone: 'ok'; word: string } | null {
   const n = left?.[k] ?? 0;
-  return n > 0 ? ` · ${giftCount(n)} from badge rewards` : '';
+  return n > 0 ? { tone: 'ok', word: `🏅 ${giftCount(n)}` } : null;
 }
 
 function day(iso: string): string {
@@ -128,7 +131,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
       <InfoTip label="Your gifts" labelAs="h2" labelClassName="sn-sec" labelId={headingId} align="start">
         Bought ahead, for your couples. Put them on a quote; they leave your stock only when that couple&rsquo;s first
         payment clears, and land on their event. Never cashed out. Every badge you earn adds its reward here too, marked
-        Badge reward: it never expires and sits outside a booking&rsquo;s gift limit. A free booking fee is used by
+        Badge reward (🏅 on a row is how much of it is): it never expires and sits outside a booking&rsquo;s gift limit. A free booking fee is used by
         itself on your next booking that would carry a fee.
       </InfoTip>
 
@@ -137,8 +140,9 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           data="shop-gifts-papic"
           lead={ic}
           title="Papic credits"
-          line={`${stockSubline(stock?.papic ?? null)}${stock ? rewardPart(rewards?.left, 'papic') : ''}`}
+          line={stockSubline(stock?.papic ?? null)}
           strong={stock ? formatCount(stock.papic.balance) : null}
+          badge={stock ? rewardChip(rewards?.left, 'papic') : null}
         />
         {(['event_plus', 'event_pro'] as const).map((k) => {
           const pack = packs.find((p) => p.kind === k);
@@ -151,8 +155,9 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
               data={`shop-gifts-${k.replace('_', '-')}`}
               lead={icUnlock}
               title={pack?.title ?? (k === 'event_plus' ? 'Event Plus' : 'Event Pro')}
-              line={`${stockSubline(s)}${stock ? rewardPart(rewards?.left, k) : ''}`}
+              line={stockSubline(s)}
               strong={stock ? formatCount(s?.balance ?? 0) : null}
+              badge={stock ? rewardChip(rewards?.left, k) : null}
             />
           );
         })}
@@ -162,15 +167,8 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
             data="shop-gifts-free-fee"
             lead={icFee}
             title={FREE_FEE_TITLE}
-            line={
-              fee === null
-                ? 'Couldn’t read your badge rewards right now'
-                : fee.waiting > 0
-                  ? `${FREE_FEE_SUBLINE} · used by itself on your next booking with a fee`
-                  : FREE_FEE_SUBLINE
-            }
+            line={fee === null ? 'Couldn’t read your badge rewards right now' : FREE_FEE_SUBLINE}
             strong={fee ? formatCount(fee.waiting) : null}
-            badge={fee && fee.history.length > 0 ? { tone: 'ok', word: 'Badge reward' } : null}
           />
         ) : null}
 
@@ -254,7 +252,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
                         key={h.rewardId}
                         data="shop-gifts-free-fee-row"
                         lead={icFee}
-                        title={FREE_FEE_TITLE}
+                        title={<span aria-label={h.sentence}>{h.title}</span>}
                         line={h.line}
                         badge={{ tone: h.state === 'waiting' ? 'ok' : 'quiet', word: h.state === 'used' ? 'Used' : h.state === 'revoked' ? 'Taken back' : 'Waiting' }}
                       />

@@ -51,6 +51,7 @@ import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
+import type { GrantedReward } from '@/lib/badge-rewards';
 import { ShopGiftsSection } from '@/app/vendor-dashboard/subscription/_components/shop-gifts-section';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
@@ -369,6 +370,17 @@ const LAB_GIFT_PACKS = shopGiftPacksFrom([
   { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
 ]);
 
+/** A lab badge reward row (`GrantedReward`) — fixture only. */
+function labReward(
+  key: string,
+  kind: GrantedReward['kind'],
+  units: number,
+  grantedAt: string,
+  extra: Partial<GrantedReward> = {},
+): GrantedReward {
+  return { rewardId: `lab-${key}`, key, badge: key.split(':')[0]!, kind, units, grantedAt, revokedAt: null, usedAt: null, usedOn: null, ...extra };
+}
+
 function giftsFixture(unverified: boolean, fail: boolean) {
   return (
     <ShopGiftsSection
@@ -395,6 +407,22 @@ function giftsFixture(unverified: boolean, fail: boolean) {
           { id: 'bank', label: 'Bank transfer' },
         ],
         canBuy: true,
+        // 🏅 Badge rewards (2026-11-05): some of the stock is badge reward, a free booking fee used and one waiting.
+        rewards: {
+          left: fail ? null : { papic: 300, event_plus: 1, event_pro: 0 },
+          granted: fail
+            ? null
+            : [
+                labReward('events:5000', 'fee_waiver', 1, '2026-11-05T02:00:00Z'),
+                labReward('events:1000', 'fee_waiver', 1, '2026-10-12T02:00:00Z', {
+                  usedAt: '2026-10-20T02:00:00Z',
+                  usedOn: { coupleName: 'Maria & Juan', wouldHaveBeenPhp: 2500 },
+                }),
+                labReward('events:50', 'event_plus', 1, '2026-10-02T02:00:00Z'),
+                labReward('events:10', 'papic', 2, '2026-09-14T02:00:00Z'),
+              ],
+          names: { papic: 'Papic 150', event_plus: 'Event Plus', event_pro: 'Event Pro' },
+        },
       }}
     />
   );

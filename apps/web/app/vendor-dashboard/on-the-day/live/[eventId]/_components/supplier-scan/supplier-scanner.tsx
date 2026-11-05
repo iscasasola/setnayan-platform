@@ -137,7 +137,7 @@ export function SupplierClaimScanner({
         </p>
         <Explain title="Scanner" label="About the scanner">
           Each guest you scan gets the next number — the same number shows on their Event Hub. In Once, a guest is
-          counted one time; a second scan says “Already claimed”. You see numbers and counts, never names. The mode is
+          counted one time; a second scan says “Already claimed”. You see the number and the guest’s first name. The mode is
           set once per service, under Shop › Services.
         </Explain>
       </div>

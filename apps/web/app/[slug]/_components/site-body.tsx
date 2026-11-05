@@ -2099,6 +2099,7 @@ export async function SiteBody({
               dock={!isEditorCanvas}
               inFoot={inFoot}
               signedInNotListed={anon.signedInNotListed}
+              seatUnread={anon.seatUnread}
               theOrganizer={clientWords.theOrganizer}
               mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
               joinAction={

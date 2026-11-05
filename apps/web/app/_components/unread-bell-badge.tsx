@@ -30,7 +30,10 @@ import { createPortal } from 'react-dom';
 import { Bell, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+// ⚡ The browser client (`@/lib/supabase/client` → supabase-js + its auth client, ~43KB gzipped) is
+// import()ed where it is first used, never statically: this file is in the first load of every signed-in page, and
+// a static import was one of the three edges that put the whole client in the Maker's first load
+// (`scripts/check-maker-js-budget.mjs`, 2026-11-04). Nothing it draws waits on it.
 import type { NotificationRow, NotificationType } from '@/lib/notifications';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
@@ -113,20 +116,24 @@ export function UnreadBellBadge({
     // paint, and the bell is in the first load of every signed-in page.
     let stop: (() => void) | null = null;
     let gone = false;
-    void import('@/lib/unread-polls').then(({ pollBell }) => {
-      if (gone) return;
-      stop = pollBell({
-        supabase: createClient(),
-        userId,
-        shown: () => shown.current,
-        onValue: setUnread,
-        refreshOn: PAGE_CHANGING_TYPES,
-        onArrival: () => {
-          // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited / a Mood Board change to undo); nothing was pressed here.
-          router.refresh();
-        },
-      });
-    });
+    // Both chunks are asked for at once; the poll starts when both are in.
+    const client = import('@/lib/supabase/client');
+    void import('@/lib/unread-polls').then(({ pollBell }) =>
+      client.then(({ createClient }) => {
+        if (gone) return;
+        stop = pollBell({
+          supabase: createClient(),
+          userId,
+          shown: () => shown.current,
+          onValue: setUnread,
+          refreshOn: PAGE_CHANGING_TYPES,
+          onArrival: () => {
+            // one-render: keep (realtime) — a poll saw a notification arrive (made a host / invited / a Mood Board change to undo); nothing was pressed here.
+            router.refresh();
+          },
+        });
+      }),
+    );
     return () => {
       gone = true;
       stop?.();
@@ -170,7 +177,10 @@ export function UnreadBellBadge({
     */
     void (async () => {
       try {
-        const { fetchOwnNotifications } = await import('@/lib/notifications');
+        const [{ fetchOwnNotifications }, { createClient }] = await Promise.all([
+          import('@/lib/notifications'),
+          import('@/lib/supabase/client'),
+        ]);
         const r = await fetchOwnNotifications(createClient(), userId, 8);
         if (live) setRows(r);
       } catch {

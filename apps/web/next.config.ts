@@ -471,8 +471,17 @@ const nextConfig: NextConfig = {
     // matches the service worker's content-hashed rule (`IMMUTABLE_PATH`, ≥ 8
     // hex). Client production build only. Without it the Next 15.5.28 security
     // bump is 507 B over the 202KB lock (`scripts/check-bundle-size.mjs`).
+    //
+    // 9 hex since 2026-11-04 (#7244). Moving supabase-js (~43KB gz) OUT of every
+    // signed-in page's first load made its three chunks lazy, and every lazy
+    // chunk is one more entry in this runtime: +42 B gzipped, which put the
+    // shared bundle 16 B over the lock while the pages themselves shrank (the
+    // Maker 507.4 → 453.6KB). Measured on that build: 10 → 9 hex takes the
+    // runtime 4,999 → 4,860 B (−139 B) with nothing else changed. 9 hex = 36 bits
+    // (~1 in 7×10^10 that a changed chunk reuses its old name); still above the
+    // service worker's ≥ 8 hex rule.
     if (!isServer && !dev && config.output) {
-      const CHUNK_HASH = '[contenthash:10]';
+      const CHUNK_HASH = '[contenthash:9]';
       const { filename, chunkFilename } = config.output;
       if (typeof filename === 'string' && filename.startsWith('static/chunks/')) {
         config.output.filename = filename.replace('[contenthash]', CHUNK_HASH);

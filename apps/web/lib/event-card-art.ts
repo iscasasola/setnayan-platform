@@ -306,6 +306,87 @@ export function eventCardArtKey(t: EventCardTreatment): string {
 }
 
 // ---------------------------------------------------------------------------
+// Face-aware framing (2026-11-04)
+// ---------------------------------------------------------------------------
+
+/**
+ * When the photo's face span is known (`EVENT_TYPE_PHOTO_FACES`, beside the photo map
+ * in `create-event/_components/event-types.ts`), the crop above is replaced by one that keeps the faces in the band.
+ *
+ * Why: the fixed crop ladder (26–50 % of the overflow) assumed the subject sat near
+ * the middle. The owner's 4 Nov renders put faces in the top 10–35 % of the frame,
+ * and a strip that shows a fifth to a half of the photo's height then showed bodies
+ * with no heads on 13 of 17 types. The strip's proportions change with the card
+ * width, so the placement is written in container units (`cqw`/`cqh`) and the
+ * browser solves it for whatever size the band is.
+ *
+ * The band's usable window runs from `EVENT_CARD_FACE_HEADROOM` below its top edge
+ * to `footClear` of its height (the foot carries the title and the scrim, or on the
+ * dashboard a fade to the card's paper). The span sits inside that window; each event
+ * slides it to one of four spots in whatever room is left, using the same crop hash
+ * as the old ladder. A span taller than the window is pinned at its TOP, so heads
+ * stay and the lowest chins go. Mirror and colour wash are unchanged. Zoom is dropped:
+ * scaling about the band's centre is what pushes a high face off the top.
+ */
+export const EVENT_CARD_FACE_HEADROOM = 0.06;
+
+/** Default `footClear` for the launcher card: the white title sits below this line. */
+export const EVENT_CARD_FACE_FOOT = 0.74;
+
+export type FaceFramingOptions = {
+  /** How far down the band (0–1) the faces may reach. */
+  footClear?: number;
+  /** Photo height ÷ width. */
+  aspect?: number;
+};
+
+/** 0, 1/3, 2/3 or 1: where in the leftover room this event places the faces. */
+export function eventCardFaceSlide(eventId: string): number {
+  return (stableHash32(`${eventId}:crop`) % EVENT_CARD_CROP_STOPS.length) / (EVENT_CARD_CROP_STOPS.length - 1);
+}
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/**
+ * The image's top offset in px for a band of `w`×`h` (the numeric twin of
+ * `faceFramedObjectPosition`, for tests and measurement). ≤ 0, and never leaves a gap
+ * above or below the photo.
+ */
+export function faceFramedOffsetPx(
+  band: { w: number; h: number },
+  face: readonly [number, number],
+  slide: number,
+  { footClear = EVENT_CARD_FACE_FOOT, aspect = 1.25 }: FaceFramingOptions = {},
+): number {
+  const hi = band.w * aspect;
+  const a = band.h * EVENT_CARD_FACE_HEADROOM - face[0] * hi;
+  const b = band.h * footClear - face[1] * hi;
+  const want = a + slide * Math.max(0, b - a);
+  return Math.min(0, Math.max(band.h - hi, want));
+}
+
+/**
+ * The CSS `object-position` that does what `faceFramedOffsetPx` computes, for an
+ * `object-fit: cover` image whose nearest size container is the band.
+ */
+export function faceFramedObjectPosition(
+  face: readonly [number, number],
+  slide: number,
+  { footClear = EVENT_CARD_FACE_FOOT, aspect = 1.25 }: FaceFramingOptions = {},
+): string {
+  const hiCqw = round3(aspect * 100);
+  const a = `${round3(EVENT_CARD_FACE_HEADROOM * 100)}cqh - ${round3(face[0] * aspect * 100)}cqw`;
+  const b = `${round3(footClear * 100)}cqh - ${round3(face[1] * aspect * 100)}cqw`;
+  const want = `calc(${a} + ${round3(slide)} * max(0px, calc((${b}) - (${a}))))`;
+  return `50% min(0px, max(calc(100cqh - ${hiCqw}cqw), ${want}))`;
+}
+
+/** Mirror only — the face-aware framing never zooms. */
+export function faceFramedTransform(t: EventCardTreatment): string {
+  return t.mirrored ? 'scale(-1, 1)' : 'none';
+}
+
+// ---------------------------------------------------------------------------
 // The own-hero guard
 // ---------------------------------------------------------------------------
 

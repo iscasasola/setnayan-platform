@@ -68,6 +68,7 @@ import {
   RIGHTS_WARRANTY_TEXT,
   SUPPLIER_GALLERY_ASSET_TYPE,
 } from '@/lib/moodboard-gallery-pure';
+import { compressImageForWeb } from '@/lib/image-compress';
 import { PHOTO_PART_GROUP_LABEL, type PhotoPartGroup } from '@/lib/inspiration-slots';
 import { ShopNotice } from '../../_components/kit';
 import { RejectionNotice } from './rejection-notice';
@@ -235,7 +236,24 @@ export function StylistLibraryEditor({
         // bytes (see the file docblock). Adding one back prints it twice.
         setActionError(null);
         setNotice(null);
-        const { assetId, textScreen, colorRanges } = await uploadStylistAsset(formData);
+        // 🗜 COMPRESSED IN THE BROWSER FIRST (2026-11-05) — the same
+        // `compressImageForWeb` FileUpload's `compressImage` runs. A phone photo
+        // is often 5–12 MB; the bytes travel inside this server action, whose
+        // body limit is a few MB, so a full-size photo failed before any gate
+        // could speak. Best-effort: it returns the original file on any failure.
+        const picked = formData.get('file');
+        if (picked instanceof File && picked.size > 0) {
+          formData.set('file', await compressImageForWeb(picked), picked.name);
+        }
+        // A refusal comes back as a result, never a throw — a thrown message is
+        // blanked in production, so "wrong trade / quota full / confirm the
+        // rights" only ever reached the supplier in dev.
+        const answer = await uploadStylistAsset(formData);
+        if (!answer.ok) {
+          setActionError(answer.error);
+          return;
+        }
+        const { assetId, textScreen, colorRanges } = answer;
         const label = String(formData.get('label') ?? '');
         const uploadedType = String(
           formData.get('assetType') ?? '',

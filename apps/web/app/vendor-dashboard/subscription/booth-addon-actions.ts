@@ -30,7 +30,7 @@ import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
  * 3D Booth add-on — buy/activate a 28-day cycle.
  *
  * Owner-locked 2026-07-22: a FLAT ₱1,500 / 28-day add-on on the PRO / ENTERPRISE
- * / CUSTOM tiers (verified only), FREE for the vendor's FIRST cycle (one-time
+ * tiers (verified only), FREE for the vendor's FIRST cycle (one-time
  * per account). When active, the vendor's booth renders BRANDED inside their
  * couples' published 3D Plans (lib/seating-3d.ts boothIsBranded); without it a
  * Pro/Enterprise vendor keeps the existing GENERIC booth.

@@ -3,8 +3,17 @@
 import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 import type { SceneCover } from '@/lib/event-poster';
-import { eventTypePlaceholderGradient } from '../../(account)/create-event/_components/event-types';
-import { eventCardTreatment } from '@/lib/event-card-art';
+import {
+  EVENT_TYPE_PHOTO_ASPECT,
+  eventTypePlaceholderGradient,
+  faceSpanForTypePhoto,
+} from '../../(account)/create-event/_components/event-types';
+import {
+  eventCardFaceSlide,
+  eventCardTreatment,
+  faceFramedObjectPosition,
+  faceFramedTransform,
+} from '@/lib/event-card-art';
 
 /**
  * EventScene — the hero band behind an EVENTS card
@@ -61,6 +70,7 @@ export function EventScene({
   cover = null,
   /** Dim the whole band for a finished event, matching the card's opacity. */
   muted = false,
+  footClear,
 }: {
   /** Drives the per-event treatment. Stable → the card never reshuffles. */
   eventId: string;
@@ -78,6 +88,12 @@ export function EventScene({
    */
   cover?: SceneCover | null;
   muted?: boolean;
+  /**
+   * How far down the band (0–1) the type photo's faces may sit. The caller knows
+   * what covers its band's foot: the launcher's title (default), the dashboard's
+   * fade to the card's paper.
+   */
+  footClear?: number;
 }) {
   const [ownFailed, setOwnFailed] = useState(false);
   const [typeFailed, setTypeFailed] = useState(false);
@@ -143,6 +159,14 @@ export function EventScene({
 
   const showOwn = !!ownPhotoSrc && !ownFailed;
   const art = eventCardTreatment(eventId);
+  // Keep the faces in the band when this is a repo photo whose faces are measured
+  // (EVENT_TYPE_PHOTO_FACES, beside the photo map in create-event/_components/event-types.ts);
+  // an admin upload keeps the per-event crop.
+  const face = faceSpanForTypePhoto(eventType, photoSrc);
+  const photoTransform = face ? faceFramedTransform(art) : art.photoTransform;
+  const objectPosition = face
+    ? faceFramedObjectPosition(face, eventCardFaceSlide(eventId), { footClear, aspect: EVENT_TYPE_PHOTO_ASPECT })
+    : art.objectPosition;
 
   return (
     <span
@@ -168,16 +192,19 @@ export function EventScene({
         // carries `group-hover:scale-[1.04]`, and a Tailwind scale utility
         // rewrites --tw-scale-x, so a mirror set there would flip back on
         // hover. Two elements' transforms compose instead of colliding.
+        // `containerType: size` makes this band the container the face framing's
+        // `cqw`/`cqh` units measure.
         <span
           className="absolute inset-0 block"
-          style={{ transform: art.photoTransform }}
+          style={{ transform: photoTransform, containerType: 'size' }}
+          data-face-framed={face ? '' : undefined}
         >
           <Image
             src={photoSrc}
             alt=""
             fill
             sizes="(min-width: 1280px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 90vw"
-            style={{ objectPosition: art.objectPosition }}
+            style={{ objectPosition }}
             className={`object-cover transition-transform duration-500 group-hover:scale-[1.04] ${dim}`}
             onError={() => setTypeFailed(true)}
           />

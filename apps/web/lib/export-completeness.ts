@@ -259,6 +259,24 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'every row on Customers › Money, and erasure clears the stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'shop_gift_purchases',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-stock purchase — which pack, how many, at what price — keyed to the shop ' +
+      '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
+      'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
+      'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    decision: 'excluded',
+    why:
+      'The SHOP\'s gift-stock ledger (bought · given · reversed), keyed to the shop like ' +
+      'shop_papic_wallet_entries. `created_by` is an actor stamp on who caused the entry; the row says nothing ' +
+      'about that person, the shop owner reads it on Plan › Your gifts, and erasure clears the stamp ' +
+      '(lib/erasure/coverage.ts).',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:

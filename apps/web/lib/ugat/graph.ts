@@ -1671,6 +1671,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'guest_not_counted_for' },
       { kind: 'fk', table: 'guest_not_counted_for', column: 'guest_id', references: 'guests' },
       { kind: 'fk', table: 'guest_not_counted_for', column: 'event_vendor_id', references: 'event_vendors' },
+      // 🧮 Who a supplier counts (owner 2026-11-04): a rule per per-head booking — all · only · except over roles and groups.
+      { kind: 'table', table: 'event_vendor_count_rules' },
+      { kind: 'fk', table: 'event_vendor_count_rules', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'column', table: 'event_vendor_count_rules', column: 'group_ids' },
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
@@ -1678,7 +1682,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table needed',
     implementedBy:
-      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). “Not counted for” (2026-11-02): guest_not_counted_for (guest × booked event_vendors row) leaves a guest out of THAT booking’s supplier headcount only — get_vendor_event_brief / get_vendor_catering_metrics / get_vendor_seat_plan read it as owner through guests_not_counted_for_services; no supplier can read the table. households groups guests with ON DELETE SET NULL.',
+      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). A role holder may send a PROXY (2026-10-27): guests.represented_by_guest_id on the holder names the guest who stands in (UNIQUE: one holder per proxy; trigger a_proxy_stands_in_for_a_role — role holders only, same event, no chains); trigger the_proxy_takes_the_seat moves event_seat_assignments with the link both ways; the holder is listed but not counted (countsTowardEvent / .is(REPRESENTED_BY, null) / the four SQL readers), and the proxy wears the role’s dress code and call time (effectiveRoleOf, lib/guest-proxy.ts). “Not counted for” (2026-11-02): guest_not_counted_for (guest × booked event_vendors row) leaves a guest out of THAT booking’s supplier headcount only — get_vendor_event_brief / get_vendor_catering_metrics / get_vendor_seat_plan read it as owner through guests_not_counted_for_services; no supplier can read the table. “Who they count” (2026-11-04): only a booking whose service card is priced per head (event_vendor_counts_per_head: vendor_services.pricing_basis = per_pax) takes a tick or a rule; guest_not_counted_for now accepts ANY non-archived booking of the event (a quote applies once booked — the readers hand the helper booked ones only); event_vendor_count_rules (one per booking: mode all | only | except, roles guest_role[], group_ids — a deleted group drops out by trigger) is folded into guests_not_counted_for_services through event_vendor_left_out, so the three readers honour it; the supplier reads numbers only (get_vendor_headcount_rule), the couple / helpers / admin read get_event_service_counts. households groups guests with ON DELETE SET NULL.',
     writtenBy: 'Guest-list add/import flows · CSV bulk import · plus-one add action',
     guardedBy: 'current_event_ids() — same RLS spine as chain 1',
     traps: 'Not every edge hides a table — this one is a plain FK. Don’t assume every line on this map is a joint.',
@@ -2127,8 +2131,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'vendor_papic_portfolio_credit_grants_source_allowed',
         mentions: 'source',
       },
-      // The ₱ price is NOT on the ledger — it is a vendor_billing_catalog row
-      // (sku_code vendor_papic_portfolio_pack), admin-managed.
+      // The ₱ price is NOT on the ledger — since 2026-11-04 a shop buys the couple's
+      // Papic packs (platform_retail_catalog_v2 PAPIC_GUEST* rows, order key
+      // vendor_papic_pack__<code>); the ₱500 vendor_papic_portfolio_pack is retired.
       { kind: 'no_column', table: 'vendor_papic_portfolio_credit_grants', column: 'price_php' },
       // The tier row: one per vendor×event, and the spend side's columns.
       { kind: 'unique', table: 'vendor_papic_capture_grants', columns: ['vendor_profile_id', 'event_id'] },
@@ -2212,6 +2217,34 @@ export const UGAT_JOINTS: UgatJoint[] = [
       },
       // The wallet holds credits, never a price — the ₱ is the catalogue's.
       { kind: 'no_column', table: 'shop_papic_wallet_entries', column: 'price_php' },
+      // 🎁 SUPPLIER GIFTS (owner 2026-11-04) — a SECOND shop ledger, kept apart from the wallet on purpose: gift
+      // stock can only ever reach a couple's event. Bought in quantity (shop_gift_purchases, one row per gift order —
+      // orders has no quantity), put on a quote (vendor_proposal_shop_gifts), and given into the event's SHARED
+      // Papic pool only by shop_gift_deliver_for_booking when that couple's first payment clears.
+      { kind: 'table', table: 'shop_gift_purchases' },
+      { kind: 'fk', table: 'shop_gift_purchases', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_gift_purchases', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'quantity' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'credits_each' },
+      { kind: 'table', table: 'shop_gift_stock_entries' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      {
+        kind: 'check',
+        table: 'shop_gift_stock_entries',
+        name: 'shop_gift_stock_entries_sign_matches_kind',
+        mentions: 'delta',
+      },
+      // Stock is credits, never a price.
+      { kind: 'no_column', table: 'shop_gift_stock_entries', column: 'price_php' },
+      { kind: 'table', table: 'vendor_proposal_shop_gifts' },
+      { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
+      { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_proposal_shop_gifts', column: 'credits' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2222,7 +2255,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:

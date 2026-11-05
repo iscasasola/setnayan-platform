@@ -69,7 +69,10 @@ type Props = {
   includedLeft?: number;
   /** The plan's included total, for the line under Add. */
   includedTotal?: number;
-  /** May the paid flow sell one more (Ultra; any plan while the plan switch is off)? */
+  /**
+   * May the paid flow sell one more? ULTRA ONLY, ALWAYS (owner 2026-11-05, "Ultra only, always") — the plan switch
+   * does not open it. Off → the form says more branches are Ultra's; the server refuses it too (`branches/actions.ts`).
+   */
   canBuyMore?: boolean;
 };
 
@@ -81,7 +84,7 @@ export function BranchManager({
   pay,
   includedLeft = 0,
   includedTotal = 0,
-  canBuyMore = true,
+  canBuyMore = false,
 }: Props) {
   const toast = useToast();
   const [adding, setAdding] = useState(false);
@@ -94,7 +97,7 @@ export function BranchManager({
 
   return (
     <div className="space-y-4">
-      {/* Add-branch trigger + inline expander */}
+      {/* Add-branch trigger + inline expander — the form itself says when the plan has no branch left to add. */}
       <div>
         <button
           type="button"

@@ -25,8 +25,8 @@ export function SupplierScanList({ claims }: { claims: CoupleScanClaim[] | null 
       <div className="text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
         <InfoTip label="Suppliers' scans" align="start">
           A supplier whose service has a scanner (a photo booth, a souvenir table, a print station) scans each guest&rsquo;s
-          QR or taps their tag. Each guest gets a number — the same number shows on their Event Hub. Suppliers see only
-          numbers and counts; you see names here.
+          QR or taps their tag. Each guest gets a number — the same number shows on their Event Hub. Suppliers see the
+          number and the guest&rsquo;s first name; you see full names here.
         </InfoTip>
       </div>
       {claims === null ? (

@@ -524,6 +524,52 @@ REVOKE ALL ON FUNCTION public.supplier_scan_claim(UUID, BIGINT, TEXT, TEXT) FROM
 GRANT EXECUTE ON FUNCTION public.supplier_scan_claim(UUID, BIGINT, TEXT, TEXT) TO authenticated;
 
 COMMENT ON FUNCTION public.supplier_scan_claim(UUID, BIGINT, TEXT, TEXT) IS
-  'The supplier claim scanner (slice 1, Once). Caller must be the service''s shop (or its day-of grantee) BOOKED on the event, with the scanner ON; the token must be a listed guest of THIS event. Allocates the shared number under the counter row lock in the same transaction as the claim. Returns counts only — never a name.';
+  'The supplier claim scanner (slice 1, Once). Caller must be the service''s shop (or its day-of grantee) BOOKED on the event, with the scanner ON; the token must be a listed guest of THIS event. Allocates the shared number under the counter row lock in the same transaction as the claim. Returns no name; the first name is asked for separately (supplier_scan_first_name), after the claim is recorded.';
+
+
+-- 👤 THE GUEST'S FIRST NAME, AFTER A RECORDED SCAN (owner 2026-11-05: *"name is fine"* — the supplier sees the
+-- number and the guest's first name). Never the last name, never a guest card. Answers only the shop that may scan
+-- this service at this event (supplier_scan_shop_for), and only for a guest that shop has a RECORDED claim for at
+-- this service — so a code can never be looked up without being claimed. Everyone else: NULL.
+CREATE OR REPLACE FUNCTION public.supplier_scan_first_name(p_event_id UUID, p_coverage_id BIGINT, p_token TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_guest UUID;
+  v_first TEXT;
+BEGIN
+  IF public.supplier_scan_shop_for(p_event_id, p_coverage_id) IS NULL THEN
+    RETURN NULL;
+  END IF;
+  SELECT g.guest_id, g.first_name INTO v_guest, v_first
+    FROM public.guests g
+   WHERE g.event_id = p_event_id
+     AND g.qr_token = lower(btrim(COALESCE(p_token, '')))
+     AND g.deleted_at IS NULL;
+  IF v_guest IS NULL THEN
+    RETURN NULL;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.supplier_scan_claims c
+     WHERE c.event_id = p_event_id AND c.coverage_id = p_coverage_id AND c.guest_id = v_guest
+  ) AND NOT EXISTS (
+    SELECT 1 FROM public.guest_souvenir_claims s
+     WHERE s.event_id = p_event_id AND s.guest_id = v_guest AND s.coverage_id = p_coverage_id
+  ) THEN
+    RETURN NULL;
+  END IF;
+  RETURN NULLIF(btrim(COALESCE(v_first, '')), '');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.supplier_scan_first_name(UUID, BIGINT, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.supplier_scan_first_name(UUID, BIGINT, TEXT) TO authenticated;
+
+COMMENT ON FUNCTION public.supplier_scan_first_name(UUID, BIGINT, TEXT) IS
+  'The supplier claim scanner: a scanned guest''s FIRST name only (owner 2026-11-05), for the shop that may scan this service at this event, and only once that guest has a recorded claim for it. Never the last name. NULL for everyone else.';
 
 COMMIT;

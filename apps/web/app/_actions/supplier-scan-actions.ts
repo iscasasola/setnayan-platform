@@ -22,11 +22,12 @@
  * service, the scanner, and that the code is a guest of THIS event; the setting is the shop's own RLS. Admin's op is
  * the only service-role write, behind `requireAdminAction`, and it is written to `admin_audit_log`.
  *
- * 🔢 COUNT ONLY, AND ONE EXCEPTION THE HOSTS ALREADY MADE. The database never hands back a name. After a recorded scan
- * the claim op asks the guest list for the name under the SCANNER'S OWN access — the same rule that decides whether
- * that person can open the hosts' guest list at all. A coordinator the hosts approved (an accepted, non-removed seat
- * with the guest list shared) reads it; every other supplier reads nothing (DECISION_LOG 2026-09-25 "A HOST-APPROVED
- * COORDINATOR SCANS WITH THE HOST'S VIEW"). The consent-gate flag is never consulted — the seat is.
+ * 👤 THE NUMBER AND THE GUEST'S FIRST NAME (owner 2026-11-05: *"name is fine"*, settling the 2026-10-28 row against the
+ * older "count only"). The claim itself never hands back a name. After a recorded scan the claim op asks two things:
+ *   · the guest list, under the SCANNER'S OWN access — a coordinator the hosts approved (an accepted, non-removed seat
+ *     with the guest list shared) reads the full name, exactly as on the hosts' guest list (DECISION_LOG 2026-09-25
+ *     "A HOST-APPROVED COORDINATOR SCANS WITH THE HOST'S VIEW"); the consent-gate flag is never consulted — the seat is;
+ *   · otherwise `supplier_scan_first_name` — the FIRST name only, and only for a guest this shop has just claimed.
  *
  * 📶 Nothing is queued: the number is allocated by the database, so a scan with no signal is not a claim.
  */
@@ -37,7 +38,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { parseGuestQrPayload } from '@/lib/checkin';
-import { realNameParts } from '@/lib/seat-placeholder-words';
+import { realNameParts, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
 import {
   scanRefusalWords,
   scannerChoiceToSetting,
@@ -138,10 +139,20 @@ async function claim(eventId: string, coverageId: number, raw: string, via: 'qr'
   if (!a.outcome || !known.includes(a.outcome)) return { outcome: 'refused', message: scanRefusalWords('') };
 
   // Host read parity — the guest list's own RLS decides, never this code. The two name columns only: this line on the
-  // scanner is a confirmation ("Ana Reyes"), not a guest card.
+  // scanner is a confirmation ("Ana Reyes" / "Ana"), not a guest card.
   const { data: g } = await supabase.from('guests').select('first_name, last_name').eq('event_id', eventId).eq('qr_token', token).maybeSingle();
   const row = g as { first_name: string | null; last_name: string | null } | null;
-  const name = row ? realGuestName(row.first_name, row.last_name) : null;
+  let name = row ? realGuestName(row.first_name, row.last_name) : null;
+  if (!name) {
+    // Every other booked supplier: the first name only, asked for after the claim is recorded.
+    const { data: first, error: firstError } = await supabase.rpc('supplier_scan_first_name', {
+      p_event_id: eventId,
+      p_coverage_id: coverageId,
+      p_token: token,
+    });
+    if (firstError) logQueryError('supplierScan.first_name', firstError, { eventId, coverageId });
+    name = typeof first === 'string' ? withoutPlaceholderWord('first', first) || null : null;
+  }
 
   if (a.outcome === 'already') return { outcome: 'already', number: a.number ?? null, name };
   if (a.outcome === 'ordered') return { outcome: 'ordered', number: Number(a.number), name };

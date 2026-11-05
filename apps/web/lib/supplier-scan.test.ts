@@ -5,7 +5,7 @@
  *      in the newest migration that defines it — a souvenir leaf added to the taxonomy turns this red;
  *   2. the dropdown offers exactly the BUILT modes, and the newest CHECK on `supplier_scan_settings.mode` accepts exactly
  *      those — a mode the code cannot run can never be saved;
- *   3. "#0042" is the one number format; the answer is count only — no name unless the action handed one in;
+ *   3. "#0042" is the one number format; the answer draws no name unless the action handed one in (the first name, after a recorded claim);
  *   4. NFC: every place says what works there, and only that.
  */
 import test from 'node:test';
@@ -78,7 +78,7 @@ test('2 · the dropdown offers Off + the built modes, and the database accepts e
   assert.equal(scannerChoiceOf({ enabled: true, mode: 'once' }), 'once');
 });
 
-test('3 · one number format, and the answer is count only', () => {
+test('3 · one number format, and no name unless one was handed in', () => {
   assert.equal(scanNumberLabel(42), '#0042');
   assert.equal(scanNumberLabel(1), '#0001');
   assert.equal(scanNumberLabel(12345), '#12345');
@@ -125,7 +125,7 @@ test('6 · Unlimited and Group session: their words, and prints kept within 1–
   assert.equal(scanAnswerWords({ outcome: 'picked_up', number: 107, claimed: 3, of: 5 }).title, '✓ #0107 · 3 of 5 claimed');
   assert.equal(scanAnswerWords({ outcome: 'no_session' }).title, 'No shot open');
   assert.equal(tallyWords('unlimited', { claimed: 30, total: 118, served: 43, unique: 30 }), 'Served 43 · 30 guests');
-  assert.equal(tallyWords('group_session', { claimed: 9, total: 118, ready: 4, sessions: 12 }), 'Sessions 12 · Ready 4 · Claimed 9');
+  assert.equal(tallyWords('group_session', { claimed: 9, total: 118, ready: 4, sessions: 12 }), 'Shots 12 · Ready 4 · Claimed 9');
   assert.equal(clampPrints(0), 1);
   assert.equal(clampPrints(140), 99);
   assert.ok(isSessionMode('group_session'));

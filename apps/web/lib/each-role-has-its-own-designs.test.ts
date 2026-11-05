@@ -101,11 +101,11 @@ test('1 · every role offers exactly its own designs — the owner’s table —
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 0), ['barong_tagalog', 'suit']);
   assert.deepEqual(pickOptions(attireRow('groups', 'principal_sponsors')!, 1), ['filipiniana', 'long_gown']);
   assert.deepEqual(pickOptions(attireRow('groups', 'bearers_flower_girl')!, 1), ['tulle_dress', 'filipiniana']);
-  /* Rows with no designs of their own keep the shipped seven. */
+  /* Rows with no designs of their own keep the shipped seven — the officiants' gaining the priest's alb at the END. */
   assert.ok(pickOptions(attireRow('groups', 'officiants')!).includes('formal'));
-  /* 🙏 The priest is drawn (`officiant`) but offered on no row until the owner says where (2026-11-04) — a wedding's
-     Officiants row is exactly as shipped. */
-  assert.ok(!pickOptions(attireRow('groups', 'officiants')!).includes('priest'), 'the priest reached a row before the owner ruled');
+  /* 🙏 The officiants' gain the priest's alb at the END (owner 2026-11-05, "(M) on the wedding Officiants row now"). */
+  assert.equal(pickOptions(attireRow('groups', 'officiants')!).at(-1), 'priest');
+  assert.deepEqual(pickOptions(attireRow('groups', 'officiants')!).slice(0, -1), [...pickOptions(attireRow('groups', 'muslim_principals')!)], 'the officiants lost one of the shipped seven');
   assert.deepEqual(roleDesigns('officiant'), ['priest']);
   /* 🎂 The celebrant: FOR WOMEN · FOR MEN, the girl's party dress drawn as a girl. */
   assert.deepEqual([...pickOptions(attireRow('roles', 'celebrant')!, 1)], ['barong_tagalog', 'suit', 'formal', 'smart_casual']);
@@ -120,6 +120,20 @@ test('1 · every role offers exactly its own designs — the owner’s table —
   assert.deepEqual(keys([{ role: 'celebrant', count: 1 }], resolveRoleSet('birthday').offeredRoles), ['celebrant', 'guest']);
   assert.deepEqual(keys([{ role: 'guest', count: 40 }], resolveRoleSet('wedding').offeredRoles).slice(0, 2), ['bride', 'groom']);
   assert.deepEqual(keys([{ role: 'guest', count: 40 }]).slice(0, 2), ['bride', 'groom'], 'no role set given: not as shipped');
+  /* 🎂 Owner 2026-11-05 (J): "The celebrant" from the start on his five types — and on no other generic type untagged. */
+  const typed = (eventType: string) =>
+    studioAttireRows([{ role: 'guest', count: 40 }] as never, null, null, { offered: generic, eventType }).filter((r) => r.tier === 'roles').map((r) => r.key);
+  for (const t of ['debut', 'birthday', 'christening', 'anniversary', 'graduation']) assert.deepEqual(typed(t), ['celebrant', 'guest'], `${t}: no celebrant row before anyone is tagged`);
+  for (const t of ['corporate', 'funeral', 'travel', 'reunion']) assert.deepEqual(typed(t), ['guest'], `${t}: a celebrant row nobody asked for`);
+  /* 🎂 (L): once every celebrant's woman-or-man is known, only their column(s); one unknown draws both. */
+  const cols = (celebrants: Array<'woman' | 'man' | null>) =>
+    studioAttireRows([{ role: 'celebrant', count: celebrants.length }] as never, null, null, { offered: generic, eventType: 'debut', celebrants }).find((r) => r.key === 'celebrant')!.columns;
+  assert.deepEqual(cols(['woman']), [0], 'a debutante was shown the men’s column');
+  assert.deepEqual(cols(['man']), [1], 'a birthday boy was shown the women’s column');
+  assert.deepEqual(cols(['woman', 'man']), [0, 1]);
+  assert.equal(cols([null]), undefined, 'an unknown celebrant lost a column');
+  assert.equal(cols(['woman', null]), undefined);
+  assert.equal(cols([]), undefined);
 });
 
 /* ── 2 · old data ─────────────────────────────────────────────────────────── */

@@ -863,8 +863,10 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const secondNow = (row: StudioAttireRow): string[] => {
     const def = attireRow(row.tier as AttireTier, row.key);
     const own = def ? picksOf(dress, def)[1]?.colours : null;
-    return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : [];
+    return own ? [...own] : row.paletteKey ? roleColours(row.paletteKey) : celebrantMain(row);
   };
+  /** 🎂 The celebrant's figures are drawn in the event's MAIN colours (owner 2026-11-05, (K)) — no palette of their own. */
+  const celebrantMain = (row: StudioAttireRow): string[] => (row.key === 'celebrant' ? [...five] : []);
 
   /* 👗 A ROLE'S OWN PHOTOS, IN ATTIRE (prototype `ideasHTML`): its photos small, how many, ＋ (the couple's own) and
      Search ideas › (the suppliers' — the shipped picker). A photo comes off through the same confirm box; the photos'
@@ -1228,7 +1230,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                 ) : null}
                 <div className={`flex gap-2.5 ${row.key === 'guest' ? 'flex-col [@container(min-width:640px)]:flex-row [@container(min-width:640px)]:gap-8 [@container(min-width:640px)]:[&>*]:flex-1' : ''}`} data-mood-board-picks={drawn.length}>
                   {drawn.map(({ pick, pi }) => {
-                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : []) : secondNow(row);
+                    const colours = pi === 0 ? (row.paletteKey ? roleColours(row.paletteKey) : celebrantMain(row)) : secondNow(row);
                     const max = row.paletteKey ? PALETTE_LIMITS[row.paletteKey].max : 0;
                     const pickLabel = two ? `${row.label} — ${PICK_LABEL[pick.who].toLowerCase()}` : row.label;
                     /* 👔 A ROLE WITH ITS OWN DESIGNS (owner 2026-10-16): its own drawing of the design, dyed zone by zone,
@@ -1485,7 +1487,9 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                       >
                         {two ? <span className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-ink/55">{PICK_LABEL[pick.who]}</span> : null}
                         <div className="flex justify-start">{figure}</div>
-                        {swatches}
+                        {swatches ?? (row.key === 'celebrant' ? (
+                          <small className="text-[12px] leading-snug text-ink/65" data-mood-board-celebrant-colours="">In your main colours</small>
+                        ) : null)}
                         {wearRow}
                       </div>
                     );

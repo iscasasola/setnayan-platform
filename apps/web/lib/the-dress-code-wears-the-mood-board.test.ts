@@ -349,6 +349,9 @@ test('⛓ resolveAttirePaletteColors[0] IS resolveAttirePaletteColor, for every 
   assert.ok(n > 100, `anti-vacuity: ${n} cases`);
   assert.deepEqual(resolveAttirePaletteColors('bridesmaid', BOARD, null), BOARD.bridesmaids, 'the whole list');
   assert.deepEqual(resolveAttirePaletteColors('bridesmaid', { wedding_party: ['#1', '#2'] as string[] }, null), ['#1', '#2'], 'the fallback list whole');
+  /* 🎂 Owner 2026-11-05 (K): the celebrant wears the event's MAIN colours by default — never the guests'. */
+  assert.deepEqual(resolveAttirePaletteColors('celebrant', { reception: ['#A1', '#B2'], guest: ['#C3'] } as never, null), ['#A1', '#B2'], 'the celebrant read the guests’ colours');
+  assert.deepEqual(resolveAttirePaletteColors('celebrant', { guest: ['#C3'] } as never, null), ['#C3'], 'no main colours yet: the chain as before');
   assert.deepEqual(resolveAttirePaletteColors('bridesmaid', { bridesmaids: '#ABCDEF' } as never, null), [], 'a string is not indexed');
   assert.ok(PALETTE_ORDER.length > 0);
 });

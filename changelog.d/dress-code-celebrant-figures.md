@@ -9,18 +9,22 @@ taxonomy.
   Long gown · Smart casual · Filipiniana (lola) · Party dress (girl)) and FOR MEN (Barong Tagalog · Suit and tie · Formal ·
   Smart casual). The girl's party dress sits on the women's list and is drawn as a girl at child scale (`drawnAs`,
   `wearerOf`).
-- **Which principals a Studio shows** (`studioAttireRows(…, { offered })`, the editor passes `resolveRoleSetForEvent`):
-  "The celebrant" when someone on the guest list is the celebrant (as shipped); "The bride" / "The groom" only where the
-  event's role set offers them — so a debut, a birthday or a funeral no longer shows a bride and a groom. A wedding is
-  unchanged. Which types should show the celebrant before anyone is tagged is left to the owner: the generic set (every
-  type without its own) also covers corporate, travel and funeral.
-- **The officiant**: the priest's alb and stole is drawn and registered (`officiant`), but offered on no row yet — where
-  the officiant belongs is the owner's call, and a wedding's Officiants row stays exactly as shipped. His answer, if it is
-  "on that row", is one flag (`also: 'officiant'`) on it.
+- **Which principals a Studio shows** (`studioAttireRows(…, { offered, eventType, celebrants })`, the editor passes
+  `resolveRoleSetForEvent` and `resolveProfileByEvent`): "The bride" / "The groom" only where the event's role set offers
+  them — so a debut, a birthday or a funeral no longer shows a bride and a groom; a wedding is unchanged. "The celebrant"
+  **from the start** on a debut, a birthday, a christening, an anniversary and a graduation (`CELEBRANT_FROM_THE_START`,
+  owner 2026-11-05 (J)); on any other type once someone on the guest list is the celebrant.
+- **One column once the gender is known** (owner (L)): when every celebrant's woman-or-man is known (`womanOrManOf` —
+  gender → title → attire), the row draws only their column(s) (`celebrantColumns`); an anniversary couple keeps both,
+  and one unknown celebrant keeps both.
+- **The celebrant's colours** (owner (K)): drawn in the event's MAIN colours by default — in the Studio ("In your main
+  colours") and on the guest side (`resolveAttirePaletteColors`, which gave a celebrant the guests' colours).
+- **The officiant** (owner (M)): the priest's alb and stole is offered at the end of the wedding Officiants row's Wear ▾
+  (`also: 'officiant'`), drawn as the priest. A christening's officiant is a later role-set migration, not in this PR.
 - Four new style words — `elder_filipiniana`, `party_dress`, `priest`, `shirt_dress` (the woman's "Smart casual" is a
   one-colour shirt dress, so it is not the men's two-dot `smart_casual`).
-- Dev lab: `/dev/details-lab?studio=1&look=1&attire=debut|birthday|christening` runs the real rows on each type's role set.
+- Dev lab: `/dev/details-lab?studio=1&look=1&attire=debut|birthday|christening|graduation` runs the real rows on each type's role set.
 
-SPEC IMPACT: None in the corpus yet — every mapping in the PR's "needs owner OK" table (the celebrant's two columns,
-where the priest goes, the wrap filed as Long gown, the new design names, the celebrant's untinted figures) is a build call
-awaiting the owner, recorded in the PR body rather than in DECISION_LOG.
+SPEC IMPACT: None applied — the owner's answers are already recorded in the corpus (DECISION_LOG 2026-11-05, "WHO CHANGES
+THE SCHEDULE, SUPPLIER GIFTS, CELEBRANT DRESS CODES…" (J)–(N)); this PR builds them. Open: a christening officiant
+(a role-set migration, later).

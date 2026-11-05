@@ -111,10 +111,10 @@ export const ATTIRE_ROWS: readonly AttireRowDef[] = [
   { tier: 'groups', key: 'bridesmaids', paletteKey: 'bridesmaids', who: ['f'] },
   { tier: 'groups', key: 'groomsmen', paletteKey: 'groomsmen', who: ['m'] },
   { tier: 'groups', key: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl', who: ['boy', 'girl'] },
-  /* 🙏 The priest's alb and stole (`officiant`, 2026-11-04) is drawn and ready, but NOT offered here: where the officiant
-     belongs is the owner's call (the PR's "needs owner OK"), and a wedding stays exactly as it ships. His answer, if it is
-     "on this row", is `also: 'officiant'` on this line. */
-  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true },
+  /* 🙏 The priest's alb and stole (`officiant`) at the end of the Officiants' Wear ▾ — owner 2026-11-05 (DECISION_LOG
+     "…CELEBRANT DRESS CODES…" (M)): "on the wedding Officiants row now". A christening's officiant is a later role-set
+     migration, not this row. */
+  { tier: 'groups', key: 'officiants', paletteKey: 'officiants', who: ['m'], either: true, also: 'officiant' },
   { tier: 'roles', key: 'guest', paletteKey: 'guest', who: ['m', 'f'] },
 ];
 

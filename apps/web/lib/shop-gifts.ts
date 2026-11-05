@@ -300,7 +300,10 @@ export function coupleGiftHeadline(
 /** Where the couple's gift stands. */
 export type CoupleGiftState = 'promised' | 'given';
 
-export function coupleGiftDetail(state: CoupleGiftState, hasUnlock = false): string {
+export function coupleGiftDetail(state: CoupleGiftState, hasUnlock = false, hasCredits = false): string {
+  if (hasUnlock && hasCredits) {
+    return state === 'given' ? 'Added to your event.' : 'Added to your event when your first payment is confirmed.';
+  }
   if (hasUnlock) {
     return state === 'given' ? 'Unlocked on your event.' : 'Unlocked on your event when your first payment is confirmed.';
   }

@@ -29,7 +29,7 @@ export function QuoteShopGiftNote({
   return (
     <div data-testid="quote-shop-gift" data-gift-state={state} className="mt-3 rounded-lg bg-mulberry-600/5 px-3 py-2.5">
       <p className="text-sm font-semibold text-mulberry-600">{headline}</p>
-      <p className="mt-0.5 text-xs text-ink/60">{side === 'supplier' ? supplierGiftDetail(state) : coupleGiftDetail(state, unlocks.length > 0)}</p>
+      <p className="mt-0.5 text-xs text-ink/60">{side === 'supplier' ? supplierGiftDetail(state) : coupleGiftDetail(state, unlocks.length > 0, credits > 0)}</p>
     </div>
   );
 }

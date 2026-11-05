@@ -18,7 +18,7 @@ rows of `platform_retail_catalog_v2`, `retail_price_php` / `gift_price_php` from
 - **Supplier · the quote › Gifts from you**: Plus and Pro in the same "＋ Add a gift" menu, judged against their own
   stock and the same 40% limit at the price couples pay. On an event with Event Plus a Plus line says "this makes it
   Event Pro"; on an event with Event Pro neither can be added (and `writeQuoteShopGifts` refuses it on send).
-- **Couple · the quote page**: "Gift from <shop> 🎁 · 150 Papic credits · Event Plus" — "Unlocked on your event when your
+- **Couple · the quote page**: "Gift from <shop> 🎁 · 150 Papic credits · Event Plus" — "Added to your event when your
   first payment is confirmed".
 - **The first payment** (`runDepositAcknowledgedEffects`): after the Papic door, `deliverShopGiftUnlocksForBooking`
   asks the full entitlement chain what the event holds (approved only) and hands it to the door. Logged every time,

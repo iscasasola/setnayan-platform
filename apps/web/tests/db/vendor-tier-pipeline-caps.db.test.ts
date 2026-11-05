@@ -4,10 +4,13 @@
  *
  *            WHITELIST (per date)   WAITLIST (per date)
  *   FREE            5                     0
- *   VERIFIED        5                     1
- *   SOLO            5                     1
- *   PRO             5                     3
+ *   VERIFIED        5                     0
+ *   SOLO            5                     0
+ *   PRO             5                     1
  *   ENTERPRISE      5                     5
+ *
+ * The WAITLIST column is the owner's 2026-11-04 ruling ("SUPPLIER PLAN ALLOWANCES": "waitlist 0,0,1,5"; migration
+ * 20271307996183) — it was 0 · 1 · 1 · 3 · 5.
  *
  * The WHITELIST column is the same on every plan since 2026-10-23 (owner, "plans
  * price reach, not income"; migration 20271285071117) — it was 1/2/3/5/10. The
@@ -185,14 +188,14 @@ test("PARITY meta: the checker is not vacuous — a wrong expectation FAILS", as
 test('the owner grid reads exactly as given', async () => {
   const expect: Array<[string, number, number]> = [
     // tier, whitelist, waitlist
-    // Whitelist: 5 on every plan (owner 2026-10-23). Waitlist: the 2026-08-09
-    // grid, verified's own pair from 2026-08-29.
+    // Whitelist: 5 on every plan (owner 2026-10-23). Waitlist: owner 2026-11-04,
+    // "waitlist 0,0,1,5" (was 0 · 1 · 1 · 3 · 5), Ultra trimmed to 3 the same day ("WITH TRIMMED ALLOWANCES").
     ['free', 5, 0],
-    ['verified', 5, 1],
-    ['solo', 5, 1],
-    ['pro', 5, 3],
-    ['enterprise', 5, 5],
-    ['custom', 5, 5],
+    ['verified', 5, 0],
+    ['solo', 5, 0],
+    ['pro', 5, 1],
+    ['enterprise', 5, 3],
+    ['custom', 5, 3],
   ];
   for (const [tier, wl, wa] of expect) {
     const r = await db.query<{ wl: number; wa: number }>(
@@ -503,7 +506,7 @@ test('FREE has no waitlist: switching it on is clamped straight back off', async
   assert.equal(s.cap, 0, 'and its number must read 0, not a stale 3');
 });
 
-test('PRO is clamped to 3, ENTERPRISE keeps 5', async () => {
+test('PRO is clamped to 1, ENTERPRISE keeps 3 (owner 2026-11-04)', async () => {
   await setCapsEnabled(true);
   const pro = await newVendor('pro-wa', 'pro');
   await db.query(
@@ -513,16 +516,16 @@ test('PRO is clamped to 3, ENTERPRISE keeps 5', async () => {
   );
   const p = await waitlistSettings(pro);
   assert.equal(p.enabled, true);
-  assert.equal(p.cap, 3, 'Pro tops out at 3');
+  assert.equal(p.cap, 1, 'Pro tops out at 1 (owner 2026-11-04; was 3)');
 
   const ent = await newVendor('ent-wa', 'enterprise');
   await db.query(
-    `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 5
+    `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 3
       WHERE vendor_profile_id = $1`,
     [ent],
   );
   const e = await waitlistSettings(ent);
-  assert.equal(e.cap, 5, 'Enterprise keeps its 5');
+  assert.equal(e.cap, 3, 'Enterprise keeps its 3 (Ultra trimmed 2026-11-04; was 5)');
 });
 
 test('a number ABOVE the plan clamps quietly instead of locking the vendor out of saving', async () => {
@@ -545,7 +548,8 @@ test('a number ABOVE the plan clamps quietly instead of locking the vendor out o
   // guard (TIER_DOWNGRADE_BLOCKED) deliberately refuses a silent downgrade, so
   // a test that moved the tier would be exercising that guard, not this clamp.
   await setCapsEnabled(false);
-  const vendor = await newVendor('overcap', 'solo');
+  // Pro, not Solo, since 2026-11-04: Solo has no waitlist now, so it would exercise the zero arm, not the clamp.
+  const vendor = await newVendor('overcap', 'pro');
   await db.query(
     `UPDATE public.vendor_profiles SET waitlist_enabled = TRUE, max_waitlist_acceptances = 5
       WHERE vendor_profile_id = $1`,
@@ -562,7 +566,7 @@ test('a number ABOVE the plan clamps quietly instead of locking the vendor out o
     [vendor],
   );
   const s = await waitlistSettings(vendor);
-  assert.equal(s.cap, 1, 'Solo holds 1');
+  assert.equal(s.cap, 1, 'Pro holds 1');
   assert.equal(s.enabled, true, 'they keep their waitlist, just a smaller one');
 });
 

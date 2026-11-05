@@ -136,7 +136,7 @@ test('the photos sentence does not outrun the feature', () => {
   assert.match(body, /<PhotosOfYouGallery/, 'the guest gallery is no longer mounted — the photos sentence is now a claim about nothing');
   assert.match(
     readWeb('app/[slug]/page.tsx'),
-    /findGuestSeatForUser\(/,
+    /findGuestSeatForUser(?:Measured)?\(/,
     'the account-to-seat path is gone — "open this invitation on any phone" would stop being true',
   );
   assert.doesNotMatch(

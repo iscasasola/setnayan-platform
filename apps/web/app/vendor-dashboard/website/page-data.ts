@@ -95,8 +95,10 @@ export function pagePlanLines(): PagePlanLine[] {
   const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
   return [
     { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
-    { plan: 'Solo', line: 'Your About · your colour · what shows', pro: true },
-    { plan: 'Pro', line: 'A cover photo · a pinned review · stories', pro: true },
+    // 🌐 Your own web address sits on the first plan that has it — Solo since owner 2026-11-04 ("website applies to
+    // solo as well"); read from `customWebsiteName`, never typed onto a line.
+    { plan: 'Solo', line: `Your About · your colour · what shows${TIER_CAPS.solo.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
+    { plan: 'Pro', line: `A cover photo · a pinned review · stories${!TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName ? ' · your own web address' : ''}`, pro: true },
   ];
 }
 

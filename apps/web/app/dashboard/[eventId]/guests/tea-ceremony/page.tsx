@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import {
-  fetchGuestsByEvent,
+  fetchGuestsByEventMeasured,
   guestDisplayName,
   guestRoleLabel,
   type GuestRow,
@@ -74,7 +75,11 @@ export default async function TeaCeremonyPage({ params }: Props) {
     notFound();
   }
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
+  // 🔌 MEASURED (reads-are-honest, 2026-11-05): a refused read used to arrive as
+  // `[]`, and the page then said "Once you add your families to the guest list…"
+  // to a couple whose elders are all on it. Printed, it was an empty order.
+  const guestsRead = await fetchGuestsByEventMeasured(supabase, eventId);
+  const guests = guestsRead.rows;
 
   // The couple are the SERVERS, not the served — drop them from the order.
   // Plus-one TBA placeholder rows add nothing to a serving list, so drop them
@@ -117,7 +122,9 @@ export default async function TeaCeremonyPage({ params }: Props) {
         </p>
       </header>
 
-      {hasAnyone ? (
+      {!guestsRead.measured ? (
+        <ReadRefusedNotice what="your guest list" />
+      ) : hasAnyone ? (
         <ol className="list-none space-y-6 p-0">
           <SideBlock
             eventId={eventId}

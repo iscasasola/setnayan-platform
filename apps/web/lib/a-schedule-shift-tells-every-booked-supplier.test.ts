@@ -23,7 +23,9 @@ import { coupleSupplierNotice } from '@/lib/couple-supplier-notices';
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const ACTIONS = 'app/dashboard/[eventId]/schedule/actions.ts';
-const FLOOR = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts';
+// The floor's Change the schedule (2026-11-04 — it replaced the +N push) writes through ONE server path, the coordinator's
+// floor and a crew Member's phone alike.
+const CHANGE = 'lib/change-the-schedule.server.ts';
 const SHEETS = 'app/dashboard/[eventId]/schedule/_components/day-sheets.tsx';
 const RAIL = 'app/dashboard/[eventId]/schedule/_components/day-rail.tsx';
 const NOTIFY = 'lib/schedule-shift-notify.server.ts';
@@ -76,12 +78,27 @@ test('⓶ it opens the live console’s schedule on the day, and the customer ca
 });
 
 test('⓷ once per shift — after the write loop, never inside it; Running late asks for it, a drag does not', () => {
-  for (const [file, fn] of [[ACTIONS, 'bulkRetimeScheduleBlocks'], [FLOOR, 'floorRetimeFrom']] as const) {
-    const b = body(read(file), fn);
+  {
+    const fn = 'bulkRetimeScheduleBlocks';
+    const b = body(read(ACTIONS), fn);
     const calls = [...b.matchAll(/notifyScheduleShifted\(/g)].map((m) => m.index!);
     assert.equal(calls.length, 1, `${fn} tells the suppliers ${calls.length} times — once per shift`);
     const loop = firstLoop(b);
     assert.ok(calls[0]! > loop.end, `${fn} tells the suppliers inside its write loop — one notice per block`);
+  }
+  {
+    // Change the schedule writes in ONE statement (a shift RPC, or one skip UPDATE) — told once, after the last write.
+    // A crew phone only ASKS (owner 2026-11-05 (D)): its request returns before the shift notice — nothing moved yet.
+    const fn = 'changeTheSchedule';
+    const b = body(read(CHANGE), fn);
+    const calls = [...b.matchAll(/notifyScheduleShifted\(/g)].map((m) => m.index!);
+    assert.equal(calls.length, 1, `${fn} tells the suppliers ${calls.length} times — once per change`);
+    const writes = [".rpc('running_late_shift_schedule'", '.update('].map((w) => b.lastIndexOf(w));
+    assert.ok(writes.every((w) => w > 0), `${fn} lost one of its two writes — re-point this guard`);
+    assert.ok(calls[0]! > Math.max(...writes), `${fn} tells the suppliers before the change landed`);
+    const asked = b.indexOf(".rpc('crew_request_schedule_move'");
+    assert.ok(asked > 0 && asked < Math.min(...writes), `${fn} lost the crew request, or asks after writing`);
+    assert.match(b.slice(asked, Math.min(...writes)), /requested: true \}/, 'a crew request falls through to the shift notice');
   }
   const retime = body(read(ACTIONS), 'bulkRetimeScheduleBlocks');
   assert.match(retime, /if \(formData\.get\('shift_notice'\) === '1'\) \{[\s\S]*?notifyScheduleShifted\(/, 'every retime — a drag too — notifies');

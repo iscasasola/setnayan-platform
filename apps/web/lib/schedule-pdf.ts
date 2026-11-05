@@ -27,6 +27,7 @@
 import { formatCount } from '@/lib/format-number';
 import { formatClock, formatClockRange, formatDateHeading, spanOf, wallDateKey } from '@/lib/schedule-rail';
 import { isTimeTba, TIME_TBA } from '@/lib/schedule-chapters';
+import type { PrintDay } from '@/lib/schedule-view-as-people';
 import { sharePdf, type SharePdfColumn, type SharePdfDoc, type SharePdfPaper, type SharePdfSection } from '@/lib/share-pdf';
 
 export type SchedulePdfBlock = {
@@ -167,4 +168,47 @@ export function scheduleDoc(input: SchedulePdfInput): SharePdfDoc {
 /** The schedule's PDF bytes. Throws `ScheduleUnreadError` when a read was refused. */
 export async function schedulePdf(input: SchedulePdfInput): Promise<Uint8Array> {
   return sharePdf(scheduleDoc(input));
+}
+
+/* ── 👤 ONE PERSON'S DAY (event chapters slice 6, owner 2026-11-04 "Any View as person, Pro") ─────────────────────── */
+
+/**
+ * The day View as draws for one person — a named guest, a role, a supplier or crew, the coordinator — on the same
+ * engine and in the same look. It prints exactly the screen (`PrintDay`, built from the view drawn and checked by
+ * `readPrintDay`), so the paper can never show someone more than the screen did.
+ */
+export function personDayDoc(input: {
+  eventName: string;
+  eventDate: string | null;
+  day: PrintDay;
+  generatedAt: Date;
+  paper?: SharePdfPaper;
+}): SharePdfDoc {
+  const { day } = input;
+  const sections: SharePdfSection[] = day.chapters.map((c) => ({
+    title: c.name.trim() || 'Untitled',
+    aside: c.line,
+    columns: [],
+    rows: c.rows.map((r) => ({ main: `${r.time} · ${r.title.trim() || 'Untitled'}`, sub: r.sub, cells: [] })),
+    empty: 'Nothing on it for them yet.',
+  }));
+  if (!sections.length) sections.push({ title: 'Nothing on the schedule for them yet.', columns: [], rows: [] });
+  return {
+    kind: 'Schedule',
+    title: input.eventName,
+    fileTitle: `${input.eventName} — ${day.person}`,
+    meta: [input.eventDate, `${day.person}’s schedule`],
+    summary: day.call
+      ? { figures: [{ label: day.call.label, value: day.call.time }], notes: day.call.note ? [{ text: day.call.note, tone: 'soft' }] : [] }
+      : undefined,
+    sections,
+    notes: day.footnote ? [day.footnote] : [],
+    generatedAt: input.generatedAt,
+    paper: input.paper,
+  };
+}
+
+/** One person's day as PDF bytes. */
+export async function personDayPdf(input: Parameters<typeof personDayDoc>[0]): Promise<Uint8Array> {
+  return sharePdf(personDayDoc(input));
 }

@@ -35,6 +35,9 @@ export type ScheduleAsk = {
   answer_note: string | null;
   created_at: string;
   resolved_at?: string | null;
+  /** 📍 'where' = the host asks them to serve these chapters (migration 20271308641275); absent = a moment's times. */
+  kind?: string | null;
+  proposed_block_ids?: readonly string[] | null;
 };
 
 /** The host's read: every ask with the asked shop's name embedded (the one FK to `vendor_profiles`). */

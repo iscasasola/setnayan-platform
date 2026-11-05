@@ -3,7 +3,10 @@
 /**
  * /dev/home-lab?view=offline — 📶 EV3's three surfaces on fixture data, every state by query (no phone storage, no
  * database). DEV-ONLY with the rest of home-lab (production builds 404 it).
- *   &state=ok|amber|nosignal|failed|saving|none|unsupported   the saved mark (default ok)
+ *   &state=ok|amber|nosignal|failed|saving|none|unsupported|stale   the saved mark (default ok; `stale` = a copy from
+ *                                                             before the hosts pressed Release, signal back)
+ *   &schedule=1                                               📅 only "Your schedule" — a guest's Me card and a
+ *                                                             supplier's Schedule tab, each with its saved mark
  *   &browser=1                                                a plain browser tab (shows "use the Setnayan app…")
  *   &desk=notes|sent                                          the Check-in desk's "Needs a look" / "Back online · N sent"
  * The desk is the REAL `CheckinDesk` with a stand-in queue (it keeps scans in memory; "send" empties it) — so a walk can
@@ -14,6 +17,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CheckinDesk, type DeskGuest } from '@/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk';
 import { ReadyForNoSignalView, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
 import { SupplierSavedStripView } from '@/app/_components/offline-ready/supplier-saved-strip';
+import { ScheduleSavedMarkView } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { savedMark, type SavedPhase } from '@/lib/offline-copies';
 import type { CheckinNote } from '@/lib/offline/checkin-queue';
 
@@ -71,6 +75,30 @@ function stubQueue(desk: string | undefined) {
   };
 }
 
+/**
+ * 📅 The "Your schedule" saved mark in each lab state (`&schedule=1`, drawn by `offline-schedule-lab.tsx`). Client-only
+ * because the clock is the browser's; the card around it is drawn on the server, so the lab adds no schedule code to
+ * any page's client bundle.
+ */
+export function LabScheduleMark({ state, version, className = '' }: { state?: string; version: string; className?: string }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  if (now === null) return <ScheduleSavedMarkView mark={null} busy={false} version={version} />;
+  const phase: SavedPhase = state === 'failed' ? 'failed' : state === 'saving' ? 'saving' : state === 'none' ? 'none' : 'saved';
+  const savedAt = state === 'none' ? null : state === 'amber' ? now - 9 * HOUR : now - 40 * 60_000;
+  // No signal: the page on screen IS the copy (the worker opened it) — the mark names which copy.
+  const mark = savedMark({
+    phase,
+    savedAt,
+    now,
+    online: state !== 'nosignal',
+    eventDay: true,
+    stale: state === 'stale',
+    onCopy: state === 'nosignal' ? savedAt : null,
+  });
+  return <ScheduleSavedMarkView mark={mark} busy={state === 'saving'} version={version} className={className} />;
+}
+
 export function OfflineLab({ state, browser, desk }: { state?: string; browser?: string; desk?: string }) {
   // The clock is read in the browser only — a server and a phone a few seconds apart would draw different times.
   const [now, setNow] = useState<number | null>(null);
@@ -82,7 +110,7 @@ export function OfflineLab({ state, browser, desk }: { state?: string; browser?:
   if (now === null) return <div className="min-h-screen bg-cream" data-lab-offline-loading="" />;
   const phase: SavedPhase = state === 'failed' ? 'failed' : state === 'saving' ? 'saving' : state === 'none' ? 'none' : state === 'unsupported' ? 'unsupported' : 'saved';
   const savedAt = state === 'none' || state === 'unsupported' ? null : state === 'amber' ? now - 9 * HOUR : now - 40 * 60_000;
-  const mark = savedMark({ phase, savedAt, now, online: state !== 'nosignal', eventDay: true });
+  const mark = savedMark({ phase, savedAt, now, online: state !== 'nosignal', eventDay: true, stale: state === 'stale' });
   const installed = browser !== '1';
   const canUpdate = state !== 'saving' && state !== 'nosignal' && state !== 'unsupported';
   const rows: ReadyRow[] = [

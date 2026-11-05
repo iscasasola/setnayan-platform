@@ -40,6 +40,7 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],
   ['app/_components/chat-send-form.tsx', 'chip — an attachment waiting in the composer'],
+  ['app/dashboard/(account)/people/_components/dependents-section.tsx', 'chip — a ninong / ninang chip’s ✕ inside a loved one’s card'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx', 'tile — a pinned photo’s ✕ in the board’s image grid'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', 'confirm — the “Remove this photo?” box’s own Remove'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx', 'editor field — a Do / Don’t text input’s ✕ inside the dress-code form'],
@@ -61,6 +62,9 @@ export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/schedule/_components/chapters-host.tsx', 'confirm — the “Delete chapter” sheet a swipe on the rail opens: its own Delete (the rows themselves are on the swipe)'],
   ['app/dashboard/[eventId]/date-selection/_components/four-question-flow.tsx', 'editor field — a meaningful date’s date / kind / note inputs inside step 3’s form'],
   ['app/vendor-dashboard/invite/_components/locked-qr-generator.tsx', 'chip + editor field — a picked service chip, and a draft payment (name, date, ₱) inside the QR deal form'],
+  ['app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx', 'editor — the moment editor’s own “Delete it” at its foot (its parts’ rows are on the swipe)'],
+  ['app/dashboard/[eventId]/schedule/_components/moment-sheets.tsx', 'editor — the moment sheet’s own “Delete moment” at its foot'],
+  ['app/dashboard/[eventId]/schedule/_components/chapter-sheets.tsx', 'editor — the chapter sheet’s own “Delete chapter” at its foot'],
   // Supplier services / packages / attributes (2026-11-03 sweep): every ✕ here removes an UNSAVED draft line made of
   // inputs, inside an editor that writes only on its own Save — a field in an editor form, not a list row.
   ['app/vendor-dashboard/services/_components/addons-editor.tsx', 'editor field — an add-on’s label + price inputs, written on “Save add-ons”'],

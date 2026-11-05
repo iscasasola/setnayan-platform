@@ -138,7 +138,13 @@ test('SKU-backed literals are the ones the runtime audit will verify', () => {
   // tell that apart from someone quietly relabelling prices as non-prices, and
   // "lower the number until CI is green" is how a guard becomes a rubber stamp.
   // So the floor is only a smoke test now, and the real check is below it.
-  assert.ok(backed.length >= 1, 'the runtime drift audit has nothing left to verify');
+  //
+  // ⚖ AND THE SMOKE-TEST FLOOR OF 1 WENT THE SAME WAY (2026-11-04). The last two SKU-backed literals — the app-store
+  // demo's ₱500 and its Music Maker checkout figure — were DELETED, not re-typed, when the owner set the final price
+  // sheet ("make sure there is no record of the older prices"). Zero typed SKU prices is the goal this file pushes
+  // toward, not a defect. Relabelling a price as `sku: null` is still caught: by the "fallback" test below, by
+  // `no-record-of-the-older-prices.test.ts` for every superseded figure, and by the runtime audit, which is
+  // proven able to fail with a planted literal in `seo/health-checks.test.ts`.
   for (const l of backed) assert.ok(l.sku.length > 0);
 });
 

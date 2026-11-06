@@ -62,12 +62,12 @@ test('3 · the iPhone app never offers it — the product is retired, its id kep
 });
 
 test('4 · the Thank You page builds a checkout only for an event that does NOT own the film', () => {
-  const page = code('app/dashboard/[eventId]/studio/thank-you/page.tsx');
+  const page = code('app/dashboard/[eventId]/memories/thank-you/page.tsx');
   assert.match(page, /const owned = await eventSkuActive\(ent, eventId, SKU_CODE\);/);
   assert.match(page, /if \(!owned && appleIap\) \{/);
   assert.match(page, /\} else if \(!owned\) \{/);
   // …and the maker's Apple sheet and web drawer live only behind that checkout.
-  const maker = code('app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx');
+  const maker = code('app/dashboard/[eventId]/memories/thank-you/_components/thank-you-maker.tsx');
   assert.match(maker, /\{checkout \? \(/);
   assert.match(maker, /function SavePanel\(\{ eventId, checkout \}: \{ eventId: string; checkout: ThankYouSaveCheckout \}\)/);
 });

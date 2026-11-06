@@ -301,6 +301,8 @@ export const STUDIO_ABSORBED: Readonly<
   pa3d: { into: 'guests', routes: (base) => [`${base}/seating/lab`] },
   palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
   'mood-board': { into: 'launch', routes: (base) => [`${base}/studio/mood-board`] },
+  /* 🎬 R3: the Thank-You Video maker is a Memories page (owner 2026-10-27); its keepsake row is the door. */
+  'thank-you': { into: 'memories', routes: () => [] },
 };
 
 /** Products no row claims: the Event Hub product IS the Maker row's page

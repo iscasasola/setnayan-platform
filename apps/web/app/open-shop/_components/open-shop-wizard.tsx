@@ -1,21 +1,24 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MailCheck } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
   isValidOpenShopEmail,
-  LOGO_LATER,
 } from '@/lib/open-shop-validation';
-import { FileUpload } from '@/app/_components/file-upload';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TakenSignIn } from './taken-sign-in';
+import { phoneDigitsFromTyped } from '@/lib/open-shop-phone';
+import { PhoneField } from './phone-field';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { titleCasePersonName } from '@/lib/person-name-case';
 import { AddressPreview } from './address-preview';
 import { locationStepError } from '@/lib/open-shop-location-gate';
 import { isPhPhone } from '@/lib/ph-phone';
+import { phoneBoxState } from '@/lib/open-shop-phone';
 import { CityPin } from './city-pin';
 import {
   ServicePicker,
@@ -111,7 +114,19 @@ export function OpenShopWizard({
   guest = false,
   oauth = { show: false, desktop: false, native: false },
   signInHref = '/login?next=%2Fopen-shop&as=vendor',
+  planCategories = [],
+  emailTaken = false,
+  sentTo = null,
 }: {
+  /**
+   * "How many categories you can run depends on your plan ⓘ" — one line per plan, read from `TIER_CAPS` by
+   * `categoryLadder()` on the server (never typed here). Empty = the ⓘ is not drawn.
+   */
+  planCategories?: { plan: string; categories: string }[];
+  /** `?taken=1`: the company email already has an account — step 3's email box becomes a sign-in, right here. */
+  emailTaken?: boolean;
+  /** `?sent=`: the shop is open, the account waits for its email link — say so, with the address. */
+  sentTo?: string | null;
   /**
    * "Free to join, and here is when you DO pay" — composed on the server by
    * `bookingFeeJoinDisclosure(await readBookingFeeJoinSchedule())`, so the rate
@@ -174,7 +189,14 @@ export function OpenShopWizard({
     initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
   );
   const [shopName, setShopName] = useState(defaults.shopName);
-  const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
+  // 🖼 The logo is no longer asked here (A2) — it is asked right after the shop opens, signed in, where the upload
+  // works (`/open-shop/logo`). What a re-run already holds is kept and re-posted, never cleared.
+  const logoUrl = defaults.logoUrl;
+  // ☎ The number's digits after the fixed +63 (A7, `PhoneField`). Lifted here so a restored draft refills it.
+  const [phoneDigits, setPhoneDigits] = useState(phoneDigitsFromTyped(defaults.contactPhone));
+  // 🔑 A8 — the submit was refused because the email has an account: step 3 signs in, right here.
+  const [taken, setTaken] = useState(guest && emailTaken);
+  const [takenEmail, setTakenEmail] = useState(defaults.contactEmail);
   const [service, setService] = useState(defaults.primaryService);
   // The picked leaf's LABEL, held alongside its key so the chosen row reads
   // as a name the moment it is tapped — the key alone would print
@@ -243,8 +265,12 @@ export function OpenShopWizard({
       if (!read('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
       // Checked here as well as on the server: a vendor should learn their
       // number is wrong while they are still looking at it, not after the whole
-      // form round-trips and drops them back with a banner.
-      if (!isPhPhone(read('contact_phone'))) return OPEN_SHOP_ERRORS.contactPhoneNotPh;
+      // form round-trips and drops them back with a banner. The box's own
+      // sentence (under it, A7) is the more exact one when it has one.
+      if (!isPhPhone(read('contact_phone'))) {
+        const box = phoneBoxState(phoneDigits, true);
+        return box.state === 'error' ? box.message : OPEN_SHOP_ERRORS.contactPhoneNotPh;
+      }
       if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
       // Same floor as /signup, same sentence — see lib/open-shop-account.ts.
       if (guest && read('password').length < OPEN_SHOP_PASSWORD_MIN) {
@@ -391,7 +417,6 @@ export function OpenShopWizard({
     const d = parseOpenShopDraft(raw);
     if (!d || !restoresOnThisLoad(d, Boolean(error))) return;
     if (d.shopName) setShopName(d.shopName);
-    if (d.logoUrl) setLogoUrl(d.logoUrl);
     if (d.service) {
       setService(d.service);
       setPickedLabel(d.serviceLabel);
@@ -402,8 +427,9 @@ export function OpenShopWizard({
       if (el && value && !el.readOnly) el.value = value;
     };
     write('contact_position', d.position);
-    write('contact_phone', d.phone);
+    if (d.phone) setPhoneDigits(phoneDigitsFromTyped(d.phone));
     write('contact_email', d.email);
+    if (d.email) setTakenEmail(d.email);
     // Parked at submit: the server's `?step=` already names the step that owns the refusal — keep it. The address it
     // refused comes back in its box, focused, so "Taken — try another." is the first thing read.
     if (d.atSubmit) {
@@ -412,6 +438,35 @@ export function OpenShopWizard({
     // Re-render dependencies are deliberately empty: this runs ONCE, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✉ A1 — the shop is open on the new account, and the account waits for its email link (verification on).
+  if (sentTo) {
+    return (
+      <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
+        <div
+          className="w-full max-w-lg rounded-2xl border p-5 text-center sm:p-7"
+          style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+          data-open-shop-sent=""
+        >
+          <FirstRunBrand className="mb-4" color="var(--m-ink)" size={13} />
+          <MailCheck aria-hidden className="mx-auto h-8 w-8" strokeWidth={1.5} style={{ color: 'var(--m-orange-deep)' }} />
+          <h1 className="mt-3 text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
+            We sent a link to {sentTo} — tap it to finish
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: 'var(--m-slate)' }}>
+            Your shop is saved with everything you typed. The link signs you in and opens your shop&rsquo;s dashboard.
+          </p>
+          <p className="mt-4 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Not there? Check your spam folder, or{' '}
+            <a href={`/login?check_email=${encodeURIComponent(sentTo)}&next=%2Fvendor-dashboard`} className="text-terracotta">
+              sign in
+            </a>{' '}
+            once you have tapped it.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
@@ -457,7 +512,7 @@ export function OpenShopWizard({
           ))}
         </div>
 
-        {banner && (
+        {banner && !taken && (
           <p
             className="mt-4 rounded-lg border p-3 text-xs"
             style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)', color: 'var(--m-ink)' }}
@@ -493,13 +548,26 @@ export function OpenShopWizard({
                 </div>
               </>
             ) : null}
-            <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-              This also creates your Setnayan account. Have an account?{' '}
-              <SignInHereLink href={signInHref} className="font-medium text-terracotta">
-                Sign in
-              </SignInHereLink>{' '}
-              — what you typed stays.
-            </p>
+            {taken ? (
+              <TakenSignIn
+                key={takenEmail}
+                email={takenEmail}
+                onSignedIn={() => {
+                  setTaken(false);
+                  setBanner(null);
+                  // Signed in, everything kept: on to the last step and "Open my shop".
+                  setStep(TOTAL_STEPS);
+                }}
+              />
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                This also creates your Setnayan account. Have an account?{' '}
+                <SignInHereLink href={signInHref} className="font-medium text-terracotta">
+                  Sign in
+                </SignInHereLink>{' '}
+                — what you typed stays.
+              </p>
+            )}
           </div>
         ) : null}
 
@@ -524,54 +592,10 @@ export function OpenShopWizard({
           {/* 1 · Your shop. Always mounted, like every panel — inputs persist across
               steps and there is ONE submit at the end. */}
           <div className={step === 1 ? 'space-y-4' : 'hidden'}>
-            <div className="block space-y-1">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Shop logo
-                {OPEN_SHOP_LOGO_REQUIRED ? (
-                  <span className="ml-1 text-terracotta">*</span>
-                ) : (
-                  <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    · {LOGO_LATER.label}
-                  </span>
-                )}
-              </span>
-              <FileUpload
-                bucket="media"
-                pathPrefix={`vendors/${vendorProfileId ?? 'unassigned'}/logo`}
-                name="logo_url"
-                unsavedHint="it goes in when you open your shop"
-                currentValue={logoUrl || null}
-                initialDisplayUrls={logoDisplayMap ?? {}}
-                onChange={(v) =>
-                  setLogoUrl(Array.isArray(v) ? (v[0] ?? '') : (v ?? ''))
-                }
-                maxSizeMB={10}
-                compressImage
-                acceptedTypes={[
-                  'image/png',
-                  'image/jpeg',
-                  'image/webp',
-                  'image/heic',
-                  'image/heif',
-                ]}
-                variant="square"
-                roundPreview
-                qrGuard
-              />
-              {/* ⚠ This used to end "…you'll need it to publish your shop and to
-                  get verified." A VENDOR CANNOT PUBLISH THEIR SHOP — there is no
-                  such control for them anywhere, and approval is what makes a
-                  shop public. It was the last survivor of the same false idea
-                  removed from the two QR surfaces on 2026-08-09; a sweep for
-                  "publish your profile/page" missed it because this one says
-                  "publish your SHOP". Getting verified is the true and only
-                  reason the logo is required — it is one of the business-profile
-                  fields, and the profile must be complete before documents can
-                  be submitted. */}
-              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                {LOGO_LATER.hint}
-              </span>
-            </div>
+            {/* 🖼 NO LOGO HERE (owner 2026-11-06, A2: "if it does not want to upload, then it has no use here" —
+                signed out, the upload refused with "You must be signed in to upload"). It is asked right after the
+                shop opens, on its own screen (`/open-shop/logo`). A re-run keeps the logo it has. */}
+            {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
             <label className="block space-y-1">
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Shop name<span className="ml-1 text-terracotta">*</span>
@@ -651,13 +675,52 @@ export function OpenShopWizard({
                   ))}
                 </select>
               )}
-              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Pick one — add more later.
+              {/* 📏 A5 (owner 2026-11-06: the plan limit said AT the pick). The numbers are TIER_CAPS', read on the
+                  server (`categoryLadder`), never typed here. */}
+              <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-plan-hint="">
+                Pick your main service to start — you can add more later. How many categories you can run depends on
+                your plan
+                {planCategories.length > 0 ? (
+                  <>
+                    {' '}
+                    <InfoTip label="" ariaLabel="Categories per plan" align="end">
+                      <span className="block space-y-0.5">
+                        {planCategories.map((p) => (
+                          <span key={p.plan} className="block">
+                            {p.plan}: {p.categories}
+                          </span>
+                        ))}
+                      </span>
+                    </InfoTip>
+                  </>
+                ) : null}
               </span>
             </div>
             <div className="block space-y-1.5">
-              <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                Events you serve
+              {/* ✅ A6 (owner 2026-11-06: "offer select all and clear selection") — two text buttons right of the
+                  label. Each dims when it would do nothing. */}
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  Events you serve
+                </span>
+                <span className="flex shrink-0 items-center gap-3 text-xs font-medium" data-open-shop-events-bulk="">
+                  <button
+                    type="button"
+                    onClick={() => setEvents(eventTypeOptions.map((e) => e.key))}
+                    disabled={eventTypeOptions.every((e) => events.includes(e.key))}
+                    className="text-terracotta disabled:opacity-40"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEvents([])}
+                    disabled={events.length === 0}
+                    className="text-terracotta disabled:opacity-40"
+                  >
+                    Clear
+                  </button>
+                </span>
               </span>
               {/* ── EVEN COLUMNS, NOT A RAGGED WRAP (owner 2026-08-09) ────────
                   These were `flex flex-wrap` pills, so each row packed a
@@ -790,18 +853,13 @@ export function OpenShopWizard({
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Contact number<span className="ml-1 text-terracotta">*</span>
               </span>
-              <input
-                name="contact_phone"
-                type="tel"
-                inputMode="tel"
-                defaultValue={defaults.contactPhone}
-                maxLength={32}
-                placeholder="+63 917 …"
-                className="input-field"
-              />
+              {/* ☎ A7 (owner 2026-11-06): fixed +63 on the left; a mobile starting with 9 (10 digits) or a landline
+                  with its area code on the right. Posts E.164 as `contact_phone`. */}
+              <PhoneField digits={phoneDigits} onDigits={setPhoneDigits} />
             </label>
 
-            <label className="block space-y-1">
+            {/* When `taken`, this box has turned into the sign-in above — kept mounted (hidden) so its value posts. */}
+            <label className={taken ? 'hidden' : 'block space-y-1'}>
               <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 Company email<span className="ml-1 text-terracotta">*</span>
               </span>
@@ -821,7 +879,7 @@ export function OpenShopWizard({
             </label>
 
             {guest ? (
-              <label className="block space-y-1">
+              <label className={taken ? 'hidden' : 'block space-y-1'}>
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Password<span className="ml-1 text-terracotta">*</span>
                 </span>
@@ -887,6 +945,28 @@ export function OpenShopWizard({
             </label>
           ) : null}
 
+          {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT.
+              🔴 Owner, 2026-09-20, as a supplier who had just been billed:
+              "as a vendor i do not know i have to pay." The button says FREE
+              and it is true — joining costs nothing. What was missing is the
+              other half: a booking fee exists, and it starts at booking six.
+              Last step only: a disclosure on step 1 is read by nobody, and
+              repeating it on four steps is a wall of text, not a disclosure.
+              `feeNotice` is composed by `bookingFeeJoinDisclosure` from the
+              LIVE schedule — never a rate typed here. */}
+          {/* ⓘ A10 (owner 2026-11-06: "(i)?" on the fee box) — one line, the numbers inside the ⓘ. Still on the
+              last step, still before "Open my shop" is pressed; the detail is still `feeNotice.detail`, composed
+              from the live schedule. */}
+          {step === TOTAL_STEPS && feeNotice ? (
+            <p data-testid="open-shop-fee-disclosure" className="mt-3 text-sm text-ink/70">
+              Free to open, free to run. You pay only when a couple books you through Setnayan.{' '}
+              <InfoTip label="" ariaLabel="About the booking fee" align="end">
+                <span className="block font-semibold">{feeNotice.headline}</span>
+                <span className="mt-0.5 block">{feeNotice.detail}</span>
+              </InfoTip>
+            </p>
+          ) : null}
+
           {/* One nav row for every step. Back appears from step 2; the primary
               button becomes the real submit only on the last one — a
               SubmitButton on an earlier step would post a half-filled form.
@@ -926,25 +1006,6 @@ export function OpenShopWizard({
             )}
           </div>
 
-          {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT.
-              🔴 Owner, 2026-09-20, as a supplier who had just been billed:
-              "as a vendor i do not know i have to pay." The button says FREE
-              and it is true — joining costs nothing. What was missing is the
-              other half: a booking fee exists, and it starts at booking six.
-              Last step only: a disclosure on step 1 is read by nobody, and
-              repeating it on four steps is a wall of text, not a disclosure.
-              `feeNotice` is composed by `bookingFeeJoinDisclosure` from the
-              LIVE schedule — never a rate typed here. */}
-          {step === TOTAL_STEPS && feeNotice ? (
-            <div
-              data-testid="open-shop-fee-disclosure"
-              className="mt-3 rounded-xl border p-3"
-              style={{ borderColor: 'var(--m-line)' }}
-            >
-              <p className="text-sm font-semibold text-ink">{feeNotice.headline}</p>
-              <p className="mt-0.5 text-sm text-ink/70">{feeNotice.detail}</p>
-            </div>
-          ) : null}
 
         </form>
 

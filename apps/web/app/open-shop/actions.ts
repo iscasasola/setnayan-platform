@@ -27,6 +27,7 @@ import {
 import { decideOpenShopAccount, OPEN_SHOP_ACCOUNT_ERRORS } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { captchaTokenFromForm } from '@/lib/turnstile';
+import { OPEN_SHOP_LOGO_PATH } from '@/lib/open-shop-logo';
 import {
   TERMS_FIELD,
   TERMS_REQUIRED_MESSAGE,
@@ -122,38 +123,6 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (decision.kind === 'refuse') {
     redirect(`/open-shop?step=${decision.step}&error=` + encodeURIComponent(decision.error));
   }
-  let user: { id: string; email?: string | null } | null = sessionUser;
-  if (decision.kind === 'create') {
-    const created = await createVendorAccountForShop({
-      email: decision.email,
-      password: decision.password,
-      // The name typed on step 3 becomes the account's name — the same rule the
-      // signed-in path applies further down (`display_name` established once).
-      displayName: titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null,
-      terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
-      // The bot check rides in THIS form (<TurnstileField action="signup" /> in the
-      // wizard, guest only); this action is the form's target, so the token is
-      // read here — where lib/captcha-is-wired.test.ts can pair reader and widget.
-      captchaToken: captchaTokenFromForm(formData),
-    });
-    if (created.ok === false) {
-      redirect(`/open-shop?step=${created.step}&error=` + encodeURIComponent(created.error));
-    }
-    if (created.ok === 'created-not-signed-in') {
-      // The account exists; the shop is not opened yet. Same landing /signup uses
-      // when its direct sign-in fails — they sign in and the wizard resumes.
-      redirect(
-        `/login?ready=${encodeURIComponent(created.email)}&next=${encodeURIComponent('/open-shop')}&as=vendor`,
-      );
-    }
-    user = created.user;
-  }
-  if (!user) {
-    // Unreachable by construction (every non-existing decision above either
-    // redirected or produced a user); kept so the type narrows honestly.
-    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
-  }
-
   const shopName = clean(formData.get('shop_name'));
   const logoUrl = cleanLogo(formData.get('logo_url'));
   const primaryService = clean(formData.get('primary_service'), 64);
@@ -187,10 +156,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // So the rule is enforced here instead: the ACCOUNT NAME WINS, always, and
   // the form is only consulted when the account has none.
   const accountName = await (async () => {
+    // A brand-new account (created below) has no name yet beyond the one typed here.
+    if (!sessionUser) return null;
     const { data } = await supabase
       .from('users')
       .select('display_name')
-      .eq('user_id', user.id)
+      .eq('user_id', sessionUser.id)
       .maybeSingle();
     return titleCasePersonName(
       ((data as { display_name?: string | null } | null)?.display_name ?? '').trim(),
@@ -304,6 +275,51 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (!locationCity)
     redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.locationCity));
 
+  // ── THE ACCOUNT IS CREATED ONLY ONCE EVERY FIELD ABOVE HAS PASSED (2026-11-06) ──────────────────────────────
+  // It used to be created FIRST. With email verification on (A1) that ordering is a trap: a refusal on step 1/2/4
+  // after the account exists sends the person back, the resubmit's signUp says "already has an account", and the
+  // sign-in it offers is refused until the email link is tapped. So the shop's own checks run first.
+  let user: { id: string; email?: string | null } | null = sessionUser;
+  let checkEmail: string | null = null;
+  if (decision.kind === 'create') {
+    const created = await createVendorAccountForShop({
+      email: decision.email,
+      password: decision.password,
+      // The name typed on step 3 becomes the account's name — the same rule the
+      // signed-in path applies further down (`display_name` established once).
+      displayName: titleCasePersonName(clean(formData.get('contact_name')) ?? '') || null,
+      terms: { acceptedAt: new Date().toISOString(), version: TERMS_VERSION },
+      // The bot check rides in THIS form (<TurnstileField action="signup" /> in the
+      // wizard, guest only); this action is the form's target, so the token is
+      // read here — where lib/captcha-is-wired.test.ts can pair reader and widget.
+      captchaToken: captchaTokenFromForm(formData),
+    });
+    if (created.ok === false) {
+      // `taken` → step 3's email box becomes a sign-in (A8); the step is still the module's own.
+      const takenParam = created.taken ? '&taken=1' : '';
+      redirect(`/open-shop?step=${created.step}${takenParam}&error=` + encodeURIComponent(created.error));
+    }
+    if (created.ok === 'check-email') {
+      // 🔒 L3 (A1): verification is required, so nobody is signed in. The shop is opened on the new account below
+      // and the page then says "We sent a link to <email> — tap it to finish"; the link lands on the dashboard.
+      checkEmail = created.user.email;
+    }
+    if (created.ok === 'created-not-signed-in') {
+      // The account exists; the shop is not opened yet. Same landing /signup uses
+      // when its direct sign-in fails — they sign in and the wizard resumes.
+      redirect(
+        `/login?ready=${encodeURIComponent(created.email)}&next=${encodeURIComponent('/open-shop')}&as=vendor`,
+      );
+    }
+    user = created.user;
+  }
+  if (!user) {
+    // Unreachable by construction (every non-existing decision above either
+    // redirected or produced a user); kept so the type narrows honestly.
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ACCOUNT_ERRORS.accountFailed));
+  }
+
+
   // Event types the shop serves — the signal that makes a NON-wedding vendor
   // discoverable (the marketplace ?event_type= filter reads vendor_profiles.
   // event_types). Without capturing it here, a new shop keeps the column's
@@ -344,7 +360,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows, error: ownedError } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services, business_slug, in_business_since_year')
+    .select('vendor_profile_id, services, business_slug, in_business_since_year, logo_url')
     .eq('user_id', user.id);
   // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, the insert below runs
   // over the shop that already exists, and the supplier is shown Postgres's
@@ -361,6 +377,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     business_slug?: string | null;
   }>;
   const existing = owned[0] ?? null;
+  const existingHasLogo = Boolean((existing as { logo_url?: string | null } | null)?.logo_url);
   let vendorProfileId = existing?.vendor_profile_id ?? null;
   if (!vendorProfileId) {
     if (!canOpenAnotherShop(owned.length)) {
@@ -555,7 +572,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
 
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');
-  // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02). My Shop is
-  // fifteen tool rows with no next step; Today carries the ordered First steps.
+  // ✉ A1 — the shop is open, the account is not confirmed yet: say so, on this page, with the address.
+  if (checkEmail) redirect(`/open-shop?sent=${encodeURIComponent(checkEmail)}`);
+  // 🖼 A2 (owner 2026-11-06: logo "if it does not want to upload, then it has no use here") — the logo is asked
+  // RIGHT AFTER the shop opens, signed in, on its own screen. Skip → Today, where "Add your logo" stays a first step.
+  // A shop that already has a logo (a re-run) goes straight to Today, as before.
+  // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02) — through the logo screen, never past it.
+  if (!logoUrl && !existingHasLogo) redirect(OPEN_SHOP_LOGO_PATH);
   redirect('/vendor-dashboard');
 }

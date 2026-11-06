@@ -11,6 +11,10 @@ import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server'
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
 import { getOAuthGate } from '@/lib/request-platform';
 import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
+import { reviewedAliasesByLiveTrade } from '@/lib/service-trade-aliases';
+import { getReviewedTradeAliasRows } from '@/lib/service-trade-aliases-db';
+import { getServiceMergeForwards } from '@/lib/service-merge-forward-db';
+import { categoryLadder } from '@/lib/vendor-tier-caps';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -37,9 +41,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; sent?: string }>;
 }) {
-  const { error, step, next } = await searchParams;
+  const { error, step, next, taken, sent } = await searchParams;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
@@ -133,7 +137,26 @@ export default async function OpenShopPage({
   // First-party Setnayan SKUs are stripped inside — picking one would make the
   // shop invisible on /explore. Fail-soft: [] makes the wizard fall back to its
   // flat select rather than blocking a vendor from opening a shop.
-  const serviceTree = await getOpenShopServiceTree().catch(() => []);
+  const bareTree = await getOpenShopServiceTree().catch(() => []);
+  // 🔤 The reviewed aliases ride on each leaf (owner 2026-11-06 gate walk: the picker searches with the SAME ranker
+  // and the SAME reviewed words as Explore and the card maker — `lib/service-card-maker.server.ts` builds them the
+  // same way). Fail-soft: no aliases is today's search, never a blocked wizard.
+  const [aliasRows, mergeForwards] = await Promise.all([
+    getReviewedTradeAliasRows().catch(() => []),
+    getServiceMergeForwards().catch(() => ({})),
+  ]);
+  const aliasesByLeaf = reviewedAliasesByLiveTrade(
+    aliasRows,
+    mergeForwards,
+    new Set(bareTree.flatMap((p) => p.branches.flatMap((b) => b.leaves.map((l) => l.canonicalService)))),
+  );
+  const serviceTree = bareTree.map((p) => ({
+    ...p,
+    branches: p.branches.map((b) => ({
+      ...b,
+      leaves: b.leaves.map((l) => ({ ...l, aliases: aliasesByLeaf.get(l.canonicalService) })),
+    })),
+  }));
   // The signed-in account's own name — shown read-only on step 3 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.
@@ -205,6 +228,11 @@ export default async function OpenShopPage({
         '&as=vendor'
       }
       error={error}
+      planCategories={categoryLadder()}
+      // A8: the submit was refused because the email has an account → step 3 signs in, right there.
+      emailTaken={taken === '1'}
+      // A1: the shop is open and the account waits for its link (verification on). Only ever the signed-out page.
+      sentTo={guest && sent ? sent.trim().slice(0, 254) : null}
       initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
     />
   );

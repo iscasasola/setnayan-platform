@@ -948,3 +948,25 @@ export function nextPlanReach(tier: string | null | undefined): { plan: string; 
   }
   return null;
 }
+
+/**
+ * 🗂 HOW MANY CATEGORIES EACH PLAN RUNS, IN WORDS — read from `TIER_CAPS.parentCategories`, never typed (owner, the
+ * 2026-11-06 /open-shop gate walk: the plan limit said at the primary-service pick, "How many categories you can run
+ * depends on your plan ⓘ"). The plans a new shop can be on, in order — Free · Verified · Solo · Pro · Ultra (Custom is
+ * retired from the app, DECISION_LOG 2026-11-06). Neighbouring plans with the same number share one line.
+ */
+const CATEGORY_LADDER: readonly VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
+
+export function categoryLadder(): { plan: string; categories: string }[] {
+  const out: { plans: string[]; n: number }[] = [];
+  for (const t of CATEGORY_LADDER) {
+    const n = TIER_CAPS[t].parentCategories;
+    const last = out[out.length - 1];
+    if (last && last.n === n) last.plans.push(reachName(t));
+    else out.push({ plans: [reachName(t)], n });
+  }
+  return out.map(({ plans, n }) => ({
+    plan: plans.join(' and '),
+    categories: Number.isFinite(n) ? `${n} ${n === 1 ? 'category' : 'categories'}` : 'every category',
+  }));
+}

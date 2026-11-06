@@ -19,15 +19,19 @@ import 'server-only';
  * answer. When that action is next opened it should import THIS function for the
  * vendor case rather than keep its own copy; two copies of one door drift.
  *
- * ⚠ `email_confirm: true` is the standing V1 work-around (Supabase's own mailer lands
- * in spam). PR #5872 puts that flip behind `isEmailVerificationRequired`; when it
- * lands, the same gate belongs in front of the flip below.
+ * 🔒 L3 — THE SAME SWITCH AS `/signup` (owner, the 2026-11-06 gate walk: *"do we have a confirm with email
+ * also?"*). `email_confirm: true` was flipped here unconditionally, so this door skipped the confirmation that
+ * `/signup` has required since 2026-09-22: a typo'd company email silently belonged to a stranger. The flip now runs
+ * ONLY when `isEmailVerificationRequired()` is false — the exact gate `app/signup/actions.ts` uses on both of its
+ * flips. With it on, nobody is signed in here: the shop is opened on the new account, the page says "We sent a link
+ * to <email>", and the link (`/auth/callback?next=/vendor-dashboard`) lands on the supplier dashboard.
  */
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
 import { isPasswordLeaked } from '@/lib/leaked-password';
+import { isEmailVerificationRequired } from '@/lib/email-verification';
 import { OPEN_SHOP_ACCOUNT_ERRORS, signUpSaysEmailTaken } from './open-shop-account';
 
 export type CreateVendorAccountResult =
@@ -35,8 +39,13 @@ export type CreateVendorAccountResult =
   | { ok: true; user: { id: string; email: string } }
   /** Created and confirmed, but the direct sign-in failed — send them to /login?ready=. */
   | { ok: 'created-not-signed-in'; email: string }
+  /**
+   * Created, NOT confirmed — email verification is required (`isEmailVerificationRequired`). Nobody is signed in;
+   * `becomeVendor` opens the shop on `user.id` and shows "We sent a link to <email>".
+   */
+  | { ok: 'check-email'; user: { id: string; email: string } }
   /** Refused, with the step that owns the field and the sentence to show. */
-  | { ok: false; step: 3; error: string };
+  | { ok: false; step: 3; error: string; taken?: true };
 
 export async function createVendorAccountForShop(input: {
   email: string;
@@ -69,12 +78,14 @@ export async function createVendorAccountForShop(input: {
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const mustConfirm = isEmailVerificationRequired();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/open-shop')}`,
+      // Confirming opens the shop that was already created on submit — straight to the supplier dashboard.
+      emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(mustConfirm ? '/vendor-dashboard' : '/open-shop')}`,
       // The trigger reads raw_user_meta_data->>'account_type'. A shop owner is a
       // vendor from the first row — no later self-heal needed for this path.
       data: { account_type: 'vendor' },
@@ -87,7 +98,10 @@ export async function createVendorAccountForShop(input: {
   // (the wizard keeps its state across the popup). Read from BOTH shapes Supabase
   // uses, because with enumeration protection on there is no error at all.
   if (signUpSaysEmailTaken({ error, identities: data?.user?.identities })) {
-    return { ok: false, step: 3, error: OPEN_SHOP_ACCOUNT_ERRORS.emailTaken };
+    // `taken` turns step 3's email box into a sign-in, right there (owner 2026-11-06: "what if they already have a
+    // user account… can we detect it here?"). Said only on submit — never while typing, which would tell anybody
+    // which addresses have accounts.
+    return { ok: false, step: 3, error: OPEN_SHOP_ACCOUNT_ERRORS.emailTaken, taken: true };
   }
   if (error || !data.user?.id) {
     console.warn('[open-shop] auth.signUp failed:', error?.message ?? 'no user returned');
@@ -120,9 +134,12 @@ export async function createVendorAccountForShop(input: {
     })();
 
     const [confirmResult, profileResult, emailResult] = await Promise.allSettled([
-      admin.auth.admin.updateUserById(userId, { email_confirm: true }),
+      // 🔒 L3 — flipped ONLY when verification is not required (the /signup gate, byte for byte).
+      mustConfirm ? Promise.resolve(null) : admin.auth.admin.updateUserById(userId, { email_confirm: true }),
       profilePromise,
-      sendEmail({
+      // With verification on, Supabase's own confirmation mail is the one that matters; a "your account is ready,
+      // sign in here" mail beside it would invite a sign-in that is refused until the link is tapped.
+      mustConfirm ? Promise.resolve(null) : sendEmail({
         to: email,
         subject: 'Welcome to Setnayan',
         text: [
@@ -144,10 +161,12 @@ export async function createVendorAccountForShop(input: {
     if (confirmResult.status === 'rejected') console.warn('[open-shop] updateUserById failed:', confirmResult.reason);
     if (profileResult.status === 'rejected') console.warn('[open-shop] profile IIFE threw:', profileResult.reason);
     if (emailResult.status === 'rejected') console.warn('[open-shop] welcome email failed:', emailResult.reason);
-    confirmed = confirmResult.status === 'fulfilled';
+    confirmed = !mustConfirm && confirmResult.status === 'fulfilled';
   } catch (err) {
     console.warn('[open-shop] auto-confirm path threw:', err);
   }
+
+  if (mustConfirm) return { ok: 'check-email', user: { id: userId, email } };
 
   if (!confirmed) {
     // The account exists but is not confirmed; the direct sign-in would 401. Hand them

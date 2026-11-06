@@ -27,6 +27,8 @@ const PAGE = readFileSync('app/open-shop/page.tsx', 'utf8');
 // The city + address inputs live in CityPin, not the wizard — a field the
 // wizard validates may legitimately be rendered by a child component.
 const CITY_PIN = readFileSync('app/open-shop/_components/city-pin.tsx', 'utf8');
+// ☎ The number box moved into its own component (A7, 2026-11-06) — it renders `contact_phone` as a hidden E.164 input.
+const PHONE_FIELD = readFileSync('app/open-shop/_components/phone-field.tsx', 'utf8');
 // The account-creation refusals (owner 2026-09-22) live in a pure module; its
 // catalogue keys are read so a NEW refusal there cannot ship without a step here.
 const ACCOUNT_MODULE = readFileSync('lib/open-shop-account.ts', 'utf8')
@@ -173,7 +175,7 @@ test('every field validateStep asks for actually exists on the form', () => {
   // reintroduce the identical dead end, one field at a time.
   const asked = [...WIZARD.matchAll(/read\('([a-z_]+)'\)/g)].map((m) => m[1]!);
   assert.ok(asked.length >= 3, `validateStep reads suspiciously few fields: ${asked}`);
-  const missing = asked.filter((n) => !new RegExp(`name="${n}"`).test(WIZARD + CITY_PIN));
+  const missing = asked.filter((n) => !new RegExp(`name="${n}"`).test(WIZARD + CITY_PIN + PHONE_FIELD));
   assert.deepEqual(
     missing,
     [],
@@ -337,7 +339,12 @@ test('the action forwards the pure module’s step, never a hard-coded one, for 
   // action must carry THAT step into the redirect — a literal here would let the
   // module say 4 while the wizard lands on 3.
   assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{decision\.step\}&error=` \+ encodeURIComponent\(decision\.error\)\)/);
-  assert.match(ACTIONS, /redirect\(`\/open-shop\?step=\$\{created\.step\}&error=` \+ encodeURIComponent\(created\.error\)\)/);
+  // `&taken=1` (A8, 2026-11-06) rides between them when the module says the email has an account — the step is
+  // still the module's own.
+  assert.match(
+    ACTIONS,
+    /redirect\(`\/open-shop\?step=\$\{created\.step\}\$\{takenParam\}&error=` \+ encodeURIComponent\(created\.error\)\)/,
+  );
 });
 
 test('signed out, the wizard asks for a password on step 3 and the agreement on the last step — and only then', () => {

@@ -187,9 +187,13 @@ export function PasswordField({
     return () => form?.removeEventListener('input', sync);
   }, [isNew, input.value]);
 
+  // STICKY ON PURPOSE: remembered until the box changes, never cleared when the
+  // prop drops. The app-wide <ToastFromParams> strips `?error=` right after the
+  // page loads, which re-renders the door with `leaked` false — clearing here
+  // would wipe the refusal the moment it was shown.
   useEffect(() => {
-    if (!isNew) return;
-    setLeakedValue(leaked ? (inputRef.current?.value ?? '') : null);
+    if (!isNew || !leaked) return;
+    setLeakedValue(inputRef.current?.value ?? '');
   }, [isNew, leaked]);
 
   const toggle = () => {

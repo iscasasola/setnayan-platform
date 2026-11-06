@@ -195,6 +195,9 @@ test('mode="new" keeps its promises: bar, three rules, server-answered leak rule
   assert.match(code, /checked when you continue/, 'the leak rule says WHEN it is checked');
   assert.match(code, /aria-live="polite"/, 'the level is announced');
   assert.match(code, /'aria-describedby'/, 'the box points at its rules');
+  // The refusal outlives the URL: <ToastFromParams> strips `?error=` right after
+  // load, so the field must not forget the refusal when `leaked` drops.
+  assert.doesNotMatch(code, /setLeakedValue\(\s*leaked\s*\?|setLeakedValue\(null\)/, 'the leak refusal is cleared only by a new value');
   // The field never phones the leak service itself — the server action does.
   assert.doesNotMatch(code, /pwnedpasswords|leaked-password'|fetch\(/, 'the leak check stays on the server');
   // No composition rule: no "uppercase", "symbol" or "number" requirement copy.

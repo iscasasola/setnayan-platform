@@ -1262,6 +1262,14 @@ function DeepSearchBlock({
         ))}
       </p>
 
+      {/* What they will actually show couples — the cards, with take-down and remove-photo (7 Nov registration). */}
+      <Link
+        href={`/admin/vendors/${application.vendor_profile_id}#cards`}
+        className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-2"
+      >
+        See their service cards
+      </Link>
+
       <DeepSearchChat
         vendorProfileId={application.vendor_profile_id}
         applicationId={application.application_id}
@@ -2114,6 +2122,13 @@ function VerifyCard({
         verificationState={vendor.verification_state ?? null}
         deadline={vendor.next_renewal_due_at ?? null}
       />
+
+      <Link
+        href={`/admin/vendors/${vendor.vendor_profile_id}#cards`}
+        className="inline-flex min-h-[44px] w-fit items-center text-xs font-medium text-ink underline underline-offset-2"
+      >
+        See their service cards
+      </Link>
 
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
         {visibility !== 'verified' ? (

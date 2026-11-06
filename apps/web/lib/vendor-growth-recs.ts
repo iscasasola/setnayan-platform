@@ -125,7 +125,7 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
       impact: 'medium',
       impactLabel: IMPACT_LABEL.medium,
       ctaLabel: 'See reviews',
-      ctaHref: '/vendor-dashboard/reviews',
+      ctaHref: '/vendor-dashboard/website#reviews',
       weight: (5 - Math.min(reviewCount, 5)) * 8 + 10,
     });
   }

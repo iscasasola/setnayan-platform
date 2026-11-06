@@ -29,6 +29,7 @@ import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { reviewTemper, CLOSED_WINDOW_GRACE_DAYS } from '@/lib/answers-desk';
 import { VENDOR_REPLY_MAX_CHARS } from '@/lib/reviews';
 import { APPOINTMENT_KIND_LABEL } from '@/lib/appointments';
+import { parseVirtualLocation, virtualSummary } from '@/lib/virtual-meeting';
 import { formatPhp } from '@/lib/orders';
 import { formatCentavosPhp } from '@/lib/php';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
@@ -1095,7 +1096,7 @@ function ReviewBody({
               tone="neutral"
               icon={<ArrowRight {...ico} />}
               label="Open the review"
-              href={`/vendor-dashboard/reviews#reply_${card.reviewId}`}
+              href={`/vendor-dashboard/website#reply_${card.reviewId}`}
               className={TAP}
             />
             <SupplierSubmit tone="brand" main icon={<Reply {...ico} />} label="Post reply" pendingLabel="Posting…" />
@@ -1293,8 +1294,8 @@ function MeetingBody({
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {metaLine([
           when,
-          APPOINTMENT_KIND_LABEL[card.meetingKind] ?? null,
-          card.location,
+          card.meetingKind === 'in_person' ? APPOINTMENT_KIND_LABEL.in_person : virtualSummary(parseVirtualLocation(card.location)),
+          card.meetingKind === 'in_person' ? card.location : null,
           card.durationMin ? `${card.durationMin} min` : null,
         ])}
         {' · '}

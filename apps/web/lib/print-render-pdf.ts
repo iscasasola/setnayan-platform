@@ -39,7 +39,7 @@ import {
   type PDFPage,
   type PDFRef,
 } from 'pdf-lib';
-import { BLEED_MM, PRINT_PIECES, PT_PER_MM } from '@/lib/print-pieces';
+import { BLEED_MM, PT_PER_MM, isPlainPrintSheet } from '@/lib/print-pieces';
 import type { PrintDoc, PrintImages, PrintLayer, PrintOp } from '@/lib/print-layout';
 
 /**
@@ -413,7 +413,7 @@ async function newPrintPdf(opts: { title: string; subject?: string }): Promise<P
 function drawDocPages(pdf: PDFDocument, layers: Layers, imgs: Record<string, PDFImage>, docs: PrintDoc[], mode: PdfMode) {
   for (const doc of docs) {
     const bleed = mode === 'print' ? doc.bleed || BLEED_MM * PT_PER_MM : 0;
-    const plainSheet = PRINT_PIECES[doc.piece].kind === 'free';
+    const plainSheet = isPlainPrintSheet(doc.piece);
     const margin = mode === 'print' && !plainSheet ? bleed + SLUG_PT : 0;
     const pageW = doc.w + margin * 2;
     const pageH = doc.h + margin * 2;

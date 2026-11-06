@@ -67,12 +67,14 @@ function shelves(
     members?: Set<string>;
     region?: string | null;
     caps?: { people: number; world: number };
+    viewerId?: string | null;
   } = {},
 ) {
   return selectDiscoverShelves({
     events,
     hostsByEvent: opts.hosts ?? new Map(),
     people: opts.people ?? new Map(),
+    viewerId: opts.viewerId ?? null,
     memberEventIds: opts.members ?? new Set(),
     viewerRegion: opts.region ?? null,
     todayISO: TODAY,
@@ -162,6 +164,47 @@ test('connected outranks follow on a card with two of your people', () => {
     ]),
   });
   assert.equal(s.people[0]!.relation, 'connected');
+});
+
+test("YOUR OWN public event joins your people's shelf — merged soonest first, once; a stranger's private one never does", () => {
+  // Owner 2026-10-08: "include your own account there."
+  const mine = ev({ event_date: '2026-11-15' });
+  const minePrivate = ev({ event_date: '2026-10-10', landing_page_visibility: 'private' });
+  const theirs = ev({ event_date: '2026-10-20' });
+  const strangerPrivate = ev({ event_date: '2026-10-08', landing_page_visibility: 'private' });
+  const me = { userId: 'u-me', name: 'Me', publicSlug: 'me' };
+  const hosts = new Map<string, DiscoverHost[]>([
+    [mine.event_id, [me]],
+    [minePrivate.event_id, [me]],
+    [theirs.event_id, [{ userId: 'u-ana', name: 'Ana', publicSlug: 'ana' }]],
+    [strangerPrivate.event_id, [{ userId: 'u-x', name: 'X', publicSlug: 'x' }]],
+  ]);
+  const s = shelves([mine, theirs, strangerPrivate, minePrivate, mine], {
+    hosts,
+    people: new Map([['u-ana', 'follow']]),
+    // The viewer is a member (host) of their own events — condition 6 must not hide them.
+    members: new Set([mine.event_id, minePrivate.event_id]),
+    viewerId: 'u-me',
+  });
+  assert.deepEqual(s.people.map((c) => c.key), [theirs.event_id, mine.event_id]);
+  assert.equal(s.people.find((c) => c.key === mine.event_id)!.relation, 'you');
+  assert.equal(new Set(s.people.map((c) => c.key)).size, s.people.length, 'no duplicates');
+  const everywhere = [...s.people, ...s.world].map((c) => c.key);
+  assert.ok(!everywhere.includes(strangerPrivate.event_id));
+  assert.ok(!everywhere.includes(minePrivate.event_id));
+  assert.ok(!s.world.some((c) => c.key === mine.event_id), 'one event in one place');
+});
+
+test('an event the viewer only ATTENDS (not hosts) still never lists', () => {
+  const guestOf = ev();
+  const hosts = new Map([[guestOf.event_id, [{ userId: 'u-ana', name: 'Ana', publicSlug: 'ana' }]]]);
+  const s = shelves([guestOf], {
+    hosts,
+    people: new Map([['u-ana', 'follow']]),
+    members: new Set([guestOf.event_id]),
+    viewerId: 'u-me',
+  });
+  assert.equal(s.world.length + s.people.length, 0);
 });
 
 test('your people\'s shelf is soonest first', () => {

@@ -47,7 +47,8 @@ test('it is handed the same two sources, in the same precedence', () => {
   assert.match(focal, /photoSrc=\{typeHeroSrc\}/);
   assert.match(focal, /ownPhotoSrc=\{ownHeroSrc\}/);
   assert.match(focal, /eventTypePhotoSrc\(match\)/, 'the admin upload wins over the repo asset');
-  assert.match(focal, /`\/event-types\/\$\{eventType\}\.webp`/, 'and the repo asset is the floor');
+  // The floor is built by the one path builder, so it carries the photo set's cache version.
+  assert.match(focal, /eventTypeRepoPhotoSrc\(eventType\)/, 'and the repo asset is the floor');
 });
 
 test('a host-writable column cannot reach an <img src> unnarrowed', () => {

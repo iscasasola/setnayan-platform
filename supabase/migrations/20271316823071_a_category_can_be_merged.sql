@@ -210,6 +210,18 @@ BEGIN
   GET DIAGNOSTICS v_n = ROW_COUNT;
   v_moved := v_moved || jsonb_build_object('inspiration_parts.home_category_id', v_n);
 
+  -- A part's "also from" never repeats its HOME. Folding can make them one
+  -- category two ways — the home folds onto an also-from (Fireworks → Lights),
+  -- or an also-from folds onto the home (AV → Lights) — so drop the also-row
+  -- the fold just made redundant. Only rows on p_dest can have become one.
+  DELETE FROM inspiration_part_categories c
+   USING inspiration_parts p
+   WHERE c.slot_key = p.slot_key
+     AND c.category_id = p.home_category_id
+     AND c.category_id = p_dest;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  v_moved := v_moved || jsonb_build_object('inspiration_part_categories.collapsed_into_home', v_n);
+
   -- ── Supplier recommendation tables (CASCADE FKs — a hard delete would have
   --    silently DESTROYED these; a merge moves them) ──────────────────────────
   DELETE FROM vendor_service_recommendations a

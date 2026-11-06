@@ -31,18 +31,31 @@
  * Both halves, always together. Either one alone has meant a hidden shop on a
  * public shelf before.
  *
- * 🧪 AND NEVER A DEMO SHOP (2026-09-30). Owner, DECISION_LOG 2026-09-29 "LANE 2
- * §2C" (1): the two trial shops (SetnaProd, Saysay) become `is_demo = true` so
- * they "stop reading as real verified suppliers". Both are fully verified, so
- * without this third half the flag would have changed nothing on this shelf —
- * the front door and the /explore count would still have shown them. The
- * column is `NOT NULL DEFAULT false`, so an equality is exact (`.match()` only
- * does equalities). The accepted cost, in the owner's words: the shelf shows
- * nothing until a real supplier joins — the shelf then invites one.
+ * 🧪 DEMO SHOPS ARE PUBLIC NOW (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO
+ * EVENTS": *"these demo events, and demo suppliers will show on with the rest of
+ * suppliers and events, but has a marking of (DEMO ONLY)"*). This SUPERSEDES the
+ * 2026-09-30 third half (`is_demo: false`, DECISION_LOG 2026-09-29 "LANE 2 §2C"
+ * (1)). A demo shop still has to be listed AND verified to appear — the two
+ * halves above — and every surface that draws one wears `DemoOnlyMarker`
+ * (`app/_components/sample-marker.tsx`).
+ *
+ * 🔢 A COUNT IS NOT A LISTING. *"demo numbers never count in real totals"* (same
+ * ruling) — so any figure shown as "N suppliers" reads {@link REAL_SHOP_GATE},
+ * never this one. Guard: `lib/demo-never-counts.test.ts`.
  */
 export const LIVE_SHOP_GATE = {
   public_visibility: 'verified',
   verification_state: 'verified',
+} as const;
+
+/**
+ * The live gate PLUS "not a demo shop" — for every TOTAL (a count shown as a
+ * number, a KPI, a benchmark) and for every supplier search inside a REAL event
+ * (`lib/demo-scope.ts`). The column is `NOT NULL DEFAULT false`, so the equality
+ * is exact (`.match()` only does equalities).
+ */
+export const REAL_SHOP_GATE = {
+  ...LIVE_SHOP_GATE,
   is_demo: false,
 } as const;
 

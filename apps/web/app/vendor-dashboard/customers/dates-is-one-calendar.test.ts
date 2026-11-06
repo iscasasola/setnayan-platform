@@ -343,7 +343,10 @@ test('8 · the shop’s codes are ONE page — one dropdown, the QR card (Share 
   const view = code(join(VD, 'invite', '_components', 'qr-codes.tsx'));
   // The dropdown's list lives in one place since 2026-11-01 (Check a date · My page · Crew joined it) — the two live
   // codes still lead it.
-  assert.match(page, /SUPPLIER_QR_MODES\.map\(/);
+  // 📣 Two homes since 2026-11-05 (owner: the marketing codes belong in Shop › Promote) — each builds ITS dropdown from
+  // its slice of the one list; the shared view draws both.
+  assert.match(page, /CUSTOMERS_QR_MODES\.map\(/);
+  assert.match(code(join(VD, 'shop', 'promote', 'page.tsx')), /PROMOTE_QR_MODES\.map\(/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /\['shortlist', 'locked',[^\]]*\]/);
   assert.match(code(join(VD, '..', '..', 'lib', 'supplier-qr-codes.ts')), /shortlist: 'Shortlist · free',\s*locked: 'Booked · one-use'/);
   assert.match(view, /<CustomersPick label="Which code"/, 'the two codes are not ONE dropdown');

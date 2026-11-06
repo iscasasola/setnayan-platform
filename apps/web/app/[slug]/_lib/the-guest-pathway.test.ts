@@ -360,7 +360,7 @@ test('5 · the stranger gets ONE button — "Open your invitation" (it read "Con
   assert.doesNotMatch(ask, /Open your invitation/, 'two buttons on one screen');
   assert.match(
     PAGE,
-    /signedInNotListed:\s*Boolean\(viewerAccount\?\.id\) && !viewerHoldsASeat && !ownerCapability && !vendorCapability/,
+    /signedInNotListed:\s*Boolean\(viewerAccount\?\.id\) && !viewerSeatUnread && !viewerHoldsASeat && !ownerCapability && !vendorCapability/,
   );
 });
 

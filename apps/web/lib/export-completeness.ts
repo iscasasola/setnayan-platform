@@ -88,7 +88,105 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
   { table: 'event_type_requests', decision: 'exported', as: 'event_type_requests' },
 
+  // ── Sorted off the undecided backlog, 2026-11-05 ────────────────────────
+  // Owner, on "Download my data is missing about 39 kinds of record": "this is
+  // important" (DECISION_LOG 2026-11-05, the 15 "act first" items, item 7). The
+  // rule applied is the one this file and /privacy already state: the person
+  // gets THEIR OWN personal data — every read is filtered on the subject's own
+  // id, and other people's ids, staff notes and credentials stay out.
+  //
+  // Already read by lib/personal-data-export.ts before this sort, but never
+  // written down here — so the registry said "undecided" about a table the file
+  // already carried.
+  { table: 'event_vendor_working_notes', decision: 'exported', as: 'vendor_working_notes_authored' },
+  { table: 'event_day_requests', decision: 'exported', as: 'day_requests_authored' },
+  { table: 'event_clusters', decision: 'exported', as: 'years_you_grouped' },
+  { table: 'event_colour_grants_coordinator', decision: 'exported', as: 'own_colour_access_held' },
+  { table: 'event_colour_changes', decision: 'exported', as: 'own_colour_changes_made' },
+  // Read by the SHOP (vendor_profile_id), not by `created_by`: the photos are the
+  // shop's portfolio, and they reach the shop owner's file. A staffer who
+  // uploaded for the shop is stamped, not the owner of the photo.
+  { table: 'editorial_vendor_media', decision: 'exported', as: 'vendor_submitted_media' },
+  // Newly read on 2026-11-05.
+  { table: 'notifications', decision: 'exported', as: 'notifications_received' },
+  { table: 'receipts', decision: 'exported', as: 'receipts' },
+  { table: 'order_ledger', decision: 'exported', as: 'order_history' },
+  { table: 'account_deletion_requests', decision: 'exported', as: 'account_deletion_requests' },
+  { table: 'chat_thread_reads', decision: 'exported', as: 'chat_read_markers' },
+  { table: 'comp_grants', decision: 'exported', as: 'comps_given_to_you' },
+  { table: 'couple_event_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
+  { table: 'couple_wedding_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
+  { table: 'creator_chapters', decision: 'exported', as: 'creator_chapters' },
+  { table: 'discount_code_eligible_users', decision: 'exported', as: 'vouchers_you_were_offered' },
+  { table: 'event_moderators', decision: 'exported', as: 'cohost_roles' },
+  { table: 'event_preparation_items', decision: 'exported', as: 'prep_items_added' },
+  { table: 'budget_builds', decision: 'exported', as: 'budget_builds_made' },
+  { table: 'event_stage_notes', decision: 'exported', as: 'stage_notes_sent' },
+  { table: 'founder_seats', decision: 'exported', as: 'founder_seat' },
+  { table: 'guest_saved_vendors', decision: 'exported', as: 'saved_suppliers' },
+  { table: 'help_messages', decision: 'exported', as: 'help_messages_sent' },
+  { table: 'referral_codes', decision: 'exported', as: 'referral_codes' },
+  { table: 'service_slot_reservations', decision: 'exported', as: 'reservations_made' },
+  { table: 'user_face_profiles', decision: 'exported', as: 'face_profile' },
+  { table: 'vendor_date_waitlist', decision: 'exported', as: 'date_waitlists_joined' },
+  { table: 'vendor_member_token_wallets', decision: 'exported', as: 'retired_token_balances' },
+  { table: 'vendor_team_members', decision: 'exported', as: 'supplier_team_memberships' },
+
   // ── Excluded, with the reason ───────────────────────────────────────────
+  {
+    table: 'communities',
+    decision: 'excluded',
+    why:
+      'The GROUP itself — its name, description and photo. `created_by` only stamps who started it; every ' +
+      'member reads and may edit the row, so it is the group\'s shared record, not the founder\'s (same call as ' +
+      'event_wish_items). The subject\'s own membership, with the group\'s name, is exported as samahan_memberships.',
+  },
+  {
+    table: 'live_studio_highlights',
+    decision: 'excluded',
+    why:
+      'A moment marked on an EVENT\'s Live Watch recording. `created_by` stamps which host or operator pressed ' +
+      'the button; the row is the event\'s bookmark on its own footage, the same way an event_schedule_tasks row ' +
+      'is the event\'s run of show. The subject\'s membership of that event is exported.',
+  },
+  {
+    table: 'guest_qr_rotations',
+    decision: 'excluded',
+    why:
+      'A record that a GUEST\'s invitation QR was replaced. `actor_user_id` is the host or admin who pressed ' +
+      'rotate — an action ON another person\'s pass, not personal data of the presser — and `old_token_sha256` is ' +
+      'derived from a credential. Same line as resolved_by on event_day_requests.',
+  },
+  {
+    table: 'vendor_custom_plans',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s custom subscription plan (seats, reach, the 28-day price), keyed to vendor_profile_id. ' +
+      '`created_by` stamps who composed it. It is the business\'s commercial record — the same call as ' +
+      'shop_papic_wallet_entries (owner 2026-10-23, option A) — and the shop owner sees it on their plan page.',
+  },
+  {
+    table: 'platform_expenses',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s own books — what the company spent, logged by staff. `created_by` is the staff member who ' +
+      'typed the line; the row is not about them. Same decision as DELIBERATE_EXCLUSIONS in ' +
+      'lib/export-coverage-guardrail.test.ts.',
+  },
+  {
+    table: 'promo_free_windows',
+    decision: 'excluded',
+    why:
+      'Platform promo configuration — a free-window announcement an admin scheduled. `created_by` is that admin; ' +
+      'the row defines a promo, not a person. Same decision as the export guardrail\'s DELIBERATE_EXCLUSIONS.',
+  },
+  {
+    table: 'social_posts',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s OWN outbound social posts, composed by staff. `created_by` is the admin who wrote the post. ' +
+      'A couple whose creation was featured has that recorded in marketing_share_consents, which is exported.',
+  },
   {
     table: 'event_schedule_tasks',
     decision: 'excluded',
@@ -161,6 +259,24 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'every row on Customers › Money, and erasure clears the stamp (lib/erasure/coverage.ts).',
   },
   {
+    table: 'shop_gift_purchases',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-stock purchase — which pack, how many, at what price — keyed to the shop ' +
+      '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
+      'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
+      'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    decision: 'excluded',
+    why:
+      'The SHOP\'s gift-stock ledger (bought · given · reversed), keyed to the shop like ' +
+      'shop_papic_wallet_entries. `created_by` is an actor stamp on who caused the entry; the row says nothing ' +
+      'about that person, the shop owner reads it on Shop › Promote › Your gifts, and erasure clears the stamp ' +
+      '(lib/erasure/coverage.ts).',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:
@@ -214,61 +330,28 @@ export function excludedTables(): ReadonlyArray<{ table: string; why: string }> 
  * measurement, and it looks complete.** The list was finally settled by diffing
  * the registry against `information_schema` directly, with both sides printed.
  *
- * The ones with live rows in production on 2026-09-15, worth doing first:
- *   social_posts (103) · notifications (72) · user_devices (32) ·
- *   order_ledger (9) · event_moderators (6) · receipts (4) ·
- *   chat_thread_reads (4) · creator_chapters (1) · communities (1)
- *
- * 🔑 `receipts` is the sharpest: a financial record naming the person, which
- * /privacy promises to KEEP for ten years under the BIR floor while the access
- * right does not hand it back. `user_devices` is next — the page has a whole
- * section promising the device identifier is exported and deleted, and it is in
- * neither list.
+ * ✅ SORTED 2026-11-05 — 39 → 3. receipts, notifications, order_ledger and the
+ * rest are now exported; the three left below each carry the owner question
+ * that decides them.
  */
 export const UNDECIDED_PERSON_KEYED_TABLES: ReadonlyArray<string> = [
-  'account_deletion_requests',
-  // 'bespoke_monogram_generations' — REMOVED (S40, migration 20271233873951):
-  // the table itself is dropped (0 rows, the Bespoke AI Monogram Studio
-  // feature it backed was retired 2026-06-19). No longer in information_schema.
-  'budget_builds',
-  'chat_thread_reads',
-  'communities',
-  'comp_grants',
-  'couple_event_type_notify_signups',
-  'couple_wedding_type_notify_signups',
-  'creator_chapters',
-  'discount_code_eligible_users',
-  'editorial_vendor_media',
-  'event_clusters',
-  'event_colour_changes',
-  'event_colour_grants_coordinator',
-  'event_day_requests',
-  'event_moderators',
-  'event_preparation_items',
-  'event_stage_notes',
-  'event_vendor_working_notes',
-  'founder_seats',
-  // 'founder_time_log' — REMOVED (S40, migration 20271233873951): the table
-  // itself is dropped (0 rows, no dashboard ever shipped for it). No longer
-  // in information_schema.
+  // ⚖ 39 → 3 on 2026-11-05. The other 36 are decided above (29 exported, 7
+  // excluded with a reason). These three are left on purpose: each mixes the
+  // subject's data with a fraud signal or another person's data, which is the
+  // OWNER's call, not engineering's. Each line is the question put to him.
+  //
+  // Enforcement actions taken against a supplier's shop. The person key is the
+  // ADMIN who acted; the shop owner is the one it is about. Question: should a
+  // shop owner's file list the actions taken on their shop (what, when) — or is
+  // it withheld as a fraud record, like fraud_signals?
   'fraud_enforcement_audit',
-  'guest_qr_rotations',
-  'guest_saved_vendors',
-  'help_messages',
-  'live_studio_highlights',
-  'notifications',
-  'order_ledger',
-  'platform_expenses',
-  'promo_free_windows',
-  'receipts',
-  'referral_codes',
-  'service_slot_reservations',
-  'social_posts',
+  // The fraud-prevention device hash (/privacy § Device identifier). It is the
+  // person's own record AND a fraud signal kept after account deletion.
+  // Question: include the last-seen dates (and the hash itself?) in the file,
+  // or withhold it while the DPO review of how long it is kept is open?
   'user_devices',
-  'user_face_profiles',
+  // A supplier's private notes ABOUT a client. Both people's data at once.
+  // Question: give them to the supplier who wrote them, the client they are
+  // about, both, or neither?
   'vendor_client_notes',
-  'vendor_custom_plans',
-  'vendor_date_waitlist',
-  'vendor_member_token_wallets',
-  'vendor_team_members',
 ];

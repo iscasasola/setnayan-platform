@@ -577,6 +577,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Nulling anonymises the feedback; the review itself is product data the platform acts on, not a record about the person.',
   },
   {
+    table: 'booking_fee_disputes',
+    column: 'opened_by_user_id',
+    why: 'The shop account that disputed a booking fee (2026-11-05). The dispute is the SHOP’s record of a fee and Setnayan’s answer — it must survive the person leaving, exactly as the fee it is about does.',
+  },
+  {
+    table: 'booking_fee_disputes',
+    column: 'decided_by_user_id',
+    why: 'The admin who decided the dispute. An admin actor stamp on the shop’s fee record.',
+  },
+  {
     table: 'vendor_disputes',
     column: 'opened_by_user_id',
     why: 'Who raised the dispute. The dispute is a two-party record and the vendor’s side of it must survive the complainant leaving.',
@@ -767,6 +777,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'shop_papic_wallet_entries',
     column: 'created_by',
     why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_purchases',
+    column: 'created_by',
+    why: 'Who pressed Buy on a shop’s gift stock. The purchase is the SHOP’s money record and stays; the stamp goes.',
+  },
+  {
+    table: 'shop_gift_stock_entries',
+    column: 'created_by',
+    why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
   },
   {
     table: 'hub_music_tracks',

@@ -4,6 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchQuoteShopGifts } from '@/lib/shop-gifts.server';
+import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { markProposalViewed } from '@/lib/proposal-send';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchProposalPaymentMethods } from '@/lib/vendor-payment-methods.server';
@@ -247,6 +249,20 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             photo count. The gift is named at the moment of decision, not after.
           */
           quoteSwitch: proposal.includes_setnayan_gift ?? null,
+        })
+      : null;
+
+  /*
+    🎁 THE SHOP'S OWN GIFT on this quote (owner 2026-11-04) — Papic credits from the supplier's gift stock, promised on
+    the quote and given when the couple's first payment clears. Read after the RLS read above proved this viewer may
+    see the quote; a failed read says nothing rather than invent a gift (and the supplier's composer said it first).
+  */
+  const shopGifts =
+    !['declined', 'expired', 'superseded'].includes(proposal.status)
+      ? await fetchQuoteShopGifts(createAdminClient(), {
+          proposalId: proposal.proposal_id,
+          vendorProfileId: proposal.vendor_profile_id,
+          eventId: proposal.event_id ?? null,
         })
       : null;
 
@@ -507,6 +523,16 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               </p>
               <p className="mt-0.5 text-xs text-ink/60">{giftCopy?.detail}</p>
             </div>
+          ) : null}
+          {shopGifts ? (
+            <QuoteShopGiftNote
+              credits={shopGifts.credits}
+              given={shopGifts.given}
+              unlocks={shopGifts.unlocks}
+              unlocksGiven={shopGifts.unlocksGiven}
+              shopName={businessName}
+              side={isVendorSide ? 'supplier' : 'couple'}
+            />
           ) : null}
         </section>
       ) : null}

@@ -2217,6 +2217,37 @@ export const UGAT_JOINTS: UgatJoint[] = [
       },
       // The wallet holds credits, never a price — the ₱ is the catalogue's.
       { kind: 'no_column', table: 'shop_papic_wallet_entries', column: 'price_php' },
+      // 🎁 SUPPLIER GIFTS (owner 2026-11-04) — a SECOND shop ledger, kept apart from the wallet on purpose: gift
+      // stock can only ever reach a couple's event. Bought in quantity (shop_gift_purchases, one row per gift order —
+      // orders has no quantity), put on a quote (vendor_proposal_shop_gifts), and given into the event's SHARED
+      // Papic pool only by shop_gift_deliver_for_booking when that couple's first payment clears.
+      { kind: 'table', table: 'shop_gift_purchases' },
+      { kind: 'fk', table: 'shop_gift_purchases', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_gift_purchases', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'quantity' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'credits_each' },
+      { kind: 'table', table: 'shop_gift_stock_entries' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'proposal_id', references: 'vendor_proposals' },
+      { kind: 'fk', table: 'shop_gift_stock_entries', column: 'pool_grant_id', references: 'papic_event_point_grants' },
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'delta' },
+      {
+        kind: 'check',
+        table: 'shop_gift_stock_entries',
+        name: 'shop_gift_stock_entries_sign_matches_kind',
+        mentions: 'delta',
+      },
+      // Stock is credits, never a price.
+      { kind: 'no_column', table: 'shop_gift_stock_entries', column: 'price_php' },
+      // 💎 Slice 2 (2026-11-05): Event Plus / Event Pro gifts are units in the same ledger; a given one names the
+      // product the EVENT received (a second Plus becomes Pro) — read by event_comp_active_skus / event_has_comp_for_sku.
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'unlocks_sku' },
+      { kind: 'table', table: 'vendor_proposal_shop_gifts' },
+      { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
+      { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_proposal_shop_gifts', column: 'credits' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2227,7 +2258,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
@@ -3135,6 +3166,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_public_key_shape', mentions: 'public_key' },
       { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_state_allowed', mentions: 'state' },
       { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_a_couple_says_a_couple', mentions: 'credit_line' },
+      // ✓ The "Verified booking" mark is DERIVED at read from event_vendors (couple_photo_share_is_verified_booking,
+      // migration 20271309527923) — never a stored column a door could set.
+      { kind: 'no_column', table: 'couple_photo_shares', column: 'verified_booking' },
     ],
     chain: 20,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -3149,7 +3183,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), shop read (current_vendor_profile_ids), admin all; NO insert/update/delete for authenticated and nothing for anon. Uploader + own-upload + linked shop + consent decided in SQL; tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts holds each refusal',
     traps:
-      'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_provenance refuses rewriting the uploader (NULL by erasure only), the kind or the suggestion origin; a supplier suggestion key (inspiration/<event>/suggestions/ or any event_inspiration_suggestions.r2_key) is never shareable. Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). WHO SEES IT (owner 2026-10-30): audience hosts \u00b7 exclusive \u00b7 private \u00b7 public; the cached public read (service_card_couple_photos) is PUBLIC only, a signed-in viewer\u2019s extra photos come from viewer_service_card_couple_photos after the page (signed URLs; non-public copies live in the private bucket); PRIVATE FAILS CLOSED to Exclusive until \u201cthe people around me\u201d has a resolver. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
+      'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_provenance refuses rewriting the uploader (NULL by erasure only), the kind or the suggestion origin; a supplier suggestion key (inspiration/<event>/suggestions/ or any event_inspiration_suggestions.r2_key) is never shareable. Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). WHO SEES IT (owner 2026-10-30): audience hosts \u00b7 exclusive \u00b7 private \u00b7 public; the cached public read (service_card_couple_photos) is PUBLIC only, a signed-in viewer\u2019s extra photos come from viewer_service_card_couple_photos after the page (signed URLs; non-public copies live in the private bucket); PRIVATE FAILS CLOSED to Exclusive until \u201cthe people around me\u201d has a resolver. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts). \u2713 VERIFIED BOOKING (Supplier front page 2026-11-06): both card reads return verified_booking, DERIVED at read by couple_photo_share_is_verified_booking (migration 20271309527923) \u2014 TRUE only while the event\u2019s own event_vendors row names the shop at contracted / deposit_paid / delivered / complete, not archived, not voided for fraud, not a self-booking; the share door still accepts any LINKED shop, so a shop only on the couple\u2019s list shows the photo with NO mark. Never store it.',
   },
   {
     /**
@@ -3486,7 +3520,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'One OPEN request per event (partial unique index) · one answer row per conflicting booking (a package\'s anchor + cascade rows answer together, keyed by vendor_profile_id)',
     implementedBy:
-      'event_date_change_requests (the date asked for, who asked, open → withdrawn | applied) + event_date_change_answers (asked → moved | unlocked | dropped, due_at = asked + 3 days). The date itself goes live only through the Maker\'s Apply (dateApplyClearance), and events_booked_dates_follow_the_event moves each held supplier\'s calendar block and pool reservation with it',
+      'event_date_change_requests (the date asked for, who asked, open → withdrawn | applied) + event_date_change_answers (asked → moved | unlocked | dropped, due_at = asked + 3 days). The date itself goes live only through the event\'s one date door, updateEventDate (dateApplyClearance; owner 2026-11-05 "it shouldn\'t rely on the hub" — never the Maker\'s Apply), and events_booked_dates_follow_the_event moves each held supplier\'s calendar block and pool reservation with it',
     writtenBy:
       'three SECURITY DEFINER functions and nothing else — ask_event_date_change (the couple) · answer_event_date_change (the supplier) · settle_event_date_change (the couple: withdraw / wait / drop / applied) — plus the internal date_change_release_booking both Unlock and Drop run. authenticated holds SELECT only',
     guardedBy:

@@ -8,6 +8,12 @@ import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
+import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailOptions } from '@/lib/payment-channels';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolvePapicQuoteStanding } from '@/lib/papic-on-a-quote.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
@@ -21,10 +27,8 @@ import {
 import { leadTrustBadgeEnabled } from '@/lib/inquiry-gate';
 import { eventHostHoldsFounderSeat } from '@/lib/entitlements';
 import { FOUNDER_BADGE_LABEL, FOUNDER_INQUIRY_NOTE } from '@/lib/founder-seats';
-import {
-  fetchInquiryCustomerFacts,
-  inquiryCityLabel,
-} from '@/lib/inquiry-customer.server';
+import { inquiryCityLabel } from '@/lib/inquiry-customer.server';
+import { readVendorConversationInputs } from '@/lib/vendor-conversation-inputs.server';
 import { buildCustomerEventSummary } from '@/lib/customer-event-summary';
 import {
   guestCountChip,
@@ -45,7 +49,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
-import { dayMonth, formatLongDate } from '@/lib/format-date';
+import { formatLongDate } from '@/lib/format-date';
 import { fetchPipelinePressure } from '@/lib/vendor-pipeline-pressure';
 import { PipelinePressureLine } from '../../_components/pipeline-pressure-line';
 import { getThreadBlockState } from '@/lib/chat-block';
@@ -81,7 +85,8 @@ import {
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
-import { vendorAgreeToLock, vendorDeclineLock } from '../../clients/[eventId]/actions';
+import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '../../clients/[eventId]/actions';
+import { readDayCheck } from '@/lib/day-check.server';
 import {
   forecastForBooking,
   resolveBookingFeeStanding,
@@ -99,6 +104,8 @@ import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
@@ -114,11 +121,10 @@ import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import {
   buildVendorConversationRows,
   initialsFor,
-  isDateTagWorthShowing,
   readStandingExtras,
-  serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { QuestionsSendPanel } from './_components/questions-send-panel';
 import { ThreadToolsSheet } from './_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
@@ -185,6 +191,8 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // rests on. Name the door that IS open instead of saying "failed".
   proposal_deal_locked:
     'This booking is already locked at the accepted quote — changes to it go through a change order, not a new quote.',
+  proposal_gift_refused:
+    'Your gifts on that quote didn’t fit — over this booking’s gift limit, or more than your stock. Check them and send again.',
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6).
@@ -307,6 +315,27 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const composerPapicStandingRead = resolvePapicQuoteStanding(createAdminClient(), {
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
+  });
+  // 🎁 THE SHOP'S OWN GIFTS for this quote (owner 2026-11-04): stock free to offer here (this event's old holds left
+  // out), the live packs and the fee schedule; plus what buying from inside the quote needs. Best-effort: a failure
+  // draws no gift block rather than fail the thread.
+  const shopGiftsRead = (async () => {
+    const giftAdmin = createAdminClient();
+    const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
+      fetchShopGiftQuoteBasis(giftAdmin, profile.vendor_profile_id, thread.event_id),
+      fetchVendorPaysGiftPrice(giftAdmin, profile.vendor_profile_id),
+      fetchPlatformSettings(supabase),
+      isVendorPapicCaptureEnabled(),
+      isStoreShellRequest(),
+    ]);
+    // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they are offered (slice 2).
+    const packs = basis ? (papicOn ? basis.packs : basis.packs.filter((p) => p.kind !== 'papic')) : [];
+    if (!basis || packs.length === 0) return { basis: null, buy: null };
+    const openRails = openRailOptions(settings);
+    return { basis: { ...basis, packs }, buy: storeShell ? null : { paysGiftPrice, openRails } };
+  })().catch((err) => {
+    console.error('[supabase-error] messages thread · shop gifts', err);
+    return { basis: null, buy: null };
   });
   // The two writes in the batch below wait for these three — they used to be
   // awaited in turn before the batch started, so no write ran while one of them
@@ -718,6 +747,16 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       : null;
   })();
 
+  // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
+  // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
+  // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
+  const dayCheckRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.state === 'requested' && lockHandshake.eventVendorId
+      ? await readDayCheck(supabase, lockHandshake.eventVendorId)
+      : null;
+  })();
+
   // THE SUPPLIER'S END OF THE NEXT MONEY STEP (2026-09-20) — the same
   // `readBookedMoney` → `moneyStep` the couple's card reads, so the two ends
   // say the same thing. Admin client: a supplier holds no `event_vendors` RLS,
@@ -797,33 +836,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       },
     );
     const listThreadIds = listThreads.map((t) => t.thread_id);
-    const listEventIds = [...new Set(listThreads.map((t) => t.event_id))];
 
-    const [listCustomers, lastMessageRes, listInterestRes, listReadRes] = await Promise.all([
-      // Who each couple is. A vendor's own RLS nulls `events` out on every thread,
-      // so this is the admin-scoped helper the inbox already uses — the caller's
-      // ownership proof is fetchVendorThreads above.
-      fetchInquiryCustomerFacts(paxAdmin, listEventIds),
-      // The last line of each conversation. Ordered newest-first and capped: the
-      // reducer keeps the FIRST row it sees per thread, which is that thread's
-      // latest. The cap is a ceiling on work, not on correctness — a shop past it
-      // loses the preview on its oldest conversations, never the conversation.
-      listThreadIds.length > 0
-        ? supabase
-            .from('chat_messages')
-            .select('thread_id, sender_role, body, created_at')
-            .in('thread_id', listThreadIds)
-            .order('created_at', { ascending: false })
-            .limit(600)
-        : Promise.resolve({ data: [], error: null }),
-      // The service each couple asked about — one grey tag on the row.
-      listThreadIds.length > 0
-        ? supabase
-            .from('thread_service_interests')
-            .select('thread_id, category_key, vendor_service_id, created_at')
-            .in('thread_id', listThreadIds)
-            .order('created_at', { ascending: true })
-        : Promise.resolve({ data: [], error: null }),
+    // What each row says — who the couple is, the last line, the service asked about — is read by the ONE helper the
+    // full-screen Chats inbox reads too (`lib/vendor-conversation-inputs.server.ts`, 2026-11-06), so the two lists
+    // cannot disagree about a row. The read markers stay HERE, beside the column's own unread rule below.
+    const [listInputs, listReadRes] = await Promise.all([
+      readVendorConversationInputs({
+        supabase,
+        adminClient: paxAdmin,
+        vendorProfileId: profile.vendor_profile_id,
+        threads: listThreads,
+        nowMs: Date.now(),
+        logAs: 'VendorThreadPage',
+      }),
       // When this viewer last opened each thread — the dot and the bold preview.
       // ⚠ The read markers are a LATER migration than the threads themselves, so
       // this degrades to "nothing is unread": a missing dot understates, an
@@ -836,28 +861,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             .in('thread_id', listThreadIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
-
-    if (lastMessageRes.error) {
-      logQueryError(
-        'VendorThreadPage.lastMessages',
-        lastMessageRes.error,
-        { vendor_profile_id: profile.vendor_profile_id },
-        'graceful_degrade',
-      );
-    }
-    const lastMessages = new Map<string, { sender_role: string; body: string | null }>();
-    const lastMessageAt = new Map<string, string>();
-    for (const m of (lastMessageRes.data ?? []) as Array<{
-      thread_id: string;
-      sender_role: string;
-      body: string | null;
-      created_at: string;
-    }>) {
-      if (!lastMessages.has(m.thread_id)) {
-        lastMessages.set(m.thread_id, { sender_role: m.sender_role, body: m.body });
-        lastMessageAt.set(m.thread_id, m.created_at);
-      }
-    }
+    const { lastMessages, lastMessageAt } = listInputs;
 
     /* Unread = something was said after this viewer last opened the thread.
        ⚠ A THREAD WITH NO READ MARKER IS NOT UNREAD HERE. The marker is written on
@@ -883,55 +887,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
       }
     }
 
-    if (listInterestRes.error) {
-      logQueryError(
-        'VendorThreadPage.listInterests',
-        listInterestRes.error,
-        { vendor_profile_id: profile.vendor_profile_id },
-        'graceful_degrade',
-      );
-    }
-    const interestByThread = new Map<string, string>();
-    const listInterests = (listInterestRes.data ?? []) as Array<{
-      thread_id: string;
-      category_key: string | null;
-      vendor_service_id: string | null;
-    }>;
-    const labelListInterest = await interestLabeller(paxAdmin, listInterests);
-    for (const i of listInterests) {
-      // First interest wins — the same "what did they ask about" the rail shows.
-      if (!interestByThread.has(i.thread_id) && (i.category_key || i.vendor_service_id)) {
-        interestByThread.set(i.thread_id, labelListInterest(i));
-      }
-    }
-
-    // ⚠ A TAG THAT NEVER CHANGES SAYS NOTHING. If this shop's whole inbox is
-    // one category, tagging every row with it (per `interestByThread` above)
-    // repeats the same word down the column and costs a line for free — the
-    // service tag earns its spot only once it actually distinguishes a row from
-    // its neighbours.
-    const showServiceTag = serviceTagVaries([...interestByThread.values()]);
-    const nowMs = Date.now();
-
-    const listDisplayNames = new Map<string, string | null>();
-    const listLabels = new Map<string, string[]>();
-    for (const t of listThreads) {
-      const facts = listCustomers.get(t.event_id);
-      listDisplayNames.set(t.event_id, facts?.displayName ?? null);
-      const tags: string[] = [];
-      const service = interestByThread.get(t.thread_id);
-      if (service && showServiceTag) tags.push(service);
-      // ⚠ `event_date` is a DATE column, so it goes through the repo's own
-      // formatter — `new Date('2026-12-18')` is the 17th west of Greenwich.
-      // And only close to the day: a wedding sixteen months out is not live
-      // context on who this row is, it's noise repeated down the column.
-      if (isDateTagWorthShowing(facts?.eventDate, nowMs)) {
-        const day = dayMonth(facts?.eventDate);
-        if (day) tags.push(day);
-      }
-      listLabels.set(t.event_id, tags);
-    }
-
     const conversationRows = await buildVendorConversationRows({
       supabase,
       adminClient: paxAdmin,
@@ -942,8 +897,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         inquiry_status: t.inquiry_status ?? null,
         updated_at: t.updated_at,
       })),
-      displayNames: listDisplayNames,
-      labels: listLabels,
+      displayNames: listInputs.displayNames,
+      labels: listInputs.labels,
       lastMessages,
       unreadThreadIds: listUnread,
       formatTime: formatChatTimestamp,
@@ -976,8 +931,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     });
   })();
 
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
+  // check; the couple's number is read only once it says yes, and only if they saved one (else no buttons).
+  const shopBookedRead = shopIsBookedOnEvent(thread.event_id, profile.vendor_profile_id);
+  const couplePhoneRead = shopBookedRead.then((booked) =>
+    bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId: thread.event_id, vendorProfileId: profile.vendor_profile_id }),
+  );
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
+    shopBooked,
+    couplePhone,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -1010,6 +974,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBands,
     lockHandshake,
     chatFeeForecast,
+    dayCheck,
     bookedMoney,
     payoutReadiness,
     standingExtras,
@@ -1018,6 +983,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     receipts,
     eventFileDay,
   ] = await Promise.all([
+    shopBookedRead,
+    couplePhoneRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -1036,6 +1003,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     budgetBandsRead,
     lockHandshakeRead,
     chatFeeForecastRead,
+    dayCheckRead,
     bookedMoneyRead,
     payoutReadinessRead,
     standingExtrasRead,
@@ -1046,6 +1014,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
+  const shopGifts = await shopGiftsRead;
   // The couple's booking ask is open — the one fact that lists "Answer their booking ask" and mounts its panel.
   const askOpen = lockHandshake?.state === 'requested' && Boolean(lockHandshake.eventVendorId);
 
@@ -1296,6 +1265,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           giftBasis={composerGiftBasis}
           feeStanding={composerFeeStanding}
           papicStanding={composerPapicStanding}
+          shopGifts={shopGifts.basis}
+          shopGiftsBuy={shopGifts.buy}
           requestedPax={thread.pax_at_inquiry ?? headerPax ?? 100}
           livePax={headerPax ?? null}
           coupleName={coupleLabel}
@@ -1345,6 +1316,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           returnTo={`/vendor-dashboard/messages/${threadId}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
+          dayCheck={dayCheck}
+          waitlistAsk={vendorWaitlistTheAsk}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
@@ -1358,6 +1331,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           returnPath={`/vendor-dashboard/messages/${threadId}`}
           eventDate={event?.event_date ?? null}
         />
+    ),
+    // ❓ Questions for the couple — every supplier (owner 2026-11-04, "Yes, every supplier"): their own set, sent
+    // into this event with one press; the couple answers in their event, the answers return to the customer card.
+    'questions-for-couple': (
+      <QuestionsSendPanel
+        supabase={supabase}
+        threadId={threadId}
+        eventId={thread.event_id}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={coupleLabel}
+      />
     ),
     'log-outcome': outcomeCapture,
   };
@@ -1605,6 +1589,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
                     private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
+                <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}

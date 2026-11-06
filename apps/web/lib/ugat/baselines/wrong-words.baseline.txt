@@ -75,7 +75,6 @@ app/dashboard/[eventId]/website/editor/page.tsx "Reminders" → /dashboard/[even
 app/download/page.tsx "setnayan.com" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/download/page.tsx "Use it on the web instead" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/download/page.tsx "use Setnayan on the web" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/for-suppliers/_components/vendor-grow-sections.tsx "Get your invite link" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-grow-sections.tsx "List your business — free" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-hero-gate.tsx "List your business for free" → /open-shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/for-suppliers/_components/vendor-tier-deltas.tsx "Talk to us →" → /help	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
@@ -121,7 +120,6 @@ app/vendor-dashboard/subscription/_components/plan-picker.tsx "Get verified firs
 app/vendor-dashboard/subscription/_components/plan-rows.tsx "Portfolio photos" → /vendor-dashboard/collections	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/website/_components/page-parts.tsx "No photos yet" → /vendor-dashboard/collections	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/website/_components/page-parts.tsx "Nothing to pick yet" → /vendor-dashboard/profile	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-app/vendor-dashboard/website/_components/page-parts.tsx "Reply to a review" → /vendor-dashboard/reviews	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor/claim/[token]/page.tsx "This invite was previously declined." → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/waitlist/page.tsx "Pre-register your business today" → /for-suppliers	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Build" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

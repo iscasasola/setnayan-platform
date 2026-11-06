@@ -104,8 +104,8 @@ import {
 } from '@/lib/schedule-travel';
 import { TravelClashGuard, TravelItineraryView } from './_components/travel-itinerary';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
+import { isStoredAppointmentKind } from '@/lib/appointments';
 import { NOT_TAKING_CHANGES } from '@/lib/supplier-schedule-marks';
-import { APPOINTMENT_KINDS } from '@/lib/appointments';
 import {
   VendorMeetingsSection,
   type ScheduleMeeting,
@@ -561,9 +561,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     }
     vendorMeetings = rows.map((r) => ({
       appointment_id: r.appointment_id,
-      kind: (APPOINTMENT_KINDS as readonly string[]).includes(r.kind)
-        ? (r.kind as ScheduleMeeting['kind'])
-        : 'video',
+      kind: isStoredAppointmentKind(r.kind) ? r.kind : 'video',
       label: r.custom_label?.trim() || 'Meeting',
       scheduled_at: r.scheduled_at,
       status: r.status,

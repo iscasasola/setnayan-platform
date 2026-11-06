@@ -452,6 +452,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     !gift && !isPaid && invited?.tier && invited.untilDay && invited.untilDay < todayDay
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
+
   // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
   const photosLine = allowance.ok
     ? portfolioPlanRowLine({
@@ -536,6 +537,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         gift={gift ? { line: giftPlanLine(gift) } : giftEnded ? { line: giftEndedLine(giftEnded.plan, giftEnded.untilDay) } : null}
         photosLine={photosLine}
       />
+
+      {/* 🎁 YOUR GIFTS moved to Shop › Promote (owner 2026-11-05, DECISION_LOG "SHOP › PROMOTE IS THE HOME OF THE
+          SUPPLIER QR CODES, PRINTS AND GIFTS") — one place for every marketing tool. Not linked from here: the Plan is
+          what the shop pays Setnayan; gifts are what it gives its couples. 🔒 shop/promote/gifts-live-on-promote.test.ts */}
 
       {/* ── ADD-ONS — the shipped cards, unchanged, under the row that points here ── */}
       <h2 id="add-ons" className="sn-sec mt-8 scroll-mt-24">

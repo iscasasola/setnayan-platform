@@ -2,16 +2,32 @@
 
 import { Check, Info } from 'lucide-react';
 
+import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { eventsForService, offeredAt } from '@/lib/open-shop-more-services';
 import type { EventTileOption } from './event-tiles';
 import type { PickedService } from './service-cards';
 
 /**
- * ④ WHAT YOU OFFER AT EACH EVENT (prototype v16 `zXEv`; owner 6 Nov: *"when they have services that are not allowed for
- * specific [events] we give a note … or allow them to pick on each event what service do they want"*). One shape
- * covers both: under every TICKED event, the picked services as chips — all on, untick per event ("3 of 4 services");
- * a service that event does not offer (its leaf's `allowedEventTypes`) is greyed with "X isn't offered for ‹event›".
+ * The event types a set of picked services can serve — the ones at least one of them is offered for (prototype v19
+ * `shownEvents`; owner 7 Nov: *"the event that is not compatible to what they picked should not show as well"*). With
+ * nothing picked, every event. The wizard keeps its full ticked set, so a service added later brings its events back
+ * ticked.
+ */
+export function eventsTheyCanServe(
+  events: readonly EventTileOption[],
+  services: readonly PickedService[],
+  allowedOf: (key: string) => string[] | null,
+): EventTileOption[] {
+  if (!services.length) return [...events];
+  return events.filter((e) => services.some((s) => offeredAt(allowedOf(s.key), e.key)));
+}
+
+/**
+ * ④ WHAT YOU OFFER AT EACH EVENT (prototype v16 `zXEv`, v19). Under every TICKED event, the picked services it TAKES as
+ * chips — all on, untick per event ("2 of 2 services"). v19 (owner 7 Nov): inside each event, only the services offered
+ * there — no greyed chips, no "isn't offered" lines; the count is of the offered ones. An event none of the services is
+ * offered for is not drawn at all (the tiles above drop it too — `eventsTheyCanServe`).
  *
  * `off[event]` = the services unticked under that event. A service left on for NO ticked event is refused by Continue
  * (and by the server), and the sentence under the list names it.
@@ -35,7 +51,11 @@ export function ServicesAtEvents({
   refused: boolean;
 }) {
   if (!services.length || !ticked.length) return null;
-  const shown = events.filter((e) => ticked.includes(e.key));
+  const shown = events
+    .filter((e) => ticked.includes(e.key))
+    .map((e) => ({ e, offered: services.filter((s) => offeredAt(allowedOf(s.key), e.key)) }))
+    .filter((x) => x.offered.length > 0);
+  if (!shown.length) return null;
   const dead = services.filter((s) => eventsForService(s.key, allowedOf(s.key), ticked, off).length === 0);
   const toggle = (event: string, key: string) => {
     const cur = off[event] ?? [];
@@ -48,12 +68,10 @@ export function ServicesAtEvents({
       <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
         What you offer at each event{' '}
         <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
-          · all on to start — untick what you don’t do there
+          · untick what you don’t do there
         </small>
       </span>
-      {shown.map((e, i) => {
-        const offered = services.filter((s) => offeredAt(allowedOf(s.key), e.key));
-        const not = services.filter((s) => !offeredAt(allowedOf(s.key), e.key));
+      {shown.map(({ e, offered }, i) => {
         const onCount = offered.filter((s) => !(off[e.key] ?? []).includes(s.key)).length;
         return (
           <div
@@ -67,7 +85,7 @@ export function ServicesAtEvents({
                 {e.label}
               </b>
               <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                {formatCount(onCount)} of {formatCount(services.length)} {services.length === 1 ? 'service' : 'services'}
+                <Count value={onCount} id={`open-shop-ev-${e.key}`} /> of {formatOffered(offered.length)}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Your services at ${e.label}`}>
@@ -92,22 +110,7 @@ export function ServicesAtEvents({
                   </button>
                 );
               })}
-              {not.map((s) => (
-                <span
-                  key={s.key}
-                  aria-disabled="true"
-                  className="inline-flex min-h-9 items-center rounded-full border border-dashed px-3 text-[13.5px] leading-tight"
-                  style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate-3)' }}
-                >
-                  {s.label}
-                </span>
-              ))}
             </div>
-            {not.length ? (
-              <span className="text-[12.5px]" style={{ color: 'var(--m-slate-3)' }}>
-                {not.map((s) => `${s.label} isn’t offered for ${e.label}`).join(' · ')}
-              </span>
-            ) : null}
           </div>
         );
       })}
@@ -128,4 +131,9 @@ export function ServicesAtEvents({
       ) : null}
     </div>
   );
+}
+
+/** "2 services" — the offered count's word (the count itself is drawn by `Count`). */
+function formatOffered(n: number): string {
+  return `${formatCount(n)} ${n === 1 ? 'service' : 'services'}`;
 }

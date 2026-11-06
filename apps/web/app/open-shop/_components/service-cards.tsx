@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, LockOpen, Plus } from 'lucide-react';
+import { Check, ChevronUp, LockOpen, Plus, Trash2, X } from 'lucide-react';
 
+import { ActionButton, useFitRow } from '@/components/action-button';
+import { Count } from '@/components/count';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FIRST_BOOKING_FREE_LABEL, coverageLine, holdsMoreThanFree, whatEachPlanHolds, type MeterService } from '@/lib/open-shop-more-services';
+import { tileIcon } from '@/lib/taxonomy-icons';
 import { ServicePicker, type PickerLeafView, type PickerParentView } from './service-picker';
 
 /** Where a leaf sits in the tree: its tier-2 category (the meter's unit, the card it lands in) and its group. */
@@ -61,8 +65,14 @@ const normName = (x: string) => x.toLowerCase().replace(/[^a-z0-9]/g, '').replac
  * 🗂 "YOUR SERVICES" — ONE PLAIN CARD PER PICKED CATEGORY (prototype v14 → v16 `zPicked` / `catCard`).
  *
  *   · the card: the category's photo, its name, its group (dropped when it equals the category), the category's ⓘ;
- *   · its services as rows (Change for the main, Remove for an added one), each with its specialties (v16: closed with
- *     picks = the picks in ink + "+ Add"; open = every chip + Done; opening one closes the others);
+ *   · its services as rows, each with its specialties (v16: closed with picks = the picks in ink + "+ Add"; open = every
+ *     chip + Done; opening one closes the others). v18 (owner 7 Nov, "with the swipe left to delete"): NO row buttons —
+ *     a row is removed by the house swipe (`SwipeToDelete`, hover on a computer) with Undo in the toast (the wizard's
+ *     `onRemove`); Remove also sits inside the opened specialties. Removing the main makes the next one the main;
+ *     removing the last brings the picker back;
+ *   · v19 — buttons by meaning (BUTTON_RULE): ⌃ Specialties grey · Remove red · ✓ Done green, one fit row;
+ *   · v19 — a category with no photo yet: the wash + line, one lucide icon in gold (`tileIcon`), never a brown gradient;
+ *   · v19 — a new card rises once; a re-render never replays it;
  *   · a category whose only service carries its own name (Cake › Cake) shows the name once — the header IS the service;
  *   · under the last row a BLANK row picks another service of that category ("Also do …?"), or says every one is on;
  *   · after the last card, a dashed "Another category" frame opens the category tiles (frame → tile → row). The card the
@@ -77,6 +87,7 @@ export function ServiceCards({
   places,
   picked,
   onPickedChange,
+  onRemove,
   specialties,
   picks,
   onPicksChange,
@@ -89,8 +100,10 @@ export function ServiceCards({
   places: Map<string, LeafPlace>;
   /** The main first, then the added ones. */
   picked: PickedService[];
-  /** `null` main = "Change" was pressed: the picker is back for the main. */
+  /** A service was added (the blank row, "Another category"). */
   onPickedChange: (next: { main: PickedService | null; added: PickedService[] }) => void;
+  /** v18 — a row was swiped away (or Remove pressed inside its specialties). The wizard removes it and offers Undo. */
+  onRemove: (key: string) => void;
   specialties: Record<string, SpecialtyField[]>;
   picks: SpecialtyPicks;
   onPicksChange: (next: SpecialtyPicks) => void;
@@ -136,40 +149,31 @@ export function ServiceCards({
   }
   const pickedKeys = new Set(picked.map((s) => s.key));
 
-  const remove = (key: string) => {
-    onPickedChange({ main, added: added.filter((a) => a.key !== key) });
-    if (picks[key]) {
-      const next = { ...picks };
-      delete next[key];
-      onPicksChange(next);
-    }
-    if (openSpecialty === key) onOpenSpecialty(null);
-  };
-  const change = () => {
-    if (picks[main.key]) {
-      const next = { ...picks };
-      delete next[main.key];
-      onPicksChange(next);
-    }
-    onOpenSpecialty(null);
-    onPickedChange({ main: null, added });
-  };
+  // v19 MOTION — a NEW card rises once (prototype `ANIM.cards`): the categories already drawn are remembered, so a
+  // re-render (or a chip tapped inside a card) never replays it. Reduced motion → `.os-rise` does nothing.
+  const seenCards = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const c of byCat) seenCards.current.add(c.id);
+  });
+
   const addOne = (s: PickedService) => {
     if (pickedKeys.has(s.key)) return;
     onPickedChange({ main, added: [...added, s] });
   };
 
-  const link = 'inline-flex min-h-9 shrink-0 items-center text-[13px] font-medium text-terracotta';
-  const svcLink = (s: PickedService) =>
-    s.key === main.key ? (
-      <button type="button" className={link} onClick={change} aria-label={`Change ${s.label}`}>
-        Change
-      </button>
-    ) : (
-      <button type="button" className={link} onClick={() => remove(s.key)} aria-label={`Remove ${s.label}`}>
-        Remove
-      </button>
-    );
+  /** v18 — THE ONE SWIPE (`SwipeToDelete`): swipe left on a phone, hover on a computer; Undo is the wizard's toast. */
+  const swipe = (s: PickedService, child: React.ReactNode) => (
+    <SwipeToDelete
+      key={s.key}
+      label={`Remove ${s.label}`}
+      word="Remove"
+      onDelete={() => onRemove(s.key)}
+      radiusClass="rounded-none"
+      surfaceClass="bg-[var(--m-paper)]"
+    >
+      {child}
+    </SwipeToDelete>
+  );
 
   const tip = whatEachPlanHolds();
   const tipBody = (
@@ -198,85 +202,104 @@ export function ServiceCards({
           const siblings = place?.siblings ?? [];
           const one = siblings.length === 1 && normName(siblings[0]!.label) === normName(cat);
           const remain = siblings.filter((x) => !pickedKeys.has(x.key));
+          const Icon = tileIcon(id);
+          const header = (
+            <div
+              className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2.5 border-b px-3 py-2.5"
+              style={{ borderColor: 'var(--m-line)' }}
+            >
+              {/* v19 · a category with no photo yet: the app's wash + line, one lucide icon in gold — the owner's
+                  photos drop in over it. Never the brown gradient. */}
+              <span
+                className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-[var(--m-r-md)]"
+                style={
+                  place?.categoryPhoto
+                    ? { background: 'var(--m-line)' }
+                    : { background: 'var(--m-paper-2)', boxShadow: 'inset 0 0 0 1px var(--m-line)', color: 'rgb(var(--color-terracotta))' }
+                }
+                data-open-shop-card-thumb={place?.categoryPhoto ? 'photo' : 'icon'}
+              >
+                {place?.categoryPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
+                  <img src={place.categoryPhoto} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                )}
+              </span>
+              <span className="grid min-w-0 text-[15px] font-medium leading-[1.2]" style={{ color: 'var(--m-ink)' }}>
+                <span className="[overflow-wrap:anywhere]">{cat}</span>
+                {group && normName(group) !== normName(cat) ? (
+                  <span className="mt-0.5 text-xs font-normal" style={{ color: 'var(--m-slate-3)' }}>
+                    {place?.categoryHint ? (
+                      <InfoTip label={group} labelClassName="text-xs" ariaLabel={`What is ${cat}?`} align="start">
+                        {place.categoryHint}
+                      </InfoTip>
+                    ) : (
+                      group
+                    )}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+          );
+          const rise = !seenCards.current.has(id);
           return (
             <div
               key={id}
-              className="grid min-w-0 grid-cols-[minmax(0,1fr)] rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)]" // no-card-ok: the owner-approved "one plain card per category" (prototype v14 → v16, 6 Nov)
+              className={`grid min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border transition-shadow duration-500 data-[flash]:shadow-[0_0_0_2px_var(--m-orange-3)] ${rise ? 'os-rise' : ''}`} // no-card-ok: the owner-approved "one plain card per category" (prototype v14 → v16, 6 Nov)
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget) e.currentTarget.classList.remove('os-rise');
+              }}
               data-open-shop-card={id}
               data-open-shop-card-has={services.map((s) => s.key).join(' ')}
             >
-              <div
-                className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2.5 border-b px-3 py-2.5"
-                style={{ borderColor: 'var(--m-line)' }}
-              >
-                <span
-                  className="h-11 w-11 overflow-hidden rounded-[var(--m-r-md)]"
-                  style={{
-                    background: place?.categoryPhoto
-                      ? 'var(--m-line)'
-                      : 'linear-gradient(135deg, var(--m-orange-deep), var(--m-ink))',
-                  }}
-                >
-                  {place?.categoryPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
-                    <img src={place.categoryPhoto} alt="" className="h-full w-full object-cover" />
-                  ) : null}
-                </span>
-                <span className="grid min-w-0 text-[15px] font-medium leading-[1.2]" style={{ color: 'var(--m-ink)' }}>
-                  <span className="[overflow-wrap:anywhere]">{cat}</span>
-                  {group && normName(group) !== normName(cat) ? (
-                    <span className="mt-0.5 text-xs font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                      {place?.categoryHint ? (
-                        <InfoTip label={group} labelClassName="text-xs" ariaLabel={`What is ${cat}?`} align="start">
-                          {place.categoryHint}
-                        </InfoTip>
-                      ) : (
-                        group
-                      )}
-                    </span>
-                  ) : null}
-                </span>
-                {one ? svcLink(services[0]!) : <span />}
-              </div>
               {one ? (
-                specialties[services[0]!.key]?.length ? (
-                  <div className="px-3 pb-2 pt-2">
-                    <Specialties
-                      service={services[0]!}
-                      fields={specialties[services[0]!.key]!}
-                      picks={picks}
-                      onPicksChange={onPicksChange}
-                      open={openSpecialty === services[0]!.key}
-                      onOpen={onOpenSpecialty}
-                    />
-                  </div>
-                ) : null
+                /* A one-service category: the header IS the service — the header is the row that swipes. */
+                <>
+                  {swipe(services[0]!, header)}
+                  {specialties[services[0]!.key]?.length ? (
+                    <div className="px-3 pb-2 pt-2">
+                      <Specialties
+                        service={services[0]!}
+                        fields={specialties[services[0]!.key]!}
+                        picks={picks}
+                        onPicksChange={onPicksChange}
+                        open={openSpecialty === services[0]!.key}
+                        onOpen={onOpenSpecialty}
+                        onRemove={onRemove}
+                      />
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <>
-                  {services.map((s) => (
-                    <div
-                      key={s.key}
-                      className="grid gap-1.5 border-b py-2.5 pl-[66px] pr-3"
-                      style={{ borderColor: 'var(--m-line)' }}
-                      data-open-shop-service-row-picked={s.key}
-                    >
-                      <div className="flex min-h-9 items-center justify-between gap-2.5 text-[15px] font-medium" style={{ color: 'var(--m-ink)' }}>
-                        <span className="min-w-0 [overflow-wrap:anywhere]">{s.label}</span>
-                        {svcLink(s)}
-                      </div>
-                      {specialties[s.key]?.length ? (
-                        <Specialties
-                          service={s}
-                          fields={specialties[s.key]!}
-                          picks={picks}
-                          onPicksChange={onPicksChange}
-                          open={openSpecialty === s.key}
-                          onOpen={onOpenSpecialty}
-                        />
-                      ) : null}
-                    </div>
-                  ))}
+                  {header}
+                  {services.map((s) =>
+                    swipe(
+                      s,
+                      <div
+                        className="grid gap-1.5 border-b py-2.5 pl-[66px] pr-3"
+                        style={{ borderColor: 'var(--m-line)' }}
+                        data-open-shop-service-row-picked={s.key}
+                      >
+                        <div className="flex min-h-9 items-center text-[15px] font-medium" style={{ color: 'var(--m-ink)' }}>
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{s.label}</span>
+                        </div>
+                        {specialties[s.key]?.length ? (
+                          <Specialties
+                            service={s}
+                            fields={specialties[s.key]!}
+                            picks={picks}
+                            onPicksChange={onPicksChange}
+                            open={openSpecialty === s.key}
+                            onOpen={onOpenSpecialty}
+                            onRemove={onRemove}
+                          />
+                        ) : null}
+                      </div>,
+                    ),
+                  )}
                   {remain.length ? (
                     /* The blank row (owner 6 Nov: "a blank row under the wine row. to pick more?") — the house dropdown
                        (`PickMenu`): one tap opens the remaining services of THIS category. */
@@ -323,10 +346,17 @@ export function ServiceCards({
       </div>
 
       {adding ? (
-        <div className="grid gap-1.5" data-open-shop-add-picker="">
-          <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-            Another category
-          </span>
+        <div className="os-rise grid gap-1.5" data-open-shop-add-picker="">
+          {/* The picker's head (prototype v18 `.pkhead`): its label, and a grey ✕ Cancel pill — never a text link. */}
+          <div
+            className="sticky top-0 z-[3] flex items-center justify-between gap-3 py-1.5"
+            style={{ background: 'var(--m-paper)' }}
+          >
+            <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+              Another category
+            </span>
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => onAddingChange(false)} />
+          </div>
           <ServicePicker
             tree={tree}
             autoFocus
@@ -338,17 +368,18 @@ export function ServiceCards({
               setFlash(leaf.canonicalService);
             }}
           />
-          <button type="button" className={`${link} justify-self-start`} onClick={() => onAddingChange(false)}>
-            Cancel
-          </button>
         </div>
       ) : null}
+
 
       {/* The coverage line — "N categories · M services — ‹plan› covers this ⓘ", then the count per category. */}
       <div className="relative grid gap-1 text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-open-shop-coverage="">
         <span className="block">
-          <b className="font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {line.tally}
+          {/* v19 — the numbers count to their value (BUTTON_RULE rule 2; `Count` keys on its id, so a re-render never
+              replays). The words are `line.tally`'s, pluralised by the same counts. */}
+          <b className="font-semibold" style={{ color: 'var(--m-ink)' }} aria-label={line.tally}>
+            <Count value={line.categories} id="open-shop-cov-c" /> {line.categories === 1 ? 'category' : 'categories'} ·{' '}
+            <Count value={line.services} id="open-shop-cov-n" /> {line.services === 1 ? 'service' : 'services'}
           </b>{' '}
           <span aria-hidden>—</span>{' '}
           <InfoTip label={line.verdict} labelClassName="text-[13.5px]" ariaLabel={tip.title} align="start" className="!static !inline [&>button]:ml-1 [&>button]:inline-flex [&>button]:align-[-2px]">
@@ -393,6 +424,7 @@ function Specialties({
   onPicksChange,
   open,
   onOpen,
+  onRemove,
 }: {
   service: PickedService;
   fields: SpecialtyField[];
@@ -400,6 +432,8 @@ function Specialties({
   onPicksChange: (next: SpecialtyPicks) => void;
   open: boolean;
   onOpen: (key: string | null) => void;
+  /** v18 — "Remove also sits inside the open specialties" (the row's swipe is the other way). */
+  onRemove: (key: string) => void;
 }) {
   const mine = picks[service.key] ?? {};
   // The opened chips are revealed the house way (owner 2026-11-04, app-wide reveal-on-open): the head is this block.
@@ -409,7 +443,6 @@ function Specialties({
   const summary = fields.flatMap((f) =>
     (mine[f.key] ?? []).map((v) => f.options.find((o) => o.value === v)?.label ?? v),
   );
-  const quiet = 'inline-flex min-h-8 items-center text-[13px]';
   const toggle = (f: SpecialtyField, value: string) => {
     const cur = mine[f.key] ?? [];
     const nextVals = cur.includes(value) ? cur.filter((v) => v !== value) : f.single ? [value] : [...cur, value];
@@ -420,53 +453,29 @@ function Specialties({
     onPicksChange(next);
   };
 
+  const openIt = () => {
+    intend();
+    onOpen(service.key);
+  };
+
+  // v18 / v19 — BUTTON_RULE: every action is a pill, icon + word, by meaning (grey to open/close, red Remove, green Done).
   if (!open) {
     return summary.length ? (
-      <div className="-mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5" data-open-shop-specialties={service.key}>
+      <div className="-mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1" data-open-shop-specialties={service.key}>
         <span className="min-w-0 text-[13px] [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
           {summary.join(' · ')}
         </span>
-        <button
-          type="button"
-          className={`${quiet} gap-0.5`}
-          style={{ color: 'var(--m-slate-3)' }}
-          onClick={() => {
-            intend();
-            onOpen(service.key);
-          }}
-          aria-expanded={false}
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Add
-        </button>
+        <ActionButton tone="neutral" icon={Plus} label="Add" name={`Add ${word.toLowerCase()} to ${service.label}`} onClick={openIt} aria-expanded={false} />
       </div>
     ) : (
       <div className="-mt-1" data-open-shop-specialties={service.key}>
-        <button
-          type="button"
-          className={quiet}
-          style={{ color: 'var(--m-slate-3)' }}
-          onClick={() => {
-            intend();
-            onOpen(service.key);
-          }}
-          aria-expanded={false}
-        >
-          + {word}&nbsp;<small className="text-xs">(optional)</small>
-        </button>
+        <ActionButton tone="neutral" icon={Plus} label={`${word} (optional)`} onClick={openIt} aria-expanded={false} />
       </div>
     );
   }
   return (
-    <div ref={headRef} className="grid gap-2.5" data-open-shop-specialties={service.key} data-open="">
-      <div className="-mt-1 flex items-center gap-2.5">
-        <button type="button" className={quiet} style={{ color: 'var(--m-slate-3)' }} onClick={() => onOpen(null)} aria-expanded>
-          – {word}&nbsp;<small className="text-xs">(optional)</small>
-        </button>
-        <button type="button" className={`${quiet} ml-auto font-medium text-terracotta`} onClick={() => onOpen(null)}>
-          Done
-        </button>
-      </div>
+    <div ref={headRef} className="os-rise grid gap-2.5" data-open-shop-specialties={service.key} data-open="">
+      <SpecialtiesBar word={word} service={service} onClose={() => onOpen(null)} onRemove={onRemove} />
       {fields.map((f) => {
         const on = mine[f.key] ?? [];
         const lone = f.options.length === 1;
@@ -505,6 +514,35 @@ function Specialties({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * v19 — the opened specialties' own row (prototype `fvBlock` open): ⌃ Specialties (grey — closes) · Remove (red — takes
+ * the service off, with Undo) · ✓ Done (green — closes the picker). ONE fit row (BUTTON_RULE 3a): when it does not fit,
+ * every button drops its icon, then every secondary drops its word — together, never a mix. Its own component so
+ * `useFitRow` mounts with the row.
+ */
+function SpecialtiesBar({
+  word,
+  service,
+  onClose,
+  onRemove,
+}: {
+  word: string;
+  service: PickedService;
+  onClose: () => void;
+  onRemove: (key: string) => void;
+}) {
+  const row = useRef<HTMLDivElement>(null);
+  useFitRow(row);
+  return (
+    <div ref={row} className="-mt-1 flex flex-nowrap items-center gap-2" data-open-shop-specialties-bar="">
+      <ActionButton tone="neutral" icon={ChevronUp} label={word} name={`Close ${word.toLowerCase()}`} onClick={onClose} aria-expanded />
+      <span className="min-w-0 flex-1" />
+      <ActionButton tone="danger" icon={Trash2} label="Remove" name={`Remove ${service.label}`} onClick={() => onRemove(service.key)} />
+      <ActionButton tone="ok" icon={Check} label="Done" onClick={onClose} />
     </div>
   );
 }

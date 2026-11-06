@@ -62,7 +62,14 @@ export function firstPlanThatHolds(list: readonly MeterService[]): VendorTier | 
  * booking on Setnayan is done", and the per-category split ("Reception 3 · Accommodation 1") once there is more than
  * one service. Every number is counted or read from `TIER_CAPS`; none is typed.
  */
-export function coverageLine(list: readonly MeterService[]): { tally: string; verdict: string; split: string | null } {
+export function coverageLine(list: readonly MeterService[]): {
+  tally: string;
+  verdict: string;
+  split: string | null;
+  /** The two numbers in `tally`, for the page to COUNT to (BUTTON_RULE rule 2, prototype v19 `num('cov-c')`). */
+  categories: number;
+  services: number;
+} {
   const by = servicesPerCategory(list);
   const c = by.length;
   const n = list.length;
@@ -81,6 +88,8 @@ export function coverageLine(list: readonly MeterService[]): { tally: string; ve
     tally: `${formatCount(c)} ${c === 1 ? 'category' : 'categories'} · ${formatCount(n)} ${n === 1 ? 'service' : 'services'}`,
     verdict,
     split: c > 1 || n > 1 ? by.map((x) => `${x.label} ${formatCount(x.count)}`).join(' · ') : null,
+    categories: c,
+    services: n,
   };
 }
 
@@ -144,6 +153,34 @@ export function whatEachPlanHolds(): {
       'Everything you add stays on until your first booking on Setnayan is done. Then keep one free, or pick a plan to keep them all. Nothing is deleted.',
     firstBooking: `${FIRST_BOOKING_FREE_LABEL}.`,
     fine: 'No booking fee on it. One per business — checked when Setnayan verifies you.',
+  };
+}
+
+/**
+ * ② v19 — "BEFORE YOU CONTINUE" IN TWO COLUMNS (owner 7 Nov: *"a better explanation and simpler to show what is deemed
+ * free, and the others will be part of pro. Your first booking is free so you can experience our app."*; prototype v19
+ * `planSheetBody` · `holderPlan` · `capLine`). THEIR picks, split: what stays Free (`TIER_CAPS.free` — the main service)
+ * and the plan that holds the rest — the first of Solo · Pro · Ultra that holds EVERY pick (usually Pro); past Ultra,
+ * Ultra with "you choose which". Every number is `TIER_CAPS`'; the four-plan ladder lives in the ⓘ.
+ */
+export function planSplit(list: readonly MeterService[]): {
+  free: { name: string; caps: string };
+  held: { name: string; caps: string; choose: boolean };
+} {
+  const capsOf = (t: VendorTier) => {
+    const c = TIER_CAPS[t];
+    const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
+    const per =
+      c.parentCategories === 1
+        ? `${formatCount(c.servicesPerLeaf)} ${c.servicesPerLeaf === 1 ? 'service' : 'services'}`
+        : `${formatCount(c.servicesPerLeaf)} per category`;
+    return `${cats} · ${per}`;
+  };
+  const paid = (['solo', 'pro', 'enterprise'] as const).find((t) => planHolds(t, list)) ?? null;
+  const holder = paid ?? 'enterprise';
+  return {
+    free: { name: planWord('free'), caps: capsOf('free') },
+    held: { name: planWord(holder), caps: capsOf(holder), choose: paid === null },
   };
 }
 

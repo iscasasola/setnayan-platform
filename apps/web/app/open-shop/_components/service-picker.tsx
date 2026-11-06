@@ -5,6 +5,8 @@ import { ArrowLeft, ChevronRight, Search, X } from 'lucide-react';
 
 import { rankTaxonomyOptionsWithClose } from '@/lib/taxonomy-search-rank';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
+import { tileIcon } from '@/lib/taxonomy-icons';
 import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
 
 const COORDINATOR_TRADE_SET: ReadonlySet<string> = new Set(COORDINATOR_TRADE_SERVICES);
@@ -240,19 +242,19 @@ export function ServicePicker({
               </ul>
             </div>
           ) : null}
-          <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Not a coordinator?{' '}
-            <button
-              type="button"
-              className="font-medium text-terracotta"
+          {/* v18 BUTTON_RULE — an action is a pill (grey: it changes the view, it moves nothing forward). */}
+          <p className="flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Not a coordinator?
+            <ActionButton
+              tone="neutral"
+              icon={Search}
+              label="Search all services"
               onClick={() => {
                 onSearchAll?.();
                 searchRef.current?.focus({ preventScroll: true });
               }}
-              data-open-shop-search-all=""
-            >
-              Search all services
-            </button>
+              data-testid="open-shop-search-all"
+            />
           </p>
         </>
       ) : q.length >= 2 ? (
@@ -302,20 +304,25 @@ export function ServicePicker({
                 {opened.category.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
                   <img src={opened.category.photoUrl} alt="" className="h-[27px] w-9 shrink-0 rounded-md object-cover" />
-                ) : null}
+                ) : (
+                  /* v19 — no photo yet: the wash + one gold icon (prototype `.cth.ph`). */
+                  <span
+                    aria-hidden
+                    className="inline-flex h-[27px] w-9 shrink-0 items-center justify-center rounded-md"
+                    style={{ background: 'var(--m-paper)', boxShadow: 'inset 0 0 0 1px var(--m-line)', color: 'rgb(var(--color-terracotta))' }}
+                  >
+                    {(() => {
+                      const Icon = tileIcon(opened.category.tileId);
+                      return <Icon className="h-4 w-4" strokeWidth={1.75} />;
+                    })()}
+                  </span>
+                )}
                 <span className="truncate text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   {opened.category.label}
                 </span>
               </span>
-              <button
-                type="button"
-                onClick={() => setOpenCategory(null)}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1 text-[13px] font-medium"
-                style={{ color: 'var(--m-orange-deep)' }}
-              >
-                <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                All categories
-              </button>
+              {/* v18 BUTTON_RULE — going back is a grey pill, never a text link. */}
+              <ActionButton tone="neutral" icon={ArrowLeft} label="All categories" onClick={() => setOpenCategory(null)} />
             </li>
             <li className="px-3.5 pb-1 pt-2 text-xs" style={{ color: 'var(--m-slate-3)' }}>
               {opened.category.hint ? (
@@ -380,38 +387,55 @@ function CategoryTiles({
           </span>
           {balancedRows(cats).map((rowCats, r) => (
             <div key={r} className="flex gap-2">
-              {rowCats.map((b) => (
-                <button
-                  key={b.tileId}
-                  type="button"
-                  onClick={() => onOpen(b.tileId)}
-                  aria-label={b.label}
-                  className="relative isolate block h-24 min-w-0 flex-1 overflow-hidden rounded-[var(--m-r-sm)] text-left"
-                  style={{
-                    background: b.photoUrl
-                      ? 'var(--m-paper-2)'
-                      : 'linear-gradient(135deg, var(--m-orange-deep), var(--m-ink))',
-                  }}
-                  data-open-shop-category-tile={b.tileId}
-                >
-                  {b.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset
-                    <img src={b.photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
-                  ) : null}
-                  {/* 🌗 A scrim over a PHOTO stays dark in both themes (the event tiles' rule). */}
-                  <span
-                    aria-hidden
-                    className="absolute inset-0"
-                    style={{ background: 'linear-gradient(to top, rgba(23,22,15,.88) 0%, rgba(23,22,15,.5) 55%, transparent 100%)' }}
-                  />
-                  <span
-                    className="absolute inset-x-2 bottom-[7px] text-[12.5px] font-semibold leading-[1.1] text-white"
-                    style={{ textShadow: '0 1px 6px rgba(0,0,0,.5)' }}
+              {rowCats.map((b) => {
+                // v19 (prototype `.evt.ph`, owner 7 Nov): a category with no photo yet is the app's wash + line, its
+                // name in ink, ONE lucide icon in gold (`tileIcon`, the one tile→icon map) — no brown gradient, no
+                // emoji. The photo, when the catalogue has one, drops in over it.
+                const Icon = tileIcon(b.tileId);
+                return (
+                  <button
+                    key={b.tileId}
+                    type="button"
+                    onClick={() => onOpen(b.tileId)}
+                    aria-label={b.label}
+                    className="relative isolate block h-24 min-w-0 flex-1 overflow-hidden rounded-[var(--m-r-sm)] text-left"
+                    style={
+                      b.photoUrl
+                        ? { background: 'var(--m-paper-2)' }
+                        : { background: 'var(--m-paper-2)', boxShadow: 'inset 0 0 0 1px var(--m-line)' }
+                    }
+                    data-open-shop-category-tile={b.tileId}
+                    data-open-shop-category-tile-plain={b.photoUrl ? undefined : ''}
                   >
-                    {b.label}
-                  </span>
-                </button>
-              ))}
+                    {b.photoUrl ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- a signed catalogue URL, not an optimisable asset */}
+                        <img src={b.photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+                        {/* 🌗 A scrim over a PHOTO stays dark in both themes (the event tiles' rule). */}
+                        <span
+                          aria-hidden
+                          className="absolute inset-0"
+                          style={{ background: 'linear-gradient(to top, rgba(23,22,15,.88) 0%, rgba(23,22,15,.5) 55%, transparent 100%)' }}
+                        />
+                      </>
+                    ) : (
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-0 bottom-[22px] top-0 flex items-center justify-center"
+                        style={{ color: 'rgb(var(--color-terracotta))' }}
+                      >
+                        <Icon className="h-6 w-6" strokeWidth={1.75} />
+                      </span>
+                    )}
+                    <span
+                      className={`absolute inset-x-2 bottom-[7px] text-[12.5px] font-semibold leading-[1.1] ${b.photoUrl ? 'text-white' : ''}`}
+                      style={b.photoUrl ? { textShadow: '0 1px 6px rgba(0,0,0,.5)' } : { color: 'var(--m-ink)' }}
+                    >
+                      {b.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>

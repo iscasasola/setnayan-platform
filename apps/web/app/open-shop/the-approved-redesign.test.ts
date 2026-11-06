@@ -101,7 +101,7 @@ test('five steps in the approved order, the account LAST', () => {
   assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
   assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : null/);
   // Five segments in the step bar.
-  assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<span key=\{n\} className="h-1 flex-1/);
+  assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<div key=\{n\} className="h-1 flex-1/);
 });
 
 test('the server runs the same order, and refuses what the browser refuses', () => {
@@ -145,7 +145,9 @@ test('?as=coordinator opens on COORDINATOR_TRADE_SERVICES — read from the cons
 test('every event type starts ticked — the full roster, not the column default', () => {
   assert.match(PAGE, /eventTypeOptions\.map\(\(e\) => e\.key\)/, 'the page no longer hands in the whole roster');
   assert.doesNotMatch(WIZARD, /\['wedding'\]/, 'the wizard falls back to weddings again');
-  assert.match(WIZARD, /All are on to start\. Untick any you don&rsquo;t do\./);
+  // v19 — the tiles are the events their services are offered for; the hint counts the ones on (Count, never replays).
+  assert.match(WIZARD, /<EventTiles\s+options=\{shownEvents\}/);
+  assert.match(WIZARD, /<Count value=\{activeEvents\.length\} id="open-shop-evn" \/> of \{formatCount\(shownEvents\.length\)\} on — untick/);
 });
 
 test('the tiles wear the shipped photo and the shipped fallback, as real checkboxes', () => {
@@ -216,9 +218,12 @@ test('v16 ② · Continue opens "Before you continue" only past Free and before 
 
 test('v16 ③ · specialties compile: picks in ink + "+ Add" when closed, every chip + Done when open, one open at a time', () => {
   assert.match(CARDS, /summary\.join\(' · '\)/);
-  assert.match(CARDS, /Add\s*<\/button>/);
-  assert.match(CARDS, />\s*Done\s*<\/button>/);
-  assert.match(CARDS, /\+ \{word\}&nbsp;<small className="text-xs">\(optional\)<\/small>/);
+  // v18/v19 BUTTON_RULE — pills by meaning, never text links: grey "+ Add" / "+ Specialties (optional)" when closed;
+  // open = every chip + one fit row of ⌃ grey · Remove red · ✓ Done green.
+  assert.match(CARDS, /<ActionButton tone="neutral" icon=\{Plus\} label="Add"/);
+  assert.match(CARDS, /<ActionButton tone="neutral" icon=\{Plus\} label=\{`\$\{word\} \(optional\)`\}/);
+  assert.match(CARDS, /<ActionButton tone="ok" icon=\{Check\} label="Done"/);
+  assert.match(CARDS, /<ActionButton tone="danger" icon=\{Trash2\} label="Remove"/);
   // ONE open key, held by the wizard — opening one closes the others.
   assert.match(WIZARD, /const \[openSpecialty, setOpenSpecialty\] = useState<string \| null>\(null\)/);
   // From the shipped refinement schema, written through the ONE merge.
@@ -226,10 +231,11 @@ test('v16 ③ · specialties compile: picks in ink + "+ Add" when closed, every 
   assert.match(ACTIONS, /await mergeServiceRefinements\(admin, vendorProfileId as string, svc, fd\)/);
 });
 
-test('v16 ④ · under each ticked event, the picked services as chips; greyed where not offered; none on → refused', () => {
-  assert.match(AT_EVENTS, /isn’t offered for \$\{e\.label\}/);
-  assert.match(AT_EVENTS, /\{formatCount\(onCount\)\} of \{formatCount\(services\.length\)\}/);
-  assert.match(AT_EVENTS, /aria-disabled="true"/);
+test('v16 ④ → v19 · under each ticked event, ONLY the services it takes as chips; none on → refused', () => {
+  // v19 (owner 7 Nov): no greyed chips, no "isn't offered" lines; the count is of the offered ones.
+  assert.doesNotMatch(AT_EVENTS, /isn’t offered|isn't offered|aria-disabled/);
+  assert.match(AT_EVENTS, /<Count value=\{onCount\} id=\{`open-shop-ev-\$\{e\.key\}`\} \/> of \{formatOffered\(offered\.length\)\}/);
+  assert.match(AT_EVENTS, /\.filter\(\(x\) => x\.offered\.length > 0\)/);
   assert.match(WIZARD, /if \(serviceOnNoEvent\) return OPEN_SHOP_ERRORS\.extraEvents;/);
   // Events are step 2's second page.
   assert.match(WIZARD, /\['Events you serve', 'Couples find you by event\.'\]/);
@@ -242,7 +248,8 @@ test('v16 ④ · under each ticked event, the picked services as chips; greyed w
 test('v16 ⑤ · three equal buttons; Email opens email + password in place with ONE hint; the leak check speaks on submit', () => {
   assert.match(WIZARD, /className=\{OAUTH_BUTTON_CLASS\}[\s\S]{0,900}\{OAUTH_VERB\} Email/);
   assert.match(WIZARD, /<PasswordField\s+id="open-shop-password"\s+mode="new"\s+quiet\b/);
-  assert.match(WIZARD, /At least 8 characters\s*<\/span>/);
+  // v19 — the ONE rule line is the field's own (`QuietRule`), drawn only once the box holds something.
+  assert.doesNotMatch(WIZARD, /open-shop-password-hint/, 'a second, static hint came back');
   assert.doesNotMatch(WIZARD, /or with email/, 'the "or with email" divider is back');
   assert.match(WIZARD, /Open my shop — free/);
 });

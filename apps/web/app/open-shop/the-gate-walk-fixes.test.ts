@@ -156,9 +156,9 @@ test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
 
 /* ── A6 · events you serve: Select all · Clear ───────────────────────────────────────────────────────────────── */
 
-test('A6 · Select all dims when all are on, Clear when none', () => {
-  assert.match(WIZARD, /disabled=\{eventTypeOptions\.every\(\(e\) => events\.includes\(e\.key\)\)\}[\s\S]{0,200}Select all/);
-  assert.match(WIZARD, /disabled=\{events\.length === 0\}[\s\S]{0,200}Clear/);
+test('A6 → v19 · Select all dims when all shown are on, Clear when none — both act on the SHOWN events only', () => {
+  assert.match(WIZARD, /label="Select all"[\s\S]{0,400}disabled=\{shownEvents\.every\(\(e\) => events\.includes\(e\.key\)\)\}/);
+  assert.match(WIZARD, /label="Clear"[\s\S]{0,400}disabled=\{activeEvents\.length === 0\}/);
 });
 
 /* ── A7 · phone box (rules executed in lib/open-shop-phone.test.ts) ──────────────────────────────────────────── */

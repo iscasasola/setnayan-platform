@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import {
   FIRST_BOOKING_FREE_LABEL,
   carriesFirstBookingLabel,
@@ -20,6 +20,7 @@ import {
   parseExtraServicesField,
   parseSpecialtiesField,
   planLadder,
+  planSplit,
   whatEachPlanHolds,
   type MeterService,
 } from '@/lib/open-shop-more-services';
@@ -150,4 +151,29 @@ test('an added service’s events: roster ∩ its allowed set; ticked NOTHING th
   assert.equal(eventsForAddedService(['ghost'], roster, null), null);
   // The allowed set removes everything ticked → its first allowed event, as the coverage editor does.
   assert.deepEqual(eventsForAddedService(['wedding'], roster, ['birthday']), ['birthday']);
+});
+
+/* ── v19 · the plan explainer's two columns (owner 7 Nov: "what is deemed free, and the others will be part of pro") */
+
+test('v19 planSplit · Free keeps the main; the holder is the FIRST plan that holds the picks — names and caps from TIER_CAPS', () => {
+  const pick = [acc, ...rec(3)]; // two categories, three services in one
+  const s = planSplit(pick);
+  assert.equal(s.free.name, TIER_LABEL.free);
+  const f = TIER_CAPS.free;
+  assert.ok(s.free.caps.startsWith(`${f.parentCategories} ${f.parentCategories === 1 ? 'category' : 'categories'}`));
+  const holder = (['solo', 'pro', 'enterprise'] as const).find((t) => {
+    const c = TIER_CAPS[t];
+    return c.parentCategories >= 2 && c.servicesPerLeaf >= 3;
+  })!;
+  assert.equal(s.held.name, TIER_LABEL[holder]);
+  assert.equal(s.held.caps, `${TIER_CAPS[holder].parentCategories} categories · ${TIER_CAPS[holder].servicesPerLeaf} per category`);
+  assert.equal(s.held.choose, false);
+});
+
+test('v19 planSplit · past the top plan → the top plan, and "you choose which"', () => {
+  const top = TIER_CAPS.enterprise;
+  const many: MeterService[] = Array.from({ length: top.parentCategories + 1 }, (_, i) => ({ categoryId: `c${i}`, categoryLabel: `C${i}` }));
+  const s = planSplit(many);
+  assert.equal(s.held.name, TIER_LABEL.enterprise);
+  assert.equal(s.held.choose, true);
 });

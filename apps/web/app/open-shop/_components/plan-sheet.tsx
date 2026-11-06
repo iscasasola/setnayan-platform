@@ -1,21 +1,27 @@
 'use client';
 
-import { Check, Info, LockOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Info, LockOpen } from 'lucide-react';
 
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
-import { FIRST_BOOKING_FREE_LABEL, whatEachPlanHolds } from '@/lib/open-shop-more-services';
+import { whatEachPlanHolds, type planSplit } from '@/lib/open-shop-more-services';
 
 /** The refusal under the box (the prototype's `plan-continue` sentence). */
 export const PLAN_AGREE_ERROR = 'Tick the box to continue.';
 
+/** The prototype v19 lead — the owner's own words (7 Nov: "Your first booking is free so you can experience our app"). */
+export const PLAN_LEAD = 'Your first booking is free, so you can experience Setnayan.';
+
 /**
- * ② "BEFORE YOU CONTINUE" — THE PLAN EXPLAINER, OPENED BY CONTINUE (prototype v16 `planSheetBody`; owner 6 Nov:
- * *"when do we explain? … and they agree"*, then v16: inline it sat below the fold, so it moved where it cannot be
- * missed). Shown only when the picks are more than Free holds and the box is not ticked yet: a bottom sheet on a phone
- * (the shipped `Sheet`), the right-hand pane when wide (`PlanPane`, the confirm card's place).
+ * ② "BEFORE YOU CONTINUE" — THE PLAN EXPLAINER, OPENED BY CONTINUE (prototype v16 → v19 `planSheetBody`). Shown only when
+ * the picks are more than Free holds and the box is not ticked yet: a bottom sheet on a phone (the shipped `Sheet`), the
+ * right-hand pane when wide (`PlanPane`, the confirm card's place).
  *
- * The ladder is `planLadder()` — every number read from `TIER_CAPS`. No peso on this screen, no payment now.
+ * v19 (owner 7 Nov: *"a better explanation and simpler to show what is deemed free, and the others will be part of
+ * pro"*): a third of its length. One lead line, then THEIR picks in two columns — what stays Free (the main service)
+ * and the plan that holds the rest (`planSplit`, named from TIER_CAPS — usually Pro). The four-plan ladder moved into
+ * the title's ⓘ. No peso on this screen, no number typed here, no payment now.
  */
 function PlanBody({
   agreed,
@@ -24,67 +30,87 @@ function PlanBody({
   onContinue,
   onBack,
   headingId,
+  main,
+  rest,
+  split,
   inSheet = false,
-}: {
-  inSheet?: boolean;
-  agreed: boolean;
-  onAgree: (agreed: boolean) => void;
-  error: string | null;
-  onContinue: () => void;
-  onBack: () => void;
-  headingId: string;
-}) {
+}: PlanProps & { headingId: string; inSheet?: boolean }) {
   const tip = whatEachPlanHolds();
   return (
-    <div className="grid gap-2.5" data-open-shop-plan-sheet="">
-      {/* In the sheet, the first two lines keep clear of its ✕. */}
+    <div className="grid gap-3" data-open-shop-plan-sheet="">
+      {/* In the sheet, the first line keeps clear of its ✕. */}
       <h2 id={headingId} className={`flex items-center gap-1 text-sm font-medium ${inSheet ? 'pr-10' : ''}`} style={{ color: 'var(--m-ink)' }}>
-        <InfoTip label="Before you continue" labelClassName="text-sm font-medium" ariaLabel="What each plan adds" align="start">
+        <InfoTip label="Before you continue" labelClassName="text-sm font-medium" ariaLabel={tip.title} align="start">
           <span className="block space-y-1">
+            <b className="block">{tip.title}</b>
+            {tip.ladder.map((r) => (
+              <span key={r.name} className="block">
+                <b>{r.name}</b> · {r.caps}
+              </span>
+            ))}
+            <span className="block">{tip.listing}</span>
             <span className="block">{tip.after}</span>
+            <b className="block">{tip.firstBooking}</b>
             <span className="block">{tip.fine}</span>
           </span>
         </InfoTip>
       </h2>
       <p className={`flex items-start gap-1.5 text-[13.5px] ${inSheet ? 'pr-10' : ''}`} style={{ color: 'var(--m-slate)' }}>
         <LockOpen aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-        <span>{FIRST_BOOKING_FREE_LABEL} — everything you picked stays on until that booking is done.</span>
+        <span>{PLAN_LEAD}</span>
       </p>
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        You hold more than Free does. Here is what each plan adds — no payment now.
-      </p>
-      <div className="grid gap-1.5" data-open-shop-plan-ladder="">
-        {tip.ladder.map((r, i) => (
-          <div
-            key={r.name}
-            className={`grid gap-0.5 py-1.5 text-[13px] ${i ? 'border-t' : ''}`}
-            style={{ color: 'var(--m-slate)', borderColor: 'var(--m-line)' }}
-          >
-            <b className="font-semibold" style={{ color: 'var(--m-ink)' }}>
-              {r.name}
-            </b>
-            <span>{r.caps}</span>
-          </div>
-        ))}
+      {/* THEIR picks, in two columns (prototype v19 `.split`): Free keeps the main; the plan that holds the rest. */}
+      <div className="grid grid-cols-2 gap-2.5" data-open-shop-plan-split="">
+        <div
+          className="grid min-w-0 content-start gap-1 rounded-xl border px-3 py-2.5 text-[13.5px]" // no-card-ok: the owner-approved v19 two-column split (prototype `.split`, 7 Nov) — Free · the plan that holds the rest
+          style={{ borderColor: 'rgb(var(--color-ok))', color: 'var(--m-slate)' }}
+          data-open-shop-plan-free=""
+        >
+          <b className="text-[15px] font-semibold" style={{ color: 'rgb(var(--color-ok))' }}>
+            {split.free.name}
+          </b>
+          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            {split.free.caps}
+          </span>
+          <span className="[overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+            {main}
+          </span>
+        </div>
+        <div
+          className="grid min-w-0 content-start gap-1 rounded-xl border px-3 py-2.5 text-[13.5px]" // no-card-ok: the owner-approved v19 two-column split (prototype `.split`, 7 Nov) — Free · the plan that holds the rest
+          style={{ borderColor: 'var(--m-orange-3)', background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
+          data-open-shop-plan-held=""
+        >
+          <b className="text-[15px] font-semibold">{split.held.name}</b>
+          <span className="text-xs">
+            {split.held.caps}
+            {split.held.choose ? ' — you choose which' : ''}
+          </span>
+          <span className="grid gap-0.5">
+            {rest.map((x) => (
+              <span key={x} className="[overflow-wrap:anywhere]">
+                {x}
+              </span>
+            ))}
+          </span>
+        </div>
       </div>
-      {/* The sheet's own words (prototype v16 `planSheetBody`) — the ⓘ under the meter phrases it its own way. */}
       <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Each service is its own listing in its category — more services, more of couples’ searches you appear in. Reach is
-        how far from you couples search.
+        All of it stays on until that booking is done. Then {main} stays free; {split.held.name} keeps the rest.
       </p>
       <button
         type="button"
         role="checkbox"
         aria-checked={agreed}
         onClick={() => onAgree(!agreed)}
-        className="flex items-start gap-2 text-left text-[13.5px]"
+        className="flex min-h-11 items-center gap-2 text-left text-[13.5px]"
         style={{ color: 'var(--m-ink)' }}
         aria-describedby={error ? 'open-shop-err-plan' : undefined}
         data-open-shop-plan-agree=""
       >
         <span
           aria-hidden
-          className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
           style={{
             borderColor: agreed ? 'var(--m-mulberry)' : 'var(--m-slate-3)',
             background: agreed ? 'var(--m-mulberry)' : 'var(--m-paper)',
@@ -93,10 +119,7 @@ function PlanBody({
         >
           {agreed ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
         </span>
-        <span>
-          I understand: my first booking is free once I’m verified, and everything I picked stays on until it is done.
-          After it I keep one service free, or pick the plan that holds the rest.
-        </span>
+        <span>I understand how this works.</span>
       </button>
       {error ? (
         <span
@@ -117,14 +140,12 @@ function PlanBody({
         data-open-shop-plan-continue=""
       >
         Continue
+        <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
       </button>
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex min-h-9 items-center justify-center text-[13px] font-medium text-terracotta"
-      >
-        Back to my services
-      </button>
+      {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
+      <span className="flex justify-center">
+        <ActionButton tone="neutral" icon={ArrowLeft} label="Back to my services" onClick={onBack} />
+      </span>
     </div>
   );
 }
@@ -135,6 +156,12 @@ type PlanProps = {
   error: string | null;
   onContinue: () => void;
   onBack: () => void;
+  /** The main service's name — what stays Free. */
+  main: string;
+  /** Every other picked service's name — what the plan holds. */
+  rest: string[];
+  /** `planSplit(...)` — both columns' names and caps, read from TIER_CAPS. */
+  split: ReturnType<typeof planSplit>;
 };
 
 /** On a phone: the shipped bottom `Sheet`. */
@@ -153,7 +180,7 @@ export function PlanPane(p: PlanProps) {
   return (
     <div
       // Space and type, not a box (DESIGN-FOUNDATION): the right column is already its own place.
-      className="sticky top-5 py-1"
+      className="os-in-r sticky top-5 py-1"
       role="dialog"
       aria-labelledby="open-shop-plan-pane-title"
     >

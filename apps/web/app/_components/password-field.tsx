@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { Check, Circle, Eye, EyeOff, X } from 'lucide-react';
+import { AlertTriangle, Check, Circle, Eye, EyeOff, X } from 'lucide-react';
 import { assessNewPassword, type RuleState, type StrengthLevel } from '@/lib/password-strength';
 
 /**
@@ -61,10 +61,11 @@ export type PasswordFieldProps = InputProps & {
   /** The server's breach check refused the password this box holds. */
   leaked?: boolean;
   /**
-   * 🤫 `mode="new" quiet` — a create-password box that shows NO bar and NO rules: one hint under it, said by the door
-   * ("At least 8 characters"), and the leak check speaks only if it fails, on submit, under the box. The supplier
-   * sign-up's account step (owner, prototype open-shop v16, 6 Nov: *"one hint, no strength bar, no checklist"*). The
-   * box is still a NEW-password box (`autoComplete="new-password"`, the same server rules) — only the meter is not drawn.
+   * 🤫 `mode="new" quiet` — a create-password box that shows NO bar and NO checklist: once the box is not empty, ONE
+   * rule line ("At least 8 characters") that ticks as they type, plus a warning only if it holds their name/email
+   * (`QuietRule`); the leak check speaks only if it fails, on submit, under the box. The supplier sign-up's account
+   * step (owner, prototype open-shop v16 → v19, 6–7 Nov). The box is still a NEW-password box
+   * (`autoComplete="new-password"`, the same server rules) — only the meter is not drawn.
    */
   quiet?: boolean;
 };
@@ -100,6 +101,9 @@ export function PasswordField({
   const id = idProp ?? autoId;
   const meterId = `${id}-strength`;
   const isNew = mode === 'new' && !quiet;
+  // Both create-password shapes follow what is typed: the full meter, and the quiet one-line rule (v19).
+  const tracks = mode === 'new';
+  const quietId = `${id}-rule`;
   // What the box holds (mode="new" only) and the name/email words around it.
   const [typed, setTyped] = useState('');
   const [formPersonal, setFormPersonal] = useState<string[]>([]);
@@ -184,7 +188,7 @@ export function PasswordField({
   // mode="new": follow the box (also an autofilled or controlled value) and the
   // form's name/email boxes, which may be typed after the password.
   useEffect(() => {
-    if (!isNew) return;
+    if (!tracks) return;
     const el = inputRef.current;
     if (!el) return;
     setTyped(el.value);
@@ -193,7 +197,7 @@ export function PasswordField({
     sync();
     form?.addEventListener('input', sync);
     return () => form?.removeEventListener('input', sync);
-  }, [isNew, input.value]);
+  }, [tracks, input.value]);
 
   // STICKY ON PURPOSE: remembered until the box changes, never cleared when the
   // prop drops. The app-wide <ToastFromParams> strips `?error=` right after the
@@ -225,9 +229,9 @@ export function PasswordField({
       <input
         // field-ok: this IS the one password primitive — each door wraps it in its own Field/label
         {...input}
-        {...(isNew
+        {...(tracks
           ? {
-              'aria-describedby': [input['aria-describedby'], meterId].filter(Boolean).join(' '),
+              'aria-describedby': [input['aria-describedby'], isNew ? meterId : typed ? quietId : ''].filter(Boolean).join(' ') || undefined,
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                 setTyped(e.target.value);
                 input.onChange?.(e);
@@ -262,9 +266,14 @@ export function PasswordField({
     <span
       {...restWrapper}
       ref={wrapRef}
-      className={[isNew ? 'block' : 'relative block', wrapperClassName, wrapperPropsClass].filter(Boolean).join(' ')}
+      className={[tracks ? 'block' : 'relative block', wrapperClassName, wrapperPropsClass].filter(Boolean).join(' ')}
     >
-      {isNew ? (
+      {tracks && quiet ? (
+        <>
+          <span className="relative block">{box}</span>
+          {typed ? <QuietRule id={quietId} password={typed} personal={[...formPersonal, ...(personal ?? [])]} /> : null}
+        </>
+      ) : isNew ? (
         <>
           <span className="relative block">{box}</span>
           <NewPasswordMeter
@@ -371,6 +380,51 @@ function Rule({ state, children }: { state: RuleState; children: React.ReactNode
         <span className="sr-only">{said}</span>
         {children}
       </span>
+    </span>
+  );
+}
+
+/**
+ * 🤫 THE QUIET RULE (`mode="new" quiet` — the supplier sign-up, prototype v19 `zPw`; owner 7 Nov). Drawn only once the
+ * box holds something: ONE line, "At least 8 characters", that ticks green as they type. The leak check is the
+ * server's, on submit, and the door draws its refusal under the box — it never speaks here. "Not your name or email"
+ * is a WARNING line that appears only when it fails; it never blocks (the server does not refuse it either).
+ */
+function QuietRule({
+  id,
+  password,
+  personal,
+}: {
+  id: string;
+  password: string;
+  personal: ReadonlyArray<string | null | undefined>;
+}) {
+  const { rules } = assessNewPassword(password, { personal });
+  const long = rules.length === 'ok';
+  return (
+    <span
+      id={id}
+      data-password-quiet-rule=""
+      className="mt-1.5 block space-y-1 text-left text-xs leading-snug"
+      style={{ color: 'var(--m-slate-3, currentColor)', fontFamily: 'inherit', fontStyle: 'normal' }}
+    >
+      <span data-rule={long ? 'ok' : 'pending'} className="flex items-center gap-1.5" aria-live="polite">
+        {long ? (
+          <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} style={{ color: RULE_INK.ok }} />
+        ) : (
+          <Circle aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-50" strokeWidth={2} />
+        )}
+        <span style={long ? { color: RULE_INK.ok } : undefined}>
+          <span className="sr-only">{long ? 'Done: ' : ''}</span>
+          At least 8 characters
+        </span>
+      </span>
+      {rules.personal === 'fail' ? (
+        <span data-rule="warn" className="flex items-center gap-1.5" style={{ color: 'rgb(var(--color-warn))' }}>
+          <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+          <span>Better not to use your name or email in it</span>
+        </span>
+      ) : null}
     </span>
   );
 }

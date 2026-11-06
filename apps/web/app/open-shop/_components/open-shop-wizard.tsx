@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Info, Mail, MailCheck, RotateCw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCheck, Eraser, Info, Mail, MailCheck, RotateCw, X } from 'lucide-react';
 
+import { ActionButton, useFitRow } from '@/components/action-button';
+import { Count, Fill } from '@/components/count';
+import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   OPEN_SHOP_ERRORS,
@@ -23,7 +27,7 @@ import { isPhPhone } from '@/lib/ph-phone';
 import { CityPin } from './city-pin';
 import { EventTiles, type EventTileOption } from './event-tiles';
 import { ServiceCards, placeIndex, type PickedService, type SpecialtyField, type SpecialtyPicks } from './service-cards';
-import { ServicesAtEvents } from './services-at-events';
+import { ServicesAtEvents, eventsTheyCanServe } from './services-at-events';
 import { PLAN_AGREE_ERROR, PlanPane, PlanSheet } from './plan-sheet';
 import {
   EXTRA_SERVICES_FIELD,
@@ -31,6 +35,7 @@ import {
   SPECIALTIES_FIELD,
   eventsForService,
   holdsMoreThanFree,
+  planSplit,
 } from '@/lib/open-shop-more-services';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { useStaleBuild } from './use-stale-build';
@@ -194,6 +199,14 @@ export function OpenShopWizard({
   const [step, setStep] = useState<Step>(
     initialStep && initialStep >= 1 && initialStep <= TOTAL_STEPS ? initialStep : 1,
   );
+  /**
+   * v19 MOTION (owner 7 Nov "make the signup fully animated"): the step SLIDES IN — from the right going forward, from
+   * the left going back — on a step (or step-2 page) change ONLY. Null until the first move, so the page never slides
+   * on load. The slide is a CSS animation on the panel that turns from `hidden` to shown (`.os-in-r` / `.os-in-l`,
+   * globals.css), so a re-render never replays it; `prefers-reduced-motion` turns it off there.
+   */
+  const [dir, setDir] = useState<'fwd' | 'back' | null>(null);
+  const slide = dir === 'fwd' ? 'os-in-r' : dir === 'back' ? 'os-in-l' : '';
   const [shopName, setShopName] = useState(defaults.shopName);
   // 🖼 The logo is not asked here (A2) — it is asked right after the shop opens, signed in, where the upload works
   // (`/open-shop/logo`). What a re-run already holds is kept and re-posted, never cleared.
@@ -296,6 +309,9 @@ export function OpenShopWizard({
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
+  // v18 — the "Events you serve" pills share a row with the label; the house fit pass folds them to icons if it overflows.
+  const eventsBulkRef = useRef<HTMLSpanElement>(null);
+  useFitRow(eventsBulkRef);
 
   const serviceLabel = pickedLabel ?? (service ? (savedServiceLabel ?? serviceLabels?.[service] ?? null) : null);
   /** Every picked service, the main first (`PickedService` — key + name). */
@@ -306,6 +322,49 @@ export function OpenShopWizard({
   );
   /** ④ The services left on for NO ticked event — Continue (and the server) refuse them. */
   const serviceOnNoEvent = picked.some((p) => eventsForService(p.key, allowedOf(p.key), events, evOff).length === 0);
+  /**
+   * ③ v19 — "Events you serve" lists only the event types one of the picked services is offered for (owner 7 Nov: *"the
+   * event that is not compatible to what they picked should not show as well"*). `events` keeps the FULL ticked set, so a
+   * service added later brings its events back ticked; what posts is the shown ∩ ticked (only shown tiles render a
+   * checkbox), and "at least one event" counts those.
+   */
+  const shownEvents = eventsTheyCanServe(eventTypeOptions, picked, allowedOf);
+  const activeEvents = shownEvents.filter((e) => events.includes(e.key)).map((e) => e.key);
+
+  /**
+   * v18 — A SERVICE ROW IS REMOVED BY THE SWIPE (owner 7 Nov "with the swipe left to delete"; Remove also sits inside
+   * the open specialties), with Undo in the house toast (`pushUndo` — nothing is written until the shop opens, so the
+   * Undo puts the picks back exactly as they were). Removing the main makes the next service the main (prototype
+   * `svcRemove`); removing the last one brings the picker back.
+   */
+  const removeService = (key: string) => {
+    const was = { service, pickedLabel, added, picks };
+    const label = picked.find((p) => p.key === key)?.label ?? key;
+    if (key === service) {
+      const [nextMain, ...rest] = added;
+      setService(nextMain?.key ?? '');
+      setPickedLabel(nextMain?.label ?? null);
+      setAdded(rest);
+    } else {
+      setAdded((cur) => cur.filter((a) => a.key !== key));
+    }
+    if (picks[key]) {
+      const nextPicks = { ...picks };
+      delete nextPicks[key];
+      setPicks(nextPicks);
+    }
+    if (openSpecialty === key) setOpenSpecialty(null);
+    if (errorField === 'extras') setBanner(null);
+    pushUndo({
+      label: `${label} removed`,
+      undo: async () => {
+        setService(was.service);
+        setPickedLabel(was.pickedLabel);
+        setAdded(was.added);
+        setPicks(was.picks);
+      },
+    });
+  };
 
   /**
    * ── ONE QUESTION PER STEP ─────────────────────────────────────────────────────────────────────────────────────────
@@ -326,8 +385,8 @@ export function OpenShopWizard({
     }
     if (n === 2) {
       if (!service) return OPEN_SHOP_ERRORS.service;
-      // "Pick at least one event." (owner 2026-11-06) — the server refuses an empty set too.
-      if (events.length === 0) return OPEN_SHOP_ERRORS.events;
+      // "Pick at least one event." (owner 2026-11-06) — the server refuses an empty set too. v19: of the SHOWN tiles.
+      if (activeEvents.length === 0) return OPEN_SHOP_ERRORS.events;
       // ④ Every service must be on for at least one ticked event — the server refuses it too.
       if (serviceOnNoEvent) return OPEN_SHOP_ERRORS.extraEvents;
       return null;
@@ -421,6 +480,7 @@ export function OpenShopWizard({
         return;
       }
       setBanner(null);
+      setDir('fwd');
       setPage2('events');
       window.scrollTo({ top: 0 });
       return;
@@ -428,6 +488,7 @@ export function OpenShopWizard({
     const err = validateStep(step);
     if (err) return refuse(err);
     setBanner(null);
+    setDir('fwd');
     setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
     window.scrollTo({ top: 0 });
   };
@@ -435,6 +496,7 @@ export function OpenShopWizard({
   const back = () => {
     setBanner(null);
     setPlanOpen(false);
+    setDir('back');
     if (step === 2 && page2 === 'events') {
       setPage2('services');
       return;
@@ -451,6 +513,7 @@ export function OpenShopWizard({
     }
     setPlanOpen(false);
     setBanner(null);
+    setDir('fwd');
     setPage2('events');
     window.scrollTo({ top: 0 });
   };
@@ -658,10 +721,17 @@ export function OpenShopWizard({
       setPlanOpen(false);
       setPlanErr(null);
     },
+    // ② v19 — THEIR picks in two columns: the main stays Free; the plan that holds the rest (TIER_CAPS, never typed).
+    main: picked[0]?.label ?? '',
+    rest: picked.slice(1).map((p) => p.label),
+    split: planSplit(picked.map((p) => ({ categoryId: places.get(p.key)?.categoryId ?? p.key, categoryLabel: '' }))),
   };
 
   return (
-    <main className="flex min-h-[100dvh] flex-col md:block md:min-h-[70vh]" data-open-shop-wizard="">
+    // `overflow-x-clip`: a step sliding in from 40px right never widens the page (clip, not hidden — the bar stays sticky).
+    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-wizard="">
+      {/* v18 — the ONE Undo toast (a swiped-away service comes back from here). */}
+      <UndoToastHost />
       {/* ── THE TOP LINE (≥768): the wordmark, and "Have an account? Sign in — what you typed stays." ─────────── */}
       <div
         className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8"
@@ -698,18 +768,23 @@ export function OpenShopWizard({
               aria-label={`Step ${formatCount(step)} of ${formatCount(TOTAL_STEPS)}`}
               data-open-shop-segments=""
             >
+              {/* v19 motion — the bars GROW (the house `Fill`: from 0 once on load, then slides on a step change; keyed
+                  by id, so a re-render never replays it; reduced motion jumps). */}
               {([1, 2, 3, 4, 5] as Step[]).map((n) => (
-                <span key={n} className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--m-line)' }}>
-                  <span
-                    className="block h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                    style={{ width: n <= step ? '100%' : '0%', background: 'var(--m-orange-deep)' }}
+                <div key={n} className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--m-line)' }}>
+                  <Fill
+                    value={n <= step ? 100 : 0}
+                    id={`open-shop-seg-${n}`}
+                    className="h-full rounded-full"
+                    style={{ background: 'var(--m-orange-deep)' }}
                   />
-                </span>
+                </div>
               ))}
             </div>
           </div>
 
-          <div className="grid gap-[3px]">
+          {/* Keyed by the screen, so the words slide in with the step (v19) — a re-render keeps the node, no replay. */}
+          <div key={`${step}-${page2}`} className={`grid gap-[3px] ${slide}`}>
             <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
               {title}
             </h1>
@@ -745,7 +820,20 @@ export function OpenShopWizard({
               inside the form below. */}
           {guest && step === TOTAL_STEPS ? (
             <div className="grid max-w-[620px] gap-2" onSubmitCapture={() => saveDraft()} data-open-shop-ways="">
-              {waysShown && !taken ? (
+              {/* ⑥ v19 (owner 7 Nov: "when email is picked, continue with google and apple hides"): Email chosen → the
+                  three go; ONE grey "✕ Use another way" brings them back. */}
+              {waysShown && !taken && acctEmail ? (
+                <span className="flex">
+                  <ActionButton
+                    tone="neutral"
+                    icon={X}
+                    label="Use another way"
+                    onClick={() => setAcctEmail(false)}
+                    data-testid="open-shop-another-way"
+                  />
+                </span>
+              ) : null}
+              {waysShown && !taken && !acctEmail ? (
                 <>
                   {oauth.desktop ? (
                     <DesktopOAuthButtons next="/open-shop" />
@@ -757,8 +845,7 @@ export function OpenShopWizard({
                   <button
                     type="button"
                     className={OAUTH_BUTTON_CLASS}
-                    style={acctEmail ? { borderColor: 'var(--m-ink)', boxShadow: 'inset 0 0 0 1px var(--m-ink)' } : undefined}
-                    aria-pressed={acctEmail}
+                    aria-pressed={false}
                     aria-describedby={describedBy('way')}
                     onClick={() => {
                       setAcctEmail(true);
@@ -807,7 +894,7 @@ export function OpenShopWizard({
 
             {/* 1 · Name your shop. Always mounted, like every panel — inputs persist across steps and there is ONE
                 submit at the end. */}
-            <div className={step === 1 ? 'space-y-4' : 'hidden'}>
+            <div className={`${step === 1 ? 'space-y-4' : 'hidden'} ${slide}`}>
               <label className="block max-w-[620px] space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Shop name
@@ -837,13 +924,19 @@ export function OpenShopWizard({
                   onAddress={setSlug}
                 />
               </label>
+              {/* TODO(#7359 — controller resolves after it merges): ⑧ v19 "a name HELD by another shop is refused live
+                  in step 1". #7359 already builds it — `NameHold` (`./name-hold`) asking `checkShopAddress(name, 'name')`
+                  → `checkShopNameHold` → the SQL `shop_name_core_hold`, refusing with `SHOP_NAME_HELD_MESSAGE` in
+                  `validateStep(1)`. Not on this branch yet; when #7359 merges into it, seat its `<NameHold … />` HERE
+                  (outside the <label>, which owns its input) and its `nameHeld && claimedName !== shopName.trim()`
+                  line in `validateStep(1)` — the merge conflicts in this file because #7359 edits main's older wizard. */}
             </div>
 
             {/* 2 · What you do — page 1 "Your services" (the category cards), page 2 "Events you serve" (prototype
                 v13: events are step 2's own second page). Both pages are always mounted; one shows. */}
             <div className={step === 2 ? 'space-y-4' : 'hidden'}>
               <div
-                className={page2 === 'services' ? `block space-y-1.5 ${service ? 'max-w-[620px] lg:max-w-none' : 'max-w-[620px]'}` : 'hidden'}
+                className={page2 === 'services' ? `block space-y-1.5 ${service ? 'max-w-[620px] lg:max-w-none' : 'max-w-[620px]'} ${slide}` : 'hidden'}
                 data-open-shop-page="services"
               >
                 {/* "Your services" once the main is picked — the main and every added one are one set of cards. */}
@@ -869,6 +962,7 @@ export function OpenShopWizard({
                           setAdded(nextAdded);
                           if (errorField === 'extras') setBanner(null);
                         }}
+                        onRemove={removeService}
                         specialties={specialties}
                         picks={picks}
                         onPicksChange={setPicks}
@@ -962,38 +1056,43 @@ export function OpenShopWizard({
                 ) : null}
               </div>
 
-              <div className={page2 === 'events' ? 'block space-y-3' : 'hidden'} data-open-shop-page="events">
+              <div className={page2 === 'events' ? `block space-y-3 ${slide}` : 'hidden'} data-open-shop-page="events">
                 <div className="block space-y-2">
-                  {/* ✅ A6 — two text buttons right of the label. Each dims when it would do nothing. */}
-                  <span className="flex items-baseline justify-between gap-2">
+                  {/* ✅ A6 → v18 BUTTON_RULE — two grey pills right of the label, never text links. Each acts on the
+                      events SHOWN (v19: only the ones their services are offered for) and dims when it would do nothing. */}
+                  <span ref={eventsBulkRef} className="flex items-center justify-between gap-2">
                     <span id="open-shop-events-label" className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                       Events you serve
                     </span>
-                    <span className="flex shrink-0 items-center gap-3 text-xs font-medium" data-open-shop-events-bulk="">
-                      <button
-                        type="button"
+                    <span className="flex shrink-0 items-center gap-1.5" data-open-shop-events-bulk="">
+                      <ActionButton
+                        tone="neutral"
+                        icon={CheckCheck}
+                        label="Select all"
+                        name="Select all events"
                         onClick={() => {
-                          setEvents(eventTypeOptions.map((e) => e.key));
+                          setEvents([...new Set([...events, ...shownEvents.map((e) => e.key)])]);
                           if (errorField === 'events') setBanner(null);
                         }}
-                        disabled={eventTypeOptions.every((e) => events.includes(e.key))}
-                        className="text-terracotta disabled:opacity-40"
-                      >
-                        Select all
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEvents([])}
-                        disabled={events.length === 0}
-                        className="text-terracotta disabled:opacity-40"
-                      >
-                        Clear
-                      </button>
+                        disabled={shownEvents.every((e) => events.includes(e.key))}
+                      />
+                      <ActionButton
+                        tone="neutral"
+                        icon={Eraser}
+                        label="Clear"
+                        name="Clear every event"
+                        onClick={() => {
+                          const shownKeys = new Set(shownEvents.map((e) => e.key));
+                          setEvents(events.filter((k) => !shownKeys.has(k)));
+                        }}
+                        disabled={activeEvents.length === 0}
+                      />
                     </span>
                   </span>
-                  {/* 🖼 Small photo tiles (owner 2026-11-06) — three across on a phone, every one ticked to start. */}
+                  {/* 🖼 Small photo tiles (owner 2026-11-06) — three across on a phone. v19: only the events their
+                      services are offered for. */}
                   <EventTiles
-                    options={eventTypeOptions}
+                    options={shownEvents}
                     value={events}
                     onToggle={(k) => {
                       toggleEvent(k);
@@ -1002,12 +1101,13 @@ export function OpenShopWizard({
                     describedBy={describedBy('events', 'open-shop-events-label')}
                   />
                   {fieldError('events') ?? (
-                    <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                      All are on to start. Untick any you don&rsquo;t do.
+                    <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-events-count="">
+                      <Count value={activeEvents.length} id="open-shop-evn" /> of {formatCount(shownEvents.length)} on — untick
+                      what you don&rsquo;t do.
                     </span>
                   )}
                 </div>
-                {/* ④ Under each ticked event, your services as chips — untick per event; greyed where not offered. */}
+                {/* ④ Under each ticked event, only the services it takes as chips — untick per event (v19). */}
                 <ServicesAtEvents
                   events={eventTypeOptions}
                   ticked={events}
@@ -1026,7 +1126,7 @@ export function OpenShopWizard({
             </div>
 
             {/* 3 · Where you are. The map is the one element that needs full attention and cannot be made smaller. */}
-            <div className={step === 3 ? 'space-y-4' : 'hidden'}>
+            <div className={`${step === 3 ? 'space-y-4' : 'hidden'} ${slide}`}>
               <div className="block space-y-1">
                 <label htmlFor="open-shop-hq_address" className="block max-w-[620px] text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Address
@@ -1054,7 +1154,7 @@ export function OpenShopWizard({
             </div>
 
             {/* 4 · About you (prototype v16 ⑤: "maybe the name number and role will be the slide before the login"). */}
-            <div className={step === 4 ? 'space-y-4' : 'hidden'}>
+            <div className={`${step === 4 ? 'space-y-4' : 'hidden'} ${slide}`}>
               <label className="block max-w-[620px] space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Your name
@@ -1121,7 +1221,7 @@ export function OpenShopWizard({
 
             {/* 5 · Your account — signed out, the email + password open in place once "Continue with Email" is picked
                 (kept MOUNTED either way, so a restored or typed value still posts). Signed in, the shop's email. */}
-            <div className={step === 5 ? 'space-y-4' : 'hidden'}>
+            <div className={`${step === 5 ? 'space-y-4' : 'hidden'} ${slide}`}>
               {/* When `taken`, this box has turned into the sign-in above — kept mounted (hidden) so its value posts. */}
               <label className={taken || (guest && !acctEmail) ? 'hidden' : 'block max-w-[620px] space-y-1'}>
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
@@ -1158,8 +1258,9 @@ export function OpenShopWizard({
                   <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                     Password
                   </span>
-                  {/* #7344's field, quiet (prototype v16: "one hint, no strength bar, no checklist — the leaked check
-                      runs on submit and speaks only if it fails"): the eye, the one hint, the refusal under it. */}
+                  {/* #7344's field, quiet (prototype v19 `zPw`): the eye, then ONE rule line — drawn only once the box
+                      holds something, ticking as they type. The leaked check runs on submit and speaks only if it
+                      fails (the refusal under it). "Not your name or email" warns; it never blocks. */}
                   <PasswordField
                     id="open-shop-password"
                     mode="new"
@@ -1170,11 +1271,8 @@ export function OpenShopWizard({
                     placeholder="At least 8 characters"
                     className="input-field"
                     aria-invalid={errorFor('password') ? true : undefined}
-                    aria-describedby={describedBy('password', 'open-shop-password-hint')}
+                    aria-describedby={describedBy('password')}
                   />
-                  <span id="open-shop-password-hint" className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                    At least 8 characters
-                  </span>
                   {fieldError('password')}
                 </label>
               ) : null}
@@ -1330,7 +1428,7 @@ export function OpenShopWizard({
               {glanceRow(
                 'Events',
                 step >= 2 && service && !(step === 2 && page2 === 'services')
-                  ? `${formatCount(events.length)} of ${formatCount(eventTypeOptions.length)}`
+                  ? `${formatCount(activeEvents.length)} of ${formatCount(shownEvents.length)}`
                   : null,
               )}
               {glanceRow('Where', confirmedCity)}

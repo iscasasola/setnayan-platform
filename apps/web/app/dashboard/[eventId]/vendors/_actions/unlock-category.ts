@@ -52,6 +52,7 @@ import {
   stampThreadProvenance,
 } from '@/lib/inquiry-attribution';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -172,6 +173,8 @@ export async function unlockCategoryWithInquiry(input: {
       .limit(1)
       .maybeSingle();
     if (!svc) continue;
+    // 🧪 A real event never adds a demo shop; a demo event adds only demo shops (owner 2026-11-06, lib/demo-scope.ts).
+    if (await demoBookingRefusal(admin, { eventId, vendorProfileId })) continue;
     const category = svc.category as string;
     const serviceId = svc.vendor_service_id as string;
 

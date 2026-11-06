@@ -29,8 +29,9 @@
  *   - PR 3 imports `isDemoMode()` from this module to gate the compare
  *     view (Agent 3)
  *
- * Hard cutover deadline: Dec 1, 2026 — demo data must be cleaned out
- * before public V1 launch. The banner reiterates this.
+ * 🧪 SINCE 2026-11-06 demo shops are PUBLIC (marked "(DEMO ONLY)") without this flag — the owner's ruling
+ * "DEMO SHOPS + DEMO EVENTS" supersedes the hide-unless-demo-mode rule in point 1 above, and retires the old
+ * "Dec 1, 2026 cleanup" cutover. What the flag still does is point 2: force demo shops' prices public.
  */
 
 import type { NextRequest } from 'next/server';
@@ -61,12 +62,11 @@ export const DEMO_MODE_QUERY_PARAM = 'demo';
  */
 export const DEMO_MODE_COOKIE_MAX_AGE_S = 60 * 60 * 24;
 
-/**
- * Demo data must be cleaned out before public V1 launch. Surfaced in
- * the banner and the admin toggle UI as a reminder. Iso string for
- * easy formatting; PHT (+08:00) so the banner reads cleanly.
- */
-export const DEMO_MODE_CLEANUP_DEADLINE = '2026-12-01T00:00:00+08:00';
+// 🧪 THE DEC-1 CLEANUP DEADLINE IS RETIRED (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS"): demo shops and
+// demo events are permanent and PUBLIC, marked "(DEMO ONLY)" (app/_components/sample-marker.tsx). What must never
+// exist is a real event paired with a demo shop — lib/demo-scope.ts + the refuse_demo_cross_booking trigger, audited by
+// scripts/check-no-demo-cross-booking.mjs. `DEMO_MODE_CLEANUP_DEADLINE` and scripts/check-no-demo-in-prod.mjs went
+// with it; lib/a-real-event-never-books-a-demo-shop.test.ts fails if either comes back.
 
 /**
  * Minimal shape of the per-request inputs we read. Modeled as a union

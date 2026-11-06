@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_QUOTE_NOTE_TAIL } from './accepted-quote-terms';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { demoBookingRefusal } from '@/lib/demo-scope';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { fetchThreadById, type ChatThreadRow } from '@/lib/chat';
 import { notifyOtherParty } from '@/lib/chat-actions';
@@ -126,6 +127,17 @@ async function gateVendorProposalThread(
       code: 'thread_closed',
       message: 'You can only send a quote on an open conversation.',
     };
+  }
+
+  // 🧪 A DEMO SHOP NEVER QUOTES A REAL EVENT, a real shop never quotes a demo event (owner 2026-11-06,
+  // lib/demo-scope.ts). A legacy thread that pairs the two keeps its history but can carry no new quote; the
+  // trigger `refuse_demo_cross_booking` on vendor_proposals is the backstop.
+  {
+    const demoRefusal = await demoBookingRefusal(createAdminClient(), {
+      eventId: thread.event_id,
+      vendorProfileId: profile.vendor_profile_id,
+    });
+    if (demoRefusal) return { ok: false, code: 'failed', message: demoRefusal };
   }
 
   // ── S5 · MAY THIS SUPPLIER RE-QUOTE? ──────────────────────────────────────

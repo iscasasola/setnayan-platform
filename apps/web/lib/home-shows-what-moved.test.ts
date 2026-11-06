@@ -44,7 +44,6 @@ import {
     return load.call(this, request, ...rest);
   };
 }
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { homeUnseated } = require('./home-moved-lines.server') as typeof import('./home-moved-lines.server');
 
 const WEB = join(__dirname, '..');

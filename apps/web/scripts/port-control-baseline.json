@@ -12075,6 +12075,17 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/open-shop-lab": {
+      "files": [
+        "dev/open-shop-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AddYourLogo",
+        "OpenShopWizard"
+      ]
+    },
     "/dev/papic-camera-lab": {
       "files": [
         "dev/papic-camera-lab/lab-camera.tsx",

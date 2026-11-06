@@ -41,9 +41,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; sent?: string }>;
+  searchParams: Promise<{ error?: string; step?: string; next?: string; taken?: string; check_inbox?: string }>;
 }) {
-  const { error, step, next, taken, sent } = await searchParams;
+  const { error, step, next, taken, check_inbox: checkInbox } = await searchParams;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
   // `safeNext`, and only ever a page of the Shop console — /open-shop is not a
@@ -231,8 +231,8 @@ export default async function OpenShopPage({
       planCategories={categoryLadder()}
       // A8: the submit was refused because the email has an account → step 3 signs in, right there.
       emailTaken={taken === '1'}
-      // A1: the shop is open and the account waits for its link (verification on). Only ever the signed-out page.
-      sentTo={guest && sent ? sent.trim().slice(0, 254) : null}
+      // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
+      sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}
       initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}
     />
   );

@@ -125,7 +125,7 @@ export function OpenShopWizard({
   planCategories?: { plan: string; categories: string }[];
   /** `?taken=1`: the company email already has an account — step 3's email box becomes a sign-in, right here. */
   emailTaken?: boolean;
-  /** `?sent=`: the shop is open, the account waits for its email link — say so, with the address. */
+  /** `?check_inbox=`: the shop is open, the account waits for its email link — say so, with the address. */
   sentTo?: string | null;
   /**
    * "Free to join, and here is when you DO pay" — composed on the server by

@@ -153,9 +153,11 @@ export function ServicePicker({
         style={{ borderColor: 'var(--m-line)' }}
       >
         <Search aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+        {/* type="text", not "search": the browser's own search ✕ drew a second clear button beside the one below. */}
         <input
-          type="search"
+          type="text"
           inputMode="search"
+          enterKeyHint="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search what you do — e.g. photographer, catering"

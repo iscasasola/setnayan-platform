@@ -60,6 +60,8 @@ export function formatPhoneDigits(digits: string): string {
     if (i < s.length) out.push(s.slice(i));
     return out.join(' ');
   };
+  // A start no Philippine number has is left as typed — spacing it would dress up a number that cannot be one.
+  if (/^[01]/.test(d)) return d;
   if (d.startsWith('9') || d.startsWith('89')) return group(d, [3, 3, 4]);
   if (d.startsWith('2')) return group(d, [1, 4, 4]);
   return group(d, [2, 3, 4]);

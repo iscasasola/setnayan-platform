@@ -48,10 +48,12 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   assert.ok(ACCOUNT.indexOf("if (mustConfirm) return") < ACCOUNT.indexOf('signInWithPassword'));
   assert.match(ACCOUNT, /mustConfirm \? '\/vendor-dashboard' : '\/open-shop'/, 'the link does not land on the dashboard');
   assert.match(ACTIONS, /checkEmail = created\.user\.email;/);
-  assert.match(ACTIONS, /if \(checkEmail\) redirect\(`\/open-shop\?sent=\$\{encodeURIComponent\(checkEmail\)\}`\);/);
+  assert.match(ACTIONS, /if \(checkEmail\) redirect\(`\/open-shop\?check_inbox=\$\{encodeURIComponent\(checkEmail\)\}`\);/);
   // The shop is written for that account first: the check-email redirect is after the shop's own update.
   assert.ok(ACTIONS.indexOf('if (checkEmail) redirect') > ACTIONS.indexOf('.update(patch)'));
-  assert.match(PAGE, /sentTo=\{guest && sent \?/);
+  assert.match(PAGE, /sentTo=\{guest && checkInbox \?/);
+  // `sent` is a global toast word (toast-from-params) — the landing must never use it.
+  assert.doesNotMatch(ACTIONS, /open-shop\?sent=/);
   assert.match(WIZARD, /We sent a link to \{sentTo\} — tap it to finish/);
 });
 

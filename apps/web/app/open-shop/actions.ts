@@ -573,7 +573,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');
   // ✉ A1 — the shop is open, the account is not confirmed yet: say so, on this page, with the address.
-  if (checkEmail) redirect(`/open-shop?sent=${encodeURIComponent(checkEmail)}`);
+  if (checkEmail) redirect(`/open-shop?check_inbox=${encodeURIComponent(checkEmail)}`);
   // 🖼 A2 (owner 2026-11-06: logo "if it does not want to upload, then it has no use here") — the logo is asked
   // RIGHT AFTER the shop opens, signed in, on its own screen. Skip → Today, where "Add your logo" stays a first step.
   // A shop that already has a logo (a re-run) goes straight to Today, as before.

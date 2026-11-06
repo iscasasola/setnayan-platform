@@ -38,6 +38,7 @@ test('formatted as typed', () => {
   assert.equal(formatPhoneDigits('9178888889'), '917 888 8889');
   assert.equal(formatPhoneDigits('281234567'), '2 8123 4567');
   assert.equal(formatPhoneDigits('321234567'), '32 123 4567');
+  assert.equal(formatPhoneDigits('1234'), '1234', 'a start no PH number has is not dressed up');
 });
 
 test('mobile: starts with 9, exactly 10 digits → ok, saved as E.164', () => {

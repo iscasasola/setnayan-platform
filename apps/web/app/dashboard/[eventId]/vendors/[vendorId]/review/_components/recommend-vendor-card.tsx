@@ -1,6 +1,6 @@
 import { Heart, Check, AlertCircle } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { recommendVendor, withdrawRecommendation } from '../actions';
+import { recommendVendor } from '../actions';
 
 /**
  * Recommend-this-vendor card (Event Lifecycle Menu §6.3). Shown on the After
@@ -10,8 +10,8 @@ import { recommendVendor, withdrawRecommendation } from '../actions';
  * couple opts in per vendor, with an optional one-line endorsement, and can
  * withdraw at any time (reversible).
  *
- * Server component — both forms post to server actions (recommendVendor /
- * withdrawRecommendation); no client state needed.
+ * Server component — both forms post to server actions (recommendVendor, with
+ * mode=withdraw for Withdraw); no client state needed.
  */
 export function RecommendVendorCard({
   eventId,
@@ -95,8 +95,9 @@ export function RecommendVendorCard({
               </SubmitButton>
             </div>
           </form>
-          <form action={withdrawRecommendation}>
+          <form action={recommendVendor}>
             {hidden}
+            <input type="hidden" name="mode" value="withdraw" />
             <SubmitButton
               className="text-xs font-medium text-ink/50 underline-offset-2 hover:text-ink hover:underline"
               pendingLabel="Removing…"

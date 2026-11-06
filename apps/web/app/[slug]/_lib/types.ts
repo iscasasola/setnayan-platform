@@ -18,7 +18,7 @@ import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
-import type { VendorCard } from '@/lib/vendor-cards';
+import type { EventVendorCredit } from '@/lib/event-vendor-credits';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { GuestHubData } from '../_components/guest-hub-card';
@@ -439,7 +439,7 @@ export type GuestContext =
       /** The face screen may open now: askable AND the guest capture window is
        *  open (the selfie is taken on the day — owner 2026-09-30). */
       faceStepOpen: boolean;
-      eventVendorCredits: VendorCard[];
+      eventVendorCredits: EventVendorCredit[];
     };
 
 export type GuestRow = {

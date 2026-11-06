@@ -3438,7 +3438,8 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
        nav    30  the floating bottom nav + FAB
        pop    40  tooltips and menus that must clear the chrome
        modal  50  `_components/sheet.tsx` and the centred modals
-       toast  60  stale-tab notice, report sheet
+       toast  60  stale-tab notice, report sheet, and any sheet opened from INSIDE a modal sheet (the service
+                  maker's `CanvasSheet`, opened over Today's New service sheet — z-40 hid it behind it)
        scrim  74  the side panel's dimmed backdrop (= .sn-inspector-peek)
        panel  75  the side panel itself          (= .sn-inspector-sheet) */
   --sn-z-base:   0;

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
+import { BadgeCheck, BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
 
 import {
   CardRecordSection,
@@ -164,16 +164,29 @@ export function ServiceCardView({
       ) : null}
 
       {/* 📸 FROM COUPLES (owner 2026-10-30) — couples' own photos of this card's work, approved by the shop, each with
-          the credit line the couple chose. Absent unless approved (`fetchServiceCardCouplePhotos`). */}
+          the credit line the couple chose. Absent unless approved (`fetchServiceCardCouplePhotos`).
+          ✓ VERIFIED BOOKING (Supplier front page, 2026-11-06) — drawn ONLY when the database said this shop is booked
+          on the event the photo came from (`verifiedBooking`, derived at read by couple_photo_share_is_verified_booking);
+          a photo from a supplier the couple only added to a list shows its credit line and no mark. */}
       {c.coupleLooks && c.coupleLooks.length > 0 ? (
         <div className="mt-3" data-card-couple-looks="">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
           <ul className="mt-1.5 flex gap-2 overflow-x-auto">
             {c.coupleLooks.map((look) => (
-              <li key={look.id} className="w-20 shrink-0">
-                <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-ink/5">
+              <li key={look.id} className="w-24 shrink-0">
+                <div className="relative h-24 w-24 overflow-hidden rounded-lg bg-ink/5">
                   {/* eslint-disable-next-line @next/next/no-img-element -- a couple's own photo, already a public URL */}
                   <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="h-full w-full object-cover" loading="lazy" />
+                  {look.verifiedBooking === true ? (
+                    <span
+                      data-card-verified-booking=""
+                      className="absolute inset-x-1 bottom-1 inline-flex items-center justify-center gap-0.5 rounded-full bg-cream/95 px-1 py-0.5 text-[9px] font-medium leading-none text-terracotta-700"
+                      title="This couple booked this supplier for their event — checked by Setnayan."
+                    >
+                      <BadgeCheck aria-hidden className="h-2.5 w-2.5 shrink-0" strokeWidth={2} />
+                      Verified booking
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-ink/60">{look.credit}</p>
               </li>

@@ -18,6 +18,12 @@ Owner, 2026-11-06: *"yes merge them"* · *"combine the services in the events ru
   - `VENDOR_CATEGORY_CANONICAL` anchors on live tiles. `security` is no longer exempt; it anchors on Staff, security & registration.
   - `BRANCH_TO_VENDOR_CATEGORY` is updated, and so are the inspiration consts.
   - The exhaustive tile records gain the two new tiles: icons, Find groups and booth templates.
+- **What the fold would otherwise have broken, kept:**
+  - **Each one-person attire board keeps its half** (owner 2026-10-08). The Filipiniana & Barongs cross-view gave the bride a terno and the groom a barong. v2 folds ternos into Gowns & dresses with every gown, and barongs into Barong & suits with every suit. Left alone, a dressmaker would have been offered the Groomsmen shelf and any suit tailor the Bridal gown board. Migration step 11 keeps Bride, Bridesmaids and Flower girl on Gowns & dresses (the bride also keeps hair & make-up), and Groom, Groomsmen and Ring bearer on Barong & suits. Entourage, Guests, Parents and Principal sponsors keep both.
+  - **The backdrop still admits only the LED-wall service and the stylist** (MB26). This holds at the part's services, even though its LED-wall row is now Lights, sound & effects.
+  - **A folded tile key still narrows day-of desks.** A shop whose `services[]` says `dj` keeps the song desk when booked as `band_dj`. `liveTileOf` is applied in both narrowing loops.
+  - **`categoriesForTile` answers a folded id as its live row,** so the removal guard still sees every booking.
+- **The coordinator trade follows v2.** `wedding_day_weather_forecaster` (now a specialty of Coordinator / planner) joins `COORDINATOR_TRADE_SERVICES`, and migration `20271321430700` adds it to the SQL copy `services_make_a_coordinator`. The Date & feng-shui consultant now sits on the same row but is its own service, so it is **not** added; adding it would be an access change.
 - **Mechanism fix (PR A):** a category fold no longer leaves an inspiration part's home in its also-from list.
 - **Tests:** `lib/the-approved-taxonomy-merge.test.ts` holds the migration to v2 value for value. Sabotage-checked: dropping one event from one value turns it red. `tests/db/the-approved-taxonomy-merge.db.test.ts` replays it, checks the result and checks it is idempotent.
 

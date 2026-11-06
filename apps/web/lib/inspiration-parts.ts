@@ -96,11 +96,15 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // ⚖ TAXONOMY V2 (2026-11-06): Women's Attire and Filipiniana & Barongs folded into Gowns &
   // dresses (`brides_attire`), Men's Attire into Barong & suits (`grooms_attire`). Every list
   // below is what migration 20271320461004 leaves in `inspiration_parts` + the derived
-  // categories — the parts' SERVICES did not change, so a barong service a part already linked
-  // now brings Barong & suits as its "also from", and Centrepieces' hotel catering brings
-  // Accommodation (the fall-back-to-own-tile half of `inspiration_part_derived_categories_all`).
-  bride: ['brides_attire', 'grooms_attire', 'hmua'],
-  groom: ['grooms_attire', 'brides_attire'],
+  // categories. Two-person boards link both halves; each ONE-person board keeps only its own
+  // half (step 11 — the cross-view gave the bride a terno and the groom a barong, which now live
+  // in her and his row). Two more gain an "also from" (the fall-back-to-own-tile half of
+  // `inspiration_part_derived_categories_all`): Centrepieces' linked hotel `accommodation` is
+  // unchanged but Catering gained Private chef, so it names its own row; Chairs' lights rental
+  // (`event_lights_rental`) folded into the `lights_sound` service, so Lights, sound & effects
+  // joins — and every lights-and-sound shop now reaches Chairs (flagged in the PR).
+  bride: ['brides_attire', 'hmua'],
+  groom: ['grooms_attire'],
   principal_sponsor: ['brides_attire', 'grooms_attire'],
   entourage: ['brides_attire', 'grooms_attire'],
   // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN

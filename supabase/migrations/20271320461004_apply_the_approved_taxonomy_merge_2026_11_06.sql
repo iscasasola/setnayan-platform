@@ -32,8 +32,9 @@
 --      inside the facet definition — no new column).
 --  10. Tags every shop holding a folded key with that key's specialty value,
 --      folding the key's own attribute row in first, then merges the trade.
---  11. Keeps the four party boards on their own half (Bridesmaids · Flower
---      girl → Gowns & dresses; Groomsmen · Ring bearer → Barong & suits).
+--  11. Keeps each one-person attire board on its own half (Bride · Bridesmaids
+--      · Flower girl → Gowns & dresses; Groom · Groomsmen · Ring bearer →
+--      Barong & suits).
 --
 -- NEVER merges a Setnayan product (pabati included) or hard-deletes a trade or
 -- a category. IDEMPOTENT: a second run changes nothing. The run summary is
@@ -353,20 +354,22 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- ── 11 · the four party boards keep their half (owner ruling 2026-10-08) ──
-  -- Bridesmaids and Flower girl are the WOMEN's half of the entourage; Groomsmen
-  -- and Ring bearer the MEN's. They reached the other half's trades only through
-  -- the Filipiniana & Barongs cross-view, and v2 folds barongs into Barong & suits
-  -- with every groomsman's set — left alone, step 10 would offer a dressmaker the
-  -- Groomsmen shelf. Each board keeps the row that dresses its people (Filipiniana
-  -- dresses now live in Gowns & dresses, barongs in Barong & suits). The trigger
-  -- re-derives each board's categories from what is left. Entourage and Guests
-  -- dress both halves and keep both.
+  -- ── 11 · the one-person boards keep their half (owner ruling 2026-10-08) ──
+  -- Bride, Bridesmaids and Flower girl are dressed by the WOMEN's half; Groom,
+  -- Groomsmen and Ring bearer by the MEN's. They reached the other half's trades
+  -- only through the Filipiniana & Barongs cross-view (a terno for the bride, a
+  -- barong for the groom), and v2 folds barongs into Barong & suits with every
+  -- suit, and ternos into Gowns & dresses with every gown — left alone, step 10
+  -- would offer a dressmaker the Groomsmen shelf and any suit tailor the Bridal
+  -- gown board. Each board keeps the row that dresses its people (Filipiniana
+  -- included in Gowns & dresses, barongs in Barong & suits). The trigger
+  -- re-derives each board's categories from what is left. Entourage, Guests,
+  -- Parents and Principal sponsors dress both halves and keep both.
   DELETE FROM inspiration_part_services ps
    USING canonical_service_taxonomy c
    WHERE c.canonical_service = ps.canonical_service
-     AND (   (ps.slot_key IN ('bridesmaids', 'flower_girl') AND c.tile_id = 'grooms_attire')
-          OR (ps.slot_key IN ('groomsmen', 'ring_bearer')   AND c.tile_id = 'brides_attire'));
+     AND (   (ps.slot_key IN ('bride', 'bridesmaids', 'flower_girl') AND c.tile_id = 'grooms_attire')
+          OR (ps.slot_key IN ('groom', 'groomsmen', 'ring_bearer')   AND c.tile_id = 'brides_attire'));
   GET DIAGNOSTICS v_n = ROW_COUNT;
   v_moved := v_moved || jsonb_build_object('party_boards.other_half_removed', v_n);
 

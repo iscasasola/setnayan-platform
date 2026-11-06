@@ -386,16 +386,22 @@ test('inspiration parts keep their owner rulings through the fold', async () => 
     ).rows.map((r) => r.s);
   const tileOf = async (svc: string) =>
     (await one<{ t: string }>(`SELECT tile_id AS t FROM canonical_service_taxonomy WHERE canonical_service=$1`, [svc])).t;
-  // Owner 2026-10-08: the four party boards are the women's half and the men's half (step 11).
+  // Owner 2026-10-08: each one-person attire board is the women's half or the men's half (step 11).
+  // The bride's board also keeps hair & make-up (a bridal-hair photo and a gown photo are one picture).
   for (const [slot, half] of [
+    ['bride', 'brides_attire'],
     ['bridesmaids', 'brides_attire'],
     ['flower_girl', 'brides_attire'],
+    ['groom', 'grooms_attire'],
     ['groomsmen', 'grooms_attire'],
     ['ring_bearer', 'grooms_attire'],
   ] as const) {
     const svcs = await services(slot);
     assert.ok(svcs.length > 0, `${slot} lost every service`);
-    for (const s of svcs) assert.equal(await tileOf(s), half, `${slot} reaches ${s}, which is not its half`);
+    for (const s of svcs) {
+      const t = await tileOf(s);
+      assert.ok(t === half || (slot === 'bride' && t === 'hmua'), `${slot} reaches ${s} (${t}), which is not its half`);
+    }
   }
   // Entourage and Guests dress both halves and keep both.
   for (const slot of ['entourage', 'guests']) {

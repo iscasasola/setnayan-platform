@@ -102,8 +102,9 @@ test('venue exemption still wins regardless of verification', () => {
 // copy ("Host / MC") instead of a title-cased key ("Host Mc"). ────────────
 
 test('displayServiceLabel: a WEDDING_TILE leaf prints its real label, not a title-cased key', () => {
-  assert.equal(displayServiceLabel('host_mc'), 'Host / MC');
-  assert.equal(displayServiceLabel('live_band'), 'Live Band');
+  // Taxonomy v2 (2026-11-06) labels: Host / MC → "Hosts & talent", Live Band → "Music".
+  assert.equal(displayServiceLabel('host_mc'), 'Hosts & talent');
+  assert.equal(displayServiceLabel('live_band'), 'Music');
 });
 
 test('displayServiceLabel: a VENDOR_CATEGORY code still wins over the tile map', () => {

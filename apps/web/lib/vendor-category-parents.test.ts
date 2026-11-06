@@ -55,11 +55,13 @@ test('a family the plan cannot hold is refused HERE, with the reason', () => {
   assert.ok(st.standing === 'locked' && /upgrade/i.test(st.why), 'the refusal stopped saying what to do about it');
 });
 
-test('the four exempt kinds are never refused — they count against nothing', () => {
-  // officiant · church fees · security · miscellaneous have no family at all, so
-  // the cap has never applied to them. Locking them would invent a refusal the
-  // save does not make.
-  for (const kind of ['officiant', 'church_fees', 'security', 'misc']) {
+test('the three exempt kinds are never refused — they count against nothing', () => {
+  // officiant · church fees · miscellaneous have no family at all, so the cap has
+  // never applied to them. Locking them would invent a refusal the save does not make.
+  // Taxonomy v2 (2026-11-06) made security a real row — Staff, security & registration,
+  // under Logistics & safety — so it left this list and now has that family.
+  assert.deepEqual(parentsOfCategory('security' as never), ['logistics_safety'], 'security lost its v2 row');
+  for (const kind of ['officiant', 'church_fees', 'misc']) {
     assert.deepEqual(parentsOfCategory(kind as never), [], `${kind} grew a family`);
     assert.equal(
       standingForCategory(kind as never, SETNAPROD).standing,

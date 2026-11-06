@@ -25,7 +25,7 @@ import { libraryPhotoParts } from './inspiration-slots';
 import { suggestablePartsForShop, supplierTradeWord } from './inspiration-suggestion-parts';
 import { buildSupplierBoard, firstOwnPart, ownLaneWords } from './supplier-suggest-board';
 import { canonicalServicesForTile } from './vendor-counts';
-import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
+import { WEDDING_TILE_LABEL, liveTileOf, type WeddingTile } from './taxonomy';
 import { coupleCountLine, keepPlan, suggestionNoticeTitle, supplierCountLine, supplierRoleLine } from './inspiration-suggestions';
 import { fallbackInspirationParts } from './inspiration-parts';
 
@@ -54,7 +54,8 @@ test('1 · bouquets are the florist’s alone; attire boards the attire trades�
     if (t === 'florist') continue;
     const k = keysFor(t);
     assert.ok(!k.has('bridal_bouquet') && !k.has('entourage_bouquets'), `a ${WEDDING_TILE_LABEL[t]} shop may suggest a bouquet`);
-    if (!ATTIRE_TILES.includes(t)) for (const a of ATTIRE_KEYS) assert.ok(!k.has(a), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to the attire board ${a}`);
+    // Taxonomy v2 (2026-11-06): a folded row (Grooming → Hair, makeup & grooming) is its live row's shop.
+    if (!ATTIRE_TILES.includes(liveTileOf(t))) for (const a of ATTIRE_KEYS) assert.ok(!k.has(a), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to the attire board ${a}`);
   }
   assert.ok(keysFor('brides_attire').has('bride'), 'a gown designer cannot suggest to Bridal gown');
   assert.ok(keysFor('stylist_decorator').has('stage'), 'a stylist cannot suggest to Stage');

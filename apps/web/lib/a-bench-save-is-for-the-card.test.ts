@@ -110,10 +110,11 @@ test('2 · the search card shows the service card’s cover before the logo', ()
 
 test('4 · the interest chip asks the card what it is before the coarse key', () => {
   // Cale & Ice: interest written before the save fix → key `misc`, card is Live Band
-  assert.equal(interestChipLabel({ category_key: 'misc' }, null, 'live_band'), 'Live Band');
+  // (v2, 2026-11-06: the row names are now "Music" and "Hosts & talent".)
+  assert.equal(interestChipLabel({ category_key: 'misc' }, null, 'live_band'), 'Music');
   // testnayan4 × Saysay: coarse `band_dj`, card is Live Band
-  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'live_band'), 'Live Band');
-  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'host_mc'), 'Host / MC');
+  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'live_band'), 'Music');
+  assert.equal(interestChipLabel({ category_key: 'band_dj' }, null, 'host_mc'), 'Hosts & talent');
   // a card title still wins; no card at all keeps the old fallback
   assert.equal(interestChipLabel({ category_key: 'misc' }, 'Saysay Live', 'live_band'), 'Saysay Live');
   assert.equal(interestChipLabel({ category_key: 'band_dj' }), 'Band / DJ');
@@ -136,18 +137,19 @@ const OLD = '**Setnayan Exclusive unlocked 🎁** live_band: Free 1-hour extensi
 
 test('3 · an OLD perk line reads in the new words — stored text untouched', () => {
   const shown = renderPerkUnlock(OLD);
-  assert.equal(shown, '🎁 A perk for Setnayan couples · Live Band — Free 1-hour extension for Setnayan couples');
-  assert.equal(renderPerkUnlock('**Setnayan Exclusive unlocked 🎁** host_mc: FREE'), '🎁 A perk for Setnayan couples · Host / MC — FREE');
+  // v2 (2026-11-06): the tile key prints today's row name, "Music".
+  assert.equal(shown, '🎁 A perk for Setnayan couples · Music — Free 1-hour extension for Setnayan couples');
+  assert.equal(renderPerkUnlock('**Setnayan Exclusive unlocked 🎁** host_mc: FREE'), '🎁 A perk for Setnayan couples · Hosts & talent — FREE');
   for (const s of [shown, shortPerkUnlock(OLD)!, shortenGeneratedBody(OLD)]) {
     assert.ok(!/\*\*|live_band|Exclusive/.test(s), `markdown, a raw key or the retired name reached a person: ${s}`);
   }
-  assert.equal(shortenGeneratedBody(OLD), '🎁 Perk: Live Band', 'the list / What’s new preview');
+  assert.equal(shortenGeneratedBody(OLD), '🎁 Perk: Music', 'the list / What’s new preview');
 });
 
 test('3b · the NEW line round-trips, and nothing else is touched', () => {
   const body = perkUnlockBody('live_band', '  Free 1-hour extension  ');
-  assert.equal(body, '🎁 A perk for Setnayan couples · Live Band — Free 1-hour extension');
-  assert.deepEqual(parsePerkUnlock(body), { label: 'Live Band', perk: 'Free 1-hour extension' });
+  assert.equal(body, '🎁 A perk for Setnayan couples · Music — Free 1-hour extension');
+  assert.deepEqual(parsePerkUnlock(body), { label: 'Music', perk: 'Free 1-hour extension' });
   assert.equal(renderPerkUnlock(body), body);
   // a titled card keeps its title as written
   assert.equal(perkUnlockBody('Saysay Band', 'FREE'), '🎁 A perk for Setnayan couples · Saysay Band — FREE');

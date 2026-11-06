@@ -43,7 +43,11 @@ test('the app carries them: the vocabulary, their trades, a Studio card and a bo
     assert.ok(STUDIO_INSPIRATION_SLOTS.some((s) => s.slotKey === k), `${k} has no Studio card`);
   }
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridal_bouquet], ['florist']);
-  assert.deepEqual([...MOODBOARD_SLOT_TRADES.centrepieces], ['florist', 'stylist_decorator', 'catering']);
+  // Taxonomy v2 (2026-11-06): the SERVICES Centrepieces links are unchanged (florals, stylist, catering,
+  // lechonero and the hotel's `accommodation`, cross-listed on Catering). v2 re-filed Private chef under
+  // Catering, so the part no longer links EVERY Catering service, and the derivation names the linked hotel
+  // service by its own row: Accommodation joins the also-from list. No shop gained or lost reach.
+  assert.deepEqual([...MOODBOARD_SLOT_TRADES.centrepieces], ['florist', 'stylist_decorator', 'accommodation', 'catering']);
   /* 🧩 Both are inspiration parts the database accepts on a photo (step ② of PLAN admin_inspiration_groups_2026-10-25:
      the slot gates are an FK + a trigger into inspiration_parts; `AWAITING_A_SLOT`, the list they once waited in, is gone). */
   for (const k of ['bridal_bouquet', 'centrepieces']) assert.ok(dbAcceptedSlotKeys().includes(k), `${k} is not an inspiration part`);

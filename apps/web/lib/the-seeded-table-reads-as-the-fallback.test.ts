@@ -11,6 +11,8 @@
  *
  * 🛡 Sabotaged once (2026-10-26, builder): the reader's `sort_order` sort on the also-categories removed → "…come back
  * in their stored order" red; restored.
+ * 🛡 Sabotaged again (2026-11-06, taxonomy v2 re-point): `lights` lost `stylist_decorator` in the consts → both red;
+ * restored.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,9 +22,11 @@ import { join } from 'node:path';
 import {
   fallbackInspirationParts,
   snapshotFromPartRows,
+  type InspirationPart,
   type InspirationPartCategoryRow,
   type InspirationPartRow,
 } from './inspiration-parts';
+import { liveTileOf, type WeddingTile } from './taxonomy';
 
 const DIR = join(__dirname, '../../../supabase/migrations');
 const sql = readFileSync(join(DIR, readdirSync(DIR).find((f) => f.endsWith('_inspiration_parts_on_the_taxonomy.sql'))!), 'utf8');
@@ -50,6 +54,52 @@ function seededRows(): { rows: InspirationPartRow[]; links: InspirationPartCateg
   return { rows, links };
 }
 
+/*
+ * ⚖ TAXONOMY V2 (2026-11-06) — migration 20271320461004 runs AFTER the seed and folds 40 categories. So the
+ * seeded rows are no longer what the replay holds; they are what it holds once every folded category is read as
+ * the row it folded into (`liveTileOf`, duplicates dropped, the home never repeated as an also). Five parts then
+ * still differ, each for a reason the migration states — nothing else may:
+ *   · groom, groomsmen, ring_bearer — step 11: a one-person board keeps only the men's half (the cross-view's
+ *     Filipiniana half folded into Gowns & dresses, which is not theirs).
+ *   · chairs, centrepieces — the derivation names a linked service by its own row (Chairs' lights rental folded
+ *     into the `lights_sound` service; Centrepieces' hotel `accommodation`, once Catering gained Private chef).
+ *     These only GAIN an also-from, never lose one.
+ */
+const V2_ONE_HALF = new Set(['groom', 'groomsmen', 'ring_bearer']);
+const V2_REDERIVED = new Set(['chairs', 'centrepieces']);
+
+function forwarded(parts: readonly InspirationPart[]): InspirationPart[] {
+  return parts.map((p) => {
+    const home = p.homeCategoryId ? liveTileOf(p.homeCategoryId as WeddingTile) : null;
+    const also: string[] = [];
+    for (const c of p.alsoCategoryIds) {
+      const live = liveTileOf(c as WeddingTile);
+      if (live !== home && !also.includes(live)) also.push(live);
+    }
+    return { ...p, homeCategoryId: home, alsoCategoryIds: also };
+  });
+}
+
+/** The seed read through the v2 forward must be the fallback — part for part, bar the five named above. */
+function assertSeedIsFallbackThroughV2(seeded: readonly InspirationPart[]) {
+  const fallback = new Map(fallbackInspirationParts().parts.map((p) => [p.slotKey, p] as const));
+  const differing: string[] = [];
+  for (const p of forwarded(seeded)) {
+    const f = fallback.get(p.slotKey);
+    assert.ok(f, `${p.slotKey} is seeded but has no fallback part`);
+    if (JSON.stringify(p) === JSON.stringify(f)) continue;
+    differing.push(p.slotKey);
+    assert.deepEqual({ ...p, alsoCategoryIds: [] }, { ...f, alsoCategoryIds: [] }, `${p.slotKey}: only its also-from may differ`);
+    if (V2_ONE_HALF.has(p.slotKey)) {
+      assert.deepEqual(f.alsoCategoryIds, p.alsoCategoryIds.filter((c) => c !== 'brides_attire'), `${p.slotKey}: lost more than the other half`);
+    } else if (V2_REDERIVED.has(p.slotKey)) {
+      for (const c of p.alsoCategoryIds) assert.ok(f.alsoCategoryIds.includes(c), `${p.slotKey} lost ${c}`);
+    }
+  }
+  assert.equal(seeded.length, fallback.size, 'the seed and the fallback no longer name the same parts');
+  assert.deepEqual(differing.sort(), [...V2_ONE_HALF, ...V2_REDERIVED].sort(), 'a part changed that v2 does not explain');
+}
+
 test('⭐ the seeded rows, read by the reader, are the fallback snapshot part for part', () => {
   const { rows, links } = seededRows();
   assert.equal(rows.length, fallbackInspirationParts().parts.length, 'the seed parse is broken, not the guard');
@@ -57,7 +107,7 @@ test('⭐ the seeded rows, read by the reader, are the fallback snapshot part fo
   assert.deepEqual([relabel.map((x) => x.key), hide], [['groom'], ['entourage']], 'the ③a relabel/hide parse is broken, not the guard');
   const fromDb = snapshotFromPartRows(rows, links, null);
   assert.equal(fromDb.source, 'db');
-  assert.deepEqual(fromDb.parts, fallbackInspirationParts().parts);
+  assertSeedIsFallbackThroughV2(fromDb.parts);
 });
 
 test('a retired part is offered nowhere, and the also-categories come back in their stored order', () => {
@@ -65,5 +115,6 @@ test('a retired part is offered nowhere, and the also-categories come back in th
   const retired = snapshotFromPartRows(rows.map((r) => (r.slot_key === 'cocktail' ? { ...r, status: 'retired' } : r)), links, null);
   assert.ok(!retired.parts.some((p) => p.slotKey === 'cocktail'));
   const shuffled = snapshotFromPartRows(rows, [...links].reverse(), null);
-  assert.deepEqual(shuffled.parts, fallbackInspirationParts().parts, 'the reader trusted row order instead of sort_order');
+  assert.deepEqual(shuffled.parts, snapshotFromPartRows(rows, links, null).parts, 'the reader trusted row order instead of sort_order');
+  assertSeedIsFallbackThroughV2(shuffled.parts);
 });

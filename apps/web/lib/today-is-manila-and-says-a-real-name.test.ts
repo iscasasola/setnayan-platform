@@ -108,7 +108,7 @@ test('3 · a card with no title never shows a database word', () => {
   const live = perkUnlockBody('live_band', 'Free 1-hour extension');
   const host = perkUnlockBody('host_mc', 'FREE');
   assert.ok(!/live_band|host_mc/.test(live + host), `a database word reached a person: ${live} / ${host}`);
-  assert.match(live, /Live band/i);
-  assert.match(host, /Host \/ MC/);
+  assert.match(live, /Music/); // taxonomy v2 (#7355): live_band's label is "Music"
+  assert.match(host, /Hosts & talent/); // taxonomy v2 (#7355)
   assert.ok(!/\*\*|Exclusive/.test(live), `markdown or the retired name is back: ${live}`);
 });

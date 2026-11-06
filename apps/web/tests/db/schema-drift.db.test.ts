@@ -649,6 +649,13 @@ test('THE CHECK: every migration production applied actually landed', () => {
 //
 // Refreshing no longer needs a pasted password — `supabase link` once, then
 // `pnpm --filter @setnayan/web schema:snapshot`.
+//
+// Since 2026-11-04 it is also AUTOMATIC: deploy-prod.yml regenerates the
+// snapshot read-only right after `db push` and opens/updates a PR from
+// `bot/prod-schema-snapshot` (scripts/refresh-prod-schema-snapshot.sh). So when
+// this fires, that refresh has been failing — look for its ::warning:: on the
+// deploy-prod runs, or a bot PR held up by a red check. Still not a reason to
+// raise the number.
 const LEDGER_GAP_CEILING = 40;
 
 test('the prod snapshot is fresh enough to still be about production', () => {
@@ -678,7 +685,10 @@ test('the prod snapshot is fresh enough to still be about production', () => {
     gap <= LEDGER_GAP_CEILING,
     `the prod snapshot is ${gap} migrations behind the repo, so this guard is comparing an old ` +
       `ledger to an old prod and cannot see drift introduced since.\n` +
-      `Refresh it (needs the production URL, so this is an OWNER action):\n` +
+      `deploy-prod.yml normally refreshes it automatically after db push (an open PR from ` +
+      `bot/prod-schema-snapshot) — if none is open, check that step's warning on the latest ` +
+      `deploy-prod run.\n` +
+      `Or refresh it by hand (needs production access, so this is an OWNER action):\n` +
       `  export SUPABASE_DB_URL='postgresql://...'\n` +
       `  pnpm --filter @setnayan/web schema:snapshot\n` +
       `Then commit supabase/security/prod-schema.snapshot.txt.`,

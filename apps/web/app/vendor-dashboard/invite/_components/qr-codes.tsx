@@ -5,8 +5,10 @@ import { Fold } from '@/app/_components/fold';
 import { QrCard } from '@/app/_components/qr-card';
 import { formatCount } from '@/lib/format-number';
 import type { SupplierQrMode } from '@/lib/supplier-qr-codes';
+import { doorStickerCodeFor } from '@/lib/door-sticker';
 import { CustomersPick } from '../../customers/_components/customers-pick';
 import { DatesRow } from '../../customers/_components/dates-row';
+import { DoorSticker } from './door-sticker';
 
 /**
  * QR CODES — ONE page for the shop's two codes (S-PR3; plan § 2 "`/invite` (Shortlist / Locked QR toggle) +
@@ -19,6 +21,10 @@ import { DatesRow } from '../../customers/_components/dates-row';
  *               ledger that was `/locked-qr`: each code claimed / pending / void, a pending one shown again).
  *   Check a date · My page · Crew for an event — added 2026-10-29/11-01 ("THE QR DROPDOWN ALREADY EXISTS; EXTEND IT"):
  *               one code each under the same dropdown (`lib/supplier-qr-codes.ts`).
+ *   Every card carries Write to NFC (`QrCard` → `QrActions` → `NfcWriteButton`): the tag holds the card's own URL.
+ *   Door sticker ⌄ — under the codes on Shop › Promote only (owner 2026-11-05, *"add them to the marketing tools"*;
+ *               Promote is the home of the shop's prints): "We are part of Setnayan" with My page or Check a date
+ *               (`door-sticker.tsx`, `lib/door-sticker-print.ts`). Customers › QR codes (Booked · Crew) never draws it.
  *
  * 📣 TWO HOMES since 2026-11-05 (owner: the QR codes do not belong under Customers — Shop › Promote, beside the website,
  * print materials and gifts): Shortlist · Check a date · My page draw here under Shop › Promote (`place="promote"`: the
@@ -77,6 +83,7 @@ export function QrCodes({
   checkADate = null,
   myPage = null,
   crew = null,
+  doorStickerFiles,
 }: {
   /** Which home draws it: Customers › QR codes (‹ Dates + the page title) or Shop › Promote (a section under the Shop row). */
   place?: 'customers' | 'promote';
@@ -112,6 +119,8 @@ export function QrCodes({
   /** 🔳 My page (owner 2026-10-29): the shop's own Setnayan page → `/v/<slug>` (`lib/supplier-qr-codes.ts`). */
   myPage?: { url: string; svg: string | null; shopName: string } | null;
   crew?: CrewQr | null;
+  /** /dev only — the sticker's files as data: URIs (`DoorSticker`'s `labFiles`). */
+  doorStickerFiles?: Record<string, string>;
 }) {
   const ledger = booked?.ledger ?? null;
   const claimed = ledger?.filter((r) => r.status === 'claimed').length ?? 0;
@@ -233,6 +242,8 @@ export function QrCodes({
           </div>
         </>
       ) : null}
+
+      {canShare && place === 'promote' ? <DoorSticker initialCode={doorStickerCodeFor(mode)} labFiles={doorStickerFiles} /> : null}
     </div>
   );
 }

@@ -171,7 +171,7 @@
     "app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx · ink on white": 2,
     "app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx · white on ink": 1,
     "app/vendor-dashboard/partnerships/page.tsx · white on ink": 2,
-    "app/vendor-dashboard/reviews/page.tsx · white on danger-600": 1,
-    "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1
+    "app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx · #fff on m-accent-deep": 1,
+    "app/vendor-dashboard/website/_components/flag-reason-pick.tsx · white on danger-600": 1
   }
 }

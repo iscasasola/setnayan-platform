@@ -17,6 +17,9 @@
  *                      &buy=1 opens nothing by itself — press "Buy gifts"
  *   ?s=gifts-couple    the couple's quote note "Gift from <shop> 🎁"    &given=1 (after the first payment)
  *   ?s=gifts-admin     Admin › Gifts & comps › Supplier gifts             &fail=1 (both reads refused)
+ *   ?s=prints          Shop › Promote › Prints (2026-11-05) — the REAL section; its pictures come from the lab's twin of
+ *                      `/api/vendor/prints` (`./prints-art/[shop]`, same renderer, a fixture shop)   &long=1 (long name + seal,
+ *                      rating, badges) · &noaddress=1 (no web address yet)
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
 import { notFound } from 'next/navigation';
@@ -53,6 +56,7 @@ import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
 import type { NotificationRow } from '@/lib/notifications';
 import { ShopGiftsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-gifts-section';
+import { ShopPrintsSection } from '@/app/vendor-dashboard/shop/promote/_components/shop-prints-section';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
 import { ShopGiftsLedger } from '@/app/admin/gifts/_components/shop-gifts-ledger';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
@@ -332,6 +336,14 @@ export default async function SupplierPlanLabPage({
     );
 
   else if (s === 'gifts') body = giftsFixture(sp.unverified === '1', sp.fail === '1', sp.app === '1');
+  else if (s === 'prints')
+    body = (
+      <ShopPrintsSection
+        canShare={sp.noaddress !== '1'}
+        setupHref="/dev/supplier-plan-lab?s=prints"
+        artBase={`/dev/supplier-plan-lab/prints-art/${sp.long === '1' ? 'long' : 'plain'}`}
+      />
+    );
   else if (s === 'gifts-couple')
     body = (
       <section className="p-4">

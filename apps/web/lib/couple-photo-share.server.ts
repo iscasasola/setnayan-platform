@@ -10,7 +10,15 @@ import { couplePhotoLookPolicy } from '@/lib/r2-client-ref';
 import { couplePhotoLookScope } from '@/lib/cleanup-delete-scope';
 import { cleanupDelete } from '@/lib/cleanup-delete';
 import type { CoupleLook } from '@/lib/service-card-view-model';
-import { COUPLE_LOOKS_PREFIX, coupleLookKey, coupleLookRef, shareIdOfCoupleLook, type CouplePhotoAudience } from '@/lib/couple-photo-share';
+import {
+  COUPLE_LOOKS_PREFIX,
+  coupleLookKey,
+  coupleLookOf,
+  coupleLookRef,
+  shareIdOfCoupleLook,
+  type CardLookRow,
+  type CouplePhotoAudience,
+} from '@/lib/couple-photo-share';
 
 /**
  * 📸 A COUPLE'S PHOTO ON A SUPPLIER'S CARD — the server half that touches STORAGE (owner 2026-10-30; security review
@@ -80,12 +88,12 @@ export async function fetchServiceCardCouplePhotos(
     logQueryError('fetchServiceCardCouplePhotos', error, { n: vendorServiceIds.length }, 'graceful_degrade');
     return out;
   }
-  for (const r of (data ?? []) as Array<{ vendor_service_id: string; share_id: string; public_key: string; credit_line: string }>) {
+  for (const r of (data ?? []) as CardLookRow[]) {
     const list = out.get(r.vendor_service_id) ?? [];
     if (list.length >= COUPLE_LOOKS_PER_CARD) continue;
     const url = coupleLookUrl(r.public_key);
     if (!url) continue;
-    list.push({ id: r.share_id, url, credit: r.credit_line });
+    list.push(coupleLookOf(r, url));
     out.set(r.vendor_service_id, list);
   }
   return out;
@@ -106,11 +114,11 @@ export async function fetchViewerCouplePhotos(
     logQueryError('fetchViewerCouplePhotos', error, { n: vendorServiceIds.length }, 'graceful_degrade');
     return out;
   }
-  for (const r of (data ?? []) as Array<{ vendor_service_id: string; share_id: string; public_key: string; credit_line: string }>) {
+  for (const r of (data ?? []) as CardLookRow[]) {
     const list = (out[r.vendor_service_id] ??= []);
     if (list.length >= COUPLE_LOOKS_PER_CARD) continue;
     const url = await coupleLookUrlFor(r.public_key, false);
-    if (url) list.push({ id: r.share_id, url, credit: r.credit_line });
+    if (url) list.push(coupleLookOf(r, url));
   }
   return out;
 }

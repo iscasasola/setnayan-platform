@@ -66,28 +66,28 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   // is the tile's `applicable_event_types` scope, which is the mechanism built
   // for exactly this and is why the gap leaves stopped being exempt in 2026-07.
   funeral_home: { kind: 'tile', tile: 'funeral_home' },
-  cremation: { kind: 'tile', tile: 'cremation' },
+  cremation: { kind: 'tile', tile: 'memorial_park' }, // v2: `cremation` folded into `memorial_park`
   memorial_park: { kind: 'tile', tile: 'memorial_park' },
   // ── Opened to the marketplace 2026-08-27 (owner ruling) ────────────────────
   // *"marriage-paper helper yes. honeymoon planner yes"* — both are people a
   // couple hires, unlike the officiant two lines down, who comes with the
   // parish. Clean 1:1 onto the branches that already carried their names.
-  wedding_paperwork: { kind: 'tile', tile: 'wedding_paperwork' },
+  wedding_paperwork: { kind: 'tile', tile: 'travel_honeymoon' }, // v2: `wedding_paperwork` folded into `travel_honeymoon`
   travel_honeymoon: { kind: 'tile', tile: 'travel_honeymoon' },
   // ── A · clean 1:1 ──────────────────────────────────────────────────────────
   venue: { kind: 'tile', tile: 'reception' },
-  religious_venue: { kind: 'tile', tile: 'ceremony_venue' },
+  religious_venue: { kind: 'tile', tile: 'reception' }, // v2: `ceremony_venue` folded into `reception`
   catering: { kind: 'tile', tile: 'catering' },
-  crew_meals: { kind: 'tile', tile: 'crew_meals' },
+  crew_meals: { kind: 'tile', tile: 'catering' }, // v2: `crew_meals` folded into `catering`
   photographer: { kind: 'tile', tile: 'photo_video' },
   videographer: { kind: 'tile', tile: 'photo_video' },
   florist: { kind: 'tile', tile: 'florist' },
   cake_maker: { kind: 'tile', tile: 'cake' },
   host_emcee: { kind: 'tile', tile: 'host_mc' },
-  choir: { kind: 'tile', tile: 'choir' },
+  choir: { kind: 'tile', tile: 'live_band' }, // v2: `choir` folded into `live_band`
   // string_quartet + hair_stylist fold into a single broader canonical tile
   // (Choir / HMUA) — coarse couple-side, but a clean one-tile anchor.
-  string_quartet: { kind: 'tile', tile: 'choir' },
+  string_quartet: { kind: 'tile', tile: 'live_band' }, // v2: `choir` folded into `live_band`
   hair_stylist: { kind: 'tile', tile: 'hmua' },
   planner_coordinator: { kind: 'tile', tile: 'coordinator' },
   makeup_artist: { kind: 'tile', tile: 'hmua' },
@@ -96,7 +96,7 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   rings: { kind: 'tile', tile: 'jewelleries_accessories' },
   invitations_stationery: { kind: 'tile', tile: 'printing' },
   lights_and_sound: { kind: 'tile', tile: 'lights_sound' },
-  led_screens: { kind: 'tile', tile: 'led_wall' },
+  led_screens: { kind: 'tile', tile: 'lights_sound' }, // v2: `led_wall` folded into `lights_sound`
   photobooth: { kind: 'tile', tile: 'photo_booth' },
   mobile_bar: { kind: 'tile', tile: 'mobile_bar' },
   reception_decor: { kind: 'tile', tile: 'stylist_decorator' },
@@ -112,43 +112,37 @@ export const VENDOR_CATEGORY_CANONICAL: Record<VendorCategory, CanonicalMapping>
   referee_official: { kind: 'tile', tile: 'referee_official' },
   event_medic: { kind: 'tile', tile: 'event_medic' },
   tour_activity: { kind: 'tile', tile: 'tour_activity' },
-  tour_guide: { kind: 'tile', tile: 'tour_guide' },
-  travel_insurance: { kind: 'tile', tile: 'travel_insurance' },
-  av_production: { kind: 'tile', tile: 'av_production' },
-  speaker_talent: { kind: 'tile', tile: 'speaker_talent' },
+  tour_guide: { kind: 'tile', tile: 'tour_activity' }, // v2: `tour_guide` folded into `tour_activity`
+  travel_insurance: { kind: 'tile', tile: 'event_insurance' }, // v2: `travel_insurance` folded into `event_insurance`
+  av_production: { kind: 'tile', tile: 'lights_sound' }, // v2: `av_production` folded into `lights_sound`
+  speaker_talent: { kind: 'tile', tile: 'host_mc' }, // v2: `speaker_talent` folded into `host_mc`
   performers: { kind: 'tile', tile: 'performers' },
-  kids_entertainer: { kind: 'tile', tile: 'kids_entertainer' },
-  choreographer: { kind: 'tile', tile: 'choreographer' },
+  kids_entertainer: { kind: 'tile', tile: 'performers' }, // v2: `kids_entertainer` folded into `performers`
+  choreographer: { kind: 'tile', tile: 'performers' }, // v2: `choreographer` folded into `performers`
   reveal_element: { kind: 'tile', tile: 'reveal_element' },
   event_insurance: { kind: 'tile', tile: 'event_insurance' },
-  personal_accident_insurance: { kind: 'tile', tile: 'personal_accident_insurance' },
+  personal_accident_insurance: { kind: 'tile', tile: 'event_insurance' }, // v2: `personal_accident_insurance` folded into `event_insurance`
   restaurant_reservation: { kind: 'tile', tile: 'restaurant_reservation' },
   wellness_fitness: { kind: 'tile', tile: 'wellness_fitness' },
   // ── B · coarse alias (many-to-one — genuinely spans tiles) ──────────────────
-  band_dj: { kind: 'tiles', tiles: ['live_band', 'dj'] },
+  band_dj: { kind: 'tiles', tiles: ['live_band'] },
   // Added 2026-08-09 with the category itself: seven guest-ACTIVITY booths
   // that had no coarse home and were resolving to `misc`. Genuinely spans
   // tiles, so it is an alias rather than a single-tile mapping.
   guest_booth: {
     kind: 'tiles',
-    tiles: [
-      'massage_chair',
-      'perfume_bar',
-      'arcade_games',
-      'henna_tattoo',
-      'mini_nail_bar',
-      'tarot_astrology_palmistry',
-      'caricature_calligraphy_painting',
-    ],
+    tiles: ['massage_chair', 'arcade_games', 'caricature_calligraphy_painting'],
   },
   // `transfers_rentals` added 2026-08-01: on a TRAVEL event the couple-side
   // "transportation" category means an airport transfer or a van/scooter
   // rental, and neither of the two wedding tiles could ever surface one.
-  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle', 'transfers_rentals'] },
+  transportation: { kind: 'tiles', tiles: ['bridal_car', 'guest_shuttle'] },
   // ── C · couple-only (exempt — no marketplace tile) ──────────────────────────
   officiant: { kind: 'exempt', reason: 'auto_resolves_from_venue' },
   church_fees: { kind: 'exempt', reason: 'budget_line_not_vendor' },
-  security: { kind: 'exempt', reason: 'no_canonical_tile' },
+  // ⚖ Taxonomy v2 (2026-11-06) gave security a canonical home — Staff, security & registration
+  // holds `security_marshals` — so it is no longer exempt (`no_canonical_tile` was the reason).
+  security: { kind: 'tile', tile: 'event_staffing' },
   misc: { kind: 'exempt', reason: 'catch_all' },
 };
 

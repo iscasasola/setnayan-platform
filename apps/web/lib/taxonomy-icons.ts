@@ -115,6 +115,8 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   funeral_home: Feather,
   cremation: Flame,
   memorial_park: TreePine,
+  // Prayers & novena (taxonomy v2, 2026-11-06)
+  prayers: Church,
   // VENUE
   reception: PartyPopper,
   ceremony_venue: Church,
@@ -202,6 +204,8 @@ export const WEDDING_TILE_ICON: Record<WeddingTile, LucideIcon> = {
   // LOGISTICS & SAFETY
   referee_official: ClipboardCheck,
   event_medic: Stethoscope,
+  // Staff, security & registration (taxonomy v2, 2026-11-06)
+  event_staffing: ShieldCheck,
   // The fallback tile. `Boxes` reads as "assorted", not as a trade — this tile
   // holds whatever the couple typed in, so its icon must not imply a category.
   everything_else: Boxes,

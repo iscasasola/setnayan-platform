@@ -8,6 +8,7 @@
  */
 import {
   ADMIN_ONLY_TILES,
+  MERGED_TILE_INTO,
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_LABEL,
   WEDDING_FOLDER_SHORT_LABEL,
@@ -84,8 +85,8 @@ export type TaxonomySnapshot = {
    * merged tile id → the tile it was merged into (`service_categories.merged_into_category_id`,
    * written by `merge_service_category()`). Sparse. A merged tile is OUT of `tileOrder` /
    * `tilesByParent` (it leaves every picker) but keeps its label/parent/slug so an old id still
-   * resolves — follow it with `resolveMergedTile` (lib/tile-merge-forward.ts). Absent on the
-   * fallback path.
+   * resolves — follow it with `resolveMergedTile` (lib/tile-merge-forward.ts). On the fallback
+   * path it is `MERGED_TILE_INTO` (lib/taxonomy.ts), the constant mirror of the same column.
    */
   tileForward?: Record<string, string>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
@@ -149,11 +150,14 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     // filing tiles. Hard-coding {} here meant that on any DB read failure the
     // fallback quietly promoted them to ordinary visible branches. Derived from
     // ADMIN_ONLY_TILES so a fifth is covered without editing this line.
+    // A folded category (taxonomy v2) is hidden too — exactly as `snapshotFromRows` hides a
+    // row carrying `merged_into_category_id`.
     hiddenCategories: Object.fromEntries(
-      [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
+      [...ADMIN_ONLY_TILES, ...Object.keys(MERGED_TILE_INTO)].map((t) => [t, true as const]),
     ) as Record<string, true>,
     tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
     categoryHints: {}, // the constant has no admin-written ⓘ — the fallback chain answers instead
+    tileForward: { ...MERGED_TILE_INTO } as Record<string, string>,
     map: { ...TAXONOMY_MAP },
   };
 }

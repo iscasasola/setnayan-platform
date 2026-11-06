@@ -57,6 +57,8 @@ export const FIND_GROUP_OF_TILE: Readonly<Record<WeddingTile, FindGroupId>> = {
   funeral_home: 'farewell',
   cremation: 'farewell',
   memorial_park: 'farewell',
+  // Prayers & novena (taxonomy v2) — scoped to a wake and its anniversary.
+  prayers: 'farewell',
   officiants: 'farewell',
   counseling_seminars: 'paperwork',
   // ── Venue & food
@@ -128,6 +130,7 @@ export const FIND_GROUP_OF_TILE: Readonly<Record<WeddingTile, FindGroupId>> = {
   tour_guide: 'more',
   referee_official: 'more',
   event_medic: 'more',
+  event_staffing: 'more',
   everything_else: 'more',
   event_insurance: 'more',
   personal_accident_insurance: 'more',

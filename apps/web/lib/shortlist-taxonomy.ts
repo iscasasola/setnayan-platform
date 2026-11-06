@@ -39,6 +39,7 @@ import {
   WEDDING_TILE_LABEL,
   WEDDING_TILE_SLUG,
   TAXONOMY_MAP,
+  liveTileOf,
   type WeddingFolder,
   type WeddingTile,
 } from '@/lib/taxonomy';
@@ -85,9 +86,11 @@ const CATEGORY_TO_TILE: Partial<Record<VendorCategory, WeddingTile>> = (() => {
     gown_designer: 'brides_attire',
     suit_designer: 'grooms_attire',
     band_dj: 'live_band',
-    string_quartet: 'orchestra',
-    choir: 'choir',
-    security: 'escort',
+    // Taxonomy v2 (2026-11-06): Choir and Orchestra folded into Music (`live_band`);
+    // security got its own home, Staff, security & registration (`event_staffing`).
+    string_quartet: 'live_band',
+    choir: 'live_band',
+    security: 'event_staffing',
     gifts_and_giveaways: 'souvenir_giveaways',
     /*
       ⚖ `misc` WAS `'escort'`, AND THAT FILED A HOTEL UNDER CARS & TRANSPORT.
@@ -126,6 +129,11 @@ const CATEGORY_TO_TILE: Partial<Record<VendorCategory, WeddingTile>> = (() => {
     const t = primaryTileForVendorCategory(c);
     if (t) m[c] = t;
   }
+  // TAXONOMY V2 (2026-11-06): a plan group may still name a FOLDED category as its
+  // catalogTile (`dj`, `ceremony_venue` …). A folded tile is a tombstone no picker
+  // renders, so a pick filed there would vanish from the bench — land it on the live
+  // tile it folded into (MERGED_TILE_INTO, the constant mirror of the DB forward).
+  for (const c of Object.keys(m) as VendorCategory[]) m[c] = liveTileOf(m[c]!);
   return m;
 })();
 

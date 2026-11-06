@@ -105,6 +105,14 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Memorial Park',
     cardKind: 'inclusions',
   },
+  // Prayers & novena (taxonomy v2, 2026-11-06) — the same quiet desk as the three above.
+  prayers: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'suit', idle: 'present', count: 1 },
+    signText: 'Prayers & Novena',
+    cardKind: 'inclusions',
+  },
   // ── FEAST ──────────────────────────────────────────────────────────────────
   catering: {
     // 2026-07-08 owner polish: "they have a LONG table of food" — the classic
@@ -827,6 +835,14 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     ],
     staff: { outfit: 'uniform', idle: 'wave', count: 1 },
     signText: 'Medic / First-aid',
+    cardKind: 'inclusions',
+  },
+  // Staff, security & registration (taxonomy v2, 2026-11-06) — a registration desk.
+  event_staffing: {
+    chassis: 'DESK',
+    props: [{ kind: 'clipboard_board', position: [0, 0.79, 0.05] }],
+    staff: { outfit: 'uniform', idle: 'present', count: 1 },
+    signText: 'Staff & Security',
     cardKind: 'inclusions',
   },
   /*

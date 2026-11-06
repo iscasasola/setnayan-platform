@@ -151,6 +151,8 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   restaurant_reservation: 'restaurant_reservation',
   referee_official: 'referee_official',
   event_medic: 'event_medic',
+  // Staff, security & registration (taxonomy v2, 2026-11-06) — the enum's own word for it.
+  event_staffing: 'security',
   event_insurance: 'event_insurance',
   personal_accident_insurance: 'personal_accident_insurance',
   travel_insurance: 'travel_insurance',
@@ -168,6 +170,8 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   hearse: 'funeral_home',
   cremation: 'cremation',
   memorial_park: 'memorial_park',
+  // Prayers & novena (taxonomy v2, 2026-11-06) — a rite-leading branch, filed with Officiants.
+  prayers: 'officiant',
 };
 
 /**

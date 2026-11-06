@@ -12,6 +12,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { fetchEffectiveCaps } from '@/lib/vendor-effective-caps';
+import { formatCount } from '@/lib/format-number';
 import {
   COUNT_ADDONS,
   canBuyUltraAddOn,
@@ -91,7 +92,9 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   if (kind === 'waitlist') {
     const caps = await fetchEffectiveCaps(supabase, vendorProfileId, tier);
     if (caps.waitlistAcceptances + 1 > WAITLIST_SETTING_MAX) {
-      back(`Your wait list already takes ${caps.waitlistAcceptances} couples a date — the most it can hold is ${WAITLIST_SETTING_MAX}.`);
+      back(
+        `Your wait list already takes ${formatCount(caps.waitlistAcceptances)} couples a date — the most it can hold is ${formatCount(WAITLIST_SETTING_MAX)}.`,
+      );
     }
   }
 
@@ -142,7 +145,11 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   );
   if (pErr) {
     // Same client that minted it — a mixed-client compensation is how a rollback silently stops rolling back.
-    await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+    if (undoErr) {
+      // The order stands without its payment row — say so where an admin will see it, never silently.
+      console.error('[ultra-addon] could not undo the order after the payment row failed', { orderId, undoErr });
+    }
     back('Could not start the add-on order. Please try again.');
   }
 

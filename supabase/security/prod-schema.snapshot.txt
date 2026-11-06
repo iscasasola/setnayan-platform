@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1756
-# tables: 455
-# columns: 5603
-# notnull: 3387
+# ledger: 1757
+# tables: 456
+# columns: 5620
+# notnull: 3396
 [ledger]
 20260512000000
 20260513000000
@@ -1767,6 +1767,7 @@
 20271315529466
 20271316174617
 20271316625547
+20271316933967
 20271319497337
 [columns]
 account_deletion_requests.admin_note
@@ -6379,6 +6380,21 @@ vendor_guest_deliveries.guest_id
 vendor_guest_deliveries.item_label
 vendor_guest_deliveries.vendor_profile_id
 vendor_guest_deliveries.voided_at
+vendor_guest_reviews.capture_id
+vendor_guest_reviews.created_at
+vendor_guest_reviews.door
+vendor_guest_reviews.event_id
+vendor_guest_reviews.guest_id
+vendor_guest_reviews.hidden_at
+vendor_guest_reviews.hidden_by_user_id
+vendor_guest_reviews.line
+vendor_guest_reviews.rating_overall
+vendor_guest_reviews.review_id
+vendor_guest_reviews.service_id
+vendor_guest_reviews.shown_as
+vendor_guest_reviews.vendor_profile_id
+vendor_guest_reviews.vendor_reply
+vendor_guest_reviews.vendor_reply_at
 vendor_ig_connections.access_token_enc
 vendor_ig_connections.connected_at
 vendor_ig_connections.created_at
@@ -6959,6 +6975,8 @@ vendor_reviews.rating_overall
 vendor_reviews.rating_quality
 vendor_reviews.rating_value
 vendor_reviews.review_id
+vendor_reviews.reviewer_display
+vendor_reviews.service_id
 vendor_reviews.updated_at
 vendor_reviews.vendor_profile_id
 vendor_reviews.vendor_reply
@@ -10164,6 +10182,14 @@ vendor_guest_deliveries.delivery_id
 vendor_guest_deliveries.event_id
 vendor_guest_deliveries.guest_id
 vendor_guest_deliveries.vendor_profile_id
+vendor_guest_reviews.created_at
+vendor_guest_reviews.door
+vendor_guest_reviews.event_id
+vendor_guest_reviews.guest_id
+vendor_guest_reviews.rating_overall
+vendor_guest_reviews.review_id
+vendor_guest_reviews.shown_as
+vendor_guest_reviews.vendor_profile_id
 vendor_ig_connections.access_token_enc
 vendor_ig_connections.connected_at
 vendor_ig_connections.created_at
@@ -10500,6 +10526,7 @@ vendor_reviews.rating_overall
 vendor_reviews.rating_quality
 vendor_reviews.rating_value
 vendor_reviews.review_id
+vendor_reviews.reviewer_display
 vendor_reviews.updated_at
 vendor_reviews.vendor_profile_id
 vendor_reviews.via_vendor_import

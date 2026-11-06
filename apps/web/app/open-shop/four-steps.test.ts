@@ -42,22 +42,28 @@ const OWNS: Record<string, number> = {
   slugShape: 1,
   slugTaken: 1,
   service: 2,
-  contactName: 3,
-  contactPhone: 3,
+  // "Pick at least one event." (owner 2026-11-06) — the same screen as the tiles it is about.
+  events: 2,
+  // 🔁 RE-ORDERED 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": the account step goes LAST).
+  // "Where you are" is now step 3 and "You" (name · number · email · the account) is step 4.
+  locationPin: 3,
+  locationConfirm: 3,
+  locationCity: 3,
+  contactName: 4,
+  contactPhone: 4,
   // Owner-locked 2026-08-10: the number must belong to where the shop is. Same
   // step as the number itself — a refusal that sends someone to a different
   // screen than the box it is about is a refusal they cannot act on.
-  contactPhoneNotPh: 3,
-  contactEmail: 3,
-  locationCity: 4,
-  // The account is created inside step 3 (owner 2026-09-22): every refusal about
-  // the password or the email's account belongs to the screen that asked for
-  // them. lib/open-shop-account.ts owns these strings; the step is owned HERE.
-  password: 3,
-  passwordLeaked: 3,
-  blacklisted: 3,
-  emailTaken: 3,
-  accountFailed: 3,
+  contactPhoneNotPh: 4,
+  contactEmail: 4,
+  // The account is created inside the LAST step: every refusal about the password
+  // or the email's account belongs to the screen that asked for them.
+  // lib/open-shop-account.ts owns these strings; the step is owned HERE.
+  password: 4,
+  passwordLeaked: 4,
+  blacklisted: 4,
+  emailTaken: 4,
+  accountFailed: 4,
 };
 
 test('META: every error the action redirects with is accounted for here', () => {
@@ -215,7 +221,8 @@ test('the refusal names the field the vendor can actually see', () => {
     !/contactName:\s*'Add the owner name\.'/.test(VALIDATION),
     'the refusal says "owner name" while the field is labelled "Your name"',
   );
-  const label = /Your name<span/.test(WIZARD);
+  // The asterisks left the labels with the 2026-11-06 redesign (the prototype draws none) — the label itself stays.
+  const label = /Your name\s*<\/span>/.test(WIZARD);
   assert.ok(label, 'the field label changed — re-check that the refusal still matches it');
 });
 
@@ -347,7 +354,7 @@ test('the action forwards the pure module’s step, never a hard-coded one, for 
   );
 });
 
-test('signed out, the wizard asks for a password on step 3 and the agreement on the last step — and only then', () => {
+test('signed out, the wizard asks for a password and the agreement on the last step — and only then', () => {
   // Both live INSIDE the `guest` gate: a signed-in vendor is never asked to agree
   // again or to choose a password for an account they already have.
   const pw = WIZARD.indexOf('name="password"');

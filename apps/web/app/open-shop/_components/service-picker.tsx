@@ -181,30 +181,7 @@ export function ServicePicker({
   );
   const listFrame = 'overflow-hidden rounded-xl border';
 
-  /* ── THE 16 GROUPS AS TILES, TWO COLUMNS (owner 2026-11-06: "present this better and simpler"; the redesign's
-     tiles carry the group's own name, as the prototype draws them). The group's icon (`folderIcon`, the one Explore
-     draws) is read before its name. */
-  const groups = (
-    <div className="grid grid-cols-2 gap-1.5" data-open-shop-groups="">
-      {tree.map((p) => {
-        const Icon = folderIcon(p.folderId);
-        return (
-          <button
-            key={p.folderId}
-            type="button"
-            onClick={() => setOpenParent(p.folderId)}
-            aria-label={p.label}
-            title={p.label}
-            className="flex min-h-[58px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
-            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-paper)' }}
-          >
-            <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
-            <span className="line-clamp-2 min-w-0">{p.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const groups = <GroupTiles tree={tree} onOpen={setOpenParent} />;
 
   const coordinatorView = coordinatorOnly && q.length < 2 && !parent;
 
@@ -348,6 +325,34 @@ export function ServicePicker({
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── THE 16 GROUPS AS TILES, TWO COLUMNS (owner 2026-11-06: "present this better and simpler"; the redesign's tiles
+   carry the group's own name, as the prototype draws them). The group's icon (`folderIcon`, the one Explore draws) is
+   read before its name. Drawn UNDER the search box — this component is placed after the picker so the source reads
+   in screen order too. */
+function GroupTiles({ tree, onOpen }: { tree: PickerParentView[]; onOpen: (folderId: string) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5" data-open-shop-groups="">
+      {tree.map((p) => {
+        const Icon = folderIcon(p.folderId);
+        return (
+          <button
+            key={p.folderId}
+            type="button"
+            onClick={() => onOpen(p.folderId)}
+            aria-label={p.label}
+            title={p.label}
+            className="flex min-h-[58px] items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm leading-tight" // no-card-ok: a pressable group tile — this line is a <button>'s own className
+            style={{ borderColor: 'var(--m-line)', color: 'var(--m-ink)', background: 'var(--m-paper)' }}
+          >
+            <Icon aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-orange-deep)' }} />
+            <span className="line-clamp-2 min-w-0">{p.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

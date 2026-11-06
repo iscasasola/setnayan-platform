@@ -65,7 +65,9 @@ test('A1 · flag off → today’s behaviour: flipped, signed in, the welcome ma
 
 test('A1 · the account is created only after every field of the shop has passed', () => {
   const create = ACTIONS.indexOf('await createVendorAccountForShop(');
-  for (const refusal of ['OPEN_SHOP_ERRORS.shopName', 'OPEN_SHOP_ERRORS.slugTaken', 'OPEN_SHOP_ERRORS.service', 'OPEN_SHOP_ERRORS.locationCity']) {
+  // The location refusal is `locationStepError({…})` since 2026-11-06 (pin · yes · city, the wizard's own rule) —
+  // retargeted from the bare `OPEN_SHOP_ERRORS.locationCity` it replaced; `events` joined the same day.
+  for (const refusal of ['OPEN_SHOP_ERRORS.shopName', 'OPEN_SHOP_ERRORS.slugTaken', 'OPEN_SHOP_ERRORS.service', 'OPEN_SHOP_ERRORS.events', 'locationStepError({']) {
     const at = ACTIONS.indexOf(refusal);
     assert.ok(at > 0 && at < create, `${refusal} is checked after the account exists — a refusal then strands an unconfirmed account`);
   }
@@ -140,10 +142,8 @@ test('A4 · the picker calls the SHARED ranker with reviewed aliases — no priv
 /* ── A5 · plan limit at the pick ─────────────────────────────────────────────────────────────────────────────── */
 
 test('A5 · the hint, with the categories per plan read from TIER_CAPS', () => {
-  assert.match(
-    WIZARD,
-    /Pick your main service to start — you can add more later\. How many categories you can run depends on\s+your plan/,
-  );
+  // 🔁 Retargeted 2026-11-06 to the approved redesign's words (the prototype's `planHint2`), the ⓘ now the label's.
+  assert.match(WIZARD, /label="Add more later\. How many categories you can run depends on your plan"/);
   assert.match(WIZARD, /ariaLabel="Categories per plan"/);
   assert.match(PAGE, /planCategories=\{categoryLadder\(\)\}/);
   const ladder = categoryLadder();
@@ -163,7 +163,8 @@ test('A6 · Select all dims when all are on, Clear when none', () => {
 /* ── A7 · phone box (rules executed in lib/open-shop-phone.test.ts) ──────────────────────────────────────────── */
 
 test('A7 · the wizard draws the +63 box and refills it from a draft', () => {
-  assert.match(WIZARD, /<PhoneField digits=\{phoneDigits\} onDigits=\{setPhoneDigits\} \/>/);
+  // The box now also draws its own refusal (owner 2026-11-06: every error under its box).
+  assert.match(WIZARD, /<PhoneField digits=\{phoneDigits\} onDigits=\{setPhoneDigits\} error=\{errorFor\('contact_phone'\)\} \/>/);
   assert.match(WIZARD, /if \(d\.phone\) setPhoneDigits\(phoneDigitsFromTyped\(d\.phone\)\);/);
 });
 
@@ -202,7 +203,8 @@ test('A10 · one line, the numbers inside the ⓘ, still before "Open my shop"',
   const at = WIZARD.indexOf('data-testid="open-shop-fee-disclosure"');
   assert.ok(at > 0);
   const line = WIZARD.slice(at, WIZARD.indexOf('</p>', WIZARD.indexOf('</InfoTip>', at)));
-  assert.match(line, /Free to open, free to run\. You pay only when a couple books you through Setnayan\./);
+  // The sentence IS the ⓘ's label (2026-11-06, the prototype: "…through Setnayan ⓘ", no full stop before the ⓘ).
+  assert.match(line, /label="Free to open, free to run\. You pay only when a couple books you through Setnayan"/);
   assert.match(line, /<InfoTip[\s\S]*\{feeNotice\.detail\}/, 'the numbers left the ⓘ');
   assert.ok(at < WIZARD.indexOf('Open my shop — free'), 'the fee line moved below the button');
 });

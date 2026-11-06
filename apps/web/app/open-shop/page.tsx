@@ -21,8 +21,9 @@ import { categoryLadder } from '@/lib/vendor-tier-caps';
  * CTA + the vendor signup landing (owner 2026-07-03). Routes by state:
  *
  *   • logged OUT                     → the wizard, signed out (mode 'create'):
- *     step 3 also creates the account, and "Sign in" there opens the popup over
- *     the wizard (owner 2026-09-22 "account inside step 3" — supersedes the
+ *     the LAST step (4, "You" — owner 2026-11-06, the account goes last) also
+ *     creates the account, and "Sign in" opens the sign-in pane over the
+ *     wizard (owner 2026-09-22 "account inside step 3" — supersedes the
  *     2026-07-10 login-first bounce to /login?next=/open-shop&as=vendor, which
  *     survives only as the no-JavaScript fallback of that link)
  *   • logged in, shop with a NAME    → /vendor-dashboard (Today — first-timer fix 12)
@@ -30,7 +31,7 @@ import { categoryLadder } from '@/lib/vendor-tier-caps';
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
  *     signup's trigger-provisioned bare shop lands here to fill the basics)
  *
- * The wizard collects the owner-locked basics (shop name · logo · primary
+ * The wizard collects the owner-locked basics (shop name · primary
  * service · owner name · contact number · company email · location); website
  * + social links and everything else continue on My Shop via the profile
  * checklist + Get-verified journey (owner 2026-07-05).
@@ -54,7 +55,7 @@ export default async function OpenShopPage({
     data: { user },
   } = await supabase.auth.getUser();
   // Logged out is no longer a bounce (owner 2026-09-22): the wizard renders for a
-  // stranger and step 3 creates the account with the shop. Every read below that
+  // stranger and step 4 creates the account with the shop. Every read below that
   // needs an account is guarded on `user`; the vocab reads are anon-readable, and
   // the tree falls back to the flat select if a read is refused.
   const guest = !user;
@@ -167,7 +168,7 @@ export default async function OpenShopPage({
       leaves: b.leaves.map((l) => ({ ...l, aliases: aliasesByLeaf.get(l.canonicalService) })),
     })),
   }));
-  // The signed-in account's own name — shown read-only on step 3 rather than
+  // The signed-in account's own name — shown read-only on step 4 rather than
   // asked (owner 2026-08-10). Fail-soft: null keeps the field editable, which is
   // the right behaviour for an account that has no display name yet.
   const accountName = await (async () => {
@@ -239,7 +240,7 @@ export default async function OpenShopPage({
       }
       error={error}
       planCategories={categoryLadder()}
-      // A8: the submit was refused because the email has an account → step 3 signs in, right there.
+      // A8: the submit was refused because the email has an account → step 4 signs in, right there.
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
       sentTo={guest && checkInbox ? checkInbox.trim().slice(0, 254) : null}

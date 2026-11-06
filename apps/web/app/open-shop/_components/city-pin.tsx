@@ -84,6 +84,7 @@ export function CityPin({
   error = null,
   sideSlot = null,
   onConfirmedChange,
+  onPendingChange,
   onAddressChange,
 }: {
   defaultCity: string;
@@ -98,6 +99,8 @@ export function CityPin({
   sideSlot?: HTMLElement | null;
   /** The confirmed city (or null when the pin moves / nothing is confirmed) — the wizard's "at a glance" and button. */
   onConfirmedChange?: (city: string | null) => void;
+  /** True while "Is this your address?" waits for an answer — the wizard turns its right column into that pane. */
+  onPendingChange?: (pending: boolean) => void;
   /** What is in the address box — parked with the draft so a reload brings it back. */
   onAddressChange?: (address: string) => void;
   /**
@@ -443,6 +446,11 @@ export function CityPin({
     onConfirmedChange?.(confirmed ? city.trim() || null : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
   }, [confirmed, city]);
+  const pending = Boolean(pin) && !confirmed && !detecting;
+  useEffect(() => {
+    onPendingChange?.(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter
+  }, [pending]);
   useEffect(() => {
     onAddressChange?.(address);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the callback is the parent's setter

@@ -8,8 +8,10 @@
  * here: both call the real server actions.
  *
  *   ?step=1..4     which step is shown first
- *   ?guest=0       signed in (the account half of step 3 hidden); default signed out
- *   ?taken=1       step 3 after a "this email already has an account" refusal (A8)
+ *   ?guest=0       signed in (the account half of step 4 hidden); default signed out
+ *   ?taken=1       step 4 after a "this email already has an account" refusal (A8)
+ *   ?as=coordinator  the For Coordinators door (step 2 opens on the coordination services)
+ *   ?error=<sentence>  a server refusal, drawn under the box that owns it
  *   ?check_inbox=<email>  the check-your-email state (A1)
  *   ?screen=logo   the "Add your logo" screen (A2) · &framed=1 with a public image already in, so the align + zoom
  *                  control shows (an upload needs R2, which a dummy env does not have)
@@ -66,19 +68,33 @@ function fixtureTree(): PickerParentView[] {
   }));
 }
 
+/** The prototype's roster (19 types; the last three have no photo yet, so they wear the placeholder gradient). */
 const EVENTS = [
   { key: 'wedding', label: 'Wedding', emoji: '💍' },
   { key: 'debut', label: 'Debut', emoji: '👑' },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈' },
   { key: 'birthday', label: 'Birthday', emoji: '🎂' },
-  { key: 'christening', label: 'Christening', emoji: '🕯️' },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢' },
   { key: 'celebration', label: 'Celebration', emoji: '🥂' },
+  { key: 'travel', label: 'Travel', emoji: '✈️' },
+  { key: 'corporate', label: 'Corporate', emoji: '🏢' },
+  { key: 'tournament', label: 'Tournament', emoji: '🏆' },
+  { key: 'christening', label: 'Christening', emoji: '🕯️' },
+  { key: 'anniversary', label: 'Anniversary', emoji: '💞' },
+  { key: 'graduation', label: 'Graduation', emoji: '🎓' },
+  { key: 'reunion', label: 'Reunion', emoji: '🤝' },
+  { key: 'gala_night', label: 'Gala Night', emoji: '🌟' },
+  { key: 'date', label: 'Date', emoji: '💕' },
+  { key: 'hangout', label: 'Hangout', emoji: '🍿' },
+  { key: 'wake', label: 'Wake', emoji: '🕊️' },
+  { key: 'concert', label: 'Concert', emoji: '🎤' },
+  { key: 'open_house', label: 'Open house', emoji: '🏡' },
+  { key: 'grand_opening', label: 'Grand opening', emoji: '🎀' },
 ];
 
 export default async function OpenShopLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string }>;
+  searchParams: Promise<{ step?: string; guest?: string; taken?: string; check_inbox?: string; screen?: string; framed?: string; as?: string; error?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -108,7 +124,8 @@ export default async function OpenShopLabPage({
         shopName: 'Banawe Florals',
         logoUrl: '',
         primaryService: '',
-        eventTypes: ['wedding'],
+        // Every event type ticked to start (owner 2026-11-06), as the real page hands it in.
+        eventTypes: EVENTS.map((e) => e.key),
         locationCity: '',
         hqAddress: '',
         contactName: 'Ana Reyes',
@@ -117,10 +134,11 @@ export default async function OpenShopLabPage({
         contactEmail: 'ana@banaweflorals.ph',
       }}
       guest={guest}
+      coordinator={q.as === 'coordinator'}
       oauth={{ show: true, desktop: false, native: false }}
       planCategories={categoryLadder()}
       emailTaken={q.taken === '1'}
-      error={q.taken === '1' ? OPEN_SHOP_ACCOUNT_ERRORS.emailTaken : undefined}
+      error={q.taken === '1' ? OPEN_SHOP_ACCOUNT_ERRORS.emailTaken : (q.error ?? undefined)}
       sentTo={q.check_inbox ?? null}
       initialStep={step}
     />

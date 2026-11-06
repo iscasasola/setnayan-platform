@@ -110,6 +110,9 @@ test('1 · every field the one save reads is posted by the maker', () => {
 /**
  * THE MAP — every row of the 2026-10-08 truth table (92 fields + the two collected rows) → where it lives in the
  * simpler maker. The fold ids are the maker's `data="…"`. "row" = the first questions; "m-*" = under More settings;
+ * 2026-11-07 (makers prototype § 3, DECISION_LOG "THE FOUR MAKERS ARE APPROVED…"): the one page of fields' sections
+ * are `data-maker-row` ids (name · specialties · price · included · extras · gift · photos); Price · more, Add-ons,
+ * the Setnayan gift and Details moved up to them, and customisation is drawn under What's included while a card is made;
  * "sheet:*" = a sheet with its own form; "list" = the Shop list row.
  */
 export const FIELD_MAP: ReadonlyArray<readonly [string, string, string]> = [
@@ -117,14 +120,14 @@ export const FIELD_MAP: ReadonlyArray<readonly [string, string, string]> = [
   ['2', 'Name', 'name'],
   ['3', 'Cover photo', 'photos'],
   ['4–5', 'Showcase photos (≤5) · clip (≤30 s)', 'photos'],
-  ['6', 'Pricing basis', 'm-price'],
+  ['6', 'Pricing basis', 'price'],
   ['7', 'Starting price / per-guest rate / hourly base', 'price'],
-  ['8–13', 'Covers guests · each extra guest · minimum guests · minimum hours · each extra hour · size brackets', 'm-price'],
+  ['8–13', 'Covers guests · each extra guest · minimum guests · minimum hours · each extra hour · size brackets', 'price'],
   ['14–19', 'Discounts: type · months ahead · amount · unit · expiry · conditions', 'm-disc'],
   ['20–21', "What's included: label · worth", 'included'],
-  ['22–33', 'Customisation lines (always · included · optional · they pick · by the hour …)', 'm-inc'],
-  ['34–35', 'Add-ons: label · from ₱ (≤12)', 'm-addons'],
-  ['36', 'Setnayan gift', 'm-gift'],
+  ['22–33', 'Customisation lines (always · included · optional · they pick · by the hour …)', 'included'],
+  ['34–35', 'Add-ons: label · from ₱ (≤12)', 'extras'],
+  ['36', 'Setnayan gift · a shop gift pack (NEW 2026-11-07)', 'gift'],
   ['37–40', 'Crew size · crew meal · transport included · flat transport fee', 'm-crew'],
   ['41–43', 'Book ahead · last-minute ends · surcharge %', 'm-terms'],
   ['44', 'Bookings a day', 'm-terms'],
@@ -133,7 +136,7 @@ export const FIELD_MAP: ReadonlyArray<readonly [string, string, string]> = [
   ['60', 'Coverage this card sits in', 'm-who'],
   ['61–62', 'Event types · faiths', 'sheet:audience'],
   ['63', 'Branch', 'm-who'],
-  ['64–66', 'Details (refinements)', 'm-details'],
+  ['64–66', 'Details (refinements) — “Specialties”', 'specialties'],
   ['67', 'Comes with', 'm-comes'],
   ['68', 'Live / hidden', 'm-live'],
   ['69', 'Publish / save (one Create)', 'thumb'],

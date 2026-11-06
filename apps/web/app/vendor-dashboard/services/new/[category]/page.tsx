@@ -157,7 +157,9 @@ export default async function NewServicePage({
   const details = canvas ? await loadKindDetails(supabase, profile.vendor_profile_id, category) : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6">
+    // The card maker fills the screen (split evenly from 820 up) and carries its own title on its surface — no page
+    // title above it (makers prototype 7 Nov 2026 § 3). The retiring wizard keeps its shipped frame.
+    <div className={canvas ? 'mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6' : 'mx-auto w-full max-w-2xl px-4 py-8 sm:px-6'}>
       <Link
         href="/vendor-dashboard/services"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
@@ -165,14 +167,16 @@ export default async function NewServicePage({
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Services
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {initial ? 'Start from one of your cards' : 'Add a service'}
-      </h1>
-      <p className="mb-6 mt-1 text-sm text-ink/60">
-        {canvas
-          ? 'This is your card — the one couples will see. Tap any part of it to edit. Everything saves together.'
-          : 'A few quick answers — three to publish, the rest optional. Everything saves together at the end.'}
-      </p>
+      {canvas ? null : (
+        <>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {initial ? 'Start from one of your cards' : 'Add a service'}
+          </h1>
+          <p className="mb-6 mt-1 text-sm text-ink/60">
+            A few quick answers — three to publish, the rest optional. Everything saves together at the end.
+          </p>
+        </>
+      )}
       {showClaimBanner && claimContext ? (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-terracotta/25 bg-terracotta/5 px-4 py-3">
           <Heart
@@ -210,6 +214,8 @@ export default async function NewServicePage({
           schedules={ctx.schedules}
           scheduleOfKind={ctx.scheduleOfKind}
           branches={ctx.branches}
+          giftPacks={ctx.giftPacks}
+          giftFree={ctx.giftFree}
           detailsKind={details ? category : null}
           detailsSlot={
             details ? (

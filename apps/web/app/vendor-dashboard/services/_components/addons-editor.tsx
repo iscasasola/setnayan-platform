@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { setServiceAddons } from '../addon-actions';
 
 /**
@@ -35,40 +37,71 @@ export function AddonsEditor({
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
 
   if (bare) {
+    /**
+     * EXTRAS ON THE CARD'S FIRST PAGE (makers prototype 7 Nov 2026 § 3: "Extras · priced add-ons · optional"). Each
+     * line is the label + its "from ₱", in one bordered list, and leaves by ITS SWIPE with Undo — THE ONE SWIPE
+     * (`SwipeToDelete`) and the shipped Undo toast; no ✕ on the line (owner 7 Nov: *"all swipe to delete works"*).
+     * Nothing is written until the card's save, so Undo puts the line back where it was. Same field names as ever.
+     */
+    const swipeOut = (row: Row) => {
+      const at = rows.findIndex((r) => r.key === row.key);
+      remove(row.key);
+      pushUndo({
+        label: row.label.trim() ? `“${row.label.trim()}” removed` : 'Extra removed',
+        undo: async () => {
+          setRows((cur) => {
+            if (cur.some((r) => r.key === row.key)) return cur;
+            const next = [...cur];
+            next.splice(at < 0 ? next.length : Math.min(at, next.length), 0, row);
+            return next;
+          });
+        },
+      });
+    };
+    const patch = (key: number, next: Partial<AddonDraft>) =>
+      setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...next } : r)));
     return (
       <div className="space-y-2" data-addons-bare="">
         <input type="hidden" name="addons_present" value="1" />
-        {rows.map((r) => (
-          <div key={r.key} className="flex items-center gap-2">
-            <input
-              name="addon_label"
-              defaultValue={r.label}
-              maxLength={80}
-              aria-label="Add-on"
-              placeholder="e.g. Drone coverage"
-              className="input-field min-w-0 flex-[2]"
-            />
-            <input
-              name="addon_price"
-              defaultValue={r.price}
-              type="number"
-              min={0}
-              step={1}
-              aria-label="From (PHP)"
-              placeholder="from ₱"
-              className="input-field min-w-0 flex-1"
-            />
-            <button
-              type="button"
-              aria-label="Remove add-on"
-              onClick={() => remove(r.key)}
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
-              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-            >
-              <X className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          </div>
-        ))}
+        {rows.length > 0 ? (
+          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
+            {rows.map((r, i) => (
+              <SwipeToDelete
+                key={r.key}
+                as="li"
+                label={`Remove ${r.label.trim() || `extra ${i + 1}`}`}
+                word="Remove"
+                radiusClass="rounded-none"
+                surfaceClass="bg-raised"
+                onDelete={() => swipeOut(r)}
+              >
+                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem]" data-addon-line="">
+                  <input
+                    name="addon_label"
+                    value={r.label}
+                    onChange={(e) => patch(r.key, { label: e.target.value })}
+                    maxLength={80}
+                    aria-label={`Extra ${i + 1}`}
+                    placeholder="e.g. Extra hour of coverage"
+                    className="h-12 min-w-0 bg-transparent px-4 text-[15px] text-ink placeholder:text-ink/40 focus:outline-none"
+                  />
+                  <input
+                    name="addon_price"
+                    value={r.price}
+                    onChange={(e) => patch(r.key, { price: e.target.value.replace(/[^0-9]/g, '') })}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
+                    aria-label="From (PHP)"
+                    placeholder="from ₱"
+                    className="h-12 min-w-0 border-l border-ink/10 bg-transparent px-4 text-[14px] text-ink placeholder:text-ink/40 focus:outline-none"
+                  />
+                </div>
+              </SwipeToDelete>
+            ))}
+          </ul>
+        ) : null}
         {rows.length < 12 ? (
           <button
             type="button"
@@ -76,9 +109,10 @@ export function AddonsEditor({
             className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
-            Add an add-on
+            Add an extra
           </button>
         ) : null}
+        {rows.length > 0 ? <p className="text-[12px] text-ink/55">Swipe an extra left to remove it.</p> : null}
       </div>
     );
   }

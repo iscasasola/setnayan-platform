@@ -44,6 +44,8 @@ export function NewServiceMaker({
         schedules={ctx.schedules}
         scheduleOfKind={ctx.scheduleOfKind}
         branches={ctx.branches}
+        giftPacks={ctx.giftPacks}
+        giftFree={ctx.giftFree}
         detailsKind={details ? ctx.onlyKind : null}
         detailsSlot={
           details && ctx.onlyKind ? (

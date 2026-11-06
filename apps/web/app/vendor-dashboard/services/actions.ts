@@ -78,6 +78,9 @@ import {
   toPackageDraft,
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
+import { giftColumns } from '@/lib/gift-pick';
+import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
+import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
@@ -1081,6 +1084,8 @@ export async function updateVendorService(formData: FormData) {
       last_minute_surcharge_pct,
       daily_capacity,
       includes_setnayan_gift,
+      // One gift per card (migration a_card_carries_a_shop_gift): the Setnayan gift switched on here drops any shop pack.
+      ...(includes_setnayan_gift ? { gift_pack_code: null } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('vendor_service_id', idRaw)
@@ -1538,6 +1543,52 @@ export async function commitVendorService(formData: FormData) {
     return back((e as Error).message);
   }
 
+  // ---- 🎁 THE GIFT ROW'S SHOP PACK (makers prototype 7 Nov 2026 § 3) ------
+  //
+  // The card's Gift dropdown is ONE answer: No gift · Setnayan gift · one of the shop's own packs. The Setnayan gift
+  // stays where it always lived (`includes_setnayan_gift`, in `fields` above, through the RPC); a pack is
+  // `vendor_services.gift_pack_code` (migration a_card_carries_a_shop_gift), written in its own owner-scoped UPDATE
+  // around the RPC so `save_vendor_service` is not re-defined. Only a screen that DRAWS the row posts
+  // `gift_pack_present` — every other writer leaves the stored pack alone (the same missing-key rule the RPC keeps).
+  // `undefined` = leave alone · `null` = no pack · a code = that pack.
+  let giftPackCode: string | null | undefined;
+  if (formData.get('gift_pack_present') === '1') {
+    const raw = formData.get('gift_pack_code');
+    const code = typeof raw === 'string' && raw.length > 0 ? raw : null;
+    const cols = giftColumns(code);
+    if (code && (!cols || !shopGiftKindOf(code))) return back('That gift can’t be offered on a card.');
+    if (code && fields.includes_setnayan_gift === true) {
+      return back('A card gives one gift — pick the Setnayan gift or one of your own, not both.');
+    }
+    giftPackCode = code;
+    // "Offered only while in stock" (DECISION_LOG 2026-11-04). The dropdown lists a short pack disabled; the save
+    // asks the same ledger, but only of a pack this save ADDS — re-saving a card never strands the gift it already
+    // shows. A stock the server cannot read does not block the save (it is an offer; the quote moves the stock).
+    if (code) {
+      const { data: had } = isCreate
+        ? { data: null }
+        : await supabase
+            .from('vendor_services')
+            .select('gift_pack_code')
+            .eq('vendor_service_id', serviceId as string)
+            .eq('vendor_profile_id', profile.vendor_profile_id)
+            .maybeSingle();
+      const before = (had as { gift_pack_code?: string | null } | null)?.gift_pack_code ?? null;
+      if (before !== code) {
+        const [packs, stock] = await Promise.all([
+          fetchShopGiftPacks(supabase).catch(() => null),
+          fetchShopGiftStock(supabase, profile.vendor_profile_id).catch(() => null),
+        ]);
+        const pack = packs?.find((p) => p.code === code) ?? null;
+        const free = freeByKind(stock);
+        if (packs && !pack) return back('That gift is not on sale right now — pick another.');
+        if (pack && free && free[pack.kind] < pack.credits) {
+          return back('Not enough of that gift in your stock — buy it first (Shop › Promote › Your gifts).');
+        }
+      }
+    }
+  }
+
   // ---- THE PUBLISH GATE (owner-drawn 2026-08-28) --------------------------
   //
   // A card may go live only once it carries a starting price and a Setnayan
@@ -1828,6 +1879,16 @@ export async function commitVendorService(formData: FormData) {
   // 20271030569442 revokes it from `anon` and `authenticated`; the ownership
   // answer now comes from `ensureProfile()` above — the session — instead of
   // from an argument the database was willing to believe.
+  // 🎁 A card moving OFF a pack drops it BEFORE the RPC: the one-gift CHECK refuses a row holding both, so turning the
+  // Setnayan gift on over a stored pack must clear the pack first. Owner-scoped like every write here.
+  if (!isCreate && giftPackCode === null) {
+    const { error: clearErr } = await supabase
+      .from('vendor_services')
+      .update({ gift_pack_code: null })
+      .eq('vendor_service_id', serviceId as string)
+      .eq('vendor_profile_id', profile.vendor_profile_id);
+    if (clearErr) return back('Your gift could not be changed just now — try again.');
+  }
   const { data: savedId, error } = await createAdminClient().rpc('save_vendor_service', {
     p_vendor_profile_id: profile.vendor_profile_id,
     p_service_id: serviceId,
@@ -1848,6 +1909,15 @@ export async function commitVendorService(formData: FormData) {
   const partProblems: string[] = [];
   const cardId = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
   if (cardId) {
+    // 🎁 …and a card moving ONTO a pack writes it AFTER, once the RPC has set `includes_setnayan_gift` to false.
+    if (typeof giftPackCode === 'string') {
+      const { error: packErr } = await supabase
+        .from('vendor_services')
+        .update({ gift_pack_code: giftPackCode })
+        .eq('vendor_service_id', cardId)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (packErr) partProblems.push('its gift');
+    }
     const policyErr = await writeSchedulePolicy(supabase, cardId, profile.vendor_profile_id, scheduleRows);
     if (policyErr) partProblems.push('the no-show terms on the first payment');
     if (formData.get('addons_present') === '1') {

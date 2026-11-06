@@ -55,12 +55,19 @@ test('while the price waits, its box is out of reach but still MOUNTED — the r
   assert.ok(!/priceWaits \? null : \(\s*<PricingBasisEditor/.test(MAKER), 'the waiting box was unmounted');
 });
 
+// Since 2026-11-07 Price is a section of the one page of fields, not a fold (makers prototype § 3 — DECISION_LOG "THE
+// FOUR MAKERS ARE APPROVED…"): the fold's `line` / `aside` became a line in the section and a figure beside its label.
+// The two rules are unchanged.
+const priceSection = () => {
+  const at = MAKER.indexOf('data-maker-row="price"');
+  assert.ok(at > 0, 'the Price section is gone');
+  return MAKER.slice(at, MAKER.indexOf('data-maker-row="included"', at));
+};
+
 test('the Price row says what it waits for', () => {
-  assert.match(MAKER, /line=\{priceWaits \? priceWaitsLine\(priceFacts\) : 'Shown as “from”'\}/);
+  assert.match(priceSection(), /\{priceWaits \? <p[^>]*>\{priceWaitsLine\(priceFacts\)\}<\/p> : null\}/);
 });
 
 test('the price the couple recorded is still shown while the box waits', () => {
-  const at = MAKER.indexOf('data="price"');
-  const head = MAKER.slice(at, at + 900);
-  assert.match(head, /aside=\{snap\.hasPrice \? <span[^>]*>\{snap\.priceLine/, 'the recorded price stopped showing on the row');
+  assert.match(priceSection(), /\{snap\.hasPrice \? <span[^>]*>\{snap\.priceLine/, 'the recorded price stopped showing on the row');
 });

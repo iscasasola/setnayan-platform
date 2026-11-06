@@ -34,6 +34,7 @@ export function ServiceCardFace({
   addonsFromPhp,
   coverUrl,
   footer,
+  packLine = null,
 }: {
   snap: Snapshot;
   /** "Leaf · Parent" context line under the name (server-resolved). */
@@ -48,6 +49,11 @@ export function ServiceCardFace({
    * which is what a surface with no action to offer passes.
    */
   footer?: React.ReactNode;
+  /**
+   * 🎁 One of the shop's OWN gift packs on this card, as the couple reads it ("Gift from … 🎁 · Event Plus",
+   * `coupleCardPackLine`) — drawn where the Setnayan gift line is, never beside it (a card gives one gift).
+   */
+  packLine?: string | null;
 }) {
   return (
   <div
@@ -144,6 +150,11 @@ export function ServiceCardFace({
           className="flex items-center gap-1 text-[10px]"
           style={{ color: 'var(--m-orange-2)' }}
         />
+      ) : packLine ? (
+        <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }} data-card-gift-pack="">
+          <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+          <span>{packLine}</span>
+        </p>
       ) : snap.hasExclusive ? (
         <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />

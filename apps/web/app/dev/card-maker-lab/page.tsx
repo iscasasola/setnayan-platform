@@ -25,8 +25,19 @@ import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule 
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
+import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
 
 const VP = '00000000-0000-4000-8000-0000000000bb';
+
+/**
+ * The Gift dropdown's packs (7 Nov 2026) — LAB FIXTURES, never a price: the live maker reads them from the catalogue
+ * (`fetchShopGiftPacks`). The stock covers the Papic pack only, so Event Plus shows its "buy first" note.
+ */
+const LAB_GIFT_PACKS: ShopGiftPack[] = [
+  { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0, giftPriceCentavos: null },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0, giftPriceCentavos: null },
+];
+const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0 };
 
 type Shop = {
   name: string;
@@ -277,7 +288,9 @@ export default async function CardMakerLabPage({
         schedules={shop.schedules}
         scheduleOfKind={shop.scheduleOfKind}
         branches={[]}
-        initial={fx?.initial ?? null}
+        giftPacks={LAB_GIFT_PACKS}
+        giftFree={LAB_GIFT_FREE}
+        initial={fx && sp.gift === 'pack' ? { ...fx.initial, giftPackCode: 'PAPIC_GUEST' } : (fx?.initial ?? null)}
         editing={fx?.editing ?? null}
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
@@ -294,10 +307,10 @@ export default async function CardMakerLabPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
+    // The route's own frame (services/[serviceId] · services/new/[category], 7 Nov 2026): a back link, no page title.
+    <div className="mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6" data-lab="card-maker">
       <div className="mb-2 flex min-h-11 items-center gap-2">
-        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ Shop</span>
-        <h1 className="text-[17px] font-semibold tracking-tight text-ink">{isEdit ? shop.edit.title : 'New service'}</h1>
+        <span className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">‹ {isEdit ? 'Shop' : 'Services'}</span>
       </div>
       {maker}
     </div>

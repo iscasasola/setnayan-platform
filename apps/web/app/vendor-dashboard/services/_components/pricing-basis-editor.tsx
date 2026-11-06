@@ -33,11 +33,12 @@ export type PricingDefaults = {
 
 const line = 'var(--m-line)';
 
-const OPTIONS: { key: Basis; label: string; hint: string }[] = [
+export const PRICING_BASIS_OPTIONS: { key: Basis; label: string; hint: string }[] = [
   { key: 'fixed', label: 'Fixed price', hint: 'One flat price (booths, packages)' },
   { key: 'per_pax', label: 'Per guest', hint: 'Priced by head (catering, mobile bar)' },
   { key: 'per_hour', label: 'Per hour', hint: 'Priced by time (booths, hosts, lights)' },
 ];
+const OPTIONS = PRICING_BASIS_OPTIONS;
 
 export function PricingBasisEditor({
   idPrefix,

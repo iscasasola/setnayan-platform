@@ -202,6 +202,8 @@ test('a one-trade shop is asked nothing', () => {
 test('every publish requirement is a FIRST question, before More settings', () => {
   // ⚖ The first questions ARE the gate (the 2026-10-14 prototype: "only the three things that make it visible are
   // open"). Derived from the gate, so a requirement that joins it fails here first.
+  // Since 2026-11-07 the first questions are the one page of fields (makers prototype § 3 — DECISION_LOG "THE FOUR
+  // MAKERS ARE APPROVED…"), each a `data-maker-row` section instead of a fold; the rule is unchanged.
   const src = read(MAKER);
   const FOLD_FOR_REQUIREMENT: Record<string, string | undefined> = {
     cover: 'photos',
@@ -213,7 +215,7 @@ test('every publish requirement is a FIRST question, before More settings', () =
   for (const requirement of PUBLISH_REQUIREMENTS) {
     const fold = FOLD_FOR_REQUIREMENT[requirement];
     if (!fold) assert.fail(`the publish gate grew "${requirement}" and this guard has no first question for it`);
-    const at = src.indexOf(`data="${fold}"`);
+    const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${fold}"`));
     assert.ok(at > 0, `the publish gate requires "${requirement}" and the maker has no "${fold}" question`);
     assert.ok(at < more, `"${requirement}" sits under More settings — a supplier would meet a hidden card`);
   }
@@ -356,8 +358,10 @@ test('every other field lives under More settings, and it starts shut', () => {
   // return back to the first one which is price"), so "starts shut" is the state's initial value, not `defaultOpen`.
   assert.match(head, /open=\{moreOpen\}/, 'More settings stopped reading its one open state');
   assert.match(src, /const \[moreOpen, setMoreOpen\] = useState\(discountSeed !== null\);/, 'More settings opens by itself — the wall coming back one row lower');
-  // The prototype's folds, in its order (makerMore()).
-  const folds = ['m-price', 'm-disc', 'm-inc', 'm-addons', 'm-gift', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-details', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
+  // The prototype's folds, in its order (makerMore()). 2026-11-07 (makers prototype § 3): Price · more, Add-ons (→
+  // Extras), the Setnayan gift (→ the Gift dropdown) and Details (→ Specialties) moved UP to the one page of fields
+  // (held by lib/the-card-gift-is-one-dropdown.test.ts), and the Schedule row moved DOWN here, onto the saved card.
+  const folds = ['schedule', 'm-disc', 'm-inc', 'm-crew', 'm-terms', 'm-pay', 'm-who', 'm-comes', 'm-record', 'm-portfolio', 'm-live'];
   let last = at;
   for (const f of folds) {
     const i = src.indexOf(`data="${f}"`);

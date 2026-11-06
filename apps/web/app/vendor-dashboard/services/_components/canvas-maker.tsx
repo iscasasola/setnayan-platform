@@ -7,20 +7,19 @@ import {
   Award,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   Copy,
   Eye,
   EyeOff,
-  Gift,
-  ImageIcon,
   Images,
+  Info,
   Link2,
   List,
   ListChecks,
   MessageSquare,
-  Pencil,
-  PhilippinePeso,
   Plus,
   Search,
   Settings,
@@ -38,7 +37,6 @@ import { Field } from '@/app/_components/forms/field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { Fold } from '@/app/_components/fold';
-import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SWITCH_TRACK, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -84,7 +82,7 @@ import { formatSlotTime } from '@/lib/vendor-time-slots';
 
 export type { AudienceOption };
 
-import { PricingBasisEditor, IncludedFlags, type Basis } from './pricing-basis-editor';
+import { PricingBasisEditor, IncludedFlags, PRICING_BASIS_OPTIONS, type Basis } from './pricing-basis-editor';
 import {
   InclusionsEditor,
   DiscountsEditor,
@@ -98,7 +96,6 @@ import { ServiceCardFace } from './service-card-face';
 import { commitVendorService, deleteVendorService } from '../actions';
 import { canPublishService, inclusionsAreSet } from '@/lib/service-publish-gate';
 import { priceWaitsFor, priceWaitsLine } from '@/lib/price-waits';
-import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
 import {
   addCoverageForCard,
   updateCoverageServesInPlace,
@@ -108,6 +105,10 @@ import { formatCount } from '@/lib/format-number';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
 import { revealFold } from '@/lib/reveal-sweep';
+import { GiftPickRow } from '@/app/_components/gift-pick';
+import { GIFT_SETNAYAN, coupleCardPackLine, giftPickOf, type GiftPick } from '@/lib/gift-pick';
+import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +199,15 @@ const paper = 'var(--m-paper)';
 export const CARD_FORM_ID = 'card-maker-form';
 /** The "More settings" fold's id — the first-open reveal finds it by this. */
 const MORE_ANCHOR = 'maker-more-settings';
+/**
+ * 📐 THE ONE RHYTHM (makers prototype 7 Nov 2026 § 3): a label · its 48 px box · a quiet hint; a topic after the first
+ * opens with a divider, never a box around the group. Frames only on what you press (the boxes).
+ */
+const LAB = 'mb-1.5 flex items-center gap-2 text-[14px] font-medium text-ink';
+const SMALL = 'text-[12px] font-normal text-ink/50';
+const BOX = 'h-12 w-full rounded-xl border border-ink/15 bg-raised px-4 text-[15px] text-ink outline-none focus:border-sn-accent';
+const HINT = 'mt-1.5 text-[12px] leading-snug text-ink/55';
+const TOPIC = 'border-t border-ink/10 pt-5';
 
 // ════════════════════════════════════════════════════════════════════════════
 // The maker
@@ -234,6 +244,9 @@ export function CanvasMaker({
   returnTo,
   unread = [],
   discountSeed = null,
+  giftPacks = null,
+  giftFree = null,
+  cancelHref,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -299,6 +312,12 @@ export function CanvasMaker({
   unread?: string[];
   /** Arrived from the off-season nudge: Discounts opens with one off-peak line drafted (the supplier sets the amount). */
   discountSeed?: { expiry?: string; conditions?: string } | null;
+  /** The giftable packs on the live catalogue, for the Gift dropdown — null = unread (only No gift · Setnayan gift). */
+  giftPacks?: ShopGiftPack[] | null;
+  /** What this shop can still offer of each gift kind — null = unread (packs listed as unreadable, never as empty). */
+  giftFree?: FreeByKind | null;
+  /** Where Cancel goes. Default: Shop for a saved card, Services for a new one. */
+  cancelHref?: string;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -521,14 +540,17 @@ export function CanvasMaker({
   );
   const [title, setTitle] = useState(initial?.title ?? '');
   /**
-   * The supplier's WHOLE say over the Setnayan gift (owner 2026-09-09: "it is either a yes or a no"). Mirrored into
-   * a hidden input that always posts `on` / `off` — an unchecked box would be indistinguishable from "never asked".
+   * 🎁 THE CARD'S ONE GIFT — No gift · Setnayan gift · one of the shop's own packs (owner 7 Nov 2026: the shipped
+   * Setnayan-gift switch becomes one Gift dropdown that also offers the shop's gifts). The Setnayan gift is still the
+   * supplier's yes/no (owner 2026-09-09) and still posts `on` / `off` every time — an unchecked box would be
+   * indistinguishable from "never asked".
    *
-   * ⚖ NOT PRE-FILLED ON. The 2026-10-14 prototype draws the gift switched on with "Costs you nothing · 40% more
-   * inquiries"; the shipped gift is added to the supplier's lock bill (≤ 40% of the booking fee) and the 40% figure
-   * is unmeasured — so a new card starts with it off, in the shipped words (flagged to the owner).
+   * ⚖ NOT PRE-FILLED. A new card starts with No gift: the shipped gift is added to the supplier's lock bill (≤ 40% of
+   * the booking fee), and a pack leaves the shop's own stock — neither is chosen for them.
    */
-  const [giftOn, setGiftOn] = useState(initial?.includesSetnayanGift ?? false);
+  const [giftPick, setGiftPick] = useState<GiftPick>(() =>
+    giftPickOf({ includes_setnayan_gift: initial?.includesSetnayanGift ?? false, gift_pack_code: initial?.giftPackCode ?? null }),
+  );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
   const [face, setFace] = useState<Snapshot | null>(null);
   const [clipSeconds, setClipSeconds] = useState<number | null>(null);
@@ -794,6 +816,14 @@ export function CanvasMaker({
       setSheet('kind');
       return;
     }
+    // ✅ WHAT'S INCLUDED NEEDS AT LEAST ONE LINE (makers prototype 7 Nov 2026 § 3): Save says so under the field instead
+    // of saving a card that can never be shown. Read from the form itself — the live snapshot can trail by a tick.
+    if (!inclusionsAreSet(readCanvasFormSnapshot(new FormData(e.currentTarget)).inclusionLabels)) {
+      e.preventDefault();
+      setIncMissing(true);
+      e.currentTarget.querySelector('[data-maker-row="included"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
     if (ask && askAnswered !== category) {
       e.preventDefault();
       setAskResult(null);
@@ -803,6 +833,37 @@ export function CanvasMaker({
 
   const typeWord = SUPPLIER_TYPE_WORD[supplierType];
   const fillWord = SUPPLIER_TYPE_WORD[kindType];
+
+  // ── The one page of fields (makers prototype 7 Nov 2026 § 3) ──────────────
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [specOpen, setSpecOpen] = useState(false);
+  const [priceMoreOpen, setPriceMoreOpen] = useState(false);
+  // Copied options open, so they are checked before saving (the copied-from note asks for exactly that).
+  const [optionsOpen, setOptionsOpen] = useState(initial?.customization.status === 'copied');
+  const [incMissing, setIncMissing] = useState(false);
+  const [showcaseOpen, setShowcaseOpen] = useState(
+    Boolean(initial?.showcaseVideoR2Key) || (initial?.showcasePhotoR2Keys.length ?? 0) > 0,
+  );
+  /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
+  const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
+    key: o.key,
+    label: o.key === 'fixed' ? 'One price' : o.key === 'per_pax' ? (category === 'crew_meals' ? 'Per meal' : 'Per guest') : o.label,
+    hint: o.hint,
+  }));
+  const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
+  /** What the couple reads for a shop pack on this card — never a count (lib/gift-pick.ts). */
+  const packLine = giftPick && giftPick !== GIFT_SETNAYAN ? coupleCardPackLine(giftPick, shopName) : null;
+  const faceName = title.trim() || activeCategoryLabel || 'Your service';
+  const cardFace = face ? (
+    <ServiceCardFace
+      snap={{ ...face, name: faceName }}
+      leafPathLabel={activeCategoryLabel ? `${activeCategoryLabel}${shopName ? ` · ${shopName}` : ''}` : 'Pick what you offer'}
+      coverUrl={editing && snap.hasCover && editing.coverKey && currentCoverKey(formRef.current) === editing.coverKey ? editing.coverUrl : null}
+      packLine={packLine}
+    />
+  ) : (
+    <div aria-hidden className="h-[138px] rounded-2xl border" style={{ borderColor: line }} />
+  );
 
   return (
     <div className="sn-canvas space-y-4 pb-28" data-card-maker={isEdit ? 'edit' : 'new'}>
@@ -844,11 +905,13 @@ export function CanvasMaker({
         />
       ) : null}
 
+
       {/* ── STARTED FROM ANOTHER CARD — said before anything is pressed. ── */}
       {initial && !isEdit ? (
         <p className="text-[14px] leading-snug text-ink/70" data-maker-copied="">
           Started from <b className="text-ink">{initial.sourceTitle ?? 'one of your cards'}</b> — a new card; that one
-          keeps its bookings.
+          keeps its bookings. Its discounts, terms and other settings came across too — they are on the card once it
+          is made.
           {customizationEnabled
             ? initial.customization.status === 'copied'
               ? ` Its ${initial.customization.items.length === 1 ? 'option' : `${initial.customization.items.length} options`} under What’s included came across too — check them before you save.`
@@ -859,38 +922,45 @@ export function CanvasMaker({
         </p>
       ) : null}
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-        {/* ═══ THE CARD, ON TOP — the shipped face, painted from the live form ═══ */}
-        <div className="lg:sticky lg:top-24 lg:z-10" data-maker-card="">
-          <div className="rounded-2xl" style={{ background: 'var(--m-paper)' }}>
-            {face ? (
-              <ServiceCardFace
-                snap={{ ...face, name: title.trim() || activeCategoryLabel || 'Your service' }}
-                leafPathLabel={activeCategoryLabel ? `${activeCategoryLabel}${shopName ? ` · ${shopName}` : ''}` : 'Pick what you offer'}
-                coverUrl={editing && snap.hasCover && editing.coverKey && currentCoverKey(formRef.current) === editing.coverKey ? editing.coverUrl : null}
-              />
-            ) : (
-              <div aria-hidden className="h-[138px] rounded-2xl border" style={{ borderColor: line }} />
-            )}
-          </div>
-          <p
-            data-maker-status={status.tone}
-            className="mt-3 flex items-start gap-2.5 text-[15px] leading-snug"
-            style={{ color: status.tone === 'ok' ? 'rgb(var(--color-ok))' : 'rgb(var(--color-warn))' }}
-          >
-            {status.tone === 'ok' ? (
-              <Check aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2.2} />
-            ) : (
-              <EyeOff aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2} />
-            )}
-            <span>
-              {status.lead ? <>{status.lead} </> : null}
-              <b className="font-semibold">{status.text}</b>
+      {/* ═══ THE PINNED ROW — the service menu left · Preview and ⓘ rounds right, no page title (makers prototype
+          7 Nov 2026 § 3). "What you offer" keeps its shipped behaviour — the same sheet, the same pick; only its place
+          moved. ═══ */}
+      <div className="flex min-h-[52px] items-center gap-2 border-b pb-2" style={{ borderColor: line }} data-maker-pin="">
+        {/* The service menu — "What you offer" as one pill (the same sheet, the same pick as the shipped row). */}
+        <div className="min-w-0 flex-1" data-maker-row="kind">
+          {canChooseKind ? (
+            <ActionButton
+              tone={category ? 'neutral' : 'brand'}
+              caret
+              icon={MessageSquare}
+              label={category ? activeCategoryLabel : 'What you offer'}
+              title={category ? `What you offer: ${activeCategoryLabel} · change` : 'Choose what you offer'}
+              onClick={() => setSheet('kind')}
+              aria-haspopup="dialog"
+              className="max-w-full [&>.lbl]:truncate"
+            />
+          ) : (
+            <span
+              className="inline-flex min-h-11 max-w-full items-center gap-2 truncate rounded-full bg-ink/[0.06] px-4 text-[13px] font-medium text-ink"
+              title={isEdit ? 'Set when the card was made' : undefined}
+            >
+              <MessageSquare aria-hidden className="h-[18px] w-[18px] flex-none" strokeWidth={1.9} />
+              <span className="truncate">{activeCategoryLabel}</span>
             </span>
-          </p>
+          )}
         </div>
+        <ActionButton tone="neutral" iconOnly icon={Eye} label="As couples see it" onClick={() => setSheet('preview')} aria-haspopup="dialog" />
+        <ActionButton tone="neutral" iconOnly icon={Info} label="About this card" onClick={() => setAboutOpen((v) => !v)} aria-expanded={aboutOpen} />
+      </div>
+      {canChooseKind && !category ? (
+        <p className="-mt-2 text-[13px] text-sn-accent" data-maker-kind-line="">Common for {typeWord} · pick what this card is for</p>
+      ) : canChooseKind && kindFromShop ? (
+        <p className="-mt-2 text-[13px] text-ink/55" data-maker-kind-line="">From your shop · change</p>
+      ) : null}
 
-        {/* noValidate: most fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
+      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the preview is the Eye's sheet ═══ */}
+      <div className="md:grid md:grid-cols-2 md:items-start md:gap-8" data-maker-split="">
+        {/* noValidate: some fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
             show focuses nothing and says nothing — the press just does nothing. commitVendorService re-validates
             every field and says why (carried from the live card-fields fix, #6534). */}
         <form
@@ -902,7 +972,7 @@ export function CanvasMaker({
           // next field. Create / Save is the only way to save. lib/return-moves-on.ts
           onKeyDown={returnMovesOn}
           noValidate
-          className="mt-2 lg:mt-0"
+          className="min-w-0"
           data-card-form=""
         >
           <PendingWatch onChange={setPending} />
@@ -913,76 +983,200 @@ export function CanvasMaker({
           <input type="hidden" name="coverage_id" value={coverageId} />
           {editing ? <input type="hidden" name="vendor_service_id" value={editing.serviceId} /> : null}
           <input type="hidden" name="publish" value={publishValue} />
-          <input type="hidden" name="includes_setnayan_gift" value={giftOn ? 'on' : 'off'} />
+          {/* 🎁 THE GIFT ROW posts the card's ONE gift as its two columns: the Setnayan gift's on/off (always posted —
+              an absent box would be indistinguishable from "never asked") and the shop pack; `gift_pack_present` =
+              this screen drew the row, so the save may clear a pack (lib/gift-pick.ts). */}
+          <input type="hidden" name="includes_setnayan_gift" value={giftPick === GIFT_SETNAYAN ? 'on' : 'off'} />
+          <input type="hidden" name="gift_pack_present" value="1" />
+          <input type="hidden" name="gift_pack_code" value={giftPick && giftPick !== GIFT_SETNAYAN ? giftPick : ''} />
           <input type="hidden" name="schedule_choice" value={scheduleChoice === scheduleNow ? '' : scheduleChoice} />
           {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
-          <div className="divide-y" style={{ borderColor: line }} data-maker-first="">
-            {/* ── What you offer ── */}
-            {canChooseKind ? (
-              <MakerRow
-                icon={<MessageSquare aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
-                title="What you offer"
-                line={category ? (kindFromShop ? 'From your shop · change' : '') : `Common for ${typeWord}`}
-                lineTone={category ? 'mute' : 'brand'}
-                right={
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    {category ? <span className="truncate rounded-full bg-ink/[0.06] px-3 py-1 text-[14px] text-ink">{activeCategoryLabel}</span> : null}
-                    <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2} />
+          {/* ═══ ONE PAGE OF FIELDS — Name · Specialties · Price · What's included · Extras · Gift · Photos ═══
+              The prototype's one rhythm: a label · its 48 px box · a quiet hint; a topic after the first opens with a
+              divider, never a box around the group. */}
+          <div className="space-y-5 pt-3" data-maker-first="">
+            {aboutOpen ? (
+              <div className="space-y-1 rounded-2xl border px-4 py-3 text-[14px] leading-snug text-ink/75" style={{ borderColor: line }} data-maker-about="" role="note">
+                <b className="block text-ink">This card</b>
+                <span className="block">
+                  {isEdit
+                    ? 'Save keeps what couples see. Hide, copy or delete it under More settings · Live · delete · copy.'
+                    : 'Create shows it to couples as soon as it has a cover, a price and what’s included — or saves it, not shown yet, until it does. Hide, copy or delete it from the card later.'}
+                </span>
+                {!isEdit ? (
+                  <span className="block">
+                    Discounts, booking terms, the payment schedule, crew and transport, who it is for, its schedule and
+                    what it comes with are on the card once it is made.
                   </span>
-                }
-                onPress={() => setSheet('kind')}
-                label="Choose what you offer"
-                data="kind"
-              />
-            ) : (
-              <MakerRow
-                icon={<MessageSquare aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
-                title="What you offer"
-                line={isEdit ? 'Set when the card was made' : ''}
-                right={<span className="truncate rounded-full bg-ink/[0.06] px-3 py-1 text-[14px] text-ink">{activeCategoryLabel}</span>}
-                data="kind"
-              />
-            )}
-
-            {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too). ── */}
-            {category || isEdit ? (
-              <div className="flex min-h-[58px] items-center gap-2 py-2" data-maker-row="name">
-                <RowIcon><Pencil aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>
-                <label className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-medium leading-tight text-ink">Name</span>
-                  <input
-                    id="title"
-                    name="title"
-                    value={title}
-                    onChange={(e) => {
-                      titleTouched.current = true;
-                      setTitle(e.target.value);
-                    }}
-                    maxLength={80}
-                    aria-label="Service name"
-                    placeholder={activeCategoryLabel || 'Service name'}
-                    className="mt-1 w-full rounded-xl border bg-raised px-3 py-2 text-[15px] text-ink outline-none focus:border-sn-accent"
-                    style={{ borderColor: line }}
-                  />
-                  <span className="mt-0.5 block text-[13px] text-ink/55">Written for you · change it if you like</span>
-                </label>
+                ) : null}
               </div>
             ) : null}
 
+            <header data-maker-head="">
+              <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-ink">{title.trim() || activeCategoryLabel || 'Your service card'}</h2>
+              <p className="mt-0.5 text-[14px] text-ink/65">Your service card — price it and say what’s in it.</p>
+            </header>
+
+            {/* ── Name — written for them, theirs to change (Q2: editable on an existing card too) · Specialties. ── */}
+            {category || isEdit ? (
+              <div data-maker-row="name">
+                <label htmlFor="title" className={LAB}>Name</label>
+                <input
+                  id="title"
+                  name="title"
+                  value={title}
+                  onChange={(e) => {
+                    titleTouched.current = true;
+                    setTitle(e.target.value);
+                  }}
+                  maxLength={80}
+                  aria-label="Service name"
+                  placeholder={activeCategoryLabel || 'Service name'}
+                  className={BOX}
+                />
+                <p className={HINT}>Written for you · change it if you like</p>
+                {/* Specialties (optional) — the kind's chip details (was "More settings › Details"), posting with the card. */}
+                <div className="mt-2" data-maker-row="specialties">
+                  <ActionButton
+                    tone="neutral"
+                    icon={specOpen ? ChevronUp : Plus}
+                    label={specOpen ? 'Specialties' : 'Specialties (optional)'}
+                    onClick={() => setSpecOpen((v) => !v)}
+                    aria-expanded={specOpen}
+                  />
+                  <div hidden={!specOpen} className="pt-3">
+                    {detailsSlot && detailsKind === category ? (
+                      detailsSlot
+                    ) : (
+                      <p className="text-[14px] text-ink/65">
+                        {category ? `Specialties for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
+                        <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── Price — shown as "from": the basis dropdown, its hint, the ₱ box, then "Price · more". ── */}
+            <div className={TOPIC} data-maker-row="price" data-price-waits={priceWaits ?? undefined}>
+              <div className={LAB}>
+                <span>Price <span className={SMALL}>shown as “from”</span></span>
+                {/* The price the form holds now — the couple's recorded figure too, while its box waits. */}
+                {snap.hasPrice ? <span className="ml-auto text-[15px] font-semibold text-ink" data-maker-price-now="">{snap.priceLine.split(' · ')[0]}</span> : null}
+              </div>
+              <PickMenu
+                label="How the price works"
+                value={basis}
+                options={basisOptions}
+                onPick={(k) => {
+                  basisTouched.current = true;
+                  setBasis(k as Basis);
+                }}
+                dataAttr="data-maker-basis"
+                className={`${BOX} flex items-center justify-between gap-2 text-left`}
+                trigger={
+                  <>
+                    <span className="truncate">{basisOptions.find((o) => o.key === basis)?.label}</span>
+                    <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
+                  </>
+                }
+              />
+              <p className={HINT} data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</p>
+              <div className="mt-3">
+                {priceWaits ? <p className="text-[14px] text-ink/70" data-maker-price-waits="">{priceWaitsLine(priceFacts)}</p> : null}
+                {/* The box waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}
+                <div hidden={Boolean(priceWaits)}>
+                  <PricingBasisEditor
+                    idPrefix="canvas"
+                    category={category}
+                    basis={basis}
+                    part="main"
+                    defaults={initial?.pricing ?? EMPTY_PRICING}
+                  />
+                </div>
+              </div>
+              <div className="mt-2" data-maker-price-more="">
+                <ActionButton
+                  tone="neutral"
+                  icon={priceMoreOpen ? ChevronUp : SlidersHorizontal}
+                  label={priceMoreOpen ? 'Fewer settings' : 'Price · more'}
+                  onClick={() => setPriceMoreOpen((v) => !v)}
+                  aria-expanded={priceMoreOpen}
+                />
+                {/* Mounted while shut, so its boxes post with the card either way (was "More settings › Price · more"). */}
+                <div hidden={!priceMoreOpen} className="pt-3">
+                  <PricingBasisEditor
+                    idPrefix="canvas"
+                    category={category}
+                    basis={basis}
+                    part="more"
+                    defaults={initial?.pricing ?? EMPTY_PRICING}
+                    fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── What's included — at least one line; a line leaves by its swipe, with Undo. ── */}
+            <div className={TOPIC} data-maker-row="included">
+              <div className={LAB}>
+                <span>What’s included <span className={SMALL}>{snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'at least one line'}</span></span>
+              </div>
+              <InclusionsEditor initial={initial?.inclusions ?? []} bare />
+              {incMissing && !inclusionsAreSet(snap.inclusionLabels) ? (
+                <p role="alert" className="mt-1.5 text-[13px] font-medium" style={{ color: 'rgb(var(--color-danger))' }} data-maker-inc-error="">
+                  Add what’s included — at least one line.
+                </p>
+              ) : null}
+              {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
+                  package), so it stays reachable while the card is made; the saved card points to Your packages. */}
+              {customizationEnabled && !isEdit ? (
+                <div className="mt-2" data-maker-options="">
+                  <ActionButton
+                    tone="neutral"
+                    icon={optionsOpen ? ChevronUp : ListChecks}
+                    label={optionsOpen ? 'Fewer options' : 'Options on each line'}
+                    onClick={() => setOptionsOpen((v) => !v)}
+                    aria-expanded={optionsOpen}
+                  />
+                  <div hidden={!optionsOpen} className="pt-3">
+                    <CustomizationStep
+                      categoryValue={category}
+                      categoryLabel={activeCategoryLabel}
+                      initialItems={initial?.customization.status === 'copied' ? initial.customization.items : undefined}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* ── Extras — priced add-ons (was "More settings › Add-ons"); a line leaves by its swipe. ── */}
+            <div className={TOPIC} data-maker-row="extras">
+              <div className={LAB}>
+                <span>Extras <span className={SMALL}>priced add-ons · optional</span></span>
+                {/* Centred: this ⓘ sits mid-row at 390, and a start-aligned 288 px body ran past the screen edge. */}
+                <InfoTip label="" ariaLabel="About extras">
+                  <span className="block font-semibold">Add-ons</span>
+                  <span className="mt-1 block">Priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote.</span>
+                </InfoTip>
+              </div>
+              <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
+            </div>
+
+            {/* ── Gift — the shipped Setnayan-gift switch (was "More settings › Setnayan gift"), now ONE dropdown that
+                also offers the shop's own gift packs. app/_components/gift-pick.tsx · lib/gift-pick.ts ── */}
+            <div className={TOPIC} data-maker-row="gift">
+              <GiftPickRow host="card" value={giftPick} onPick={setGiftPick} packs={giftPacks} free={giftFree} dataAttr="data-maker-gift" />
+            </div>
+
             {/* ── Photos — one cover is enough. ── */}
-            <Fold
-              data="photos"
-              title="Photos"
-              line={`${snap.hasCover ? `Cover added · up to 5 more${snap.photoCount ? ` · ${formatCount(snap.photoCount)} in` : ''}` : 'One cover is enough'}${
-                // The clip's MEASURED length (never a fabricated 0:00 — lib/clip-duration-label.ts).
-                snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''
-              }`}
-              lead={<RowIcon><ImageIcon aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
-              aside={snap.hasCover ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
-            >
-              <div className="space-y-3 pb-4 pt-1">
-                {/* watermark: owner-locked 2026-07-03 — a cover carries the SETNAYAN mark; square, as couples see it. */}
+            <div className={TOPIC} data-maker-row="photos">
+              <div className={LAB}>
+                <span>Photos <span className={SMALL}>one cover is enough{snap.hasClip ? ` · ▶ ${clipPillLabel(clipSeconds)}` : ''}</span></span>
+              </div>
+              <div className="space-y-3">
                 <Field label="Cover photo" htmlFor="primary_photo_r2_key" help="The first thing couples see. PNG, JPEG or WebP up to 5 MB.">
                   <FileUpload
                     bucket="media"
@@ -999,407 +1193,353 @@ export function CanvasMaker({
                     initialDisplayUrls={initial?.mediaDisplayUrls}
                   />
                 </Field>
-                <ShowcaseMediaFields
-                  vendorProfileId={vendorProfileId}
-                  unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
-                  onClipDurationSeconds={onClipDurationSeconds}
-                  videoCurrent={initial?.showcaseVideoR2Key ?? null}
-                  photosCurrent={initial?.showcasePhotoR2Keys}
-                  displayUrls={initial?.mediaDisplayUrls}
-                />
-              </div>
-            </Fold>
-
-            {/* ── Price — shown as "from". ── */}
-            <Fold
-              data="price"
-              title="Price"
-              line={priceWaits ? priceWaitsLine(priceFacts) : 'Shown as “from”'}
-              lead={<RowIcon><PhilippinePeso aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
-              aside={snap.hasPrice ? <span className="text-[15px] font-semibold text-ink">{snap.priceLine.split(' · ')[0]}</span> : <Badge tone="wait">Set</Badge>}
-            >
-              <div className="space-y-2 pb-4 pt-1" data-price-waits={priceWaits ?? undefined}>
-                {priceWaits ? (
-                  <p className="text-[14px] text-ink/70">{priceWaitsLine(priceFacts)}</p>
-                ) : null}
-                {/* The box waits on a couple-seeded card; it stays MOUNTED, so the couple's recorded price still posts. */}
-                <div hidden={Boolean(priceWaits)}>
-                  <PricingBasisEditor
-                    idPrefix="canvas"
-                    category={category}
-                    basis={basis}
-                    part="main"
-                    defaults={initial?.pricing ?? EMPTY_PRICING}
+                {/* "One cover is enough" (prototype § 3): the showcase photos and the clip sit behind one press, MOUNTED
+                    while shut so what they hold still posts — opened by itself when the card already has some. */}
+                <div data-maker-showcase="">
+                  <ActionButton
+                    tone="neutral"
+                    icon={showcaseOpen ? ChevronUp : Images}
+                    label={showcaseOpen ? 'Fewer photos' : `More photos · a clip${snap.photoCount || snap.hasClip ? '' : ' (optional)'}`}
+                    onClick={() => setShowcaseOpen((v) => !v)}
+                    aria-expanded={showcaseOpen}
                   />
+                  <div hidden={!showcaseOpen} className="pt-3">
+                    <ShowcaseMediaFields
+                      vendorProfileId={vendorProfileId}
+                      unsavedHint={isEdit ? 'press Save below' : 'press Create below'}
+                      onClipDurationSeconds={onClipDurationSeconds}
+                      videoCurrent={initial?.showcaseVideoR2Key ?? null}
+                      photosCurrent={initial?.showcasePhotoR2Keys}
+                      displayUrls={initial?.mediaDisplayUrls}
+                    />
+                  </div>
                 </div>
               </div>
-            </Fold>
+            </div>
 
-            {/* ── What's included — one line is enough. ── */}
-            <Fold
-              data="included"
-              title="What’s included"
-              line={snap.inclusionLabels.length ? `${formatCount(snap.inclusionLabels.length)} line${snap.inclusionLabels.length === 1 ? '' : 's'}` : 'One line is enough'}
-              lead={<RowIcon><List aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
-              aside={snap.inclusionLabels.length ? <Badge tone="ok">Added</Badge> : <Badge tone="wait">Add</Badge>}
-            >
-              <div className="pb-4 pt-1">
-                <InclusionsEditor initial={initial?.inclusions ?? []} bare />
-              </div>
-            </Fold>
+            {/* The status line — on a phone it closes the surface; from 820 up the preview beside it says it. */}
+            <div className="md:hidden">
+              <p
+                data-maker-status={status.tone}
+                className="flex items-start gap-2.5 text-[14px] leading-snug"
+                style={{ color: status.tone === 'ok' ? 'rgb(var(--color-ok))' : 'rgb(var(--color-warn))' }}
+              >
+                {status.tone === 'ok' ? (
+                  <Check aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2.2} />
+                ) : (
+                  <EyeOff aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2} />
+                )}
+                <span>
+                  {status.lead ? <>{status.lead} </> : null}
+                  <b className="font-semibold">{status.text}</b>
+                </span>
+              </p>
+            </div>
 
-            {/* ── Schedule — its own, or shares one. ── */}
-            <MakerRow
-              icon={<CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
-              title="Schedule"
-              line={scheduleLine}
-              right={
-                <PickMenu
-                  label="Which schedule this card books on"
-                  value={scheduleChoice}
-                  options={scheduleOptions}
-                  onPick={setScheduleChoice}
-                  dataAttr="data-maker-schedule"
-                />
-              }
-              data="schedule"
-            />
-
-            {/* ═══ MORE SETTINGS — every other field, filled for this supplier type ═══ */}
-            <Fold
-              data="more"
-              open={moreOpen}
-              onOpenChange={onMoreOpenChange}
-              anchor={MORE_ANCHOR}
-              // 📌 Its body stops clipping once open and still, so the groups inside (Price · more, Discounts …) pin as
-              // slim lines UNDER this one while you scroll them (owner 2026-11-04: "these should pin under the more
-              // settings? so as they scroll, the know they are doing price"; the app-wide 2026-10-29 pin rule). A clip
-              // is a sticky container — through it a nested head can only stick inside its own fold (fold.tsx).
-              popovers
-              title="More settings"
-              line={`Filled for ${fillWord}`}
-              lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
-            >
-              {/* 📐 ONE ICON COLUMN, ONE TEXT COLUMN (owner 2026-11-04 "alignments for the more settings is wrong"): a
-                  nested row's mark sits in the same 40 px box as the row above it (SubIcon), with no extra inset, and
-                  what a nested fold opens onto starts on the title's column (40 px mark + the head's 8 px gap). */}
-              <div className="divide-y pb-2 [&>[data-fold]>[data-fold-body]>div>*]:pl-12" style={{ borderColor: line }} data-maker-more="">
-                <Fold data="m-price" lead={<SubIcon><PhilippinePeso aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>} title="Price · more" line={basis === 'per_pax' ? (category === 'crew_meals' ? 'Per meal · minimum' : 'Per guest · minimum') : basis === 'per_hour' ? 'Per hour · minimum hours · extra hour' : defaults.summary.price}>
-                  <div className="space-y-3 pb-4 pt-1">
-                    <div className="flex min-h-11 items-center justify-between gap-3">
-                      <span className="text-[15px] text-ink">How the “from” price works</span>
+            {/* ═══ MORE SETTINGS — ON THE SAVED CARD (owner 7 Nov 2026: one page of fields while the card is made; "the
+                other More-settings folds move OFF the creation page and stay on the saved card"). While a card is being
+                MADE the folds stay MOUNTED but unseen, so every default and every value a copy brought along still
+                posts exactly as before — nothing is lost by the move; they show here once the card exists. ═══ */}
+            <div hidden={!isEdit} className={isEdit ? TOPIC : undefined} data-maker-more-wrap={isEdit ? 'card' : 'later'}>
+              <Fold
+                data="more"
+                open={moreOpen}
+                onOpenChange={onMoreOpenChange}
+                anchor={MORE_ANCHOR}
+                // 📌 Its body stops clipping once open and still, so the groups inside pin as slim lines UNDER this one
+                // while you scroll them (owner 2026-11-04; the app-wide 2026-10-29 pin rule). fold.tsx
+                popovers
+                title="More settings"
+                line={`Filled for ${fillWord}`}
+                lead={<RowIcon><Settings aria-hidden className="h-5 w-5" strokeWidth={1.75} /></RowIcon>}
+              >
+                {/* 📐 ONE ICON COLUMN, ONE TEXT COLUMN (owner 2026-11-04 "alignments for the more settings is wrong"): a
+                    nested row's mark sits in the same 40 px box as the row above it (SubIcon), with no extra inset, and
+                    what a nested fold opens onto starts on the title's column (40 px mark + the head's 8 px gap). */}
+                <div className="divide-y pb-2 [&>[data-fold]>[data-fold-body]>div>*]:pl-12" style={{ borderColor: line }} data-maker-more="">
+                  {/* ── Schedule — its own, or shares one (a first-page row until 7 Nov 2026; on the saved card since). ── */}
+                  <MakerRow
+                    icon={<CalendarDays aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+                    title="Schedule"
+                    line={scheduleLine}
+                    right={
                       <PickMenu
-                        label="How the price works"
-                        value={basis}
-                        options={[
-                          { key: 'fixed', label: 'One price' },
-                          { key: 'per_pax', label: category === 'crew_meals' ? 'Per meal' : 'Per guest' },
-                          { key: 'per_hour', label: 'Per hour' },
-                        ]}
-                        onPick={(k) => {
-                          basisTouched.current = true;
-                          setBasis(k as Basis);
-                        }}
-                        dataAttr="data-maker-basis"
+                        label="Which schedule this card books on"
+                        value={scheduleChoice}
+                        options={scheduleOptions}
+                        onPick={setScheduleChoice}
+                        dataAttr="data-maker-schedule"
                       />
-                    </div>
-                    <PricingBasisEditor
-                      idPrefix="canvas"
-                      category={category}
-                      basis={basis}
-                      part="more"
-                      defaults={initial?.pricing ?? EMPTY_PRICING}
-                      fixedExtra={<PriceBracketsEditor initial={initial?.brackets ?? []} />}
-                    />
-                  </div>
-                </Fold>
+                    }
+                    data="schedule"
+                  />
 
-                {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
-                <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
-                    <div className="mb-2" data-maker-disc-tip="">
-                      <InfoTip label="Starting offers" labelClassName="text-[14px] text-ink/70" align="start">
-                        Starting offers. You can give a bigger discount in any quote.
-                      </InfoTip>
-                    </div>
-                    <DiscountsEditor
-                      initial={initial?.discounts ?? []}
-                      seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
-                      seedExpiry={discountSeed?.expiry}
-                      seedConditions={discountSeed?.conditions}
-                    />
-                  </div>
-                </Fold>
-
-                <Fold data="m-inc" title="What’s included · details" line={customizationEnabled && !isEdit ? 'Each line: always · optional · they pick' : 'Every line is included'} lead={<SubIcon><ListChecks aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    {customizationEnabled && !isEdit ? (
-                      <CustomizationStep
-                        categoryValue={category}
-                        categoryLabel={activeCategoryLabel}
-                        initialItems={initial?.customization.status === 'copied' ? initial.customization.items : undefined}
-                      />
-                    ) : customizationEnabled ? (
-                      <p className="text-[14px] text-ink/65">
-                        Choices couples make on this card (always · optional · they pick) are kept as they are.{' '}
-                        <Link href="/vendor-dashboard/packages" className="font-semibold text-sn-accent underline-offset-2 hover:underline">Your packages ›</Link>
-                      </p>
-                    ) : (
-                      <p className="text-[14px] text-ink/65">Every line under What’s included is part of the price.</p>
-                    )}
-                  </div>
-                </Fold>
-
-                <Fold data="m-addons" title="Add-ons" line="Priced extras · “from ₱” each · up to 12" lead={<SubIcon><Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    <AddonsEditor serviceId={editing?.serviceId ?? ''} initial={editing?.addons ?? []} bare />
-                  </div>
-                </Fold>
-
-                <Fold data="m-gift" title="Setnayan gift" line={giftOn ? 'On · free Papic photos for the couple' : 'Off · free Papic photos for the couple'} lead={<SubIcon><Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="space-y-2 pb-4 pt-1">
-                    <div className="flex min-h-11 items-center justify-between gap-3">
-                      <span className="text-[15px] text-ink">Give the Setnayan gift</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={giftOn}
-                        aria-label="Give the Setnayan gift"
-                        onClick={() => setGiftOn((v) => !v)}
-                        className={SWITCH_BUTTON}
-                      >
-                        <SwitchTrack on={giftOn} />
-                      </button>
-                    </div>
-                    <SetnayanGiftLine className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--m-orange-2)' }} />
-                    <p className="text-[13px] leading-snug text-ink/60">
-                      Couples who book this card get free Papic photos, sized to the booking. It is added to your booking
-                      fee bill — never more than 40% of that fee. Your card shows either way.
-                    </p>
-                  </div>
-                </Fold>
-
-                <Fold data="m-crew" title="Crew and transport" line={defaults.crewApplies ? defaults.summary.crew : defaults.summary.crew} lead={<SubIcon><Truck aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="space-y-3 pb-4 pt-1">
-                    {!defaults.crewApplies ? <p className="text-[13px] text-ink/60">Usually nothing to feed or move — fill it only if you bring a team.</p> : null}
-                    <Field label="Crew size" htmlFor="crew_size">
-                      <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} className="input-field" />
-                    </Field>
-                    <IncludedFlags
-                      idPrefix="canvas"
-                      category={category}
-                      defaults={initial?.included ?? { crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
-                    />
-                  </div>
-                </Fold>
-
-                <Fold data="m-terms" title="Booking terms" line={defaults.summary.terms} lead={<SubIcon><Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="space-y-3 pb-4 pt-1">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      <Field label="Book ahead (months)" htmlFor="recommended_lead_time_months">
-                        <input
-                          id="recommended_lead_time_months"
-                          name="recommended_lead_time_months"
-                          type="number"
-                          min={0}
-                          step="0.5"
-                          defaultValue={initial || isEdit ? (initial?.recommendedLeadTimeMonths ?? '') : (defaults.leadMonths ?? '')}
-                          key={initial || isEdit ? 'kept' : `lead-${kindType}`}
-                          className="input-field"
-                        />
-                      </Field>
-                      <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
-                        <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} className="input-field" />
-                      </Field>
-                      <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
-                        <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
-                      </Field>
-                    </div>
-                    {/* ⚖ No plan limit on how many a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
-                    <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : 'Blank = the schedule decides.'}>
-                      <input
-                        id="daily_capacity"
-                        name="daily_capacity"
-                        type="number"
-                        min={1}
-                        step={1}
-                        defaultValue={editing?.dailyCapacity ?? ''}
-                        disabled={(editing?.slots.length ?? 0) > 0}
-                        className="input-field disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    </Field>
-                    <SlotRows existing={editing?.slots ?? []} />
-                  </div>
-                </Fold>
-
-                <Fold data="m-pay" title="Payment schedule" line="How couples pay · first payment · no-show terms" lead={<SubIcon><Wallet aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare />
-                  </div>
-                </Fold>
-
-                <Fold data="m-who" title="Who it is for" line={coverageId ? audienceLabel : 'Which of your coverages · events · faiths'} lead={<SubIcon><Users aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="space-y-2 pb-4 pt-1">
-                    {coverages.length > 0 ? (
-                      <div className="flex min-h-11 items-center justify-between gap-3">
-                        <span className="text-[15px] text-ink">Coverage</span>
-                        <PickMenu
-                          label="Coverage this card sits in"
-                          value={coverageId || 'none'}
-                          options={[{ key: 'none', label: 'Not assigned' }, ...coverages.map((c) => ({ key: String(c.id), label: c.label }))]}
-                          onPick={(k) => setCoverageId(k === 'none' ? '' : k)}
-                          dataAttr="data-maker-coverage"
-                        />
+                  {/* Discounts — offered, NEVER pre-filled (owner 2026-10-14). */}
+                  <Fold data="m-disc" defaultOpen={discountSeed !== null} title="Discounts" line={snap.discountConditions.length ? 'Set' : 'None yet · early booking · off-peak · promo'} lead={<SubIcon><Tag aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      {/* ⓘ (controller 2026-11-04): these are the card's starting offers; a quote can always go lower. */}
+                      <div className="mb-2" data-maker-disc-tip="">
+                        <InfoTip label="Starting offers" labelClassName="text-[14px] text-ink/70" align="start">
+                          Starting offers. You can give a bigger discount in any quote.
+                        </InfoTip>
                       </div>
-                    ) : (
-                      <p className="text-[14px] text-ink/65">Not in a coverage yet — saying Yes to “Add it to what you do” on Create puts it in one.</p>
-                    )}
-                    <MakerRow
-                      title="Events and faiths"
-                      line={coverageId ? audienceLabel : 'Pick a coverage first'}
-                      right={<ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />}
-                      onPress={() => setSheet('audience')}
-                      label="Choose the events and faiths this card is found under"
-                      data="audience"
-                    />
-                    {branches.length > 0 ? (
-                      <Field label="Branch" htmlFor="branch_id">
-                        <select id="branch_id" name="branch_id" defaultValue={editing?.branchId ?? ''} className="input-field cursor-pointer">
-                          <option value="">You (main)</option>
-                          {branches.map((b) => (
-                            <option key={b.id} value={b.id} disabled={b.usable === false}>
-                              {b.label}{b.usable === false ? ' (not active)' : ''}
-                            </option>
-                          ))}
-                        </select>
+                      <DiscountsEditor
+                        initial={initial?.discounts ?? []}
+                        seedOffPeak={discountSeed !== null && (initial?.discounts.length ?? 0) === 0}
+                        seedExpiry={discountSeed?.expiry}
+                        seedConditions={discountSeed?.conditions}
+                      />
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-inc" title="What’s included · details" line="Every line is included" lead={<SubIcon><ListChecks aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      {customizationEnabled ? (
+                        <p className="text-[14px] text-ink/65">
+                          Choices couples make on this card (always · optional · they pick) are kept as they are.{' '}
+                          <Link href="/vendor-dashboard/packages" className="font-semibold text-sn-accent underline-offset-2 hover:underline">Your packages ›</Link>
+                        </p>
+                      ) : (
+                        <p className="text-[14px] text-ink/65">Every line under What’s included is part of the price.</p>
+                      )}
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-crew" title="Crew and transport" line={defaults.crewApplies ? defaults.summary.crew : defaults.summary.crew} lead={<SubIcon><Truck aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="space-y-3 pb-4 pt-1">
+                      {!defaults.crewApplies ? <p className="text-[13px] text-ink/60">Usually nothing to feed or move — fill it only if you bring a team.</p> : null}
+                      <Field label="Crew size" htmlFor="crew_size">
+                        <input id="crew_size" name="crew_size" type="number" min={0} step={1} defaultValue={initial?.crewSize ?? ''} className="input-field" />
                       </Field>
-                    ) : null}
-                  </div>
-                </Fold>
+                      <IncludedFlags
+                        idPrefix="canvas"
+                        category={category}
+                        defaults={initial?.included ?? { crew_meal_included: false, transport_included: false, transport_flat_fee_php: null }}
+                      />
+                    </div>
+                  </Fold>
 
-                <Fold data="m-details" title="Details" line="What couples filter by · shared by every card of this kind" lead={<SubIcon><SlidersHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    {detailsSlot && detailsKind === category ? (
-                      detailsSlot
-                    ) : (
-                      <p className="text-[14px] text-ink/65">
-                        {category ? `Details for ${activeCategoryLabel} open on the card once it is created.` : 'Pick what you offer first.'}{' '}
-                        <Link href="/vendor-dashboard/attributes" className="font-semibold text-sn-accent">All details ›</Link>
-                      </p>
-                    )}
-                  </div>
-                </Fold>
+                  <Fold data="m-terms" title="Booking terms" line={defaults.summary.terms} lead={<SubIcon><Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="space-y-3 pb-4 pt-1">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <Field label="Book ahead (months)" htmlFor="recommended_lead_time_months">
+                          <input
+                            id="recommended_lead_time_months"
+                            name="recommended_lead_time_months"
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            defaultValue={initial || isEdit ? (initial?.recommendedLeadTimeMonths ?? '') : (defaults.leadMonths ?? '')}
+                            key={initial || isEdit ? 'kept' : `lead-${kindType}`}
+                            className="input-field"
+                          />
+                        </Field>
+                        <Field label="Last-minute ends (months)" htmlFor="last_minute_end_months">
+                          <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} className="input-field" />
+                        </Field>
+                        <Field label="Last-minute surcharge (%)" htmlFor="last_minute_surcharge_pct">
+                          <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
+                        </Field>
+                      </div>
+                      {/* ⚖ No plan limit on how many a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
+                      <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : 'Blank = the schedule decides.'}>
+                        <input
+                          id="daily_capacity"
+                          name="daily_capacity"
+                          type="number"
+                          min={1}
+                          step={1}
+                          defaultValue={editing?.dailyCapacity ?? ''}
+                          disabled={(editing?.slots.length ?? 0) > 0}
+                          className="input-field disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                      </Field>
+                      <SlotRows existing={editing?.slots ?? []} />
+                    </div>
+                  </Fold>
 
-                <Fold data="m-comes" title="Comes with" line={otherCategoriesShown.length ? 'Your other cards this one goes with' : 'No other card yet'} lead={<SubIcon><Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    {otherCategoriesShown.length > 0 ? (
-                      otherCategoriesShown.map((c) => (
-                        <label key={c.value} className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
-                          <span className="text-[15px] text-ink">{c.label}</span>
-                          <input type="checkbox" name="linked" value={c.value} defaultChecked={initial?.linkedCategories.includes(c.value) ?? false} className="peer sr-only" />
-                          <span aria-hidden className={SWITCH_TRACK} />
-                        </label>
-                      ))
-                    ) : (
-                      <p className="text-[14px] text-ink/65">Make another card and it can come with this one. Up to 6.</p>
-                    )}
-                  </div>
-                </Fold>
+                  <Fold data="m-pay" title="Payment schedule" line="How couples pay · first payment · no-show terms" lead={<SubIcon><Wallet aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare />
+                    </div>
+                  </Fold>
 
-                <Fold data="m-record" title="Record · collected" line={isEdit ? 'Booked · delivered · reviews · read-only' : 'Nothing yet · grows with each booking'} lead={<SubIcon><Award aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    {recordSlot ?? (
-                      <p className="text-[14px] text-ink/65">Booked, what was delivered, reviews — the card collects it; you type nothing. The first booking starts it.</p>
-                    )}
-                  </div>
-                </Fold>
-
-                <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="pb-4 pt-1">
-                    <p className="text-[14px] text-ink/65">
-                      Each booked event’s album lands here and in Their work on your page. Your cover photos are never
-                      shown as proof.
-                    </p>
-                  </div>
-                </Fold>
-
-                <Fold data="m-live" title="Live · delete · copy" line={isEdit ? (liveOn ? 'Couples can see it · hide · start another from this' : 'Not shown yet · show · start another from this') : 'Shown once it has a cover, a price and what’s included'} lead={<SubIcon><Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
-                  <div className="space-y-1 pb-4 pt-1">
-                    {isEdit && editing ? (
-                      <>
+                  <Fold data="m-who" title="Who it is for" line={coverageId ? audienceLabel : 'Which of your coverages · events · faiths'} lead={<SubIcon><Users aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="space-y-2 pb-4 pt-1">
+                      {coverages.length > 0 ? (
                         <div className="flex min-h-11 items-center justify-between gap-3">
-                          <span>
-                            <span className="block text-[15px] text-ink">Couples can see it</span>
-                            <span className="block text-[13px] text-ink/55">
-                              {liveSwitchWaits ? `Waits for ${status.text}` : 'Hidden cards keep their bookings'}
+                          <span className="text-[15px] text-ink">Coverage</span>
+                          <PickMenu
+                            label="Coverage this card sits in"
+                            value={coverageId || 'none'}
+                            options={[{ key: 'none', label: 'Not assigned' }, ...coverages.map((c) => ({ key: String(c.id), label: c.label }))]}
+                            onPick={(k) => setCoverageId(k === 'none' ? '' : k)}
+                            dataAttr="data-maker-coverage"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-[14px] text-ink/65">Not in a coverage yet — saying Yes to “Add it to what you do” on Create puts it in one.</p>
+                      )}
+                      <MakerRow
+                        title="Events and faiths"
+                        line={coverageId ? audienceLabel : 'Pick a coverage first'}
+                        right={<ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />}
+                        onPress={() => setSheet('audience')}
+                        label="Choose the events and faiths this card is found under"
+                        data="audience"
+                      />
+                      {branches.length > 0 ? (
+                        <Field label="Branch" htmlFor="branch_id">
+                          <select id="branch_id" name="branch_id" defaultValue={editing?.branchId ?? ''} className="input-field cursor-pointer">
+                            <option value="">You (main)</option>
+                            {branches.map((b) => (
+                              <option key={b.id} value={b.id} disabled={b.usable === false}>
+                                {b.label}{b.usable === false ? ' (not active)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      ) : null}
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-comes" title="Comes with" line={otherCategoriesShown.length ? 'Your other cards this one goes with' : 'No other card yet'} lead={<SubIcon><Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      {otherCategoriesShown.length > 0 ? (
+                        otherCategoriesShown.map((c) => (
+                          <label key={c.value} className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+                            <span className="text-[15px] text-ink">{c.label}</span>
+                            <input type="checkbox" name="linked" value={c.value} defaultChecked={initial?.linkedCategories.includes(c.value) ?? false} className="peer sr-only" />
+                            <span aria-hidden className={SWITCH_TRACK} />
+                          </label>
+                        ))
+                      ) : (
+                        <p className="text-[14px] text-ink/65">Make another card and it can come with this one. Up to 6.</p>
+                      )}
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-record" title="Record · collected" line={isEdit ? 'Booked · delivered · reviews · read-only' : 'Nothing yet · grows with each booking'} lead={<SubIcon><Award aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      {recordSlot ?? (
+                        <p className="text-[14px] text-ink/65">Booked, what was delivered, reviews — the card collects it; you type nothing. The first booking starts it.</p>
+                      )}
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-portfolio" title="Portfolio · collected" line="Albums from events this card was booked for · read-only" lead={<SubIcon><Images aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="pb-4 pt-1">
+                      <p className="text-[14px] text-ink/65">
+                        Each booked event’s album lands here and in Their work on your page. Your cover photos are never
+                        shown as proof.
+                      </p>
+                    </div>
+                  </Fold>
+
+                  <Fold data="m-live" title="Live · delete · copy" line={isEdit ? (liveOn ? 'Couples can see it · hide · start another from this' : 'Not shown yet · show · start another from this') : 'Shown once it has a cover, a price and what’s included'} lead={<SubIcon><Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                    <div className="space-y-1 pb-4 pt-1">
+                      {isEdit && editing ? (
+                        <>
+                          <div className="flex min-h-11 items-center justify-between gap-3">
+                            <span>
+                              <span className="block text-[15px] text-ink">Couples can see it</span>
+                              <span className="block text-[13px] text-ink/55">
+                                {liveSwitchWaits ? `Waits for ${status.text}` : 'Hidden cards keep their bookings'}
+                              </span>
                             </span>
-                          </span>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={liveOn}
+                              aria-label="Couples can see it"
+                              disabled={liveSwitchWaits}
+                              onClick={() => setLiveOn((v) => !v)}
+                              className={SWITCH_BUTTON}
+                              data-maker-live=""
+                            >
+                              <SwitchTrack on={liveOn} />
+                            </button>
+                          </div>
+                          {editing.legacyPromise ? (
+                            <p className="text-[13px] text-ink/60">Your old promise · {editing.legacyPromise} · it stays on the card</p>
+                          ) : null}
+                          <Link
+                            href={`/vendor-dashboard/services/new/${category}?from=${editing.serviceId}`}
+                            className="sn-press flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink"
+                            data-maker-copy=""
+                          >
+                            <span className="flex items-center gap-2"><Copy aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />Start another from this</span>
+                            <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
+                          </Link>
                           <button
                             type="button"
-                            role="switch"
-                            aria-checked={liveOn}
-                            aria-label="Couples can see it"
-                            disabled={liveSwitchWaits}
-                            onClick={() => setLiveOn((v) => !v)}
-                            className={SWITCH_BUTTON}
-                            data-maker-live=""
+                            onClick={() => setSheet('delete')}
+                            className="sn-press flex min-h-11 w-full items-center justify-between gap-3 text-left text-[15px]"
+                            style={{ color: 'rgb(var(--color-danger))' }}
+                            data-maker-delete=""
                           >
-                            <SwitchTrack on={liveOn} />
+                            <span className="flex items-center gap-2"><Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />Delete</span>
+                            <span className="text-[13px] text-ink/55">Booked before = hides instead</span>
                           </button>
-                        </div>
-                        {editing.legacyPromise ? (
-                          <p className="text-[13px] text-ink/60">Your old promise · {editing.legacyPromise} · it stays on the card</p>
-                        ) : null}
-                        <Link
-                          href={`/vendor-dashboard/services/new/${category}?from=${editing.serviceId}`}
-                          className="sn-press flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink"
-                          data-maker-copy=""
-                        >
-                          <span className="flex items-center gap-2"><Copy aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />Start another from this</span>
-                          <ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => setSheet('delete')}
-                          className="sn-press flex min-h-11 w-full items-center justify-between gap-3 text-left text-[15px]"
-                          style={{ color: 'rgb(var(--color-danger))' }}
-                          data-maker-delete=""
-                        >
-                          <span className="flex items-center gap-2"><Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />Delete</span>
-                          <span className="text-[13px] text-ink/55">Booked before = hides instead</span>
-                        </button>
-                      </>
-                    ) : (
-                      <p className="text-[14px] text-ink/65">
-                        Create shows it to couples as soon as it has a cover, a price and what’s included — or saves it,
-                        not shown yet, until it does. Hide, copy or delete it from the card later.
-                      </p>
-                    )}
-                  </div>
-                </Fold>
-              </div>
-            </Fold>
+                        </>
+                      ) : (
+                        <p className="text-[14px] text-ink/65">
+                          Create shows it to couples as soon as it has a cover, a price and what’s included — or saves it,
+                          not shown yet, until it does. Hide, copy or delete it from the card later.
+                        </p>
+                      )}
+                    </div>
+                  </Fold>
+                </div>
+              </Fold>
+            </div>
           </div>
           {askResult && askResult.tone === 'ok' ? (
             <p role="status" className="mt-3 text-[14px]" style={{ color: 'rgb(var(--color-ok))' }}>{askResult.text}</p>
           ) : null}
         </form>
+
+        {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 820 up ═══ */}
+        <aside className="hidden md:sticky md:top-24 md:block" data-maker-card="">
+          <div className="space-y-3 rounded-2xl border p-4" style={{ borderColor: line, background: paper }}>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/45">Live</span>
+            </div>
+            {cardFace}
+            <p
+              data-maker-status={status.tone}
+              className="flex items-start gap-2.5 text-[14px] leading-snug"
+              style={{ color: status.tone === 'ok' ? 'rgb(var(--color-ok))' : 'rgb(var(--color-warn))' }}
+            >
+              {status.tone === 'ok' ? (
+                <Check aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2.2} />
+              ) : (
+                <EyeOff aria-hidden className="mt-0.5 h-[18px] w-[18px] flex-none" strokeWidth={2} />
+              )}
+              <span>
+                {status.lead ? <>{status.lead} </> : null}
+                <b className="font-semibold">{status.text}</b>
+              </span>
+            </p>
+          </div>
+        </aside>
       </div>
 
-      {/* ═══ THE THUMB ROW — Preview (grey) · Create / Save (the one main) ═══ */}
+      {/* ═══ THE THUMB ROW — Cancel (grey) · Create / Save card (the one main, terracotta). The shipped row + buttons. ═══ */}
       <SupplierThumbRow name="maker" label="Card actions">
-        <ActionButton tone="neutral" icon={Eye} label="Preview" onClick={() => setSheet('preview')} />
+        <ActionButton tone="neutral" icon={X} label="Cancel" href={cancelTo} />
         <ActionButton
           tone="brand"
           main
           type="submit"
           form={CARD_FORM_ID}
           icon={Check}
-          label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save' : 'Create'}
+          label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save card' : 'Create'}
           waiting={pending || saveBlocked}
         />
       </SupplierThumbRow>
+      <UndoToastHost />
 
       {/* ═══ SHEETS — choices and sibling forms only. A sheet portals to <body>, so NO card field may live in one. ═══ */}
 
@@ -1545,8 +1685,9 @@ export function CanvasMaker({
       <CanvasSheet id="canvas-preview" title="As couples see it" open={sheet === 'preview'} onClose={() => setSheet(null)} confirmLabel="Back to the card">
         {face ? (
           <ServiceCardFace
-            snap={{ ...face, name: title.trim() || activeCategoryLabel || 'Your service' }}
+            snap={{ ...face, name: faceName }}
             leafPathLabel={activeCategoryLabel}
+            packLine={packLine}
           />
         ) : null}
         {snap.inclusionLabels.length ? (
@@ -2005,13 +2146,10 @@ function CanvasSheet({
           {footer}
           {confirmLabel !== null ? (
             // type="button" is LOAD-BEARING: a default-submit button inside a form would submit it.
-            <button
-              type="button"
-              onClick={onClose}
-              className="button-primary min-h-[44px] w-full"
-            >
-              {confirmLabel}
-            </button>
+            // The shipped ActionButton, green — the press that closes a picker (makers prototype 7 Nov 2026).
+            <div className="flex justify-center" data-sheet-confirm="">
+              <ActionButton type="button" tone="ok" main icon={Check} onClick={onClose} label={confirmLabel} />
+            </div>
           ) : null}
         </div>
       </div>

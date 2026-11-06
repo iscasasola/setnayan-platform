@@ -15,6 +15,8 @@ import { QrCodes, type QrPick } from '../../invite/_components/qr-codes';
 import { promoteFigures } from '@/lib/shop-section-figures';
 import { ShopGiftsSection } from './_components/shop-gifts-section';
 import { loadShopGiftsSection } from './_components/shop-gifts-data';
+import { ShareYourWork } from './_components/share-your-work';
+import { loadShareYourWork } from './_components/share-your-work-data';
 
 export const metadata = { title: 'Promote · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -36,6 +38,11 @@ export const dynamic = 'force-dynamic';
  * the gift stock, Buy gifts, Bought). Its reads moved with it (`loadShopGiftsSection`), and the pinned row's ONE figure is
  * that read's `stock.balance` (`promoteFigures`) — never typed. Giving a gift on a quote stays in the quote
  * (`quote-shop-gifts.tsx`); the admin ledger stays on Admin › Gifts. Prints join in a later part.
+ *
+ * ROW 4 — 📣 SHARE YOUR WORK (owner 2026-11-06, DECISION_LOG "ONE HOME FOR EVERY PROMOTE TOOL": *"Make the pages live
+ * there and not jump to another menu"*): the stories + recaps a couple made public, with their share / story-card
+ * buttons (`ShareYourWork`, reads `loadShareYourWork`). `/vendor-dashboard/real-stories` and `/vendor-dashboard/recaps`
+ * forward to `#share`; they left Settings › More tools.
  *
  * Server component: every word arrives read. 🔒 lib/supplier-qr-codes.test.ts · shop/the-shop-sections-are-v13.test.ts ·
  * shop/promote/gifts-live-on-promote.test.ts
@@ -65,6 +72,8 @@ export default async function ShopPromotePage({
   const giftsPromise = loadShopGiftsSection(supabase, profile.vendor_profile_id);
   // Awaited below; this only keeps a throw from being "unhandled" while the codes are drawn — it still surfaces there.
   giftsPromise.catch(() => undefined);
+  // 📣 Row 4 — read beside the gifts; the loader says a refused read in words (never throws).
+  const sharePromise = loadShareYourWork(supabase, profile.vendor_profile_id);
   const modeOptions: QrPick[] = PROMOTE_QR_MODES.map((key) => ({ key, label: SUPPLIER_QR_MODE_LABEL[key], href: `${PROMOTE_HREF}?mode=${key}` }));
   const common = { place: 'promote' as const, backHref: PROMOTE_HREF, modeOptions, setupHref: '/vendor-dashboard/shop', booked: null };
 
@@ -115,13 +124,14 @@ export default async function ShopPromotePage({
     );
   }
 
-  const gifts = await giftsPromise;
+  const [gifts, share] = await Promise.all([giftsPromise, sharePromise]);
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-promote="">
       <ShopSegments on="promote" figures={promoteFigures({ giftCredits: gifts.stock ? gifts.stock.balance : null })} gearBody={shopGearBody(search)} />
       {body}
       <ShopGiftsSection data={gifts} />
+      <ShareYourWork data={share} />
     </section>
   );
 }

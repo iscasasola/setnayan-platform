@@ -16106,32 +16106,17 @@
       "files": [
         "vendor-dashboard/real-stories/page.tsx"
       ],
-      "destinations": [
-        "/[seg]",
-        "/realstories"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Link",
-        "SaveStoryCardButton",
-        "ShareButtons"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/recaps": {
       "files": [
         "vendor-dashboard/recaps/page.tsx"
       ],
-      "destinations": [
-        "/[seg]/recap"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "Link",
-        "SaveStoryCardButton",
-        "ShareButtons",
-        "ShopEmpty",
-        "VendorTierGate"
-      ]
+      "blocks": []
     },
     "/vendor-dashboard/recommendations": {
       "files": [
@@ -16481,8 +16466,6 @@
         "/vendor-dashboard/packages",
         "/vendor-dashboard/partnerships",
         "/vendor-dashboard/profile",
-        "/vendor-dashboard/real-stories",
-        "/vendor-dashboard/recaps",
         "/vendor-dashboard/recommendations",
         "/vendor-dashboard/repertoire",
         "/vendor-dashboard/reviews",
@@ -16626,6 +16609,8 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
+        "vendor-dashboard/shop/promote/_components/share-your-work.tsx",
         "vendor-dashboard/shop/promote/_components/shop-gifts-data.ts",
         "vendor-dashboard/shop/promote/_components/shop-gifts-section.tsx",
         "vendor-dashboard/shop/promote/page.tsx"
@@ -16642,9 +16627,15 @@
         "DatesRow",
         "Fold",
         "InfoTip",
+        "Link",
         "PaymentsPausedNote",
         "PickMenu",
         "QrCodes",
+        "SaveStoryCardButton",
+        "ShareButtons",
+        "ShareRow",
+        "ShareYourWork",
+        "ShareYourWorkData",
         "Sheet",
         "ShopGiftsSection",
         "ShopGiftsSectionData",

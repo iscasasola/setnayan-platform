@@ -9,7 +9,10 @@
  *       (`supplier_scan_review_skips`, migration 20271323347634) — one per event · guest · shop, never a review;
  *   3 · both writes are the service role's alone — a signed-in person (the supplier included) can call neither, and
  *       nobody but Setnayan admin reads the skips;
- *   4 · the scanner adds NO second review store (the old `supplier_scan_reviews` and its writer do not exist).
+ *   4 · the scanner adds NO second review store (the old `supplier_scan_reviews` and its writer do not exist);
+ *   5 · a guest who only got a SOUVENIR at a shop's scanner (no door check-in, no scanner claim) is asked too: the
+ *       souvenir row names the shop, which is the row the pop-up's reader picks up and the one writer admits
+ *       (door = souvenir) — while a souvenir from the couple's own desk names no shop and admits nobody.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -301,4 +304,33 @@ test('4 · the scanner adds no second review store', async () => {
               WHERE n.nspname = 'public' AND p.proname = 'supplier_scan_review_submit' LIMIT 1) AS f`,
   );
   assert.deepEqual(t.rows[0], { t: null, f: null }, 'a second guest-review store came back');
+});
+
+test('5 · a souvenir from a shop’s scanner alone is enough to be asked, and to answer', async () => {
+  const souvenirVp = await vpOf(F.souvenir);
+  const guest = F.guestIds[1]!;
+  assert.equal((await scan(F.souvenir, F.souvenirCov, F.tokens[1]!)).outcome, 'claimed', 'the souvenir scan was refused');
+  await asOwner();
+  // What the pop-up's reader (`readGuestReviewAsks`) reads for this guest: no check-in, no scanner claim — only the
+  // souvenir row, and it names the shop.
+  assert.equal((await db.query(`SELECT 1 FROM public.guest_checkins WHERE guest_id = $1`, [guest])).rows.length, 0);
+  assert.equal((await db.query(`SELECT 1 FROM public.supplier_scan_claims WHERE guest_id = $1`, [guest])).rows.length, 0);
+  const asked = await db.query<{ vendor_profile_id: string; coverage_id: string }>(
+    `SELECT vendor_profile_id, coverage_id::text FROM public.guest_souvenir_claims
+      WHERE event_id = $1 AND guest_id = $2 AND vendor_profile_id IS NOT NULL`,
+    [F.eventId, guest],
+  );
+  assert.deepEqual(asked.rows, [{ vendor_profile_id: souvenirVp, coverage_id: String(F.souvenirCov) }], 'the souvenir row does not name the shop');
+
+  const id = await submit(guest, souvenirVp, 4, 'Lovely jars');
+  await asOwner();
+  const row = await db.query<{ door: string }>(`SELECT door FROM public.vendor_guest_reviews WHERE review_id = $1`, [id]);
+  assert.equal(row.rows[0]?.door, 'souvenir', 'the souvenir-only guest was not admitted by the souvenir door');
+
+  // The couple's own desk names no shop — it proves presence for nobody's scanner.
+  await db.query(`INSERT INTO public.guest_souvenir_claims (event_id, guest_id, method) VALUES ($1,$2,'qr_scan')`, [
+    F.eventId,
+    F.guestIds[2],
+  ]);
+  await assert.rejects(submit(F.guestIds[2]!, souvenirVp, 5, null), /not_at_event/, 'a desk souvenir admitted a shop review');
 });

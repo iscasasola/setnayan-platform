@@ -324,3 +324,28 @@ export const REVIEW_LINE_MAX = 140;
 export function reviewAskWords(service: string): string {
   return `How was the ${service}?`;
 }
+
+/** One proof that a guest got something from a shop: a scanner claim RECEIVED, or a souvenir that shop's scanner handed over. */
+export type ReviewAskProof = {
+  vendor_profile_id: string | null;
+  coverage_id: number | string | null;
+  claimed_at: string;
+};
+
+/**
+ * ⭐ Which shops to ask a guest about, and which service names each question — the pure half of `readGuestReviewAsks`.
+ * A proof counts only when it names a shop (a souvenir from the couple's own desk names none, and proves presence for
+ * nobody's scanner — the same rule `vendor_guest_review_submit` applies). One ask per shop: its EARLIEST proof names
+ * the service. A shop the guest already reviewed or answered "Not now" to is never asked again.
+ * Returns shop → coverage id (or null when the proof carries no service).
+ */
+export function openReviewAsks(proofs: readonly ReviewAskProof[], answered: ReadonlySet<string>): Map<string, string | null> {
+  const open = new Map<string, string | null>();
+  const ordered = [...proofs].sort((a, b) => a.claimed_at.localeCompare(b.claimed_at));
+  for (const p of ordered) {
+    const vp = p.vendor_profile_id;
+    if (!vp || answered.has(vp) || open.has(vp)) continue;
+    open.set(vp, p.coverage_id == null ? null : String(p.coverage_id));
+  }
+  return open;
+}

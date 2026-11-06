@@ -15,11 +15,16 @@ RECEIVES A SUPPLIER'S ITEM, AN OPTIONAL REVIEW CAN POP UP ON THEIR EVENT HUB" �
 - **Send** writes through `submitGuestReview` (`lib/guest-reviews.ts` → `vendor_guest_review_submit`), which admits the
   guest because that shop's scanner marked their item RECEIVED. Public at once in the shop page's "From guests" group;
   Setnayan admin hides or shows it in Admin › Reviews › Guest reviews (#7337's queue). Refusals use the store's own words.
+- **Souvenir-only guests are asked too** (coordinator, 6 Nov; re-enabled once #7337's writer accepted them): a guest
+  whose only proof is a souvenir that shop's scanner handed over (`guest_souvenir_claims.vendor_profile_id`, no door
+  check-in and no scanner claim) gets the same card, and Send is admitted by the writer's souvenir door. A souvenir from
+  the couple's own desk names no shop and asks about nobody. The pure rule is `openReviewAsks` in `lib/supplier-scan.ts`:
+  one ask per shop, its earliest proof names the service.
 - **Dropped** (from this slice's first version): `supplier_scan_reviews` + `supplier_scan_review_submit`, the
   `GuestRatingsSection` on the shop page and its test, the admin "Guests' ratings from the scanner" list, the
   `admin_review` op and `readAdminScanReviews` / `readPublishedGuestRatings`, and the lab's `?s=scan-shop`.
 - Tests: `tests/db/a-guest-reviews-a-supplier-only-after-receiving.db.test.ts` rewritten against the one writer and
-  the skip ledger (4) · `lib/supplier-scan.test.ts` (+1).
+  the skip ledger, plus the souvenir-only guest (5) · `lib/supplier-scan.test.ts` (+2).
 
 SPEC IMPACT: None beyond #7337's DECISION_LOG row (one store, one writer, one "From guests" section) — this slice now
 follows it. The 2026-11-05 "separate Guest ratings section" note in this slice's first version is superseded by it.

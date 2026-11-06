@@ -11,6 +11,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { badgesForPrint, type ShopBadge, type ShopBadgeFacts } from '@/lib/shop-badges';
+import { cardRecordRatingFromTrusted } from '@/lib/service-card-record';
 import {
   DEFAULT_PRINT_DESIGN,
   DEFAULT_PRINT_QR,
@@ -317,11 +318,25 @@ function PrintsSheet({
                 {/* No block switches the seal off (the 6 Nov block table has none): it prints when the shop is verified. */}
                 <FactSwitch label="Verified seal" on={badgeRead.k === 'ok' && badgeRead.verified} disabled data="seal" />
               </FactRow>
+              {/* The prototype's rule: each prints only if you have it — so a shop with no rating (or no badge) sees the switch
+                  off and still, never "on" for a fact no print can carry. Where it has one, the switch hides it everywhere. */}
               <FactRow k="Rating" small="If you have one">
-                <FactSwitch label="Rating" on={!hidden.includes('stars')} onToggle={() => flip('stars', 'Rating')} data="stars" />
+                <FactSwitch
+                  label="Rating"
+                  on={badgeRead.k === 'ok' && badgeRead.rated && !hidden.includes('stars')}
+                  disabled={!(badgeRead.k === 'ok' && badgeRead.rated)}
+                  onToggle={() => flip('stars', 'Rating')}
+                  data="stars"
+                />
               </FactRow>
               <FactRow k="Badges" small="If you have them">
-                <FactSwitch label="Badges" on={!hidden.includes('badges')} onToggle={() => flip('badges', 'Badges')} data="badges" />
+                <FactSwitch
+                  label="Badges"
+                  on={badgeRead.k === 'ok' && badgeRead.badges.length > 0 && !hidden.includes('badges')}
+                  disabled={!(badgeRead.k === 'ok' && badgeRead.badges.length > 0)}
+                  onToggle={() => flip('badges', 'Badges')}
+                  data="badges"
+                />
               </FactRow>
               <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-4 py-2" data-prints-blocks="">
                 <span className="text-ink/60">
@@ -671,7 +686,7 @@ function Scene({ scene, d, qr, height }: { scene: PrintScene; d: PrintDesign; qr
  * the facts READ when it is saved. Its facts are read once, when the sheet first opens. A refused read says so; a shop
  * with none yet is told they show by themselves — the words Analytics › Your badges already uses.
  */
-type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: ShopBadge[]; verified: boolean };
+type BadgeRead = { k: 'loading' } | { k: 'unread' } | { k: 'ok'; badges: ShopBadge[]; verified: boolean; rated: boolean };
 
 /**
  * The shop's badge facts, read ONCE per sheet visit and shared by the badges piece and YOUR FACTS' Verified seal — two
@@ -699,7 +714,7 @@ function useBadgeFacts(open: boolean, factsUrl: string): BadgeRead {
   useEffect(() => {
     if (!open || started.current) return;
     started.current = true;
-    void readBadgeFacts(factsUrl).then((f) => setRead(f ? { k: 'ok', badges: badgesForPrint(f), verified: f.verified } : { k: 'unread' }));
+    void readBadgeFacts(factsUrl).then((f) => setRead(f ? { k: 'ok', badges: badgesForPrint(f), verified: f.verified, rated: cardRecordRatingFromTrusted(f.trusted) !== null } : { k: 'unread' }));
   }, [open, factsUrl]);
   return read;
 }

@@ -4,8 +4,10 @@
  * 📸 PHOTOS COUPLES SHARED — the shop's Approve screen (owner 2026-10-30, DECISION_LOG "A CUSTOMER'S PHOTO SHARED TO A
  * SUPPLIER'S INSPIRATION — THE SUPPLIER APPROVES, IT SYNCS TO THEIR SERVICE CARD …").
  *
- * On Shop › Services (`id="couple-photos"`, where the in-app notice lands). Waiting photos first, each: the photo, the
- * card it is for, the couple's credit line, then Approve · Decline. Approved ones say "On your card" with Take off.
+ * On Shop › Services (`id="couple-photos"`, where the in-app notice lands). A three-column grid of the photos (the
+ * approved For Suppliers design, 2026-11-06): a waiting photo carries "Shared by the couple · Approve" ON the photo; an approved
+ * one says "✓ On your card" on it. Under each: the card it is for, the couple's credit line, who sees it, and ✕ Decline /
+ * ↶ Take off.
  * An answer changes the row IN PLACE — the screen never resets. The rules (who sees what, no payment, the room is not
  * used) live inside the ⓘ.
  *
@@ -77,30 +79,44 @@ export function CouplePhotosList({
           you want to thank them, a Gift from your shop is the way, never cash.
         </Explain>
       </div>
-      <ul className="flex flex-col divide-y divide-ink/10 border-y border-ink/10">
+      {/* ▦ THE APPROVED DESIGN'S SAMPLE GALLERY (For Suppliers prototype 2026-11-06, `.sgal` / `.sgrid`): three columns
+          of large square photos, and the answer sits ON the photo — a waiting one wears the white plate "Shared by the
+          couple · Approve" (`.appr`); an approved one wears its mark where the card's "✓ Verified booking" sits (`.vbm`).
+          Decline (waiting) and Take off (approved) stay — the ✕ / ↶ beside the caption — so the shop never loses the way to say no. */}
+      <ul className="grid grid-cols-3 gap-1" data-couple-photo-grid="">
         {rows.map((r) => (
-          <li key={r.shareId} className="flex flex-col gap-2 py-3" data-couple-photo={r.state}>
-            <div className="flex items-center gap-3">
+          <li key={r.shareId} className="flex min-w-0 flex-col gap-1" data-couple-photo={r.state}>
+            <div className="relative aspect-square overflow-hidden rounded-md bg-ink/5">
               {/* eslint-disable-next-line @next/next/no-img-element -- the couple's own photo, from their board */}
-              <img src={r.imageUrl} alt="" className="h-16 w-16 flex-none rounded-xl object-cover" />
-              <span className="min-w-0 flex-1 text-[14px] leading-snug">
-                <b className="block font-medium text-ink">{r.state === 'waiting' ? `For “${r.serviceTitle}”` : `On “${r.serviceTitle}”`}</b>
-                <span className="block text-ink/60">Credit: {r.creditLine}</span>
-                {r.audienceLabel ? <span className="block text-[13px] text-ink/50">Seen by: {r.audienceLabel}</span> : null}
-              </span>
+              <img src={r.imageUrl} alt={`Shared by ${r.creditLine} for “${r.serviceTitle}”`} className="absolute inset-0 h-full w-full object-cover" />
+              {r.state === 'waiting' ? (
+                <div
+                  className="absolute inset-x-1 bottom-1 z-[1] grid gap-0.5 rounded-md bg-cream/95 p-1 [&_.ab]:w-full"
+                  data-couple-photo-answer={r.shareId}
+                >
+                  <small className="px-0.5 text-[12px] font-semibold leading-[1.1] text-ink/60">Shared by the couple</small>
+                  <ActionButton tone="brand" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} />
+                </div>
+              ) : (
+                <span className="absolute bottom-1 left-1 right-1 z-[1] w-fit max-w-full rounded-lg bg-cream/95 px-1.5 py-0.5 text-[12px] font-semibold leading-[1.2] text-[rgb(var(--color-ok))] shadow-sm" data-couple-photo-on-card="">
+                  ✓ On your card
+                </span>
+              )}
             </div>
-            {r.state === 'waiting' ? (
-              <div className="flex gap-2 [&>*]:min-w-0 [&>*]:flex-1 [&_.ab]:w-full" data-couple-photo-answer={r.shareId}>
-                <ActionButton tone="ok" main icon={Check} label="Approve" name={`Approve the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, true)} />
-                <ActionButton tone="neutral" icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
-              </div>
-            ) : (
-              <div className="flex justify-end">
-                <ActionButton tone="neutral" quiet icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
-              </div>
-            )}
+            <div className="flex items-start gap-1">
+              <span className="min-w-0 flex-1 text-[12px] leading-snug">
+                <b className="line-clamp-2 font-medium text-ink" title={r.serviceTitle}>{r.state === 'waiting' ? `For “${r.serviceTitle}”` : `On “${r.serviceTitle}”`}</b>
+                <span className="block truncate text-ink/60" title={r.creditLine}>Credit: {r.creditLine}</span>
+                {r.audienceLabel ? <span className="block truncate text-ink/50">Seen by: {r.audienceLabel}</span> : null}
+              </span>
+              {r.state === 'waiting' ? (
+                <ActionButton tone="neutral" quiet iconOnly icon={X} label="Decline" name={`Decline the photo for ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+              ) : (
+                <ActionButton tone="neutral" quiet iconOnly icon={Undo2} label="Take off" name={`Take the photo off ${r.serviceTitle}`} disabled={busy !== null} onClick={() => void act(r, false)} />
+              )}
+            </div>
             {said[r.shareId] ? (
-              <p role={said[r.shareId]!.tone === 'bad' ? 'alert' : 'status'} className={`text-[13px] ${said[r.shareId]!.tone === 'bad' ? 'text-danger-700' : 'text-success-700'}`}>
+              <p role={said[r.shareId]!.tone === 'bad' ? 'alert' : 'status'} className={`text-[12px] leading-snug ${said[r.shareId]!.tone === 'bad' ? 'text-danger-700' : 'text-success-700'}`}>
                 {said[r.shareId]!.text}
               </p>
             ) : null}

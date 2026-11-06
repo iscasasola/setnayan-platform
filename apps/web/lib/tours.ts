@@ -210,6 +210,10 @@ export type TourKey =
   | 'vendor_today_v2'
   | 'vendor_people_v1'
   | 'vendor_collections_v1'
+  // 🔦 A new shop's Today, once its QR is downloaded (step 6 of "Get your shop live" — owner 7 Nov 2026, prototype
+  // `open-shop-redesign.html` v21 "the spotlight tour … starts once after step 6"). Recorded when it ends or is
+  // skipped, and that record is step 6's ✓ (`lib/supplier-setup.ts`).
+  | 'vendor_setup_tour_v1'
   | 'guest_papic_camera_v2'
   | 'guest_papic_me_v2'
   // 🔦 /pricing — a first-visit spotlight (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25`): Why Setnayan →
@@ -277,6 +281,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'vendor_today_v2',
   'vendor_people_v1',
   'vendor_collections_v1',
+  'vendor_setup_tour_v1',
   'guest_papic_camera_v2',
   'guest_papic_me_v2',
   'pricing_page_v1',
@@ -2161,6 +2166,53 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'The Next card on top always shows the one thing waiting on you.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 A NEW SHOP'S TODAY, AFTER STEP 6 (owner 7 Nov 2026, prototype `open-shop-redesign.html` v21 `TOUR_COPY`): it
+     starts once, the moment the shop's QR is downloaded, and lights Today top → bottom. The words are the prototype's;
+     the last stop says the bar as it ships (the prototype's six-tab list is not the shipped bar — `vendor_today_v1`'s
+     sentence is). A stop not drawn on this screen is dropped by the engine. Mounted by `supplier-setup-folds.tsx`. */
+  vendor_setup_tour_v1: {
+    key: 'vendor_setup_tour_v1',
+    label: 'Supplier — a new shop’s Today, after the QR',
+    blurb: 'Get your shop live, Coming up, your shop, Messages and the bar.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'today-setup',
+          title: 'Get your shop live',
+          body: 'Six rows — each opens right here. Any order.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-coming-up',
+          title: 'Coming up',
+          body: 'Bookings land here as couples say yes.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'today-shop',
+          title: 'Your shop',
+          body: 'Your page, your cards, your logo — what couples see.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'supplier-messages',
+          title: 'Messages',
+          body: 'Every request and chat with a couple, in one place.',
+        },
+        {
+          anchor: 'tab-vendor-dashboard',
+          title: 'The menu',
+          body: 'The bar is Today, Customers, Shop and Hub.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Get your shop live stays on Today until every step is done.',
         button: 'Done',
       },
     },

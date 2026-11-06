@@ -100,7 +100,11 @@ import { loadDetailsData } from './profile/details-data';
 import { NewServiceMaker } from './services/new/_components/new-service-maker';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { renderUrlQrSvg } from '@/lib/qr';
-import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
+import { myPageUrl } from '@/lib/supplier-qr-codes';
+import { siteOrigin } from '@/lib/site-origin';
+import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
+import { TOURS } from '@/lib/tours';
+import { readTourSeen } from '@/lib/tour-seen.server';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -316,6 +320,9 @@ export default async function VendorOverviewPage({
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
+  // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
+  // NULL — the step says it could not load and the tour does not run — never "not yet" to a shop that finished it.
+  const setupTourSeenP = settingUpP.then((yes) => (yes ? readTourSeen(supabase, user.id, SETUP_TOUR_KEY) : null)).catch(() => null);
   const setupMakerP = settingUpP.then((yes) =>
     yes
       ? loadMakerContext(supabase, vendorProfileId)
@@ -642,9 +649,11 @@ export default async function VendorOverviewPage({
   let setup: ReactNode = null;
   if (firstSteps) {
     const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
-    const [details, makerParts] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null)]);
+    const [details, makerParts, tourSeen] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null), setupTourSeenP]);
     if (details) {
-      const qrUrl = details.slug ? buildVendorInviteUrl(details.slug) : null;
+      // 📥 Step 6 — the shop's OWN Setnayan page, `/v/<slug>` (owner 7 Nov 2026). Never the root `/<slug>`: that is a
+      // couple's Event Hub. 🔒 app/vendor-dashboard/_components/the-papers-and-the-qr-hold.test.ts
+      const qrUrl = details.slug ? myPageUrl(siteOrigin(), details.slug) : null;
       const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
       setup = (
         <SupplierSetupScreen
@@ -666,6 +675,7 @@ export default async function VendorOverviewPage({
           qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}
           today={todayIso}
           gear={<TodaySettings />}
+          tour={{ script: TOURS[SETUP_TOUR_KEY].spotlight!, seen: tourSeen }}
         />
       );
     }

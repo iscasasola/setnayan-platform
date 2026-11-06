@@ -52,6 +52,8 @@ import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
 import type { GuestReviewsRead } from '@/lib/guest-reviews';
+import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
+import { DOC_SLOTS, REQUIRED_DOC_SLOT_KEYS } from '@/lib/vendor-verification';
 import type { ReviewWithCouple } from '@/lib/reviews';
 
 /** 💬 The lab's two reviews for Page › Reviews and stories' reply-in-place list — one waiting, one answered. */
@@ -324,6 +326,7 @@ function detailsFixture(who: Who): DetailsData {
     pendingCoverageSuggestion: null,
     verify,
     verifyMeasured: true,
+    papers: labPapers(verify.status, f.docsIn),
     docsIn: f.docsIn,
     docsTotal: 4,
     branch: {
@@ -364,20 +367,33 @@ function detailsFixture(who: Who): DetailsData {
  * 🧰 A NEW SHOP, for Today's six steps (`?easy=setup`, owner 2026-10-28): fresh from the invite (B4) — name and email
  * in, the rest to do; `docs` sets how its papers stand (none · checking · fix, with the admin's reason).
  */
-export function labSetupDetails(docs: 'none' | 'checking' | 'fix' = 'none', stage: 'fresh' | 'details' = 'fresh'): DetailsData {
+/** 🧾 How the lab's papers stand (`&docs=`): none · some (one uploaded, a draft) · checking · fix · unread (the read refused). */
+export type LabDocs = 'none' | 'some' | 'checking' | 'fix' | 'unread';
+
+/** The lab's four papers — the first `n` on file, read by the SAME rule the page uses (`setupPapers`). */
+export function labPapers(status: string | null, n: number, measured = true): SetupPaper[] | null {
+  const keys = DOC_SLOTS.filter((s) => REQUIRED_DOC_SLOT_KEYS.has(s.key)).map((s) => s.key);
+  const uploads = Object.fromEntries(keys.slice(0, n).map((k) => [k, { r2_key: `vendors/lab-invited/verification/${k}/lab.pdf` }]));
+  return setupPapers({ measured, status, uploads });
+}
+
+export function labSetupDetails(docs: LabDocs = 'none', stage: 'fresh' | 'details' = 'fresh'): DetailsData {
   const d = invitedDetailsFixture();
   const checklist = stage === 'details' ? d.checklist.map((i) => ({ ...i, ok: true })) : d.checklist;
-  const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : null;
+  const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : null;
+  const n = docs === 'none' || docs === 'unread' ? 0 : docs === 'some' ? 1 : docs === 'fix' ? 3 : 4;
   return {
     ...d,
     checklist,
     profileComplete: stage === 'details',
     fieldsLeft: checklist.filter((i) => !i.ok && i.key !== 'logo').length,
-    docsIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+    docsIn: n,
+    verifyMeasured: docs !== 'unread',
+    papers: labPapers(status, n, docs !== 'unread'),
     verify: {
       ...d.verify,
-      status,
-      requiredIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+      status: status as DetailsData['verify']['status'],
+      requiredIn: n,
       requiredDocsIn: docs === 'checking',
       decisionReason: docs === 'fix' ? 'The BIR 2303 photo is cut off at the bottom — upload the whole page.' : null,
     } as DetailsData['verify'],

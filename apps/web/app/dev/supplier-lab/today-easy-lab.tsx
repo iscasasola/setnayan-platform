@@ -27,7 +27,9 @@ import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
 import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { labSetupDetails } from './page-lab';
+import { myPageUrl } from '@/lib/supplier-qr-codes';
+import type { SpotlightScript } from '@/lib/tours';
+import { labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
 
@@ -339,7 +341,10 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false }: { /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=checking|fix`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: 'none' | 'checking' | 'fix'; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+/** 📥 The lab shop's own Setnayan page — what its step-6 code opens (`myPageUrl`, never the root slug). */
+export const LAB_SHOP_QR_URL = myPageUrl('https://www.setnayan.com', 'titanena');
+
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null }: { /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
@@ -380,7 +385,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
         // A `rail` moment has its logo in (its next step is the service or the papers); `&logo=1` has none.
         hasLogo: Boolean(rail) && !logoNext,
         serviceCount: labCards.length,
-        docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : 'none',
+        docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : docs === 'some' ? 'draft' : 'none',
         docsIn: 0,
         docsTotal: 4,
         submitMissing: rail ? [] : ['Finish your business profile'],
@@ -464,7 +469,8 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
               d={labSetupDetails(docs, rail || logoNext ? 'details' : 'fresh')}
               rail={firstSteps}
               maker={<p className="py-6 text-center text-[13.5px] text-ink/65" data-lab-maker="">The service maker opens here, over Today — the shipped maker on the real page.</p>}
-              qr={{ svg: null, url: 'https://www.setnayan.com/vendor-invite/titanena' }}
+              qr={{ svg: qrSvg, url: LAB_SHOP_QR_URL }}
+              tour={tourScript ? { script: tourScript, seen: false, lab: true } : null}
               today={TODAY}
               lab
               gear={<TodaySettings />}

@@ -216,6 +216,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'today-numbers': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-coming-up': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-shop': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // A new shop's "Get your shop live" — the first stop of the tour after step 6 (7 Nov 2026).
+  'today-setup': 'app/vendor-dashboard/_components/supplier-setup-folds.tsx',
   'customers-segments': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-filter': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
   'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',

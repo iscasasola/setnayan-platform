@@ -20,10 +20,11 @@
  */
 import type { ReactNode } from 'react';
 
+import { DEMO_ONLY_LABEL } from './demo-only-label';
 import { InfoTip } from './info-tip';
 
-/** The owner's words, verbatim — brackets included. Never retype it; import it. */
-export const DEMO_ONLY_LABEL = '(DEMO ONLY)';
+/** The owner's words, verbatim — brackets included. Lives in a plain module so non-React surfaces share it. */
+export { DEMO_ONLY_LABEL };
 
 /** The sample event's chip, exactly as `realstories/[slug]` drew it before it moved here. */
 export const SAMPLE_MARKER_CLASS =
@@ -40,7 +41,7 @@ export const DEMO_SHOP_ABOUT =
 
 /** What the ⓘ beside a demo EVENT's marker says. */
 export const DEMO_EVENT_ABOUT =
-  'A demo event that shows how a celebration runs on Setnayan. It is not a real event, and it books only demo shops.';
+  'A demo event that shows how an event runs on Setnayan. It is not real, and it books only demo shops.';
 
 /**
  * "(DEMO ONLY)" + its ⓘ. The chip IS the ⓘ's label (InfoTip prints it), so the label and the marker cannot drift

@@ -36,6 +36,7 @@ import { applyVendorPageDraft } from '../../actions';
 import { setShopPublished } from '../actions';
 import { usePageDraft } from './use-page-draft';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import type { ShopBadge } from '@/lib/shop-badges';
 import type { PagePlanLine } from '../page-data';
 
@@ -70,6 +71,9 @@ export type PageClientData = {
   publicPath: string | null;
   displayHost: string;
   live: boolean;
+  /** 🧪 `vendor_profiles.is_demo` — the shop's page shows publicly marked "(DEMO ONLY)" (owner 2026-11-06); the card
+   *  that stands for that page here says so too. */
+  isDemo?: boolean;
   /** 🏪 Show my page now (owner 2026-11-02) — `null`/absent: the switch is not drawn. */
   showBeforeVerified?: { offer: boolean; shown: boolean } | null;
   visible: boolean;
@@ -201,6 +205,7 @@ export function PageParts({
           <span className="min-w-0 flex-1 truncate text-sm text-ink/60">
             {[ratingLine, d.kindWord].filter(Boolean).join(' · ')}
           </span>
+          {d.isDemo ? <DemoOnlyMarker align="end" /> : null}
           <Badge tone={d.live ? 'ok' : 'quiet'} data="page-live">
             {d.live ? 'Couples can see it' : 'Not shown yet'}
           </Badge>

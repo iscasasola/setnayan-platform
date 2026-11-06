@@ -14,6 +14,7 @@ import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle } from 'lucide-react';
 import { Wordmark } from '@/app/_components/brand-marks';
+import { DemoOnlyMarker, DEMO_ONLY_LABEL } from '@/app/_components/sample-marker';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRenamedPath } from '@/lib/slug-forwarding';
@@ -508,6 +509,10 @@ export async function vendorMetadataBySlug(slug: string) {
   if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
     return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
   }
+  // 🧪 A demo shop's page is PUBLIC now (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS") but it is NEVER
+  // indexed: a search engine must not list a demo as a supplier (plan § 6(a) — "noindex stays"). The sitemap keeps
+  // leaving it out too (`app/sitemap-vendors.xml/route.ts`). Its title says "(DEMO ONLY)" so a link preview does as well.
+  const isDemoShop = vendor.is_demo === true;
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
@@ -541,7 +546,7 @@ export async function vendorMetadataBySlug(slug: string) {
     isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
     is_verified: vendor.verification_state === 'verified',
   });
-  const titleText = `${displayLabel} · Setnayan supplier${suffix}`;
+  const titleText = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Setnayan supplier${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
   // resolve `vendor.logo_url` straight into a presigned R2 URL
@@ -565,6 +570,7 @@ export async function vendorMetadataBySlug(slug: string) {
   return {
     title: titleText,
     description: descText,
+    ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: canonicalUrl },
     openGraph: {
       type: 'profile',
@@ -886,7 +892,7 @@ export async function renderVendorBySlug({
   if (!vendor) notFound();
 
   // 🔒 WHO MAY OPEN THIS PAGE — ONE rule, `shopPageGate` (lib/own-shop-preview.ts). PUBLIC when the shop is live
-  // (`isShopLive`: listed AND documents approved) and not a demo shop; an admin in demo mode needs only the listing
+  // (`isShopLive`: listed AND documents approved) — a demo shop included since 2026-11-06, marked "(DEMO ONLY)"; an admin in demo mode needs only the listing
   // (demo inventory dogfooding, unchanged). Otherwise the shop's OWNER and HELPERS see it with the team banner, and
   // everyone else gets the not-found page — which never says whether a shop exists. Archived (closed) shops are
   // shut for everyone.
@@ -2306,8 +2312,9 @@ export async function renderVendorBySlug({
            chrome above keeps the site accent. undefined = default champagne. */
         style={accentVars as React.CSSProperties | undefined}
       >
-        {/* Admin-in-demo-mode only: a team preview of a demo shop says so in its own band above. */}
-        {isDemoVendor && teamPreview === null ? <DemoVendorBanner /> : null}
+        {/* Admin-in-demo-mode only (the cookie now only forces a demo shop's prices public). Every OTHER viewer of a
+            demo shop sees the "(DEMO ONLY)" marker beside its name instead — below, in the name block. */}
+        {isDemoVendor && inDemoMode && teamPreview === null ? <DemoVendorBanner /> : null}
         {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
             resolved display label so the ComingSoon banner copy + Logo
             initial fallback + alt text all surface the safe placeholder
@@ -2424,6 +2431,10 @@ export async function renderVendorBySlug({
                 ) : null}
               </>
             )}
+            {/* 🧪 (DEMO ONLY) — owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS": a demo shop shows with the
+                rest *"but has a marking of (DEMO ONLY)"*. The one marker (app/_components/sample-marker.tsx). Outside the
+                cinematic branch, so a flagship's page says it too. */}
+            {isDemoVendor ? <DemoOnlyMarker /> : null}
             {/* "✓ Verified" — Fable E1 (FABLE_Public_Marketplace_Spec § 3.5).
                 Gated on the SAME column this route's own 404-gate uses at :769 —
                 `verification_state` — and deliberately NOT on `public_visibility`.
@@ -3524,12 +3535,11 @@ function DemoVendorBanner() {
             Demo supplier
           </p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-warn-900">
-            This profile is synthetic — visible only to admins in demo mode.
+            Demo mode is on — this demo shop&rsquo;s prices show to you.
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-warn-900/85">
-            Pricing renders publicly here so admins can dogfood how the page
-            would feel if the 2026-05-16 hide-prices lock were lifted. Real
-            suppliers stay private to the apply/register flow.
+            Everyone can open this demo shop; it is marked (DEMO ONLY) and can&rsquo;t be booked. With demo mode on,
+            its prices show here so you can see how the page feels with them. Real suppliers&rsquo; prices are unchanged.
           </p>
         </div>
       </div>

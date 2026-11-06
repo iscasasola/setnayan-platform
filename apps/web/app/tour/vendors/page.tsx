@@ -180,6 +180,9 @@ export default async function TourVendorsPage() {
         // unverified. Opt out of the always-on verification gate so the tour
         // still has inventory to show (demo-scoped carve-out only).
         includeDemoUnverified: true,
+        // 🧪 The tour runs on the sample (demo) event, so it searches demo shops ONLY — the one demo-scope rule
+        // (lib/demo-scope.ts, owner 2026-11-06: "the demo events can only see demo suppliers").
+        demoScope: { is_demo: true },
       }),
     ),
   );

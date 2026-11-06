@@ -174,7 +174,7 @@ function build(db: ReturnType<typeof countingDatabase>, clock: { now: number }, 
   return { reads, view, fake };
 }
 
-test('1 · a first view sends 15 requests, 5 deep; a second view inside 60 s sends NONE', async () => {
+test('1 · a first view sends 16 requests, 5 deep; a second view inside 60 s sends NONE', async () => {
   const clock = { now: 1_700_000_000_000 };
   const db = world();
   const { view } = build(db, clock);
@@ -199,6 +199,10 @@ test('1 · a first view sends 15 requests, 5 deep; a second view inside 60 s sen
       'users', // the chapters' owners
       'users', // the hosts' public names
       'vendor_profiles',
+      'vendor_profiles(HEAD)', // every listed shop — is the shelf empty?
+      // 🔢 +1 since 2026-11-06: the REAL shops' count (`REAL_SHOP_GATE`), beside the other two and in parallel, so the
+      // depth is unchanged. Demo shops are on the shelf but never in the number its heading is built from (owner:
+      // "demo numbers never count in real totals").
       'vendor_profiles(HEAD)',
     ],
     'the cold view no longer sends the requests these rows cost',
@@ -206,7 +210,7 @@ test('1 · a first view sends 15 requests, 5 deep; a second view inside 60 s sen
   /*
     THE COLD DEPTH, step by step — what a visitor waits for when nothing is
     remembered (once a minute at most):
-      1 the world · both event-type tables · people · shops ×2 · chapters
+      1 the world · both event-type tables · people · shops ×3 · chapters
       2 the chapters' owners · the hosts' memberships
       3 the hosts' names
       4 the cover rows · the hero rows

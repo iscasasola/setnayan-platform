@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { LIVE_SHOP_GATE, countLiveShops } from '@/lib/live-shops';
+import { LIVE_SHOP_GATE, REAL_SHOP_GATE, countLiveShops } from '@/lib/live-shops';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -74,13 +74,15 @@ test('"Trending" is never said below the owner\'s threshold', () => {
 });
 
 test('the live-shop gate is the real one, not the legacy is_published', () => {
+  // 2026-11-06: a listed, verified demo shop IS a live shop — public, marked "(DEMO ONLY)" (owner, DECISION_LOG
+  // "DEMO SHOPS + DEMO EVENTS"); supersedes the 2026-09-30 `is_demo: false` half. SABOTAGE: put it back → RED.
   assert.deepEqual(LIVE_SHOP_GATE, {
     public_visibility: 'verified',
     verification_state: 'verified',
-    // 2026-09-30: a demo shop is never a live shop (DECISION_LOG 2026-09-29
-    // "LANE 2 §2C" (1)). SABOTAGE: drop this line from the gate → RED.
-    is_demo: false,
   });
+  // …and every TOTAL keeps the demo half: "demo numbers never count in real totals".
+  // SABOTAGE: drop `is_demo: false` from REAL_SHOP_GATE → RED.
+  assert.deepEqual(REAL_SHOP_GATE, { ...LIVE_SHOP_GATE, is_demo: false });
   // Measured in prod 2026-09-08: both shops are public_visibility='verified'
   // while one is is_published=false. Counting the legacy way reports 1 where
   // the marketplace shows 2 — and 0 where it shows 1, which is what would make

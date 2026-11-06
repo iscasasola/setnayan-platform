@@ -67,19 +67,24 @@ export const REAL_SHOP_GATE = {
  * which is the failure-renders-as-emptiness class this repo has shipped seven
  * fixes for. A caller that cannot tell the two apart must say "couldn't load".
  */
-export async function countLiveShops(admin: {
+type CountingClient = {
   from: (t: string) => {
     select: (
       c: string,
       o: { count: 'exact'; head: true },
     ) => { match: (m: Record<string, string | boolean>) => PromiseLike<{ count: number | null; error: unknown }> };
   };
-}): Promise<number | null> {
+};
+
+export async function countLiveShops(
+  admin: CountingClient,
+  gate: typeof LIVE_SHOP_GATE | typeof REAL_SHOP_GATE = LIVE_SHOP_GATE,
+): Promise<number | null> {
   try {
     const res = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id', { count: 'exact', head: true })
-      .match(LIVE_SHOP_GATE);
+      .match(gate);
     if (res.error) {
       console.error('[supabase-error] lib/live-shops.ts · from:vendor_profiles.select', res.error);
       return null;
@@ -89,4 +94,13 @@ export async function countLiveShops(admin: {
     console.error('[supabase-error] lib/live-shops.ts · from:vendor_profiles.select threw', err);
     return null;
   }
+}
+
+/**
+ * 🔢 How many REAL shops are live — {@link REAL_SHOP_GATE}, never a demo shop. For every figure or claim built from a
+ * count ("Trending shops" once there are enough of them): demo numbers never count in real totals (owner, DECISION_LOG
+ * 2026-11-06). Same null-on-failure contract as {@link countLiveShops}.
+ */
+export function countRealShops(admin: CountingClient): Promise<number | null> {
+  return countLiveShops(admin, REAL_SHOP_GATE);
 }

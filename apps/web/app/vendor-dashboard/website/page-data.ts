@@ -43,6 +43,8 @@ export type PageData = {
   publicPath: string | null;
   /** Couples can see it (`isShopLive`, or shown before verification — `selfPublishedLive`) — the badge says so either way. */
   live: boolean;
+  /** 🧪 `vendor_profiles.is_demo` — the public page wears "(DEMO ONLY)". */
+  isDemo: boolean;
   /**
    * 🏪 Show my page before verification (owner 2026-11-02): `offer` = bookings are closed and the shop is not verified-
    * live, so the switch is drawn; `shown` = the shop has pressed it. `null` = the read failed (the switch is not drawn —
@@ -287,6 +289,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     slug,
     publicPath: slug ? `/${slug}` : null,
     live,
+    // 🧪 The page is public and marked "(DEMO ONLY)" when the shop is a demo shop (owner 2026-11-06).
+    isDemo: show?.isDemo === true,
     showBeforeVerified,
     visible,
     isVerified: profile.public_visibility === 'verified',

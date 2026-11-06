@@ -22,6 +22,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
+import { DemoOnlyMarker } from '@/app/_components/sample-marker';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 import { formatCount } from '@/lib/format-number';
@@ -244,11 +245,13 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   // a full comparison column. (Verified non-demo vendors are
   // unaffected.) Filter BEFORE the redirect check so a comparison that would
   // be all-unverified-demo correctly bounces to /explore instead of rendering.
+  //
+  // 🧪 A VERIFIED demo shop stays (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS +
+  // DEMO EVENTS": demo suppliers show with the rest, marked "(DEMO ONLY)" — its
+  // column header wears `DemoOnlyMarker`). This supersedes the 2026-09-30
+  // "no demo row at all" line. An UNVERIFIED demo row is still admin-only.
   if (!inDemoMode) {
-    // …and no demo row at all (2026-09-30): the two trial shops are VERIFIED
-    // demo shops (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)), so the
-    // verification test alone would still render them to the public.
-    rows = rows.filter((r) => r.verification_state === 'verified' && r.is_demo !== true);
+    rows = rows.filter((r) => r.verification_state === 'verified');
   }
   const demoRows = rows.filter((r) => r.is_demo === true);
 
@@ -900,6 +903,12 @@ function VendorHeaderCell({
         </p>
         {row.tagline ? (
           <p className="line-clamp-2 text-xs text-ink/55">{row.tagline}</p>
+        ) : null}
+        {/* 🧪 A demo shop's column says "(DEMO ONLY)" (owner 2026-11-06) — app/_components/sample-marker.tsx. */}
+        {row.is_demo === true ? (
+          <div className="mt-1">
+            <DemoOnlyMarker />
+          </div>
         ) : null}
       </div>
     </div>

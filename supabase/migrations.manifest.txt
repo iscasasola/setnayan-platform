@@ -8,7 +8,7 @@
 # Regenerate: node apps/web/scripts/lint-migrations-never-deleted.mjs --write
 # NEVER delete a line to go green — restore the migration file instead.
 #
-# versions: 1753
+# versions: 1755
 20260512000000	20260512000000_setnayan_base.sql
 20260513000000	20260513000000_iteration_0000_shell_schema.sql
 20260513010000	20260513010000_iteration_0001_guests.sql
@@ -1754,6 +1754,7 @@
 20271309211124	20271309211124_a_taken_down_card_stays_down.sql
 20271309260178	20271309260178_grant_team_member_takes_two_admins.sql
 20271309403755	20271309403755_drop_retired_claim_token_burn.sql
+20271309527923	20271309527923_a_couples_photo_says_it_was_a_real_booking.sql
 20271311598756	20271311598756_meetings_are_in_person_or_virtual.sql
 20271311895322	20271311895322_meeting_room_created_once.sql
 20271313372071	20271313372071_found_you_record_and_claim_check.sql
@@ -1762,3 +1763,4 @@
 20271314842518	20271314842518_booking_fee_disputes.sql
 20271315529466	20271315529466_notification_type_supplier_questions_sent.sql
 20271316174617	20271316174617_questions_every_supplier.sql
+20271320327933	20271320327933_supplier_claim_scanner_once.sql

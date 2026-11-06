@@ -8,7 +8,7 @@ import type { ScanMode } from '@/lib/supplier-scan';
 
 /**
  * 🎟 THE SUPPLIER CLAIM SCANNER — the reads (the pure half is `lib/supplier-scan.ts`; every permission check is in the
- * database, migration 20271316581328). Each read is HONEST: a failed read returns null (or 'unreadable'), never an
+ * database, migration 20271320327933). Each read is HONEST: a failed read returns null (or 'unreadable'), never an
  * empty list — "no claims yet" and "we couldn't load the claims" must never draw the same.
  *
  *   · the shop's own scanner setting per service — Shop › Services (the shop's own RLS);

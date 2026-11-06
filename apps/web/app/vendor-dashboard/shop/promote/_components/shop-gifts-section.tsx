@@ -143,6 +143,19 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
           </p>
         ) : null}
 
+        {/* 🎁 NEXT EVENT WITH US (prototype 6 Nov § 6, "one new row") — what a couple who booked you gets when they book
+            you again. NOTHING CAN BE SET YET (coordinator, 6 Nov: show the state honestly, invent no gift): there is no
+            offer store and no claim on a later booking, so the row says so instead of opening a sheet that saves
+            nowhere. The host thank-you (§ 3) draws no offer block for the same reason. */}
+        <div className="mt-3" data-shop-gifts-next-event="">
+          <DatesRow
+            data="shop-gifts-next-event"
+            lead={ic}
+            title="Next event with us"
+            line="Not set · can’t be set here yet"
+          />
+        </div>
+
         <div className="mt-3 border-t border-ink/10" data-plan-fold="gifts-bought">
           <Fold
             title="Bought"

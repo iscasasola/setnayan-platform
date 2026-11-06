@@ -349,6 +349,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   platform_settings:
     'Platform configuration; platform_settings.ig_user_id is Setnayan’s OWN IG account, not a user’s.',
   vendor_verifications: 'Admin decision record — the uid on it is a staff actor, not the subject.',
+  // ── added 2026-11-06 with the table itself (guest reviews, owner ruling A) ──
+  vendor_guest_reviews:
+    'A guest’s review of a shop. Its only user-identifying column is `hidden_by_user_id` — the Setnayan ' +
+    'admin who hid it, a staff actor (SET NULL). The writer is a GUEST row (guest_id → guests), not an ' +
+    'account, so there is no account subject to export it to; the guest’s own `guests` row is the subject ' +
+    'record (KNOWN_GAPS above). Erasure nulls the stamp (AUTHOR_UUID_NULLS).',
   vendor_admin_motion_votes: 'Admin decision record — the uid on it is a staff actor, not the subject.',
   oauth_grants:
     'Live credential material — refresh_token / access_token to the subject’s Google account. Same rule as api_keys: a bearer secret is never exported, and a subject-access download is a file that lands in Downloads and gets emailed around. Newly VISIBLE 2026-07-26, not newly excluded: `granted_by_user_id` was added so ERASURE could stop deleting the co-partner’s grant event-wide (migration 20271009200000), and the attribution column is what made this table detectable at all. The non-secret fact of the connection (which account, connected when) is mirrored onto `events.photo_delivery_account_email` / `photo_delivery_status`.',

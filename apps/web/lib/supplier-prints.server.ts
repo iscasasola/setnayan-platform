@@ -5,8 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { effectiveSeoTier } from '@/lib/vendor-seo-tier';
 import { tierCaps } from '@/lib/vendor-tier-caps';
-import { micrositeCan, micrositeFromRow, MICROSITE_COLUMNS } from '@/lib/vendor-microsite';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { micrositeFromRow, MICROSITE_COLUMNS } from '@/lib/vendor-microsite';
 import { ownWebAddress, shopReach } from '@/lib/shop-page-plan';
 import { printMemberFrom, printReachLine, printSinceLine } from '@/lib/supplier-prints-shop';
 import type { PrintImage, PrintMember, PrintShop } from '@/lib/supplier-prints-svg';
@@ -21,8 +20,8 @@ import type { PrintPieceId } from '@/lib/supplier-prints';
  *   services `vendor_services.title`, active, in their order — NAMES ONLY (no price on any print)
  *   since    `in_business_since_year` → "In business since 2016"
  *   area     `shopReach` → a ring or nationwide; otherwise the city alone (never the screen's "opens once verified")
- *   photo    the Page hero where the page shows it (Pro+, `premiumPage`), else `portfolio_r2_keys[0]`
- *   about    `microsite_about` where the page shows it (`micrositeCan(...).canPersonalize`, flag-aware)
+ *   photo    the Page hero when set, else `portfolio_r2_keys[0]` — every plan
+ *   about    `microsite_about` on every plan (owner 2026-11-06: prints work for all, no plan limits)
  *   domain   `custom_domains`, verified, where the plan shows it (`customWebsiteName`)
  *
  * 🔑 A REFUSED READ DROPS ITS BLOCK — it never prints a zero or an empty box; the print is still true, only shorter.
@@ -129,10 +128,12 @@ export async function readPrintShopExtras(
     ownDomain = ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
   }
 
-  // The page's own gates: the hero is a Pro pick (`premiumPage`), the About a Solo+ pick (`canPersonalize`) — both
-  // flag-aware through `vendorPaywallApplies`, so a print never carries what the shop's own page does not show.
-  const heroShows = plan !== null && !vendorPaywallApplies(caps.premiumPage) && Boolean(microsite.heroPhotoKey);
-  const aboutShows = plan !== null && !vendorPaywallApplies(micrositeCan(tier).canPersonalize);
+  // Owner 2026-11-06: "Prints work for all. no limitations on plans." — every piece, on every plan, carries the
+  // shop's own hero photo and About when the shop has them. (The own web address above stays behind
+  // `customWebsiteName` for a different reason: that address only resolves while the plan includes it, and a print
+  // must never carry an address that does not open.)
+  const heroShows = plan !== null && Boolean(microsite.heroPhotoKey);
+  const aboutShows = plan !== null;
   const photoRef = heroShows ? microsite.heroPhotoKey : (own.portfolio_r2_keys ?? []).find((k) => k?.trim()) ?? null;
 
   const [logo, photo] = await Promise.all([

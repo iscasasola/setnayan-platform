@@ -31,3 +31,5 @@ Owner, 6 Nov 2026 ("Yes ship it" · DECISION_LOG "PRINTS BY PURPOSE AND SIZE"). 
 - Dev proof script: `scripts/render-supplier-prints-proof.ts`.
 
 SPEC IMPACT: controller recorded the ruling (DECISION_LOG "PRINTS BY PURPOSE AND SIZE")
+
+**2026-11-06 · owner: "Prints work for all. no limitations on plans."** The prints reader no longer gates the hero photo (was Pro) or the About (was Solo+) by plan; every plan gets every piece with the shop's own photo and About. The own web address still needs the plan, because the address only opens while the plan includes it. Guard: `prints work on every plan`.

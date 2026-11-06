@@ -318,3 +318,15 @@ test('the door print is unchanged — the new facts never reach it', () => {
     assert.equal(ids(renderPrint({ piece: door, design, shop: FULL, qr: QR })), ids(renderPrint({ piece: door, design, shop: plain, qr: QR })), design.name);
   }
 });
+
+test('prints work on every plan — no plan gate on what a print carries (owner 2026-11-06)', () => {
+  // Owner, verbatim: "Prints work for all. no limitations on plans." The own web address stays behind
+  // `customWebsiteName` only because that address does not open without the plan; nothing else may read a plan gate.
+  const src = stripComments(read('lib/supplier-prints.server.ts'));
+  assert.ok(!/vendorPaywallApplies|micrositeCan|premiumPage|canPersonalize/.test(src), 'a plan gate came back into the prints reader');
+  assert.match(src, /const heroShows = plan !== null && Boolean\(microsite\.heroPhotoKey\);/);
+  assert.match(src, /const aboutShows = plan !== null;/);
+  for (const f of ['app/api/vendor/prints/route.ts', 'app/vendor-dashboard/shop/promote/_components/shop-prints-section.tsx']) {
+    assert.ok(!/vendorPaywallApplies|tierCaps|premiumPage|canPersonalize/.test(stripComments(read(f))), `${f} gates prints by plan`);
+  }
+});

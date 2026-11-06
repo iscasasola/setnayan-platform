@@ -33,3 +33,10 @@ Not in this slice: a gifted Event Plus does not count toward the "pay only the d
 (`eventHubOwnership` counts a PAID Plus order only); returning a gift after it was given.
 
 SPEC IMPACT: None — implements rulings already in DECISION_LOG (2026-11-04 rows and the 2026-11-05 answers).
+
+**Merged with main after #7314 (2026-11-06):** Your gifts moved from the Plan page to Shop › Promote on main. This
+PR's slice-2 rule now lives in the Promote loader (`shop/promote/_components/shop-gifts-data.ts`): with the Papic
+switch off only Event Plus / Pro stay on sale, and Buy is gated by the store shell alone (still never in the iPhone
+app). The Promote row's gift figure reads the Papic stock of the per-kind stock shape. The two guards that pinned the
+old `canBuy: papicOn && !storeShell` line (`gifts-live-on-promote.test.ts`, `lib/store-shell.test.ts`) now pin the
+new one; the store-shell gate itself is unchanged.

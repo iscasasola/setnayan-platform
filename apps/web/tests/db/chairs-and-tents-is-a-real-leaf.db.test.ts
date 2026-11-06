@@ -48,7 +48,9 @@ test('the new leaf resolves to an ACTIVE tier-1 parent', async () => {
  * outdoor", folded Outdoor's rentals into it, and HAND-SET every picker service's event scope — weddings included
  * (chair_table_rental lists `wedding`). So the two P3 premises below changed by the owner's decision, and each is
  * re-pointed at the approved file rather than dropped:
- *   · the row's scope still holds the three P3 put there (a scope only widens), and now covers its services';
+ *   · the row's scope is EXACTLY what its services reach: step 10b of the migration drops a claim no service fills.
+ *     Of the three P3 put there, wake and birthday stay (its services reach both); simple_event goes — it is v2's one
+ *     `no_marketplace_event_types` entry, and no v2 service is scoped to it;
  *   · its picker services are v2's list, each carrying v2's own scope (no longer NULL / inherited).
  */
 const V2 = JSON.parse(
@@ -56,13 +58,15 @@ const V2 = JSON.parse(
 ) as { groups: { categories: { tile: string; services: { key: string; event_types: string[] }[] }[] }[] };
 const V2_SERVICES = V2.groups.flatMap((g) => g.categories).find((c) => c.tile === 'chairs_tents')!.services;
 
-test('scoped to wake · birthday · simple_event — and, since v2, to every event its services reach', async () => {
+test('scoped to wake · birthday — and, since v2, to exactly the events its services reach', async () => {
   const r = await db.query<{ t: string[] | null }>(
     `SELECT applicable_event_types AS t FROM public.service_categories WHERE id = 'chairs_tents'`,
   );
   const scope = new Set(r.rows[0]?.t ?? []);
-  for (const e of ['birthday', 'simple_event', 'wake']) assert.ok(scope.has(e), `the row lost ${e} — a scope only widens`);
-  for (const s of V2_SERVICES) for (const e of s.event_types) assert.ok(scope.has(e), `${s.key} reaches ${e}, which its row does not`);
+  for (const e of ['birthday', 'wake']) assert.ok(scope.has(e), `the row lost ${e}`);
+  assert.ok(!scope.has('simple_event'), 'v2: a Get-together has no marketplace, yet the row still claims it');
+  const reach = new Set(V2_SERVICES.flatMap((s) => s.event_types));
+  assert.deepEqual([...scope].sort(), [...reach].sort(), 'the row claims an event its services do not reach, or misses one they do');
 });
 
 test('its picker services are v2\'s, each with v2\'s own scope', async () => {

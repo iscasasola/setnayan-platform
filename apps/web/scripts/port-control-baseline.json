@@ -1092,6 +1092,7 @@
         "[slug]/_components/what-to-bring-styles.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
         "[slug]/_components/when-yes-celebration.tsx",
+        "[slug]/_components/who-made-the-day.tsx",
         "[slug]/_components/you-will-be-at.tsx",
         "[slug]/_components/your-guests.tsx",
         "[slug]/_components/your-photos-widget.tsx",
@@ -1515,6 +1516,7 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
+        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
         "PlusOneSeatRow",
@@ -1734,6 +1736,7 @@
         "WhatToBringList",
         "WhatToBringWidget",
         "Who",
+        "WhoMadeTheDay",
         "Words",
         "YouTag",
         "YouWillBeAt",
@@ -4206,6 +4209,7 @@
     },
     "/admin/reviews": {
       "files": [
+        "admin/reviews/_components/guest-reviews-queue.tsx",
         "admin/reviews/actions.ts",
         "admin/reviews/loading.tsx",
         "admin/reviews/page.tsx"
@@ -4223,6 +4227,8 @@
         "AppealCard",
         "Cell",
         "FilterChip",
+        "GuestReviewAdminRow",
+        "GuestReviewsQueue",
         "Link",
         "PageMasthead",
         "ReadFailed",
@@ -10507,7 +10513,11 @@
     },
     "/dashboard/[eventId]/vendors/[vendorId]/review": {
       "files": [
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/coordinator-refused-state.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/_components/recommend-vendor-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/review-request-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/review-thanks.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/review/_components/shown-as-row.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/actions.ts",
         "dashboard/[eventId]/vendors/[vendorId]/review/loading.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/review/page.tsx"
@@ -10526,7 +10536,9 @@
       "blocks": [
         "AlreadyReviewedState",
         "AppealForm",
+        "BackButton",
         "ConfirmReceiptState",
+        "CoordinatorRefusedState",
         "DisputedState",
         "FavoriteAddCard",
         "FormPageSkeleton",
@@ -10534,9 +10546,16 @@
         "NoLinkedProfileState",
         "NotEligibleState",
         "OnTimeBinaryInput",
+        "PickMenu",
         "RecommendVendorCard",
         "ReviewAxis",
+        "ReviewRequestCard",
+        "ReviewThanks",
+        "ReviewerDisplay",
+        "SaveVendorButton",
         "SelfReviewBlockedState",
+        "ShownAsRow",
+        "SmallStars",
         "StarRatingInput",
         "SubmitButton"
       ]
@@ -11504,7 +11523,8 @@
       ],
       "actions": [],
       "blocks": [
-        "CanvasMaker"
+        "CanvasMaker",
+        "SetupOfferFold"
       ]
     },
     "/dev/card-moderation-lab": {
@@ -12231,6 +12251,44 @@
         "ReceiptSlip",
         "SaveAsPdfButton",
         "ShareReceiptButton"
+      ]
+    },
+    "/dev/review-lab": {
+      "files": [
+        "dev/review-lab/lab-client-pieces.tsx",
+        "dev/review-lab/lab-guest-review-form.tsx",
+        "dev/review-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "labSend"
+      ],
+      "blocks": [
+        "CoordinatorRefusedState",
+        "GuestMeSection",
+        "GuestReviewForm",
+        "GuestReviewHeader",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestReviewsGroup",
+        "GuestReviewsQueue",
+        "GuestStarsLine",
+        "LabCardWithReviews",
+        "LabGuestReviewForm",
+        "LabHubAfterDay",
+        "NotOnDoorList",
+        "OnTimeBinaryInput",
+        "ReviewForLine",
+        "ReviewGroupHead",
+        "ReviewRequestCard",
+        "ReviewThanks",
+        "S",
+        "Said",
+        "ServiceCardView",
+        "Shell",
+        "ShownAsRow",
+        "StarRatingInput",
+        "WhoMadeTheDay"
       ]
     },
     "/dev/schedule-lab": {
@@ -14224,6 +14282,7 @@
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
+        "v/[slug]/_components/review-groups.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
@@ -14266,6 +14325,11 @@
         "DirectionsMenu",
         "EventsByKindButton",
         "FilterChip",
+        "GuestAtEventPill",
+        "GuestReviewItem",
+        "GuestReviewsGroup",
+        "GuestReviewsRead",
+        "GuestStarsLine",
         "HTMLDivElement",
         "Image",
         "InfoTip",
@@ -14282,6 +14346,8 @@
         "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
+        "ReviewForLine",
+        "ReviewGroupHead",
         "ReviewHeroMetrics",
         "ReviewRow",
         "ReviewWithCouple",
@@ -14302,6 +14368,7 @@
         "ShopReachMap",
         "ShopSinceLine",
         "SignInHereLink",
+        "SmallStars",
         "StarRow",
         "StartServiceInquiryResult",
         "StorytellerTile",
@@ -14370,6 +14437,35 @@
         "SignInHereLink",
         "Step",
         "SwitchRow"
+      ]
+    },
+    "/v/[slug]/guest-review": {
+      "files": [
+        "v/[slug]/guest-review/_components/guest-review-form.tsx",
+        "v/[slug]/guest-review/_components/guest-review-header.tsx",
+        "v/[slug]/guest-review/_components/guest-review-states.tsx",
+        "v/[slug]/guest-review/actions.ts",
+        "v/[slug]/guest-review/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "send",
+        "sendGuestReview"
+      ],
+      "blocks": [
+        "CouldNotLoad",
+        "GuestReviewForm",
+        "GuestReviewSendState",
+        "GuestReviewThanks",
+        "GuestShownAs",
+        "Header",
+        "Link",
+        "NotOnDoorList",
+        "PickMenu",
+        "Said",
+        "Shell",
+        "StarRatingInput",
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard": {
@@ -16958,6 +17054,10 @@
         "Fold",
         "FormPageSkeleton",
         "FormRows",
+        "GuestAtEventPill",
+        "GuestReplies",
+        "GuestReviewsRead",
+        "HostReplies",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -16968,6 +17068,7 @@
         "PickTile",
         "PlanAsk",
         "ReplyForm",
+        "ReviewGroupHead",
         "ReviewReplies",
         "RowIcon",
         "ShopBadgePill",
@@ -16983,6 +17084,7 @@
         "ThumbRow",
         "TypedRow",
         "UndoToastHost",
+        "VendorGuestReviewCard",
         "VendorReviewCard",
         "VerifiedBookingPill",
         "VerifiedWeddingPill"

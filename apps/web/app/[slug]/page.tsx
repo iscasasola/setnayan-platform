@@ -5,6 +5,7 @@ import { readYourSchedule, type YourScheduleRead } from './_lib/your-schedule.se
 import { YourScheduleCard } from './_components/your-schedule-card';
 import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
 import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
 import { guestMePath } from '@/lib/offline-copy-addresses';
 import { guestsArriveTime } from '@/lib/guests-arrive';
@@ -2718,6 +2719,21 @@ async function invitationBody({
           find-my-table) that still read the cookie recognise them too. */}
       {guestViewer.kind === 'seat' && !isEditorCanvas ? (
         <AdoptSeatSession eventId={event.event_id} />
+      ) : null}
+      {/* 🔕 QUIET SCHEDULE REFRESH (owner-approved 5 Nov, item 1) — on the Hub's other tabs the guest's saved Me copy is
+          re-rendered in the background, at most every 30 min, around event days; it draws nothing (Me shows freshness). */}
+      {ownDayViewer && meCopyPath && search.tab !== 'me' && !isEditorCanvas ? (
+        <QuietScheduleRefresh
+          viewer={ownDayViewer}
+          copies={[
+            {
+              eventKey: meCopyPath.slice(1, meCopyPath.indexOf('?')),
+              eventDate: event.event_date ?? null,
+              eventEndDate: event.event_end_date ?? null,
+              path: meCopyPath,
+            },
+          ]}
+        />
       ) : null}
       {pageFooter}
     </>

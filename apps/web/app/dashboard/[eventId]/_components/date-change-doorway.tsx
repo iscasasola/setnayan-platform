@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { CalendarClock } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
@@ -6,6 +5,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { dateChangeAnswerLine, dateChangeHomeLine, dateChangeWhen } from '@/lib/date-change';
 import { hubDraftAction } from '../website/hub-draft-actions';
+import { updateEventDate } from '../actions';
 import { HomeTodayItem, TodaySheetItem } from './home-parts';
 
 /**
@@ -27,11 +27,13 @@ import { HomeTodayItem, TodaySheetItem } from './home-parts';
  *   · after 3 days unanswered, the couple's three choices for that supplier:
  *     keep waiting · drop them · cancel the change;
  *   · withdraw, anytime — the event keeps its date;
- *   · when every supplier answered: the new date is in the draft, applied in
- *     the Event Hub (the Maker rule — never here).
+ *   · when every supplier answered: "Use <date>" — the date saves to the event
+ *     at once through its one door (`updateEventDate`, owner 2026-11-05: *"it
+ *     shouldn't rely on the hub."*), which asks the suppliers' answers again,
+ *     closes the request and tells each of them the date moved.
  *
- * A server component: forms post to `hubDraftAction` (intent `date_change`),
- * which re-renders Home — no client JS.
+ * A server component: forms post to `hubDraftAction` (intent `date_change`) or
+ * `updateEventDate`, each of which re-renders Home — no client JS.
  */
 export async function DateChangeDoorway({ eventId }: { eventId: string }) {
   const supabase = await createClient();
@@ -52,13 +54,14 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
 
   const now = Date.now();
   const action = hubDraftAction.bind(null, eventId) as unknown as (formData: FormData) => Promise<void>;
+  const useDate = updateEventDate as unknown as (formData: FormData) => Promise<void>;
   const to = dateChangeWhen(view.proposedDate, view.proposedPrecision);
   const from = view.fromDate ? dateChangeWhen(view.fromDate, view.fromPrecision) : 'your current date';
 
   return (
     <TodaySheetItem
       words={dateChangeHomeLine(view)}
-      tail={view.ready ? 'Apply the new date' : view.suppliers.some((s) => s.overdue) ? 'Someone hasn’t answered' : `Moving to ${to}`}
+      tail={view.ready ? `Use ${to}` : view.suppliers.some((s) => s.overdue) ? 'Someone hasn’t answered' : `Moving to ${to}`}
       tone={view.ready ? 'calm' : 'ask'}
       title="Date change"
       dataAttr={['data-date-change-home', '']}
@@ -118,13 +121,18 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
         ) : null}
 
         {view.ready ? (
-          <Link
-            href={`/dashboard/${eventId}/launch?tool=details`}
-            className="sn-press inline-flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-cream"
-            data-date-change-ready=""
-          >
-            Every supplier answered — Apply {to} in your Event Hub
-          </Link>
+          <form action={useDate}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="event_date" value={view.proposedDate} />
+            <input type="hidden" name="precision" value={view.proposedPrecision} />
+            <SubmitButton
+              pendingLabel="Saving your date…"
+              className="sn-press inline-flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-5 text-sm font-semibold text-cream"
+              data-date-change-ready=""
+            >
+              Every supplier answered — use {to}
+            </SubmitButton>
+          </form>
         ) : null}
 
         <form action={action}>

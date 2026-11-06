@@ -109,7 +109,7 @@ export function FindInspirationStrip({ board, tile, href }: { board: FindInspira
                   <img src={p.cover} alt="" loading="lazy" className="h-full w-full object-cover" />
                 ) : null}
                 {p.onList ? (
-                  <span className="absolute left-1.5 top-1.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-success-900" data-find-inspiration-onlist="">
+                  <span className="absolute left-1.5 top-1.5 rounded-full bg-cream px-1.5 py-0.5 text-[10px] font-semibold text-success-900" data-find-inspiration-onlist="">
                     {W.onList}
                   </span>
                 ) : null}

@@ -129,7 +129,7 @@ export const FIND_INSPIRATION_WORDS = {
   unread: 'We couldn’t read your inspiration board — reload in a moment.',
   info:
     'Your inspiration board holds the looks you love, filed by part — a bouquet under Flowers, an arch under Styling. ' +
-    'Each category shows its parts above its suppliers. A photo saved from a supplier’s gallery is marked “On your list” ' +
+    'Each category shows its parts above its suppliers. A look you saved from a supplier is marked “On your list” ' +
     'when that supplier is on your list.',
   sheetTitle: 'Your inspiration board',
 } as const;

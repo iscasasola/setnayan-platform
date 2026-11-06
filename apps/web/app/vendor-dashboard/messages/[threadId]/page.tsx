@@ -106,6 +106,8 @@ import { ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
@@ -126,6 +128,7 @@ import {
   serviceTagVaries,
 } from '@/lib/conversation-list';
 import { THREAD_STAGE_HAS_AGREEMENT, VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
+import { QuestionsSendPanel } from './_components/questions-send-panel';
 import { ThreadToolsSheet } from './_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { QuickReplies, quickRepliesFor, ThreadAnswerLine } from './_components/thread-answer-line';
@@ -1014,8 +1017,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     });
   })();
 
+  // BOOKED → Call · Video call in the head (owner 2026-11-04, "Viber and phone call booked suppliers"). The one booking
+  // check; the couple's number is read only once it says yes, and only if they saved one (else no buttons).
+  const shopBookedRead = shopIsBookedOnEvent(thread.event_id, profile.vendor_profile_id);
+  const couplePhoneRead = shopBookedRead.then((booked) =>
+    bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId: thread.event_id, vendorProfileId: profile.vendor_profile_id }),
+  );
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
+    shopBooked,
+    couplePhone,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -1057,6 +1069,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     receipts,
     eventFileDay,
   ] = await Promise.all([
+    shopBookedRead,
+    couplePhoneRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -1404,6 +1418,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           eventDate={event?.event_date ?? null}
         />
     ),
+    // ❓ Questions for the couple — every supplier (owner 2026-11-04, "Yes, every supplier"): their own set, sent
+    // into this event with one press; the couple answers in their event, the answers return to the customer card.
+    'questions-for-couple': (
+      <QuestionsSendPanel
+        supabase={supabase}
+        threadId={threadId}
+        eventId={thread.event_id}
+        vendorProfileId={profile.vendor_profile_id}
+        coupleName={coupleLabel}
+      />
+    ),
     'log-outcome': outcomeCapture,
   };
 
@@ -1650,6 +1675,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
                     private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
+                <BookedCallButtons booked={shopBooked} phone={couplePhone} who={event?.display_name ?? 'the couple'} />
                 <ChatThreadMenu
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}

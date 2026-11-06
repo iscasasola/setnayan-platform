@@ -4,7 +4,7 @@ Owner-approved design `prototypes/supplier_scan_2026-10-03_fable.html` (DECISION
 the 2026-09-25 rows (count only · shared #0001 · NFC = QR · souvenirs write the couple's own record · the scanner explains
 QR vs NFC) and 2026-10-29 "A SUPPLIER'S TOOLS + SCANNER ARE SET ONCE PER SERVICE". Slice 1 of 5 (stacked draft PRs).
 
-- **Migration `20271316581328`**: `supplier_scan_settings` (one row per service = `vendor_coverages` row; on/off + mode,
+- **Migration `20271320327933`**: `supplier_scan_settings` (one row per service = `vendor_coverages` row; on/off + mode,
   `CHECK (mode IN ('once'))` — later slices widen it as each mode is built), `supplier_scan_counters` (the shared number
   per service per event, moved only under its row lock), `supplier_scan_claims`; `guest_souvenir_claims` EXTENDED with
   the supplier, the service, the number and the methods `supplier_qr` / `supplier_nfc` — a souvenir service's scan writes

@@ -588,7 +588,7 @@
 1 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-import-form.tsx
 4 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx
 1 apps/web/app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-note-compose.tsx
-6 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
+5 apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx
 2 apps/web/app/vendor-dashboard/packages/page.tsx
 2 apps/web/app/vendor-dashboard/partnerships/page.tsx
 1 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx

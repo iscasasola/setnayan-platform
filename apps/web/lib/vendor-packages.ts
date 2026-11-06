@@ -273,11 +273,13 @@ export const PACKAGE_ITEM_AUTHORING_COLUMNS = [
   'pick_min',
   'pick_max',
   'max_extra_hours',
+  // 🔒 The bundle maker's card lines (migration a_bundle_carries_its_cards_and_a_gift, 2026-11-07).
+  'vendor_service_id',
 ] as const;
 
 /** The PostgREST select list the authoring loaders use. Never a literal. */
 export const PACKAGE_ITEM_AUTHORING_SELECT =
-  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours';
+  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours, vendor_service_id';
 
 /**
  * The five branching columns, by name.

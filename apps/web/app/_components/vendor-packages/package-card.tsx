@@ -1,8 +1,10 @@
-import { Package as PackageIcon, Check } from 'lucide-react';
+import { Package as PackageIcon, Check, Gift } from 'lucide-react';
 import {
   formatCentavosPhp,
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
+import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
+import type { CoupleBundleGift } from '@/lib/package-gift';
 
 /**
  * Read-only summary card for a vendor package. Renders on /v/[slug]
@@ -15,8 +17,15 @@ export function PackageCard({
   pkg,
   ctaSlot,
   hidePrice = false,
+  gift = null,
 }: {
   pkg: VendorPackageWithItems;
+  /**
+   * 🎁 THE BUNDLE'S GIFT (owner 2026-11-07, "where are the gifts?") — drawn the way a CARD draws its gift: the
+   * Setnayan gift is the card's own `SetnayanGiftLine`, word for word; a shop pack is the quote's headline
+   * (`coupleGiftHeadline`, via `coupleBundleGift`). Absent → the card is exactly as it was.
+   */
+  gift?: CoupleBundleGift;
   ctaSlot?: React.ReactNode;
   /**
    * Public "hide my prices" preference (Social_Share_Settings_Council_Verdict
@@ -72,6 +81,17 @@ export function PackageCard({
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {gift ? (
+        gift.setnayan ? (
+          <SetnayanGiftLine className="mt-3 flex items-start gap-1.5 text-[11px] font-medium text-terracotta-700" />
+        ) : (
+          <p className="mt-3 flex items-start gap-1.5 text-[11px] font-medium text-terracotta-700" data-testid="bundle-shop-gift">
+            <Gift aria-hidden className="h-3 w-3 shrink-0" strokeWidth={1.75} />
+            <span>{gift.line}</span>
+          </p>
+        )
       ) : null}
 
       {pkg.is_consumable_flexible && pkg.consumable_budget_centavos > 0 ? (

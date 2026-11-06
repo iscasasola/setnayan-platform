@@ -47,6 +47,9 @@ import {
 } from '@/lib/package-draft-loader';
 import { type VendorPackageItemOptionRow } from '@/lib/vendor-packages';
 import { autoName, findVendorTextViolation } from '@/lib/service-text-integrity';
+import { packageGiftColumns, PACKAGE_GIFT_SETNAYAN } from '@/lib/package-gift';
+import { freeByKind } from '@/lib/shop-gifts';
+import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 
 export type SavePackageResult =
   | { status: 'ok'; packageId: string }
@@ -152,6 +155,24 @@ export async function savePackage(
   };
 
   // ---- UPDATE ----
+  // 🔒 A SERVICE CARD LINE IS LOCKED (the bundle maker, owner 2026-11-07): it is in the bundle as the card, so the
+  // couple cannot drop it and it carries no worth of its own here — its price is the card's. Forced on the server so
+  // a hand-made request cannot turn a card line into a refundable one.
+  input = {
+    ...input,
+    items: input.items.map((item) =>
+      item.vendorServiceId
+        ? { ...item, is_required: true, is_default_included: true, replacement_value_centavos: 0, options: [] }
+        : item,
+    ),
+  };
+
+  // 🎁 THE GIFT ROW. One of: no gift · the Setnayan gift · one of the shop's own packs (lib/package-gift.ts).
+  const giftCols = packageGiftColumns(input.gift);
+  if (!giftCols) {
+    return { status: 'error', message: 'That gift can’t go on a bundle. Pick another from the Gift list.' };
+  }
+
   if (input.packageId) {
     const read = await loadPackageDraft(supabase, vendorProfileId, input.packageId);
     if (!read.ok) {
@@ -185,6 +206,11 @@ export async function savePackage(
       if (changed.length > 0) return { status: 'frozen', changed };
     }
 
+    if ((stored.gift ?? '') !== (input.gift ?? '')) {
+      const short = await giftStockRefusal(supabase, vendorProfileId, input.gift);
+      if (short) return { status: 'error', message: short };
+    }
+
     const { error: upErr } = await supabase
       .from('vendor_packages')
       .update({
@@ -192,6 +218,7 @@ export async function savePackage(
         total_price_centavos: input.total_price_centavos,
         consumable_budget_centavos: input.consumable_budget_centavos,
         is_consumable_flexible: input.is_consumable_flexible,
+        ...giftCols,
         updated_at: new Date().toISOString(),
       })
       .eq('package_id', input.packageId)
@@ -215,6 +242,11 @@ export async function savePackage(
   }
 
   // ---- CREATE ----
+  {
+    const short = await giftStockRefusal(supabase, vendorProfileId, input.gift);
+    if (short) return { status: 'error', message: short };
+  }
+
   const { data: created, error: insErr } = await supabase
     .from('vendor_packages')
     .insert({
@@ -223,6 +255,7 @@ export async function savePackage(
       total_price_centavos: input.total_price_centavos,
       consumable_budget_centavos: input.consumable_budget_centavos,
       is_consumable_flexible: input.is_consumable_flexible,
+      ...giftCols,
       primary_canonical_service:
         input.primary_canonical_service ?? input.items[0]?.canonical_service ?? null,
       // The card this package was minted for, or NULL for a standalone one.
@@ -248,6 +281,34 @@ export async function savePackage(
 
   revalidatePath('/vendor-dashboard/packages');
   return { status: 'ok', packageId: created.package_id };
+}
+
+/**
+ * 🎁 "BUY FIRST" ON A BUNDLE (DECISION_LOG 2026-11-04: a shop's gifts are offered ONLY while in stock). A shop pack
+ * can go on a bundle only when the shop's free stock of that kind covers one pack — the same test the quote menu draws
+ * (`addGiftMenu`). The Setnayan gift and "no gift" need no stock. A stock or catalogue read that fails REFUSES the save
+ * with words, never reads as "enough" (the 20 Aug disease: a failure that looks like success).
+ *
+ * Run only when the gift CHANGES, so re-saving a bundle whose stock has since run down never blocks an unrelated edit.
+ */
+async function giftStockRefusal(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  gift: string | undefined,
+): Promise<string | null> {
+  if (!gift || gift === PACKAGE_GIFT_SETNAYAN) return null;
+  const [packs, stock] = await Promise.all([
+    fetchShopGiftPacks(supabase),
+    fetchShopGiftStock(supabase, vendorProfileId),
+  ]);
+  if (!packs || !stock) return 'Couldn’t read your gift stock right now, so nothing was saved. Try again.';
+  const pack = packs.find((p) => p.code === gift);
+  if (!pack) return 'That gift is not on sale right now. Pick another from the Gift list.';
+  const free = freeByKind(stock);
+  if (!free || free[pack.kind] < pack.credits) {
+    return 'Not enough of that gift in your stock — buy it first on Shop › Promote › Your gifts.';
+  }
+  return null;
 }
 
 /**
@@ -323,6 +384,8 @@ async function writeItems(
           ? { pick_min: i.pickMin, pick_max: i.pickMax }
           : {}),
         ...(i.maxExtraHours != null ? { max_extra_hours: i.maxExtraHours } : {}),
+        // 🔒 A card line names its card; the database refuses another shop's (trg_vendor_package_item_service_same_owner).
+        ...(i.vendorServiceId ? { vendor_service_id: i.vendorServiceId } : {}),
       };
     });
 

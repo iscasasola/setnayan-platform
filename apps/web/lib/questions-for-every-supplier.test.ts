@@ -166,7 +166,7 @@ test('the news is in-app only — no new emails without the owner’s word', () 
   assert.ok(allow.length > 0);
   assert.doesNotMatch(allow, /'supplier_questions_sent'/);
   const mig = readFileSync(
-    join(WEB, '..', '..', 'supabase', 'migrations', '20271311927322_notification_type_supplier_questions_sent.sql'),
+    join(WEB, '..', '..', 'supabase', 'migrations', '20271315529466_notification_type_supplier_questions_sent.sql'),
     'utf8',
   );
   assert.match(mig, /ALTER TYPE public\.notification_type ADD VALUE IF NOT EXISTS 'supplier_questions_sent'/);

@@ -577,7 +577,7 @@ export type NotificationType =
   /* ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (owner 2026-11-04, "Yes, every supplier"): a supplier sent their
      question set into the event from the chat ＋; each host is told, linking to that supplier's room where they answer.
      Sent by `app/vendor-dashboard/messages/[threadId]/questions-actions.ts`. ⚠ IN-APP ONLY (no new emails): NOT on
-     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271311927322. */
+     EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271315529466. */
   | 'supplier_questions_sent';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {

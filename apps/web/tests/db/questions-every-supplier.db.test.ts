@@ -1,7 +1,7 @@
 /**
  * ❓ QUESTIONS FOR THE COUPLE — EVERY SUPPLIER (migrations replayed).
  *
- * Covers 20271312612416_questions_every_supplier (owner 2026-11-04, "Yes, every supplier"). The answers can hold
+ * Covers 20271316174617_questions_every_supplier (owner 2026-11-04, "Yes, every supplier"). The answers can hold
  * what a supplier must never say out loud, so the audience is still the product:
  *
  *   • an ask (`event_question_requests`) is sent by the supplier ONLY into an event they already talk to (a

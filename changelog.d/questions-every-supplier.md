@@ -22,8 +22,8 @@ in the app. Widened:
   on the Schedule's Host / MC sheet is unchanged.
 - **The supplier reads the answers on that customer's card** — the host in the Script tab as before; every other trade
   on Details (flag-on) / the overview (flag-off). One shared renderer (`couple-answers.tsx`).
-- Migrations: `20271311927322_notification_type_supplier_questions_sent` (enum value, own file) and
-  `20271312612416_questions_every_supplier` (`event_question_requests`, RLS at create: own row only, only into an event
+- Migrations: `20271315529466_notification_type_supplier_questions_sent` (enum value, own file) and
+  `20271316174617_questions_every_supplier` (`event_question_requests`, RLS at create: own row only, only into an event
   with a conversation, no DELETE; plus `event_question_answers_asked_vendor_select` — asked AND own question).
 - Guards: `lib/questions-for-every-supplier.test.ts` (the gate is not host-only, the row exists and is open before a
   booking, in-app only), `tests/db/questions-every-supplier.db.test.ts`. Lab: `/dev/questions-lab`, and the panel in
